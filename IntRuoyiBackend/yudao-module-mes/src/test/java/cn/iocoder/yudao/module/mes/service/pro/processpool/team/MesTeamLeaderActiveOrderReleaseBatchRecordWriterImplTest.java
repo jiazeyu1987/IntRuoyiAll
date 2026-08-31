@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImplTest {
     private static final Long BATCH_TASK_ID = 9701L;
 
     @Mock private MesProRouteFlowProcessBatchRecordMapper bindingMapper;
+    @Mock private MesProBatchRecordReportMapper reportMapper;
     @Mock private MesProBatchRecordCellLinkRuleMapper ruleMapper;
     @Mock private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Mock private MesTeamLeaderBatchRecordBackfillService backfillService;
@@ -53,8 +55,8 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImplTest {
 
     @BeforeEach
     void setUp() {
-        writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(bindingMapper, ruleMapper, batchTaskMapper,
-                backfillService, productionPickListSourceService);
+        writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(bindingMapper, reportMapper, ruleMapper,
+                batchTaskMapper, backfillService, productionPickListSourceService);
     }
 
     @Test

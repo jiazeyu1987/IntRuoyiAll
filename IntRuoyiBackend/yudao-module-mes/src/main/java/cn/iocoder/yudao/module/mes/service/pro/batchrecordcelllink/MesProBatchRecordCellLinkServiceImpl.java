@@ -134,6 +134,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final List<ProcessPoolReportSourceField> PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS = List.of(
             ProcessPoolReportSourceField.base("outputQuantity", "本次报工产出数量", "NUMBER"),
             ProcessPoolReportSourceField.base("lossQuantity", "本次报工损耗数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("totalQuantity", "本次报工总量", "NUMBER"),
             ProcessPoolReportSourceField.base("serverSubmitTime", "提交时间", "STRING"),
             ProcessPoolReportSourceField.base("signatureUserId", "提交签名用户", "NUMBER"),
             ProcessPoolReportSourceField.base("reviewedAt", "审核时间", "STRING"),
@@ -153,6 +154,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final Set<String> PROCESS_POOL_REPORT_DEVICE_SOURCE_FIELD_CODES = Set.of(
             "selectedDevice.deviceId", "selectedDevice.deviceCode", "selectedDevice.deviceName",
             "deviceMeteringValidity.inMeteringValidityPeriod");
+    private static final Set<String> PROCESS_POOL_REPORT_SIGNATURE_TARGET_SOURCE_FIELD_CODES = Set.of(
+            "signatureUserId", "reviewSignatureUserId");
+    private static final List<String> SIGNATURE_TARGET_LABEL_KEYWORDS = List.of("签名", "操作人", "复核人");
 
     @Resource
     private MesProBatchRecordCellLinkRuleMapper ruleMapper;
@@ -334,18 +338,19 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         MesProBatchRecordCellRuleSupport.forEachCell(root, (rowIndex, columnIndex, cell) -> {
             String cellKey = cellKey(rowIndex, columnIndex);
             BatchRecordReportCellRuleVO rule = ruleMap.get(cellKey);
-            boolean signatureCell = MesProBatchRecordCellRuleSupport.hasValidSignatureMarker(cell);
+            String label = resolveLabel(rule, cell, rowIndex, columnIndex);
             boolean fillable = MesProBatchRecordCellRuleSupport.isFillableCell(cell);
+            boolean signatureCell = isBatchRecordSignatureCell(rule, cell, label, fillable);
             cells.add(new BatchRecordCellLinkCellVO()
                     .setRowIndex(rowIndex)
                     .setColumnIndex(columnIndex)
                     .setCellKey(cellKey)
                     .setSourceType(SOURCE_TYPE_BATCH_RECORD_CELL)
-                    .setLabel(resolveLabel(rule, cell, rowIndex, columnIndex))
+                    .setLabel(label)
                     .setValueType(rule == null ? "STRING" : rule.getValueType())
                     .setComponentFlag(rule == null ? null : rule.getComponentFlag())
                     .setRequired(rule != null && Boolean.TRUE.equals(rule.getRequired()))
-                    .setReadonly(!fillable)
+                    .setReadonly(!fillable || signatureCell)
                     .setSignatureCell(signatureCell)
                     .setLinkableAsSource(fillable && !signatureCell)
                     .setLinkableAsTarget(fillable && !signatureCell));
@@ -499,7 +504,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             }
             BatchRecordCellLinkCellVO targetCell = requireCell(targetCells, item.getTargetRowIndex(),
                     item.getTargetColumnIndex());
-            if (!Boolean.TRUE.equals(targetCell.getLinkableAsTarget())) {
+            if (!canWriteTargetCell(targetCell, sourceSpec)) {
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_NOT_WRITABLE,
                         targetReport.reportName(), targetCell.getCellKey());
             }
@@ -2013,6 +2018,22 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return rule;
     }
 
+    private boolean canWriteTargetCell(BatchRecordCellLinkCellVO targetCell, SourceSpec source) {
+        if (isSignatureTargetCell(targetCell)) {
+            return canLinkProcessPoolSignatureTarget(source);
+        }
+        if (Boolean.TRUE.equals(targetCell.getLinkableAsTarget())) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean canLinkProcessPoolSignatureTarget(SourceSpec source) {
+        return source != null
+                && SOURCE_TYPE_PROCESS_POOL_REPORT.equals(source.sourceType())
+                && PROCESS_POOL_REPORT_SIGNATURE_TARGET_SOURCE_FIELD_CODES.contains(StrUtil.trim(source.fieldCode()));
+    }
+
     private BatchRecordCellLinkFormRespVO toFormVO(MesProBatchRecordReportDO report, Long routeProcessId) {
         return new BatchRecordCellLinkFormRespVO()
                 .setId(report.getId())
@@ -2379,6 +2400,28 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         }
         return "SIGNATURE".equals(MesProBatchRecordCellRuleSupport.normalizeValueType(rule.getValueType()))
                 || StrUtil.containsIgnoreCase(rule.getComponentFlag(), "signature");
+    }
+
+    private boolean isBatchRecordSignatureCell(BatchRecordReportCellRuleVO rule, JSONObject cell, String label,
+                                               boolean fillable) {
+        if (MesProBatchRecordCellRuleSupport.hasValidSignatureMarker(cell)) {
+            return true;
+        }
+        if (rule != null && ("SIGNATURE".equals(MesProBatchRecordCellRuleSupport.normalizeValueType(rule.getValueType()))
+                || StrUtil.containsIgnoreCase(rule.getComponentFlag(), "signature"))) {
+            return true;
+        }
+        return fillable && isSignatureTargetLabel(label);
+    }
+
+    private boolean isSignatureTargetCell(BatchRecordCellLinkCellVO cell) {
+        return cell != null && (Boolean.TRUE.equals(cell.getSignatureCell()) || isSignatureTargetLabel(cell.getLabel()));
+    }
+
+    private boolean isSignatureTargetLabel(String label) {
+        String normalized = StrUtil.trim(label);
+        return StrUtil.isNotBlank(normalized)
+                && SIGNATURE_TARGET_LABEL_KEYWORDS.stream().anyMatch(normalized::contains);
     }
 
     private List<BatchRecordCellLinkRuleVO> toRuleVOList(List<MesProBatchRecordCellLinkRuleDO> rules) {

@@ -30,10 +30,12 @@ import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -201,6 +203,33 @@ class BpmNativeApprovalTaskProviderTest {
         assertEquals(List.of("申请类型：注册证上传", "申请编号：8801", "注册证：7701", "所属公司：6601"),
                 summary.getBusinessContextTags());
         assertEquals("注册证访问审批", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageTodoUsesRenewalOperationForRegistrationCertificateApprovalTitle() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-renewal-summary");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-renewal-summary");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 8802L,
+                "requestId", 8802L,
+                "certificateId", 7702L,
+                "ownerCompanyId", 6601L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "RENEWAL_CERTIFICATE",
+                "requestKey", "DCC-REG-CERT-RENEWAL-20260831-001"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RENEWAL", 1, 10)).getList().get(0);
+
+        assertEquals("注册证延续审批 DCC-REG-CERT-RENEWAL-20260831-001", summary.getBusinessTitle());
+        assertEquals(List.of("申请类型：注册证延续", "申请编号：8802", "注册证：7702", "所属公司：6601"),
+                summary.getBusinessContextTags());
     }
 
     @Test
@@ -412,8 +441,14 @@ class BpmNativeApprovalTaskProviderTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 3, "TASK_REASON", "资料不完整"));
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-done-100");
+        when(instance.getName()).thenReturn("已办审批");
+        when(instance.getProcessVariables()).thenReturn(Map.of());
         when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-100")))
+                .thenReturn(List.of(instance));
 
         PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, "已办", 1, 10));
@@ -445,8 +480,14 @@ class BpmNativeApprovalTaskProviderTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of());
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-done-legacy");
+        when(instance.getName()).thenReturn("历史已办审批");
+        when(instance.getProcessVariables()).thenReturn(Map.of());
         when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-legacy")))
+                .thenReturn(List.of(instance));
 
         PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10));
@@ -458,6 +499,70 @@ class BpmNativeApprovalTaskProviderTest {
         assertNull(summary.getApprovalResult());
         assertNull(summary.getApprovalRemark());
         assertEquals("pi-done-legacy", summary.getDetailQuery().get("id"));
+    }
+
+    @Test
+    void pageDoneUsesHistoricProcessVariablesForReadableBusinessSummary() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("task-done-regcert");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-done-regcert");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
+
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-done-regcert");
+        when(instance.getName()).thenReturn("Registration certificate access workflow");
+        when(instance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 8802L,
+                "requestType", "DOWNLOAD_FILE",
+                "requestKey", "REG-DOWNLOAD-20260831-001",
+                "certificateId", 7702L,
+                "ownerCompanyId", 6602L));
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-regcert")))
+                .thenReturn(List.of(instance));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("注册证下载审批 REG-DOWNLOAD-20260831-001", summary.getBusinessTitle());
+        assertEquals("REG-DOWNLOAD-20260831-001", summary.getBusinessCode());
+        assertEquals(List.of("申请类型：注册证下载", "申请编号：8802", "注册证：7702", "所属公司：6602"),
+                summary.getBusinessContextTags());
+        assertEquals("注册证访问审批", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageDoneReturnsEmptyWithoutHistoricProcessLookup() {
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10));
+
+        assertTrue(page.getList().isEmpty());
+        assertEquals(0L, page.getTotal());
+        verify(processInstanceService, never()).getHistoricProcessInstances(any());
+    }
+
+    @Test
+    void pageDoneFailsWhenHistoricProcessInstanceIsMissing() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getProcessInstanceId()).thenReturn("pi-done-missing");
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(processInstanceService.getHistoricProcessInstances(Set.of("pi-done-missing")))
+                .thenReturn(List.of());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> provider.page(ApprovalTaskQueryContext.of(100L,
+                        ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10)));
+
+        assertEquals("APPROVAL_PROCESS_INSTANCE_REQUIRED: BPM done pi-done-missing", exception.getMessage());
     }
 
     @Test
@@ -505,6 +610,32 @@ class BpmNativeApprovalTaskProviderTest {
                 ArgumentCaptor.forClass(BpmProcessInstancePageReqVO.class);
         verify(processInstanceService).getProcessInstancePage(eq(100L), captor.capture());
         assertEquals("流程", captor.getValue().getName());
+    }
+
+    @Test
+    void pageMyInitiatedUsesProcessVariablesForReadableBusinessSummary() {
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-initiated-route");
+        when(instance.getName()).thenReturn("MES route version publish workflow");
+        when(instance.getBusinessKey()).thenReturn("route-version-501");
+        when(instance.getStartUserId()).thenReturn("100");
+        when(instance.getStartTime()).thenReturn(new Date(1782180000000L));
+        when(instance.getProcessVariables()).thenReturn(Map.of(
+                "businessType", "MES_ROUTE_VERSION_PUBLISH",
+                "routeId", 901L,
+                "routeCode", "ROUTE-20260831-001",
+                "routeName", "球囊扩张压力泵生产路线",
+                "routeVersionNo", "V31"));
+        when(processInstanceService.getProcessInstancePage(eq(100L), any(BpmProcessInstancePageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(instance), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.MY_INITIATED, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("工艺路线发布 球囊扩张压力泵生产路线 V31", summary.getBusinessTitle());
+        assertEquals("ROUTE-20260831-001", summary.getBusinessCode());
+        assertEquals(List.of("路线编号：ROUTE-20260831-001", "路线名称：球囊扩张压力泵生产路线", "版本：V31"),
+                summary.getBusinessContextTags());
     }
 
     @Test

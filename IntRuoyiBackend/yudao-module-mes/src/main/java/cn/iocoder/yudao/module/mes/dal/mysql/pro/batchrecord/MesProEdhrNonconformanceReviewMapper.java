@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonc
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
+import java.util.Collection;
 
 @Mapper
 public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesProEdhrNonconformanceReviewDO> {
@@ -32,10 +33,53 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
     }
 
+    default MesProEdhrNonconformanceReviewDO selectPendingBySource(String sourceType, Long sourceId) {
+        if (sourceType == null || sourceType.isBlank() || sourceId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getSourceType, sourceType)
+                .eq(MesProEdhrNonconformanceReviewDO::getSourceId, sourceId)
+                .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW)
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProEdhrNonconformanceReviewDO selectLatestBySource(String sourceType, Long sourceId) {
+        if (sourceType == null || sourceType.isBlank() || sourceId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getSourceType, sourceType)
+                .eq(MesProEdhrNonconformanceReviewDO::getSourceId, sourceId)
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default List<MesProEdhrNonconformanceReviewDO> selectLatestBySourceIds(
+            String sourceType, Collection<Long> sourceIds) {
+        if (sourceType == null || sourceType.isBlank() || sourceIds == null || sourceIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getSourceType, sourceType)
+                .in(MesProEdhrNonconformanceReviewDO::getSourceId, sourceIds)
+                .orderByDesc(MesProEdhrNonconformanceReviewDO::getId));
+    }
+
     default Long selectPendingCountByWorkOrderId(Long workOrderId) {
         return selectCount(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
                 .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW));
+    }
+
+    default Long selectBlockingCountByWorkOrderId(Long workOrderId) {
+        return selectCount(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
+                .and(query -> query
+                        .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW)
+                        .or()
+                        .eq(MesProEdhrNonconformanceReviewDO::getDisposition, "void")));
     }
 
     default List<MesProEdhrNonconformanceReviewDO> selectListByBatchExecutionId(Long batchExecutionId) {

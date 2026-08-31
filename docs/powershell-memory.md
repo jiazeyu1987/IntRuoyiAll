@@ -145,6 +145,14 @@
 - Forbidden action: 禁止使用 `&&`、默认编码 `Set-Content`/`Out-File` 写中文、吞掉错误、或记录密码/token/私钥。
 - Evidence: `docs\powershell-encoding.md`、`doc\tasks\<task-id>\execution-log.md`。
 
+### Docker sh -lc 单参数与迁移回读门禁
+
+- Trigger: PowerShell 通过 `docker exec <container> sh -lc` 执行 MySQL 迁移、重定向 SQL 文件或使用容器内环境变量。
+- Preflight check: 先把完整 shell 命令组装为一个字符串参数，再作为 `sh -lc` 的单一命令参数传入；不得让 PowerShell 把环境变量赋值、`mysql` 参数和重定向拆成多个位置参数。执行后必须回读目标列、索引或菜单行。
+- Blocker: `sh -lc` 实际只执行了环境变量赋值、SQL 文件未生效、回读状态与迁移目标不一致，或命令输出可能泄露容器密钥时必须停止。
+- Verification: 同时记录迁移退出码、目标 schema/数据回读和临时 SQL 文件删除结果；schema 变更回读 `information_schema` 或 `SHOW COLUMNS/INDEX`，菜单变更回读 `permission/path/component/type`。
+- Forbidden action: 禁止用“命令返回 0”替代数据库状态证明；禁止在命令行展开或输出容器密码；禁止迁移未生效时继续重启并把旧库异常归因于业务代码。
+
 ### PowerShell 分号串联测试退出码门禁
 
 - Trigger: 在 PowerShell 中用分号串联多个 Node、Python、Maven、pnpm 或静态合同测试命令。

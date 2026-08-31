@@ -30,15 +30,20 @@ public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistra
                                      THEN '{\"value\":\"ACTIVE\"}' ELSE NULL END) AS before_value_json,
                        COALESCE(i.after_value_json, e.detail_json) AS after_value_json,
                        e.actor_id,
-                       (SELECT MIN(f.id)
-                          FROM dcc_registration_certificate_file f
-                         WHERE f.tenant_id = e.tenant_id
-                           AND f.owner_type = 'CHANGE'
-                           AND f.owner_id = c.id
-                           AND f.file_kind = 'CHANGE_APPROVAL'
-                           AND f.status = 'BOUND'
-                           AND f.deleted = 0) AS business_file_id,
-                       CASE WHEN EXISTS (
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED'
+                            THEN renewal_file.id
+                            ELSE (SELECT MIN(f.id)
+                                    FROM dcc_registration_certificate_file f
+                                   WHERE f.tenant_id = e.tenant_id
+                                     AND f.owner_type = 'CHANGE'
+                                     AND f.owner_id = c.id
+                                     AND f.file_kind = 'CHANGE_APPROVAL'
+                                     AND f.status = 'BOUND'
+                                     AND f.deleted = 0)
+                       END AS business_file_id,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' AND renewal_file.id IS NOT NULL
+                            THEN renewal_file.file_kind
+                            WHEN EXISTS (
                               SELECT 1
                                 FROM dcc_registration_certificate_file f
                                WHERE f.tenant_id = e.tenant_id
@@ -47,12 +52,64 @@ public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistra
                                  AND f.file_kind = 'CHANGE_APPROVAL'
                                  AND f.status = 'BOUND'
                                  AND f.deleted = 0)
-                            THEN 'CHANGE_APPROVAL' ELSE NULL END AS file_kind
+                            THEN 'CHANGE_APPROVAL' ELSE NULL END AS file_kind,
+                       e.target_version_id,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.version_no ELSE NULL END AS version_no,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.approval_date ELSE NULL END AS approval_date,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.effective_date ELSE NULL END AS effective_date,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.expiry_date ELSE NULL END AS expiry_date,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.category_changed ELSE NULL END AS category_changed,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.certificate_no ELSE NULL END AS certificate_no,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED' THEN v.classification ELSE NULL END AS classification,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED'
+                            THEN renewal_file.original_name
+                            ELSE (SELECT MIN(f.original_name)
+                                    FROM dcc_registration_certificate_file f
+                                   WHERE f.tenant_id = e.tenant_id
+                                     AND f.owner_type = 'CHANGE'
+                                     AND f.owner_id = c.id
+                                     AND f.file_kind = 'CHANGE_APPROVAL'
+                                     AND f.status = 'BOUND'
+                                     AND f.deleted = 0)
+                       END AS original_file_name,
+                       CASE WHEN e.event_type = 'RENEWAL_UPLOADED'
+                            THEN renewal_file.status
+                            ELSE (SELECT MIN(f.status)
+                                    FROM dcc_registration_certificate_file f
+                                   WHERE f.tenant_id = e.tenant_id
+                                     AND f.owner_type = 'CHANGE'
+                                     AND f.owner_id = c.id
+                                     AND f.file_kind = 'CHANGE_APPROVAL'
+                                     AND f.status = 'BOUND'
+                                     AND f.deleted = 0)
+                       END AS file_status,
+                       e.occurred_at
                   FROM dcc_registration_certificate_lifecycle_event e
                   LEFT JOIN dcc_registration_certificate_change c
                     ON c.tenant_id = e.tenant_id AND c.event_id = e.id
                   LEFT JOIN dcc_registration_certificate_change_item i
                     ON i.tenant_id = c.tenant_id AND i.change_id = c.id
+                  LEFT JOIN dcc_registration_certificate_version v
+                    ON v.tenant_id = e.tenant_id
+                   AND v.id = e.target_version_id
+                   AND v.deleted = 0
+                  LEFT JOIN dcc_registration_certificate_file renewal_file
+                    ON e.event_type = 'RENEWAL_UPLOADED'
+                   AND renewal_file.tenant_id = e.tenant_id
+                   AND renewal_file.owner_type = 'VERSION'
+                   AND renewal_file.owner_id = e.target_version_id
+                   AND renewal_file.file_kind = 'REGISTRATION_CERTIFICATE'
+                   AND renewal_file.status IN ('BOUND', 'VOIDED')
+                   AND renewal_file.deleted = 0
+                   AND renewal_file.id = (
+                         SELECT MIN(candidate.id)
+                           FROM dcc_registration_certificate_file candidate
+                          WHERE candidate.tenant_id = e.tenant_id
+                            AND candidate.owner_type = 'VERSION'
+                            AND candidate.owner_id = e.target_version_id
+                            AND candidate.file_kind = 'REGISTRATION_CERTIFICATE'
+                            AND candidate.status IN ('BOUND', 'VOIDED')
+                            AND candidate.deleted = 0)
                  WHERE e.tenant_id = ? AND e.certificate_id = ?
                  ORDER BY e.event_sequence ASC, COALESCE(i.sort_order, 0) ASC, i.id ASC
                 """, (rs, rowNum) -> new DccRegistrationCertificateHistoryItem(
@@ -62,6 +119,17 @@ public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistra
                 rs.getString("after_value_json"),
                 rs.getObject("actor_id", Long.class),
                 rs.getObject("business_file_id", Long.class),
-                rs.getString("file_kind")), tenantId, certificateId);
+                rs.getString("file_kind"),
+                rs.getObject("target_version_id", Long.class),
+                rs.getObject("version_no", Integer.class),
+                rs.getObject("approval_date", java.time.LocalDate.class),
+                rs.getObject("effective_date", java.time.LocalDate.class),
+                rs.getObject("expiry_date", java.time.LocalDate.class),
+                rs.getObject("category_changed", Boolean.class),
+                rs.getString("certificate_no"),
+                rs.getString("classification"),
+                rs.getString("original_file_name"),
+                rs.getString("file_status"),
+                rs.getObject("occurred_at", java.time.LocalDateTime.class)), tenantId, certificateId);
     }
 }

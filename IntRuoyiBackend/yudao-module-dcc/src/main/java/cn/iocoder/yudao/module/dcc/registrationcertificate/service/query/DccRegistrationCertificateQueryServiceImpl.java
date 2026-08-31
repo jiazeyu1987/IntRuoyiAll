@@ -291,6 +291,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .selfProduction(row.getSelfProduction())
                 .entrustedEnterprisesJson(row.getEntrustedEnterprisesJson())
                 .registrationFileId(row.getRegistrationFileId())
+                .registrationFileName(row.getRegistrationFileName())
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
                 .reminderColor(reminder.colorCode())
                 .visualState(reminder.thresholdLevel())

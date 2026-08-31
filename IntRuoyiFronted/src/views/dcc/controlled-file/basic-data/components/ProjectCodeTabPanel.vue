@@ -1299,7 +1299,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectName', label: '项目名称', minWidth: 220 },
   { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'category', label: '类别', minWidth: 120 },
-  { key: 'associatedFileCount', label: '关联文件数', width: 120 },
+  { key: 'associatedFileCount', label: '关联文件数', width: 120, sortable: 'custom' },
   { key: 'routeStatus', label: '工艺路线', width: 140 },
   { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },

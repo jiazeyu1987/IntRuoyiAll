@@ -141,6 +141,12 @@ public class DccRegistrationCertificateApprovalService {
         variables.put("ownerCompanyId", request.getOwnerCompanyId());
         variables.put("requestType", request.getRequestType());
         variables.put("requestKey", request.getRequestKey());
+        if (REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            String requestOperation = resolveRequestOperation(request);
+            if (!isBlank(requestOperation)) {
+                variables.put("requestOperation", requestOperation);
+            }
+        }
         bpmRequest.setVariables(variables);
         String processInstanceId = bpmProcessInstanceApi.createProcessInstance(actorId, bpmRequest);
         if (isBlank(processInstanceId)) {
@@ -501,18 +507,24 @@ public class DccRegistrationCertificateApprovalService {
         if (!REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
             return false;
         }
-        Map<?, ?> parsed = isBlank(request.getDetailJson())
-                ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
-        return parsed != null && OPERATION_RENEWAL_CERTIFICATE.equals(String.valueOf(parsed.get("operation")));
+        return OPERATION_RENEWAL_CERTIFICATE.equals(resolveRequestOperation(request));
     }
 
     private static boolean isInitialUploadRequest(DccRegistrationCertificateAccessRequestDO request) {
         if (!REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
             return false;
         }
+        return "UPLOAD_CERTIFICATE".equals(resolveRequestOperation(request));
+    }
+
+    private static String resolveRequestOperation(DccRegistrationCertificateAccessRequestDO request) {
         Map<?, ?> parsed = isBlank(request.getDetailJson())
                 ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
-        return parsed != null && "UPLOAD_CERTIFICATE".equals(String.valueOf(parsed.get("operation")));
+        if (parsed == null || parsed.get("operation") == null) {
+            return null;
+        }
+        String operation = String.valueOf(parsed.get("operation")).trim();
+        return operation.isEmpty() ? null : operation;
     }
 
     private static <T> T require(T value, String name) {

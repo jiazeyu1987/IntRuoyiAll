@@ -24,6 +24,7 @@ public class MesPqcProductionReleaseDecisionRespVO {
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long batchExecutionId;
+    private Long signatureId;
 
     @JsonSerialize(contentUsing = ToStringSerializer.class)
     private List<Long> batchRecordEvidenceIds;

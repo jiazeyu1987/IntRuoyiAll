@@ -372,6 +372,9 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         if (payload == null) {
             payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
         }
+        if ("totalQuantity".equals(resolvedSourceFieldCode)) {
+            return reportTotalQuantity(sourceEvent, payload);
+        }
         JsonNode node = payloadSourceValue(payload, resolvedSourceFieldCode, scopedSourceField);
         if (node == null || node.isNull() || (node.isTextual() && StrUtil.isBlank(node.asText()))) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
@@ -402,6 +405,28 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                     eventId, resolvedSourceFieldCode);
         }
         return Objects.equals(selectedDeviceName, expectedDeviceGroupName);
+    }
+
+    private BigDecimal reportTotalQuantity(MesProProcessPoolEventDO sourceEvent, JsonNode payload) {
+        return requireReportQuantity(sourceEvent, payload, "outputQuantity")
+                .add(requireReportQuantity(sourceEvent, payload, "lossQuantity"));
+    }
+
+    private BigDecimal requireReportQuantity(MesProProcessPoolEventDO sourceEvent, JsonNode payload, String fieldName) {
+        JsonNode node = payload.get(fieldName);
+        if (node == null || node.isNull() || (node.isTextual() && StrUtil.isBlank(node.asText()))) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, sourceEvent.getId(),
+                    "totalQuantity." + fieldName);
+        }
+        if (node.isNumber()) {
+            return node.decimalValue();
+        }
+        try {
+            return new BigDecimal(node.asText());
+        } catch (NumberFormatException ex) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, sourceEvent.getId(),
+                    "totalQuantity." + fieldName);
+        }
     }
 
     private DeviceScopedSourceField parseDeviceScopedSourceField(String sourceFieldCode) {

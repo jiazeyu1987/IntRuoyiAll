@@ -32,6 +32,14 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_411, "eDHR 批次最终归档不存在");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_REGENERATE_REQUIRED =
             new ErrorCode(1_040_750_418, "请先重新生成最终归档后再下载打印版 PDF");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_PDFA_INVALID =
+            new ErrorCode(1_040_750_425, "eDHR 批次最终归档未通过 PDF/A-1b 校验：{}");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_FAILED =
+            new ErrorCode(1_040_750_426, "eDHR 批次最终归档受保护存储失败");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_EVIDENCE_INVALID =
+            new ErrorCode(1_040_750_427, "eDHR 批次最终归档缺少有效的对象锁与保留证据");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_ARCHIVE_CHECKSUM_MISMATCH =
+            new ErrorCode(1_040_750_428, "eDHR 批次最终归档文件完整性校验失败");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED =
             new ErrorCode(1_040_750_412, "eDHR 批次缺少唯一批记录路线");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID =

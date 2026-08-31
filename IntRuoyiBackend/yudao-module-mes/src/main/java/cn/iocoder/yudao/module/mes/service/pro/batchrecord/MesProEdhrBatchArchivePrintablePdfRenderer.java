@@ -5,20 +5,37 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDMetadata;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.graphics.color.PDOutputIntent;
+import org.apache.xmpbox.XMPMetadata;
+import org.apache.xmpbox.schema.AdobePDFSchema;
+import org.apache.xmpbox.schema.DublinCoreSchema;
+import org.apache.xmpbox.schema.PDFAIdentificationSchema;
+import org.apache.xmpbox.schema.XMPBasicSchema;
+import org.apache.xmpbox.type.BadFieldValueException;
+import org.apache.xmpbox.xml.XmpSerializer;
 
 import java.awt.Color;
+import java.awt.color.ColorSpace;
+import java.awt.color.ICC_Profile;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -54,6 +71,11 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static final Color FILLABLE_TEXT = new Color(15, 118, 110);
     private static final Color MUTED_TEXT = new Color(107, 114, 128);
     private static final Color RULE_TEXT = new Color(180, 83, 9);
+    private static final String PDF_A_PROFILE = "PDF/A-1b";
+    private static final String PDF_CREATOR = "IntRuoyi MES";
+    private static final String PDF_PRODUCER = "IntRuoyi MES PDFBox 2.0.32";
+    private static final String SRGB_PROFILE_NAME = "sRGB IEC61966-2.1";
+    private static final ZoneId ARCHIVE_ZONE = ZoneId.of("Asia/Shanghai");
 
     private MesProEdhrBatchArchivePrintablePdfRenderer() {
     }
@@ -72,6 +94,7 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
             }
             PDType0Font font = PDType0Font.load(document, fontFile);
             PDType0Font symbolFont = PDType0Font.load(document, symbolFontFile);
+            configurePdfA1b(document, manifest);
             PdfCanvas canvas = new PdfCanvas(document, font, symbolFont);
             canvas.writeTitle("打印版 eDHR 已填表单归档");
             writeBatchSummary(canvas, manifest);
@@ -84,6 +107,81 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to render printable eDHR batch archive PDF", ex);
         }
+    }
+
+    private static void configurePdfA1b(PDDocument document, JSONObject manifest) throws IOException {
+        String batchCode = StrUtil.blankToDefault(manifest.getString("batchCode"), "UNKNOWN");
+        String title = "eDHR 批次最终归档 - " + batchCode;
+        String subject = "电子批记录长期归档";
+        String keywords = "eDHR,PDF/A-1b," + batchCode;
+        Calendar generatedAt = resolveGeneratedAt(manifest.getString("generatedAt"));
+
+        document.setVersion(1.4F);
+        PDDocumentInformation information = document.getDocumentInformation();
+        information.setTitle(title);
+        information.setAuthor(PDF_CREATOR);
+        information.setSubject(subject);
+        information.setKeywords(keywords);
+        information.setCreator(PDF_CREATOR);
+        information.setProducer(PDF_PRODUCER);
+        information.setCreationDate(generatedAt);
+        information.setModificationDate(generatedAt);
+
+        XMPMetadata xmp = XMPMetadata.createXMPMetadata();
+        DublinCoreSchema dublinCore = xmp.createAndAddDublinCoreSchema();
+        dublinCore.setTitle(title);
+        dublinCore.addCreator(PDF_CREATOR);
+        dublinCore.setDescription(subject);
+        dublinCore.setFormat("application/pdf");
+
+        AdobePDFSchema adobePdf = xmp.createAndAddAdobePDFSchema();
+        adobePdf.setProducer(PDF_PRODUCER);
+        adobePdf.setKeywords(keywords);
+        adobePdf.setPDFVersion("1.4");
+
+        XMPBasicSchema basic = xmp.createAndAddXMPBasicSchema();
+        basic.setCreatorTool(PDF_CREATOR);
+        basic.setCreateDate(generatedAt);
+        basic.setModifyDate(generatedAt);
+        basic.setMetadataDate(generatedAt);
+
+        PDFAIdentificationSchema identification = xmp.createAndAddPFAIdentificationSchema();
+        identification.setPart(1);
+        try {
+            identification.setConformance("B");
+        } catch (BadFieldValueException ex) {
+            throw new IOException("Failed to configure PDF/A-1b conformance metadata", ex);
+        }
+
+        ByteArrayOutputStream xmpBytes = new ByteArrayOutputStream();
+        try {
+            new XmpSerializer().serialize(xmp, xmpBytes, true);
+        } catch (javax.xml.transform.TransformerException ex) {
+            throw new IOException("Failed to serialize PDF/A metadata", ex);
+        }
+        PDMetadata metadata = new PDMetadata(document);
+        metadata.importXMPMetadata(xmpBytes.toByteArray());
+
+        PDDocumentCatalog catalog = document.getDocumentCatalog();
+        catalog.setMetadata(metadata);
+        catalog.setLanguage("zh-CN");
+        byte[] profileBytes = ICC_Profile.getInstance(ColorSpace.CS_sRGB).getData();
+        try (ByteArrayInputStream profileStream = new ByteArrayInputStream(profileBytes)) {
+            PDOutputIntent outputIntent = new PDOutputIntent(document, profileStream);
+            outputIntent.setInfo(SRGB_PROFILE_NAME);
+            outputIntent.setOutputCondition(SRGB_PROFILE_NAME);
+            outputIntent.setOutputConditionIdentifier(SRGB_PROFILE_NAME);
+            outputIntent.setRegistryName("http://www.color.org");
+            catalog.addOutputIntent(outputIntent);
+        }
+    }
+
+    private static Calendar resolveGeneratedAt(String raw) {
+        LocalDateTime parsed = parseDateTime(raw);
+        if (parsed == null) {
+            throw new IllegalStateException("EDHR batch archive generatedAt is invalid for " + PDF_A_PROFILE);
+        }
+        return GregorianCalendar.from(parsed.atZone(ARCHIVE_ZONE));
     }
 
     private static void writeBatchSummary(PdfCanvas canvas, JSONObject manifest) throws IOException {
@@ -155,19 +253,16 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static void renderFormTable(PdfCanvas canvas, JSONObject form) throws IOException {
         JSONObject layout = resolveLayout(form);
         if (layout == null) {
-            canvas.writeParagraph("缺少模板布局，无法按原模板打印该表单。");
-            return;
+            throw missingPrintableLayout(form, "layout");
         }
         JSONObject rows = layout.getJSONObject("rows");
         if (rows == null || rows.isEmpty()) {
-            canvas.writeParagraph("缺少模板行定义，无法按原模板打印该表单。");
-            return;
+            throw missingPrintableLayout(form, "rows");
         }
         List<Integer> rowIndexes = sortedIndexes(rows.keySet());
         List<Integer> columnIndexes = collectColumnIndexes(layout);
         if (columnIndexes.isEmpty()) {
-            canvas.writeParagraph("缺少模板列定义，无法按原模板打印该表单。");
-            return;
+            throw missingPrintableLayout(form, "columns");
         }
         Map<Integer, Float> columnWidthMap = resolveColumnWidths(layout, columnIndexes, canvas.availableWidth());
         Map<String, JSONObject> cellValueMap = parseCellValueMap(form.getString("cellValuesJson"));
@@ -212,6 +307,11 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
             }
             canvas.consumeTableRow(rowHeight);
         }
+    }
+
+    private static IllegalStateException missingPrintableLayout(JSONObject form, String part) {
+        return new IllegalStateException("EDHR batch archive printable layout is missing " + part
+                + ": executionCode=" + StrUtil.blankToDefault(form.getString("executionCode"), "UNKNOWN"));
     }
 
     private static void writeSpecialNodes(PdfCanvas canvas, List<JSONObject> nodes) throws IOException {

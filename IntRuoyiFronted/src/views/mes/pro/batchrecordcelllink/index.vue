@@ -335,6 +335,7 @@ interface RenderedCell {
   rowSpan: number
   colSpan: number
   classNames: Record<string, boolean>
+  dataAttrs: Record<string, string | undefined>
   cellMeta?: BatchRecordCellLinkCellVO
 }
 
@@ -407,8 +408,14 @@ const PROCESS_POOL_REPORT_AGGREGATION_OPTIONS: readonly ProcessPoolReportAggrega
 ]
 const PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS = new Set([
   'outputQuantity',
-  'lossQuantity'
+  'lossQuantity',
+  'totalQuantity'
 ])
+const PROCESS_POOL_REPORT_SIGNATURE_TARGET_SOURCE_FIELDS = new Set([
+  'signatureUserId',
+  'reviewSignatureUserId'
+])
+const SIGNATURE_TARGET_LABEL_KEYWORDS = ['签名', '操作人', '复核人'] as const
 
 const BatchRecordLinkSheet = defineComponent({
   name: 'BatchRecordLinkSheet',
@@ -461,6 +468,7 @@ const BatchRecordLinkSheet = defineComponent({
                           rowspan: cell.rowSpan,
                           colspan: cell.colSpan,
                           class: cell.classNames,
+                          ...cell.dataAttrs,
                           onClick: () => emit('select-cell', cell.cellMeta)
                         },
                         h('span', { class: 'batch-record-cell-link-sheet__text' }, cell.text)
@@ -478,8 +486,11 @@ const BatchRecordLinkSheet = defineComponent({
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const requestedSourceReportId = String(route.query.sourceReportId || '')
 const requestedTargetRouteProcessId = parseNumber(route.query.routeProcessId)
 const requestedTargetReportId = String(route.query.targetReportId || '')
+const requestedProcessPoolDccProjectCodeId = parseNumber(route.query.dccProjectCodeId)
+const requestedProcessPoolDccProjectCodeKeyword = String(route.query.dccProjectCode || '')
 
 const loading = ref(false)
 const saving = ref(false)
@@ -487,7 +498,8 @@ const context = ref<BatchRecordCellLinkWorkbenchContextVO>()
 const forms = ref<BatchRecordCellLinkFormVO[]>([])
 const processPoolDccProjectCodeLoading = ref(false)
 const processPoolDccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
-const selectedProcessPoolDccProjectCodeId = ref<number>()
+const processPoolDccProjectCodeInitialOptionsLoaded = ref(false)
+const selectedProcessPoolDccProjectCodeId = ref<number | undefined>(requestedProcessPoolDccProjectCodeId)
 const processPoolRouteProcesses = ref<BatchRecordCellLinkRouteProcessVO[]>([])
 const selectedProcessPoolRouteProcessId = ref<number>()
 const pqcProcesses = ref<BatchRecordCellLinkPqcProcessVO[]>([])
@@ -497,8 +509,8 @@ const processPoolReportSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([]
 const productionPickListSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const pqcAggregateSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const rules = ref<BatchRecordCellLinkRuleVO[]>([])
-const sourceType = ref(SOURCE_TYPE_BATCH_RECORD_CELL)
-const sourceReportId = ref('')
+const sourceType = ref(resolveSourceTypeByReportId(requestedSourceReportId))
+const sourceReportId = ref(requestedSourceReportId)
 const sourceFieldCode = ref('')
 const aggregationStrategy = ref('')
 const lastSyncedProcessPoolAggregationSourceFieldCode = ref('')
@@ -656,6 +668,7 @@ const targetForms = computed(() => {
 const canCreateRule = computed(() => Boolean(
   selectedSourceCell.value &&
   selectedTargetCell.value &&
+  canUseTargetCellWithSource(selectedTargetCell.value) &&
   targetReportId.value &&
   (!isStructuredSourceSelected.value || activeTargetRouteProcessId.value !== undefined) &&
   (sourceType.value !== SOURCE_TYPE_PROCESS_POOL_REPORT || aggregationStrategy.value)
@@ -702,6 +715,42 @@ function syncProcessPoolReportAggregationStrategy(cell?: BatchRecordCellLinkCell
     aggregationStrategy.value = resolveDefaultProcessPoolReportAggregationStrategy(cell)
   }
   lastSyncedProcessPoolAggregationSourceFieldCode.value = sourceFieldCodeForAggregation
+}
+
+function isProcessPoolReportSignatureTargetSourceCell(cell?: BatchRecordCellLinkCellVO) {
+  const sourceFieldCode = String(cell?.sourceFieldCode || cell?.cellKey || '')
+  return cell?.sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT &&
+    PROCESS_POOL_REPORT_SIGNATURE_TARGET_SOURCE_FIELDS.has(sourceFieldCode)
+}
+
+function isSignatureTargetCell(cell?: BatchRecordCellLinkCellVO) {
+  const label = String(cell?.label || '')
+  return Boolean(
+    cell?.signatureCell ||
+    (
+      cell?.linkableAsTarget &&
+      SIGNATURE_TARGET_LABEL_KEYWORDS.some((keyword) => label.includes(keyword))
+    )
+  )
+}
+
+function canUseTargetCellWithSource(
+  cell?: BatchRecordCellLinkCellVO,
+  sourceCell: BatchRecordCellLinkCellVO | undefined = selectedSourceCell.value
+) {
+  if (!cell) {
+    return false
+  }
+  if (isSignatureTargetCell(cell)) {
+    return isProcessPoolReportSignatureTargetSourceCell(sourceCell)
+  }
+  return Boolean(cell.linkableAsTarget)
+}
+
+function clearSelectedTargetCellIfSourceCannotUseIt(sourceCell?: BatchRecordCellLinkCellVO) {
+  if (selectedTargetCell.value && !canUseTargetCellWithSource(selectedTargetCell.value, sourceCell)) {
+    selectedTargetCell.value = undefined
+  }
 }
 const sourceRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.sourceReportId}:${rule.sourceCellKey}`)))
 const targetRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.targetReportId}:${rule.targetCellKey}`)))
@@ -845,6 +894,10 @@ async function loadWorkbenchContext() {
     })
     context.value = data
     forms.value = data.forms || []
+    if (isProcessPoolReportSelected.value && !processPoolDccProjectCodeInitialOptionsLoaded.value) {
+      await loadProcessPoolDccProjectCodeOptions(requestedProcessPoolDccProjectCodeKeyword)
+      processPoolDccProjectCodeInitialOptionsLoaded.value = true
+    }
     if (isProcessPoolReportSelected.value && data.dccProjectCodeId) {
       selectedProcessPoolDccProjectCodeId.value = data.dccProjectCodeId
     }
@@ -882,16 +935,10 @@ async function loadWorkbenchContext() {
       )
     }
     const defaultSourceReportId = resolveDefaultSourceReportId(data.defaultSourceReportId || forms.value[0]?.reportId || '', requestedTargetForm?.reportId)
-    sourceReportId.value = defaultSourceReportId
-    sourceType.value = defaultSourceReportId === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
-      ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
-      : defaultSourceReportId === PROCESS_POOL_REPORT_SOURCE_REPORT_ID
-        ? SOURCE_TYPE_PROCESS_POOL_REPORT
-        : defaultSourceReportId === PRODUCTION_PICK_LIST_SOURCE_REPORT_ID
-          ? SOURCE_TYPE_PRODUCTION_PICK_LIST
-        : defaultSourceReportId === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID
-            ? SOURCE_TYPE_PQC_AGGREGATE_DETAIL
-        : SOURCE_TYPE_BATCH_RECORD_CELL
+    sourceReportId.value = sourceReportId.value && sourceReportId.value !== requestedTargetForm?.reportId
+      ? sourceReportId.value
+      : defaultSourceReportId
+    sourceType.value = resolveSourceTypeByReportId(sourceReportId.value)
     targetReportId.value = requestedTargetForm?.reportId || data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
     sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
@@ -1084,12 +1131,15 @@ const selectSourceCell = (cell?: BatchRecordCellLinkCellVO) => {
   ) {
     syncProcessPoolReportAggregationStrategy(cell)
   }
+  clearSelectedTargetCellIfSourceCannotUseIt(cell)
 }
 
 const selectTargetCell = (cell?: BatchRecordCellLinkCellVO) => {
   if (!cell) return
-  if (!cell.linkableAsTarget) {
-    message.warning('目标单元格不是可填写单元格或属于签名位，不能自动带值。')
+  if (!canUseTargetCellWithSource(cell)) {
+    message.warning(isSignatureTargetCell(cell)
+      ? '请先选择一线生产的签名用户字段，再链接到签名位。'
+      : '目标单元格不是可填写单元格，不能自动带值。')
     return
   }
   selectedTargetCell.value = cell
@@ -1446,6 +1496,8 @@ function buildRenderableSheet(
       const rawText = stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
       const isFillableCell = Boolean(meta || rawCell?.fillForm)
       const text = normalizeRenderedCellText(rawText, isFillableCell)
+      const targetSignatureCell = isSignatureTargetCell(meta)
+      const targetSelectable = mode === 'target' && canUseTargetCellWithSource(meta)
       cells.push({
         key,
         rowIndex,
@@ -1461,9 +1513,15 @@ function buildRenderableSheet(
           'is-fillable-cell': isFillableCell,
           'is-section-title': isRenderedSectionTitle(text, merge, columnIndexes.length),
           'is-source-selectable': mode === 'source' && Boolean(meta?.linkableAsSource),
-          'is-target-selectable': mode === 'target' && Boolean(meta?.linkableAsTarget),
+          'is-target-selectable': targetSelectable,
           'is-linked': linkedKeys.has(reportCellKey),
           'is-selected': isSelectedCell
+        },
+        dataAttrs: {
+          'data-cell-key': meta?.cellKey || key,
+          'data-cell-row-index': String(rowIndex),
+          'data-cell-column-index': String(columnIndex),
+          'data-cell-signature-cell': targetSignatureCell ? 'true' : undefined
         }
       })
     })
@@ -1536,6 +1594,18 @@ function parseNumber(value: unknown): number | undefined {
   const text = Array.isArray(value) ? value[0] : value
   const parsed = Number(text)
   return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function resolveSourceTypeByReportId(reportId: string) {
+  return reportId === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
+    ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
+    : reportId === PROCESS_POOL_REPORT_SOURCE_REPORT_ID
+      ? SOURCE_TYPE_PROCESS_POOL_REPORT
+      : reportId === PRODUCTION_PICK_LIST_SOURCE_REPORT_ID
+        ? SOURCE_TYPE_PRODUCTION_PICK_LIST
+        : reportId === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID
+          ? SOURCE_TYPE_PQC_AGGREGATE_DETAIL
+          : SOURCE_TYPE_BATCH_RECORD_CELL
 }
 
 function isProcessPoolDeviceSourceField(field: BatchRecordCellLinkSourceFieldVO) {

@@ -25,6 +25,12 @@ public class EdhrBatchExecutionArchiveRespVO {
 
     private String contentHash;
 
+    private String pdfaProfile;
+
+    private String pdfaValidationStatus;
+
+    private LocalDateTime pdfaValidatedAt;
+
     private String sourceManifestJson;
 
     private LocalDateTime generatedAt;

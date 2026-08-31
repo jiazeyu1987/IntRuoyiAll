@@ -294,6 +294,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertMissingProcessPoolSourceField(result, "allocatedQuantity", "放行分配数量");
         assertMissingProcessPoolSourceField(result, "lossReasonCodeSnapshot", "损耗原因编码");
         assertMissingProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工");
+        assertProcessPoolSourceField(result, "totalQuantity", "本次报工总量", "NUMBER", null);
         assertMissingProcessPoolSourceField(result, "laborScrapQuantity", "本次报工工废数量");
         assertMissingProcessPoolSourceField(result, "materialScrapQuantity", "本次报工料废数量");
         assertMissingProcessPoolSourceField(result, "otherScrapQuantity", "本次报工其他废品数量");
@@ -979,6 +980,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         assertEquals(5001L, result.getForms().get(0).getRouteProcessId());
         assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
+        assertProcessPoolSourceField(result, "totalQuantity", "本次报工总量", "NUMBER", null);
         assertMissingProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工");
         assertProcessPoolSourceField(result, "serverSubmitTime", "提交时间", "STRING", null);
         assertProcessPoolSourceField(result, "selectedDevice.deviceName", "选用设备名称", "STRING", null);
@@ -1023,6 +1025,38 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("扩张压力", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_acceptsProcessPoolReportSignatureUserFieldToSignatureTargetCell() {
+        stubProcessPoolSaveContext();
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+
+        service.saveRules(processPoolRuleSaveRequest("reviewSignatureUserId", "LAST", 20, 2));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
+        assertEquals("PROCESS_POOL_REPORT", row.getSourceType());
+        assertEquals("reviewSignatureUserId", row.getSourceFieldCode());
+        assertEquals("审核人签名用户", row.getSourceFieldName());
+        assertEquals("20:2", row.getTargetCellKey());
+        assertEquals("复核人/日期", row.getTargetLabel());
+        assertEquals("STRING", row.getTargetValueType());
+        assertEquals("LAST", row.getAggregationStrategy());
+    }
+
+    @Test
+    void saveRules_rejectsProcessPoolReportQuantityFieldToSignatureTargetCell() {
+        stubProcessPoolSaveContext();
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.saveRules(processPoolRuleSaveRequest("outputQuantity", "SUM", 20, 2)));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_NOT_WRITABLE.getCode(),
+                error.getCode());
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
     }
 
     @Test
@@ -1159,6 +1193,11 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     private BatchRecordCellLinkRulesSaveReqVO processPoolRuleSaveRequest(String fieldCode, String aggregationStrategy) {
+        return processPoolRuleSaveRequest(fieldCode, aggregationStrategy, 1, 2);
+    }
+
+    private BatchRecordCellLinkRulesSaveReqVO processPoolRuleSaveRequest(String fieldCode, String aggregationStrategy,
+                                                                         int targetRowIndex, int targetColumnIndex) {
         return new BatchRecordCellLinkRulesSaveReqVO()
                 .setScopeType("ROUTE_VERSION")
                 .setScopeId(3001L)
@@ -1173,8 +1212,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .setSourceFieldCode(fieldCode)
                         .setSourceFieldName("扩张压力")
                         .setTargetReportId("target-report")
-                        .setTargetRowIndex(1)
-                        .setTargetColumnIndex(2)
+                        .setTargetRowIndex(targetRowIndex)
+                        .setTargetColumnIndex(targetColumnIndex)
                         .setAggregationStrategy(aggregationStrategy)));
     }
 
@@ -1904,15 +1943,17 @@ class MesProBatchRecordCellLinkServiceImplTest {
                          "rows":{
                            "1":{"height":32,"cells":{"0":{"text":"压力"},"2":{"text":"","fillForm":{"field":"pressure"}}}},
                            "10":{"height":32,"cells":{"0":{"text":"第1次"},"2":{"text":"","fillForm":{"field":"pressure"}}}},
-                           "11":{"height":32,"cells":{"0":{"text":"第2次"},"2":{"text":"","fillForm":{"field":"pressure"}}}},
-                           "12":{"height":32,"cells":{"0":{"text":"第3次"},"2":{"text":"","fillForm":{"field":"pressure"}}}}
-                         }}
-                        """)
+                            "11":{"height":32,"cells":{"0":{"text":"第2次"},"2":{"text":"","fillForm":{"field":"pressure"}}}},
+                            "12":{"height":32,"cells":{"0":{"text":"第3次"},"2":{"text":"","fillForm":{"field":"pressure"}}}},
+                            "20":{"height":32,"cells":{"0":{"text":"复核人"},"2":{"text":"","fillForm":{"field":"reviewSignatureUserId"}}}}
+                          }}
+                         """)
                 .setRules(List.of(
                         repeatRowCellRule(1),
                         repeatRowCellRule(10),
                         repeatRowCellRule(11),
-                        repeatRowCellRule(12)));
+                        repeatRowCellRule(12),
+                        signatureCellRule()));
     }
 
     private BatchRecordReportCellRuleVO repeatRowCellRule(int rowIndex) {
@@ -1922,6 +1963,16 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .setLabel("扩张压力")
                 .setValueType("NUMBER")
                 .setComponentFlag("input-number")
+                .setReviewed(true);
+    }
+
+    private BatchRecordReportCellRuleVO signatureCellRule() {
+        return new BatchRecordReportCellRuleVO()
+                .setRowIndex(20)
+                .setColumnIndex(2)
+                .setLabel("复核人/日期")
+                .setValueType("STRING")
+                .setComponentFlag("input-text")
                 .setReviewed(true);
     }
 

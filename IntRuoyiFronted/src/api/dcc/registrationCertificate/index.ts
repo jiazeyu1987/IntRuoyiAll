@@ -146,6 +146,7 @@ export interface DccRegistrationCertificateDetailVO {
   selfProduction: boolean
   entrustedEnterprisesJson?: string
   registrationFileId?: number | string
+  registrationFileName?: string
   hasRegistrationFile: boolean
   reminderColor: string
   visualState: DccRegistrationCertificateReminderVisualState
@@ -159,6 +160,17 @@ export interface DccRegistrationCertificateHistoryItemVO {
   actorId?: number | string
   businessFileId?: number | string
   fileKind?: string
+  targetVersionId?: number | string
+  versionNo?: number
+  approvalDate?: DccRegistrationCertificateLocalDateValue
+  effectiveDate?: DccRegistrationCertificateLocalDateValue
+  expiryDate?: DccRegistrationCertificateLocalDateValue
+  categoryChanged?: boolean
+  certificateNo?: string
+  classification?: string
+  originalFileName?: string
+  fileStatus?: string
+  occurredAt?: string | number
 }
 
 export interface DccRegistrationCertificateDraftReqVO {

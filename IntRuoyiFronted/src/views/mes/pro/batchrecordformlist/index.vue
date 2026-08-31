@@ -103,59 +103,6 @@
                 v-bind="sortColumnAttrs('reportName')"
               />
               <el-table-column
-                v-if="isRecordFormColumnVisible('fillRule')"
-                label="填写人"
-                prop="fillRule"
-                :width="getRecordFormColumnWidthString('fillRule', 220)"
-                :min-width="getRecordFormColumnMinWidthString('fillRule', 180)"
-                show-overflow-tooltip
-                v-bind="sortColumnAttrs('fillRule')"
-              >
-                <template #default="{ row }">
-                  <el-tooltip
-                    :disabled="!row.permissionRuleErrorMessage"
-                    :content="row.permissionRuleErrorMessage"
-                    placement="top"
-                  >
-                    <button
-                      type="button"
-                      class="batch-record-form-filler-cell"
-                      :title="row.permissionRuleErrorMessage || undefined"
-                      @click.stop="openBatchRecordFormPermissionDialog(row)"
-                    >
-                      <el-tag
-                        effect="plain"
-                        :type="
-                          resolveFillRuleStatus(
-                            row.permissionRule?.fillRuleStatus,
-                            isPermissionRuleLoading(row),
-                            row.permissionRuleErrorMessage
-                          ).type
-                        "
-                      >
-                        {{
-                          resolveFillRuleStatus(
-                            row.permissionRule?.fillRuleStatus,
-                            isPermissionRuleLoading(row),
-                            row.permissionRuleErrorMessage
-                          ).label
-                        }}
-                      </el-tag>
-                      <span
-                        v-if="!row.permissionRuleErrorMessage"
-                        class="batch-record-form-filler-cell__text"
-                      >
-                        {{
-                          isPermissionRuleLoading(row)
-                            ? '填写规则加载中'
-                            : buildFillRuleCandidateUserText(row) || '配置填写人'
-                        }}
-                      </span>
-                    </button>
-                  </el-tooltip>
-                </template>
-              </el-table-column>
-              <el-table-column
                 v-if="isRecordFormColumnVisible('formSlotType')"
                 label="类型"
                 prop="formSlotType"
@@ -562,71 +509,6 @@
       @confirmed="handleCellRulesConfirmed"
       @navigate="navigateCellRulesDialog"
     />
-
-    <Dialog v-model="permissionDialogVisible" title="批记录表单填写人设置" width="760px">
-      <el-form label-width="108px" class="batch-record-form-permission-form">
-        <el-form-item label="产品名称">
-          <span>{{ permissionTarget.report?.productName || '-' }}</span>
-        </el-form-item>
-        <el-form-item label="表单">
-          <span>{{ permissionTarget.report?.reportName || permissionTarget.report?.reportId || '-' }}</span>
-        </el-form-item>
-        <el-divider content-position="left">填写人设置</el-divider>
-        <div class="batch-record-form-permission-rule">
-          <el-form-item label="填写人来源" class="batch-record-form-permission-field">
-            <el-select
-              v-model="permissionForm.fillRule.candidateSourceType"
-              class="batch-record-form-permission-control"
-              placeholder="请选择填写人来源"
-              @change="permissionForm.fillRule.candidateSourceIds = []"
-            >
-              <el-option
-                v-for="option in candidateSourceOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="填写人" class="batch-record-form-permission-field batch-record-form-permission-filler-field">
-            <el-select
-              v-model="permissionForm.fillRule.candidateSourceIds"
-              multiple
-              filterable
-              class="batch-record-form-permission-control batch-record-form-permission-filler-control"
-              placeholder="请选择个人或角色"
-            >
-              <el-option
-                v-for="option in buildCandidateTargetOptions(permissionForm.fillRule.candidateSourceType)"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="完成策略" class="batch-record-form-permission-field">
-            <el-select
-              v-model="permissionForm.fillRule.completionPolicy"
-              class="batch-record-form-permission-control"
-              placeholder="请选择完成策略"
-            >
-              <el-option label="任一人完成" value="ANY_ONE" />
-              <el-option label="全部完成" value="ALL" />
-            </el-select>
-          </el-form-item>
-        </div>
-      </el-form>
-      <template #footer>
-        <el-button @click="permissionDialogVisible = false">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="permissionSaving"
-          @click="submitBatchRecordFormPermission"
-        >
-          保存填写设置
-        </el-button>
-      </template>
-    </Dialog>
   </ContentWrap>
 </template>
 
@@ -667,29 +549,21 @@ import type {
   EdhrBatchExecutionReviewFormViewModel,
   EdhrBatchExecutionReviewSignatureRecord
 } from '@/api/mes/pro/edhr/batchExecution'
-import {
-  EdhrProcessFormPermissionRuleApi,
-  type EdhrProcessFormCandidateRule,
-  type EdhrProcessFormCandidateSourceType,
-  type EdhrProcessFormPermissionRuleRespVO
-} from '@/api/mes/pro/edhr/processFormPermissionRule'
-import { getSimpleRoleList, type RoleVO } from '@/api/system/role'
-import { getSimpleUserList, type UserVO } from '@/api/system/user'
 
 defineOptions({ name: 'MesProBatchRecordFormList' })
 
 type RecordFormListRow = BatchRecordReportVO & {
   rowKey: string
-  permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
-  permissionRuleErrorMessage?: string
 }
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const BATCH_RECORD_FORM_LIST_PATH = '/mes/pro/batch-record-form-list'
+const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'
 const isBatchRecordFormListPath = () => route.path === BATCH_RECORD_FORM_LIST_PATH
 const isDesignerMode = computed(() => route.query.mode === 'designer')
+const isMainBatchRecordReport = (row: BatchRecordReportVO) => row.formSlotType === 'MAIN'
 const normalizeRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : ''
@@ -720,12 +594,6 @@ const WORD_IMPORT_PROJECT_OPTION_PAGE_SIZE = 200
 const CELL_RULES_NAVIGATION_PAGE_SIZE = 200
 const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'MAIN'
 const UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'FORM'
-const permissionDialogVisible = ref(false)
-const permissionSaving = ref(false)
-const candidateOptionsLoaded = ref(false)
-const simpleUserOptions = ref<UserVO[]>([])
-const simpleRoleOptions = ref<RoleVO[]>([])
-const permissionRuleLoadingReportIds = reactive(new Set<string>())
 const consumedCellRulesActionKey = ref('')
 const cellRulesDialog = reactive<{
   visible: boolean
@@ -774,7 +642,6 @@ const recordFormDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productName', label: '产品名称', width: 180 },
   { key: 'projectCode', label: '项目代码', width: 140 },
   { key: 'reportName', label: '表单名称', minWidth: 220 },
-  { key: 'fillRule', label: '填写人', width: 220 },
   { key: 'formSlotType', label: '类型', width: 120 },
   { key: 'versionNo', label: '版本', width: 110 },
   { key: 'versionStatus', label: '状态', width: 110 },
@@ -799,13 +666,7 @@ const formSlotTypeLabels: Record<BatchRecordFormSlotType, string> = {
   PARAMETER_RECORD: '参数记录表'
 }
 
-type FillRuleStatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'primary'
-type VersionStatusTagType = FillRuleStatusTagType
-
-const candidateSourceOptions: Array<{ label: string; value: EdhrProcessFormCandidateSourceType }> = [
-  { label: '个人', value: 'USERS' },
-  { label: '角色', value: 'ROLE' }
-]
+type VersionStatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'primary'
 
 const queryRecordFormProductNameSuggestions = async (
   queryString: string,
@@ -817,25 +678,6 @@ const queryRecordFormProductNameSuggestions = async (
   )
   callback((data || []).map((productName) => ({ value: productName })))
 }
-
-const permissionTarget = reactive<{
-  report?: RecordFormListRow
-  permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
-}>({
-  report: undefined,
-  permissionRule: undefined
-})
-
-const permissionForm = reactive<{ fillRule: EdhrProcessFormCandidateRule }>({
-  fillRule: {
-    candidateSourceType: 'USERS',
-    candidateSourceIds: [],
-    completionPolicy: 'ANY_ONE',
-    dueMinutes: null,
-    enabled: true,
-    remark: ''
-  }
-})
 
 const isMainWordImport = computed(() => wordImportDialog.selectedFormSlotType === 'MAIN')
 const isUnifiedFormWordImport = computed(
@@ -1198,164 +1040,12 @@ const toRecordFormRow = (row: BatchRecordReportVO, index: number): RecordFormLis
   rowKey: `${row.reportId || 'report'}:${row.productName || 'no-product'}:${index}`
 })
 
-const normalizeFillCandidateSourceType = (
-  sourceType?: EdhrProcessFormCandidateSourceType | null
-): EdhrProcessFormCandidateSourceType => {
-  if (!sourceType) return 'USERS'
-  if (sourceType === 'USER' || sourceType === 'USERS') return 'USERS'
-  if (sourceType === 'ROLE') return 'ROLE'
-  throw new Error(`批记录表单填写人仅支持个人或角色：${sourceType}`)
-}
-
-const cloneCandidateRule = (
-  rule?: EdhrProcessFormCandidateRule | null
-): EdhrProcessFormCandidateRule => ({
-  candidateSourceType: normalizeFillCandidateSourceType(rule?.candidateSourceType),
-  candidateSourceIds: [...(rule?.candidateSourceIds || [])],
-  completionPolicy: rule?.completionPolicy || 'ANY_ONE',
-  dueMinutes: null,
-  enabled: rule?.enabled ?? true,
-  remark: rule?.remark || '',
-  candidateUsers: rule?.candidateUsers ? [...rule.candidateUsers] : []
-})
-
-const resolveFillRuleStatus = (
-  status?: EdhrProcessFormPermissionRuleRespVO['fillRuleStatus'],
-  loading = false,
-  errorMessage = ''
-): { label: string; type: FillRuleStatusTagType } => {
-  if (errorMessage) return { label: '加载失败', type: 'danger' }
-  if (loading) return { label: '加载中', type: 'info' }
-  if (status === 'CONFIGURED') return { label: '已配置', type: 'success' }
-  if (status === 'CANDIDATE_EMPTY') return { label: '候选为空', type: 'danger' }
-  if (status === 'INCOMPLETE') return { label: '规则不完整', type: 'warning' }
-  return { label: '未配置', type: 'info' }
-}
-
-const buildFillRuleCandidateUserText = (row: RecordFormListRow) => {
-  const assignmentText = buildFillAssignmentSummaryText(row)
-  if (assignmentText) return assignmentText
-  const fillRule = row.permissionRule?.fillRule
-  if (!fillRule) return ''
-  const sourceType = normalizeFillCandidateSourceType(fillRule.candidateSourceType)
-  const sourceNames = (fillRule.candidateSourceNames || []).map((name) => String(name || '').trim()).filter(Boolean)
-  if (sourceType === 'ROLE' && sourceNames.length) {
-    return `角色：${sourceNames.join('、')}`
-  }
-  const candidateUsers = row.permissionRule?.fillRule?.candidateUsers || []
-  return candidateUsers.map((user) => user.displayName).filter(Boolean).join('、')
-}
-
-const buildFillAssignmentSummaryText = (row: RecordFormListRow) => {
-  const assignments = row.permissionRule?.fillAssignments || []
-  const segments: string[] = []
-  const seenSegments = new Set<string>()
-  assignments.forEach((assignment) => {
-    const sourceType = normalizeFillCandidateSourceType(assignment.candidateSourceType)
-    const sourceLabel = sourceType === 'ROLE' ? '角色' : '个人'
-    const sourceNames = (assignment.candidateSourceNames || [])
-      .map((name) => String(name || '').trim())
-      .filter(Boolean)
-    const userNames = sourceType === 'ROLE'
-      ? []
-      : (assignment.candidateUsers || [])
-          .map((user) => String(user.displayName || '').trim())
-          .filter(Boolean)
-    const sourceIds = (assignment.candidateSourceIds || [])
-      .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && id > 0)
-      .map((id) => `${sourceLabel} ${id}`)
-    const names = sourceNames.length ? sourceNames : (userNames.length ? userNames : sourceIds)
-    if (!names.length) return
-    const segment = `${sourceLabel}：${names.join('、')}`
-    if (seenSegments.has(segment)) return
-    seenSegments.add(segment)
-    segments.push(segment)
-  })
-  return segments.join('；')
-}
-
-const isPermissionRuleLoading = (row: RecordFormListRow) =>
-  Boolean(row.reportId && permissionRuleLoadingReportIds.has(row.reportId))
-
-const loadCandidateOptions = async () => {
-  if (candidateOptionsLoaded.value) return
-  const [users, roles] = await Promise.all([getSimpleUserList(), getSimpleRoleList()])
-  simpleUserOptions.value = users
-  simpleRoleOptions.value = roles
-  candidateOptionsLoaded.value = true
-}
-
-const buildCandidateTargetOptions = (sourceType: EdhrProcessFormCandidateSourceType) => {
-  if (sourceType === 'USER' || sourceType === 'USERS') {
-    return simpleUserOptions.value.map((user) => ({
-      label: user.nickname || user.username || `用户 ${user.id}`,
-      value: user.id
-    }))
-  }
-  if (sourceType === 'ROLE') {
-    return simpleRoleOptions.value.map((role) => ({
-      label: role.name || role.code || `角色 ${role.id}`,
-      value: role.id
-    }))
-  }
-  throw new Error(`批记录表单填写人仅支持个人或角色：${sourceType}`)
-}
-
-const loadRecordFormPermissionRules = async (
-  rows: RecordFormListRow[],
-  requestSerial: number
-) => {
-  const rowsByReportId = new Map<string, RecordFormListRow[]>()
-  for (const row of rows) {
-    if (!row.reportId) {
-      row.permissionRule = null
-      row.permissionRuleErrorMessage = ''
-      continue
-    }
-    const reportRows = rowsByReportId.get(row.reportId)
-    if (reportRows) {
-      reportRows.push(row)
-    } else {
-      rowsByReportId.set(row.reportId, [row])
-    }
-  }
-  await Promise.all(
-    [...rowsByReportId.entries()].map(async ([reportId, reportRows]) => {
-      try {
-        const rule = await EdhrProcessFormPermissionRuleApi.getByReport(reportId)
-        if (isStaleRecordFormListRequest(requestSerial)) return
-        for (const row of reportRows) {
-          row.permissionRule = rule
-          row.permissionRuleErrorMessage = ''
-        }
-      } catch (error) {
-        if (isStaleRecordFormListRequest(requestSerial)) return
-        const errorMessage = resolveErrorMessage(
-          error,
-          '批记录表单填写人规则加载失败，请联系管理员检查权限规则链路。'
-        )
-        for (const row of reportRows) {
-          row.permissionRule = null
-          row.permissionRuleErrorMessage = errorMessage
-        }
-      } finally {
-        if (!isStaleRecordFormListRequest(requestSerial)) {
-          permissionRuleLoadingReportIds.delete(reportId)
-        }
-      }
-    })
-  )
-}
-
 const loadRecordFormSecondaryData = async (
-  rows: RecordFormListRow[],
   selectedRow: RecordFormListRow | undefined,
   requestSerial: number
 ) => {
   try {
     await Promise.all([
-      loadRecordFormPermissionRules(rows, requestSerial),
       selectedRow
         ? loadSelectedReportTemplate(selectedRow, requestSerial)
         : Promise.resolve(),
@@ -1365,87 +1055,27 @@ const loadRecordFormSecondaryData = async (
     if (isStaleRecordFormListRequest(requestSerial)) return
     templatePreview.errorMessage = resolveErrorMessage(
       error,
-      '批记录表单辅助数据加载失败，请联系管理员检查权限规则链路。'
+      '批记录表单辅助数据加载失败，请联系管理员检查报表预览链路。'
     )
   }
 }
 
 const deferRecordFormSecondaryLoad = (
-  rows: RecordFormListRow[],
   selectedRow: RecordFormListRow | undefined,
   requestSerial: number
 ) => {
   cancelDeferredRecordFormSecondaryLoad()
-  permissionRuleLoadingReportIds.clear()
-  for (const row of rows) {
-    if (row.reportId) {
-      permissionRuleLoadingReportIds.add(row.reportId)
-    }
-  }
   recordFormSecondaryFrameId = requestAnimationFrame(() => {
     recordFormSecondaryFrameId = undefined
     if (isStaleRecordFormListRequest(requestSerial)) return
-    void loadRecordFormSecondaryData(rows, selectedRow, requestSerial)
+    void loadRecordFormSecondaryData(selectedRow, requestSerial)
   })
-}
-
-const validateCandidateRuleForSubmit = (rule: EdhrProcessFormCandidateRule) => {
-  if (!rule.candidateSourceType) throw new Error('填写人规则缺少人员类型')
-  if (!rule.candidateSourceIds?.length) throw new Error('填写人规则缺少人员或角色')
-  if (!rule.completionPolicy) throw new Error('填写人规则缺少完成策略')
-}
-
-const openBatchRecordFormPermissionDialog = async (row: RecordFormListRow) => {
-  if (!row.reportId) {
-    message.warning('当前批记录表单缺少报表 ID')
-    return
-  }
-  try {
-    const rule = await EdhrProcessFormPermissionRuleApi.getByReport(row.reportId)
-    row.permissionRule = rule
-    row.permissionRuleErrorMessage = ''
-    await loadCandidateOptions()
-    permissionTarget.report = row
-    permissionTarget.permissionRule = rule
-    permissionForm.fillRule = cloneCandidateRule(rule.fillRule)
-    permissionDialogVisible.value = true
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '批记录表单填写人设置加载失败，请联系管理员。'))
-  }
-}
-
-const submitBatchRecordFormPermission = async () => {
-  const report = permissionTarget.report
-  if (!report?.reportId) {
-    throw new Error('保存填写设置失败：缺少批记录表单定位信息')
-  }
-  validateCandidateRuleForSubmit(permissionForm.fillRule)
-  permissionSaving.value = true
-  try {
-    const saved = await EdhrProcessFormPermissionRuleApi.saveByReport({
-      batchRecordReportId: report.reportId,
-      fillRule: cloneCandidateRule(permissionForm.fillRule)
-    })
-    for (const row of list.value) {
-      if (row.reportId === report.reportId) {
-        row.permissionRule = saved
-      }
-    }
-    permissionTarget.permissionRule = saved
-    message.success('填写人已保存')
-    permissionDialogVisible.value = false
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '填写设置保存失败，请联系管理员。'))
-  } finally {
-    permissionSaving.value = false
-  }
 }
 
 const getList = async () => {
   const requestSerial = ++recordFormListRequestSerial
   const targetRouteStateKey = buildBatchRecordFormListRouteStateKey()
   cancelDeferredRecordFormSecondaryLoad()
-  permissionRuleLoadingReportIds.clear()
   listLoading.value = true
   listErrorMessage.value = ''
   try {
@@ -1474,7 +1104,7 @@ const getList = async () => {
       selectedReportId.value = ''
       clearTemplatePreview()
     }
-    deferRecordFormSecondaryLoad(nextList, nextSelected, requestSerial)
+    deferRecordFormSecondaryLoad(nextSelected, requestSerial)
     batchRecordFormListLastLoadedRouteStateKey = targetRouteStateKey
     batchRecordFormListHasLoadedRouteState.value = true
   } catch (error) {
@@ -1482,7 +1112,6 @@ const getList = async () => {
     list.value = []
     total.value = 0
     selectedReportId.value = ''
-    permissionRuleLoadingReportIds.clear()
     clearTemplatePreview()
     listErrorMessage.value = resolveErrorMessage(error, '批记录表单列表加载失败，请联系管理员检查报表目录链路。')
   } finally {
@@ -2458,6 +2087,9 @@ const handleCellLinks = async (row: BatchRecordReportVO) => {
       versionId: row.batchRecordVersionId ? String(row.batchRecordVersionId) : undefined,
       routeId: cellLinkRouteId || undefined,
       routeProcessId: cellLinkRouteProcessId || undefined,
+      sourceReportId: isMainBatchRecordReport(row) ? PROCESS_POOL_REPORT_SOURCE_REPORT_ID : undefined,
+      dccProjectCodeId: isMainBatchRecordReport(row) && row.dccProjectCodeId ? String(row.dccProjectCodeId) : undefined,
+      dccProjectCode: isMainBatchRecordReport(row) && row.dccProjectCodeId ? row.projectCode : undefined,
       targetReportId: row.reportId
     }
   })
@@ -2526,7 +2158,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   recordFormListRequestSerial += 1
   cancelDeferredRecordFormSecondaryLoad()
-  permissionRuleLoadingReportIds.clear()
   templatePreviewRequestSerial += 1
 })
 
@@ -2550,7 +2181,6 @@ watch(
     if (isDesignerMode.value) {
       recordFormListRequestSerial += 1
       cancelDeferredRecordFormSecondaryLoad()
-      permissionRuleLoadingReportIds.clear()
       clearTemplatePreview()
       return
     }
@@ -2754,51 +2384,6 @@ watch(
 .batch-record-form-toolbar__latest-version-label {
   color: var(--el-text-color-primary);
   font-size: 14px;
-}
-
-.batch-record-form-filler-cell {
-  display: inline-flex;
-  max-width: 100%;
-  min-width: 0;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: #1677ff;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-  text-align: left;
-}
-
-.batch-record-form-filler-cell__text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.batch-record-form-permission-form {
-  padding-right: 8px;
-}
-
-.batch-record-form-permission-rule {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.85fr) minmax(280px, 1.4fr) minmax(220px, 1fr);
-  gap: 10px;
-}
-
-.batch-record-form-permission-field {
-  min-width: 0;
-}
-
-.batch-record-form-permission-control {
-  width: 100%;
-}
-
-.batch-record-form-permission-filler-control :deep(.el-select__tags-text) {
-  max-width: none;
-  overflow: visible;
 }
 
 .batch-record-form-layout {

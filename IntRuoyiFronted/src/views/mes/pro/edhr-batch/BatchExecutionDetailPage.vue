@@ -1157,30 +1157,46 @@
     </Dialog>
 
     <el-drawer v-model="archivePrintDrawerVisible" title="归档打印" size="520px">
+      <el-descriptions v-if="latestBatchArchive" :column="1" border class="mb-16px">
+        <el-descriptions-item label="归档版本">
+          V{{ latestBatchArchive.archiveVersion || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="长期归档格式">
+          <el-tag v-if="latestBatchArchivePdfAValid" type="success">
+            {{ latestBatchArchive.pdfaProfile }} 已校验
+          </el-tag>
+          <span v-else>PDF/A 未验证</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="校验时间">
+          {{ formatReviewTime(latestBatchArchive.pdfaValidatedAt) }}
+        </el-descriptions-item>
+      </el-descriptions>
       <div class="edhr-batch-detail__group-actions">
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:create']"
           type="primary"
-          :disabled="isViewedReleaseStageReadonly || !canGenerateArchive"
+          :loading="archiveGenerationLoading"
+          :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
           @click="handleGenerateArchive"
           >生成归档</el-button
         >
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:create']"
-          :disabled="isViewedReleaseStageReadonly || !canGenerateArchive"
+          :loading="archiveGenerationLoading"
+          :disabled="isViewedReleaseStageReadonly || !canGenerateArchive || archiveGenerationLoading"
           @click="handleGenerateArchive"
           >重新生成</el-button
         >
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-          :disabled="isViewedReleaseStageReadonly"
+          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading"
           @click="handleDownloadArchive"
         >
           下载打印版 PDF
         </el-button>
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-          :disabled="isViewedReleaseStageReadonly"
+          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading"
           @click="handlePrintArchive"
         >
           打印
@@ -1460,6 +1476,7 @@ import {
   simulateEdhrStage5FinalRelease,
   syncEdhrBatchExecutionStatus,
   type EdhrBatchExecutionReviewFormViewModel,
+  type EdhrBatchExecutionArchiveRespVO,
   type EdhrBatchExecutionReviewExecutionRespVO,
   type EdhrBatchExecutionTaskPreviewRespVO,
   type EdhrBatchReviewTimelineRespVO,
@@ -1624,6 +1641,7 @@ const stage4SimulationNodes = computed<Stage4SimulationNodeView[]>(() => {
   }))
 })
 const archivePrintDrawerVisible = ref(false)
+const archiveGenerationLoading = ref(false)
 const traceRecordDrawerVisible = ref(false)
 const uxChecklistDrawerVisible = ref(false)
 const routeFormDrawerVisible = ref(false)
@@ -1642,6 +1660,10 @@ const processDetailDialogVisible = ref(false)
 const reviewLoading = ref(false)
 const reviewError = ref('')
 const reviewTimeline = ref<EdhrBatchReviewTimelineRespVO>()
+const isValidPdfAArchive = (archive?: EdhrBatchExecutionArchiveRespVO) =>
+  archive?.pdfaValidationStatus === 'VALID' && Boolean(archive.pdfaProfile)
+const latestBatchArchive = computed(() => reviewTimeline.value?.archiveVersions?.[0])
+const latestBatchArchivePdfAValid = computed(() => isValidPdfAArchive(latestBatchArchive.value))
 const selectedExecutionId = ref('')
 const selectedTaskId = ref('')
 const selectedTaskPreview = ref<EdhrBatchExecutionTaskPreviewRespVO>()
@@ -4154,12 +4176,14 @@ const resolveStageAwareReleaseStatusSummary = (
 }
 
 const resolveArchiveStatusSummary = () => {
-  const latestArchive = reviewTimeline.value?.archiveVersions?.[0]
+  const latestArchive = latestBatchArchive.value
   if (latestArchive?.archiveStatus) {
     const versionText = latestArchive.archiveVersion
       ? `V${latestArchive.archiveVersion}`
       : '最新版本'
-    return `${versionText} ${latestArchive.archiveStatus}`
+    return isValidPdfAArchive(latestArchive)
+      ? `${versionText} ${latestArchive.pdfaProfile} 已校验`
+      : `${versionText} ${latestArchive.archiveStatus} · PDF/A 未验证`
   }
   if (batchStatus.value === EDHR_BATCH_STATUS_ARCHIVED) return '已归档'
   return canGenerateArchive.value ? '可生成归档' : '暂无归档'
@@ -4652,6 +4676,7 @@ const openArchivePrintDrawer = () => {
 }
 
 const handleGenerateArchive = async () => {
+  if (archiveGenerationLoading.value) return
   if (!ensureViewedReleaseStageWritable('生成归档')) return
   if (!canGenerateArchive.value) {
     message.error(
@@ -4659,16 +4684,22 @@ const handleGenerateArchive = async () => {
     )
     return
   }
+  archiveGenerationLoading.value = true
   try {
-    await generateEdhrBatchArchive({
+    const archive = await generateEdhrBatchArchive({
       batchExecutionId: assertBatchExecutionId(),
       artifactType: EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF,
       workTaskId: assertArchiveWorkTaskId()
     })
-    message.success('批次最终归档生成已提交')
+    if (!archive.pdfaProfile || archive.pdfaValidationStatus !== 'VALID') {
+      throw new Error('批次最终归档的 PDF/A 校验结果缺失或无效。')
+    }
+    message.success(`${archive.pdfaProfile} 归档生成完成`)
     await loadDetail()
   } catch (error) {
     message.error(resolveErrorMessage(error, '批次最终归档生成失败。'))
+  } finally {
+    archiveGenerationLoading.value = false
   }
 }
 

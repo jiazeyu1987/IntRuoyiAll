@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -21,6 +22,8 @@ import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMappe
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
+import cn.iocoder.yudao.module.infra.framework.file.core.client.StorageRetentionEvidence;
+import cn.iocoder.yudao.module.infra.framework.file.core.client.StorageRetentionPolicy;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveGenerateReqVO;
@@ -133,6 +136,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -143,13 +147,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_CLOSED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_CHECKSUM_MISMATCH;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_PDFA_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_REGENERATE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_EVIDENCE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_FAILED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_CLOSE_BLOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED;
@@ -170,6 +179,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_WORK_ORDER_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -277,6 +287,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProEdhrBatchVoidEffectService batchVoidEffectService;
     @MockitoBean
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
     @MockitoBean
     private MesProEdhrPermissionGateService permissionGateService;
@@ -284,6 +296,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProRouteProcessService routeProcessService;
     @MockitoBean
     private FileService fileService;
+    @MockitoBean
+    private MesEdhrArchiveProtectedStorage protectedStorage;
+    @MockitoBean
+    private MesProEdhrPdfAValidator pdfAValidator;
     @MockitoBean
     private AdminUserApi adminUserApi;
     @MockitoBean
@@ -310,11 +326,54 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProBatchRecordCellLinkService cellLinkService;
 
     private final Map<Long, MesProEdhrBatchProvisioningRecordDO> provisioningRecords = new LinkedHashMap<>();
+    private final Map<Long, byte[]> protectedArchiveFiles = new LinkedHashMap<>();
+    private final Map<Long, StorageRetentionEvidence> protectedArchiveEvidence = new LinkedHashMap<>();
+    private final AtomicLong protectedArchiveFileSequence = new AtomicLong(50_000L);
 
     @BeforeEach
-    void setTenant() {
+    void setTenant() throws Exception {
         TenantContextHolder.setTenantId(1L);
         provisioningRecords.clear();
+        protectedArchiveFiles.clear();
+        protectedArchiveEvidence.clear();
+        protectedArchiveFileSequence.set(50_000L);
+        when(protectedStorage.getFileConfigId()).thenReturn(MesEdhrArchiveProtectedStorage.FILE_CONFIG_ID);
+        when(protectedStorage.requireUploadPolicy(any())).thenAnswer(invocation -> new StorageRetentionPolicy()
+                .setObjectLockRequired(Boolean.TRUE)
+                .setRetentionMode("COMPLIANCE")
+                .setRetentionDays(3650)
+                .setLegalHoldRequired(Boolean.TRUE)
+                .setChecksumSha256(invocation.getArgument(0)));
+        when(fileService.createFileWithStorageRetention(eq(MesEdhrArchiveProtectedStorage.FILE_CONFIG_ID),
+                any(byte[].class), any(), any(), eq("application/pdf"), any(StorageRetentionPolicy.class)))
+                .thenAnswer(invocation -> {
+                    Long fileId = protectedArchiveFileSequence.incrementAndGet();
+                    byte[] content = invocation.getArgument(1);
+                    String fileName = invocation.getArgument(2);
+                    String directory = invocation.getArgument(3);
+                    StorageRetentionPolicy policy = invocation.getArgument(5);
+                    StorageRetentionEvidence evidence = new StorageRetentionEvidence()
+                            .setFileId(fileId)
+                            .setBucket("edhr-protected")
+                            .setPath(directory + "/" + fileName)
+                            .setKey(directory + "/" + fileName)
+                            .setObjectVersionId("version-" + fileId)
+                            .setRetentionMode("COMPLIANCE")
+                            .setRetainUntil(Instant.parse("2036-08-31T00:00:00Z"))
+                            .setLegalHoldStatus("ON")
+                            .setVerifiedAt(Instant.parse("2026-08-31T00:00:00Z"))
+                            .setChecksumSha256(policy.getChecksumSha256());
+                    protectedArchiveFiles.put(fileId, content.clone());
+                    protectedArchiveEvidence.put(fileId, evidence);
+                    return evidence;
+                });
+        when(fileService.requireStorageRetentionEvidence(any(), any(StorageRetentionPolicy.class)))
+                .thenAnswer(invocation -> protectedArchiveEvidence.get(invocation.getArgument(0, Long.class)));
+        when(fileService.getFileContentWithStorageRetention(any(), any(StorageRetentionPolicy.class)))
+                .thenAnswer(invocation -> {
+                    byte[] content = protectedArchiveFiles.get(invocation.getArgument(0, Long.class));
+                    return content == null ? null : content.clone();
+                });
         when(authoritativeContextResolver.resolve(any(MesBatchExecutionProvisionCommand.class), eq(1L)))
                 .thenAnswer(invocation -> testAuthoritativeContext(invocation.getArgument(0)));
         when(batchExecutionEntryContractService.validate(any(MesBatchExecutionAuthoritativeContext.class)))
@@ -6224,7 +6283,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void generateArchive_requiresClosedBatch() {
+    void generateArchive_requiresClosedBatch() throws Exception {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -6252,6 +6311,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setArtifactType("BATCH_FINAL_PDF")
                 .setWorkTaskId(9902L));
         assertNotNull(archive.getId());
+        assertEquals(MesProEdhrPdfAValidator.PROFILE, archive.getPdfaProfile());
+        assertEquals(MesProEdhrPdfAValidator.STATUS_VALID, archive.getPdfaValidationStatus());
+        assertNotNull(archive.getPdfaValidatedAt());
+        MesProEdhrBatchExecutionArchiveDO storedArchive = batchArchiveMapper.selectById(archive.getId());
+        assertNotNull(storedArchive.getFileId());
+        assertNotNull(storedArchive.getStorageRetentionJson());
+        assertEquals(MesProEdhrPdfAValidator.PROFILE, storedArchive.getPdfaProfile());
         MesProEdhrBatchExecutionArchiveDO deletedArchive = new MesProEdhrBatchExecutionArchiveDO()
                 .setBatchExecutionId(batch.getId())
                 .setArtifactType("BATCH_FINAL_PDF")
@@ -6276,6 +6342,156 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals("application/pdf", download.getContentType());
         assertTrue(download.getContent().length > 0);
         assertEquals("%PDF-1.4", new String(download.getContent(), 0, 8, StandardCharsets.UTF_8));
+        assertEquals(storedArchive.getContentHash(), DigestUtil.sha256Hex(download.getContent()));
+        assertArrayEquals(protectedArchiveFiles.get(storedArchive.getFileId()), download.getContent());
+        verify(pdfAValidator).validateOrThrow(any(byte[].class));
+        verify(fileService).requireStorageRetentionEvidence(eq(storedArchive.getFileId()),
+                any(StorageRetentionPolicy.class));
+        verify(fileService).getFileContentWithStorageRetention(eq(storedArchive.getFileId()),
+                any(StorageRetentionPolicy.class));
+    }
+
+    @Test
+    void generateArchive_pdfAValidationFailure_keepsBatchClosedAndTaskPending() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-PDFA-INVALID")
+                .setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9903L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO().setId(9903L).setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+        doThrow(new IllegalStateException("PDF/A-1b validation failed"))
+                .when(pdfAValidator).validateOrThrow(any(byte[].class));
+
+        assertServiceException(() -> batchExecutionService.generateArchive(new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9903L)),
+                PRO_EDHR_BATCH_EXECUTION_ARCHIVE_PDFA_INVALID, "PDF/A-1b validation failed");
+
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        verify(fileService, never()).createFileWithStorageRetention(any(), any(byte[].class), any(), any(), any(), any());
+        verify(workTaskService, never()).completeArchiveTask(9903L, batch.getId());
+    }
+
+    @Test
+    void generateArchive_incompleteStorageEvidence_keepsBatchClosedAndTaskPending() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-STORAGE-INVALID")
+                .setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9904L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO().setId(9904L).setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+        when(fileService.createFileWithStorageRetention(eq(MesEdhrArchiveProtectedStorage.FILE_CONFIG_ID),
+                any(byte[].class), any(), any(), eq("application/pdf"), any(StorageRetentionPolicy.class)))
+                .thenReturn(new StorageRetentionEvidence().setFileId(77L));
+
+        assertServiceException(() -> batchExecutionService.generateArchive(new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9904L)),
+                PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_EVIDENCE_INVALID);
+
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        verify(workTaskService, never()).completeArchiveTask(9904L, batch.getId());
+    }
+
+    @Test
+    void generateArchive_storageFailure_keepsBatchClosedAndTaskPending() throws Exception {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-STORAGE-FAILED")
+                .setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9906L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO().setId(9906L).setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+        doThrow(new IllegalStateException("protected storage unavailable"))
+                .when(fileService).createFileWithStorageRetention(
+                        eq(MesEdhrArchiveProtectedStorage.FILE_CONFIG_ID), any(byte[].class), any(), any(),
+                        eq("application/pdf"), any(StorageRetentionPolicy.class));
+
+        assertServiceException(() -> batchExecutionService.generateArchive(new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9906L)),
+                PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_FAILED);
+
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        assertTrue(batchArchiveMapper.selectListByBatchExecutionId(batch.getId()).isEmpty());
+        verify(workTaskService, never()).completeArchiveTask(9906L, batch.getId());
+    }
+
+    @Test
+    void downloadArchive_checksumMismatch_rejectsStoredContent() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-CHECKSUM-MISMATCH")
+                .setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9905L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO().setId(9905L).setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+        EdhrBatchExecutionArchiveRespVO archive = batchExecutionService.generateArchive(
+                new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9905L));
+        MesProEdhrBatchExecutionArchiveDO storedArchive = batchArchiveMapper.selectById(archive.getId());
+        protectedArchiveFiles.put(storedArchive.getFileId(), "tampered".getBytes(StandardCharsets.UTF_8));
+
+        assertServiceException(() -> batchExecutionService.downloadArchive(archive.getId()),
+                PRO_EDHR_BATCH_EXECUTION_ARCHIVE_CHECKSUM_MISMATCH);
+    }
+
+    @Test
+    void downloadArchive_storageEvidenceMismatch_rejectsStoredContent() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-EVIDENCE-MISMATCH")
+                .setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(LocalDateTime.now()));
+        when(workTaskService.validateArchiveTask(9907L, batch.getId()))
+                .thenReturn(new MesProEdhrWorkTaskDO().setId(9907L).setBatchExecutionId(batch.getId())
+                        .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE));
+        EdhrBatchExecutionArchiveRespVO archive = batchExecutionService.generateArchive(
+                new EdhrBatchExecutionArchiveGenerateReqVO()
+                        .setBatchExecutionId(batch.getId())
+                        .setArtifactType("BATCH_FINAL_PDF")
+                        .setWorkTaskId(9907L));
+        MesProEdhrBatchExecutionArchiveDO storedArchive = batchArchiveMapper.selectById(archive.getId());
+        protectedArchiveEvidence.get(storedArchive.getFileId()).setObjectVersionId("unexpected-version");
+
+        assertServiceException(() -> batchExecutionService.downloadArchive(archive.getId()),
+                PRO_EDHR_BATCH_EXECUTION_ARCHIVE_STORAGE_EVIDENCE_INVALID);
     }
 
     @Test

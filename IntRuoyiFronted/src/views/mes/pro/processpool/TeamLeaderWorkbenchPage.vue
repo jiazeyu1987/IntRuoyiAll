@@ -8236,6 +8236,11 @@ const resolveActiveOrderReleaseFailure = (
   return blockersAreComplete ? (candidate as TeamLeaderActiveOrderReleaseFailureRespVO) : undefined
 }
 
+const isDefinitiveActiveOrderReleaseBusinessFailure = (error: unknown) => {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'number' && Number.isFinite(code)
+}
+
 const confirmActiveOrderReleaseApplicationReceipt = async (
   row: TeamLeaderActiveOrderRespVO
 ): Promise<TeamLeaderActiveOrderReleaseApplyRespVO> => {
@@ -8302,7 +8307,7 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   }
   try {
     await ElMessageBox.confirm(
-      '系统将提交生产放行申请并生成一个PQC待办；不会创建批次、报告上传任务或最终放行事务。',
+      '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；不会创建批次、报告上传任务或最终放行事务。',
       '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
     )
@@ -8330,6 +8335,10 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
       releaseApplicationLocks.delete(row.id)
       releaseApplicationUncertainMessage.value = ''
       ElMessage.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
+    } else if (isDefinitiveActiveOrderReleaseBusinessFailure(writeError)) {
+      releaseApplicationLocks.delete(row.id)
+      releaseApplicationUncertainMessage.value = ''
+      ElMessage.error(resolveErrorMessage(writeError, '生产完工或放行申请失败'))
     } else {
       await recoverUncertainActiveOrderReleaseApplication(row, writeError)
     }

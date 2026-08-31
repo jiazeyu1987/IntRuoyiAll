@@ -26,9 +26,15 @@
         <el-descriptions-item label="有效期至">{{ formatRegistrationCertificateDate(detail.expiryDate) }}</el-descriptions-item>
         <el-descriptions-item label="项目代码">{{ displayText(detail.projectCode) }}</el-descriptions-item>
         <el-descriptions-item label="注册证文件">
-          <el-tag :type="getMissingMarkerTagType(detail.hasRegistrationFile)">
-            {{ formatMissingMarker(detail.hasRegistrationFile) }}
-          </el-tag>
+          <div
+            v-if="detail.registrationFileId && detail.registrationFileName"
+            class="detail-attachment"
+            data-testid="registration-certificate-detail-attachment"
+          >
+            <Icon icon="lucide:paperclip" :size="16" />
+            <span class="detail-attachment__name">{{ detail.registrationFileName }}</span>
+          </div>
+          <span v-else>未提供</span>
         </el-descriptions-item>
         <el-descriptions-item label="注册人">{{ displayText(detail.registrantName) }}</el-descriptions-item>
         <el-descriptions-item label="生产方式">
@@ -67,9 +73,82 @@
         :downloadable-files="downloadableFiles"
       />
 
+      <el-card
+        class="detail-card"
+        data-testid="registration-certificate-renewal-history"
+        shadow="never"
+      >
+        <template #header>
+          <div class="detail-card__header">
+            <span>延续记录</span>
+            <el-tag type="info">{{ renewalHistory.length }} 次</el-tag>
+          </div>
+        </template>
+        <el-empty v-if="renewalHistory.length === 0" description="暂无延续记录" />
+        <div v-else class="renewal-history">
+          <section
+            v-for="item in renewalHistory"
+            :key="String(item.targetVersionId)"
+            class="renewal-history__item"
+          >
+            <div class="renewal-history__heading">
+              <div class="renewal-history__version">
+                <strong v-if="item.versionNo">V{{ item.versionNo }}</strong>
+                <strong v-else class="renewal-history__missing">版本信息缺失</strong>
+                <span>记录时间 {{ formatDateTimeValue(item.occurredAt) }}</span>
+              </div>
+              <el-tag :type="getCategoryChangedTagType(item.categoryChanged)">
+                {{ formatCategoryChangedStatus(item.categoryChanged) }}
+              </el-tag>
+            </div>
+
+            <div class="renewal-history__section-label">延续参数</div>
+            <dl class="renewal-history__parameters">
+              <div>
+                <dt>批准日期</dt>
+                <dd>{{ formatRegistrationCertificateDate(item.approvalDate) }}</dd>
+              </div>
+              <div>
+                <dt>生效日期</dt>
+                <dd>{{ formatRegistrationCertificateDate(item.effectiveDate) }}</dd>
+              </div>
+              <div>
+                <dt>有效期至</dt>
+                <dd>{{ formatRegistrationCertificateDate(item.expiryDate) }}</dd>
+              </div>
+              <div>
+                <dt>类别是否变更</dt>
+                <dd>{{ formatBooleanChoice(item.categoryChanged) }}</dd>
+              </div>
+              <template v-if="item.categoryChanged">
+                <div>
+                  <dt>变更后注册证号</dt>
+                  <dd>{{ displayText(item.certificateNo) }}</dd>
+                </div>
+                <div>
+                  <dt>变更后类别</dt>
+                  <dd>{{ displayText(item.classification) }}</dd>
+                </div>
+              </template>
+            </dl>
+
+            <div class="renewal-history__file">
+              <Icon icon="lucide:file-text" />
+              <span class="renewal-history__file-label">延续注册证文件</span>
+              <span v-if="item.originalFileName" class="renewal-history__file-name">
+                {{ item.originalFileName }}
+              </span>
+              <el-tag v-if="item.fileStatus === 'BOUND'" type="success">已归档</el-tag>
+              <el-tag v-else-if="item.fileStatus === 'VOIDED'" type="info">已作废</el-tag>
+              <el-tag v-else type="danger">缺少正式文件</el-tag>
+            </div>
+          </section>
+        </div>
+      </el-card>
+
       <el-card class="detail-card" shadow="never">
         <template #header>历史记录</template>
-        <el-table :data="history" row-key="eventType">
+        <el-table :data="otherHistory">
           <el-table-column label="事件" prop="eventType" min-width="150" />
           <el-table-column label="对象" prop="itemType" min-width="150" />
           <el-table-column label="操作人" prop="actorId" width="120" />
@@ -90,6 +169,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   getRegistrationCertificateDetail,
   getRegistrationCertificateHistory,
@@ -101,11 +181,9 @@ import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
 import {
   displayText,
   formatEntrustedEnterpriseNames,
-  formatMissingMarker,
   formatRegistrationCertificateDate,
   formatRegistrationCertificateReminder,
   formatRegistrationCertificateStatus,
-  getMissingMarkerTagType,
   getRegistrationCertificateReminderTagType,
   getRegistrationCertificateStatusTagType
 } from '../shared/state'
@@ -124,6 +202,30 @@ const invalidRoute = computed(() => !certificateId.value)
 const loading = ref(false)
 const detail = ref<DccRegistrationCertificateDetailVO>()
 const history = ref<DccRegistrationCertificateHistoryItemVO[]>([])
+const renewalHistory = computed(() => history.value
+  .filter((item) => item.eventType === 'RENEWAL_UPLOADED')
+  .slice()
+  .reverse())
+const otherHistory = computed(() => history.value
+  .filter((item) => item.eventType !== 'RENEWAL_UPLOADED'))
+
+const formatBooleanChoice = (value?: boolean) => {
+  if (value === true) return '是'
+  if (value === false) return '否'
+  return '缺少正式记录'
+}
+
+const formatCategoryChangedStatus = (value?: boolean) => {
+  if (value === true) return '类别已变更'
+  if (value === false) return '类别未变更'
+  return '类别变更记录缺失'
+}
+
+const getCategoryChangedTagType = (value?: boolean) => {
+  if (value === true) return 'warning'
+  if (value === false) return 'info'
+  return 'danger'
+}
 
 type DownloadableFileOption = {
   businessFileId: number | string
@@ -145,18 +247,14 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   }
   let changeApprovalFileIndex = 0
   history.value.forEach((item) => {
-    if (!item.businessFileId || !item.fileKind) {
+    if (!item.businessFileId || item.fileKind !== 'CHANGE_APPROVAL') {
       return
     }
-    if (item.fileKind === 'CHANGE_APPROVAL') {
-      changeApprovalFileIndex += 1
-    }
+    changeApprovalFileIndex += 1
     files.push({
       businessFileId: item.businessFileId,
       fileKind: item.fileKind,
-      label: item.fileKind === 'CHANGE_APPROVAL'
-        ? `变更批件文件 ${changeApprovalFileIndex}`
-        : `业务文件 ${files.length + 1}`
+      label: `变更批件文件 ${changeApprovalFileIndex}`
     })
   })
   const seen = new Set<string>()
@@ -211,15 +309,138 @@ onMounted(loadDetail)
   margin-top: 4px;
 }
 
+.detail-card__header,
+.renewal-history__heading,
+.renewal-history__file {
+  display: flex;
+  align-items: center;
+}
+
+.detail-card__header,
+.renewal-history__heading {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-card__header {
+  font-weight: 600;
+}
+
+.renewal-history__item {
+  padding: 4px 0 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.renewal-history__item + .renewal-history__item {
+  padding-top: 20px;
+}
+
+.renewal-history__item:last-child {
+  padding-bottom: 4px;
+  border-bottom: 0;
+}
+
+.renewal-history__version {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.renewal-history__version strong {
+  color: var(--el-text-color-primary);
+  font-size: 16px;
+}
+
+.renewal-history__version span,
+.renewal-history__section-label,
+.renewal-history__parameters dt,
+.renewal-history__file-label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.renewal-history__missing {
+  color: var(--el-color-danger) !important;
+}
+
+.renewal-history__section-label {
+  margin: 18px 0 8px;
+}
+
+.renewal-history__parameters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+}
+
+.renewal-history__parameters div {
+  min-width: 0;
+}
+
+.renewal-history__parameters dt,
+.renewal-history__parameters dd {
+  margin: 0;
+}
+
+.renewal-history__parameters dd {
+  margin-top: 4px;
+  color: var(--el-text-color-primary);
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.renewal-history__file {
+  min-height: 36px;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 16px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+}
+
+.renewal-history__file-name {
+  min-width: 0;
+  color: var(--el-text-color-primary);
+  overflow-wrap: anywhere;
+}
+
 .detail-enterprise-names {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+.detail-attachment {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  color: var(--el-text-color-primary);
+}
+
+.detail-attachment__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .detail-remark {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .renewal-history__heading,
+  .renewal-history__version,
+  .renewal-history__file {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .renewal-history__parameters {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
