@@ -6,14 +6,20 @@ import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblGrid;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblGridCol;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBorder;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcBorders;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,16 +36,32 @@ final class WordTableVisualSchemaBuilder {
     }
 
     static String build(XWPFTable table) {
+        return build(table, 0, table.getRows().size());
+    }
+
+    static String build(XWPFTable table, int startRowInclusive, int endRowExclusive) {
+        if (startRowInclusive < 0 || endRowExclusive > table.getRows().size()
+                || startRowInclusive >= endRowExclusive) {
+            throw new IllegalArgumentException("invalid Word table row range");
+        }
         int columnCount = resolveColumnCount(table);
+        List<Map<String, Object>> styles = new ArrayList<>();
+        Map<String, Integer> styleIndexes = new HashMap<>();
+        List<String> merges = new ArrayList<>();
         Map<String, Object> layout = new LinkedHashMap<>();
         layout.put("cols", buildColumns(table, columnCount));
-        layout.put("rows", buildRows(table, columnCount));
-        layout.put("merges", List.of());
+        layout.put("rows", buildRows(table, columnCount, startRowInclusive, endRowExclusive,
+                styles, styleIndexes, merges));
+        layout.put("styles", styles);
+        layout.put("merges", merges);
 
+        List<Map<String, Object>> cellRules = buildCellRules(table, columnCount,
+                startRowInclusive, endRowExclusive);
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("sheetLayoutJson", JsonUtils.toJsonString(layout));
-        schema.put("cellRules", buildCellRules(table, columnCount));
-        schema.put("signatureCellMarkers", buildSignatureCellMarkers(table, columnCount));
+        schema.put("cellRules", cellRules);
+        schema.put("signatureCellMarkers", buildSignatureCellMarkers(table, columnCount,
+                startRowInclusive, endRowExclusive, cellRules));
         schema.put("assistRows", List.of());
         schema.put("fillAssignments", List.of());
         return JsonUtils.toJsonString(schema);
@@ -57,11 +79,16 @@ final class WordTableVisualSchemaBuilder {
         return columns;
     }
 
-    private static Map<String, Object> buildRows(XWPFTable table, int columnCount) {
+    private static Map<String, Object> buildRows(XWPFTable table, int columnCount,
+                                                  int startRowInclusive, int endRowExclusive,
+                                                  List<Map<String, Object>> styles,
+                                                  Map<String, Integer> styleIndexes,
+                                                  List<String> merges) {
         Map<String, Object> rows = new LinkedHashMap<>();
         List<XWPFTableRow> tableRows = table.getRows();
-        for (int rowIndex = 0; rowIndex < tableRows.size(); rowIndex++) {
-            XWPFTableRow row = tableRows.get(rowIndex);
+        for (int sourceRowIndex = startRowInclusive; sourceRowIndex < endRowExclusive; sourceRowIndex++) {
+            int rowIndex = sourceRowIndex - startRowInclusive;
+            XWPFTableRow row = tableRows.get(sourceRowIndex);
             Map<String, Object> cells = new LinkedHashMap<>();
             int columnIndex = 0;
             List<XWPFTableCell> rowCells = row.getTableCells();
@@ -73,39 +100,46 @@ final class WordTableVisualSchemaBuilder {
                     continue;
                 }
                 int rowSpan = isVerticalMergeRestart(cell)
-                        ? resolveVerticalSpan(table, rowIndex, physicalCellIndex) : 1;
+                        ? resolveVerticalSpan(table, sourceRowIndex, columnIndex, columnSpan, endRowExclusive) : 1;
+                int styleIndex = resolveStyleIndex(cell, styles, styleIndexes);
                 List<InlineInputSegment> segmentedInputs = parseSegmentedInputCell(cell.getText());
                 if (!segmentedInputs.isEmpty()) {
-                    appendSegmentedInputLayout(cells, columnIndex, rowSpan, columnSpan, segmentedInputs);
+                    appendSegmentedInputLayout(cells, rowIndex, columnIndex, rowSpan, columnSpan,
+                            segmentedInputs, styleIndex, merges);
                     columnIndex += columnSpan;
                     continue;
                 }
                 InlineTextInput inlineInput = parseInlineTextInput(cell.getText());
                 if (inlineInput == null) {
-                    cells.put(String.valueOf(columnIndex), layoutCell(normalizeText(cell.getText()), rowSpan, columnSpan));
+                    cells.put(String.valueOf(columnIndex), layoutCell(resolveCellText(cell),
+                            rowIndex, columnIndex, rowSpan, columnSpan, styleIndex,
+                            resolveDiagonalDirection(cell), merges));
                     columnIndex += columnSpan;
                     continue;
                 }
 
                 int visualSpan = Math.max(columnSpan, 2);
-                cells.put(String.valueOf(columnIndex), layoutCell(inlineInput.label(), rowSpan, 1));
-                cells.put(String.valueOf(columnIndex + 1), layoutCell("", rowSpan, visualSpan - 1));
+                cells.put(String.valueOf(columnIndex), layoutCell(inlineInput.label(),
+                        rowIndex, columnIndex, rowSpan, 1, styleIndex, null, merges));
+                cells.put(String.valueOf(columnIndex + 1), layoutCell("",
+                        rowIndex, columnIndex + 1, rowSpan, visualSpan - 1, styleIndex, null, merges));
                 columnIndex += visualSpan;
             }
             rows.put(String.valueOf(rowIndex), Map.of(
                     "height", resolveRowHeight(row),
                     "cells", cells));
         }
-        rows.put("len", tableRows.size());
+        rows.put("len", endRowExclusive - startRowInclusive);
         return rows;
     }
 
-    private static List<Map<String, Object>> buildCellRules(XWPFTable table, int columnCount) {
+    private static List<Map<String, Object>> buildCellRules(XWPFTable table, int columnCount,
+                                                             int startRowInclusive, int endRowExclusive) {
         List<Map<String, Object>> rules = new ArrayList<>();
-        List<XWPFTableRow> tableRows = table.getRows();
+        List<XWPFTableRow> tableRows = table.getRows().subList(startRowInclusive, endRowExclusive);
         buildHeaderRules(tableRows.isEmpty() ? null : tableRows.get(0), rules);
-        Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(table, columnCount);
-        int headerRowIndex = resolveInspectionHeaderRowIndex(table);
+        Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(tableRows, columnCount);
+        int headerRowIndex = resolveInspectionHeaderRowIndex(tableRows);
         for (int rowIndex = 0; rowIndex < tableRows.size(); rowIndex++) {
             if (rowIndex <= headerRowIndex) {
                 continue;
@@ -135,6 +169,10 @@ final class WordTableVisualSchemaBuilder {
                     continue;
                 }
                 String text = normalizeText(cell.getText());
+                if (isFullWidthFormTitle(rowIndex, columnSpan, columnCount, text)) {
+                    columnIndex += columnSpan;
+                    continue;
+                }
                 if (countCheckboxMarkers(text) > 0) {
                     rules.add(buildCheckboxRule(rowIndex, columnIndex, text));
                     columnIndex += columnSpan;
@@ -156,7 +194,13 @@ final class WordTableVisualSchemaBuilder {
                 columnIndex += columnSpan;
             }
         }
+        buildGenericBlankCellRules(tableRows, columnCount, rules);
         return rules;
+    }
+
+    private static boolean isFullWidthFormTitle(int rowIndex, int columnSpan, int columnCount, String text) {
+        return rowIndex == 0 && columnSpan >= columnCount
+                && (text.contains("记录") || text.contains("表单"));
     }
 
     private static void buildHeaderRules(XWPFTableRow row, List<Map<String, Object>> rules) {
@@ -180,13 +224,17 @@ final class WordTableVisualSchemaBuilder {
         }
     }
 
-    private static void appendSegmentedInputLayout(Map<String, Object> cells, int startColumn, int rowSpan,
-                                                   int columnSpan, List<InlineInputSegment> segments) {
+    private static void appendSegmentedInputLayout(Map<String, Object> cells, int rowIndex, int startColumn,
+                                                   int rowSpan, int columnSpan,
+                                                   List<InlineInputSegment> segments, int styleIndex,
+                                                   List<String> merges) {
         for (InlineInputPlacement placement : resolveSegmentedInputPlacements(startColumn, columnSpan, segments)) {
             cells.put(String.valueOf(placement.labelColumn()),
-                    layoutCell(placement.segment().displayLabel(), rowSpan, placement.labelSpan()));
+                    layoutCell(placement.segment().displayLabel(), rowIndex, placement.labelColumn(),
+                            rowSpan, placement.labelSpan(), styleIndex, null, merges));
             cells.put(String.valueOf(placement.inputColumn()),
-                    layoutCell("", rowSpan, placement.inputSpan()));
+                    layoutCell("", rowIndex, placement.inputColumn(), rowSpan,
+                            placement.inputSpan(), styleIndex, null, merges));
         }
     }
 
@@ -222,19 +270,20 @@ final class WordTableVisualSchemaBuilder {
         return placements;
     }
 
-    private static List<Map<String, Object>> buildSignatureCellMarkers(XWPFTable table, int columnCount) {
+    private static List<Map<String, Object>> buildSignatureCellMarkers(XWPFTable table, int columnCount,
+                                                                        int startRowInclusive,
+                                                                        int endRowExclusive,
+                                                                        List<Map<String, Object>> cellRules) {
         List<Map<String, Object>> markers = new ArrayList<>();
-        Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(table, columnCount);
-        int headerRowIndex = resolveInspectionHeaderRowIndex(table);
+        List<XWPFTableRow> tableRows = table.getRows().subList(startRowInclusive, endRowExclusive);
+        Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(tableRows, columnCount);
+        int headerRowIndex = resolveInspectionHeaderRowIndex(tableRows);
         Integer signatureColumn = headerLabels.entrySet().stream()
                 .filter(entry -> entry.getValue().contains("复核人"))
                 .map(Map.Entry::getKey)
                 .findFirst().orElse(null);
-        if (signatureColumn == null) {
-            return markers;
-        }
-        for (int rowIndex = headerRowIndex + 1; rowIndex < table.getRows().size(); rowIndex++) {
-            if (!isFooterRow(rowText(table.getRow(rowIndex)))) {
+        for (int rowIndex = headerRowIndex + 1; signatureColumn != null && rowIndex < tableRows.size(); rowIndex++) {
+            if (!isFooterRow(rowText(tableRows.get(rowIndex)))) {
                 markers.add(Map.of(
                         "rowIndex", rowIndex,
                         "columnIndex", signatureColumn,
@@ -244,17 +293,41 @@ final class WordTableVisualSchemaBuilder {
                         "label", "复核人/日期"));
             }
         }
+        Set<String> existing = markers.stream()
+                .map(marker -> marker.get("rowIndex") + ":" + marker.get("columnIndex"))
+                .collect(java.util.stream.Collectors.toSet());
+        for (Map<String, Object> rule : cellRules) {
+            if (!"SIGNATURE".equals(rule.get("valueType"))) {
+                continue;
+            }
+            int rowIndex = ((Number) rule.get("rowIndex")).intValue();
+            int columnIndex = ((Number) rule.get("columnIndex")).intValue();
+            String key = rowIndex + ":" + columnIndex;
+            if (existing.add(key)) {
+                markers.add(Map.of(
+                        "rowIndex", rowIndex,
+                        "columnIndex", columnIndex,
+                        "enabled", true,
+                        "signatureCellKey", key,
+                        "actionType", "FORM_REVIEW",
+                        "label", String.valueOf(rule.get("label"))));
+            }
+        }
         return markers;
     }
 
     private static Map<Integer, String> resolveInspectionHeaderLabels(XWPFTable table, int columnCount) {
-        int headerRowIndex = resolveInspectionHeaderRowIndex(table);
+        return resolveInspectionHeaderLabels(table.getRows(), columnCount);
+    }
+
+    private static Map<Integer, String> resolveInspectionHeaderLabels(List<XWPFTableRow> rows, int columnCount) {
+        int headerRowIndex = resolveInspectionHeaderRowIndex(rows);
         if (headerRowIndex < 0) {
             return Map.of();
         }
         Map<Integer, String> labels = new LinkedHashMap<>();
         int columnIndex = 0;
-        for (XWPFTableCell cell : table.getRow(headerRowIndex).getTableCells()) {
+        for (XWPFTableCell cell : rows.get(headerRowIndex).getTableCells()) {
             int columnSpan = resolveColumnSpan(cell);
             String text = normalizeText(cell.getText());
             for (int offset = 0; offset < columnSpan && columnIndex + offset < columnCount; offset++) {
@@ -266,8 +339,12 @@ final class WordTableVisualSchemaBuilder {
     }
 
     private static int resolveInspectionHeaderRowIndex(XWPFTable table) {
-        for (int rowIndex = 0; rowIndex < table.getRows().size(); rowIndex++) {
-            String text = rowText(table.getRow(rowIndex));
+        return resolveInspectionHeaderRowIndex(table.getRows());
+    }
+
+    private static int resolveInspectionHeaderRowIndex(List<XWPFTableRow> rows) {
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            String text = rowText(rows.get(rowIndex));
             if (text.contains("序号") && text.contains("检验日期") && text.contains("检测数量")) {
                 return rowIndex;
             }
@@ -329,11 +406,20 @@ final class WordTableVisualSchemaBuilder {
         return (int) text.chars().filter(character -> character == '□').count();
     }
 
-    private static Map<String, Object> layoutCell(String text, int rowSpan, int columnSpan) {
+    private static Map<String, Object> layoutCell(String text, int rowIndex, int columnIndex,
+                                                   int rowSpan, int columnSpan, int styleIndex,
+                                                   String diagonalDirection, List<String> merges) {
         Map<String, Object> cell = new LinkedHashMap<>();
         cell.put("text", text);
+        cell.put("style", styleIndex);
+        if (diagonalDirection != null) {
+            cell.put("edhrDiagonalSlash", true);
+            cell.put("edhrDiagonalSlashDirection", diagonalDirection);
+        }
         if (rowSpan > 1 || columnSpan > 1) {
             cell.put("merge", List.of(rowSpan - 1, columnSpan - 1));
+            merges.add(toMergeRange(rowIndex, columnIndex,
+                    rowIndex + rowSpan - 1, columnIndex + columnSpan - 1));
         }
         return cell;
     }
@@ -377,16 +463,222 @@ final class WordTableVisualSchemaBuilder {
         return value == null || STMerge.CONTINUE.equals(value);
     }
 
-    private static int resolveVerticalSpan(XWPFTable table, int rowIndex, int cellIndex) {
+    private static int resolveVerticalSpan(XWPFTable table, int rowIndex, int startColumn,
+                                            int columnSpan, int endRowExclusive) {
         int span = 1;
-        for (int nextRowIndex = rowIndex + 1; nextRowIndex < table.getRows().size(); nextRowIndex++) {
-            List<XWPFTableCell> nextCells = table.getRow(nextRowIndex).getTableCells();
-            if (cellIndex >= nextCells.size() || !isVerticalMergeFollower(nextCells.get(cellIndex))) {
+        for (int nextRowIndex = rowIndex + 1; nextRowIndex < endRowExclusive; nextRowIndex++) {
+            PositionedCell nextCell = findCellAtColumn(table.getRow(nextRowIndex), startColumn);
+            if (nextCell == null || nextCell.columnSpan() != columnSpan
+                    || !isVerticalMergeFollower(nextCell.cell())) {
                 break;
             }
             span++;
         }
         return span;
+    }
+
+    private static PositionedCell findCellAtColumn(XWPFTableRow row, int targetColumn) {
+        int columnIndex = 0;
+        for (XWPFTableCell cell : row.getTableCells()) {
+            int columnSpan = resolveColumnSpan(cell);
+            if (columnIndex == targetColumn) {
+                return new PositionedCell(cell, columnIndex, columnSpan);
+            }
+            columnIndex += columnSpan;
+        }
+        return null;
+    }
+
+    private static void buildGenericBlankCellRules(List<XWPFTableRow> rows, int columnCount,
+                                                    List<Map<String, Object>> rules) {
+        Set<String> existing = new HashSet<>();
+        for (Map<String, Object> rule : rules) {
+            existing.add(rule.get("rowIndex") + ":" + rule.get("columnIndex"));
+        }
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            int columnIndex = 0;
+            for (XWPFTableCell cell : rows.get(rowIndex).getTableCells()) {
+                int columnSpan = resolveColumnSpan(cell);
+                String key = rowIndex + ":" + columnIndex;
+                if (!isVerticalMergeFollower(cell) && normalizeText(cell.getText()).isBlank()
+                        && !hasDiagonalBorder(cell) && !existing.contains(key)) {
+                    String label = resolveBlankCellLabel(rows, rowIndex, columnIndex, columnSpan, columnCount);
+                    if (!label.isBlank()) {
+                        String valueType = inferValueType(label);
+                        String componentFlag = switch (valueType) {
+                            case "NUMBER" -> "input-number";
+                            case "DATE" -> "date";
+                            case "SIGNATURE" -> "signature";
+                            default -> "input-text";
+                        };
+                        rules.add(buildRule(rowIndex, columnIndex, valueType, componentFlag, label, Map.of()));
+                        existing.add(key);
+                    }
+                }
+                columnIndex += columnSpan;
+            }
+        }
+    }
+
+    private static String resolveBlankCellLabel(List<XWPFTableRow> rows, int rowIndex, int columnIndex,
+                                                int columnSpan, int columnCount) {
+        for (int previousRowIndex = rowIndex - 1; previousRowIndex >= 0; previousRowIndex--) {
+            PositionedCell candidate = findCoveringCell(rows.get(previousRowIndex), columnIndex);
+            if (candidate == null || isVerticalMergeFollower(candidate.cell()) || hasDiagonalBorder(candidate.cell())) {
+                continue;
+            }
+            String text = normalizeBlankRuleLabel(candidate.cell().getText());
+            if (isMeaningfulFieldLabel(text, candidate.columnSpan(), columnSpan, columnCount)) {
+                return text;
+            }
+        }
+        PositionedCell previous = null;
+        int currentColumn = 0;
+        for (XWPFTableCell cell : rows.get(rowIndex).getTableCells()) {
+            int currentSpan = resolveColumnSpan(cell);
+            if (currentColumn == columnIndex) {
+                break;
+            }
+            previous = new PositionedCell(cell, currentColumn, currentSpan);
+            currentColumn += currentSpan;
+        }
+        if (previous == null || previous.columnIndex() + previous.columnSpan() != columnIndex) {
+            return "";
+        }
+        String text = normalizeBlankRuleLabel(previous.cell().getText());
+        return isMeaningfulFieldLabel(text, previous.columnSpan(), columnSpan, columnCount) ? text : "";
+    }
+
+    private static PositionedCell findCoveringCell(XWPFTableRow row, int targetColumn) {
+        int columnIndex = 0;
+        for (XWPFTableCell cell : row.getTableCells()) {
+            int columnSpan = resolveColumnSpan(cell);
+            if (columnIndex <= targetColumn && targetColumn < columnIndex + columnSpan) {
+                return new PositionedCell(cell, columnIndex, columnSpan);
+            }
+            columnIndex += columnSpan;
+        }
+        return null;
+    }
+
+    private static boolean isMeaningfulFieldLabel(String text, int labelSpan, int valueSpan, int columnCount) {
+        if (text.isBlank() || text.contains("□") || text.startsWith("备注")) {
+            return false;
+        }
+        String compact = text.replaceAll("\\s+", "");
+        if (Set.of("参考值", "实际", "结果", "检查要求", "要求", "项目").contains(compact)) {
+            return false;
+        }
+        return labelSpan < Math.max(columnCount / 2, valueSpan * 4);
+    }
+
+    private static String normalizeBlankRuleLabel(String text) {
+        return normalizeText(text).replaceAll("[：:]$", "").trim();
+    }
+
+    private static String inferValueType(String label) {
+        String normalized = normalizeText(label);
+        if (normalized.contains("复核人") || normalized.contains("操作人") || normalized.contains("记录人")) {
+            return "SIGNATURE";
+        }
+        if (normalized.contains("日期")) {
+            return "DATE";
+        }
+        if (normalized.contains("数量") || normalized.contains("次数") || normalized.contains("序号")
+                || normalized.toLowerCase(Locale.ROOT).contains("pcs")) {
+            return "NUMBER";
+        }
+        return "STRING";
+    }
+
+    private static boolean hasDiagonalBorder(XWPFTableCell cell) {
+        return resolveDiagonalDirection(cell) != null;
+    }
+
+    private static String resolveDiagonalDirection(XWPFTableCell cell) {
+        CTTcPr properties = cell == null ? null : cell.getCTTc().getTcPr();
+        if (properties == null || !properties.isSetTcBorders()) {
+            return null;
+        }
+        CTTcBorders borders = properties.getTcBorders();
+        boolean topLeftToBottomRight = isVisibleBorder(borders.getTl2Br());
+        boolean topRightToBottomLeft = isVisibleBorder(borders.getTr2Bl());
+        if (topLeftToBottomRight && topRightToBottomLeft) {
+            return "BOTH";
+        }
+        if (topRightToBottomLeft) {
+            return "TR2BL";
+        }
+        return topLeftToBottomRight ? "TL2BR" : null;
+    }
+
+    private static boolean isVisibleBorder(CTBorder border) {
+        if (border == null) {
+            return false;
+        }
+        STBorder.Enum value = border.getVal();
+        return value == null || !("none".equalsIgnoreCase(value.toString())
+                || "nil".equalsIgnoreCase(value.toString()));
+    }
+
+    private static int resolveStyleIndex(XWPFTableCell cell, List<Map<String, Object>> styles,
+                                         Map<String, Integer> styleIndexes) {
+        String align = "left";
+        if (!cell.getParagraphs().isEmpty()) {
+            align = switch (cell.getParagraphs().get(0).getAlignment()) {
+                case CENTER -> "center";
+                case RIGHT -> "right";
+                default -> "left";
+            };
+        }
+        boolean bold = cell.getParagraphs().stream()
+                .flatMap(paragraph -> paragraph.getRuns().stream())
+                .anyMatch(run -> run.isBold());
+        int fontPointSize = cell.getParagraphs().stream()
+                .flatMap(paragraph -> paragraph.getRuns().stream())
+                .mapToInt(run -> run.getFontSize() > 0 ? run.getFontSize() : 0)
+                .filter(size -> size > 0)
+                .findFirst().orElse(10);
+        int fontSize = Math.max(8, Math.round(fontPointSize * 96F / 72F));
+        String key = align + "|" + bold + "|" + fontSize;
+        Integer existing = styleIndexes.get(key);
+        if (existing != null) {
+            return existing;
+        }
+        Map<String, Object> style = new LinkedHashMap<>();
+        style.put("align", align);
+        style.put("valign", "middle");
+        style.put("textwrap", true);
+        Map<String, Object> font = new LinkedHashMap<>();
+        font.put("size", fontSize);
+        if (bold) {
+            font.put("bold", true);
+        }
+        style.put("font", font);
+        style.put("border", Map.of(
+                "bottom", List.of("thin", "#000"),
+                "top", List.of("thin", "#000"),
+                "left", List.of("thin", "#000"),
+                "right", List.of("thin", "#000")));
+        int index = styles.size();
+        styles.add(style);
+        styleIndexes.put(key, index);
+        return index;
+    }
+
+    private static String toMergeRange(int startRow, int startColumn, int endRow, int endColumn) {
+        return toCellReference(startRow, startColumn) + ":" + toCellReference(endRow, endColumn);
+    }
+
+    private static String toCellReference(int rowIndex, int columnIndex) {
+        int value = columnIndex + 1;
+        StringBuilder column = new StringBuilder();
+        while (value > 0) {
+            int remainder = (value - 1) % 26;
+            column.insert(0, (char) ('A' + remainder));
+            value = (value - 1) / 26;
+        }
+        return column + String.valueOf(rowIndex + 1);
     }
 
     private static int resolveRowHeight(XWPFTableRow row) {
@@ -455,6 +747,14 @@ final class WordTableVisualSchemaBuilder {
         return text.replace("\r\n", "\n").replace('\r', '\n').trim();
     }
 
+    private static String resolveCellText(XWPFTableCell cell) {
+        String paragraphText = cell.getParagraphs().stream()
+                .map(paragraph -> normalizeText(paragraph.getText()))
+                .filter(text -> !text.isBlank())
+                .collect(java.util.stream.Collectors.joining("\n"));
+        return paragraphText.isBlank() ? normalizeText(cell.getText()) : paragraphText;
+    }
+
     private record InlineTextInput(String label, String underline) {
     }
 
@@ -464,6 +764,9 @@ final class WordTableVisualSchemaBuilder {
 
     private record InlineInputPlacement(InlineInputSegment segment, int labelColumn, int labelSpan,
                                         int inputColumn, int inputSpan) {
+    }
+
+    private record PositionedCell(XWPFTableCell cell, int columnIndex, int columnSpan) {
     }
 
 }

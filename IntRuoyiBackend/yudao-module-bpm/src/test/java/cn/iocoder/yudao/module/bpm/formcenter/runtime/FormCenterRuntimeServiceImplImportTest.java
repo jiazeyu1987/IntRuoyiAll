@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.bpm.formcenter.runtime;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormCenterTemplateImportReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
@@ -17,6 +18,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,7 +46,18 @@ class FormCenterRuntimeServiceImplImportTest {
         ReflectionTestUtils.setField(service, "templateRecognizer", templateRecognizer);
         when(templateVersionMapper.selectLatestByTemplateName(122L, "按压式压力泵过程检验记录"))
                 .thenReturn(null);
-        String visualSchema = "{\"sheetLayoutJson\":\"{\\\"rows\\\":{}}\",\"cellRules\":[]}";
+        String sheetLayout = JsonUtils.toJsonString(Map.of(
+                "rows", Map.of("0", Map.of("height", 30,
+                        "cells", Map.of("0", Map.of("text", "气密性检测工装："))), "len", 1),
+                "cols", Map.of("0", Map.of("width", 160), "len", 1),
+                "merges", List.of()));
+        String visualSchema = JsonUtils.toJsonString(Map.of(
+                "sheetLayoutJson", sheetLayout,
+                "cellRules", List.of(Map.of(
+                        "rowIndex", 0,
+                        "columnIndex", 0,
+                        "valueType", "STRING",
+                        "componentFlag", "input-text"))));
         when(templateRecognizer.recognize(any())).thenReturn(FormTemplateRecognition.success(List.of(
                 FormRecognizedField.of("field1", "气密性检测工装：", "input", false)), visualSchema));
         when(templateVersionMapper.insert(any(FormTemplateVersionDO.class))).thenAnswer(invocation -> {

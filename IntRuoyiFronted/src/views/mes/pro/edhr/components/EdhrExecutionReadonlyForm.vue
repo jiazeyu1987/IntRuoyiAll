@@ -39,6 +39,7 @@
                   :rowspan="cell.rowSpan"
                   :colspan="cell.colSpan"
                   :class="cell.classNames"
+                  :style="cell.cellStyle"
                 >
                   <span
                     v-if="cell.ruleBadge && !cell.fillablePlaceholder && cell.checkboxState === null"
@@ -107,6 +108,7 @@
                 :rowspan="cell.rowSpan"
                 :colspan="cell.colSpan"
                 :class="cell.classNames"
+                :style="cell.cellStyle"
               >
                 <span
                   v-if="cell.ruleBadge && !cell.fillablePlaceholder && cell.checkboxState === null"
@@ -174,7 +176,9 @@ import {
   resolveTemplateRuleState,
   resolveTemplateRuleTooltip,
   resolveTemplateRuleTypeBadge,
+  resolveTemplateCellCssStyle,
   templateSimulationComponentMap,
+  type TemplateRawStyle,
   type TemplateEditableCellContext,
   type TemplateRuleState,
   type TemplateRuleTypeBadge,
@@ -189,6 +193,9 @@ type RawLayoutCell = {
   text?: unknown
   value?: unknown
   merge?: unknown
+  style?: unknown
+  edhrDiagonalSlash?: boolean
+  edhrDiagonalSlashDirection?: 'TL2BR' | 'TR2BL' | 'BOTH'
   fillForm?: Record<string, unknown>
   edhrCellRule?: Record<string, unknown>
   edhrSignature?: RawSignatureCellMarker
@@ -209,6 +216,7 @@ type RawLayoutRow = {
 type RawLayout = {
   rows?: Record<string, RawLayoutRow>
   cols?: Record<string, { width?: unknown }>
+  styles?: TemplateRawStyle[]
   merges?: unknown[]
 }
 
@@ -256,6 +264,7 @@ type RenderedCell = {
   rowSpan: number
   colSpan: number
   classNames: Record<string, boolean>
+  cellStyle: Record<string, string>
   attachmentRuleText?: string
   fillablePlaceholder?: string
   placeholderIsTypeSymbol?: boolean
@@ -507,6 +516,7 @@ const renderedRows = computed<RenderedRow[]>(() => {
         ruleBadge,
         ruleState,
         ruleTooltip: ruleContext ? resolveTemplateRuleTooltip(ruleContext) : '',
+        cellStyle: resolveTemplateCellCssStyle(rawCell, layout.value?.styles),
         classNames: {
           'edhr-template-sheet__cell': true,
           'is-fillable': Boolean(rawCell?.fillForm || rawCell?.edhrCellRule),
@@ -521,7 +531,9 @@ const renderedRows = computed<RenderedRow[]>(() => {
           'is-signature-signed': Boolean(signatureMarker && findSignatureRecord(signatureMarker)),
           'is-signature-pending': Boolean(signatureMarker && !findSignatureRecord(signatureMarker)),
           'is-checkbox-cell': checkboxState !== null,
-          'is-attachment-rule-cell': Boolean(attachmentRuleText)
+          'is-attachment-rule-cell': Boolean(attachmentRuleText),
+          'is-diagonal-slash': Boolean(rawCell?.edhrDiagonalSlash),
+          'is-diagonal-slash-tl2br': rawCell?.edhrDiagonalSlashDirection === 'TL2BR'
         }
       })
     })
@@ -946,8 +958,26 @@ const isSectionTitle = (cell: RawLayoutCell | undefined, merge: { rowSpan: numbe
 }
 
 .edhr-template-sheet__cell.is-static {
-  background: #f3f4f6;
-  font-weight: 600;
+  background: #fff;
+  font-weight: inherit;
+}
+
+.edhr-template-sheet__cell.is-diagonal-slash {
+  background: #fff;
+}
+
+.edhr-template-sheet__cell.is-diagonal-slash::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #1f2937;
+  clip-path: polygon(calc(100% - 1px) 0, 100% 0, 1px 100%, 0 100%);
+  pointer-events: none;
+  content: '';
+}
+
+.edhr-template-sheet__cell.is-diagonal-slash-tl2br::after {
+  clip-path: polygon(0 0, 1px 0, 100% calc(100% - 1px), 100% 100%);
 }
 
 .edhr-template-sheet__cell.is-fillable {
@@ -962,7 +992,7 @@ const isSectionTitle = (cell: RawLayoutCell | undefined, merge: { rowSpan: numbe
 }
 
 .edhr-template-sheet__cell.is-section-title {
-  background: #e5e7eb;
+  background: #fff;
   font-weight: 700;
 }
 

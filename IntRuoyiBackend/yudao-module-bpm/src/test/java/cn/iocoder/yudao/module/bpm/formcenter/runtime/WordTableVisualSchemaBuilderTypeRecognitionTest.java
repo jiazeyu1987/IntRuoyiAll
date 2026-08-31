@@ -19,7 +19,7 @@ class WordTableVisualSchemaBuilderTypeRecognitionTest {
 
     @Test
     void buildRecognizesNumericDateCheckboxGroupAndSignatureCells() throws Exception {
-        Path fixture = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001", "过程检验记录.docx")
+        Path fixture = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001", "old", "过程检验记录.docx")
                 .toAbsolutePath().normalize();
         try (InputStream input = Files.newInputStream(fixture)) {
             try (XWPFDocument document = new XWPFDocument(input)) {
@@ -65,7 +65,7 @@ class WordTableVisualSchemaBuilderTypeRecognitionTest {
 
     @Test
     void recognizeFieldsClassifiesNumberDateCheckboxGroupAndSignature() throws Exception {
-        Path fixture = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001", "过程检验记录.docx")
+        Path fixture = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001", "old", "过程检验记录.docx")
                 .toAbsolutePath().normalize();
         FormTemplateImportCommand command = FormTemplateImportCommand.of(
                 "按压式压力泵过程检验记录", "V8.0", "过程检验记录.docx", Files.readAllBytes(fixture), "");

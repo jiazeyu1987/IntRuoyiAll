@@ -60,8 +60,16 @@ class FormCenterRuntimeImportRecognitionFlowContractTest {
         String builder = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/WordTableVisualSchemaBuilder.java"));
 
-        assertTrue(recognizer.contains("WordTableVisualSchemaBuilder.build(document.getTables().get(0))"),
-                "DOCX import must build the Jimu schema directly from the source Word table");
+        assertTrue(recognizer.contains("WordFormTableCandidateSelector.select(document, templateName)"),
+                "DOCX import must select one logical form candidate before building the Jimu schema");
+        assertTrue(recognizer.contains("candidate.startRowInclusive(), candidate.endRowExclusive()"),
+                "DOCX import must build only the selected logical form row range");
+        assertFalse(recognizer.contains("document.getTables().get(0)"),
+                "multi-table imports must never silently select the first Word table");
+        assertTrue(builder.contains("resolveInspectionHeaderLabels(tableRows, columnCount)"),
+                "field-type header detection must remain inside the selected logical form range");
+        assertFalse(builder.contains("resolveInspectionHeaderLabels(table, columnCount)"),
+                "field-type header detection must not read another logical form from the same physical table");
         assertTrue(builder.contains("cellRules"),
                 "Word table builder must emit cellRules during import");
         assertTrue(builder.contains("signatureCellMarkers"),

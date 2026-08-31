@@ -30,7 +30,7 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
         String fileName = command.getSourceFileName().toLowerCase(Locale.ROOT);
         try {
             if (fileName.endsWith(".docx")) {
-                return recognizeDocx(command.getSourceBytes());
+                return recognizeDocx(command.getSourceBytes(), command.getTemplateName());
             }
             List<FormRecognizedField> fields = toFields(extractDocLabels(command.getSourceBytes()));
             if (fields.isEmpty()) {
@@ -42,17 +42,25 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
         }
     }
 
-    private FormTemplateRecognition recognizeDocx(byte[] bytes) throws Exception {
+    private FormTemplateRecognition recognizeDocx(byte[] bytes, String templateName) throws Exception {
         try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            List<FormRecognizedField> fields = toFields(extractDocxLabels(document));
+            if (document.getTables().isEmpty()) {
+                List<FormRecognizedField> fields = toFields(extractDocxLabels(document));
+                if (fields.isEmpty()) {
+                    return FormTemplateRecognition.failure("no recognizable text field labels");
+                }
+                return FormTemplateRecognition.success(fields);
+            }
+            WordFormTableCandidateSelector.Selection selection =
+                    WordFormTableCandidateSelector.select(document, templateName);
+            List<FormRecognizedField> fields = toFields(extractDocxLabels(document, selection));
             if (fields.isEmpty()) {
                 return FormTemplateRecognition.failure("no recognizable text field labels");
             }
-            if (document.getTables().isEmpty()) {
-                return FormTemplateRecognition.success(fields);
-            }
+            WordFormTableCandidateSelector.Candidate candidate = selection.candidate();
             return FormTemplateRecognition.success(fields,
-                    WordTableVisualSchemaBuilder.build(document.getTables().get(0)));
+                    WordTableVisualSchemaBuilder.build(candidate.table(),
+                            candidate.startRowInclusive(), candidate.endRowExclusive()));
         }
     }
 
@@ -64,6 +72,21 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
                 for (XWPFTableCell cell : row.getTableCells()) {
                     addLabel(labels, cell.getText());
                 }
+            }
+        }
+        return new ArrayList<>(labels);
+    }
+
+    private List<String> extractDocxLabels(XWPFDocument document,
+                                           WordFormTableCandidateSelector.Selection selection) {
+        Set<String> labels = new LinkedHashSet<>();
+        if (selection.candidateCount() == 1) {
+            document.getParagraphs().forEach(paragraph -> addLabel(labels, paragraph.getText()));
+        }
+        WordFormTableCandidateSelector.Candidate candidate = selection.candidate();
+        for (int rowIndex = candidate.startRowInclusive(); rowIndex < candidate.endRowExclusive(); rowIndex++) {
+            for (XWPFTableCell cell : candidate.table().getRow(rowIndex).getTableCells()) {
+                addLabel(labels, cell.getText());
             }
         }
         return new ArrayList<>(labels);

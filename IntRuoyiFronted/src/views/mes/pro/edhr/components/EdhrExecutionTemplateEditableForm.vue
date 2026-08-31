@@ -58,6 +58,7 @@
                   :rowspan="cell.rowSpan"
                   :colspan="cell.colSpan"
                   :class="cell.classNames"
+                  :style="cell.cellStyle"
                 >
                   <span
                     v-if="cell.ruleBadge && props.cellTypeDisplay === 'badge'"
@@ -243,6 +244,7 @@
                 :rowspan="cell.rowSpan"
                 :colspan="cell.colSpan"
                 :class="cell.classNames"
+                :style="cell.cellStyle"
               >
                 <span
                   v-if="cell.ruleBadge && props.cellTypeDisplay === 'badge'"
@@ -423,6 +425,7 @@ import {
   resolveTemplateRuleState,
   resolveTemplateRuleTooltip,
   resolveTemplateRuleTypeBadge,
+  resolveTemplateCellCssStyle,
   stringifyTemplateCell,
   templateRuleTypeBadgeLegend,
   type TemplateEditableCellContext,
@@ -452,6 +455,7 @@ type RenderedCell = {
   ruleState?: TemplateRuleState
   ruleTooltip?: string
   classNames: Record<string, boolean>
+  cellStyle: Record<string, string>
 }
 
 type RenderedRow = {
@@ -691,6 +695,7 @@ const renderedRows = computed<RenderedRow[]>(() => {
         ruleBadge,
         ruleState,
         ruleTooltip: editableContext ? resolveTemplateRuleTooltip(editableContext) : '',
+        cellStyle: resolveTemplateCellCssStyle(rawCell, layout.value?.styles),
         classNames: {
           'edhr-template-editable-form__cell': true,
           'is-static': !editableContext,
@@ -703,6 +708,8 @@ const renderedRows = computed<RenderedRow[]>(() => {
           [typeClassName]: props.cellTypeDisplay === 'background' && Boolean(ruleBadge),
           'is-signature': editableContext?.componentKind === 'signature',
           'is-attachment': editableContext?.componentKind === 'attachment',
+          'is-diagonal-slash': Boolean(rawCell?.edhrDiagonalSlash),
+          'is-diagonal-slash-tl2br': rawCell?.edhrDiagonalSlashDirection === 'TL2BR',
           'is-empty': !editableContext && !stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
         }
       })
@@ -836,9 +843,27 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
 }
 
 .edhr-template-editable-form__cell.is-static {
-  background: #f3f4f6;
+  background: #fff;
   color: #172033;
-  font-weight: 600;
+  font-weight: inherit;
+}
+
+.edhr-template-editable-form__cell.is-diagonal-slash {
+  background: #fff;
+}
+
+.edhr-template-editable-form__cell.is-diagonal-slash::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #1f2937;
+  clip-path: polygon(calc(100% - 1px) 0, 100% 0, 1px 100%, 0 100%);
+  pointer-events: none;
+  content: '';
+}
+
+.edhr-template-editable-form__cell.is-diagonal-slash-tl2br::after {
+  clip-path: polygon(0 0, 1px 0, 100% calc(100% - 1px), 100% 100%);
 }
 
 .edhr-template-editable-form__cell.is-editable {

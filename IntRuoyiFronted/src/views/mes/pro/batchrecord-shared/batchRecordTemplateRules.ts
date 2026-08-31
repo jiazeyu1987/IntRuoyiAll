@@ -10,6 +10,9 @@ export type TemplateRawCell = {
   text?: unknown
   value?: unknown
   merge?: unknown
+  style?: unknown
+  edhrDiagonalSlash?: boolean
+  edhrDiagonalSlashDirection?: 'TL2BR' | 'TR2BL' | 'BOTH'
   fillForm?: Record<string, unknown>
   edhrCellRule?: Record<string, unknown>
   edhrSignature?: BatchRecordReportSignatureCellMarkerVO
@@ -21,6 +24,17 @@ export type TemplateRawRow = {
 
 export type TemplateRawLayout = {
   rows?: Record<string, TemplateRawRow>
+  styles?: TemplateRawStyle[]
+}
+
+export type TemplateRawStyle = {
+  align?: unknown
+  valign?: unknown
+  textwrap?: unknown
+  font?: unknown
+  bgcolor?: unknown
+  color?: unknown
+  border?: unknown
 }
 
 export type TemplateSimulationComponentKind =
@@ -167,6 +181,57 @@ export const normalizeTemplateCellMerge = (cell: TemplateRawCell | undefined) =>
     rowSpan: Number.isInteger(rowDelta) && rowDelta >= 0 ? rowDelta + 1 : 1,
     colSpan: Number.isInteger(columnDelta) && columnDelta >= 0 ? columnDelta + 1 : 1
   }
+}
+
+const resolveTemplateBorderCss = (rawBorder: unknown) => {
+  if (!Array.isArray(rawBorder) || rawBorder.length < 1) return ''
+  const rawWeight = String(rawBorder[0] || '').toLowerCase()
+  if (!rawWeight || rawWeight === 'none' || rawWeight === 'nil') return ''
+  const width = rawWeight.includes('thick') ? 3 : rawWeight.includes('medium') ? 2 : 1
+  const color = typeof rawBorder[1] === 'string' && rawBorder[1].trim() ? rawBorder[1].trim() : '#000'
+  return `${width}px solid ${color}`
+}
+
+export const resolveTemplateCellCssStyle = (
+  cell: { style?: unknown } | undefined,
+  styles: TemplateRawStyle[] | undefined
+) => {
+  const styleIndex = Number(cell?.style)
+  if (!Number.isInteger(styleIndex) || styleIndex < 0 || !styles?.[styleIndex]) {
+    return {} as Record<string, string>
+  }
+  const source = styles[styleIndex]
+  const css: Record<string, string> = {}
+  const align = typeof source.align === 'string' ? source.align.toLowerCase() : ''
+  if (['left', 'center', 'right'].includes(align)) css.textAlign = align
+  const valign = typeof source.valign === 'string' ? source.valign.toLowerCase() : ''
+  if (['top', 'middle', 'bottom'].includes(valign)) css.verticalAlign = valign
+  if (typeof source.bgcolor === 'string' && source.bgcolor.trim()) {
+    css.backgroundColor = source.bgcolor.trim()
+  }
+  if (typeof source.color === 'string' && source.color.trim()) {
+    css.color = source.color.trim()
+  }
+  if (source.font && typeof source.font === 'object' && !Array.isArray(source.font)) {
+    const font = source.font as Record<string, unknown>
+    const fontSize = Number(font.size)
+    if (Number.isFinite(fontSize) && fontSize >= 6 && fontSize <= 72) {
+      css.fontSize = `${fontSize}px`
+    }
+    if (font.bold === true || String(font.bold).toLowerCase() === 'true') {
+      css.fontWeight = '700'
+    }
+  }
+  if (source.border && typeof source.border === 'object' && !Array.isArray(source.border)) {
+    const border = source.border as Record<string, unknown>
+    ;(['top', 'right', 'bottom', 'left'] as const).forEach((side) => {
+      const value = resolveTemplateBorderCss(border[side])
+      if (!value) return
+      const property = `border${side[0].toUpperCase()}${side.slice(1)}`
+      css[property] = value
+    })
+  }
+  return css
 }
 
 export const stringifyTemplateCell = (value: unknown) => {

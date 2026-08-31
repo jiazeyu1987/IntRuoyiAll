@@ -222,12 +222,13 @@
 
 ### Form Center 导入必须同时持久化源表格布局
 
-- Trigger: Form Center DOCX 模板导入、recognizedSchemaJson、jimuSchemaJson、sheetLayoutJson、V4 横向表格与 V5/V6/V7 纵向“识别字段”预览差异。
-- Preflight check: DOCX 含表格时，识别器必须从源表格生成 sheetLayoutJson 和 cellRules，导入服务必须把完整 Jimu schema 写入模板版本；只保存识别字段列表会触发前端纵向字段兜底预览。
-- Blocker: 真实源表格的列数/行数丢失、源布局未写入 jimuSchemaJson、或 标签：______ 只保留为普通文本时必须停止。
-- Verification: 真实 DOCX 回归同时断言源表格列数和行数、横向表头、冒号下划线拆分规则，以及导入新版本落库的 jimuSchemaJson。
-- Forbidden action: 禁止只修前端预览、手工写入模板 JSON、按 V7 文件名做特例，或用识别字段列表替代源表格结构。
-- Evidence: doc/tasks/20260821-pressure-pump-form-parser-v7-regression/verification-report.md。
+- Trigger: Form Center DOCX 模板导入、recognizedSchemaJson、jimuSchemaJson、sheetLayoutJson、同一 Word 表格包含多个工序、V4 横向表格与 V5/V6/V7 纵向“识别字段”预览差异。
+- Preflight check: DOCX 含表格时，识别器必须从源表格生成 sheetLayoutJson 和 cellRules，导入服务必须把完整 Jimu schema 写入模板版本；多张物理表格或同一物理表格包含多个逻辑表单时，先按跨全表宽度的“工序生产记录”标题行切分候选，再按正式导入模板名称唯一选择，不能固定取第一张表。只保存识别字段列表会触发前端纵向字段兜底预览。
+- Source fidelity: 选中候选后，字段提取范围必须同步收窄到该候选；标题行即使包含 `□` 也保持静态，不得把整张标题单元格识别成单选；Word 单元格内的非空段落必须保留换行；列宽、行高、横纵合并、字体、对齐、边框和斜线方向必须进入源布局，前端可填写和只读渲染器共同消费这些样式与斜线元数据。
+- Blocker: 多候选无法根据正式上下文唯一匹配、真实源表格的列数/行数丢失、源布局未写入 jimuSchemaJson、斜线方向丢失，或 标签：______ 只保留为普通文本时必须停止；禁止静默回退到第一张表。
+- Verification: 真实 DOCX 回归同时断言候选隔离、源表格列数和行数、横向表头、段落换行、合并范围、斜线数量与方向、位置型空白填写规则、冒号下划线拆分规则，以及导入新版本落库的 jimuSchemaJson；真实页面还要核对标题、重复物料块、生产自检、批量汇总和清场区域。
+- Forbidden action: 禁止只修前端预览、手工写入模板 JSON、按文件名/产品名/工序名做特例、把标题内的选择框字符等同于填写控件，或用识别字段列表替代源表格结构。
+- Evidence: `doc/tasks/20260821-pressure-pump-form-parser-v7-regression/verification-report.md`；`doc/tasks/20260831-form-center-cleaning-table-recognition/verification-report.md`。
 
 ### 表单模板 Jimu 保存回写正式版本门禁
 
