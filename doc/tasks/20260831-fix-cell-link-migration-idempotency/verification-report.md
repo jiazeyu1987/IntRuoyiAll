@@ -1,0 +1,22 @@
+# 20260831 修正批记录单元格链接迁移幂等性验证报告
+
+## Status
+
+ready_for_commit
+
+## Verification Summary
+
+- RED: 1 failed/1 passed，缺少逐列守卫。
+- GREEN: 2 passed。
+- Release regression: 46 passed。
+- Actual maintenance migration gate: passed，551 migrations。
+- Target-bound code-only plan: passed、blocked=0、目标 action=APPLY。
+- Data safety: 仅迁移脚本幂等守卫和测试；无数据库写入、无 ledger 修改。
+
+## Required Evidence
+
+- RED/GREEN 静态迁移合同
+- release metadata/policy/preflight 回归
+- 实际维护 migration gate
+- target-bound code-only plan
+- commit、主线融合和主线复验
