@@ -37,3 +37,9 @@
 ## Current Milestone
 
 M5 - implementation commit, cleanup, fast-forward integration and worktree removal.
+
+## Final Closeout
+
+- Final implementation commit: `51550d308` (`fix: pqc production release consistency`).
+- `int_main` was fast-forwarded to the verified commit after rebasing onto the latest mainline tip.
+- Task-only temporary evidence files and the one-off registry helper script were deleted from the task directory.

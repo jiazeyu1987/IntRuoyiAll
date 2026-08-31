@@ -11,7 +11,7 @@
 - [x] M2：实现返工/作废申请与 PQC 待办原子终结。
 - [x] M3：实现后端放行就绪投影、前端按钮禁用和签名幂等恢复。
 - [x] M4：完成相关回归、类型检查、完整构建和静态链路审查。
-- [ ] M5：提交、融合 `int_main` 并完成 worktree/slot 收尾。
+- [x] M5：提交、融合 `int_main` 并完成 worktree/slot 收尾。
 
 ## Expected Verification
 
@@ -30,7 +30,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

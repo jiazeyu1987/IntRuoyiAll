@@ -2,7 +2,7 @@
 
 ## Verdict
 
-PASS - ready_for_closeout
+PASS - completed
 
 ## Required Evidence
 
@@ -13,6 +13,8 @@ PASS - ready_for_closeout
 - branch runtime guard：PASS（slot 61，8356/48356）。
 - `git diff --check`：PASS。
 - backend API、frontend feature、database schema evidence validators：PASS。
+- `int_main` fast-forwarded to `51550d308` (`fix: pqc production release consistency`).
+- Task-only temporary evidence files and the one-off registry helper script were removed.
 
 ## Acceptance Summary
 
@@ -27,6 +29,4 @@ PASS - ready_for_closeout
 
 ## Remaining Closeout
 
-- 实现提交。
-- cleanup preview/apply。
-- 快进融合 `int_main`、删除 worktree 并释放 slot 61。
+None.
