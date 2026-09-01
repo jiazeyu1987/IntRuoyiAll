@@ -6,6 +6,8 @@ DELIMITER $$
 CREATE PROCEDURE assert_dcc_registration_certificate_core_contract()
 BEGIN
   DECLARE present_table_count int DEFAULT 0;
+  DECLARE optional_project_category_column_count int DEFAULT 0;
+  DECLARE present_optional_project_category_column_count int DEFAULT 0;
 
   SELECT COUNT(*)
     INTO present_table_count
@@ -99,6 +101,7 @@ BEGIN
       column_type varchar(64) NOT NULL,
       is_nullable char(3) NOT NULL,
       generated_column boolean NOT NULL,
+      required_column boolean NOT NULL DEFAULT TRUE,
       PRIMARY KEY (table_name, column_name)
     ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     INSERT INTO tmp_dcc_reg_cert_expected_column
@@ -226,10 +229,23 @@ BEGIN
       ('dcc_registration_certificate_audit', 'result', 'varchar(32)', 'NO', FALSE),
       ('dcc_registration_certificate_audit', 'result_code', 'varchar(64)', 'YES', FALSE),
       ('dcc_registration_certificate_audit', 'request_trace_id', 'varchar(128)', 'NO', FALSE),
-      ('dcc_registration_certificate_audit', 'detail_json', 'json', 'NO', FALSE),
-      ('dcc_registration_certificate_audit', 'occurred_at', 'datetime', 'NO', FALSE),
-      ('dcc_registration_certificate_audit', 'creator', 'varchar(64)', 'YES', FALSE),
-      ('dcc_registration_certificate_audit', 'create_time', 'datetime', 'NO', FALSE);
+       ('dcc_registration_certificate_audit', 'detail_json', 'json', 'NO', FALSE),
+       ('dcc_registration_certificate_audit', 'occurred_at', 'datetime', 'NO', FALSE),
+       ('dcc_registration_certificate_audit', 'creator', 'varchar(64)', 'YES', FALSE),
+       ('dcc_registration_certificate_audit', 'create_time', 'datetime', 'NO', FALSE);
+
+    UPDATE tmp_dcc_reg_cert_expected_column
+       SET required_column = FALSE
+     WHERE table_name = 'dcc_registration_certificate_file'
+       AND column_name IN (
+         'dcc_project_code_id',
+         'file_type_taxonomy_id',
+         'file_type_level1',
+         'file_type_level2',
+         'file_type_level3',
+         'file_type_level4',
+         'file_type_level5'
+       );
 
     IF EXISTS (
       SELECT 1
@@ -238,14 +254,17 @@ BEGIN
           ON actual_column.TABLE_SCHEMA = DATABASE()
          AND actual_column.TABLE_NAME = expected_column.table_name
          AND actual_column.COLUMN_NAME = expected_column.column_name
-       WHERE actual_column.COLUMN_NAME IS NULL
-          OR LOWER(actual_column.COLUMN_TYPE) <> expected_column.column_type
-          OR actual_column.IS_NULLABLE <> expected_column.is_nullable
-          OR (expected_column.generated_column
-              AND actual_column.EXTRA NOT LIKE '%STORED GENERATED%')
-          OR (NOT expected_column.generated_column
-              AND (actual_column.EXTRA LIKE '%STORED GENERATED%'
-                OR actual_column.EXTRA LIKE '%VIRTUAL GENERATED%'))
+        WHERE (expected_column.required_column AND actual_column.COLUMN_NAME IS NULL)
+           OR (actual_column.COLUMN_NAME IS NOT NULL
+               AND (
+                 LOWER(actual_column.COLUMN_TYPE) <> expected_column.column_type
+                 OR actual_column.IS_NULLABLE <> expected_column.is_nullable
+                 OR (expected_column.generated_column
+                     AND actual_column.EXTRA NOT LIKE '%STORED GENERATED%')
+                 OR (NOT expected_column.generated_column
+                     AND (actual_column.EXTRA LIKE '%STORED GENERATED%'
+                       OR actual_column.EXTRA LIKE '%VIRTUAL GENERATED%'))
+               ))
     ) THEN
       SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'DCC registration certificate core column contract mismatch';
@@ -253,8 +272,51 @@ BEGIN
 
     IF EXISTS (
       SELECT 1
+        FROM information_schema.COLUMNS AS actual_column
+        LEFT JOIN tmp_dcc_reg_cert_expected_column AS expected_column
+          ON expected_column.table_name = actual_column.TABLE_NAME
+         AND expected_column.column_name = actual_column.COLUMN_NAME
+       WHERE actual_column.TABLE_SCHEMA = DATABASE()
+         AND actual_column.TABLE_NAME IN (
+           'dcc_registration_certificate',
+           'dcc_registration_certificate_version',
+           'dcc_registration_certificate_snapshot',
+           'dcc_registration_certificate_snapshot_entrusted',
+           'dcc_registration_certificate_file',
+           'dcc_registration_certificate_audit'
+         )
+         AND expected_column.column_name IS NULL
+    ) THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'DCC registration certificate core column contract mismatch';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO optional_project_category_column_count
+      FROM tmp_dcc_reg_cert_expected_column
+     WHERE required_column = FALSE;
+
+    SELECT COUNT(*)
+      INTO present_optional_project_category_column_count
+      FROM information_schema.COLUMNS AS actual_column
+      JOIN tmp_dcc_reg_cert_expected_column AS expected_column
+        ON expected_column.table_name = actual_column.TABLE_NAME
+       AND expected_column.column_name = actual_column.COLUMN_NAME
+     WHERE actual_column.TABLE_SCHEMA = DATABASE()
+       AND expected_column.required_column = FALSE;
+
+    IF present_optional_project_category_column_count <> 0
+       AND present_optional_project_category_column_count <> optional_project_category_column_count THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'DCC registration certificate core optional project-category columns must be absent or complete';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
         FROM (
-          SELECT table_name, COUNT(*) AS column_count
+          SELECT table_name,
+                 SUM(CASE WHEN required_column THEN 1 ELSE 0 END) AS required_column_count,
+                 COUNT(*) AS allowed_column_count
             FROM tmp_dcc_reg_cert_expected_column
            GROUP BY table_name
         ) AS expected_table
@@ -269,10 +331,11 @@ BEGIN
                'dcc_registration_certificate_snapshot_entrusted',
                'dcc_registration_certificate_file',
                'dcc_registration_certificate_audit'
-             )
+              )
            GROUP BY TABLE_NAME
-        ) AS actual_table ON actual_table.table_name = expected_table.table_name
-       WHERE actual_table.column_count <> expected_table.column_count
+         ) AS actual_table ON actual_table.table_name = expected_table.table_name
+        WHERE actual_table.column_count < expected_table.required_column_count
+           OR actual_table.column_count > expected_table.allowed_column_count
     ) THEN
       SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'DCC registration certificate core column contract mismatch';

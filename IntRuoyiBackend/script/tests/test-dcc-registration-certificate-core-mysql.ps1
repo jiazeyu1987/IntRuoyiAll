@@ -125,7 +125,7 @@ function Remove-OwnedSchemas {
 
     $cleanupErrors = [System.Collections.Generic.List[string]]::new()
     foreach ($ownedSchema in $Schemas) {
-        if ($ownedSchema -notmatch '^codex_regcert_t04a_[a-f0-9]{16}(_partial|_incompatible)?$') {
+        if ($ownedSchema -notmatch '^codex_regcert_t04a_[a-f0-9]{16}(_partial|_incompatible|_deferred)?$') {
             $cleanupErrors.Add("Refusing to drop non-task schema '$ownedSchema'")
             continue
         }
@@ -148,6 +148,7 @@ $suffix = [Guid]::NewGuid().ToString('N').Substring(0, 16)
 $schema = "codex_regcert_t04a_$suffix"
 $partialSchema = "${schema}_partial"
 $incompatibleSchema = "${schema}_incompatible"
+$deferredSchema = "${schema}_deferred"
 $createdSchemas = [System.Collections.Generic.List[string]]::new()
 
 try {
@@ -159,11 +160,36 @@ try {
     New-OwnedSchema -Schema $schema -Registry $createdSchemas
     New-OwnedSchema -Schema $partialSchema -Registry $createdSchemas
     New-OwnedSchema -Schema $incompatibleSchema -Registry $createdSchemas
+    New-OwnedSchema -Schema $deferredSchema -Registry $createdSchemas
 
     [void](Invoke-SqlSuccess -Schema $schema -Sql $migrationSql -Label 'first migration apply')
     Write-Output 'PASS: first migration apply'
     [void](Invoke-SqlSuccess -Schema $schema -Sql $migrationSql -Label 'repeat migration apply')
     Write-Output 'PASS: repeat migration apply'
+
+    [void](Invoke-SqlSuccess -Schema $deferredSchema -Sql $migrationSql `
+        -Label 'create project-category deferred fixture')
+    [void](Invoke-SqlSuccess -Schema $deferredSchema -Label 'remove later project-category columns' -Sql @'
+ALTER TABLE dcc_registration_certificate_file
+  DROP COLUMN dcc_project_code_id,
+  DROP COLUMN file_type_taxonomy_id,
+  DROP COLUMN file_type_level1,
+  DROP COLUMN file_type_level2,
+  DROP COLUMN file_type_level3,
+  DROP COLUMN file_type_level4,
+  DROP COLUMN file_type_level5;
+'@)
+    [void](Invoke-SqlSuccess -Schema $deferredSchema -Sql $migrationSql `
+        -Label 'repeat core migration before project-category migration')
+    Write-Output 'PASS: core migration accepts project-category columns deferred to later migration'
+    [void](Invoke-SqlSuccess -Schema $deferredSchema -Label 'create partial project-category fixture' -Sql @'
+ALTER TABLE dcc_registration_certificate_file
+  ADD COLUMN dcc_project_code_id bigint NULL COMMENT 'DCC project code associated with this certificate file'
+  AFTER bound_by;
+'@)
+    Assert-SqlFails -Schema $deferredSchema -Sql $migrationSql `
+        -Label 'partial project-category columns' `
+        -ExpectedMessage 'DCC registration certificate core optional project-category columns must be absent or complete'
 
     [void](Invoke-SqlSuccess -Schema $partialSchema -Label 'create half migration fixture' -Sql @'
 CREATE TABLE `dcc_registration_certificate` (`id` bigint NOT NULL PRIMARY KEY);
