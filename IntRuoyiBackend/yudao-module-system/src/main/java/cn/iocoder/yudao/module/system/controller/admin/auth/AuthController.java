@@ -248,7 +248,8 @@ public class AuthController {
                 .username(snapshot.getUsername())
                 .password(snapshot.getPassword())
                 .appId(snapshot.getAppId())
-                .appSecret(snapshot.getAppSecret())
+                .signedData(snapshot.getSignedData())
+                .timestamp(snapshot.getTimestamp())
                 .lcid(snapshot.getLcid())
                 .build();
     }

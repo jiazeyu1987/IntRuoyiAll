@@ -181,7 +181,12 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
     private DccRegistrationCertificateBusinessEventNotificationCommand command(String eventType) {
         return new DccRegistrationCertificateBusinessEventNotificationCommand(
                 1L, 501L, 1001L, 8001L, 99L, eventType, "EVENT-" + eventType, ROLE_IDS, PERMISSION,
-                Map.of("certificateNo", "NMPA-001", "eventTitle", eventType));
+                Map.of(
+                        "eventTitle", eventType,
+                        "productName", "一次性使用无菌导管",
+                        "certificateNo", "NMPA-001",
+                        "effectiveDate", "2026-01-01",
+                        "expiryDate", "2031-01-01"));
     }
 
     private List<String> capturedBusinessKeysAndReset() {
@@ -197,6 +202,11 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
             assertEquals(8001L, request.getTemplateParams().get("versionId"));
             assertEquals(501L, request.getTemplateParams().get("ownerCompanyId"));
             assertEquals(99L, request.getTemplateParams().get("actorId"));
+            assertEquals(request.getTemplateParams().get("eventType"), request.getTemplateParams().get("eventTitle"));
+            assertEquals("一次性使用无菌导管", request.getTemplateParams().get("productName"));
+            assertEquals("NMPA-001", request.getTemplateParams().get("certificateNo"));
+            assertEquals("2026-01-01", request.getTemplateParams().get("effectiveDate"));
+            assertEquals("2031-01-01", request.getTemplateParams().get("expiryDate"));
             keys.add(request.getBusinessKey());
         }
         reset(notifyMessageSendApi);

@@ -943,18 +943,21 @@ const resolveDccApprovalDetailLocation = (
 }
 
 const resolveDecisionDetailRoute = (row: ApprovalTaskSummaryVO) => {
-  return row.decisionDetailRoute || row.detailRoute
+  if (row.decisionDetailRoute) {
+    return row.decisionDetailRoute
+  }
+  return row.moduleCode !== 'BPM' ? row.detailRoute : undefined
 }
 
 const resolveDecisionDetailQuery = (row: ApprovalTaskSummaryVO) => {
   if (row.decisionDetailRoute) {
     return row.decisionDetailQuery || {}
   }
-  return row.detailQuery || {}
+  return row.moduleCode !== 'BPM' ? row.detailQuery || {} : {}
 }
 
 const canOpenView = (row: ApprovalTaskSummaryVO) => {
-  return !row.businessDeleted && Boolean(row.detailRoute)
+  return !row.businessDeleted && Boolean(resolveDecisionDetailRoute(row))
 }
 
 const resolveViewDisabledReason = (row: ApprovalTaskSummaryVO) => {
@@ -965,11 +968,12 @@ const resolveViewDisabledReason = (row: ApprovalTaskSummaryVO) => {
 }
 
 const openModuleDetail = (row: ApprovalTaskSummaryVO) => {
-  if (!canOpenView(row)) {
+  const detailRoute = resolveDecisionDetailRoute(row)
+  if (!canOpenView(row) || !detailRoute) {
     ElMessage.error(resolveViewDisabledReason(row))
     return
   }
-  router.push(resolveDccApprovalDetailLocation(row, row.detailRoute, row.detailQuery || {}))
+  router.push(resolveDccApprovalDetailLocation(row, detailRoute, resolveDecisionDetailQuery(row)))
 }
 
 const openProcessFlow = (row: ApprovalTaskSummaryVO) => {

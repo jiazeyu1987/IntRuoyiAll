@@ -67,5 +67,6 @@ DELETE FROM `dcc_category_view_matrix_rule`;
 DELETE FROM `dcc_file_category_permission_rule`;
 DELETE FROM `dcc_admin_full_config_managed_scope`;
 DELETE FROM `dcc_directory_access_rule`;
+DELETE FROM `dcc_file_type_taxonomy`;
 DELETE FROM `dcc_file_category`;
 DELETE FROM `dcc_file_directory`;

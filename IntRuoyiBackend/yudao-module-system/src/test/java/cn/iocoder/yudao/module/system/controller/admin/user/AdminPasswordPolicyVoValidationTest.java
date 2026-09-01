@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AdminPasswordPolicyVoValidationTest {
 
-    private static final String LONG_STRONG_PASSWORD = "YudaoPassword20260526";
+    private static final String LONG_STRONG_PASSWORD = "YudaoPassword@20260526";
     private static final String LONG_LEGACY_LOGIN_PASSWORD = "legacyPasswordBeyond16";
     private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
 

@@ -114,9 +114,26 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
         if (!APPROVED_EVENTS.contains(eventType)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_EVENT_NOTIFICATION_SCOPE_UNAPPROVED);
         }
+        requireReadableTemplateParams(command.detailParams());
         return new ValidatedCommand(command.tenantId(), command.ownerCompanyId(), command.certificateId(),
                 command.versionId(), command.actorId(), eventType, command.eventKey().trim(),
                 command.recipientPermission().trim(), command.detailParams());
+    }
+
+    private static void requireReadableTemplateParams(Map<String, Object> detailParams) {
+        if (detailParams == null
+                || missing(detailParams, "eventTitle")
+                || missing(detailParams, "productName")
+                || missing(detailParams, "certificateNo")
+                || missing(detailParams, "effectiveDate")
+                || missing(detailParams, "expiryDate")) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
+        }
+    }
+
+    private static boolean missing(Map<String, Object> detailParams, String key) {
+        Object value = detailParams.get(key);
+        return value == null || value instanceof String text && StrUtil.isBlank(text);
     }
 
     private static boolean positive(Long value) {

@@ -196,6 +196,13 @@ BEGIN
       ('dcc_registration_certificate_file', 'status', 'varchar(32)', 'NO', FALSE),
       ('dcc_registration_certificate_file', 'bound_at', 'datetime', 'YES', FALSE),
       ('dcc_registration_certificate_file', 'bound_by', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'dcc_project_code_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'file_type_taxonomy_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'file_type_level1', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'file_type_level2', 'varchar(128)', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'file_type_level3', 'varchar(128)', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'file_type_level4', 'varchar(128)', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'file_type_level5', 'varchar(128)', 'YES', FALSE),
       ('dcc_registration_certificate_file', 'creator', 'varchar(64)', 'YES', FALSE),
       ('dcc_registration_certificate_file', 'create_time', 'datetime', 'NO', FALSE),
       ('dcc_registration_certificate_file', 'updater', 'varchar(64)', 'YES', FALSE),
@@ -631,6 +638,13 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
   `status` varchar(32) NOT NULL COMMENT 'Business file status',
   `bound_at` datetime DEFAULT NULL COMMENT 'Formal bind time',
   `bound_by` bigint DEFAULT NULL COMMENT 'Formal bind actor',
+  `dcc_project_code_id` bigint DEFAULT NULL COMMENT 'DCC project code associated with this certificate file',
+  `file_type_taxonomy_id` bigint DEFAULT NULL COMMENT 'DCC file type taxonomy leaf id',
+  `file_type_level1` varchar(64) DEFAULT NULL COMMENT 'File type level 1 snapshot',
+  `file_type_level2` varchar(128) DEFAULT NULL COMMENT 'File type level 2 snapshot',
+  `file_type_level3` varchar(128) DEFAULT NULL COMMENT 'File type level 3 snapshot',
+  `file_type_level4` varchar(128) DEFAULT NULL COMMENT 'File type level 4 snapshot',
+  `file_type_level5` varchar(128) DEFAULT NULL COMMENT 'File type level 5 snapshot',
   `creator` varchar(64) DEFAULT '' COMMENT 'Creator',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
   `updater` varchar(64) DEFAULT '' COMMENT 'Updater',
@@ -653,7 +667,9 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
   CONSTRAINT `chk_dcc_reg_cert_file_size` CHECK (`file_size` >= 0),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
   KEY `idx_dcc_reg_cert_file_owner` (`tenant_id`, `owner_type`, `owner_id`, `file_kind`),
-  KEY `idx_dcc_reg_cert_file_infra` (`tenant_id`, `infra_file_id`)
+  KEY `idx_dcc_reg_cert_file_infra` (`tenant_id`, `infra_file_id`),
+  KEY `idx_dcc_reg_cert_file_project_code` (`tenant_id`, `dcc_project_code_id`),
+  KEY `idx_dcc_reg_cert_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Registration certificate business file reference';
 

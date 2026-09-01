@@ -12,6 +12,10 @@ public class DccControlledFileRespVO {
     private Long id;
     private Long masterId;
     private Long categoryId;
+    private String businessSourceType;
+    private Long registrationCertificateId;
+    private Long registrationCertificateVersionId;
+    private Long registrationCertificateBusinessFileId;
     private Long directoryId;
     private String directoryPath;
     private String title;

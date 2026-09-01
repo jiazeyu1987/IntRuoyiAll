@@ -161,8 +161,11 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         if (connectionConfig.getAppId() == null) {
             connectionConfig.setAppId(defaultKingdeeProperties.getAppId());
         }
-        if (connectionConfig.getAppSecret() == null) {
-            connectionConfig.setAppSecret(defaultKingdeeProperties.getAppSecret());
+        if (connectionConfig.getSignedData() == null) {
+            connectionConfig.setSignedData(defaultKingdeeProperties.getSignedData());
+        }
+        if (connectionConfig.getTimestamp() == null) {
+            connectionConfig.setTimestamp(defaultKingdeeProperties.getTimestamp());
         }
     }
 
@@ -186,8 +189,11 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         if (StrUtil.isBlank(connectionConfig.getAppId())) {
             throw productionConnectionInvalid("应用 ID 为空");
         }
-        if (StrUtil.isBlank(connectionConfig.getAppSecret())) {
-            throw productionConnectionInvalid("应用密钥为空");
+        if (StrUtil.isBlank(connectionConfig.getSignedData())) {
+            throw productionConnectionInvalid("SimPas 签名数据为空");
+        }
+        if (StrUtil.isBlank(connectionConfig.getTimestamp())) {
+            throw productionConnectionInvalid("SimPas 签名时间戳为空");
         }
         if (connectionConfig.getLcid() == null) {
             throw productionConnectionInvalid("语言 LCID 为空");
@@ -280,7 +286,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         target.setUsername(source.getUsername());
         target.setPassword(source.getPassword());
         target.setAppId(source.getAppId());
-        target.setAppSecret(source.getAppSecret());
+        target.setSignedData(source.getSignedData());
+        target.setTimestamp(source.getTimestamp());
         target.setLcid(source.getLcid());
     }
 
@@ -292,8 +299,11 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         if (source.getAppId() != null) {
             target.setAppId(source.getAppId());
         }
-        if (source.getAppSecret() != null) {
-            target.setAppSecret(source.getAppSecret());
+        if (source.getSignedData() != null) {
+            target.setSignedData(source.getSignedData());
+        }
+        if (source.getTimestamp() != null) {
+            target.setTimestamp(source.getTimestamp());
         }
         target.setLcid(source.getLcid());
         if (source.getProduct() != null) {
@@ -325,7 +335,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         private String username;
         private String password;
         private String appId;
-        private String appSecret;
+        private String signedData;
+        private String timestamp;
         private Integer lcid;
 
         private static ErpKingdeeConnectionConfig from(ErpKingdeeConfigSaveReqVO source) {
@@ -335,7 +346,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
             connectionConfig.setUsername(source.getUsername());
             connectionConfig.setPassword(source.getPassword());
             connectionConfig.setAppId(source.getAppId());
-            connectionConfig.setAppSecret(source.getAppSecret());
+            connectionConfig.setSignedData(source.getSignedData());
+            connectionConfig.setTimestamp(source.getTimestamp());
             connectionConfig.setLcid(source.getLcid());
             return connectionConfig;
         }

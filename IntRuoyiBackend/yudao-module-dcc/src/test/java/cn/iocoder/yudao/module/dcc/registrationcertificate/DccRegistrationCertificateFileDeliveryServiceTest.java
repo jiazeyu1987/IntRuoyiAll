@@ -169,6 +169,31 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void registrationManagerDownloadUsesFirstObtainedDateWhenUploadedCertificateHasNoApprovalDate() throws Exception {
+        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
+                "uploaded-manager-registration.pdf", null, null);
+        jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_version
+                   SET approval_date = NULL
+                 WHERE id = ?
+                """, fixture.versionId());
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(
+                infraFile(fixture, "uploaded-manager-registration.pdf"));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
+                .thenReturn("UPLOADED-MANAGER-CERT".getBytes(StandardCharsets.UTF_8));
+
+        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
+                1L, 99L, fixture.businessFileId(), "attempt-manager-uploaded-no-approval",
+                context("REQ-MANAGER-UPLOADED-NO-APPROVAL"));
+
+        assertEquals("20200101_ProductA_CERT-DL-001.pdf", result.fileName());
+        assertArrayEquals("UPLOADED-MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
+        assertNotNull(accessAuditMapper.selectByEventKey(
+                1L, "attempt-manager-uploaded-no-approval:DOWNLOAD:SUCCESS"));
+    }
+
+    @Test
     void nonRegistrationManagerWithoutDownloadGrantStillFailsBeforeStorageIo() throws Exception {
         FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
                 "registration.pdf", 20L, 40L);

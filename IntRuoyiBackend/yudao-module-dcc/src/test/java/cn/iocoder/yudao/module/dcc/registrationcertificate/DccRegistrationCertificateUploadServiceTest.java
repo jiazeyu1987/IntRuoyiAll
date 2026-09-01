@@ -7,11 +7,14 @@ import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestFileMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandMutex;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandService;
@@ -73,7 +76,11 @@ class DccRegistrationCertificateUploadServiceTest {
     @Mock
     private DccRegistrationCertificateFileMapper fileMapper;
     @Mock
+    private DccRegistrationCertificateSnapshotMapper snapshotMapper;
+    @Mock
     private DccRegistrationCertificateVersionMapper versionMapper;
+    @Mock
+    private DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
     @Mock
     private FileService fileService;
     @Mock
@@ -92,8 +99,8 @@ class DccRegistrationCertificateUploadServiceTest {
     @BeforeEach
     void setUp() {
         uploadService = new DccRegistrationCertificateUploadService(
-                commandMutex, commandService, requestMapper, requestFileMapper, fileMapper, versionMapper,
-                fileService, projectCodeService, companyScopeApi, enterpriseApi, businessClock,
+                commandMutex, commandService, requestMapper, requestFileMapper, fileMapper, snapshotMapper, versionMapper,
+                projectCodeFileAssociationService, fileService, projectCodeService, companyScopeApi, enterpriseApi, businessClock,
                 businessEventNotifier);
         lenient().doAnswer(invocation -> {
             Supplier<?> action = invocation.getArgument(1);
@@ -403,18 +410,29 @@ class DccRegistrationCertificateUploadServiceTest {
                 .id(9101L)
                 .certificateId(9001L)
                 .certificateNo("REG-CERT-UPLOAD-1")
+                .effectiveDate(LocalDate.of(2025, 1, 2))
+                .expiryDate(LocalDate.of(2026, 1, 1))
                 .build();
         version.setTenantId(TENANT_ID);
         when(versionMapper.selectById(9101L)).thenReturn(version);
-
+        DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
+                .id(9901L)
+                .versionId(9101L)
+                .productName("一次性使用无菌导管")
+                .build();
+        snapshot.setTenantId(TENANT_ID);
+        when(snapshotMapper.selectListByVersionId(9101L)).thenReturn(List.of(snapshot));
         uploadService.approveUploadRequest(TENANT_ID, 88L, 9401L, "APPROVAL-KEY-1");
 
         verify(commandService).formalizeApprovedUpload(
                 TENANT_ID, 88L, ACTOR_ID, "APPROVAL-KEY-1", "APPROVAL-KEY-1",
                 9001L, 1, 1, 9301L);
+        verify(projectCodeFileAssociationService).bindVersionRegistrationFile(TENANT_ID, 9101L, 9301L, 88L);
         assertEquals("APPROVED", requestFile.getStatus());
         verify(businessEventNotifier).notifyNewCertificateFormalized(
-                TENANT_ID, 501L, 9001L, 9101L, 88L, "APPROVAL-KEY-1", "REG-CERT-UPLOAD-1");
+                TENANT_ID, 501L, 9001L, 9101L, 88L, "APPROVAL-KEY-1",
+                "一次性使用无菌导管", "REG-CERT-UPLOAD-1",
+                LocalDate.of(2025, 1, 2), LocalDate.of(2026, 1, 1));
     }
 
     private void mockOwnedCompany() {

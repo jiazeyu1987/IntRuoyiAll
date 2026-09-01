@@ -357,7 +357,8 @@ yudao:
       username: 贾泽宇
       password: ${PRODUCTION_PLAN_ERP_K3CLOUD_PASSWORD:}
       app-id: ${PRODUCTION_PLAN_ERP_K3CLOUD_APP_ID:}
-      app-secret: ${PRODUCTION_PLAN_ERP_K3CLOUD_APP_SECRET:}
+      signed-data: ${PRODUCTION_PLAN_ERP_K3CLOUD_SIGNED_DATA:}
+      timestamp: ${PRODUCTION_PLAN_ERP_K3CLOUD_TIMESTAMP:}
       lcid: ${PRODUCTION_PLAN_ERP_K3CLOUD_LCID:2052}
       product:
         query-limit: ${PRODUCTION_PLAN_ERP_K3CLOUD_PRODUCT_LIMIT:5000}

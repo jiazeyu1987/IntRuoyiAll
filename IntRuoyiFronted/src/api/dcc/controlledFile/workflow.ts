@@ -586,6 +586,10 @@ export interface ControlledFileCreateSignTaskReqVO {
 export interface ControlledFileVO {
   id: number
   masterId?: number | null
+  businessSourceType?: 'DCC_CONTROLLED_FILE' | 'DCC_REGISTRATION_CERTIFICATE' | null
+  registrationCertificateId?: number | string | null
+  registrationCertificateVersionId?: number | string | null
+  registrationCertificateBusinessFileId?: number | string | null
   productMasterId?: number | null
   dccProjectCodeId?: number | null
   categoryId: number

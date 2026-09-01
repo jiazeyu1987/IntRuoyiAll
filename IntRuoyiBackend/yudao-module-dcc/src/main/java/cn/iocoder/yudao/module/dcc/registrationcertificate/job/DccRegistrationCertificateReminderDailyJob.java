@@ -38,6 +38,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
 
     private static final String DELIVERY_CREATOR = "registration-certificate-reminder-job";
+    private static final int MANUAL_BUSINESS_RUN_HOUR = 9;
 
     private final TenantFrameworkService tenantFrameworkService;
     private final DccRegistrationCertificateConfigService configService;
@@ -105,6 +106,29 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
                 .formatted(businessDate, successes, skipped);
     }
 
+    public String executeTenantAtBusinessDate(Long tenantId, LocalDate businessDate, String param) {
+        if (tenantId == null || tenantId <= 0 || businessDate == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED);
+        }
+        JobParam jobParam = parseParam(param);
+        try {
+            TenantOutcome[] holder = new TenantOutcome[1];
+            businessClock.runAt(businessDate.atTime(MANUAL_BUSINESS_RUN_HOUR, 0), () -> {
+                TenantUtils.execute(tenantId, () -> holder[0] = runTenant(tenantId, businessDate, jobParam));
+                return null;
+            });
+            TenantOutcome outcome = holder[0];
+            long successes = outcome != null && outcome.success() ? 1 : 0;
+            long skipped = outcome != null && outcome.skipped() ? 1 : 0;
+            return "registrationCertificateReminderDailyJob tenantId=%d businessDate=%s successes=%d skipped=%d failures=0"
+                    .formatted(tenantId, businessDate, successes, skipped);
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException("registration certificate reminder job failed: tenantId="
+                    + tenantId + ", businessDate=" + businessDate + ", failures=["
+                    + new TenantFailure(tenantId, safeReason(exception)) + "]", exception);
+        }
+    }
+
     private TenantOutcome runTenant(Long tenantId, LocalDate businessDate, JobParam jobParam) {
         DccRegistrationCertificateReminderConfig config = configService.getOrCreate(tenantId);
         if (!Boolean.TRUE.equals(config.enabled())) {
@@ -119,10 +143,10 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             int activated = activateDueCandidates(tenantId, businessDate, jobParam.actorId());
             DccRegistrationCertificateReminderRunResult occurrences =
                     reminderService.generateOccurrences(tenantId, run.id(), businessDate);
-            int createdDeliveries = createDeliveries(tenantId, jobParam);
-            int sentDeliveries = sendPendingDeliveries(tenantId);
-            int deliveredOccurrences = markDeliveredOccurrences(tenantId);
-            ensureNoPendingOccurrences(tenantId);
+            int createdDeliveries = createDeliveries(tenantId, run.id(), jobParam);
+            int sentDeliveries = sendPendingDeliveries(tenantId, run.id());
+            int deliveredOccurrences = markDeliveredOccurrences(tenantId, run.id());
+            ensureNoPendingOccurrences(tenantId, run.id());
             dailyRunService.markSuccess(tenantId, run.id(), JsonUtils.toJsonString(Map.of(
                     "activated", activated,
                     "pendingOccurrences", occurrences.pendingCount(),
@@ -138,13 +162,14 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         }
     }
 
-    private void ensureNoPendingOccurrences(Long tenantId) {
+    private void ensureNoPendingOccurrences(Long tenantId, Long runId) {
         Integer pending = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                   FROM dcc_registration_certificate_reminder_occurrence
                  WHERE tenant_id = ?
+                   AND run_id = ?
                    AND status = 'PENDING_DELIVERY'
-                """, Integer.class, tenantId);
+                """, Integer.class, tenantId, runId);
         if (pending != null && pending > 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_CONFLICT);
         }
@@ -194,16 +219,17 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         return activated;
     }
 
-    private int createDeliveries(Long tenantId, JobParam jobParam) {
+    private int createDeliveries(Long tenantId, Long runId, JobParam jobParam) {
         List<OccurrenceRow> occurrences = jdbcTemplate.query("""
                 SELECT id, owner_company_id
                   FROM dcc_registration_certificate_reminder_occurrence
                  WHERE tenant_id = ?
+                   AND run_id = ?
                    AND status = 'PENDING_DELIVERY'
                  ORDER BY id
                 """, (rs, rowNum) -> new OccurrenceRow(
                 rs.getLong("id"),
-                rs.getLong("owner_company_id")), tenantId);
+                rs.getLong("owner_company_id")), tenantId, runId);
         int created = 0;
         for (OccurrenceRow occurrence : occurrences) {
             List<DccRegistrationCertificateRecipient> recipients = recipientResolver.resolve(
@@ -245,14 +271,18 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         }
     }
 
-    private int sendPendingDeliveries(Long tenantId) {
+    private int sendPendingDeliveries(Long tenantId, Long runId) {
         List<Long> deliveryIds = jdbcTemplate.queryForList("""
-                SELECT id
-                  FROM dcc_registration_certificate_reminder_delivery
-                 WHERE tenant_id = ?
-                   AND status IN ('PENDING', 'SENDING')
-                 ORDER BY id
-                """, Long.class, tenantId);
+                SELECT d.id
+                  FROM dcc_registration_certificate_reminder_delivery d
+                  JOIN dcc_registration_certificate_reminder_occurrence o
+                    ON o.id = d.occurrence_id
+                   AND o.tenant_id = d.tenant_id
+                 WHERE d.tenant_id = ?
+                   AND o.run_id = ?
+                   AND d.status IN ('PENDING', 'SENDING')
+                 ORDER BY d.id
+                """, Long.class, tenantId, runId);
         int sent = 0;
         for (Long deliveryId : deliveryIds) {
             DccRegistrationCertificateThresholdDeliveryResult result =
@@ -265,11 +295,12 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         return sent;
     }
 
-    private int markDeliveredOccurrences(Long tenantId) {
+    private int markDeliveredOccurrences(Long tenantId, Long runId) {
         return jdbcTemplate.update("""
                 UPDATE dcc_registration_certificate_reminder_occurrence
                    SET status = 'DELIVERED'
                  WHERE tenant_id = ?
+                   AND run_id = ?
                    AND status = 'PENDING_DELIVERY'
                    AND EXISTS (
                          SELECT 1
@@ -285,7 +316,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
                             AND d.occurrence_id = dcc_registration_certificate_reminder_occurrence.id
                             AND d.status <> 'SENT'
                        )
-                """, tenantId);
+                """, tenantId, runId);
     }
 
     private Long findDeliveryId(Long tenantId, String deliveryKey) {

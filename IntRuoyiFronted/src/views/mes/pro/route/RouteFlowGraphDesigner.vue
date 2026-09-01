@@ -1330,6 +1330,76 @@
                       <span class="route-flow-graph-designer__selected-detail-note">
                         保存路线草稿后，仅更新当前工序的正式批记录表单绑定。
                       </span>
+                      <div
+                        class="route-flow-graph-designer__frontline-report-material-editor"
+                        data-flow-panel="frontline-report-material-editor"
+                      >
+                        <div class="route-flow-graph-designer__record-binding-toolbar">
+                          <span>批记录物料</span>
+                        </div>
+                        <div
+                          v-if="getSelectedFrontlineReportMaterialOptions().length"
+                          class="route-flow-graph-designer__frontline-report-material-selected"
+                        >
+                          <span class="route-flow-graph-designer__frontline-report-material-selected-label">
+                            已选物料
+                          </span>
+                          <div class="route-flow-graph-designer__frontline-report-material-selected-tags">
+                            <el-tag
+                              v-for="item in getSelectedFrontlineReportMaterialOptions()"
+                              :key="item.id"
+                              closable
+                              disable-transitions
+                              @close="removeFrontlineReportMaterial(item.id)"
+                            >
+                              {{ formatFrontlineReportMaterialOption(item) }}
+                            </el-tag>
+                          </div>
+                        </div>
+                        <el-select
+                          :model-value="selectedProcessAttributes.frontlineReportMaterialIds || []"
+                          clearable
+                          data-route-process-setting-field="frontline-report-material"
+                          :disabled="recordBindingEditorDisabled"
+                          filterable
+                          :loading="frontlineReportMaterialOptionsLoading"
+                          multiple
+                          placeholder="请选择批记录物料"
+                          remote
+                          reserve-keyword
+                          size="small"
+                          :teleported="false"
+                          :remote-method="loadFrontlineReportMaterialOptions"
+                          @update:model-value="handleFrontlineReportMaterialIdsChange"
+                          @visible-change="(visible) => visible && loadFrontlineReportMaterialOptions()"
+                        >
+                          <el-option
+                            v-for="item in buildFrontlineReportMaterialOptions()"
+                            :key="item.id"
+                            :label="formatFrontlineReportMaterialOption(item)"
+                            :disabled="isFrontlineReportMaterialSelected(item.id)"
+                            :value="item.id"
+                          >
+                            <span
+                              class="route-flow-graph-designer__frontline-report-material-option"
+                            >
+                              <span
+                                class="route-flow-graph-designer__frontline-report-material-option-code"
+                              >
+                                {{ item.code }}
+                              </span>
+                              <span
+                                class="route-flow-graph-designer__frontline-report-material-option-name"
+                              >
+                                {{ [item.name, item.specification].filter(Boolean).join(' / ') }}
+                              </span>
+                            </span>
+                          </el-option>
+                        </el-select>
+                        <span class="route-flow-graph-designer__selected-detail-note">
+                          当前工序一线提交时，需要分别填写这些物料的完成数量、损耗数量和批号。
+                        </span>
+                      </div>
                     </div>
                     <el-input-number
                       v-else-if="selectedProcessDetailField.key === 'productionQuantityFactor'"
@@ -1622,6 +1692,7 @@ import {
 } from '@/api/mes/pro/route/process'
 import { MdWorkstationApi, type MdWorkstationVO } from '@/api/mes/md/workstation'
 import { MdWorkshopApi, type MdWorkshopVO } from '@/api/mes/md/workstation/workshop'
+import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import {
   SchedulerWorkbenchApi,
@@ -1909,6 +1980,7 @@ type SelectedProcessAttributes = {
   scheduleConfigVersion?: string | null
   capacityMode?: ProRouteScheduleConfigVO['capacityMode'] | null
   productionQuantityFactor?: number
+  frontlineReportMaterialIds?: number[]
   hourlyCapacity?: number
   shiftHours?: number
   infiniteDurationQuantityFactor?: number
@@ -2107,6 +2179,10 @@ const selectedRecordBindings = ref<RouteFlowRecordBinding[]>([])
 const selectedLegacyBatchRecords = ref<RouteFlowLegacyBatchRecord[]>([])
 const batchRecordReportOptions = ref<BatchRecordReportSelectOption[]>([])
 const batchRecordReportOptionsLoading = ref(false)
+const frontlineReportMaterialOptions = ref<MdItemVO[]>([])
+const frontlineReportMaterialOptionsLoading = ref(false)
+let frontlineReportMaterialSearchRequest = 0
+const frontlineReportMaterialSearchKeyword = ref('')
 const formTemplateOptions = ref<FormTemplateListItemVO[]>([])
 const formTemplateOptionLoading = ref(false)
 const recordBindingUserOptions = ref<UserVO[]>([])
@@ -3007,6 +3083,133 @@ const buildBatchRecordReportOptionLabel = (report: BatchRecordReportSelectOption
   return batchRecordName ? `${label}（${batchRecordName}）` : label
 }
 
+const normalizeFrontlineReportMaterialIds = (values?: Array<number | string> | null) =>
+  Array.from(
+    new Set(
+      (values || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )
+  )
+
+const formatFrontlineReportMaterialOption = (item: MdItemVO) =>
+  [item.code, item.name, item.specification].filter(Boolean).join(' / ')
+
+const mergeFrontlineReportMaterialOptions = (items: MdItemVO[]) => {
+  const optionMap = new Map(frontlineReportMaterialOptions.value.map((item) => [item.id, item]))
+  items.forEach((item) => {
+    if (item?.id) {
+      optionMap.set(item.id, item)
+    }
+  })
+  frontlineReportMaterialOptions.value = Array.from(optionMap.values())
+}
+
+const replaceFrontlineReportMaterialOptions = (items: MdItemVO[]) => {
+  const selectedIds = new Set(selectedProcessAttributes.frontlineReportMaterialIds || [])
+  const optionMap = new Map(
+    frontlineReportMaterialOptions.value
+      .filter((item) => selectedIds.has(item.id))
+      .map((item) => [item.id, item])
+  )
+  items.forEach((item) => {
+    if (item?.id) {
+      optionMap.set(item.id, item)
+    }
+  })
+  frontlineReportMaterialOptions.value = Array.from(optionMap.values())
+}
+
+const extractFrontlineReportMaterialRows = (pageResult: unknown): MdItemVO[] => {
+  const rows = (pageResult as { list?: MdItemVO[] })?.list
+  return Array.isArray(rows) ? rows : []
+}
+
+const loadFrontlineReportMaterialOptions = async (keyword = '') => {
+  const requestId = ++frontlineReportMaterialSearchRequest
+  frontlineReportMaterialSearchKeyword.value = keyword
+  frontlineReportMaterialOptionsLoading.value = true
+  try {
+    const normalizedKeyword = normalizeNullableText(keyword)
+    const queryPayloads = normalizedKeyword
+      ? [
+          { code: normalizedKeyword },
+          { name: normalizedKeyword }
+        ]
+      : [{}]
+    const pages = await Promise.all(
+      queryPayloads.map((params) =>
+        MdItemApi.getItemPage({
+          pageNo: 1,
+          pageSize: 50,
+          ...params
+        })
+      )
+    )
+    if (requestId !== frontlineReportMaterialSearchRequest) return
+    replaceFrontlineReportMaterialOptions(pages.flatMap(extractFrontlineReportMaterialRows))
+  } catch (error) {
+    if (requestId === frontlineReportMaterialSearchRequest) {
+      message.error(resolveErrorMessage(error, '加载批记录物料失败'))
+    }
+  } finally {
+    if (requestId === frontlineReportMaterialSearchRequest) {
+      frontlineReportMaterialOptionsLoading.value = false
+    }
+  }
+}
+
+const loadSelectedFrontlineReportMaterialOptions = async (
+  materialIds?: Array<number | string> | null
+) => {
+  const missingIds = normalizeFrontlineReportMaterialIds(materialIds).filter(
+    (materialId) => !frontlineReportMaterialOptions.value.some((item) => item.id === materialId)
+  )
+  if (missingIds.length === 0) return
+  const items = await Promise.all(missingIds.map((materialId) => MdItemApi.getItem(materialId)))
+  mergeFrontlineReportMaterialOptions(items)
+}
+
+const filterFrontlineReportMaterialOptions = (items: MdItemVO[]): MdItemVO[] => {
+  const keyword = frontlineReportMaterialSearchKeyword.value.trim().toLowerCase()
+  if (!keyword) return items
+  return items.filter((item) =>
+    [item.code, item.name, item.specification]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(keyword))
+  )
+}
+
+const buildFrontlineReportMaterialOptions = (): MdItemVO[] => {
+  const selectedIds = new Set(selectedProcessAttributes.frontlineReportMaterialIds || [])
+  const options = [
+    ...frontlineReportMaterialOptions.value.filter((item) => selectedIds.has(item.id)),
+    ...frontlineReportMaterialOptions.value.filter((item) => !selectedIds.has(item.id))
+  ]
+  const selectedOptions = options.filter((item) => selectedIds.has(item.id))
+  const candidateOptions = filterFrontlineReportMaterialOptions(
+    options.filter((item) => !selectedIds.has(item.id))
+  )
+  return [...selectedOptions, ...candidateOptions]
+}
+
+const isFrontlineReportMaterialSelected = (materialId?: number | null) =>
+  Boolean(materialId && selectedProcessAttributes.frontlineReportMaterialIds?.includes(materialId))
+
+const getSelectedFrontlineReportMaterialOptions = (): MdItemVO[] => {
+  const optionMap = new Map(frontlineReportMaterialOptions.value.map((item) => [item.id, item]))
+  return (selectedProcessAttributes.frontlineReportMaterialIds || [])
+    .map((materialId) => optionMap.get(materialId))
+    .filter((item): item is MdItemVO => Boolean(item))
+}
+
+const removeFrontlineReportMaterial = (materialId: number) => {
+  if (recordBindingEditorDisabled.value) return
+  handleFrontlineReportMaterialIdsChange(
+    (selectedProcessAttributes.frontlineReportMaterialIds || []).filter((id) => id !== materialId)
+  )
+}
+
 const normalizeSelectedBatchRecordReportIds = (
   reportIds: Array<string | number> | string | number | null | undefined
 ) => {
@@ -3055,6 +3258,16 @@ const handleSelectedBatchRecordReportIdsChange = (
     })
   selectedLegacyBatchRecords.value = resequenceLegacyBatchRecords(nextRecords)
   syncSelectedLegacyBatchRecordsToDraft()
+}
+
+const handleFrontlineReportMaterialIdsChange = (values: Array<number | string>) => {
+  if (recordBindingEditorDisabled.value) return
+  const { routeProcessId, draft } = ensureSelectedProcessAttributeDraft()
+  const materialIds = normalizeFrontlineReportMaterialIds(values)
+  selectedProcessAttributes.frontlineReportMaterialIds = materialIds
+  selectedProcessAttributeDrafts[routeProcessId].frontlineReportMaterialIds = materialIds
+  draft.frontlineReportMaterialIds = materialIds
+  markGraphDraftChanged()
 }
 
 const dedupeFormTemplateOptions = (items: FormTemplateListItemVO[]) => {
@@ -4523,6 +4736,7 @@ const resetSelectedProcessAttributes = () => {
   selectedProcessAttributes.scheduleConfigVersion = undefined
   selectedProcessAttributes.capacityMode = undefined
   selectedProcessAttributes.productionQuantityFactor = DEFAULT_PRODUCTION_QUANTITY_FACTOR
+  selectedProcessAttributes.frontlineReportMaterialIds = []
   selectedProcessAttributes.hourlyCapacity = undefined
   selectedProcessAttributes.shiftHours = undefined
   selectedProcessAttributes.infiniteDurationQuantityFactor = undefined
@@ -4648,6 +4862,7 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
   routeScheduleConfigId: draft.routeScheduleConfigId ?? null,
   capacityMode: draft.capacityMode ?? null,
   productionQuantityFactor: normalizeProductionQuantityFactor(draft.productionQuantityFactor),
+  frontlineReportMaterialIds: normalizeFrontlineReportMaterialIds(draft.frontlineReportMaterialIds),
   hourlyCapacity: normalizeHourlyCapacity(draft.hourlyCapacity) ?? null,
   shiftHours: numericValue(draft.shiftHours) ?? null,
   infiniteDurationQuantityFactor: numericValue(draft.infiniteDurationQuantityFactor) ?? null,
@@ -4697,6 +4912,7 @@ const serializeSelectedProcessScheduleDraft = (draft: SelectedProcessAttributesD
   const {
     recordBindings: _recordBindings,
     legacyBatchRecords: _legacyBatchRecords,
+    frontlineReportMaterialIds: _frontlineReportMaterialIds,
     ...scheduleSnapshot
   } = buildSelectedProcessAttributesDraftSnapshot(draft)
   return JSON.stringify(scheduleSnapshot)
@@ -4705,6 +4921,7 @@ const serializeSelectedProcessScheduleDraft = (draft: SelectedProcessAttributesD
 const serializeSelectedProcessRecordBindingDraft = (draft: SelectedProcessAttributesDraft) => {
   const snapshot = buildSelectedProcessAttributesDraftSnapshot(draft)
   return JSON.stringify({
+    frontlineReportMaterialIds: snapshot.frontlineReportMaterialIds,
     legacyBatchRecords: snapshot.legacyBatchRecords,
     recordBindings: snapshot.recordBindings
   })
@@ -4740,6 +4957,7 @@ const hasSelectedProcessRecordBindingDraftChanged = (draft: SelectedProcessAttri
   )
   if (!baselineSnapshot) return true
   const baselineRecordBindingSnapshot = {
+    frontlineReportMaterialIds: baselineSnapshot.frontlineReportMaterialIds || [],
     legacyBatchRecords: baselineSnapshot.legacyBatchRecords || [],
     recordBindings: baselineSnapshot.recordBindings || []
   }
@@ -4753,6 +4971,7 @@ const cloneSelectedProcessAttributesDraft = (
   draft: SelectedProcessAttributesDraft
 ): SelectedProcessAttributesDraft => ({
   ...draft,
+  frontlineReportMaterialIds: normalizeFrontlineReportMaterialIds(draft.frontlineReportMaterialIds),
   recordBindings: cloneRecordBindings(draft.recordBindings),
   legacyBatchRecords: cloneLegacyBatchRecords(draft.legacyBatchRecords)
 })
@@ -4765,6 +4984,9 @@ const applySelectedProcessAttributesDraft = (draft: SelectedProcessAttributesDra
   selectedProcessAttributes.capacityMode = draft.capacityMode
   selectedProcessAttributes.productionQuantityFactor = normalizeProductionQuantityFactor(
     draft.productionQuantityFactor
+  )
+  selectedProcessAttributes.frontlineReportMaterialIds = normalizeFrontlineReportMaterialIds(
+    draft.frontlineReportMaterialIds
   )
   selectedProcessAttributes.hourlyCapacity = normalizeHourlyCapacity(draft.hourlyCapacity)
   selectedProcessAttributes.shiftHours = numericValue(draft.shiftHours)
@@ -4795,6 +5017,7 @@ const buildSelectedProcessAttributesDraft = (
   scheduleConfigVersion: routeScheduleConfig?.configVersion ?? null,
   capacityMode: normalizeScheduleCapacityMode(routeScheduleConfig?.capacityMode),
   productionQuantityFactor: normalizeProductionQuantityFactor(scheduleRow?.productionQuantityFactor),
+  frontlineReportMaterialIds: normalizeFrontlineReportMaterialIds(batchRow?.frontlineReportMaterialIds),
   hourlyCapacity: normalizeHourlyCapacity(routeScheduleConfig?.hourlyCapacity),
   shiftHours: numericValue(routeScheduleConfig?.shiftHours ?? routeProcess?.shiftHours),
   infiniteDurationQuantityFactor: numericValue(routeScheduleConfig?.infiniteDurationQuantityFactor),
@@ -4914,6 +5137,9 @@ const loadSelectedProcessAttributes = async (node: RouteFlowNodeVO, requestId: n
       selectedProcessAttributeBaselines[routeProcessId] =
         serializeSelectedProcessAttributesDraft(serverDraft)
     }
+    await loadSelectedFrontlineReportMaterialOptions(
+      selectedProcessAttributeDrafts[routeProcessId].frontlineReportMaterialIds
+    )
     applySelectedProcessAttributesDraft(selectedProcessAttributeDrafts[routeProcessId])
   } catch (error) {
     if (!isSelectedProcessDetailRequestCurrent(requestId, node.routeProcessId)) return
@@ -5003,6 +5229,7 @@ const buildSelectedProcessRecordBindingConfigSaveRow = (
   return {
     routeProcessId: draft.routeProcessId,
     enabled: true,
+    frontlineReportMaterialIds: normalizeFrontlineReportMaterialIds(draft.frontlineReportMaterialIds),
     batchRecordReports: buildLegacyBatchRecordSaveRows(draft.legacyBatchRecords),
     formBindings: buildFormBindingSaveRows(draft.recordBindings),
     remark: draft.remark || null
@@ -5571,6 +5798,7 @@ const saveSelectedProcessAttributeDrafts = async () => {
         processConfigs: batchProcessConfigs.map((processConfig) => ({
           routeProcessId: processConfig.routeProcessId,
           enabled: true,
+          frontlineReportMaterialIds: processConfig.frontlineReportMaterialIds,
           batchRecordReports: processConfig.batchRecordReports,
           formBindings: processConfig.formBindings,
           remark: processConfig.remark
@@ -9820,6 +10048,70 @@ defineExpose({
   display: block;
   width: 100%;
   pointer-events: auto;
+}
+
+.route-flow-graph-designer__frontline-report-material-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #f7fffb;
+  border: 1px solid #b7ebd1;
+  border-radius: 6px;
+}
+
+.route-flow-graph-designer__frontline-report-material-editor :deep(.el-tag) {
+  --el-tag-bg-color: #e8fff3;
+  --el-tag-border-color: #7bd9ac;
+  --el-tag-text-color: #0f8a55;
+}
+
+.route-flow-graph-designer__frontline-report-material-selected {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.route-flow-graph-designer__frontline-report-material-selected-label {
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.route-flow-graph-designer__frontline-report-material-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.route-flow-graph-designer__frontline-report-material-editor
+  :deep(.el-select__selection > .el-select__selected-item:not(.el-select__input-wrapper)) {
+  display: none;
+}
+
+.route-flow-graph-designer__frontline-report-material-option {
+  display: block;
+  width: 100%;
+  pointer-events: auto;
+}
+
+.route-flow-graph-designer__frontline-report-material-option-code,
+.route-flow-graph-designer__frontline-report-material-option-name {
+  display: block;
+  line-height: 18px;
+}
+
+.route-flow-graph-designer__frontline-report-material-option-code {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.route-flow-graph-designer__frontline-report-material-option-name {
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .route-flow-graph-designer__copy-form-binding-panel {

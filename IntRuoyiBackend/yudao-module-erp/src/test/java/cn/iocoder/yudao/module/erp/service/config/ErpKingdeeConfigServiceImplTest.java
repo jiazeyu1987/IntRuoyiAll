@@ -48,7 +48,8 @@ class ErpKingdeeConfigServiceImplTest {
         defaultProperties.setUsername("贾泽宇");
         defaultProperties.setPassword("default-password");
         defaultProperties.setAppId("default-test-app-id");
-        defaultProperties.setAppSecret("default-test-app-secret");
+        defaultProperties.setSignedData("default-test-signed-data");
+        defaultProperties.setTimestamp("1700000000");
         defaultProperties.setLcid(2052);
         defaultProperties.getProduct().setQueryLimit(5000);
         defaultProperties.getBom().setQueryLimit(1000);
@@ -75,7 +76,8 @@ class ErpKingdeeConfigServiceImplTest {
         assertEquals("6977227150362f", config.getAcctId());
         assertEquals("贾泽宇", config.getUsername());
         assertEquals("default-test-app-id", config.getAppId());
-        assertEquals("default-test-app-secret", config.getAppSecret());
+        assertEquals("default-test-signed-data", config.getSignedData());
+        assertEquals("1700000000", config.getTimestamp());
         assertEquals(5000, config.getProduct().getQueryLimit());
         assertEquals(1000, config.getBom().getQueryLimit());
         assertEquals(1000, config.getProductionOrder().getQueryLimit());
@@ -111,7 +113,7 @@ class ErpKingdeeConfigServiceImplTest {
         assertEquals(Boolean.FALSE, captor.getValue().getVisible());
         org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getValue().contains("\"bom\":{\"queryLimit\":1000}"));
         org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getValue().contains("\"appId\":\"test-app-id\""));
-        org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getValue().contains("\"appSecret\":\"test-app-secret\""));
+        org.junit.jupiter.api.Assertions.assertTrue(captor.getValue().getValue().contains("\"signedData\":\"test-signed-data\""));
     }
 
     @Test
@@ -131,7 +133,7 @@ class ErpKingdeeConfigServiceImplTest {
         assertEquals("acct-new", properties.getAcctId());
         assertEquals("sync-user", properties.getUsername());
         assertEquals("default-test-app-id", properties.getAppId());
-        assertEquals("default-test-app-secret", properties.getAppSecret());
+        assertEquals("default-test-signed-data", properties.getSignedData());
         assertEquals(9000, properties.getProduct().getQueryLimit());
         assertEquals(800, properties.getBom().getQueryLimit());
         assertEquals(1500, properties.getProductionOrder().getQueryLimit());
@@ -166,7 +168,7 @@ class ErpKingdeeConfigServiceImplTest {
         ConfigDO productionConfig = config(2L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
                 "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
                         + "\"username\":\"prod-user\",\"password\":\"prod-password\","
-                        + "\"appId\":\"prod-app-id\",\"appSecret\":\"prod-app-secret\",\"lcid\":2052}");
+                        + "\"appId\":\"prod-app-id\",\"signedData\":\"prod-signed-data\",\"timestamp\":\"1700000000\",\"lcid\":2052}");
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(null);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
@@ -215,7 +217,7 @@ class ErpKingdeeConfigServiceImplTest {
         ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
                 "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
                         + "\"username\":\"prod-user\",\"password\":\"prod-password\","
-                        + "\"appId\":\"prod-app-id\",\"appSecret\":\"prod-app-secret\",\"lcid\":2052}");
+                        + "\"appId\":\"prod-app-id\",\"signedData\":\"prod-signed-data\",\"timestamp\":\"1700000000\",\"lcid\":2052}");
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
@@ -228,7 +230,7 @@ class ErpKingdeeConfigServiceImplTest {
         assertEquals("prod-acct", properties.getAcctId());
         assertEquals("prod-user", properties.getUsername());
         assertEquals("prod-app-id", properties.getAppId());
-        assertEquals("prod-app-secret", properties.getAppSecret());
+        assertEquals("prod-signed-data", properties.getSignedData());
         assertEquals(9000, properties.getProduct().getQueryLimit());
         assertEquals("TEST-MO", properties.getProductionOrder().getTemplateBillNo());
         assertEquals("990", properties.getPurchaseOrder().getPurchaseOrgNumber());
@@ -260,7 +262,7 @@ class ErpKingdeeConfigServiceImplTest {
         assertEquals("prod-acct", properties.getAcctId());
         assertEquals("prod-user", properties.getUsername());
         assertEquals("default-test-app-id", properties.getAppId());
-        assertEquals("default-test-app-secret", properties.getAppSecret());
+        assertEquals("default-test-signed-data", properties.getSignedData());
         assertEquals(9000, properties.getProduct().getQueryLimit());
     }
 
@@ -289,7 +291,7 @@ class ErpKingdeeConfigServiceImplTest {
         ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
                 "{\"baseUrl\":\"http://old-prod/K3Cloud\",\"acctId\":\"old-prod-acct\","
                         + "\"username\":\"old-prod-user\",\"password\":\"old-prod-password\","
-                        + "\"appId\":\"old-prod-app-id\",\"appSecret\":\"old-prod-app-secret\",\"lcid\":2052}");
+                        + "\"appId\":\"old-prod-app-id\",\"signedData\":\"old-prod-signed-data\",\"timestamp\":\"1700000000\",\"lcid\":2052}");
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(activeConfig);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
@@ -301,7 +303,8 @@ class ErpKingdeeConfigServiceImplTest {
         request.setUsername("new-prod-user");
         request.setPassword("new-prod-password");
         request.setAppId("new-prod-app-id");
-        request.setAppSecret("new-prod-app-secret");
+        request.setSignedData("new-prod-signed-data");
+        request.setTimestamp("1700000001");
         request.getProduct().setQueryLimit(7777);
 
         kingdeeConfigService.saveConfig(request);
@@ -319,11 +322,11 @@ class ErpKingdeeConfigServiceImplTest {
                 ErpKingdeeConfigSaveReqVO.class);
         assertEquals("6977227150362f", savedTest.getAcctId());
         assertEquals("test-app-id", savedTest.getAppId());
-        assertEquals("test-app-secret", savedTest.getAppSecret());
+        assertEquals("test-signed-data", savedTest.getSignedData());
         assertEquals(7777, savedTest.getProduct().getQueryLimit());
         assertTrue(savedProductionConfig.getValue().contains("new-prod-acct"));
         assertTrue(savedProductionConfig.getValue().contains("new-prod-app-id"));
-        assertTrue(savedProductionConfig.getValue().contains("new-prod-app-secret"));
+        assertTrue(savedProductionConfig.getValue().contains("new-prod-signed-data"));
         assertFalse(savedProductionConfig.getValue().contains("old-prod-acct"));
     }
 
@@ -390,7 +393,8 @@ class ErpKingdeeConfigServiceImplTest {
         reqVO.setUsername("kingdee-user");
         reqVO.setPassword("kingdee-password");
         reqVO.setAppId("test-app-id");
-        reqVO.setAppSecret("test-app-secret");
+        reqVO.setSignedData("test-signed-data");
+        reqVO.setTimestamp("1700000000");
         reqVO.setLcid(2052);
 
         ErpKingdeeConfigSaveReqVO.ProductConfig productConfig = new ErpKingdeeConfigSaveReqVO.ProductConfig();

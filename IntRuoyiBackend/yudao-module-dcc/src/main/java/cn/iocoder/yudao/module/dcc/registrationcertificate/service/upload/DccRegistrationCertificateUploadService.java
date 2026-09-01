@@ -8,15 +8,18 @@ import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestFileMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateDraftData;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandMutex;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
@@ -85,7 +88,9 @@ public class DccRegistrationCertificateUploadService {
     private final DccRegistrationCertificateAccessRequestMapper requestMapper;
     private final DccRegistrationCertificateAccessRequestFileMapper requestFileMapper;
     private final DccRegistrationCertificateFileMapper fileMapper;
+    private final DccRegistrationCertificateSnapshotMapper snapshotMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
+    private final DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
     private final FileService fileService;
     private final DccProjectCodeService projectCodeService;
     private final MdmCompanyScopeApi companyScopeApi;
@@ -99,7 +104,9 @@ public class DccRegistrationCertificateUploadService {
             DccRegistrationCertificateAccessRequestMapper requestMapper,
             DccRegistrationCertificateAccessRequestFileMapper requestFileMapper,
             DccRegistrationCertificateFileMapper fileMapper,
+            DccRegistrationCertificateSnapshotMapper snapshotMapper,
             DccRegistrationCertificateVersionMapper versionMapper,
+            DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService,
             FileService fileService,
             DccProjectCodeService projectCodeService,
             MdmCompanyScopeApi companyScopeApi,
@@ -111,7 +118,9 @@ public class DccRegistrationCertificateUploadService {
         this.requestMapper = require(requestMapper, "requestMapper");
         this.requestFileMapper = require(requestFileMapper, "requestFileMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
+        this.snapshotMapper = require(snapshotMapper, "snapshotMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
+        this.projectCodeFileAssociationService = require(projectCodeFileAssociationService, "projectCodeFileAssociationService");
         this.fileService = require(fileService, "fileService");
         this.projectCodeService = require(projectCodeService, "projectCodeService");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
@@ -191,9 +200,13 @@ public class DccRegistrationCertificateUploadService {
         requireUpdated(requestFileMapper.updateById(requestFile));
         DccRegistrationCertificateVersionDO version = requireFormalizedVersion(
                 tenantId, request.getCertificateId(), requestFile.getBusinessFileId());
+        projectCodeFileAssociationService.bindVersionRegistrationFile(
+                tenantId, version.getId(), requestFile.getBusinessFileId(), approverId);
+        DccRegistrationCertificateSnapshotDO snapshot = requireFormalizedSnapshot(tenantId, version);
         businessEventNotifier.notifyNewCertificateFormalized(
                 tenantId, request.getOwnerCompanyId(), request.getCertificateId(), version.getId(),
-                approverId, approvalKey, version.getCertificateNo());
+                approverId, approvalKey, snapshot.getProductName(), version.getCertificateNo(),
+                version.getEffectiveDate(), version.getExpiryDate());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -436,6 +449,21 @@ public class DccRegistrationCertificateUploadService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         }
         return version;
+    }
+
+    private DccRegistrationCertificateSnapshotDO requireFormalizedSnapshot(
+            Long tenantId, DccRegistrationCertificateVersionDO version) {
+        List<DccRegistrationCertificateSnapshotDO> snapshots = snapshotMapper.selectListByVersionId(version.getId());
+        if (snapshots == null || snapshots.size() != 1) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
+        DccRegistrationCertificateSnapshotDO snapshot = snapshots.get(0);
+        if (!Objects.equals(tenantId, snapshot.getTenantId())
+                || !Objects.equals(version.getId(), snapshot.getVersionId())
+                || isBlank(snapshot.getProductName())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
+        return snapshot;
     }
 
     private static Map<String, Object> submitDetail(

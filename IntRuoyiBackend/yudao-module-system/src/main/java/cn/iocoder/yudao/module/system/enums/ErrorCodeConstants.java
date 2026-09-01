@@ -91,7 +91,7 @@ public interface ErrorCodeConstants {
     ErrorCode USER_DING_TALK_IMPORT_SOURCE_DEPT_ID_CONFLICT = new ErrorCode(1_002_003_018, "钉钉导入 Excel 主部门ID与部门路径不一致");
     ErrorCode USER_DING_TALK_IMPORT_USERNAME_INVALID = new ErrorCode(1_002_003_019, "钉钉导入生成的登录账号不合法");
     ErrorCode USER_DELETE_LIST_IS_EMPTY = new ErrorCode(1_002_003_020, "请选择需要删除的用户");
-    ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含英文和数字");
+    ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含大写字母、小写字母、数字和特殊字符");
     ErrorCode USER_TABLE_COLUMN_CONFIG_INVALID = new ErrorCode(1_002_003_022, "用户列表列配置非法");
     ErrorCode PROFILE_WORKBENCH_TASK_VISIBILITY_INVALID = new ErrorCode(1_002_003_023, "个人工作台任务隐藏配置非法");
     ErrorCode USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN = new ErrorCode(1_002_003_024, "普通用户不能被分配管理员或日志权限");

@@ -1908,6 +1908,13 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
   `bound_file_unique_flag` BIGINT NULL,
   `bound_at` DATETIME NULL,
   `bound_by` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `file_type_taxonomy_id` BIGINT NULL,
+  `file_type_level1` VARCHAR(64) NULL,
+  `file_type_level2` VARCHAR(128) NULL,
+  `file_type_level3` VARCHAR(128) NULL,
+  `file_type_level4` VARCHAR(128) NULL,
+  `file_type_level5` VARCHAR(128) NULL,
   `creator` VARCHAR(64) DEFAULT '',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updater` VARCHAR(64) DEFAULT '',
@@ -1921,7 +1928,9 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
     ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
   CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
     (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
-  UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`)
+  UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
+  KEY `idx_dcc_reg_cert_file_project_code` (`tenant_id`, `dcc_project_code_id`),
+  KEY `idx_dcc_reg_cert_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
@@ -1985,7 +1994,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_lifecycle_event` (
     ('RENEWAL_UPLOADED', 'ACTIVATION_APPLIED', 'SUPPORTING_DOCUMENT_UPLOADED',
      'SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED',
      'SUPPORTING_DOCUMENT_EFFECTIVE',
-     'CHANGE_APPLIED', 'CANDIDATE_VOIDED', 'CERTIFICATE_VOIDED')),
+     'CHANGE_SUBMITTED', 'CHANGE_APPLIED', 'CANDIDATE_VOIDED', 'CERTIFICATE_VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_lifecycle_sequence` CHECK (`event_sequence` > 0),
   UNIQUE KEY `uk_dcc_reg_cert_lifecycle_event_key` (`tenant_id`, `event_key`),
   UNIQUE KEY `uk_dcc_reg_cert_lifecycle_sequence` (`tenant_id`, `certificate_id`, `event_sequence`)
@@ -2057,13 +2066,16 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change` (
   `source_snapshot_id` BIGINT NOT NULL,
   `resulting_snapshot_id` BIGINT NULL,
   `event_id` BIGINT NOT NULL,
+  `approval_request_id` BIGINT NULL,
   `approval_date` DATE NOT NULL,
   `selected_change_types_json` VARCHAR(8000) NOT NULL,
   `selected_item_count` INT NULL,
   `status` VARCHAR(32) NOT NULL,
   `row_version` INT NOT NULL DEFAULT 1,
   `actor_id` BIGINT NOT NULL,
-  `applied_at` DATETIME NOT NULL,
+  `reviewer_user_id` BIGINT NULL,
+  `reviewed_at` DATETIME NULL,
+  `applied_at` DATETIME NULL,
   `voided_at` DATETIME NULL,
   `voided_by` BIGINT NULL,
   `void_reason` VARCHAR(1024) NULL,
@@ -2073,9 +2085,10 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  CONSTRAINT `chk_dcc_reg_cert_change_status` CHECK (`status` IN ('APPLIED', 'VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_change_status` CHECK (`status` IN ('PENDING_APPROVAL', 'APPLIED', 'REJECTED', 'VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_change_selected_count` CHECK (`selected_item_count` > 0),
-  UNIQUE KEY `uk_dcc_reg_cert_change_event` (`tenant_id`, `event_id`)
+  UNIQUE KEY `uk_dcc_reg_cert_change_event` (`tenant_id`, `event_id`),
+  UNIQUE KEY `uk_dcc_reg_cert_change_approval_request` (`tenant_id`, `approval_request_id`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change_item` (

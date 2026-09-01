@@ -533,7 +533,8 @@ class AuthControllerTest extends BaseMockitoUnitTest {
                         .username("kingdee-user")
                         .password("kingdee-password")
                         .appId("invoice-print-app")
-                        .appSecret("invoice-print-secret")
+                        .signedData("invoice-print-signed-data")
+                        .timestamp("1700000000")
                         .lcid(2052)
                         .build());
 
@@ -547,7 +548,8 @@ class AuthControllerTest extends BaseMockitoUnitTest {
         assertEquals("acct-001", respVO.getKingdeeConfig().getAcctId());
         assertEquals("kingdee-user", respVO.getKingdeeConfig().getUsername());
         assertEquals("invoice-print-app", respVO.getKingdeeConfig().getAppId());
-        assertEquals("invoice-print-secret", respVO.getKingdeeConfig().getAppSecret());
+        assertEquals("invoice-print-signed-data", respVO.getKingdeeConfig().getSignedData());
+        assertEquals("1700000000", respVO.getKingdeeConfig().getTimestamp());
         assertEquals(2052, respVO.getKingdeeConfig().getLcid());
         verify(stringRedisTemplate).delete(eq(redisKey));
         verify(kingdeeConfigProvider).getCurrentConfigSnapshot();

@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -116,7 +117,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             DccRegistrationCertificateSnapshotDO snapshot = requireSnapshot(version.getId());
             if (accessPolicyService.authorizeRegistrationManagerDownloadIfRole(tenantId, userId,
                     certificate.getId())) {
-                String fileName = buildFileName(null, version, snapshot, businessFile);
+                String fileName = buildFileName(null, certificate, version, snapshot, businessFile);
                 FileDO infraFile = requireInfraFile(businessFile);
                 byte[] content;
                 try {
@@ -139,7 +140,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
             DccProjectCodeDO projectCode = requireLiveProjectCode(userId, request.getProjectCodeId(),
                     certificate.getProductMasterId());
-            String fileName = buildFileName(projectCode, version, snapshot, businessFile);
+            String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
             String lockKey = tenantId + ":" + grant.getId() + ":" + businessFileId;
             Object lock = downloadLocks.computeIfAbsent(lockKey, ignored -> new Object());
             synchronized (lock) {
@@ -334,7 +335,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         }
     }
 
-    private String buildFileName(DccProjectCodeDO projectCode, DccRegistrationCertificateVersionDO version,
+    private String buildFileName(DccProjectCodeDO projectCode, DccRegistrationCertificateDO certificate,
+                                 DccRegistrationCertificateVersionDO version,
                                  DccRegistrationCertificateSnapshotDO snapshot,
                                  DccRegistrationCertificateFileDO businessFile) {
         String extension = extensionOf(businessFile.getOriginalName());
@@ -342,9 +344,20 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         String expiredSuffix = "OLD".equals(version.getStatus()) ? "_已失效" : "";
         String projectPrefix = projectCode == null ? "" : safeSegment(projectCode.getProjectCode()) + "_";
         return projectPrefix
-                + version.getApprovalDate().format(APPROVAL_DATE_FORMAT) + "_"
+                + resolveFileNameDate(certificate, version).format(APPROVAL_DATE_FORMAT) + "_"
                 + safeSegment(snapshot.getProductName()) + changeSuffix + "_"
                 + safeSegment(version.getCertificateNo()) + expiredSuffix + extension;
+    }
+
+    private LocalDate resolveFileNameDate(DccRegistrationCertificateDO certificate,
+                                          DccRegistrationCertificateVersionDO version) {
+        if (version.getApprovalDate() != null) {
+            return version.getApprovalDate();
+        }
+        if (certificate.getFirstObtainedDate() != null) {
+            return certificate.getFirstObtainedDate();
+        }
+        throw invalidParamException("注册证下载文件名日期不能为空");
     }
 
     private static String extensionOf(String originalName) {

@@ -76,7 +76,7 @@ import static org.mockito.Mockito.*;
 @Import(AdminUserServiceImpl.class)
 public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
-    private static final String TEST_INIT_PASSWORD = "Yudao2026";
+    private static final String TEST_INIT_PASSWORD = "Yudao@2026";
 
     @Resource
     private AdminUserServiceImpl userService;
@@ -118,7 +118,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
             o.setSex(RandomUtil.randomEle(SexEnum.values()).getSex());
             o.setMobile(randomString());
             o.setPostIds(asSet(1L, 2L));
-            o.setPassword("Create2026");
+            o.setPassword("Create@2026");
         }).setId(null); // 避免 id 被赋值
         // mock 账户额度充足
         TenantDO tenant = randomPojo(TenantDO.class, o -> o.setAccountCount(1));
@@ -177,7 +177,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
             o.setUsername("admin01");
             o.setMobile(randomString());
             o.setPostIds(null);
-            o.setPassword("Create2026");
+            o.setPassword("Create@2026");
         }).setId(null);
         TenantDO tenant = randomPojo(TenantDO.class, o -> o.setAccountCount(1));
         doNothing().when(tenantService).handleTenantInfo(argThat(handler -> {
@@ -344,7 +344,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         Long userId = dbUser.getId();
         UserProfileUpdatePasswordReqVO reqVO = randomPojo(UserProfileUpdatePasswordReqVO.class, o -> {
             o.setOldPassword("tudou");
-            o.setNewPassword("Yuanma2026");
+            o.setNewPassword("Yuanma@2026");
         });
         // mock 方法
         when(passwordEncoder.encode(anyString())).then(
@@ -355,7 +355,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         userService.updateUserPassword(userId, reqVO);
         // 断言
         AdminUserDO user = userMapper.selectById(userId);
-        assertEquals("encode:Yuanma2026", user.getPassword());
+        assertEquals("encode:Yuanma@2026", user.getPassword());
         assertNotNull(user.getPasswordUpdateTime());
     }
 
@@ -380,7 +380,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         userMapper.insert(dbUser);
         // 准备参数
         Long userId = dbUser.getId();
-        String password = "Yudao2026";
+        String password = "Yudao@2026";
         // mock 方法
         when(passwordEncoder.encode(anyString())).then(
                 (Answer<String>) invocationOnMock -> "encode:" + invocationOnMock.getArgument(0));

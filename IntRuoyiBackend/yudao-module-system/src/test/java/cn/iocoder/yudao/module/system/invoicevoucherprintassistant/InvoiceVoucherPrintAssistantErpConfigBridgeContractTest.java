@@ -43,7 +43,8 @@ class InvoiceVoucherPrintAssistantErpConfigBridgeContractTest {
         assertTrue(providerSource.contains("getPassword()"));
         assertTrue(providerSource.contains("getLcid()"));
         assertTrue(providerSource.contains("getAppId()"));
-        assertTrue(providerSource.contains("getAppSecret()"));
+        assertTrue(providerSource.contains("getSignedData()"));
+        assertTrue(providerSource.contains("getTimestamp()"));
     }
 
     @Test
@@ -58,12 +59,19 @@ class InvoiceVoucherPrintAssistantErpConfigBridgeContractTest {
                 "assistant server must materialize a session-owned env file from the injected config");
         assertTrue(serverSource.contains("deleteAssistantSessionEnvFile"),
                 "assistant server must clean up session-owned ERP env files");
-        assertTrue(serverSource.contains("assistantSession.kingdeeEnvPath"),
-                "assistant ERP calls must use the session-owned config file path");
+        assertTrue(serverSource.contains("requireAssistantKingdeeEnvPath"),
+                "assistant ERP calls must fail fast when the session-owned config file is missing");
+        assertTrue(serverSource.contains("const kingdeeEnvPath = requireAssistantKingdeeEnvPath(assistantSession)"),
+                "assistant ERP calls must validate the server-side session before invoking ERP scripts");
+        assertTrue(serverSource.contains("'-EnvPath', kingdeeEnvPath"),
+                "assistant PowerShell ERP calls must use the validated session-owned config file path");
+        assertTrue(serverSource.contains("'--env', kingdeeEnvPath"),
+                "assistant Python ERP calls must use the validated session-owned config file path");
         assertFalse(serverSource.contains("KINGDEE_ENV_PATH"),
                 "assistant runtime must not depend on a deployed global Kingdee env file");
         assertTrue(querySource.contains("KINGDEE_APP_ID"));
-        assertTrue(querySource.contains("KINGDEE_APP_SECRET"));
+        assertTrue(querySource.contains("KINGDEE_SIGNED_DATA"));
+        assertTrue(querySource.contains("KINGDEE_TIMESTAMP"));
         assertTrue(voucherSource.contains("Read-DotEnv"));
     }
 

@@ -21,7 +21,7 @@
     />
 
     <el-tabs v-model="activeAction" class="registration-certificate-workflow__tabs">
-      <el-tab-pane v-if="!props.readOnly && (!props.certificateStatus || props.certificateStatus === 'DRAFT')" label="草稿维护" name="draft">
+      <el-tab-pane v-if="!props.changeOnly && !props.readOnly && (!props.certificateStatus || props.certificateStatus === 'DRAFT')" label="草稿维护" name="draft">
         <div data-testid="registration-certificate-draft-action" class="registration-certificate-workflow__panel">
           <el-form :model="draftForm" inline data-testid="registration-certificate-draft-form">
             <el-form-item label="所属公司"><el-input v-model="draftForm.ownerCompanyId" aria-label="公司 ID" /></el-form-item>
@@ -41,12 +41,12 @@
           <el-button type="danger" plain :loading="submitting" @click="handleDeleteDraft">删除草稿</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane v-if="!props.readOnly && (!props.certificateStatus || props.certificateStatus === 'DRAFT')" label="正式化" name="formalize">
+      <el-tab-pane v-if="!props.changeOnly && !props.readOnly && (!props.certificateStatus || props.certificateStatus === 'DRAFT')" label="正式化" name="formalize">
         <div data-testid="registration-certificate-formalize-action" class="registration-certificate-workflow__panel">
           <el-button type="primary" :loading="submitting" @click="handleFormalize">正式化</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane v-if="!props.readOnly && props.certificateStatus !== 'DRAFT'" label="延续" name="renewal">
+      <el-tab-pane v-if="!props.changeOnly && !props.readOnly && props.certificateStatus !== 'DRAFT'" label="延续" name="renewal">
         <div data-testid="registration-certificate-renewal-action" class="registration-certificate-workflow__panel">
           <el-alert type="info" :closable="false" title="延续注册证请从注册证列表对应行点击“延续”，填写三项日期并上传延续注册证文件后进入注册部经理审批。" />
           <el-button type="warning" plain :loading="submitting" @click="handleVoidRenewal">作废延续候选</el-button>
@@ -94,7 +94,7 @@
                   <el-option label="否" :value="false" />
                 </el-select>
               </el-form-item>
-              <el-form-item v-if="changeForm.entrustedProduction" label="受托企业">
+              <el-form-item v-if="changeForm.entrustedProduction" label="受托企业：">
                 <el-input
                   v-model="changeForm.entrustedEnterpriseNames"
                   placeholder="受托企业：请输入变更后的受托企业，多个请换行"
@@ -123,7 +123,7 @@
           <el-button type="danger" plain :loading="submitting" @click="handleVoidCertificate">作废证书</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane v-if="!props.readOnly && props.certificateStatus !== 'DRAFT'" label="支持文件" name="supporting">
+      <el-tab-pane v-if="!props.changeOnly && !props.readOnly && props.certificateStatus !== 'DRAFT'" label="支持文件" name="supporting">
         <div data-testid="registration-certificate-supporting-document-action" class="registration-certificate-workflow__panel">
           <el-form inline data-testid="registration-certificate-supporting-document-form">
             <el-form-item label="材料类型"><el-select v-model="supportingForm.documentType"><el-option label="延续受理单" value="RENEWAL_ACCEPTANCE_RECEIPT" /><el-option label="立卷发补单" value="RENEWAL_SUPPLEMENT_NOTICE" /></el-select></el-form-item>
@@ -133,7 +133,7 @@
           <el-tag type="success">上传后直接生效</el-tag>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="访问申请" name="access">
+      <el-tab-pane v-if="!props.changeOnly" label="访问申请" name="access">
         <div data-testid="registration-certificate-access-request-action" class="registration-certificate-workflow__panel">
           <el-radio-group v-model="accessRequestType" aria-label="访问申请类型">
             <el-radio-button value="VIEW_OLD_CERTIFICATE">查看旧证</el-radio-button>
@@ -167,7 +167,7 @@
           >提交访问申请</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="审批结果" name="approvalResult">
+      <el-tab-pane v-if="!props.changeOnly" label="审批结果" name="approvalResult">
         <div data-testid="registration-certificate-approval-result-action" class="registration-certificate-workflow__panel">
           <el-alert type="info" :closable="false" title="审批结果由审批中心待办处理，页面仅展示系统返回的正式结果。" />
           <el-input v-model="accessReason" data-field="accessReason" aria-label="撤回或撤销原因" />
@@ -265,6 +265,7 @@ const props = defineProps<{
   initialAction?: 'draft' | 'formalize' | 'renewal' | 'change' | 'supporting' | 'access' | 'approvalResult'
   readOnly?: boolean
   certificateStatus?: string
+  changeOnly?: boolean
 }>()
 
 const activeAction = ref(props.initialAction || 'draft')
@@ -347,7 +348,10 @@ const supportingForm = reactive({
 })
 
 const selectedStructuredChangeTypes = computed(() =>
-  structuredChangeTypeOptions.filter((item) => changeForm.changeTypes.includes(item.value))
+  structuredChangeTypeOptions.filter((item) =>
+    ['PRODUCT_NAME', 'REGISTRANT_NAME'].includes(item.value)
+    && changeForm.changeTypes.includes(item.value)
+  )
 )
 
 const downloadFileOptions = computed<DownloadableFileOption[]>(() => {
@@ -548,7 +552,9 @@ const requireChangeApprovalDate = () => {
 const normalizeText = (value?: string) => (value ?? '').trim()
 
 const appendStructuredChangeValues = (payload: FormData) => {
-  for (const item of structuredChangeTypeOptions) {
+  for (const item of structuredChangeTypeOptions.filter((item) =>
+    ['PRODUCT_NAME', 'REGISTRANT_NAME'].includes(item.value)
+  )) {
     if (!changeForm.changeTypes.includes(item.value)) {
       continue
     }
@@ -610,6 +616,7 @@ const buildChangePayload = () => {
   const payload = new FormData()
   payload.append('expectedRowVersion', String(requireRowVersion()))
   payload.append('approvalDate', requireChangeApprovalDate())
+  changeForm.changeTypes.forEach((changeType) => payload.append('changeTypes', changeType))
   appendStructuredChangeValues(payload)
   const otherDescription = requireOtherDescription()
   if (otherDescription) {

@@ -34,6 +34,8 @@ export type ApprovalTaskInfo = {
   id: number
   ownerUser: User
   assigneeUser: User
+  assigneeRoleCode?: string
+  assigneeRoleName?: string
   status: number
   reason: string
   signPicUrl: string
@@ -49,6 +51,8 @@ export type ApprovalNodeInfo = {
   startTime?: Date
   endTime?: Date
   processInstanceId?: string
+  assigneeRoleCode?: string
+  assigneeRoleName?: string
   candidateUsers?: User[]
   tasks: ApprovalTaskInfo[]
 }

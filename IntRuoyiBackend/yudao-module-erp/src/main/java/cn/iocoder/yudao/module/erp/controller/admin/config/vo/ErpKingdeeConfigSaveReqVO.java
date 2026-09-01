@@ -31,9 +31,13 @@ public class ErpKingdeeConfigSaveReqVO {
     @NotBlank(message = "金蝶应用 ID 不能为空")
     private String appId;
 
-    @Schema(description = "金蝶应用密钥", requiredMode = Schema.RequiredMode.REQUIRED, example = "invoice-print-secret")
-    @NotBlank(message = "金蝶应用密钥不能为空")
-    private String appSecret;
+    @Schema(description = "SimPas 签名数据", requiredMode = Schema.RequiredMode.REQUIRED, example = "signed-data")
+    @NotBlank(message = "SimPas 签名数据不能为空")
+    private String signedData;
+
+    @Schema(description = "SimPas 签名时间戳", requiredMode = Schema.RequiredMode.REQUIRED, example = "1787795088")
+    @NotBlank(message = "SimPas 签名时间戳不能为空")
+    private String timestamp;
 
     @Schema(description = "语言 LCID", requiredMode = Schema.RequiredMode.REQUIRED, example = "2052")
     @NotNull(message = "语言 LCID 不能为空")

@@ -589,6 +589,8 @@ BEGIN
   ('mes_workshop_director', 'mes:pro-smart-scheduling:query', 1, 'smart-scheduling', '', ''),
   ('mes_workshop_director', 'mes:pro-work-order:query', 3, '', '', ''),
   ('pqc_leader_permission', 'mes:pro-edhr-batch-processing:query', 1, 'edhr-batch-processing', '', ''),
+  ('pqc_leader_permission', 'mes:pro-edhr-nonconformance-review:create', 3, '', '', ''),
+  ('pqc_leader_permission', 'mes:pro-edhr-nonconformance-review:query', 3, '', '', ''),
   ('pqc_leader_permission', 'mes:pro-process-pool-pqc-leader:query', 2, '/mes/pro/process-pool/pqc-leader', 'mes/pro/processpool/PqcLeaderWorkbenchPage', 'MesProProcessPoolPqcLeaderWorkbench'),
   ('pqc_leader_permission', 'mes:pro-process-pool-team-leader:abnormal', 3, '', '', ''),
   ('pqc_leader_permission', 'mes:pro-process-pool-team-leader:maintain', 3, '', '', ''),

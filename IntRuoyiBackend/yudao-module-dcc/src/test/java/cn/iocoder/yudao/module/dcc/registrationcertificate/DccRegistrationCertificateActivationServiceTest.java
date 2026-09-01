@@ -91,7 +91,8 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
         verify(projectionService).publish(any(), any(), any(), eq("OLD"), eq("CURRENT"), eq(99L), anyString());
         verify(businessEventNotifier).notifyRenewalCandidateActivated(
                 eq(1L), eq(10L), eq(fixture.certificateId()), eq(fixture.pendingVersionId()),
-                eq(99L), eq("activation-1"), eq("CERT-002"));
+                eq(99L), eq("activation-1"), eq("Product A"), eq("CERT-002"),
+                eq(LocalDate.of(2026, 8, 17)), eq(LocalDate.of(2031, 9, 1)));
     }
 
     @Test

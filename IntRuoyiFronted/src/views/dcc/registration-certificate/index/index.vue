@@ -203,12 +203,12 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getCurrentColumnWidthString('actions', 140)"
+                  :width="getCurrentColumnWidthString('actions', 280)"
                 >
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions registration-certificate-row-actions--compact">
                       <el-button link type="primary" @click="openDetail(row.certificateId)">
-                        详情
+                        详细
                       </el-button>
                       <el-button
                         v-if="row.status === 'CURRENT'"
@@ -218,6 +218,14 @@
                         @click="openRenewalDialog(row)"
                       >
                         延续
+                      </el-button>
+                      <el-button
+                        link
+                        type="primary"
+                        v-hasPermi="['dcc:registration-certificate:change:submit']"
+                        @click="openChange(row.certificateId)"
+                      >
+                        变更
                       </el-button>
                     </div>
                   </template>
@@ -336,7 +344,7 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getOldColumnWidthString('actions', 210)"
+                  :width="getOldColumnWidthString('actions', 420)"
                 >
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions registration-certificate-row-actions--compact registration-certificate-row-actions--old-manager-view">
@@ -357,6 +365,32 @@
           </UnifiedListTemplate>
         </div>
       </el-tab-pane>
+
+      <el-tab-pane name="test" label="注册测试">
+        <div class="registration-certificate-test-tab" data-testid="registration-certificate-test-tab">
+          <div class="registration-certificate-business-time-controls">
+            <el-date-picker
+              v-model="simulationDate"
+              data-testid="registration-certificate-business-date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择模拟日期"
+            />
+            <el-button
+              type="primary"
+              data-testid="registration-certificate-simulate-daily-run"
+              :loading="simulationLoading"
+              :disabled="!simulationDate"
+              @click="handleSimulateDailyRun"
+            >
+              <Icon icon="ep:video-play" class="mr-5px" />模拟
+            </el-button>
+          </div>
+          <div v-if="simulationResult" class="registration-certificate-business-time-result">
+            已按 {{ formatRegistrationCertificateDate(simulationResult.businessDate) }} 09:00 触发注册证每日任务
+          </div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
   </ContentWrap>
 
@@ -374,10 +408,13 @@
 
 <script setup lang="ts">
 import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getRegistrationCertificateOldIndexPage,
   getRegistrationCertificatePage,
+  simulateRegistrationCertificateBusinessTimeDailyRun,
+  type DccRegistrationCertificateBusinessTimeSimulationRespVO,
   type DccRegistrationCertificateOldIndexItemVO,
   type DccRegistrationCertificatePageItemVO,
   type DccRegistrationCertificatePageReqVO,
@@ -414,7 +451,7 @@ const REGISTRATION_CERTIFICATE_ROUTE_PATH = '/mdm/registration-certificate'
 
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
-const activeTab = ref<'current' | 'old'>('current')
+const activeTab = ref<'current' | 'old' | 'test'>('current')
 const loading = ref(false)
 const oldLoading = ref(false)
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
@@ -424,8 +461,11 @@ const oldTotal = ref(0)
 const showUploadDialog = ref(false)
 const showRenewalDialog = ref(false)
 const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
-const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsCompactV3'
-const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsCompactV3'
+const simulationDate = ref('')
+const simulationLoading = ref(false)
+const simulationResult = ref<DccRegistrationCertificateBusinessTimeSimulationRespVO>()
+const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsDoubleWidthV1'
+const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsDoubleWidthV1'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
   Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
@@ -486,7 +526,7 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'effectiveDate', label: '生效日', width: 120, sortable: 'custom' },
   { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
   { key: 'remark', label: '备注', minWidth: 220, sortable: 'custom' },
-  { key: 'actions', label: '操作', width: 140, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 280, hideable: false, business: false, sortable: false }
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
@@ -497,7 +537,7 @@ const oldColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
   { key: 'status', label: '状态', width: 130, sortable: 'custom' },
   { key: 'expiryDate', label: '原有效期至', width: 140, sortable: 'custom' },
-  { key: 'actions', label: '操作', width: 210, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -842,7 +882,10 @@ const oldQuickFilter = useTableQuickFilter(
 )
 
 const handleTabChange = (tabName: string | number) => {
-  activeTab.value = tabName === 'old' ? 'old' : 'current'
+  activeTab.value = tabName === 'old' ? 'old' : tabName === 'test' ? 'test' : 'current'
+  if (activeTab.value === 'test') {
+    return
+  }
   if (activeTab.value === 'old') {
     void loadOldIndexPage()
     return
@@ -852,6 +895,13 @@ const handleTabChange = (tabName: string | number) => {
 
 const openDetail = (certificateId: number | string) => {
   router.push(`/mdm/registration-certificate/detail/${certificateId}`)
+}
+
+const openChange = (certificateId: number | string) => {
+  router.push({
+    path: `/mdm/registration-certificate/detail/${certificateId}`,
+    query: { mode: 'change' }
+  })
 }
 
 const openOldDetail = (certificateId: number | string, versionId: number | string) => {
@@ -888,6 +938,18 @@ const handleRenewalSaved = async () => {
   await loadPage()
 }
 
+const handleSimulateDailyRun = async () => {
+  if (!simulationDate.value) throw new Error('请选择模拟日期')
+  simulationLoading.value = true
+  try {
+    simulationResult.value = await simulateRegistrationCertificateBusinessTimeDailyRun({ businessDate: simulationDate.value })
+    ElMessage.success('注册证业务时间模拟完成')
+    await Promise.all([loadPage(), loadOldIndexPage()])
+  } finally {
+    simulationLoading.value = false
+  }
+}
+
 onMounted(() => {
   syncRegistrationCertificateQueryFromRoute()
   void loadPage()
@@ -904,6 +966,9 @@ onActivated(async () => {
     return
   }
   syncRegistrationCertificateQueryFromRoute()
+  if (activeTab.value === 'test') {
+    return
+  }
   if (activeTab.value === 'old') {
     await loadOldIndexPage()
     return
@@ -1010,9 +1075,13 @@ watch(
 }
 
 .registration-certificate-row-actions--compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
+
+.registration-certificate-test-tab { padding: 16px 0; }
+.registration-certificate-business-time-controls { display: flex; align-items: center; gap: 12px; }
+.registration-certificate-business-time-result { margin-top: 12px; color: var(--el-color-success); }
 
 .registration-certificate-row-actions--old-manager-view {
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -28,48 +29,59 @@ public class DccRegistrationCertificateBusinessEventNotifier {
 
     public void notifyNewCertificateFormalized(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                Long versionId, Long actorId, String eventKey,
-                                               String certificateNo) {
+                                               String productName, String certificateNo,
+                                               LocalDate effectiveDate, LocalDate expiryDate) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_NEW_CERTIFICATE_FORMALIZED,
-                eventKey, "注册证上传审批通过", certificateNo);
+                eventKey, "已入库", productName, certificateNo, effectiveDate, expiryDate);
     }
 
     public void notifyRenewalCandidateUploaded(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                Long versionId, Long actorId, String eventKey,
-                                               String certificateNo) {
+                                               String productName, String certificateNo,
+                                               LocalDate effectiveDate, LocalDate expiryDate) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_RENEWAL_CANDIDATE_UPLOADED,
-                eventKey, "延续注册证审批通过", certificateNo);
+                eventKey, "延续版本已入库", productName, certificateNo, effectiveDate, expiryDate);
     }
 
     public void notifyRenewalCandidateActivated(Long tenantId, Long ownerCompanyId, Long certificateId,
                                                 Long versionId, Long actorId, String eventKey,
-                                                String certificateNo) {
+                                                String productName, String certificateNo,
+                                                LocalDate effectiveDate, LocalDate expiryDate) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_RENEWAL_CANDIDATE_ACTIVATED,
-                eventKey, "延续注册证已生效", certificateNo);
+                eventKey, "延续版本已生效", productName, certificateNo, effectiveDate, expiryDate);
     }
 
     public void notifyChangeApprovalRecorded(Long tenantId, Long ownerCompanyId, Long certificateId,
                                              Long versionId, Long actorId, String eventKey,
-                                             String certificateNo) {
+                                             String productName, String certificateNo,
+                                             LocalDate effectiveDate, LocalDate expiryDate) {
         send(tenantId, ownerCompanyId, certificateId, versionId, actorId, EVENT_CHANGE_APPROVAL_RECORDED,
-                eventKey, "变更批件已记录", certificateNo);
+                eventKey, "变更批件已记录", productName, certificateNo, effectiveDate, expiryDate);
     }
 
     private void send(Long tenantId, Long ownerCompanyId, Long certificateId, Long versionId, Long actorId,
-                      String eventType, String eventKey, String eventTitle, String certificateNo) {
+                      String eventType, String eventKey, String eventTitle, String productName,
+                      String certificateNo, LocalDate effectiveDate, LocalDate expiryDate) {
         DccRegistrationCertificateBusinessEventNotificationConfigService.RecipientScope recipientScope =
                 configService.resolveRecipientScope();
         notificationService.send(new DccRegistrationCertificateBusinessEventNotificationCommand(
                 tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
-                recipientScope.roleIds(), recipientScope.permission(), detailParams(eventTitle, certificateNo)));
+                recipientScope.roleIds(), recipientScope.permission(),
+                detailParams(eventTitle, productName, certificateNo, effectiveDate, expiryDate)));
     }
 
-    private static Map<String, Object> detailParams(String eventTitle, String certificateNo) {
-        if (isBlank(eventTitle) || isBlank(certificateNo)) {
+    private static Map<String, Object> detailParams(String eventTitle, String productName, String certificateNo,
+                                                    LocalDate effectiveDate, LocalDate expiryDate) {
+        if (isBlank(eventTitle) || isBlank(productName) || isBlank(certificateNo)
+                || effectiveDate == null || expiryDate == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
         }
         LinkedHashMap<String, Object> params = new LinkedHashMap<>();
         params.put("eventTitle", eventTitle.trim());
+        params.put("productName", productName.trim());
         params.put("certificateNo", certificateNo.trim());
+        params.put("effectiveDate", effectiveDate.toString());
+        params.put("expiryDate", expiryDate.toString());
         return Map.copyOf(params);
     }
 

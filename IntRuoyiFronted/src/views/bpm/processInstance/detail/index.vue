@@ -266,6 +266,9 @@ const currentApprovalStepLabel = computed(() => {
   return '-'
 })
 
+const resolveApprovalRoleLabel = (roleName?: string | null) =>
+  roleName ? `审批角色：${roleName}` : ''
+
 const getUserDisplayName = (user?: ProcessInstanceApi.User) => {
   if (!user) {
     return ''
@@ -273,13 +276,25 @@ const getUserDisplayName = (user?: ProcessInstanceApi.User) => {
   return user.nickname || (user.id ? `用户#${user.id}` : '')
 }
 
+const resolveApprovalNodeReviewerLabel = (node: ProcessInstanceApi.ApprovalNodeInfo) =>
+  resolveApprovalRoleLabel(node.assigneeRoleName)
+
+const resolveApprovalTaskReviewerLabel = (
+  task: ProcessInstanceApi.ApprovalTaskInfo,
+  node: ProcessInstanceApi.ApprovalNodeInfo
+) =>
+  resolveApprovalRoleLabel(task.assigneeRoleName || node.assigneeRoleName) ||
+  getUserDisplayName(task.assigneeUser) ||
+  getUserDisplayName(task.ownerUser)
+
 const currentApprovalActorText = computed(() => {
   const actorNames = currentApprovalNodes.value.flatMap((node) => {
+    const nodeReviewerLabel = resolveApprovalNodeReviewerLabel(node)
+    if (nodeReviewerLabel) {
+      return [nodeReviewerLabel]
+    }
     const taskActors = (node.tasks || [])
-      .flatMap((task) => [
-        getUserDisplayName(task.assigneeUser),
-        getUserDisplayName(task.ownerUser)
-      ])
+      .map((task) => resolveApprovalTaskReviewerLabel(task, node))
       .filter(Boolean)
     const candidateActors = (node.candidateUsers || []).map(getUserDisplayName).filter(Boolean)
     return [...taskActors, ...candidateActors]

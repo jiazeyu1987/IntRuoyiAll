@@ -848,13 +848,13 @@
                   {{ selectedAssociatedFilesTotal }} 份
                 </el-tag>
               </div>
-              <el-table
-                :data="selectedAssociatedPagedFiles"
-                :show-overflow-tooltip="true"
-                :row-class-name="resolveAssociatedFileRowClassName"
-                @selection-change="handleAssociatedFileSelectionChange"
-              >
-                <el-table-column type="selection" width="48" />
+                <el-table
+                  :data="selectedAssociatedPagedFiles"
+                  :show-overflow-tooltip="true"
+                  :row-class-name="resolveAssociatedFileRowClassName"
+                  @selection-change="handleAssociatedFileSelectionChange"
+                >
+                  <el-table-column type="selection" width="48" :selectable="isAssociatedControlledFileSelectable" />
                 <el-table-column label="文件名称" prop="fileName" min-width="360">
                   <template #default="{ row }">
                     <el-link type="primary" @click="openControlledFileDetail(row)">
@@ -1217,6 +1217,7 @@ type ProductOnboardingFormData = DccProductOnboardingCreateReqVO
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
 const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100
 const DCC_PROJECT_CODE_UNCLASSIFIED_TYPE = '未分类文件类型'
+const DCC_REGISTRATION_CERTIFICATE_SOURCE_TYPE = 'DCC_REGISTRATION_CERTIFICATE'
 const BATCH_AI_CATEGORY_POLL_INTERVAL_MS = 1000
 const projectCodeConfigurationFilterOptions = [
   { label: '已配置', value: true },
@@ -1666,6 +1667,10 @@ const resolveAssociatedTypeName = (file: ControlledFileVO) => {
 const isAssociatedFileUnclassified = (file: ControlledFileVO) =>
   resolveAssociatedStageKey(file) === DCC_UNCLASSIFIED_TAXONOMY_STAGE ||
   resolveAssociatedTypeName(file) === DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+const isRegistrationCertificateAssociatedFile = (row: ControlledFileVO) =>
+  row.businessSourceType === DCC_REGISTRATION_CERTIFICATE_SOURCE_TYPE
+const isAssociatedControlledFileSelectable = (row: ControlledFileVO) =>
+  !isRegistrationCertificateAssociatedFile(row)
 const associatedUnclassifiedFiles = computed(() =>
   associatedNavigationFiles.value.filter(isAssociatedFileUnclassified)
 )
@@ -2538,6 +2543,7 @@ const resetAssignmentForm = () => {
 
 const handleAssociatedFileSelectionChange = (rows: ControlledFileVO[]) => {
   selectedAssociatedFileIds.value = rows
+    .filter(isAssociatedControlledFileSelectable)
     .map((row) => row.id as number | string)
     .filter((id): id is number | string => id !== null && typeof id !== 'undefined' && String(id).length > 0)
 }
@@ -3096,6 +3102,19 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
 }
 
 const openControlledFileDetail = (row: ControlledFileVO) => {
+  if (isRegistrationCertificateAssociatedFile(row)) {
+    if (!row.registrationCertificateId) {
+      message.error('注册证关联文件缺少注册证主档，无法打开详情')
+      return
+    }
+    router.push({
+      path: '/mdm/registration-certificate/detail/' + String(row.registrationCertificateId),
+      query: row.registrationCertificateBusinessFileId
+        ? { businessFileId: String(row.registrationCertificateBusinessFileId) }
+        : {}
+    })
+    return
+  }
   openControlledFileViewer(router, route, row.id, 'project-code')
 }
 

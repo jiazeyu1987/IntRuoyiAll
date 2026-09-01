@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.change;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
@@ -21,13 +22,16 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
@@ -49,7 +53,16 @@ public class DccRegistrationCertificateChangeService {
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_CURRENT = "CURRENT";
     private static final String STATUS_VOIDED = "VOIDED";
+    private static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
+    private static final String STATUS_APPLIED = "APPLIED";
+    private static final String STATUS_REJECTED = "REJECTED";
+    private static final String REQUEST_STATUS_SUBMITTED = "SUBMITTED";
+    private static final String REQUEST_STATUS_APPROVED = "APPROVED";
+    private static final String REQUEST_TYPE_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
+    private static final String REQUEST_OPERATION_CHANGE_CERTIFICATE = "CHANGE_CERTIFICATE";
+    private static final String REQUEST_FILE_STATUS_REQUESTED = "REQUESTED";
     private static final String EVENT_CHANGE_APPLIED = "CHANGE_APPLIED";
+    private static final String EVENT_CHANGE_SUBMITTED = "CHANGE_SUBMITTED";
     private static final String EVENT_CERTIFICATE_VOIDED = "CERTIFICATE_VOIDED";
     private static final String FILE_OWNER_CHANGE = "CHANGE";
     private static final String FILE_KIND_CHANGE_APPROVAL = "CHANGE_APPROVAL";
@@ -72,15 +85,19 @@ public class DccRegistrationCertificateChangeService {
     private final FileService fileService;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
+    private final DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
 
     public DccRegistrationCertificateChangeService(JdbcTemplate jdbcTemplate,
-                                                   FileService fileService,
-                                                   DccRegistrationCertificateBusinessClock businessClock,
-                                                   DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
+                                                    FileService fileService,
+                                                    DccRegistrationCertificateBusinessClock businessClock,
+                                                    DccRegistrationCertificateBusinessEventNotifier businessEventNotifier,
+                                                    DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService) {
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
         this.fileService = require(fileService, "fileService");
         this.businessClock = require(businessClock, "businessClock");
         this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
+        this.projectCodeFileAssociationService = require(
+                projectCodeFileAssociationService, "projectCodeFileAssociationService");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -118,13 +135,120 @@ public class DccRegistrationCertificateChangeService {
         Long eventId = insertLifecycleEvent(command, state, resultingSnapshotId, EVENT_CHANGE_APPLIED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertChange(command, state, resultingSnapshotId, eventId, selection.itemTypes());
-        insertChangeFile(command, changeId, infraFileId, uploadFile);
-        insertChangeItems(command.tenantId(), changeId, state.snapshot(), target, selection);
+        Long businessFileId = insertChangeFile(command, changeId, infraFileId, uploadFile);
+        projectCodeFileAssociationService.bindChangeApprovalFile(
+                command.tenantId(), null, changeId, businessFileId, command.actorId());
+        insertChangeItems(command, command.tenantId(), changeId, state.snapshot(), target, selection);
         businessEventNotifier.notifyChangeApprovalRecorded(
                 command.tenantId(), state.ownerCompanyId(), command.certificateId(), state.versionId(),
-                command.actorId(), command.idempotencyKey(), state.certificateNo());
+                command.actorId(), command.idempotencyKey(), target.productName(), state.certificateNo(),
+                state.effectiveDate(), state.expiryDate());
         return new DccRegistrationCertificateChangeResult(command.certificateId(), changeId,
                 state.snapshotId(), resultingSnapshotId, "APPLIED");
+    }
+
+    /**
+     * 保存变更申请事实并进入现有注册证审批流程；当前证件显示信息必须等审批通过后再更新。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Long submitChangeForApproval(DccRegistrationCertificateChangeCommand command) {
+        validateBaseCommand(command);
+        ChangeUploadFile uploadFile = requireUploadFile(command.file());
+        String payloadHash = payloadHash("CHANGE_SUBMIT", command, uploadFile);
+        ExistingEvent existing = findExistingEvent(command.tenantId(), command.idempotencyKey());
+        if (existing != null) {
+            return replayChangeSubmission(existing, payloadHash);
+        }
+        ChangeSelection selection = validateSelection(command);
+        validateMvpProjectionValues(selection);
+        CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
+                command.expectedRowVersion());
+        Long eventId = insertLifecycleEvent(command, state, state.snapshotId(), EVENT_CHANGE_SUBMITTED,
+                payloadHash, selection.itemTypes());
+        Long changeId = insertPendingChange(command, state, eventId, selection.itemTypes());
+        Long infraFileId = fileService.createFileAndReturnId(
+                uploadFile.content(), uploadFile.originalName(),
+                "dcc/registration-certificate/change/" + command.certificateId(), uploadFile.mimeType());
+        Long businessFileId = insertChangeFile(command, changeId, infraFileId, uploadFile);
+        projectCodeFileAssociationService.bindChangeApprovalFile(
+                command.tenantId(), null, changeId, businessFileId, command.actorId());
+        SnapshotRow projected = state.snapshot().withChanges(selection.structuredValues(), command);
+        insertChangeItems(command, command.tenantId(), changeId, state.snapshot(), projected, selection);
+        Long requestId = insertApprovalRequest(command, state, changeId, payloadHash);
+        requireSingle(jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_change
+                   SET approval_request_id = ?
+                 WHERE id = ? AND tenant_id = ? AND status = ? AND approval_request_id IS NULL
+                """, requestId, changeId, command.tenantId(), STATUS_PENDING_APPROVAL),
+                REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+        insertApprovalRequestFile(command.tenantId(), requestId, businessFileId, payloadHash);
+        return requestId;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccRegistrationCertificateChangeResult approveChangeRequest(
+            Long tenantId, Long approverId, Long requestId, String approvalKey) {
+        return approveChangeRequest(tenantId, approverId, requestId, approvalKey, businessClock.now());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccRegistrationCertificateChangeResult approveChangeRequest(
+            Long tenantId, Long approverId, Long requestId, String approvalKey, LocalDateTime reviewedAt) {
+        ChangeApplication application = requirePendingChangeApplication(tenantId, requestId, REQUEST_STATUS_APPROVED);
+        if (isBlank(approvalKey)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_KEY_REQUIRED);
+        }
+        CertificateState state = requireCurrentState(tenantId, application.certificateId(), application.baselineRowVersion());
+        if (!Objects.equals(state.snapshotId(), application.sourceSnapshotId())
+                || !Objects.equals(state.versionId(), application.sourceVersionId())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REVISION_CONFLICT);
+        }
+        Map<String, String> projectionValues = loadMvpProjectionValues(tenantId, application.changeId());
+        Long resultingSnapshotId = state.snapshotId();
+        String notificationProductName = state.snapshot().productName();
+        if (!projectionValues.isEmpty()) {
+            SnapshotRow target = state.snapshot().withMvpDisplayChanges(projectionValues);
+            resultingSnapshotId = insertSnapshot(tenantId, state.versionId(), target);
+            notificationProductName = target.productName();
+            requireSingle(jdbcTemplate.update("""
+                    UPDATE dcc_registration_certificate
+                       SET current_snapshot_id = ?, row_version = row_version + 1
+                     WHERE id = ? AND tenant_id = ? AND status = ?
+                       AND current_version_id = ? AND current_snapshot_id = ?
+                    """, resultingSnapshotId, application.certificateId(), tenantId, STATUS_ACTIVE,
+                    state.versionId(), state.snapshotId()), REGISTRATION_CERTIFICATE_REVISION_CONFLICT);
+        }
+        LocalDateTime effectiveReviewedAt = reviewedAt == null ? businessClock.now() : reviewedAt;
+        requireSingle(jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_change
+                   SET resulting_snapshot_id = ?, status = ?, reviewer_user_id = ?, reviewed_at = ?, applied_at = ?
+                 WHERE id = ? AND tenant_id = ? AND status = ? AND approval_request_id = ?
+                """, resultingSnapshotId, STATUS_APPLIED, approverId, effectiveReviewedAt, effectiveReviewedAt,
+                application.changeId(), tenantId, STATUS_PENDING_APPROVAL, requestId),
+                REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+        businessEventNotifier.notifyChangeApprovalRecorded(
+                tenantId, state.ownerCompanyId(), application.certificateId(), state.versionId(),
+                approverId, approvalKey.trim(), notificationProductName, state.certificateNo(),
+                state.effectiveDate(), state.expiryDate());
+        return new DccRegistrationCertificateChangeResult(application.certificateId(), application.changeId(),
+                state.snapshotId(), resultingSnapshotId, STATUS_APPLIED);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectChangeRequest(Long tenantId, Long approverId, Long requestId) {
+        rejectChangeRequest(tenantId, approverId, requestId, businessClock.now());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectChangeRequest(Long tenantId, Long approverId, Long requestId, LocalDateTime reviewedAt) {
+        ChangeApplication application = requirePendingChangeApplication(tenantId, requestId, STATUS_REJECTED);
+        LocalDateTime effectiveReviewedAt = reviewedAt == null ? businessClock.now() : reviewedAt;
+        requireSingle(jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_change
+                   SET status = ?, reviewer_user_id = ?, reviewed_at = ?
+                 WHERE id = ? AND tenant_id = ? AND status = ? AND approval_request_id = ?
+                """, STATUS_REJECTED, approverId, effectiveReviewedAt, application.changeId(), tenantId,
+                STATUS_PENDING_APPROVAL, requestId), REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -193,6 +317,72 @@ public class DccRegistrationCertificateChangeService {
                 structured.put(entry.getKey(), entry.getValue().trim());
             }
         }
+        Set<String> selected = new LinkedHashSet<>();
+        if (command.changeTypes() != null) {
+            for (String type : command.changeTypes()) {
+                String normalized = normalize(type);
+                if (isBlank(normalized) || (!STRUCTURED_COLUMNS.containsKey(normalized)
+                        && !"OTHER_CONTENT".equals(normalized))) {
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+                }
+                selected.add(normalized);
+            }
+        }
+        if (selected.isEmpty()) {
+            selected.addAll(structured.keySet());
+            if (!isBlank(command.otherDescription())) {
+                selected.add("OTHER_CONTENT");
+            }
+        }
+        if (selected.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+        }
+        for (String type : structured.keySet()) {
+            if (!selected.contains(type)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+            }
+        }
+        for (String type : selected) {
+            if (("PRODUCT_NAME".equals(type) || "REGISTRANT_NAME".equals(type))
+                    && isBlank(structured.get(type))) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
+            }
+        }
+        if (selected.contains("PRODUCTION_ADDRESS")) {
+            validateProductionRelation(command);
+        }
+        boolean hasOther = selected.contains("OTHER_CONTENT");
+        if (hasOther && isBlank(command.otherDescription())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
+        }
+        if (!hasOther && !isBlank(command.otherDescription())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+        }
+        return new ChangeSelection(structured, hasOther ? command.otherDescription().trim() : null,
+                new ArrayList<>(selected));
+    }
+
+    private void validateMvpProjectionValues(ChangeSelection selection) {
+        for (String type : selection.structuredValues().keySet()) {
+            if (!"PRODUCT_NAME".equals(type) && !"REGISTRANT_NAME".equals(type)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+            }
+        }
+    }
+
+    private ChangeSelection validateImmediateSelection(DccRegistrationCertificateChangeCommand command) {
+        Map<String, String> structured = new LinkedHashMap<>();
+        if (command.structuredValues() != null) {
+            for (Map.Entry<String, String> entry : command.structuredValues().entrySet()) {
+                if (!STRUCTURED_COLUMNS.containsKey(entry.getKey())) {
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+                }
+                if (isBlank(entry.getValue())) {
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
+                }
+                structured.put(entry.getKey(), entry.getValue().trim());
+            }
+        }
         boolean hasOther = !isBlank(command.otherDescription());
         if (!hasOther && structured.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
@@ -225,7 +415,7 @@ public class DccRegistrationCertificateChangeService {
     private CertificateState requireCurrentState(Long tenantId, Long certificateId, Integer expectedRowVersion) {
         List<CertificateState> rows = jdbcTemplate.query("""
                         SELECT c.owner_company_id, c.current_version_id, c.current_snapshot_id, c.status, c.row_version,
-                               v.status AS version_status, v.certificate_no,
+                               v.status AS version_status, v.certificate_no, v.effective_date, v.expiry_date,
                                s.id AS snapshot_id, s.version_id, s.revision_no, s.product_name, s.registrant_name,
                                s.model_specification, s.structure_composition, s.intended_use,
                                s.technical_requirements, s.residence_address, s.production_address,
@@ -244,6 +434,8 @@ public class DccRegistrationCertificateChangeService {
                         rs.getInt("row_version"),
                         rs.getString("version_status"),
                         rs.getString("certificate_no"),
+                        rs.getObject("effective_date", LocalDate.class),
+                        rs.getObject("expiry_date", LocalDate.class),
                         new SnapshotRow(
                                 rs.getLong("snapshot_id"),
                                 rs.getLong("version_id"),
@@ -294,21 +486,32 @@ public class DccRegistrationCertificateChangeService {
         }
     }
 
-    private void insertChangeFile(DccRegistrationCertificateChangeCommand command, Long changeId,
-                                  Long infraFileId, ChangeUploadFile uploadFile) {
+    private Long insertChangeFile(DccRegistrationCertificateChangeCommand command, Long changeId,
+                                   Long infraFileId, ChangeUploadFile uploadFile) {
         if (infraFileId == null || infraFileId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
         try {
-            requireSingle(jdbcTemplate.update("""
+            return insertAndReturnId("""
                     INSERT INTO dcc_registration_certificate_file
                       (tenant_id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
                        file_size, sha256, status, bound_at, bound_by, creator)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, command.tenantId(), FILE_OWNER_CHANGE, changeId, FILE_KIND_CHANGE_APPROVAL,
-                    infraFileId, uploadFile.originalName(), uploadFile.mimeType(), uploadFile.fileSize(),
-                    uploadFile.sha256(), FILE_STATUS_BOUND, businessClock.now(), command.actorId(),
-                    String.valueOf(command.actorId())), REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+                    """, ps -> {
+                ps.setLong(1, command.tenantId());
+                ps.setString(2, FILE_OWNER_CHANGE);
+                ps.setLong(3, changeId);
+                ps.setString(4, FILE_KIND_CHANGE_APPROVAL);
+                ps.setLong(5, infraFileId);
+                ps.setString(6, uploadFile.originalName());
+                ps.setString(7, uploadFile.mimeType());
+                ps.setLong(8, uploadFile.fileSize());
+                ps.setString(9, uploadFile.sha256());
+                ps.setString(10, FILE_STATUS_BOUND);
+                ps.setObject(11, businessClock.now());
+                ps.setLong(12, command.actorId());
+                ps.setString(13, String.valueOf(command.actorId()));
+            });
         } catch (DuplicateKeyException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
@@ -405,14 +608,125 @@ public class DccRegistrationCertificateChangeService {
         });
     }
 
-    private void insertChangeItems(Long tenantId, Long changeId, SnapshotRow before,
+    private Long insertPendingChange(DccRegistrationCertificateChangeCommand command, CertificateState state,
+                                     Long eventId, List<String> itemTypes) {
+        return insertAndReturnId("""
+                INSERT INTO dcc_registration_certificate_change
+                  (tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
+                   resulting_snapshot_id, event_id, approval_date, selected_change_types_json,
+                   selected_item_count, status, actor_id, applied_at, creator)
+                VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, ps -> {
+            ps.setLong(1, command.tenantId());
+            ps.setLong(2, state.ownerCompanyId());
+            ps.setLong(3, command.certificateId());
+            ps.setLong(4, state.versionId());
+            ps.setLong(5, state.snapshotId());
+            ps.setLong(6, eventId);
+            ps.setObject(7, command.approvalDate());
+            ps.setString(8, JsonUtils.toJsonString(itemTypes));
+            ps.setInt(9, itemTypes.size());
+            ps.setString(10, STATUS_PENDING_APPROVAL);
+            ps.setLong(11, command.actorId());
+            ps.setNull(12, java.sql.Types.TIMESTAMP);
+            ps.setString(13, String.valueOf(command.actorId()));
+        });
+    }
+
+    private Long insertApprovalRequest(DccRegistrationCertificateChangeCommand command, CertificateState state,
+                                       Long changeId, String payloadHash) {
+        return insertAndReturnId("""
+                INSERT INTO dcc_registration_certificate_access_request
+                  (tenant_id, owner_company_id, certificate_id, requester_user_id, request_type, request_key,
+                   purpose, status, requested_at, detail_json, creator)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, ps -> {
+            ps.setLong(1, command.tenantId());
+            ps.setLong(2, state.ownerCompanyId());
+            ps.setLong(3, command.certificateId());
+            ps.setLong(4, command.actorId());
+            ps.setString(5, REQUEST_TYPE_UPLOAD_CERTIFICATE);
+            ps.setString(6, command.idempotencyKey().trim());
+            ps.setString(7, "上传注册证变更批件，待审批");
+            ps.setString(8, REQUEST_STATUS_SUBMITTED);
+            ps.setObject(9, businessClock.now());
+            ps.setString(10, JsonUtils.toJsonString(Map.of(
+                    "operation", REQUEST_OPERATION_CHANGE_CERTIFICATE,
+                    "changeId", changeId,
+                    "payloadHash", payloadHash)));
+            ps.setString(11, String.valueOf(command.actorId()));
+        });
+    }
+
+    private void insertApprovalRequestFile(Long tenantId, Long requestId, Long businessFileId, String payloadHash) {
+        requireSingle(jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_access_request_file
+                  (tenant_id, request_id, business_file_id, file_kind, download_requested, status, detail_json)
+                VALUES (?, ?, ?, ?, FALSE, ?, ?)
+                """, tenantId, requestId, businessFileId, FILE_KIND_CHANGE_APPROVAL,
+                REQUEST_FILE_STATUS_REQUESTED, JsonUtils.toJsonString(Map.of("payloadHash", payloadHash))),
+                REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+    }
+
+    private ChangeApplication requirePendingChangeApplication(
+            Long tenantId, Long requestId, String expectedRequestStatus) {
+        if (tenantId == null || tenantId <= 0 || requestId == null || requestId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+        }
+        List<ChangeApplication> applications = jdbcTemplate.query("""
+                SELECT c.id AS change_id, c.certificate_id, c.source_version_id, c.source_snapshot_id,
+                       c.status AS change_status, r.status AS request_status, e.baseline_row_version
+                  FROM dcc_registration_certificate_change c
+                  JOIN dcc_registration_certificate_access_request r
+                    ON r.id = c.approval_request_id AND r.tenant_id = c.tenant_id AND r.deleted = 0
+                  JOIN dcc_registration_certificate_lifecycle_event e
+                    ON e.id = c.event_id AND e.tenant_id = c.tenant_id
+                 WHERE c.tenant_id = ? AND c.approval_request_id = ? AND c.deleted = 0
+                """, (rs, rowNum) -> new ChangeApplication(
+                rs.getLong("change_id"), rs.getLong("certificate_id"), rs.getLong("source_version_id"),
+                rs.getLong("source_snapshot_id"), rs.getString("change_status"),
+                rs.getString("request_status"), rs.getObject("baseline_row_version", Integer.class)), tenantId, requestId);
+        if (applications.size() != 1) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+        }
+        ChangeApplication application = applications.get(0);
+        if (!STATUS_PENDING_APPROVAL.equals(application.changeStatus())
+                || !expectedRequestStatus.equals(application.requestStatus())
+                || application.baselineRowVersion() == null || application.baselineRowVersion() <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+        }
+        return application;
+    }
+
+    private Map<String, String> loadMvpProjectionValues(Long tenantId, Long changeId) {
+        List<Map.Entry<String, String>> rows = jdbcTemplate.query("""
+                SELECT item_type, after_value_json
+                  FROM dcc_registration_certificate_change_item
+                 WHERE tenant_id = ? AND change_id = ?
+                   AND item_type IN ('PRODUCT_NAME', 'REGISTRANT_NAME')
+                 ORDER BY sort_order ASC, id ASC
+                """, (rs, rowNum) -> Map.entry(rs.getString("item_type"), rs.getString("after_value_json")),
+                tenantId, changeId);
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, String> row : rows) {
+            Map<?, ?> parsed = JsonUtils.parseObject(row.getValue(), Map.class);
+            String value = parsed == null || parsed.get("value") == null
+                    ? null : String.valueOf(parsed.get("value")).trim();
+            if (isBlank(value)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
+            }
+            values.put(row.getKey(), value);
+        }
+        return values;
+    }
+
+    private void insertChangeItems(DccRegistrationCertificateChangeCommand command, Long tenantId, Long changeId,
+                                   SnapshotRow before,
                                    SnapshotRow after, ChangeSelection selection) {
         int sort = 1;
         for (String itemType : selection.itemTypes()) {
             String beforeJson = valueJson(before.valueOf(itemType));
-            String afterJson = "OTHER_CONTENT".equals(itemType)
-                    ? valueJson(selection.otherDescription())
-                    : valueJson(after.valueOf(itemType));
+            String afterJson = afterValueJson(command, itemType, after, selection);
             try {
                 requireSingle(jdbcTemplate.update("""
                                 INSERT INTO dcc_registration_certificate_change_item
@@ -424,6 +738,23 @@ public class DccRegistrationCertificateChangeService {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
             }
         }
+    }
+
+    private static String afterValueJson(DccRegistrationCertificateChangeCommand command, String itemType,
+                                         SnapshotRow after, ChangeSelection selection) {
+        if ("OTHER_CONTENT".equals(itemType)) {
+            return valueJson(selection.otherDescription());
+        }
+        if ("PRODUCTION_ADDRESS".equals(itemType)
+                && !selection.structuredValues().containsKey("PRODUCTION_ADDRESS")) {
+            Map<String, Object> relation = new LinkedHashMap<>();
+            relation.put("value", "");
+            relation.put("entrustedProduction", command.entrustedProduction());
+            relation.put("selfProduction", command.selfProduction());
+            relation.put("entrustedEnterprisesJson", normalize(command.entrustedEnterprisesJson()));
+            return JsonUtils.toJsonString(relation);
+        }
+        return valueJson(selection.structuredValues().containsKey(itemType) ? after.valueOf(itemType) : "");
     }
 
     private DccRegistrationCertificateChangeResult replayChange(ExistingEvent event, String payloadHash) {
@@ -438,6 +769,23 @@ public class DccRegistrationCertificateChangeService {
                 """, Long.class, event.tenantId(), event.eventId());
         return new DccRegistrationCertificateChangeResult(event.certificateId(), changeId,
                 event.sourceSnapshotId(), event.targetSnapshotId(), "APPLIED");
+    }
+
+    private Long replayChangeSubmission(ExistingEvent event, String payloadHash) {
+        ChangeEventDetail detail = JsonUtils.parseObject(event.detailJson(), ChangeEventDetail.class);
+        if (!EVENT_CHANGE_SUBMITTED.equals(event.eventType()) || detail == null
+                || !Objects.equals(payloadHash, detail.payloadHash())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT);
+        }
+        Long requestId = jdbcTemplate.queryForObject("""
+                SELECT approval_request_id
+                  FROM dcc_registration_certificate_change
+                 WHERE tenant_id = ? AND event_id = ? AND status = ?
+                """, Long.class, event.tenantId(), event.eventId(), STATUS_PENDING_APPROVAL);
+        if (requestId == null || requestId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
+        }
+        return requestId;
     }
 
     private DccRegistrationCertificateChangeResult replayVoid(ExistingEvent event, String payloadHash) {
@@ -516,7 +864,8 @@ public class DccRegistrationCertificateChangeService {
     private static String payloadHash(String prefix, DccRegistrationCertificateChangeCommand command,
                                       ChangeUploadFile uploadFile) {
         return sha256(prefix + "|" + command.certificateId() + "|" + command.expectedRowVersion()
-                + "|" + command.approvalDate() + "|" + normalize(command.structuredValues())
+                + "|" + command.approvalDate() + "|" + normalize(command.changeTypes())
+                + "|" + normalize(command.structuredValues())
                 + "|" + normalize(command.otherDescription()) + "|" + command.entrustedProduction()
                 + "|" + command.selfProduction() + "|" + normalize(command.entrustedEnterprisesJson())
                 + "|" + normalize(command.voidReason()) + "|" + uploadFilePart(uploadFile));
@@ -532,6 +881,11 @@ public class DccRegistrationCertificateChangeService {
 
     private static String normalize(Map<String, String> values) {
         return values == null ? "" : new java.util.TreeMap<>(values).toString();
+    }
+
+    private static String normalize(List<String> values) {
+        return values == null ? "" : values.stream().map(DccRegistrationCertificateChangeService::normalize)
+                .sorted().toList().toString();
     }
 
     private static String normalize(String value) {
@@ -581,8 +935,14 @@ public class DccRegistrationCertificateChangeService {
                                    List<String> itemTypes) {
     }
 
+    private record ChangeApplication(Long changeId, Long certificateId, Long sourceVersionId,
+                                     Long sourceSnapshotId, String changeStatus, String requestStatus,
+                                     Integer baselineRowVersion) {
+    }
+
     private record CertificateState(Long ownerCompanyId, Long versionId, Long snapshotId, String status,
                                     Integer rowVersion, String versionStatus, String certificateNo,
+                                    LocalDate effectiveDate, LocalDate expiryDate,
                                     SnapshotRow snapshot) {
     }
 
@@ -621,6 +981,15 @@ public class DccRegistrationCertificateChangeService {
                     changes.containsKey("PRODUCTION_ADDRESS") ? command.selfProduction() : selfProduction,
                     changes.containsKey("PRODUCTION_ADDRESS") ? normalizeEntrustedJson(command) : entrustedEnterprisesJson,
                     effectiveAt);
+        }
+
+        SnapshotRow withMvpDisplayChanges(Map<String, String> changes) {
+            return new SnapshotRow(id, versionId, revisionNo,
+                    changes.getOrDefault("PRODUCT_NAME", productName),
+                    changes.getOrDefault("REGISTRANT_NAME", registrantName),
+                    modelSpecification, structureComposition, intendedUse, technicalRequirements,
+                    residenceAddress, productionAddress, entrustedProduction, selfProduction,
+                    entrustedEnterprisesJson, effectiveAt);
         }
 
         String valueOf(String itemType) {

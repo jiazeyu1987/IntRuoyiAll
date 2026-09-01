@@ -38,4 +38,11 @@ public class DccRegistrationCertificateFileDO extends TenantBaseDO {
     private Long boundFileUniqueFlag;
     private LocalDateTime boundAt;
     private Long boundBy;
+    private Long dccProjectCodeId;
+    private Long fileTypeTaxonomyId;
+    private String fileTypeLevel1;
+    private String fileTypeLevel2;
+    private String fileTypeLevel3;
+    private String fileTypeLevel4;
+    private String fileTypeLevel5;
 }

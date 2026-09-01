@@ -34,6 +34,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportActionConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportStatusConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
@@ -91,6 +92,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private static final String TECHNICAL_FILE_TYPE_LEVEL1 = "技术文档";
     private static final String UNCLASSIFIED_STAGE = "未分类";
     private static final String UNCLASSIFIED_FILE_TYPE = "未分类文件类型";
+    private static final String CONTROLLED_FILE_SOURCE_TYPE = "DCC_CONTROLLED_FILE";
     private static final String CATEGORY_MATCH_TYPE_CONTAINS = "CONTAINS";
     private static final String CATEGORY_MATCH_TYPE_EXACT = "EXACT";
     private static final String CATEGORY_MATCH_TYPE_PREFIX = "PREFIX";
@@ -155,6 +157,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private DccFileCategoryMatchRuleMapper categoryMatchRuleMapper;
     @Resource
     private DccControlledFileQueryService controlledFileQueryService;
+    @Resource
+    private DccRegistrationCertificateProjectCodeFileAssociationService registrationCertificateFileAssociationService;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
@@ -234,12 +238,17 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                                                                       DccProjectCodeControlledFilePageReqVO reqVO) {
         getProjectCode(userId, id);
         DccControlledFilePageReqVO controlledFilePageReqVO = new DccControlledFilePageReqVO();
-        controlledFilePageReqVO.setPageNo(reqVO.getPageNo());
-        controlledFilePageReqVO.setPageSize(reqVO.getPageSize());
+        controlledFilePageReqVO.setPageNo(1);
+        controlledFilePageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         controlledFilePageReqVO.setKeyword(reqVO.getKeyword());
         controlledFilePageReqVO.setStatus(reqVO.getStatus());
         controlledFilePageReqVO.setDccProjectCodeId(id);
-        return controlledFileQueryService.getControlledFilePage(userId, controlledFilePageReqVO);
+        List<DccControlledFileRespVO> associatedRows = new ArrayList<>(
+                controlledFileQueryService.getControlledFilePage(userId, controlledFilePageReqVO).getList());
+        associatedRows.forEach(this::markControlledFileSource);
+        associatedRows.addAll(registrationCertificateFileAssociationService.listAssociatedRows(
+                id, reqVO.getKeyword(), reqVO.getStatus()));
+        return buildAssociatedControlledFilePageResult(associatedRows, reqVO);
     }
 
     @Override
@@ -438,12 +447,14 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .map(DccProjectCodeDO::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, Long> fileCountByProjectCodeId = projectCodeIds.isEmpty()
-                ? Map.of()
-                : controlledFileMapper.selectAssociatedFileCountsByProjectCodeIds(projectCodeIds).stream()
-                        .collect(Collectors.toMap(
-                                DccControlledFileMapper.ProjectCodeFileCount::getProjectCodeId,
-                                DccControlledFileMapper.ProjectCodeFileCount::getFileCount));
+        Map<Long, Long> fileCountByProjectCodeId = new LinkedHashMap<>();
+        if (!projectCodeIds.isEmpty()) {
+            controlledFileMapper.selectAssociatedFileCountsByProjectCodeIds(projectCodeIds).forEach(fileCount ->
+                    fileCountByProjectCodeId.put(fileCount.getProjectCodeId(), fileCount.getFileCount()));
+            registrationCertificateFileAssociationService.countAssociatedFilesByProjectCodeIds(projectCodeIds)
+                    .forEach((projectCodeId, fileCount) -> fileCountByProjectCodeId.merge(
+                            projectCodeId, fileCount, Long::sum));
+        }
         records.forEach(record -> record.setAssociatedFileCount(
                 fileCountByProjectCodeId.getOrDefault(record.getId(), 0L)));
     }
@@ -453,9 +464,28 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         reqVO.setPageNo(1);
         reqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         return getControlledFilePage(userId, projectCodeId, reqVO).getList().stream()
+                .filter(row -> !DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE.equals(
+                        row.getBusinessSourceType()))
                 .map(DccControlledFileRespVO::getId)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private void markControlledFileSource(DccControlledFileRespVO row) {
+        if (row != null && row.getBusinessSourceType() == null) {
+            row.setBusinessSourceType(CONTROLLED_FILE_SOURCE_TYPE);
+        }
+    }
+
+    private PageResult<DccControlledFileRespVO> buildAssociatedControlledFilePageResult(
+            List<DccControlledFileRespVO> rows, DccProjectCodeControlledFilePageReqVO reqVO) {
+        long total = rows.size();
+        if (PageParam.PAGE_SIZE_NONE.equals(reqVO.getPageSize())) {
+            return new PageResult<>(rows, total);
+        }
+        int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), rows.size());
+        int toIndex = Math.min(fromIndex + reqVO.getPageSize(), rows.size());
+        return new PageResult<>(new ArrayList<>(rows.subList(fromIndex, toIndex)), total);
     }
 
     private List<DccFileCategoryDO> listActiveAiCategories() {

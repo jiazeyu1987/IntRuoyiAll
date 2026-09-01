@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
@@ -108,6 +109,7 @@ public class DccRegistrationCertificateRenewalService {
     private final MdmEnterpriseApi enterpriseApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
+    private final DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
 
     public DccRegistrationCertificateRenewalService(
             DccRegistrationCertificateMapper certificateMapper,
@@ -123,7 +125,8 @@ public class DccRegistrationCertificateRenewalService {
             DccRegistrationCertificateActivationService activationService,
             MdmEnterpriseApi enterpriseApi,
             DccRegistrationCertificateBusinessClock businessClock,
-            DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
+            DccRegistrationCertificateBusinessEventNotifier businessEventNotifier,
+            DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.snapshotMapper = require(snapshotMapper, "snapshotMapper");
@@ -138,6 +141,8 @@ public class DccRegistrationCertificateRenewalService {
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
         this.businessClock = require(businessClock, "businessClock");
         this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
+        this.projectCodeFileAssociationService = require(
+                projectCodeFileAssociationService, "projectCodeFileAssociationService");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -337,6 +342,8 @@ public class DccRegistrationCertificateRenewalService {
                         .set(DccRegistrationCertificateFileDO::getBoundAt, businessClock.now())
                         .set(DccRegistrationCertificateFileDO::getBoundBy, command.actorId())),
                 REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+        projectCodeFileAssociationService.bindVersionRegistrationFile(
+                command.tenantId(), renewalVersion.getId(), file.getId(), command.actorId());
 
         registerPlatformCandidate(command, certificate, currentVersion, renewalVersion);
         insertLifecycleEvent(command.tenantId(), certificate.getOwnerCompanyId(), certificate.getId(),
@@ -347,7 +354,8 @@ public class DccRegistrationCertificateRenewalService {
                         renewalSnapshot.getId(), file.getId(), false));
         businessEventNotifier.notifyRenewalCandidateUploaded(
                 command.tenantId(), certificate.getOwnerCompanyId(), certificate.getId(), renewalVersion.getId(),
-                command.actorId(), command.idempotencyKey(), renewalVersion.getCertificateNo());
+                command.actorId(), command.idempotencyKey(), renewalSnapshot.getProductName(),
+                renewalVersion.getCertificateNo(), renewalVersion.getEffectiveDate(), renewalVersion.getExpiryDate());
         if (!command.effectiveDate().isAfter(businessClock.businessDate())) {
             activationService.activateDueCandidate(new DccRegistrationCertificateActivationCommand(
                     command.tenantId(), command.actorId(), command.idempotencyKey() + ":activation",

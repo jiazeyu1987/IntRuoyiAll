@@ -39,6 +39,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBat
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
+import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordFormSlotType;
@@ -77,6 +78,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertMap;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.MD_ITEM_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_ROUTE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH;
@@ -191,6 +193,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     @Resource
     private MesProBatchRecordReportMapper batchRecordReportMapper;
     @Resource
+    private MesMdItemService itemService;
+    @Resource
     private FormTemplateVersionMapper formTemplateVersionMapper;
     @Resource
     private MesProEdhrPermissionGateService permissionGateService;
@@ -299,6 +303,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 vo.setEnabled(Boolean.TRUE);
                 vo.setExecutionMode(null);
                 vo.setProductionQuantityFactor(DEFAULT_PRODUCTION_QUANTITY_FACTOR);
+                vo.setFrontlineReportMaterialIds(Collections.emptyList());
                 vo.setBatchRecordReports(Collections.emptyList());
                 vo.setFormBindings(Collections.emptyList());
                 result.add(vo);
@@ -308,6 +313,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             vo.setExecutionMode(null);
             vo.setProductionQuantityFactor(resolveProductionQuantityFactor(
                     config.getRouteProcessId(), config.getProductionQuantityFactor()));
+            vo.setFrontlineReportMaterialIds(Collections.emptyList());
             vo.setBatchRecordReports(toBatchRecordRespList(
                     batchRecordMap.getOrDefault(routeProcess.getId(), Collections.emptyList()), reportMap));
             vo.setFormBindings(toFormBindingRespList(
@@ -372,6 +378,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             vo.setProductionQuantityFactor(config == null
                     ? DEFAULT_PRODUCTION_QUANTITY_FACTOR
                     : resolveProductionQuantityFactor(routeProcess.getId(), config.getProductionQuantityFactor()));
+            vo.setFrontlineReportMaterialIds(config == null
+                    ? Collections.emptyList()
+                    : normalizeFrontlineReportMaterialIds(config.getFrontlineReportMaterialIds()));
             if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                     && readCurrentBatchBindings
                     && !shouldReadCandidateBatchBindingSnapshot(routeVersion, config)) {
@@ -484,6 +493,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         copy.setEnabled(source.getEnabled());
         copy.setExecutionMode(source.getExecutionMode());
         copy.setProductionQuantityFactor(source.getProductionQuantityFactor());
+        copy.setFrontlineReportMaterialIds(source.getFrontlineReportMaterialIds());
         copy.setBatchRecordReports(source.getBatchRecordReports());
         copy.setFormBindings(source.getFormBindings());
         copy.setBatchRecordBindingSnapshotExplicit(source.getBatchRecordBindingSnapshotExplicit());
@@ -720,6 +730,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         reqVO.setEnabled(config.getBoolean("enabled"));
         reqVO.setExecutionMode(config.getString("executionMode"));
         reqVO.setProductionQuantityFactor(config.getBigDecimal("productionQuantityFactor"));
+        reqVO.setFrontlineReportMaterialIds(parseCandidateSourceIds(config.get("frontlineReportMaterialIds")));
         reqVO.setBatchRecordReports(parseCandidateBatchRecordReports(config));
         reqVO.setFormBindings(parseCandidateFormBindings(config));
         reqVO.setBatchRecordBindingSnapshotExplicit(config.getBoolean("batchRecordBindingSnapshotExplicit"));
@@ -1435,10 +1446,13 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
             boolean explicitBatchBindingSnapshot =
                     Boolean.TRUE.equals(processConfig.getBatchRecordBindingSnapshotExplicit());
+            processConfig.setFrontlineReportMaterialIds(normalizeFrontlineReportMaterialIds(
+                    processConfig.getFrontlineReportMaterialIds()));
             processConfig.setBatchRecordReports(normalizeBatchRecordReports(processConfig));
             processConfig.setFormBindings(resolveAndNormalizeFormBindings(routeId, processConfig));
             processConfig.setBatchRecordBindingSnapshotExplicit(explicitBatchBindingSnapshot ? Boolean.TRUE : null);
         } else {
+            processConfig.setFrontlineReportMaterialIds(Collections.emptyList());
             processConfig.setFormBindings(Collections.emptyList());
             processConfig.setBatchRecordBindingSnapshotExplicit(null);
         }
@@ -1867,6 +1881,30 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             return;
         }
         resolveExecutionMode(flowConfigType, saveConfig.getExecutionMode());
+        validateFrontlineReportMaterialIds(saveConfig);
+    }
+
+    private List<Long> normalizeFrontlineReportMaterialIds(List<Long> materialIds) {
+        if (CollUtil.isEmpty(materialIds)) {
+            return Collections.emptyList();
+        }
+        return materialIds.stream()
+                .filter(Objects::nonNull)
+                .filter(materialId -> materialId > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+    }
+
+    private void validateFrontlineReportMaterialIds(MesProRouteFlowProcessConfigSaveReqVO saveConfig) {
+        List<Long> materialIds = normalizeFrontlineReportMaterialIds(saveConfig.getFrontlineReportMaterialIds());
+        saveConfig.setFrontlineReportMaterialIds(materialIds);
+        if (CollUtil.isEmpty(materialIds)) {
+            return;
+        }
+        if (itemService.getItemMap(materialIds).size() != materialIds.size()) {
+            throw exception(MD_ITEM_NOT_EXISTS);
+        }
     }
 
     void validateGlobalFormBindingGroups(List<MesProRouteFlowProcessConfigSaveReqVO> processConfigs,

@@ -127,7 +127,8 @@ public class DccRegistrationCertificateActivationService {
         insertReplayRows(command, activationEventId);
         businessEventNotifier.notifyRenewalCandidateActivated(
                 command.tenantId(), certificate.getOwnerCompanyId(), command.certificateId(), pending.getId(),
-                command.actorId(), command.idempotencyKey(), pending.getCertificateNo());
+                command.actorId(), command.idempotencyKey(), activationSnapshot.getProductName(),
+                pending.getCertificateNo(), pending.getEffectiveDate(), pending.getExpiryDate());
         return new DccRegistrationCertificateActivationResult(command.certificateId(), command.currentVersionId(),
                 command.pendingVersionId(), activationSnapshot.getId(), true);
     }

@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegistrationCertificateGrantService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
@@ -74,6 +75,8 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     private DccRegistrationCertificateRenewalService renewalService;
     @Mock
     private DccRegistrationCertificateUploadService uploadService;
+    @Mock
+    private DccRegistrationCertificateChangeService changeService;
 
     private DccRegistrationCertificateApprovalService service;
 
@@ -82,7 +85,7 @@ class DccRegistrationCertificateApprovalRuntimeTest {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
                 bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
-                businessClock, renewalService, uploadService);
+                businessClock, renewalService, uploadService, changeService);
         lenient().when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
         lenient().when(bindingMapper.updateById(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
         lenient().when(grantMapper.updateById(any(DccRegistrationCertificateGrantDO.class))).thenReturn(1);

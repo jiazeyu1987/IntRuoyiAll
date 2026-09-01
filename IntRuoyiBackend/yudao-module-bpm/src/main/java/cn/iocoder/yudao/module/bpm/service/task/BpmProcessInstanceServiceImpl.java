@@ -41,6 +41,8 @@ import cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServic
 import cn.iocoder.yudao.module.bpm.service.message.BpmMessageService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -96,6 +98,12 @@ import static org.flowable.bpmn.constants.BpmnXMLConstants.*;
 @Slf4j
 public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService {
 
+    private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE = "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_UPLOAD_OPERATION = "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_RENEWAL_OPERATION = "RENEWAL_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE =
+            "dcc_registration_certificate_approver";
+
     @Resource
     private RuntimeService runtimeService;
     @Resource
@@ -113,6 +121,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
     private AdminUserApi adminUserApi;
     @Resource
     private DeptApi deptApi;
+    @Resource
+    private RoleApi roleApi;
 
     @Resource
     private BpmProcessInstanceEventPublisher processInstanceEventPublisher;
@@ -218,7 +228,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         if (BpmProcessInstanceStatusEnum.isProcessEndStatus(processInstanceStatus)) {
             return buildApprovalDetail(reqVO, bpmnModel, processDefinition, processDefinitionInfo,
                     historicProcessInstance,
-                    processInstanceStatus, endActivityNodes, runActivityNodes, null, null);
+                    processInstanceStatus, endActivityNodes, runActivityNodes, null, null, processVariables);
         }
 
         // 3.1 计算当前登录用户的待办任务
@@ -242,7 +252,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
 
         // 4. 拼接最终数据
         return buildApprovalDetail(reqVO, bpmnModel, processDefinition, processDefinitionInfo, historicProcessInstance,
-                processInstanceStatus, endActivityNodes, runActivityNodes, simulateActivityNodes, todoTask);
+                processInstanceStatus, endActivityNodes, runActivityNodes, simulateActivityNodes, todoTask,
+                processVariables);
     }
 
     @Override
@@ -376,10 +387,12 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                                                         List<ActivityNode> endApprovalNodeInfos,
                                                         List<ActivityNode> runningApprovalNodeInfos,
                                                         List<ActivityNode> simulateApprovalNodeInfos,
-                                                        BpmTaskRespVO todoTask) {
+                                                        BpmTaskRespVO todoTask,
+                                                        Map<String, Object> processVariables) {
         // 1. 获取所有需要读取用户信息的 userIds
         List<ActivityNode> approveNodes = newArrayList(
                 asList(endApprovalNodeInfos, runningApprovalNodeInfos, simulateApprovalNodeInfos));
+        applyRegistrationCertificateApprovalRole(approveNodes, processVariables);
         Set<Long> userIds = BpmProcessInstanceConvert.INSTANCE.parseUserIds(processInstance, approveNodes, todoTask);
         Map<Long, AdminUserRespDTO> userMap = adminUserApi.getUserMap(userIds);
         Map<Long, DeptRespDTO> deptMap = deptApi.getDeptMap(convertSet(userMap.values(), AdminUserRespDTO::getDeptId));
@@ -392,6 +405,71 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         return BpmProcessInstanceConvert.INSTANCE.buildApprovalDetail(bpmnModel, processDefinition,
                 processDefinitionInfo, processInstance,
                 processInstanceStatus, approveNodes, todoTask, formFieldsPermission, userMap, deptMap);
+    }
+
+    private void applyRegistrationCertificateApprovalRole(List<ActivityNode> approveNodes,
+                                                          Map<String, Object> processVariables) {
+        RoleRespDTO role = resolveRegistrationCertificateAssigneeRole(processVariables);
+        if (role == null || CollUtil.isEmpty(approveNodes)) {
+            return;
+        }
+        approveNodes.stream()
+                .filter(Objects::nonNull)
+                .filter(node -> BpmSimpleModelNodeTypeEnum.APPROVE_NODE.getType().equals(node.getNodeType()))
+                .forEach(node -> {
+                    node.setAssigneeRoleCode(role.getCode());
+                    node.setAssigneeRoleName(role.getName());
+                    if (CollUtil.isNotEmpty(node.getTasks())) {
+                        node.getTasks().forEach(task -> task.setAssigneeRoleCode(role.getCode())
+                                .setAssigneeRoleName(role.getName()));
+                    }
+                });
+    }
+
+    private RoleRespDTO resolveRegistrationCertificateAssigneeRole(Map<String, Object> variables) {
+        if (!isRegistrationCertificateUploadOrRenewalApproval(variables)) {
+            return null;
+        }
+        RoleRespDTO role = Objects.requireNonNull(roleApi.getRoleByCode(REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE),
+                "BPM_APPROVAL_DETAIL_ASSIGNEE_ROLE_REQUIRED: " + REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE);
+        if (!REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE.equals(role.getCode()) || StrUtil.isBlank(role.getName())) {
+            throw new IllegalStateException("BPM_APPROVAL_DETAIL_ASSIGNEE_ROLE_INVALID: "
+                    + REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE);
+        }
+        return role;
+    }
+
+    private static boolean isRegistrationCertificateUploadOrRenewalApproval(Map<String, Object> variables) {
+        if (variables == null
+                || !REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType")))) {
+            return false;
+        }
+        String operation = firstText(variables.get("requestOperation"));
+        if (StrUtil.isBlank(operation)) {
+            return true;
+        }
+        if (REGISTRATION_CERTIFICATE_UPLOAD_OPERATION.equals(operation)
+                || REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)) {
+            return true;
+        }
+        throw new IllegalArgumentException(
+                "BPM_APPROVAL_DETAIL_VARIABLE_INVALID: registration certificate requestOperation");
+    }
+
+    private static String firstText(Object... values) {
+        if (values == null) {
+            return null;
+        }
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            String text = String.valueOf(value).trim();
+            if (StrUtil.isNotBlank(text)) {
+                return text;
+            }
+        }
+        return null;
     }
 
     /**

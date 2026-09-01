@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalCommand;
@@ -106,6 +107,8 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
     @MockitoBean
     private MdmEnterpriseApi enterpriseApi;
+    @MockitoBean
+    private DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
 
     @BeforeEach
     void stubOwnerCompany() {
@@ -180,7 +183,20 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                 eq("PENDING_EFFECTIVE"), eq(99L), anyString());
         verify(businessEventNotifier).notifyRenewalCandidateUploaded(
                 eq(1L), eq(10L), eq(current.certificateId()), eq(result.renewalVersionId()),
-                eq(99L), eq("renewal-1"), eq("CERT-001"));
+                eq(99L), eq("renewal-1"), eq("Product A"), eq("CERT-001"),
+                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2031, 9, 1)));
+    }
+
+    @Test
+    void renewalCandidateBindsBusinessFileToProjectCodeRegistrationCategory() {
+        CurrentFixture current = seedCurrentCertificate();
+
+        DccRegistrationCertificateRenewalResult result = uploadOrFail(sameCategoryCommand(
+                current.certificateId(), current.currentVersionId(), current.stagedFileId(),
+                "renewal-project-category"));
+
+        verify(projectCodeFileAssociationService).bindVersionRegistrationFile(
+                1L, result.renewalVersionId(), result.businessFileId(), 99L);
     }
 
     @Test
@@ -200,7 +216,8 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                 certificateMapper.selectById(current.certificateId()).getPendingVersionId());
         verify(businessEventNotifier).notifyRenewalCandidateUploaded(
                 eq(1L), eq(10L), eq(current.certificateId()), eq(result.renewalVersionId()),
-                eq(99L), eq("renewal-category-1"), eq("CERT-002"));
+                eq(99L), eq("renewal-category-1"), eq("Product A"), eq("CERT-002"),
+                eq(LocalDate.of(2026, 9, 1)), eq(LocalDate.of(2031, 9, 1)));
     }
 
     @Test

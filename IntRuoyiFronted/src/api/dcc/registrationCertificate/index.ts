@@ -175,6 +175,16 @@ export interface DccRegistrationCertificateHistoryItemVO {
   originalFileName?: string
   fileStatus?: string
   occurredAt?: string | number
+  eventId?: number | string
+  changeId?: number | string
+  approvalRequestId?: number | string
+  changeStatus?: string
+  submittedBy?: number | string
+  submittedAt?: string | number
+  reviewedBy?: number | string
+  reviewedAt?: string | number
+  submittedByName?: string
+  reviewedByName?: string
   renewalOperatorName?: string
   renewalOperatedAt?: string | number
   renewalApproverName?: string
@@ -322,12 +332,32 @@ export interface DccRegistrationCertificatePreviewMetadataVO {
   viewerTokenNonce?: string
 }
 
+export interface DccRegistrationCertificateBusinessTimeSimulationReqVO {
+  businessDate: string
+}
+
+export interface DccRegistrationCertificateBusinessTimeSimulationRespVO {
+  tenantId: number | string
+  businessDate: DccRegistrationCertificateLocalDateValue
+  simulatedAt: string
+  jobResult: string
+}
+
 export const getRegistrationCertificatePage = async (
   params: DccRegistrationCertificatePageReqVO
 ) => {
   return await request.get<PageResult<DccRegistrationCertificatePageItemVO[]>>({
     url: '/dcc/registration-certificates/page',
     params
+  })
+}
+
+export const simulateRegistrationCertificateBusinessTimeDailyRun = async (
+  data: DccRegistrationCertificateBusinessTimeSimulationReqVO
+) => {
+  return await request.post<DccRegistrationCertificateBusinessTimeSimulationRespVO>({
+    url: '/dcc/registration-certificates/business-time/simulate-daily-run',
+    data
   })
 }
 

@@ -5,8 +5,9 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.change.DccRegistrationCertificateChangeController;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.change.vo.DccRegistrationCertificateChangeApplyReqVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeCommand;
-import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -39,13 +40,15 @@ class DccRegistrationCertificateChangeControllerTest {
     void applyChangeGeneratesRequestTraceIdWhenSkyWalkingTraceIdIsAbsent() {
         DccRegistrationCertificateChangeService changeService =
                 mock(DccRegistrationCertificateChangeService.class);
+        DccRegistrationCertificateApprovalService approvalService =
+                mock(DccRegistrationCertificateApprovalService.class);
         DccRegistrationCertificateChangeController controller =
-                new DccRegistrationCertificateChangeController(changeService);
-        when(changeService.applyChange(any(DccRegistrationCertificateChangeCommand.class)))
-                .thenReturn(new DccRegistrationCertificateChangeResult(99L, 66L, 77L, 88L, "CURRENT"));
+                new DccRegistrationCertificateChangeController(changeService, approvalService);
+        when(changeService.submitChangeForApproval(any(DccRegistrationCertificateChangeCommand.class)))
+                .thenReturn(66L);
 
         TenantContextHolder.setTenantId(11L);
-        CommonResult<DccRegistrationCertificateChangeResult> result;
+        CommonResult<Long> result;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(22L);
             MockHttpServletRequest request = new MockHttpServletRequest(
@@ -56,10 +59,19 @@ class DccRegistrationCertificateChangeControllerTest {
             result = controller.applyChange(99L, "CHANGE-IDEMPOTENCY-1", changeRequest(), request);
         }
 
-        assertEquals(66L, result.getData().changeId());
+        assertEquals(66L, result.getData());
         ArgumentCaptor<DccRegistrationCertificateChangeCommand> command =
                 ArgumentCaptor.forClass(DccRegistrationCertificateChangeCommand.class);
-        verify(changeService).applyChange(command.capture());
+        verify(changeService).submitChangeForApproval(command.capture());
+        ArgumentCaptor<Long> tenantIdCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<Long> actorIdCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<DccRegistrationCertificateApprovalStartCommand> approvalCommand =
+                ArgumentCaptor.forClass(DccRegistrationCertificateApprovalStartCommand.class);
+        verify(approvalService).startNativeApproval(
+                tenantIdCaptor.capture(), actorIdCaptor.capture(), approvalCommand.capture());
+        assertEquals(11L, tenantIdCaptor.getValue());
+        assertEquals(22L, actorIdCaptor.getValue());
+        assertEquals(66L, approvalCommand.getValue().requestId());
         assertEquals(11L, command.getValue().tenantId());
         assertEquals(22L, command.getValue().actorId());
         assertEquals("CHANGE-IDEMPOTENCY-1", command.getValue().idempotencyKey());

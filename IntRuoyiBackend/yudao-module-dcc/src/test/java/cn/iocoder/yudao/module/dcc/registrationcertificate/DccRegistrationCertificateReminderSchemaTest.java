@@ -89,6 +89,34 @@ class DccRegistrationCertificateReminderSchemaTest extends BaseDbUnitTest {
     }
 
     @Test
+    void thresholdNotifyTemplateSeedShouldMatchReminderNotificationContract() throws Exception {
+        Path backendRoot = findBackendRoot();
+        Path migration = backendRoot.resolve(
+                "sql/mysql/20260901_dcc_registration_certificate_threshold_notify_template.sql");
+        assertTrue(Files.isRegularFile(migration),
+                "registration certificate threshold reminder notify template migration must exist");
+
+        String sql = Files.readString(migration, StandardCharsets.UTF_8);
+        String normalized = sql.toLowerCase(Locale.ROOT);
+
+        assertTrue(normalized.startsWith("-- release-migration: allowedenvironments=test,backup,prod; "
+                        + "dependson=20260818_dcc_registration_certificate_reminder; type=data; risklevel=low"),
+                "notify template seed metadata and dependency must match the reminder contract");
+        assertContainsAll(sql,
+                "system_notify_template",
+                "DCC_REGISTRATION_CERTIFICATE_THRESHOLD_REMINDER",
+                "certificateId",
+                "thresholdLevel",
+                "dueDate",
+                "businessDate");
+        assertContainsAll(normalized,
+                "where not exists",
+                "and `deleted` = b'0'");
+        assertFalse(normalized.contains("dcc_registration_certificate_business_event"),
+                "threshold reminders must not silently reuse business-event notify templates");
+    }
+
+    @Test
     void h2FixtureShouldLoadReminderTablesAndEnforcePortableConstraints() throws Exception {
         Set<String> present = new LinkedHashSet<>();
         try (var connection = dataSource.getConnection();

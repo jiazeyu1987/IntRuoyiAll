@@ -7,16 +7,18 @@ const read = (relativePath) => readFileSync(join(root, relativePath), 'utf8').re
 
 const listPath = 'src/views/dcc/registration-certificate/index/index.vue'
 const list = read(listPath)
+const detail = read('src/views/dcc/registration-certificate/detail/index.vue')
+const api = read('src/api/dcc/registrationCertificate/index.ts')
 
 assert.match(
   list,
-  /const CURRENT_TABLE_KEY = 'dcc\.registrationCertificate\.current\.actionsCompactV3'/,
-  'current registration-certificate table must use a new versioned key so old widened widths do not override the compact operation column'
+  /const CURRENT_TABLE_KEY = 'dcc\.registrationCertificate\.current\.actionsDoubleWidthV1'/,
+  'current registration-certificate table must use a new versioned key so old compact widths do not override the doubled operation column'
 )
 assert.match(
   list,
-  /const OLD_TABLE_KEY = 'dcc\.registrationCertificate\.old\.actionsCompactV3'/,
-  'old registration-certificate table must use a new versioned key so old widened widths do not override the compact operation column'
+  /const OLD_TABLE_KEY = 'dcc\.registrationCertificate\.old\.actionsDoubleWidthV1'/,
+  'old registration-certificate table must use a new versioned key so old compact widths do not override the doubled operation column'
 )
 assert.match(
   list,
@@ -44,24 +46,24 @@ const oldColumns = /const oldColumnDefinitions: UserTableColumnDefinition\[\] = 
 
 assert.match(
   currentColumns,
-  /\{ key: 'actions', label: '操作', width: 140, hideable: false, business: false, sortable: false \}/,
-  'current registration-certificate action column must default to one third of the previous 420px width'
+  /\{ key: 'actions', label: '操作', width: 280, hideable: false, business: false, sortable: false \}/,
+  'current registration-certificate action column must default to double the previous 140px width'
 )
 assert.match(
   oldColumns,
-  /\{ key: 'actions', label: '操作', width: 210, hideable: false, business: false, sortable: false \}/,
-  'old registration-certificate action column must default to half of the previous 420px width'
+  /\{ key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false \}/,
+  'old registration-certificate action column must default to double the previous 210px width'
 )
 
 assert.match(
   list,
-  /:width="getCurrentColumnWidthString\('actions', 140\)"/,
-  'current registration-certificate action column must render with the compact 140px fallback'
+  /:width="getCurrentColumnWidthString\('actions', 280\)"/,
+  'current registration-certificate action column must render with the doubled 280px fallback'
 )
 assert.match(
   list,
-  /:width="getOldColumnWidthString\('actions', 210\)"/,
-  'old registration-certificate action column must render with the compact 210px fallback'
+  /:width="getOldColumnWidthString\('actions', 420\)"/,
+  'old registration-certificate action column must render with the doubled 420px fallback'
 )
 
 const extractActionPanel = (source, visibilityToken) => {
@@ -84,18 +86,33 @@ assert.match(
 )
 assert.equal(
   (currentActionPanel.match(/<el-button\b/g) ?? []).length,
-  2,
-  'current registration-certificate action panel must render exactly two buttons'
+  3,
+  'current registration-certificate action panel must render exactly three buttons'
 )
 assert.match(
   currentActionPanel,
-  /<el-button link type="primary" @click="openDetail\(row\.certificateId\)">\s*详情\s*<\/el-button>/,
-  'current registration-certificate action panel must keep the detail action and handler'
+  /<el-button link type="primary" @click="openDetail\(row\.certificateId\)">\s*详细\s*<\/el-button>/,
+  'current registration-certificate action panel must show the detail action as 详细 and keep the handler'
+)
+assert.match(
+  currentActionPanel,
+  /v-hasPermi="\['dcc:registration-certificate:change:submit'\]"[\s\S]*@click="openChange\(row\.certificateId\)"[\s\S]*>\s*变更\s*</,
+  'current registration-certificate action panel must show the change action as 变更 and keep the change approval upload permission and handler'
+)
+assert.match(
+  list,
+  /const openChange = \(certificateId: number \| string\) => \{[\s\S]*query: \{ mode: 'change' \}/,
+  'current registration-certificate change button must route to detail change mode'
 )
 assert.match(
   currentActionPanel,
   /v-hasPermi="\['dcc:registration-certificate:renewal:upload'\]"[\s\S]*@click="openRenewalDialog\(row\)"[\s\S]*>\s*延续\s*</,
   'current registration-certificate action panel must keep the renewal permission and handler'
+)
+assert.match(
+  currentActionPanel,
+  />\s*详细\s*<[\s\S]*>\s*延续\s*<[\s\S]*>\s*变更\s*</,
+  'current registration-certificate action panel must order buttons as 详细、延续、变更'
 )
 assert.doesNotMatch(
   currentActionPanel,
@@ -140,8 +157,8 @@ assert.match(
 )
 assert.match(
   list,
-  /\.registration-certificate-row-actions--compact\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*4px;/,
-  'current registration-certificate compact row actions must use a two-column grid'
+  /\.registration-certificate-row-actions--compact\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*4px;/,
+  'current registration-certificate compact row actions must use a three-column grid so 详细、延续、变更 stay on one row'
 )
 assert.match(
   list,
@@ -152,6 +169,27 @@ assert.match(
   list,
   /\.registration-certificate-row-actions :deep\(\.el-button\)\s*\{[\s\S]*margin-left:\s*0;[\s\S]*white-space:\s*nowrap;/,
   'registration-certificate row action buttons must keep Element Plus spacing from expanding the layout'
+)
+
+assert.match(
+  detail,
+  /route\.query\.mode === 'change'/,
+  'registration-certificate detail page must recognize change mode'
+)
+assert.match(
+  detail,
+  /v-if="viewMode === 'change'"[\s\S]*initial-action="change"[\s\S]*change-only/,
+  'registration-certificate detail page must mount the change-only action panel for change mode'
+)
+assert.match(
+  detail,
+  /data-testid="registration-certificate-change-history"[\s\S]*变更履历/,
+  'registration-certificate detail page must show change history'
+)
+assert.match(
+  api,
+  /changeId\?: number \| string[\s\S]*changeStatus\?: string[\s\S]*submittedByName\?: string[\s\S]*reviewedByName\?: string/,
+  'registration-certificate history API type must expose change audit fields used by detail history'
 )
 
 console.log('PASS: registration-certificate operation panel compact layout static contract')

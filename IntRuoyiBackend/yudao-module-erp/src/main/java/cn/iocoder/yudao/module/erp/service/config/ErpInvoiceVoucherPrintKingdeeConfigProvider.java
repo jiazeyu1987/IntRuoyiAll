@@ -26,7 +26,8 @@ public class ErpInvoiceVoucherPrintKingdeeConfigProvider implements InvoiceVouch
                 .username(requireNotBlank(properties.getUsername(), "username"))
                 .password(requireNotBlank(properties.getPassword(), "password"))
                 .appId(requireNotBlank(properties.getAppId(), "appId"))
-                .appSecret(requireNotBlank(properties.getAppSecret(), "appSecret"))
+                .signedData(requireNotBlank(properties.getSignedData(), "signedData"))
+                .timestamp(requireNotBlank(properties.getTimestamp(), "timestamp"))
                 .lcid(requireLcid(properties.getLcid()))
                 .build();
     }

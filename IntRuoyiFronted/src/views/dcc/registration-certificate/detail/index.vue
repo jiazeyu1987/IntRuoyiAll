@@ -1,6 +1,13 @@
 <template>
   <ContentWrap data-testid="registration-certificate-detail-page">
     <el-alert v-if="invalidRoute" type="error" show-icon :closable="false" title="注册证编号无效，无法加载详情" />
+    <el-alert
+      v-else-if="routeIdentityError"
+      type="error"
+      show-icon
+      :closable="false"
+      :title="routeIdentityError"
+    />
     <el-skeleton v-else-if="loading" :rows="8" animated />
     <el-empty v-else-if="!detail" description="未加载到注册证详情" />
     <div v-else class="registration-certificate-detail">
@@ -115,6 +122,16 @@
         :downloadable-files="downloadableFiles"
         :initial-access-request-type="routeDownloadFileId ? 'DOWNLOAD_FILE' : undefined"
         :initial-download-business-file-id="routeDownloadFileId"
+      />
+
+      <RegistrationCertificateActionPanel
+        v-if="viewMode === 'change'"
+        initial-action="change"
+        :certificate-id="detail.certificateId"
+        :version-id="detail.versionId"
+        :row-version="detail.rowVersion"
+        :snapshot-revision="detail.snapshotRevision"
+        change-only
       />
 
       <el-alert
@@ -248,6 +265,52 @@
         </div>
       </el-card>
 
+      <el-card class="detail-card" data-testid="registration-certificate-change-history" shadow="never">
+        <template #header>
+          <div class="detail-card__header">
+            <span>变更履历</span>
+            <el-tag type="info">{{ changeHistory.length }} 条</el-tag>
+          </div>
+        </template>
+        <el-empty v-if="changeHistory.length === 0" description="暂无变更履历" />
+        <div v-else class="change-history">
+          <section v-for="item in changeHistory" :key="item.key" class="change-history__item">
+            <div class="change-history__heading">
+              <div>
+                <strong>{{ formatChangeStatus(item.changeStatus, item.eventType) }}</strong>
+                <span class="change-history__muted">
+                  提交时间：{{ formatDateTimeValue(item.submittedAt || item.occurredAt) }}
+                </span>
+              </div>
+              <el-tag :type="getChangeStatusTagType(item.changeStatus, item.eventType)">
+                {{ formatChangeStatus(item.changeStatus, item.eventType) }}
+              </el-tag>
+            </div>
+            <dl class="change-history__facts">
+              <div><dt>批件批准日期</dt><dd>{{ formatRegistrationCertificateDate(item.approvalDate) }}</dd></div>
+              <div><dt>填写人</dt><dd>{{ displayOperationName(item.submittedByName) }}</dd></div>
+              <div><dt>填写时间</dt><dd>{{ formatDateTimeValue(item.submittedAt || item.occurredAt) }}</dd></div>
+              <div><dt>审批人</dt><dd>{{ displayOperationName(item.reviewedByName) }}</dd></div>
+              <div><dt>审批时间</dt><dd>{{ formatDateTimeValue(item.reviewedAt) }}</dd></div>
+              <div><dt>审批结果</dt><dd>{{ formatChangeStatus(item.changeStatus, item.eventType) }}</dd></div>
+            </dl>
+            <div class="change-history__section-label">变更内容</div>
+            <div class="change-history__items">
+              <div v-for="changeItem in item.items" :key="changeItem.itemType" class="change-history__value">
+                <strong>{{ formatChangeItemType(changeItem.itemType) }}</strong>
+                <span>变更前：{{ formatChangeValue(changeItem.itemType, changeItem.beforeValueJson) }}</span>
+                <span>变更后：{{ formatChangeValue(changeItem.itemType, changeItem.afterValueJson) }}</span>
+              </div>
+            </div>
+            <div class="change-history__file">
+              <Icon icon="lucide:file-text" />
+              <span>变更批件文件</span>
+              <span class="change-history__file-name">{{ displayText(item.originalFileName) }}</span>
+            </div>
+          </section>
+        </div>
+      </el-card>
+
       <el-card class="detail-card" shadow="never">
         <template #header>历史记录</template>
         <el-table :data="otherHistory">
@@ -288,6 +351,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   downloadRegistrationCertificateFile,
+  getRegistrationCertificateAccessRequestStatus,
   getRegistrationCertificateDetail,
   getRegistrationCertificateHistory,
   type DccRegistrationCertificateDetailVO,
@@ -298,7 +362,7 @@ import {
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
 import { downloadByData } from '@/utils/filt'
-import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
 import {
@@ -314,20 +378,38 @@ import {
 
 defineOptions({ name: 'DccRegistrationCertificateDetail' })
 
+const props = defineProps<{
+  id?: string | number
+}>()
+
 const route = useRoute()
 const router = useRouter()
-const certificateId = computed(() => parsePositiveRouteQueryId(route.params.id))
+const REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX = 'DCC_REG_CERT_ACCESS:'
+const routeCertificateId = computed(() => parsePositiveRouteQueryId(route.params.id))
+const accessRequestId = computed(() => {
+  const businessKey = normalizeRouteQueryValue(props.id)
+  if (!businessKey.startsWith(REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX)) {
+    return ''
+  }
+  return parsePositiveRouteQueryId(
+    businessKey.slice(REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX.length)
+  )
+})
+const accessRequestCertificateId = ref('')
+const certificateId = computed(() => routeCertificateId.value || accessRequestCertificateId.value)
 const detailVersionId = computed(() => parsePositiveRouteQueryId(route.query.versionId))
 const routeDownloadFileId = computed(() => parsePositiveRouteQueryId(route.query.downloadFileId))
 const viewMode = computed(() => {
   if (route.query.mode === 'access-request') return 'access-request'
   if (route.query.mode === 'old-detail') return 'old-detail'
+  if (route.query.mode === 'change') return 'change'
   return 'current'
 })
-const invalidRoute = computed(() => !certificateId.value)
+const invalidRoute = computed(() => !routeCertificateId.value && !accessRequestId.value)
 const loading = ref(false)
 const detail = ref<DccRegistrationCertificateDetailVO>()
 const history = ref<DccRegistrationCertificateHistoryItemVO[]>([])
+const routeIdentityError = ref('')
 const previewDialogVisible = ref(false)
 const selectedPreviewSource = ref<OnlineFilePreviewSource | null>(null)
 const selectedPreviewTitle = ref('')
@@ -339,8 +421,28 @@ const renewalHistory = computed(() => history.value
   .filter((item) => item.eventType === 'RENEWAL_UPLOADED')
   .slice()
   .reverse())
+const changeHistory = computed(() => {
+  const grouped = new Map<string, DccRegistrationCertificateHistoryItemVO & {
+    key: string
+    items: DccRegistrationCertificateHistoryItemVO[]
+  }>()
+  history.value
+    .filter((item) => item.eventType === 'CHANGE_SUBMITTED' || item.eventType === 'CHANGE_APPLIED')
+    .forEach((item) => {
+      const key = String(item.changeId || item.eventId || `${item.eventType}-${item.occurredAt}`)
+      const existing = grouped.get(key)
+      if (existing) {
+        existing.items.push(item)
+        return
+      }
+      grouped.set(key, { ...item, key, items: [item] })
+    })
+  return Array.from(grouped.values()).reverse()
+})
 const otherHistory = computed(() => history.value
-  .filter((item) => item.eventType !== 'RENEWAL_UPLOADED'))
+  .filter((item) => item.eventType !== 'RENEWAL_UPLOADED'
+    && item.eventType !== 'CHANGE_SUBMITTED'
+    && item.eventType !== 'CHANGE_APPLIED'))
 
 const formatBooleanChoice = (value?: boolean) => {
   if (value === true) return '是'
@@ -363,6 +465,51 @@ const getCategoryChangedTagType = (value?: boolean) => {
   if (value === true) return 'warning'
   if (value === false) return 'info'
   return 'danger'
+}
+
+const formatChangeStatus = (status?: string, eventType?: string) => {
+  if (status === 'PENDING_APPROVAL' || eventType === 'CHANGE_SUBMITTED') return '待审批'
+  if (status === 'APPLIED' || eventType === 'CHANGE_APPLIED') return '已通过'
+  if (status === 'REJECTED') return '已驳回'
+  return '记录缺失'
+}
+
+const getChangeStatusTagType = (status?: string, eventType?: string) => {
+  const normalized = formatChangeStatus(status, eventType)
+  if (normalized === '已通过') return 'success'
+  if (normalized === '已驳回') return 'danger'
+  if (normalized === '待审批') return 'warning'
+  return 'info'
+}
+
+const changeItemLabels: Record<string, string> = {
+  PRODUCT_NAME: '产品名称',
+  MODEL_SPECIFICATION: '型号规格',
+  STRUCTURE_COMPOSITION: '结构组成',
+  INTENDED_USE: '适用范围',
+  TECHNICAL_REQUIREMENTS: '产品技术要求',
+  REGISTRANT_NAME: '注册人名称',
+  RESIDENCE_ADDRESS: '住所',
+  PRODUCTION_ADDRESS: '生产地址',
+  OTHER_CONTENT: '其他内容'
+}
+
+const formatChangeItemType = (value?: string) => value ? changeItemLabels[value] || value : '记录缺失'
+
+const formatChangeValue = (itemType: string, raw?: string) => {
+  if (!raw) return '记录缺失'
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown> | string | number | boolean | null
+    if (!parsed || typeof parsed !== 'object') {
+      return parsed == null ? '记录缺失' : String(parsed)
+    }
+    if (itemType === 'PRODUCTION_ADDRESS' && parsed.entrustedProduction !== undefined) {
+      return `委托生产：${parsed.entrustedProduction ? '是' : '否'}；自行生产：${parsed.selfProduction ? '是' : '否'}；受托企业：${parsed.entrustedEnterprisesJson || '无'}`
+    }
+    return parsed.value == null ? '记录缺失' : String(parsed.value)
+  } catch {
+    return '记录解析失败'
+  }
 }
 
 const openAttachmentPreview = (businessFileId: number | string, fileName: string) => {
@@ -468,12 +615,33 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   })
 })
 
+const resolveCertificateIdForDetail = async () => {
+  if (routeCertificateId.value) {
+    return routeCertificateId.value
+  }
+  if (!accessRequestId.value) {
+    return ''
+  }
+  const status = await getRegistrationCertificateAccessRequestStatus(accessRequestId.value)
+  const resolvedCertificateId = parsePositiveRouteQueryId(status.certificateId)
+  if (!resolvedCertificateId) {
+    routeIdentityError.value = '注册证访问申请缺少正式注册证身份，无法加载详情'
+    return ''
+  }
+  accessRequestCertificateId.value = resolvedCertificateId
+  return resolvedCertificateId
+}
+
 const loadDetail = async () => {
-  if (!certificateId.value) return
+  routeIdentityError.value = ''
+  accessRequestCertificateId.value = ''
+  if (invalidRoute.value) return
   loading.value = true
   try {
-    detail.value = await getRegistrationCertificateDetail(certificateId.value, detailVersionId.value)
-    history.value = await getRegistrationCertificateHistory(certificateId.value)
+    const resolvedCertificateId = await resolveCertificateIdForDetail()
+    if (!resolvedCertificateId) return
+    detail.value = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
+    history.value = await getRegistrationCertificateHistory(resolvedCertificateId)
   } finally {
     loading.value = false
   }
@@ -623,6 +791,99 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+.change-history {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.change-history__item {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.change-history__item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.change-history__heading,
+.change-history__heading > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.change-history__heading {
+  justify-content: space-between;
+}
+
+.change-history__muted,
+.change-history__section-label,
+.change-history__facts dt {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.change-history__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 16px 0 0;
+}
+
+.change-history__facts div,
+.change-history__facts dt,
+.change-history__facts dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.change-history__facts dd {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.change-history__section-label {
+  margin: 18px 0 8px;
+}
+
+.change-history__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.change-history__value {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+}
+
+.change-history__value span,
+.change-history__file-name {
+  overflow-wrap: anywhere;
+}
+
+.change-history__file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 10px 12px;
+  margin-top: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+}
+
+.change-history__file-name {
+  color: var(--el-text-color-primary);
+}
+
 .renewal-history__file-actions,
 .detail-attachment__actions {
   display: inline-flex;
@@ -679,6 +940,17 @@ onBeforeUnmount(() => {
 
   .renewal-history__parameters,
   .renewal-history__audit {
+    grid-template-columns: 1fr;
+  }
+
+  .change-history__heading,
+  .change-history__heading > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .change-history__facts,
+  .change-history__value {
     grid-template-columns: 1fr;
   }
 

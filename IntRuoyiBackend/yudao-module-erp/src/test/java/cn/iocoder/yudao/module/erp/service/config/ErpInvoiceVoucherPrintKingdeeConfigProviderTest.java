@@ -36,7 +36,8 @@ class ErpInvoiceVoucherPrintKingdeeConfigProviderTest {
         assertEquals("kingdee-user", snapshot.getUsername());
         assertEquals("kingdee-password", snapshot.getPassword());
         assertEquals("invoice-print-app", snapshot.getAppId());
-        assertEquals("invoice-print-secret", snapshot.getAppSecret());
+        assertEquals("invoice-print-signed-data", snapshot.getSignedData());
+        assertEquals("1700000000", snapshot.getTimestamp());
         assertEquals(2052, snapshot.getLcid());
         verify(kingdeeConfigService).getEffectiveProperties();
     }
@@ -55,16 +56,16 @@ class ErpInvoiceVoucherPrintKingdeeConfigProviderTest {
     }
 
     @Test
-    void getCurrentConfigSnapshotFailsFastWhenAppSecretIsMissing() {
+    void getCurrentConfigSnapshotFailsFastWhenSignedDataIsMissing() {
         ErpKingdeeProperties properties = buildProperties();
-        properties.setAppSecret(null);
+        properties.setSignedData(null);
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> provider.getCurrentConfigSnapshot());
 
         assertEquals(400, exception.getCode());
-        assertTrue(exception.getMessage().contains("appSecret"));
+        assertTrue(exception.getMessage().contains("signedData"));
     }
 
     private static ErpKingdeeProperties buildProperties() {
@@ -74,7 +75,8 @@ class ErpInvoiceVoucherPrintKingdeeConfigProviderTest {
         properties.setUsername(" kingdee-user ");
         properties.setPassword(" kingdee-password ");
         properties.setAppId(" invoice-print-app ");
-        properties.setAppSecret(" invoice-print-secret ");
+        properties.setSignedData(" invoice-print-signed-data ");
+        properties.setTimestamp("1700000000");
         properties.setLcid(2052);
         return properties;
     }

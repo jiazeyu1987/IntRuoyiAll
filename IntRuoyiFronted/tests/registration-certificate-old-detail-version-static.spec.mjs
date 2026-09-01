@@ -86,8 +86,8 @@ assert.match(
 )
 assert.match(
   detail,
-  /getRegistrationCertificateDetail\(certificateId\.value,\s*detailVersionId\.value\)/,
-  'detail page must pass the optional versionId into the detail API'
+  /const\s+resolvedCertificateId\s*=\s*await\s+resolveCertificateIdForDetail\(\)[\s\S]*getRegistrationCertificateDetail\(resolvedCertificateId,\s*detailVersionId\.value\)/,
+  'detail page must pass the optional versionId into the detail API after resolving the formal certificate id'
 )
 assert.match(
   detail,

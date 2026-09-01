@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.change.vo.DccRegistrationCertificateChangeApplyReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.change.vo.DccRegistrationCertificateVoidReqVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
@@ -15,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,26 +37,36 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 public class DccRegistrationCertificateChangeController {
 
     private final DccRegistrationCertificateChangeService changeService;
+    private final DccRegistrationCertificateApprovalService approvalService;
 
-    public DccRegistrationCertificateChangeController(DccRegistrationCertificateChangeService changeService) {
+    public DccRegistrationCertificateChangeController(
+            DccRegistrationCertificateChangeService changeService,
+            DccRegistrationCertificateApprovalService approvalService) {
         this.changeService = changeService;
+        this.approvalService = approvalService;
     }
 
     @PostMapping
     @Operation(summary = "提交注册证变更批件")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:change:submit')")
-    public CommonResult<DccRegistrationCertificateChangeResult> applyChange(
+    @Transactional(rollbackFor = Exception.class)
+    public CommonResult<Long> applyChange(
             @PathVariable("certificateId") @Positive Long certificateId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @ModelAttribute DccRegistrationCertificateChangeApplyReqVO reqVO,
             HttpServletRequest request) {
         String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
-        return success(changeService.applyChange(new DccRegistrationCertificateChangeCommand(
-                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long actorId = getLoginUserId();
+        Long requestId = changeService.submitChangeForApproval(new DccRegistrationCertificateChangeCommand(
+                tenantId, actorId, idempotencyKey,
                 requestTraceId, certificateId, reqVO.getExpectedRowVersion(),
                 reqVO.getApprovalDate(), reqVO.getStructuredValues(), reqVO.getOtherDescription(),
                 reqVO.getEntrustedProduction(), reqVO.getSelfProduction(),
-                reqVO.getEntrustedEnterprisesJson(), null, reqVO.getFile())));
+                reqVO.getEntrustedEnterprisesJson(), null, reqVO.getFile(), reqVO.getChangeTypes()));
+        approvalService.startNativeApproval(
+                tenantId, actorId, new DccRegistrationCertificateApprovalStartCommand(requestId));
+        return success(requestId);
     }
 
     @PostMapping("/void")

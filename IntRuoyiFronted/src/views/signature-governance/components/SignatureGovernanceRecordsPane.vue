@@ -54,7 +54,7 @@
           >
             <template #default="{ row }">
               <el-tag size="small" :type="sourceTagType(row.sourceCode)">
-                {{ row.sourceLabel || sourceLabel(row.sourceCode) }}
+                {{ formatSourceLabel(row) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -70,7 +70,7 @@
                 {{ row.businessRecordCode || row.globalId }}
               </div>
               <div class="signature-governance-records__meta">
-                {{ row.businessRecordName || row.sourceTable }}
+                {{ formatBusinessRecordName(row) }}
               </div>
             </template>
           </el-table-column>
@@ -122,14 +122,14 @@
               <div class="signature-governance-records__summary">
                 <div>
                   <el-tag size="small" type="primary">
-                    {{ row.meaningLabel || row.actionLabel || row.actionCode || '签名' }}
+                    {{ formatSignatureMeaningText(row) }}
                   </el-tag>
                   <span class="signature-governance-records__summary-text">
-                    {{ row.comment || row.meaningCode || '-' }}
+                    {{ formatSignatureSummaryText(row) }}
                   </span>
                 </div>
                 <div class="signature-governance-records__meta">
-                  来源表：{{ row.sourceTable }}
+                  来源表：{{ formatSourceTableLabel(row.sourceTable) }}
                 </div>
               </div>
             </template>
@@ -146,7 +146,7 @@
                 <div>
                   <span class="signature-governance-records__label">状态</span>
                   <el-tag size="small" :type="evidenceTagType(row.evidenceStatus)">
-                    {{ row.evidenceStatus || '未记录' }}
+                    {{ formatEvidenceStatusText(row.evidenceStatus) }}
                   </el-tag>
                 </div>
                 <div class="signature-governance-records__hash">
@@ -264,11 +264,83 @@ const sourceOptions = [
   { label: '文件', value: 'FILE' },
   { label: '批记录', value: 'BATCH_RECORD' },
   { label: '展厅', value: 'SHOWROOM' },
-  { label: 'BPM审批', value: 'BPM' },
+  { label: '审批', value: 'BPM' },
   { label: '报工审批', value: 'MES_FEEDBACK' },
   { label: '排产', value: 'SCHEDULING' },
   { label: '文控', value: 'DOCUMENT_CONTROL' }
 ] as const
+
+const sourceTableLabels: Record<string, string> = {
+  dcc_controlled_file_signature: '受控文件签名记录',
+  mes_pro_batch_record_execution_signature: '批记录执行签名记录',
+  showroom_change_request_signature: '展厅变更签名记录',
+  bpm_approval_signature_record: '审批签名记录'
+}
+
+const signatureActionLabels: Record<string, string> = {
+  APPROVE: '审批通过',
+  APPROVED: '审批通过',
+  REJECT: '审批驳回',
+  REJECTED: '审批驳回',
+  RETURN: '退回',
+  RETURNED: '退回',
+  TRANSFER: '转办',
+  TRANSFERRED: '转办',
+  ADD_SIGN: '加签',
+  SIGN_ADDED: '加签',
+  SUBMIT: '提交',
+  PQC_SUBMIT: 'PQC 检验提交',
+  FORM_REVIEW: '表单复核',
+  REVIEW_APPROVE: '审核通过',
+  DISTRIBUTION_ACK: '发放签收',
+  DISTRIBUTION_SIGN: '发放签发',
+  ARCHIVE_SEAL: '归档盖章',
+  OBSOLETE_CONFIRM: '作废确认'
+}
+
+const signatureMeaningLabels: Record<string, string> = {
+  PASSWORD_VERIFIED: '签名密码已验证',
+  PASSWORD_NOT_VERIFIED: '签名密码未验证',
+  PQC_SUBMIT: 'PQC 检验提交',
+  FORM_REVIEW: '表单复核',
+  REVIEW_APPROVE: '审核通过',
+  APPROVE: '审批通过',
+  APPROVED: '审批通过',
+  REJECT: '审批驳回',
+  REJECTED: '审批驳回',
+  SUPERVISOR: '主管审批',
+  PUBLICITY: '企宣审批',
+  CHANGE_REQUEST: '变更申请'
+}
+
+const evidenceStatusLabels: Record<string, string> = {
+  PASSWORD_VERIFIED: '签名密码已验证',
+  PASSWORD_NOT_VERIFIED: '签名密码未验证',
+  CAPTURED: '已采集',
+  VALID: '已校验',
+  PASSED: '已通过',
+  READY: '已就绪',
+  RECORDED: '已记录',
+  PENDING_VERIFY: '待校验',
+  PENDING: '待处理',
+  INVALID: '校验失败',
+  FAILED: '失败',
+  BLOCKED: '已阻断',
+  HISTORICAL_UNBOUND: '历史未绑定'
+}
+
+const businessRecordTextReplacements: Array<[RegExp, string]> = [
+  [/BPM审批/g, '审批'],
+  [/MES_FEEDBACK\s*审批/g, '生产报工审批'],
+  [/SHOWROOM/g, '展厅'],
+  [/CHANGE_REQUEST/g, '变更申请'],
+  [/PUBLICITY/g, '企宣'],
+  [/SUPERVISOR/g, '主管'],
+  [/APPROVED/g, '已批准'],
+  [/REJECTED/g, '已驳回'],
+  [/SUBMITTED/g, '已提交'],
+  [/PENDING/g, '待处理']
+]
 
 const recordScopeOptions = [
   { label: '全部记录', value: 'ALL_SIGNATURES' },
@@ -335,6 +407,23 @@ const normalizeText = (value: unknown) => {
   return text || undefined
 }
 
+const hasChineseText = (value: string) => /[\u4e00-\u9fa5]/.test(value)
+
+const isUpperCaseCode = (value: string) => /^[A-Z][A-Z0-9_:-]*$/.test(value)
+
+const formatMappedText = (
+  value: string | undefined | null,
+  labels: Record<string, string>,
+  unknownLabel: string
+) => {
+  const text = value?.trim()
+  if (!text) return ''
+  if (hasChineseText(text)) return text
+  const label = labels[text]
+  if (label) return label
+  return isUpperCaseCode(text) ? `${unknownLabel}：${text}` : text
+}
+
 const buildPageParams = (): SignatureGovernanceRecordPageReqVO => {
   const params: SignatureGovernanceRecordPageReqVO = {
     pageNo: queryParams.pageNo,
@@ -396,8 +485,61 @@ const resetRecordFilters = async () => {
   await recordQuickFilter.resetQuickFilter()
 }
 
-const sourceLabel = (sourceCode: SignatureGovernanceRecordSourceCode) =>
-  sourceOptions.find((item) => item.value === sourceCode)?.label || sourceCode
+const formatSourceLabel = (row: SignatureGovernanceRecordRespVO) => {
+  const knownLabel = sourceOptions.find((item) => item.value === row.sourceCode)?.label
+  if (knownLabel) return knownLabel
+  const text = row.sourceLabel?.trim()
+  if (!text) return `未识别来源：${row.sourceCode || '未记录'}`
+  if (text === 'BPM审批') return '审批'
+  return hasChineseText(text) ? text : `未识别来源：${text}`
+}
+
+const formatSourceTableLabel = (sourceTable?: string) => {
+  const text = sourceTable?.trim()
+  if (!text) return '未记录来源表'
+  return sourceTableLabels[text] || `未识别来源表：${text}`
+}
+
+const formatBusinessRecordName = (row: SignatureGovernanceRecordRespVO) => {
+  const text = row.businessRecordName?.trim()
+  if (!text) {
+    return formatSourceTableLabel(row.sourceTable)
+  }
+  return businessRecordTextReplacements.reduce(
+    (result, [pattern, label]) => result.replace(pattern, label),
+    text
+  )
+}
+
+const formatSignatureActionText = (row: SignatureGovernanceRecordRespVO) => {
+  return (
+    formatMappedText(row.actionLabel, signatureActionLabels, '未识别签名动作') ||
+    formatMappedText(row.actionCode, signatureActionLabels, '未识别签名动作') ||
+    '签名'
+  )
+}
+
+const formatSignatureMeaningText = (row: SignatureGovernanceRecordRespVO) => {
+  return (
+    formatMappedText(row.meaningLabel, signatureMeaningLabels, '未识别签名含义') ||
+    formatMappedText(row.meaningCode, signatureMeaningLabels, '未识别签名含义') ||
+    formatSignatureActionText(row)
+  )
+}
+
+const formatSignatureSummaryText = (row: SignatureGovernanceRecordRespVO) => {
+  const comment = row.comment?.trim()
+  if (!comment) {
+    return formatSignatureActionText(row)
+  }
+  return isUpperCaseCode(comment)
+    ? formatMappedText(comment, { ...signatureActionLabels, ...signatureMeaningLabels }, '未识别签名内容')
+    : comment
+}
+
+const formatEvidenceStatusText = (status?: string) => {
+  return formatMappedText(status, evidenceStatusLabels, '未识别证据状态') || '未记录'
+}
 
 const sourceTagType = (sourceCode: SignatureGovernanceRecordSourceCode) => {
   if (sourceCode === 'FILE') return 'success'
@@ -408,8 +550,20 @@ const sourceTagType = (sourceCode: SignatureGovernanceRecordSourceCode) => {
 }
 
 const evidenceTagType = (status?: string) => {
-  if (status === 'VALID' || status === 'PASSED' || status === 'READY') return 'success'
+  if (
+    status === 'VALID' ||
+    status === 'PASSED' ||
+    status === 'READY' ||
+    status === 'RECORDED' ||
+    status === 'CAPTURED' ||
+    status === 'PASSWORD_VERIFIED'
+  ) {
+    return 'success'
+  }
   if (status === 'INVALID' || status === 'FAILED' || status === 'BLOCKED') return 'danger'
+  if (status === 'PENDING_VERIFY' || status === 'PENDING' || status === 'PASSWORD_NOT_VERIFIED') {
+    return 'warning'
+  }
   return 'info'
 }
 

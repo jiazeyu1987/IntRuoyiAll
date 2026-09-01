@@ -29,6 +29,7 @@ import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -172,6 +173,58 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
         verify(notifyMessageSendApi, times(1)).sendSingleMessageIdempotentlyToAdmin(any());
     }
 
+    @Test
+    void manualTenantRunUsesSelectedBusinessDateAndNineOClockBusinessTime() {
+        LocalDate simulatedDate = LocalDate.of(2026, 9, 1);
+        insertTenantOneDueCandidate();
+        when(companyScopeApi.resolveRecipientUserIds(eq(501L), eq(List.of(1001L)), eq(PERMISSION)))
+                .thenReturn(new LinkedHashSet<>(List.of(7001L)));
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any()))
+                .thenReturn(99001L);
+        when(activationService.activateDueCandidate(any())).thenAnswer(invocation -> {
+            DccRegistrationCertificateActivationCommand command = invocation.getArgument(0);
+            assertEquals(1L, command.tenantId());
+            assertEquals(99L, command.actorId());
+            assertEquals("registration-certificate-reminder-activation:1001:1102:2026-09-01",
+                    command.idempotencyKey());
+            activateTenantOneCandidate(command);
+            return new DccRegistrationCertificateActivationResult(1001L, 1101L, 1102L, 5102L, true);
+        });
+
+        String summary = assertDoesNotThrow(() -> job.executeTenantAtBusinessDate(1L, simulatedDate, PARAM));
+
+        assertTrue(summary.contains("tenantId=1"));
+        assertTrue(summary.contains("businessDate=2026-09-01"));
+        assertTrue(summary.contains("successes=1"));
+        assertEquals("SUCCESS", dailyStatus(1L));
+        assertEquals(LocalDateTime.of(2026, 9, 1, 9, 0), dailyStartedAt(1L));
+        verify(activationService, times(1)).activateDueCandidate(any());
+    }
+
+    @Test
+    void manualTenantRunIgnoresHistoricalFailedPendingOccurrencesFromOtherRuns() {
+        LocalDate simulatedDate = LocalDate.of(2026, 9, 1);
+        insertHistoricalFailedPendingOccurrence(1L);
+        insertTenantOneDueCandidate();
+        when(companyScopeApi.resolveRecipientUserIds(eq(501L), eq(List.of(1001L)), eq(PERMISSION)))
+                .thenReturn(new LinkedHashSet<>(List.of(7001L)));
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any()))
+                .thenReturn(99001L);
+        when(activationService.activateDueCandidate(any())).thenAnswer(invocation -> {
+            DccRegistrationCertificateActivationCommand command = invocation.getArgument(0);
+            activateTenantOneCandidate(command);
+            return new DccRegistrationCertificateActivationResult(1001L, 1101L, 1102L, 5102L, true);
+        });
+
+        String summary = assertDoesNotThrow(() -> job.executeTenantAtBusinessDate(1L, simulatedDate, PARAM));
+
+        assertTrue(summary.contains("successes=1"));
+        assertEquals("SUCCESS", dailyStatus(1L, simulatedDate));
+        assertEquals(1, sentDeliveryCount(1L, simulatedDate));
+        assertEquals(1, failedDeliveryCount(1L, BUSINESS_DATE));
+        assertEquals(1, pendingOccurrenceCount(1L, BUSINESS_DATE));
+    }
+
     private void insertTenantOneDueCandidate() {
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate
@@ -183,6 +236,32 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
                 LocalDate.of(2023, 1, 2));
         insertVersion(1L, 1001L, 1102L, "PENDING_EFFECTIVE", LocalDate.of(2026, 9, 17),
                 BUSINESS_DATE);
+    }
+
+    private void insertHistoricalFailedPendingOccurrence(Long tenantId) {
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_daily_run
+                  (id, tenant_id, business_date, run_key, status, retry_count, started_at, finished_at,
+                   failure_reason, detail_json)
+                VALUES (9001, ?, ?, 'historical:failed:20260818', 'FAILED', 1,
+                        TIMESTAMP '2026-08-18 09:00:00', TIMESTAMP '2026-08-18 09:01:00',
+                        'historical notify failure', '{}')
+                """, tenantId, BUSINESS_DATE);
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_reminder_occurrence
+                  (id, tenant_id, run_id, owner_company_id, certificate_id, version_id,
+                   reminder_type, threshold_level, business_date, due_date, event_key,
+                   status, detail_json)
+                VALUES (9101, ?, 9001, 501, 9901, 9902, 'CERTIFICATE_EXPIRY', 'T_30',
+                        ?, DATE '2026-09-17', 'historical:occurrence:failed', 'PENDING_DELIVERY', '{}')
+                """, tenantId, BUSINESS_DATE);
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_reminder_delivery
+                  (id, tenant_id, occurrence_id, recipient_user_id, delivery_key, status,
+                   attempt_count, last_failure_code, last_failure_reason, detail_json)
+                VALUES (9201, ?, 9101, 7001, 'historical:delivery:failed', 'FAILED',
+                        1, '108000270', '站内信模版不存在', '{}')
+                """, tenantId);
     }
 
     private void insertActiveCertificate(Long tenantId, Long certificateId, Long versionId,
@@ -245,11 +324,24 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
                 """, String.class, tenantId);
     }
 
+    private String dailyStatus(Long tenantId, LocalDate businessDate) {
+        return jdbcTemplate.queryForObject("""
+                SELECT status FROM dcc_registration_certificate_daily_run
+                 WHERE tenant_id = ? AND business_date = ?
+                """, String.class, tenantId, businessDate);
+    }
+
     private int dailyRetryCount(Long tenantId) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT retry_count FROM dcc_registration_certificate_daily_run WHERE tenant_id = ?
                 """, Integer.class, tenantId);
         return count == null ? 0 : count;
+    }
+
+    private LocalDateTime dailyStartedAt(Long tenantId) {
+        return jdbcTemplate.queryForObject("""
+                SELECT started_at FROM dcc_registration_certificate_daily_run WHERE tenant_id = ?
+                """, LocalDateTime.class, tenantId);
     }
 
     private int deliveryCount(Long tenantId) {
@@ -267,11 +359,50 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
         return count == null ? 0 : count;
     }
 
+    private int sentDeliveryCount(Long tenantId, LocalDate businessDate) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_reminder_delivery d
+                  JOIN dcc_registration_certificate_reminder_occurrence o
+                    ON o.id = d.occurrence_id
+                   AND o.tenant_id = d.tenant_id
+                 WHERE d.tenant_id = ?
+                   AND o.business_date = ?
+                   AND d.status = 'SENT'
+                """, Integer.class, tenantId, businessDate);
+        return count == null ? 0 : count;
+    }
+
     private int failedDeliveryCount(Long tenantId) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM dcc_registration_certificate_reminder_delivery
                  WHERE tenant_id = ? AND status = 'FAILED'
                 """, Integer.class, tenantId);
+        return count == null ? 0 : count;
+    }
+
+    private int failedDeliveryCount(Long tenantId, LocalDate businessDate) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_reminder_delivery d
+                  JOIN dcc_registration_certificate_reminder_occurrence o
+                    ON o.id = d.occurrence_id
+                   AND o.tenant_id = d.tenant_id
+                 WHERE d.tenant_id = ?
+                   AND o.business_date = ?
+                   AND d.status = 'FAILED'
+                """, Integer.class, tenantId, businessDate);
+        return count == null ? 0 : count;
+    }
+
+    private int pendingOccurrenceCount(Long tenantId, LocalDate businessDate) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_reminder_occurrence
+                 WHERE tenant_id = ?
+                   AND business_date = ?
+                   AND status = 'PENDING_DELIVERY'
+                """, Integer.class, tenantId, businessDate);
         return count == null ? 0 : count;
     }
 

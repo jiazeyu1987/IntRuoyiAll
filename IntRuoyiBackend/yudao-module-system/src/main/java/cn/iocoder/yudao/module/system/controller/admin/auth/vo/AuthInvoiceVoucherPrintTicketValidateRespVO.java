@@ -55,7 +55,10 @@ public class AuthInvoiceVoucherPrintTicketValidateRespVO {
         private String appId;
 
         @Schema(description = "金蝶应用密钥", example = "invoice-print-secret")
-        private String appSecret;
+        private String signedData;
+
+        @Schema(description = "SimPas 签名时间戳", example = "1787795088")
+        private String timestamp;
 
         @Schema(description = "语言 LCID", example = "2052")
         private Integer lcid;

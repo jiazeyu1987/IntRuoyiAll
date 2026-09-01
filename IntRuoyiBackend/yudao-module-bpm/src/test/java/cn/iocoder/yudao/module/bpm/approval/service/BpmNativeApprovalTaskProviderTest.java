@@ -227,11 +227,14 @@ class BpmNativeApprovalTaskProviderTest {
         assertNull(summary.getBusinessCode());
         assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000001", "分类：III类", "产品：一次性使用无菌导管",
-                        "所属公司：示例医疗器械有限公司"),
+                        "所属公司名称：示例医疗器械有限公司"),
                 summary.getBusinessContextTags());
         assertEquals("注册证访问审批", summary.getCurrentNodeName());
         assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
         assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7701", summary.getDecisionDetailRoute());
+        assertEquals("8801", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-access-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
     }
 
     @Test
@@ -266,10 +269,13 @@ class BpmNativeApprovalTaskProviderTest {
         assertNull(summary.getBusinessCode());
         assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000002", "分类：II类", "产品：球囊扩张导管",
-                        "所属公司：示例医疗器械有限公司"),
+                        "所属公司名称：示例医疗器械有限公司"),
                 summary.getBusinessContextTags());
         assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
         assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7702", summary.getDecisionDetailRoute());
+        assertEquals("8802", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-renewal-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
     }
 
     @Test

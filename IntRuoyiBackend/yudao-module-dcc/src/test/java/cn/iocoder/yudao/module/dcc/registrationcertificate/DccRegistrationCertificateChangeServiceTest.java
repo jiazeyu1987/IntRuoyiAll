@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
@@ -56,6 +57,8 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     private FileService fileService;
     @MockitoBean
     private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
+    @MockitoBean
+    private DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
 
     @BeforeEach
     void setUpFileService() {
@@ -79,7 +82,32 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE event_type = 'CHANGE_APPLIED' AND certificate_id = 1001"));
         verify(businessEventNotifier).notifyChangeApprovalRecorded(
                 eq(1L), eq(10L), eq(1001L), eq(2001L), eq(99L),
-                eq("change-product"), eq("CERT-001"));
+                eq("change-product"), eq("Product B"), eq("CERT-001"),
+                eq(LocalDate.of(2021, 3, 1)), eq(LocalDate.of(2026, 8, 20)));
+    }
+
+    @Test
+    void submittedChangeWaitsForApprovalBeforeUpdatingOnlyMvpDisplayFields() {
+        seedCurrentCertificate();
+
+        Long requestId = assertDoesNotThrow(() -> service.submitChangeForApproval(command(
+                "change-mvp-pending", 3, Map.of(
+                        "PRODUCT_NAME", "Product B",
+                        "REGISTRANT_NAME", "Registrant B"),
+                null, null, null, null)));
+
+        Long changeId = longValue("SELECT id FROM dcc_registration_certificate_change WHERE approval_request_id = ?", requestId);
+        assertEquals("PENDING_APPROVAL", text("SELECT status FROM dcc_registration_certificate_change WHERE id = ?", changeId));
+        assertEquals(3001L, longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001"));
+
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status = 'APPROVED' WHERE id = ?", requestId);
+        assertDoesNotThrow(() -> service.approveChangeRequest(1L, 55L, requestId, "change-mvp-approval"));
+
+        Long approvedSnapshotId = longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001");
+        assertEquals("APPLIED", text("SELECT status FROM dcc_registration_certificate_change WHERE id = ?", changeId));
+        assertEquals(55L, longValue("SELECT reviewer_user_id FROM dcc_registration_certificate_change WHERE id = ?", changeId));
+        assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
+        assertEquals("Registrant B", text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
     }
 
     @Test
@@ -100,6 +128,8 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
                 businessFileId));
         assertEquals("BOUND", text("SELECT status FROM dcc_registration_certificate_file WHERE id = ?",
                 businessFileId));
+        verify(projectCodeFileAssociationService).bindChangeApprovalFile(
+                1L, null, result.changeId(), businessFileId, 99L);
     }
 
     @Test
@@ -220,9 +250,9 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     private void seedCurrentCertificate() {
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate
-                  (id, tenant_id, owner_company_id, product_master_id, first_obtained_date,
+                  (id, tenant_id, owner_company_id, product_master_id, project_code_id, first_obtained_date,
                    current_version_id, pending_version_id, current_snapshot_id, status, row_version)
-                VALUES (1001, 1, 10, 20, ?, 2001, NULL, 3001, 'ACTIVE', 3)
+                VALUES (1001, 1, 10, 20, 40, ?, 2001, NULL, 3001, 'ACTIVE', 3)
                 """, LocalDate.of(2021, 1, 1));
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate_version

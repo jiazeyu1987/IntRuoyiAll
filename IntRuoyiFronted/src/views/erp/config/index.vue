@@ -41,13 +41,16 @@
             <el-form-item label="应用 ID" prop="appId">
               <el-input v-model="formData.appId" placeholder="请输入金蝶应用 ID" />
             </el-form-item>
-            <el-form-item label="应用密钥" prop="appSecret">
+            <el-form-item label="SimPas 签名数据" prop="signedData">
               <el-input
-                v-model="formData.appSecret"
-                type="password"
-                show-password
-                placeholder="请输入金蝶应用密钥"
+                v-model="formData.signedData"
+                type="textarea"
+                :rows="3"
+                placeholder="请输入 SimPas 签名数据"
               />
+            </el-form-item>
+            <el-form-item label="SimPas 时间戳" prop="timestamp">
+              <el-input v-model="formData.timestamp" placeholder="请输入 SimPas 时间戳" />
             </el-form-item>
             <el-form-item label="语言 LCID" prop="lcid">
               <el-input-number v-model="formData.lcid" :min="1" class="!w-260px" />
@@ -138,7 +141,8 @@ const formData = ref<ErpKingdeeConfigVO>({
   username: '',
   password: '',
   appId: '',
-  appSecret: '',
+  signedData: '',
+  timestamp: '',
   lcid: 2052,
   product: {
     queryLimit: 5000
@@ -164,7 +168,8 @@ const formRules = reactive({
   username: [{ required: true, message: '用户名不能为空', trigger: 'blur' }],
   password: [{ required: true, message: '密码不能为空', trigger: 'blur' }],
   appId: [{ required: true, message: '应用 ID 不能为空', trigger: 'blur' }],
-  appSecret: [{ required: true, message: '应用密钥不能为空', trigger: 'blur' }],
+  signedData: [{ required: true, message: 'SimPas 签名数据不能为空', trigger: 'blur' }],
+  timestamp: [{ required: true, message: 'SimPas 时间戳不能为空', trigger: 'blur' }],
   lcid: [{ required: true, message: '语言 LCID 不能为空', trigger: 'blur' }],
   'product.queryLimit': [{ required: true, message: '产品查询上限不能为空', trigger: 'blur' }],
   'productionOrder.queryLimit': [

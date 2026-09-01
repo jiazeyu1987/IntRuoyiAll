@@ -62,7 +62,7 @@ assert.match(paneSource, /sourceOptions/)
 assert.match(paneSource, /文件/)
 assert.match(paneSource, /批记录/)
 assert.match(paneSource, /展厅/)
-assert.match(paneSource, /BPM审批/)
+assert.match(paneSource, /\{\s*label:\s*'审批',\s*value:\s*'BPM'\s*\}/)
 assert.match(paneSource, /报工审批/)
 assert.match(paneSource, /SCHEDULING/)
 assert.match(paneSource, /DOCUMENT_CONTROL/)
@@ -74,6 +74,63 @@ assert.match(paneSource, /pageLoader\(buildPageParams\(\)\)/)
 assert.match(paneSource, /formatRecordSignedAt/)
 assert.match(paneSource, /formatDate\(new Date\(signedAt\)\)/)
 assert.doesNotMatch(paneSource, /Number\(text\)|text\.replace\(' ', 'T'\)|new Date\(normalizedText\)/)
+assert.match(paneSource, /formatSourceTableLabel/)
+assert.match(
+  paneSource,
+  /{{\s*formatSourceLabel\(row\)\s*}}/,
+  '来源列必须使用统一中文来源标签'
+)
+assert.match(paneSource, /bpm_approval_signature_record[\s\S]*审批签名记录/)
+assert.match(paneSource, /mes_pro_batch_record_execution_signature[\s\S]*批记录执行签名记录/)
+assert.match(paneSource, /formatSignatureActionText/)
+assert.match(paneSource, /APPROVE[\s\S]*审批通过/)
+assert.match(paneSource, /formatSignatureMeaningText/)
+assert.match(paneSource, /PQC_SUBMIT[\s\S]*PQC 检验提交/)
+assert.match(paneSource, /formatEvidenceStatusText/)
+assert.match(paneSource, /PASSWORD_VERIFIED[\s\S]*签名密码已验证/)
+assert.match(paneSource, /CAPTURED[\s\S]*已采集/)
+assert.match(paneSource, /formatBusinessRecordName/)
+assert.match(paneSource, /BPM审批[\s\S]*审批/)
+assert.match(
+  paneSource,
+  /来源表：\{\{\s*formatSourceTableLabel\(row\.sourceTable\)\s*\}\}/,
+  '来源表必须显示中文来源说明'
+)
+assert.match(
+  paneSource,
+  /{{\s*formatSignatureMeaningText\(row\)\s*}}/,
+  '签名摘要标签必须显示中文含义'
+)
+assert.match(
+  paneSource,
+  /{{\s*formatSignatureSummaryText\(row\)\s*}}/,
+  '签名摘要正文必须显示中文动作或正式意见'
+)
+assert.match(
+  paneSource,
+  /{{\s*formatEvidenceStatusText\(row\.evidenceStatus\)\s*}}/,
+  '证据状态必须显示中文状态'
+)
+assert.doesNotMatch(
+  paneSource,
+  /{{\s*row\.evidenceStatus\s*\|\|\s*'未记录'\s*}}/,
+  '证据状态不得直接暴露英文状态码'
+)
+assert.doesNotMatch(
+  paneSource,
+  /来源表：\{\{\s*row\.sourceTable\s*\}\}/,
+  '来源表不得直接暴露数据库表名'
+)
+assert.doesNotMatch(
+  paneSource,
+  /row\.sourceLabel\s*\|\|\s*sourceLabel\(row\.sourceCode\)/,
+  '来源列不得直接使用后端旧英文模块标签'
+)
+assert.doesNotMatch(
+  paneSource,
+  /row\.comment\s*\|\|\s*row\.meaningCode\s*\|\|\s*'-'/,
+  '签名摘要正文不得把含义编码作为可见默认文本'
+)
 assert.match(paneSource, /fetchSignatureGovernanceRecordPdfArtifact/)
 assert.match(paneSource, /downloadSignatureGovernanceRecordPdf/)
 assert.match(paneSource, /openRecordPdfPreview/)

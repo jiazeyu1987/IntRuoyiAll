@@ -32,18 +32,21 @@ assert.match(providerSource, /implements\s+InvoiceVoucherPrintKingdeeConfigProvi
 assert.match(providerSource, /ErpKingdeeConfigService/)
 assert.match(providerSource, /getEffectiveProperties\(\)/)
 assert.match(providerSource, /KingdeeConfigSnapshot\.builder\(\)/)
-for (const field of ['BaseUrl', 'AcctId', 'Username', 'Password', 'AppId', 'AppSecret', 'Lcid']) {
+for (const field of ['BaseUrl', 'AcctId', 'Username', 'Password', 'AppId', 'SignedData', 'Timestamp', 'Lcid']) {
   assert.match(providerSource, new RegExp(`get${field}\\(\\)`))
 }
 assert.match(providerSource, /requireNotBlank\(properties\.getAppId\(\),\s*"appId"\)/)
-assert.match(providerSource, /requireNotBlank\(properties\.getAppSecret\(\),\s*"appSecret"\)/)
+assert.match(providerSource, /requireNotBlank\(properties\.getSignedData\(\),\s*"signedData"\)/)
+assert.match(providerSource, /requireNotBlank\(properties\.getTimestamp\(\),\s*"timestamp"\)/)
 assert.doesNotMatch(providerSource, /System\.getenv|@Value|KINGDEE_ENV_PATH/)
 
 assert.match(authControllerSource, /respVO\.setKingdeeConfig\(buildInvoiceVoucherPrintKingdeeConfig\(\)\)/)
 assert.match(responseSource, /private\s+KingdeeConfig\s+kingdeeConfig/)
 assert.match(responseSource, /private\s+String\s+appId/)
-assert.match(responseSource, /private\s+String\s+appSecret/)
+assert.match(responseSource, /private\s+String\s+signedData/)
+assert.match(responseSource, /private\s+String\s+timestamp/)
 assert.match(localYaml, /app-id:\s+\$\{PRODUCTION_PLAN_ERP_K3CLOUD_APP_ID:/)
-assert.match(localYaml, /app-secret:\s+\$\{PRODUCTION_PLAN_ERP_K3CLOUD_APP_SECRET:/)
+assert.match(localYaml, /signed-data:\s+\$\{PRODUCTION_PLAN_ERP_K3CLOUD_SIGNED_DATA:/)
+assert.match(localYaml, /timestamp:\s+\$\{PRODUCTION_PLAN_ERP_K3CLOUD_TIMESTAMP:/)
 
 console.log('invoice voucher print Kingdee config bridge static contract passed')

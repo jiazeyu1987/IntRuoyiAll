@@ -7,6 +7,7 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -17,6 +18,7 @@ public class DccRegistrationCertificateChangeApplyReqVO {
     private Integer expectedRowVersion;
     @NotNull
     private LocalDate approvalDate;
+    private List<@Size(max = 64) String> changeTypes;
     private Map<@Size(max = 64) String, @Size(max = 4096) String> structuredValues;
     @Size(max = 4096)
     private String otherDescription;

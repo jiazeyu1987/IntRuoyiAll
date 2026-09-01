@@ -70,6 +70,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "/mes/pro/feedback/edhr-change";
     private static final String ROUTE_VERSION_DETAIL_ROUTE_PREFIX =
             "/mes/pro/route/edit/";
+    private static final String REGISTRATION_CERTIFICATE_DETAIL_ROUTE_PREFIX =
+            "/mdm/registration-certificate/detail/";
     private static final Pattern TEMPLATE_PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
@@ -660,7 +662,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             addTag(tags, "注册证编号", variables.get("certificateNo"));
             addTag(tags, "分类", variables.get("classification"));
             addTag(tags, "产品", variables.get("productName"));
-            addTag(tags, "所属公司", variables.get("ownerCompanyName"));
+            addTag(tags, "所属公司名称", variables.get("ownerCompanyName"));
         } else if (isRegistrationCertificateAccessApproval(variables)) {
             addTag(tags, "申请类型", resolveRegistrationCertificateRequestTypeLabel(variables)
                     .replace("审批", ""));
@@ -854,6 +856,14 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             String routeId = asText(variables.get("routeId"));
             return hasText(routeId) ? ROUTE_VERSION_DETAIL_ROUTE_PREFIX + routeId.trim() : null;
         }
+        if (isRegistrationCertificateAccessApproval(variables)) {
+            String certificateId = firstText(variables.get("certificateId"));
+            if (!hasText(certificateId)) {
+                throw new IllegalArgumentException(
+                        "APPROVAL_BUSINESS_DETAIL_VARIABLE_REQUIRED: registration certificate certificateId");
+            }
+            return REGISTRATION_CERTIFICATE_DETAIL_ROUTE_PREFIX + certificateId.trim();
+        }
         return null;
     }
 
@@ -899,6 +909,12 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                     variables.get("objectVersion")));
             putIfPresent(query, "routeVersionStatus", "PENDING_APPROVAL");
             putIfPresent(query, "tab", "flow");
+            putIfPresent(query, "processInstanceId", processInstanceId);
+            return query;
+        }
+        if (isRegistrationCertificateAccessApproval(variables)) {
+            putIfPresent(query, "requestId", firstText(variables.get("registrationCertificateAccessRequestId"),
+                    variables.get("requestId")));
             putIfPresent(query, "processInstanceId", processInstanceId);
         }
         return query;

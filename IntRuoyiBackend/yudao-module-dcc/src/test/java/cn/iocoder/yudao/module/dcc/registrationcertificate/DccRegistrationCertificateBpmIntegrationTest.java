@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegistrationCertificateGrantService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
@@ -92,6 +93,8 @@ class DccRegistrationCertificateBpmIntegrationTest {
     @Mock
     private DccRegistrationCertificateUploadService uploadService;
     @Mock
+    private DccRegistrationCertificateChangeService changeService;
+    @Mock
     private DccRegistrationCertificateApprovalService listenerApprovalService;
 
     private DccRegistrationCertificateApprovalService service;
@@ -102,7 +105,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
                 bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
-                businessClock, renewalService, uploadService);
+                businessClock, renewalService, uploadService, changeService);
         lenient().when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(approverRole());
         listener = new DccRegistrationCertificateApprovalStatusListener(listenerApprovalService);
     }
