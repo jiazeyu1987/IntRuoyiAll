@@ -265,7 +265,8 @@ public class DccRegistrationCertificateUploadService {
                 .status(STATUS_SUBMITTED)
                 .requestedAt(businessClock.now())
                 .detailJson(JsonUtils.toJsonString(submitDetail(
-                        payloadHash, ownerCompanyId, productMasterId, projectCodeId)))
+                        payloadHash, ownerCompanyId, ownerCompany.getName(), productName,
+                        productMasterId, projectCodeId, command.certificateNo(), command.classification())))
                 .build();
         request.setTenantId(tenantId);
         requireUpdated(requestMapper.insert(request));
@@ -438,13 +439,18 @@ public class DccRegistrationCertificateUploadService {
     }
 
     private static Map<String, Object> submitDetail(
-            String payloadHash, Long ownerCompanyId, Long productMasterId, Long projectCodeId) {
+            String payloadHash, Long ownerCompanyId, String ownerCompanyName, String productName,
+            Long productMasterId, Long projectCodeId, String certificateNo, String classification) {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("operation", REQUEST_OPERATION_UPLOAD_CERTIFICATE);
         detail.put("payloadHash", payloadHash);
         detail.put("draftRowVersion", 1);
         detail.put("draftSnapshotRevision", 1);
         detail.put("ownerCompanyId", ownerCompanyId);
+        detail.put("ownerCompanyName", trim(ownerCompanyName));
+        detail.put("productName", trim(productName));
+        detail.put("certificateNo", trim(certificateNo));
+        detail.put("classification", trim(classification));
         detail.put("productMasterId", productMasterId);
         detail.put("projectCodeId", projectCodeId);
         return detail;
@@ -538,7 +544,7 @@ public class DccRegistrationCertificateUploadService {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 algorithm is required for registration certificate upload", exception);
+            throw new IllegalStateException("注册证上传必须启用 SHA-256 算法", exception);
         }
     }
 
@@ -592,7 +598,7 @@ public class DccRegistrationCertificateUploadService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

@@ -18,7 +18,7 @@
     >
       <el-row :gutter="24">
         <el-col :span="12">
-          <el-form-item label="DCC项目代码" prop="projectCodeId">
+          <el-form-item label="DCC 项目代码" prop="projectCodeId">
             <el-select
               v-model="form.projectCodeId"
               clearable
@@ -27,7 +27,7 @@
               reserve-keyword
               :remote-method="searchProjectCodes"
               :loading="projectCodeLoading"
-              placeholder="请选择DCC项目代码"
+              placeholder="请选择 DCC 项目代码"
             >
               <el-option
                 v-for="item in projectCodeOptions"

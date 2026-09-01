@@ -7,6 +7,7 @@ const readSource = (relativePath) => fs.readFileSync(path.join(root, relativePat
 
 const packageJson = JSON.parse(readSource('package.json'))
 const detailSource = readSource('src/views/bpm/processInstance/detail/index.vue')
+const displayNameSource = readSource('src/views/bpm/processInstance/detail/display-name.ts')
 
 assert.equal(
   packageJson.scripts['e2e:dcc:bpm-approval-detail-title-performance:static'],
@@ -15,8 +16,8 @@ assert.equal(
 )
 
 assert.match(
-  detailSource,
-  /DCC_APPROVAL_PROCESS_TITLE_LABELS:\s*Record<string,\s*string>\s*=\s*\{[\s\S]*'DCC Controlled File Approval':\s*'文控受控文件审批'/,
+  displayNameSource,
+  /DCC Controlled File Approval[\s\S]*文控受控文件审批/,
   'BPM detail must map DCC Controlled File Approval to its Chinese title'
 )
 assert.match(

@@ -12,6 +12,6 @@ public enum DccRegistrationCertificateFileOwnerType {
         return Arrays.stream(values())
                 .filter(value -> value.name().equals(code))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown registration certificate file owner type: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("未知的注册证文件归属类型：" + code));
     }
 }

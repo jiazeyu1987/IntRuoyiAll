@@ -12,6 +12,6 @@ public enum DccRegistrationCertificateAuditResult {
                 .filter(value -> value.name().equals(code))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Unknown registration certificate audit result: " + code));
+                        "未知的注册证审计结果：" + code));
     }
 }

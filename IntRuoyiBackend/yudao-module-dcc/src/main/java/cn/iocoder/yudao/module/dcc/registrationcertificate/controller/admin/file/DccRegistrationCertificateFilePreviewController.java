@@ -56,7 +56,7 @@ public class DccRegistrationCertificateFilePreviewController {
     }
 
     @GetMapping("/{businessFileId}/preview-metadata")
-    @Operation(summary = "Get registration certificate file preview metadata")
+    @Operation(summary = "获取注册证文件预览信息")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:query-current')")
     public CommonResult<DccControlledFilePreviewMetadataRespVO> getPreviewMetadata(
             @PathVariable("businessFileId") Long businessFileId,
@@ -66,7 +66,7 @@ public class DccRegistrationCertificateFilePreviewController {
     }
 
     @GetMapping("/{businessFileId}/preview")
-    @Operation(summary = "Preview one registration certificate file")
+    @Operation(summary = "预览注册证文件")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:query-current')")
     public ResponseEntity<byte[]> previewFile(@PathVariable("businessFileId") Long businessFileId,
                                               @RequestHeader(VIEWER_TOKEN_HEADER) String viewerToken,
@@ -89,7 +89,7 @@ public class DccRegistrationCertificateFilePreviewController {
     }
 
     @GetMapping("/{businessFileId}/download")
-    @Operation(summary = "Download one registration certificate file")
+    @Operation(summary = "下载注册证文件")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:access-request:create')")
     public ResponseEntity<byte[]> downloadFile(
             @PathVariable("businessFileId") Long businessFileId,

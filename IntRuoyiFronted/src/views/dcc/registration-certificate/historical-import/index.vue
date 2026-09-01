@@ -47,7 +47,7 @@
         >
           <el-table-column
             v-if="isHistoricalImportColumnVisible('sourceHash')"
-            label="来源哈希"
+            label="来源校验值"
             prop="sourceHash"
             :min-width="getHistoricalImportColumnMinWidthString('sourceHash', 180)"
             v-bind="sortColumnAttrs('sourceHash')"
@@ -164,6 +164,7 @@ import type {
   DccRegistrationCertificateHistoricalImportPageReqVO,
   DccRegistrationCertificateHistoricalImportRespVO
 } from '@/api/dcc/registrationCertificate/historicalImport'
+import { resolveRegistrationCertificateUserMessage } from '../shared/state'
 
 defineOptions({ name: 'DccRegistrationCertificateHistoricalImport' })
 
@@ -188,15 +189,15 @@ const queryParams = reactive<HistoricalImportPageQuery>({
 const historicalImportQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
     key: 'sourceHash',
-    label: '来源哈希',
+    label: '来源校验值',
     type: 'text',
     queryParamKey: 'sourceHash',
-    placeholder: '输入来源哈希'
+    placeholder: '请输入来源校验值'
   }
 ]
 
 const historicalImportDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'sourceHash', label: '来源哈希', minWidth: 180, sortable: false },
+  { key: 'sourceHash', label: '来源校验值', minWidth: 180, sortable: false },
   { key: 'sourceRow', label: '源行号', width: 90, sortable: false },
   { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: false },
   { key: 'ownerCompanyCode', label: '公司编码', minWidth: 150, sortable: false },
@@ -233,17 +234,9 @@ const formatRestrictedReasons = (reasons?: string[] | null) =>
   reasons && reasons.length > 0 ? reasons.join('、') : '无'
 
 const resolvePageErrorMessage = (error: unknown) => {
-  const record = error as {
-    message?: string
-    msg?: string
-    response?: { data?: { msg?: string; message?: string } }
-  }
-  return (
-    record?.response?.data?.msg ||
-    record?.response?.data?.message ||
-    record?.msg ||
-    record?.message ||
-    '注册证历史导入加载失败，请查看网络或后端错误后重试。'
+  return resolveRegistrationCertificateUserMessage(
+    error,
+    '注册证历史导入加载失败，请检查网络或后端服务后重试。'
   )
 }
 

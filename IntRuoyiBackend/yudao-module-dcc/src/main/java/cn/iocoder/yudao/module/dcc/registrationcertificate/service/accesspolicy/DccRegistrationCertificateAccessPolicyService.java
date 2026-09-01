@@ -73,6 +73,41 @@ public class DccRegistrationCertificateAccessPolicyService {
         assertCompanyScope(actorId, certificate.getOwnerCompanyId());
     }
 
+    public void assertFilePreviewAllowed(Long tenantId, Long actorId, Long certificateId, Long versionId,
+                                         LocalDateTime at) {
+        if (versionId == null || at == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        }
+        DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, certificateId);
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(versionId);
+        if (version == null || !Objects.equals(version.getTenantId(), tenantId)
+                || !Objects.equals(version.getCertificateId(), certificate.getId())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        }
+        if ("CURRENT".equals(version.getStatus())) {
+            if (!"ACTIVE".equals(certificate.getStatus())
+                    || !Objects.equals(certificate.getCurrentVersionId(), version.getId())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+            }
+            assertCompanyScope(actorId, certificate.getOwnerCompanyId());
+            return;
+        }
+        if ("PENDING_EFFECTIVE".equals(version.getStatus())) {
+            if (!("ACTIVE".equals(certificate.getStatus())
+                    || "PENDING_FIRST_EFFECTIVE".equals(certificate.getStatus()))
+                    || !Objects.equals(certificate.getPendingVersionId(), version.getId())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+            }
+            assertCompanyScope(actorId, certificate.getOwnerCompanyId());
+            return;
+        }
+        if ("OLD".equals(version.getStatus())) {
+            assertOldViewAllowed(tenantId, actorId, certificateId, at);
+            return;
+        }
+        throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+    }
+
     public void assertOldViewAllowed(Long tenantId, Long actorId, Long certificateId, LocalDateTime at) {
         if (hasRegistrationManagerRole(actorId)) {
             DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, certificateId);
@@ -88,6 +123,15 @@ public class DccRegistrationCertificateAccessPolicyService {
 
     public void assertDownloadAllowed(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
         requireDownloadGrant(tenantId, actorId, businessFileId, at);
+    }
+
+    public boolean authorizeRegistrationManagerDownloadIfRole(Long tenantId, Long actorId, Long certificateId) {
+        if (!hasRegistrationManagerRole(actorId)) {
+            return false;
+        }
+        DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, certificateId);
+        assertCompanyScope(actorId, certificate.getOwnerCompanyId());
+        return true;
     }
 
     public DccRegistrationCertificateGrantDO requireDownloadGrant(Long tenantId, Long actorId, Long businessFileId,
@@ -174,7 +218,7 @@ public class DccRegistrationCertificateAccessPolicyService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

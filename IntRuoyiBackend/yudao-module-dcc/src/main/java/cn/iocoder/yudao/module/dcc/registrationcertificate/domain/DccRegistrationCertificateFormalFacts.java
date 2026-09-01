@@ -12,15 +12,15 @@ public record DccRegistrationCertificateFormalFacts(
 
     public DccRegistrationCertificateFormalFacts {
         if (versionId == null || versionId <= 0 || snapshotId == null || snapshotId <= 0) {
-            throw new IllegalArgumentException("Formal version and snapshot ids must be positive");
+            throw new IllegalArgumentException("正式版本 ID 和快照 ID 必须为正数");
         }
-        Objects.requireNonNull(productionRelation, "production relation must not be null");
-        boundFileIds = List.copyOf(Objects.requireNonNull(boundFileIds, "bound file ids must not be null"));
+        Objects.requireNonNull(productionRelation, "生产关系不能为空");
+        boundFileIds = List.copyOf(Objects.requireNonNull(boundFileIds, "已绑定文件 ID 列表不能为空"));
         if (boundFileIds.isEmpty() || boundFileIds.stream().anyMatch(id -> id == null || id <= 0)) {
-            throw new IllegalArgumentException("Formal facts require positive bound file ids");
+            throw new IllegalArgumentException("正式注册证信息必须包含有效的已绑定文件 ID");
         }
         if (new HashSet<>(boundFileIds).size() != boundFileIds.size()) {
-            throw new IllegalArgumentException("Bound file ids must be unique");
+            throw new IllegalArgumentException("已绑定文件 ID 不得重复");
         }
     }
 }

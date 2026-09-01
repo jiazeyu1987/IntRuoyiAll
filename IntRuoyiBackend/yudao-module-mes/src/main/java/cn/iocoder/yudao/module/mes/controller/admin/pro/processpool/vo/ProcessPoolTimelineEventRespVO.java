@@ -107,6 +107,9 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "PQC 关联活跃订单编号", example = "880001")
     private Long activeOrderId;
 
+    @Schema(description = "PQC 提交对应 eDHR 批次执行ID", example = "990001")
+    private Long batchExecutionId;
+
     @Schema(description = "PQC 关联活跃订单是否已放行")
     private Boolean released;
 

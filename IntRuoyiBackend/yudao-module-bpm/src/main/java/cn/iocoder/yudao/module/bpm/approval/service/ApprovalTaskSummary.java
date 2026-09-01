@@ -37,6 +37,8 @@ public class ApprovalTaskSummary {
 
     private String businessCode;
 
+    private Boolean businessIdentifierHidden;
+
     private String businessStatus;
 
     private List<String> businessContextTags;
@@ -54,6 +56,13 @@ public class ApprovalTaskSummary {
     private Long assigneeUserId;
 
     private String assigneeUserName;
+
+    /**
+     * Formal reviewer role identity. The user assignee remains separately available for execution and audit.
+     */
+    private String assigneeRoleCode;
+
+    private String assigneeRoleName;
 
     private String processInstanceId;
 

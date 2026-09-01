@@ -129,7 +129,7 @@ public class DccRegistrationCertificateGrantService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
@@ -94,6 +95,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Resource
+    private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper assignmentRuleMapper;
     @Resource
@@ -1857,6 +1860,44 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getCandidateSignatureTodoPage_returnsReleaseApprovalVersionFromTransaction() {
+        MesProEdhrBatchExecutionDO batch = batchForArchive(1004L, 4107L)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE);
+        insertBatch(batch);
+        insertRouteLevelAssignmentRule(batch.getRouteId(), MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE,
+                188L, null);
+        MesProEdhrReleaseTransactionDO transaction = releaseTransactionForBatch(2004L, batch)
+                .setVersion(7);
+        releaseTransactionMapper.insert(transaction);
+
+        MesProEdhrWorkTaskDO releaseTask;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("submitter");
+            releaseTask = workTaskService.createReleaseApprovalTaskAfterSubmit(transaction, batch);
+        }
+
+        MesProEdhrWorkTaskPageReqVO reqVO = new MesProEdhrWorkTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE);
+        reqVO.setBatchCode(batch.getBatchCode());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            PageResult<MesProEdhrWorkTaskRespVO> page = workTaskService.getCandidateSignatureTodoPage(reqVO);
+
+            MesProEdhrWorkTaskRespVO row = page.getList().stream()
+                    .filter(item -> Objects.equals(item.getId(), releaseTask.getId()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals("RELEASE_TRANSACTION", row.getBusinessScopeType());
+            assertEquals(transaction.getId(), row.getBusinessScopeId());
+            assertEquals(7, row.getVersion());
+        }
+    }
+
+    @Test
     void saveArchiveRule_createsAndUpdatesRouteArchiveAssignmentRule() {
         insertRoute(4103L);
         when(adminUserApi.getUser(188L)).thenReturn(adminUser(188L, CommonStatusEnum.ENABLE.getStatus()));
@@ -2813,9 +2854,40 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         return user;
     }
 
+    private MesProEdhrReleaseTransactionDO releaseTransactionForBatch(Long transactionId,
+                                                                      MesProEdhrBatchExecutionDO batch) {
+        return MesProEdhrReleaseTransactionDO.builder()
+                .id(transactionId)
+                .releaseCode("REL-" + transactionId)
+                .batchExecutionId(batch.getId())
+                .batchExecutionCode(batch.getBatchExecutionCode())
+                .workOrderId(batch.getWorkOrderId())
+                .workOrderCode(batch.getWorkOrderCode())
+                .batchCode(batch.getBatchCode())
+                .productId(batch.getProductId())
+                .productCode(batch.getProductCode())
+                .productName(batch.getProductName())
+                .routeId(batch.getRouteId())
+                .routeCode(batch.getRouteCode())
+                .routeName(batch.getRouteName())
+                .dhrStatus("PASS")
+                .inspectionStatus("PASS")
+                .deviationStatus("PASS")
+                .reworkStatus("PASS")
+                .scrapStatus("PASS")
+                .inventoryStatus("PASS")
+                .releaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL)
+                .requiredCheckCount(6)
+                .failedCheckCount(0)
+                .blockingCheckCount(0)
+                .version(1)
+                .build();
+    }
+
     private MesProEdhrBatchExecutionDO batchForArchive(Long batchExecutionId, Long routeId) {
         return new MesProEdhrBatchExecutionDO()
                 .setId(batchExecutionId)
+                .setBatchExecutionCode("BE-" + batchExecutionId)
                 .setWorkOrderId(3001L)
                 .setWorkOrderCode("WO-001")
                 .setBatchCode("BATCH-001")

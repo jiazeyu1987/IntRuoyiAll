@@ -83,7 +83,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
 
@@ -1129,10 +1128,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
         requirePqcEmployee(loginUserId, command.getActualEmployeeId());
-        if (!Objects.equals(command.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
-            throw exception(PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH, task.getId(),
-                    task.getPlannedInspectionQuantity(), command.getActualInspectionQuantity());
-        }
         if (command.getScrapQuantity() == null || command.getScrapQuantity() < 0
                 || command.getScrapQuantity() > command.getActualInspectionQuantity()) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "scrapQuantity");

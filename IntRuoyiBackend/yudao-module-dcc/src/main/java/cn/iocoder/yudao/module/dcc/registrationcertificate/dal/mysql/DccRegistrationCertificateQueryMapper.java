@@ -67,8 +67,8 @@ public interface DccRegistrationCertificateQueryMapper {
                        </if>
                     """,
                     " ORDER BY CASE v.status"
-                            + " WHEN 'CURRENT' THEN 1"
-                            + " WHEN 'PENDING_EFFECTIVE' THEN 2"
+                            + " WHEN 'PENDING_EFFECTIVE' THEN 1"
+                            + " WHEN 'CURRENT' THEN 2"
                             + " WHEN 'OLD' THEN 3"
                             + " ELSE 4 END, v.version_no DESC LIMIT 1");
         }

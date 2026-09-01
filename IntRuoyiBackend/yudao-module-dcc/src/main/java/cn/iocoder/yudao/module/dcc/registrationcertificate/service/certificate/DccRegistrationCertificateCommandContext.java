@@ -14,7 +14,7 @@ public final class DccRegistrationCertificateCommandContext {
 
     public void resolveTrustedIdentity(Long ownerCompanyId, Long certificateId) {
         if (ownerCompanyId == null || ownerCompanyId <= 0 || certificateId == null || certificateId <= 0) {
-            throw new IllegalArgumentException("trusted registration certificate identity must be positive");
+            throw new IllegalArgumentException("可信注册证业务身份必须为正数");
         }
         this.ownerCompanyId = ownerCompanyId;
         this.certificateId = certificateId;

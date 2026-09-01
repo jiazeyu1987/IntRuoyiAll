@@ -1,28 +1,35 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.history;
 
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateOperationAudit;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateOperationAuditService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistrationCertificateHistoryService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final DccRegistrationCertificateOperationAuditService operationAuditService;
 
-    public DccRegistrationCertificateHistoryServiceImpl(JdbcTemplate jdbcTemplate) {
-        if (jdbcTemplate == null) {
-            throw new IllegalArgumentException("jdbcTemplate must not be null");
+    public DccRegistrationCertificateHistoryServiceImpl(
+            JdbcTemplate jdbcTemplate,
+            DccRegistrationCertificateOperationAuditService operationAuditService) {
+        if (jdbcTemplate == null || operationAuditService == null) {
+            throw new IllegalArgumentException("注册证历史查询依赖不能为空");
         }
         this.jdbcTemplate = jdbcTemplate;
+        this.operationAuditService = operationAuditService;
     }
 
     @Override
     public List<DccRegistrationCertificateHistoryItem> listHistory(Long tenantId, Long certificateId) {
         if (tenantId == null || tenantId <= 0 || certificateId == null || certificateId <= 0) {
-            throw new IllegalArgumentException("tenantId and certificateId must be positive");
+            throw new IllegalArgumentException("租户 ID 和注册证 ID 必须为正数");
         }
-        return jdbcTemplate.query("""
+        List<DccRegistrationCertificateHistoryItem> items = jdbcTemplate.query("""
                 SELECT e.event_type,
                        COALESCE(i.item_type, e.event_type) AS item_type,
                        COALESCE(i.before_value_json,
@@ -130,6 +137,29 @@ public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistra
                 rs.getString("classification"),
                 rs.getString("original_file_name"),
                 rs.getString("file_status"),
-                rs.getObject("occurred_at", java.time.LocalDateTime.class)), tenantId, certificateId);
+                rs.getObject("occurred_at", java.time.LocalDateTime.class),
+                null, null, null, null), tenantId, certificateId);
+        Map<Long, DccRegistrationCertificateOperationAudit> renewalAudits =
+                operationAuditService.getRenewalAudits(tenantId, certificateId);
+        return items.stream().map(item -> withRenewalAudit(item, renewalAudits)).toList();
+    }
+
+    private static DccRegistrationCertificateHistoryItem withRenewalAudit(
+            DccRegistrationCertificateHistoryItem item,
+            Map<Long, DccRegistrationCertificateOperationAudit> renewalAudits) {
+        if (!"RENEWAL_UPLOADED".equals(item.eventType())) {
+            return item;
+        }
+        DccRegistrationCertificateOperationAudit renewalAudit = renewalAudits.get(item.targetVersionId());
+        if (renewalAudit == null) {
+            throw new IllegalStateException("延续版本操作审计记录缺失");
+        }
+        return new DccRegistrationCertificateHistoryItem(
+                item.eventType(), item.itemType(), item.beforeValueJson(), item.afterValueJson(), item.actorId(),
+                item.businessFileId(), item.fileKind(), item.targetVersionId(), item.versionNo(),
+                item.approvalDate(), item.effectiveDate(), item.expiryDate(), item.categoryChanged(),
+                item.certificateNo(), item.classification(), item.originalFileName(), item.fileStatus(),
+                item.occurredAt(), renewalAudit.operatorName(), renewalAudit.operatedAt(),
+                renewalAudit.approverName(), renewalAudit.approvedAt());
     }
 }

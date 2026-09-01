@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @Import({DccRegistrationCertificateAccessPolicyService.class,
@@ -85,6 +86,46 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
 
         ServiceException denied = assertThrows(ServiceException.class,
                 () -> accessPolicyService.assertCurrentPreviewAllowed(1L, 99L, fixture.certificateId()));
+
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), denied.getCode());
+    }
+
+    @Test
+    void filePreviewAllowsCurrentAndPendingVersionsWithinCompanyScope() {
+        FormalFixture current = seedFormal("ACTIVE", "CURRENT", "BOUND");
+        FormalFixture pending = seedFormal("ACTIVE", "PENDING_EFFECTIVE", "BOUND");
+        LocalDateTime viewedAt = LocalDateTime.of(2026, 8, 31, 9, 0);
+
+        accessPolicyService.assertFilePreviewAllowed(
+                1L, 99L, current.certificateId(), current.versionId(), viewedAt);
+        accessPolicyService.assertFilePreviewAllowed(
+                1L, 99L, pending.certificateId(), pending.versionId(), viewedAt);
+
+        verify(companyScopeApi, times(2)).validateUserCompanyAccess(99L, 10L);
+    }
+
+    @Test
+    void filePreviewRequiresOldViewGrantForOldVersion() {
+        FormalFixture fixture = seedFormal("EXPIRED_UNRENEWED", "OLD", "BOUND");
+        LocalDateTime grantedAt = LocalDateTime.of(2026, 8, 31, 9, 0);
+
+        assertThrows(ServiceException.class, () -> accessPolicyService.assertFilePreviewAllowed(
+                1L, 99L, fixture.certificateId(), fixture.versionId(), grantedAt));
+        seedGrant(fixture, null, "VIEW_OLD_CERTIFICATE", "ACTIVE", grantedAt, grantedAt.plusHours(24));
+
+        accessPolicyService.assertFilePreviewAllowed(
+                1L, 99L, fixture.certificateId(), fixture.versionId(), grantedAt.plusHours(1));
+        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+    }
+
+    @Test
+    void filePreviewRejectsVoidedVersion() {
+        FormalFixture fixture = seedFormal("ACTIVE", "VOIDED", "BOUND");
+
+        ServiceException denied = assertThrows(ServiceException.class,
+                () -> accessPolicyService.assertFilePreviewAllowed(
+                        1L, 99L, fixture.certificateId(), fixture.versionId(),
+                        LocalDateTime.of(2026, 8, 31, 9, 0)));
 
         assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), denied.getCode());
     }
@@ -192,6 +233,9 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
         assertEquals(1, versionMapper.insert(version));
         if ("CURRENT".equals(versionStatus)) {
             certificate.setCurrentVersionId(version.getId());
+            assertEquals(1, certificateMapper.updateById(certificate));
+        } else if ("PENDING_EFFECTIVE".equals(versionStatus)) {
+            certificate.setPendingVersionId(version.getId());
             assertEquals(1, certificateMapper.updateById(certificate));
         }
         DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()

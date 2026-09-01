@@ -426,7 +426,6 @@
               <button
                 type="button"
                 aria-label="检验减少"
-                :disabled="isPqcInspectionQuantityLocked"
                 @click="adjustPqcQuantity('inspectionQuantity', -1)"
               >
                 -
@@ -437,13 +436,11 @@
                 type="number"
                 min="0"
                 inputmode="numeric"
-                :disabled="isPqcInspectionQuantityLocked"
                 @input="updatePqcQuantity('inspectionQuantity', $event)"
               />
               <button
                 type="button"
                 aria-label="检验增加"
-                :disabled="isPqcInspectionQuantityLocked"
                 @click="adjustPqcQuantity('inspectionQuantity', 1)"
               >
                 +
@@ -486,14 +483,6 @@
             @click="handleResetPqc"
           >
             重填
-          </button>
-          <button
-            class="frontline-pqc-nonconformance-button"
-            type="button"
-            :disabled="!routeBatchExecutionId || payloadLoading || pqcSubmitResultUncertain"
-            @click="openNonconformanceReviewEntry"
-          >
-            不合格审查
           </button>
           <button
             class="frontline-pqc-submit-button"
@@ -1345,7 +1334,6 @@ import {
   type FrontlineTemplatePayloadReqVO,
   type FrontlineTemplatePayloadVO
 } from '@/api/mes/pro/feedbackFrontlineTemplate'
-import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   ProFeedbackApi,
   type FrontlineActiveOrderVO,
@@ -2947,10 +2935,6 @@ const hasPqcTaskSnapshot = (
   process?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
 ) => Boolean(isFrontlinePqcProcess(process) && getSelectedPqcTaskOption(process))
 
-const isPqcInspectionQuantityLocked = computed(() =>
-  isPqcMode.value && Boolean(activePqcTaskOption.value)
-)
-
 const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
   if (inspectionType === 'FIRST' || inspectionType === 'PATROL' || inspectionType === 'FINAL') {
     return inspectionType
@@ -3213,6 +3197,17 @@ const ensurePqcDefaultPieceValuesForTask = (
   return values
 }
 
+const resizePqcPieceValuesForCurrentTask = (taskOption: PqcTaskOptionSnapshot) => {
+  const quantity = getPqcInspectionQuantityForTask(taskOption)
+  for (const item of taskOption.inspectionItems.map(mapPqcInspectionItem)) {
+    const stateKey = getPqcPieceStateKeyForTask(item.key, taskOption)
+    if (!stateKey) {
+      continue
+    }
+    pqcPieceValues[stateKey] = (pqcPieceValues[stateKey] || []).slice(0, quantity)
+  }
+}
+
 const getPqcStoredPieceValuesForTask = (
   itemKey: PqcInspectionItemKey,
   taskOption: PqcTaskOptionSnapshot
@@ -3336,7 +3331,7 @@ const getPqcExactPieceValuesForTask = (
   const quantity = getPqcInspectionQuantityForTask(taskOption)
   const values = ensurePqcDefaultPieceValuesForTask(itemKey, taskOption)
   if (values.length !== quantity) {
-    throw new Error(`${item.label}样本数量${values.length}与任务计划数量${quantity}不一致。`)
+    throw new Error(`${item.label}样本数量${values.length}与实际检验数量${quantity}不一致。`)
   }
   return values.map((value) => String(value ?? '').trim())
 }
@@ -3599,20 +3594,20 @@ const selectPqcInspectionTaskOption = async (pqcTaskId: number) => {
 }
 
 const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
-  if (field === 'inspectionQuantity' && isPqcInspectionQuantityLocked.value) {
-    return
-  }
   const inputValue = (event.target as HTMLInputElement).value
   pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
   persistCurrentPqcTaskDraft()
+  if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
+    resizePqcPieceValuesForCurrentTask(activePqcTaskOption.value)
+  }
 }
 
 const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
-  if (field === 'inspectionQuantity' && isPqcInspectionQuantityLocked.value) {
-    return
-  }
   pqcDraft[field] = Math.max(0, normalizePqcQuantity(pqcDraft[field]) + delta)
   persistCurrentPqcTaskDraft()
+  if (field === 'inspectionQuantity' && activePqcTaskOption.value) {
+    resizePqcPieceValuesForCurrentTask(activePqcTaskOption.value)
+  }
 }
 
 const resolvePqcTaskSummaryState = (
@@ -3722,22 +3717,6 @@ const handleResetPqc = () => {
     return
   }
   resetPqcSubmissionDraft()
-}
-
-const openNonconformanceReviewEntry = () => {
-  const batchExecutionId = routeBatchExecutionId.value
-  if (!batchExecutionId) {
-    message.error('缺少批次执行ID，无法发起不合格审查。')
-    return
-  }
-  router.push({
-    name: 'MesProFeedbackEdhrNonconformanceReview',
-    query: {
-      sourceType: SOURCE_TYPE_PQC_SUBMISSION,
-      sourceId: context.workOrderId ? String(context.workOrderId) : undefined,
-      batchExecutionId: String(batchExecutionId)
-    }
-  })
 }
 
 const openPicker = (picker: PickerType) => {
@@ -5653,10 +5632,8 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-reset-button,
-.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-nonconformance-button,
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-button,
 .frontline-operator-panel:fullscreen .frontline-pqc-reset-button,
-.frontline-operator-panel:fullscreen .frontline-pqc-nonconformance-button,
 .frontline-operator-panel:fullscreen .frontline-pqc-submit-button {
   border-radius: 28px;
   font-size: 50px;
@@ -7610,7 +7587,6 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-reset-button,
-.frontline-pqc-nonconformance-button,
 .frontline-pqc-submit-button {
   border: 0;
   border-radius: 28px;
@@ -7623,17 +7599,6 @@ onUnmounted(() => {
   border: 3px solid var(--frontline-line);
   background: #ffffff;
   color: var(--frontline-ink);
-}
-
-.frontline-pqc-nonconformance-button {
-  border: 3px solid #b93a3a;
-  background: #ffffff;
-  color: #9e2828;
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.48;
-  }
 }
 
 .frontline-pqc-submit-button {

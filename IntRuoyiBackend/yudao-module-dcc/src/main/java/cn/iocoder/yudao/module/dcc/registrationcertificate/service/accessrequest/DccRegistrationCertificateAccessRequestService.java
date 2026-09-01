@@ -364,7 +364,7 @@ public class DccRegistrationCertificateAccessRequestService {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 algorithm is required for registration access requests", ex);
+            throw new IllegalStateException("注册证访问申请必须启用 SHA-256 算法", ex);
         }
     }
 
@@ -377,7 +377,7 @@ public class DccRegistrationCertificateAccessRequestService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

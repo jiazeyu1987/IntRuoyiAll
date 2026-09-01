@@ -23,6 +23,8 @@ public class ErpKingdeeProperties {
     private String acctId;
     private String username;
     private String password;
+    private String appId;
+    private String appSecret;
     private Integer lcid;
     private ProductProperties product = new ProductProperties();
     private BomProperties bom = new BomProperties();

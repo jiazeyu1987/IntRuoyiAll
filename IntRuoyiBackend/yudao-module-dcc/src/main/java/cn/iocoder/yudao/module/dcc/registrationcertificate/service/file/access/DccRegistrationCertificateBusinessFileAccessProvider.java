@@ -3,13 +3,14 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.access;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReference;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceService;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessProvider;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
 import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.springframework.stereotype.Service;
 
@@ -28,19 +29,22 @@ public class DccRegistrationCertificateBusinessFileAccessProvider implements Bus
     public static final String QUERY_CURRENT_PERMISSION = "dcc:registration-certificate:query-current";
 
     private final DccRegistrationCertificateFileReferenceService referenceService;
-    private final MdmCompanyScopeApi companyScopeApi;
+    private final DccRegistrationCertificateAccessPolicyService accessPolicyService;
     private final PermissionApi permissionApi;
     private final DccRegistrationCertificateReadAuditService readAuditService;
+    private final DccRegistrationCertificateBusinessClock businessClock;
 
     public DccRegistrationCertificateBusinessFileAccessProvider(
             DccRegistrationCertificateFileReferenceService referenceService,
-            MdmCompanyScopeApi companyScopeApi,
+            DccRegistrationCertificateAccessPolicyService accessPolicyService,
             PermissionApi permissionApi,
-            DccRegistrationCertificateReadAuditService readAuditService) {
+            DccRegistrationCertificateReadAuditService readAuditService,
+            DccRegistrationCertificateBusinessClock businessClock) {
         this.referenceService = require(referenceService, "referenceService");
-        this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
+        this.accessPolicyService = require(accessPolicyService, "accessPolicyService");
         this.permissionApi = require(permissionApi, "permissionApi");
         this.readAuditService = require(readAuditService, "readAuditService");
+        this.businessClock = require(businessClock, "businessClock");
     }
 
     @Override
@@ -82,7 +86,8 @@ public class DccRegistrationCertificateBusinessFileAccessProvider implements Bus
         try {
             requireUserSubject(request);
             requireQueryCurrentPermission(request.userId());
-            companyScopeApi.validateUserCompanyAccess(request.userId(), live.ownerCompanyId());
+            accessPolicyService.assertFilePreviewAllowed(
+                    live.tenantId(), request.userId(), live.certificateId(), live.versionId(), businessClock.now());
         } catch (RuntimeException ex) {
             recordFailure(request, live, "REGISTRATION_CERTIFICATE_FILE_ACCESS_DENIED");
             throw ex;
@@ -99,7 +104,7 @@ public class DccRegistrationCertificateBusinessFileAccessProvider implements Bus
                 || !BUSINESS_TYPE.equals(reference.businessType()) || reference.businessId() == null) {
             throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        DccRegistrationCertificateFileReference live = referenceService.requireCurrentByReference(
+        DccRegistrationCertificateFileReference live = referenceService.requireBoundByReference(
                 reference.tenantId(), reference.businessId(), request.fileId());
         BusinessFileAccessReference liveReference = toBusinessReference(live);
         if (!Objects.equals(liveReference, reference)) {
@@ -160,7 +165,7 @@ public class DccRegistrationCertificateBusinessFileAccessProvider implements Bus
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

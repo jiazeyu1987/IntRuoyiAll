@@ -14,6 +14,6 @@ public enum DccRegistrationCertificateFileStatus {
                 .filter(value -> value.name().equals(code))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Unknown registration certificate file status: " + code));
+                        "未知的注册证文件状态：" + code));
     }
 }

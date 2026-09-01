@@ -28,7 +28,7 @@ public class DccRegistrationCertificateReadAuditService {
 
     public void record(DccRegistrationCertificateReadAuditCommand command) {
         if (command == null) {
-            throw new IllegalArgumentException("read audit command is required");
+            throw new IllegalArgumentException("读取审计命令不能为空");
         }
         String traceId = requireText(command.requestTraceId(), "requestTraceId");
         String operation = requireText(command.operation(), "operation");
@@ -68,30 +68,30 @@ public class DccRegistrationCertificateReadAuditService {
                                    Long requestedCertificateId, String result) {
         if ("SUCCESS".equals(result)) {
             if (certificateId == null || certificateId <= 0) {
-                throw new IllegalArgumentException("successful read audit requires certificateId");
+                throw new IllegalArgumentException("成功的读取审计必须包含注册证 ID");
             }
             return traceId + ":" + operation + ":CERTIFICATE:" + certificateId + ":SUCCESS";
         }
         if (!"FAILURE".equals(result)) {
-            throw new IllegalArgumentException("read audit result must be SUCCESS or FAILURE");
+            throw new IllegalArgumentException("读取审计结果必须为成功或失败状态");
         }
         Long requested = requestedCertificateId != null ? requestedCertificateId : certificateId;
         if (requested == null || requested <= 0) {
-            throw new IllegalArgumentException("failed read audit requires requested certificate identity");
+            throw new IllegalArgumentException("失败的读取审计必须包含请求的注册证身份");
         }
         return traceId + ":" + operation + ":REQUESTED:" + requested + ":FAILURE";
     }
 
     private static String requireText(String value, String name) {
         if (StrUtil.isBlank(value)) {
-            throw new IllegalArgumentException("registration certificate read audit " + name + " is required");
+            throw new IllegalArgumentException("注册证读取审计参数 " + name + " 不能为空");
         }
         return StrUtil.trim(value);
     }
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

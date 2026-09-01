@@ -38,6 +38,17 @@
                 placeholder="请输入密码"
               />
             </el-form-item>
+            <el-form-item label="应用 ID" prop="appId">
+              <el-input v-model="formData.appId" placeholder="请输入金蝶应用 ID" />
+            </el-form-item>
+            <el-form-item label="应用密钥" prop="appSecret">
+              <el-input
+                v-model="formData.appSecret"
+                type="password"
+                show-password
+                placeholder="请输入金蝶应用密钥"
+              />
+            </el-form-item>
             <el-form-item label="语言 LCID" prop="lcid">
               <el-input-number v-model="formData.lcid" :min="1" class="!w-260px" />
             </el-form-item>
@@ -126,6 +137,8 @@ const formData = ref<ErpKingdeeConfigVO>({
   acctId: '',
   username: '',
   password: '',
+  appId: '',
+  appSecret: '',
   lcid: 2052,
   product: {
     queryLimit: 5000
@@ -150,6 +163,8 @@ const formRules = reactive({
   acctId: [{ required: true, message: '账套 ID 不能为空', trigger: 'blur' }],
   username: [{ required: true, message: '用户名不能为空', trigger: 'blur' }],
   password: [{ required: true, message: '密码不能为空', trigger: 'blur' }],
+  appId: [{ required: true, message: '应用 ID 不能为空', trigger: 'blur' }],
+  appSecret: [{ required: true, message: '应用密钥不能为空', trigger: 'blur' }],
   lcid: [{ required: true, message: '语言 LCID 不能为空', trigger: 'blur' }],
   'product.queryLimit': [{ required: true, message: '产品查询上限不能为空', trigger: 'blur' }],
   'productionOrder.queryLimit': [

@@ -16,43 +16,50 @@ const blockBetween = (startToken, endToken) => {
 
 assert.match(
   source,
-  /const isPqcInspectionQuantityLocked = computed\(\(\) =>[\s\S]*isPqcMode\.value[\s\S]*Boolean\(activePqcTaskOption\.value\)/,
-  'PQC task snapshot must lock inspection quantity to the planned task quantity.'
+  /const createPqcTaskDraftState = \(taskOption: PqcTaskOptionSnapshot\): PqcTaskDraftState => \(\{[\s\S]*inspectionQuantity: taskOption\.plannedInspectionQuantity/,
+  'PQC task snapshot must provide the planned quantity as the initial suggested value.'
 )
 
 const quantityFieldBlock = blockBetween(
   '<label for="frontlinePqcInspectionQuantity">检验</label>',
   '<label for="frontlinePqcScrapQuantity">损耗</label>'
 )
-assert.ok(
-  (quantityFieldBlock.match(/:disabled="isPqcInspectionQuantityLocked"/g) || []).length >= 3,
-  'PQC inspection quantity decrease button, input, and increase button must all be disabled when task quantity is locked.'
+assert.doesNotMatch(
+  quantityFieldBlock,
+  /:disabled="isPqcInspectionQuantityLocked"/,
+  'PQC inspection quantity controls must remain editable after a task is selected.'
+)
+
+assert.match(
+  source,
+  /const resizePqcPieceValuesForCurrentTask = \(taskOption: PqcTaskOptionSnapshot\) =>[\s\S]*slice\(0, quantity\)/,
+  'PQC piece values must be resized when the operator adjusts actual inspection quantity.'
 )
 
 const updateQuantityBlock = blockBetween(
   'const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {',
   'const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {'
 )
-assert.match(
+assert.doesNotMatch(
   updateQuantityBlock,
-  /if \(field === 'inspectionQuantity' && isPqcInspectionQuantityLocked\.value\)[\s\S]*return/,
-  'direct PQC inspection quantity input changes must be ignored while task quantity is locked.'
+  /isPqcInspectionQuantityLocked/,
+  'direct PQC inspection quantity input must persist the operator adjustment.'
 )
 
 const adjustQuantityBlock = blockBetween(
   'const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {',
   'const handleResetPqc = () => {'
 )
-assert.match(
+assert.doesNotMatch(
   adjustQuantityBlock,
-  /if \(field === 'inspectionQuantity' && isPqcInspectionQuantityLocked\.value\)[\s\S]*return/,
-  'PQC inspection quantity +/- controls must not mutate planned task quantity.'
+  /isPqcInspectionQuantityLocked/,
+  'PQC inspection quantity +/- controls must persist the operator adjustment.'
 )
 
 assert.match(
   source,
   /const getPqcExactPieceValuesForTask = \(\s*itemKey: PqcInspectionItemKey,\s*taskOption: PqcTaskOptionSnapshot \| undefined[\s\S]*const quantity = getPqcInspectionQuantityForTask\(taskOption\)[\s\S]*values\.length !== quantity[\s\S]*throw new Error\(/,
-  'PQC submit must fail fast when stored piece value count differs from planned task quantity.'
+  'PQC submit must fail fast when stored piece value count differs from actual inspection quantity.'
 )
 assert.match(
   source,

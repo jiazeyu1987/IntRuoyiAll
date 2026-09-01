@@ -15,7 +15,7 @@ import java.util.List;
 
 import static org.springframework.format.annotation.DateTimeFormat.ISO.DATE;
 
-@Schema(description = "管理后台 - 注册证上传提交 Request VO")
+@Schema(description = "管理后台 - 注册证上传提交请求参数")
 @Data
 public class DccRegistrationCertificateUploadSubmitReqVO {
 

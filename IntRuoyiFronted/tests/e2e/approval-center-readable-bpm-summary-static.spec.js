@@ -69,8 +69,13 @@ assert.match(
 
 assert.match(
   businessColumn,
+  /v-if="resolveVisibleBusinessContextTags\(row\)\.length"/,
+  '业务上下文标签必须先经过统一空值过滤后再展示。'
+)
+assert.doesNotMatch(
+  businessColumn,
   /v-if="row\.businessContextTags\?\.length"/,
-  '业务上下文标签必须对所有模块展示，不能只限 DCC。'
+  '业务上下文标签不得直接按原始数组长度展示空标签。'
 )
 assert.doesNotMatch(
   businessColumn,

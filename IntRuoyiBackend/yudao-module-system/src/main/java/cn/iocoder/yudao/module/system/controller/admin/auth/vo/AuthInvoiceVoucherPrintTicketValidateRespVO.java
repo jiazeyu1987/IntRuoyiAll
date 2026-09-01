@@ -30,4 +30,36 @@ public class AuthInvoiceVoucherPrintTicketValidateRespVO {
     @Schema(description = "过期时间")
     private LocalDateTime expiresTime;
 
+    @Schema(description = "金蝶配置快照")
+    private KingdeeConfig kingdeeConfig;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class KingdeeConfig {
+
+        @Schema(description = "金蝶基础地址", example = "http://172.30.30.8/K3Cloud")
+        private String baseUrl;
+
+        @Schema(description = "账套 ID", example = "6977227150362f")
+        private String acctId;
+
+        @Schema(description = "用户名", example = "kingdee-user")
+        private String username;
+
+        @Schema(description = "密码", example = "password")
+        private String password;
+
+        @Schema(description = "金蝶应用 ID", example = "invoice-print-app")
+        private String appId;
+
+        @Schema(description = "金蝶应用密钥", example = "invoice-print-secret")
+        private String appSecret;
+
+        @Schema(description = "语言 LCID", example = "2052")
+        private Integer lcid;
+
+    }
+
 }

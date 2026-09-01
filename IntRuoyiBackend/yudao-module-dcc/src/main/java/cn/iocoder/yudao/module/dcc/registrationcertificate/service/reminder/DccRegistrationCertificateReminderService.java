@@ -38,7 +38,7 @@ public class DccRegistrationCertificateReminderService {
 
     public DccRegistrationCertificateReminderService(JdbcTemplate jdbcTemplate) {
         if (jdbcTemplate == null) {
-            throw new IllegalArgumentException("jdbcTemplate must not be null");
+            throw new IllegalArgumentException("数据库访问组件不能为空");
         }
         this.jdbcTemplate = jdbcTemplate;
     }

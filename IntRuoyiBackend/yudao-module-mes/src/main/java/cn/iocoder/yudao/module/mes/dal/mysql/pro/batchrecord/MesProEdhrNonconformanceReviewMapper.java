@@ -79,6 +79,11 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW));
     }
 
+    default Long selectPendingCount() {
+        return selectCount(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW));
+    }
+
     default Long selectBlockingCountByWorkOrderId(Long workOrderId) {
         return selectCount(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)

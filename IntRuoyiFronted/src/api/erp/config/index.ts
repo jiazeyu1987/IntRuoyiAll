@@ -5,6 +5,8 @@ export interface ErpKingdeeConfigVO {
   acctId: string
   username: string
   password: string
+  appId: string
+  appSecret: string
   lcid: number
   product: {
     queryLimit: number

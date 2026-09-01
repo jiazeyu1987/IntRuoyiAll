@@ -148,9 +148,16 @@ for (const token of [
     `detail page must contain ${token}`
   )
 }
+const detailAttachmentStart = detail.indexOf(
+  'v-if="detail.registrationFileId && detail.registrationFileName"'
+)
+assert.ok(detailAttachmentStart >= 0, 'detail attachment block must exist')
+const detailAttachmentEnd = detail.indexOf('</el-descriptions-item>', detailAttachmentStart)
+assert.ok(detailAttachmentEnd > detailAttachmentStart, 'detail attachment block must close explicitly')
+const detailAttachmentBlock = detail.slice(detailAttachmentStart, detailAttachmentEnd)
 assert.match(
-  detail,
-  /v-if="detail\.registrationFileId\s*&&\s*detail\.registrationFileName"[\s\S]{0,240}\{\{\s*detail\.registrationFileName\s*\}\}/,
+  detailAttachmentBlock,
+  /\{\{\s*detail\.registrationFileName\s*\}\}/,
   'detail page must render the original name of the formally bound registration attachment'
 )
 assert.match(

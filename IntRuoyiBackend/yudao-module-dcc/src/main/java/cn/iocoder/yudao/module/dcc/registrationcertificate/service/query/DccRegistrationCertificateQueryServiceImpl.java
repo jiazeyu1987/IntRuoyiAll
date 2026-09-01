@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateOperationAudit;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateOperationAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderEvaluation;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderService;
@@ -68,6 +70,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     private final MdmCompanyScopeApi companyScopeApi;
     private final MdmEnterpriseApi enterpriseApi;
     private final DccRegistrationCertificateReadAuditService readAuditService;
+    private final DccRegistrationCertificateOperationAuditService operationAuditService;
     private final DccRegistrationCertificateAccessPolicyService accessPolicyService;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateReminderService reminderService;
@@ -77,6 +80,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             MdmCompanyScopeApi companyScopeApi,
             MdmEnterpriseApi enterpriseApi,
             DccRegistrationCertificateReadAuditService readAuditService,
+            DccRegistrationCertificateOperationAuditService operationAuditService,
             DccRegistrationCertificateAccessPolicyService accessPolicyService,
             DccRegistrationCertificateBusinessClock businessClock,
             DccRegistrationCertificateReminderService reminderService) {
@@ -84,6 +88,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
         this.readAuditService = require(readAuditService, "readAuditService");
+        this.operationAuditService = require(operationAuditService, "operationAuditService");
         this.accessPolicyService = require(accessPolicyService, "accessPolicyService");
         this.businessClock = require(businessClock, "businessClock");
         this.reminderService = require(reminderService, "reminderService");
@@ -132,7 +137,9 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         }
         Map<Long, String> companyNames = companyNames(tenantId, List.of(row));
         readAuditService.record(successAudit(tenantId, actorId, row, "DETAIL", auditContext, "detail"));
-        return detail(tenantId, row, companyNames.get(row.getOwnerCompanyId()));
+        DccRegistrationCertificateOperationAudit initialAudit =
+                operationAuditService.getInitialAudit(tenantId, certificateId);
+        return detail(tenantId, row, companyNames.get(row.getOwnerCompanyId()), initialAudit);
     }
 
     @Override
@@ -206,7 +213,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .actorId(actorId)
                 .result("SUCCESS")
                 .resultCode("OK")
-                .requestTraceId(auditContext.requireRequestId("registration certificate " + source))
+                .requestTraceId(auditContext.requireRequestId("注册证读取：" + source))
                 .detailJson(JsonUtils.toJsonString(Map.of("source", source)))
                 .build();
     }
@@ -221,7 +228,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .actorId(actorId)
                 .result("FAILURE")
                 .resultCode(resultCode)
-                .requestTraceId(auditContext.requireRequestId("registration certificate detail"))
+                .requestTraceId(auditContext.requireRequestId("注册证详情"))
                 .detailJson(JsonUtils.toJsonString(Map.of("reason", reason)))
                 .build());
     }
@@ -257,7 +264,8 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     }
 
     private DccRegistrationCertificateDetail detail(
-            Long tenantId, DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
+            Long tenantId, DccRegistrationCertificateQueryRecord row, String ownerCompanyName,
+            DccRegistrationCertificateOperationAudit initialAudit) {
         DccRegistrationCertificateReminderEvaluation reminder = reminderState(tenantId, row);
         return DccRegistrationCertificateDetail.builder()
                 .certificateId(row.getCertificateId())
@@ -292,6 +300,10 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .entrustedEnterprisesJson(row.getEntrustedEnterprisesJson())
                 .registrationFileId(row.getRegistrationFileId())
                 .registrationFileName(row.getRegistrationFileName())
+                .uploadOperatorName(initialAudit.operatorName())
+                .uploadedAt(initialAudit.operatedAt())
+                .uploadApproverName(initialAudit.approverName())
+                .uploadApprovedAt(initialAudit.approvedAt())
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
                 .reminderColor(reminder.colorCode())
                 .visualState(reminder.thresholdLevel())
@@ -391,7 +403,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

@@ -16,8 +16,10 @@ const renewalCommandPath =
   'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/renewal/DccRegistrationCertificateRenewalCommand.java'
 const renewalServicePath =
   'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/renewal/DccRegistrationCertificateRenewalService.java'
+const errorCodePath =
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/ErrorCodeConstants.java'
 
-for (const file of [apiPath, listPath, renewalDialogPath, queryMapperPath, renewalCommandPath, renewalServicePath]) {
+for (const file of [apiPath, listPath, renewalDialogPath, queryMapperPath, renewalCommandPath, renewalServicePath, errorCodePath]) {
   assert.equal(exists(file), true, `${file} must exist`)
 }
 
@@ -43,6 +45,9 @@ assert.match(list, /RegistrationCertificateRenewalDialog/, 'list page must mount
 assert.match(list, /openRenewalDialog\(row\)/, 'each current-list row must open renewal with that row')
 assert.match(list, /v-hasPermi="\['dcc:registration-certificate:renewal:upload'\]"/,
   'row-level renewal button must use the formal renewal upload permission')
+const renewalButton = /<el-button[\s\S]*?v-hasPermi="\['dcc:registration-certificate:renewal:upload'\]"[\s\S]*?>\s*延续\s*<\/el-button>/.exec(list)?.[0] ?? ''
+assert.match(renewalButton, /v-if="row\.status === 'CURRENT'"/,
+  'only the current effective version may expose the renewal action')
 assert.match(list, />\s*延续\s*<\/el-button>/, 'row actions must show a visible 延续 button')
 assert.match(list, /@saved="handleRenewalSaved"/, 'renewal success must refresh the current list')
 
@@ -185,5 +190,10 @@ assert.match(renewalService, /resolveRenewalClassification/,
   'renewal service must resolve classification from command only when category changes')
 assert.match(renewalService, /\.categoryChanged\(categoryChanged\)/,
   'renewal version must persist whether the renewal changed category')
+
+const errorCodes = read(errorCodePath)
+assert.match(errorCodes,
+  /REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT\s*=\s*new ErrorCode\([\s\S]*?"该注册证已有待审批或待生效的延续，请勿重复提交"\)/,
+  'renewal pending conflict must explain the existing renewal state in Chinese')
 
 console.log('registration certificate renewal row approval static contract passed')

@@ -14,6 +14,11 @@ assert.match(
   'approval task API type must expose the resolved reviewer display name.'
 )
 assert.match(
+  approvalApi,
+  /assigneeRoleCode\?:\s*string[\s\S]*assigneeRoleName\?:\s*string/,
+  'approval task API type must expose the formal reviewer role identity and display name.'
+)
+assert.match(
   approvalPage,
   /\{\s*key:\s*'reviewer',\s*label:\s*'审核人'/,
   'approval center default columns must include a reviewer column.'
@@ -35,8 +40,8 @@ assert.match(
 )
 assert.match(
   approvalPage,
-  /row\.assigneeUserName\s*\|\|\s*\(row\.assigneeUserId\s*\?\s*`用户 #\$\{row\.assigneeUserId\}`\s*:\s*EMPTY_APPROVAL_DISPLAY\)/,
-  'reviewer label must show the resolved name and fail visibly to the user id when name data is absent.'
+  /row\.assigneeRoleName\s*\?[\s\S]*`审批角色：\$\{row\.assigneeRoleName\}`[\s\S]*:\s*row\.assigneeUserName\s*\|\|\s*\(row\.assigneeUserId\s*\?\s*`用户 #\$\{row\.assigneeUserId\}`\s*:\s*EMPTY_APPROVAL_DISPLAY\)/,
+  'reviewer label must prefer the formal role name and keep the personal assignee display for user-owned tasks.'
 )
 
 console.log('PASS: approval center reviewer column static contract')

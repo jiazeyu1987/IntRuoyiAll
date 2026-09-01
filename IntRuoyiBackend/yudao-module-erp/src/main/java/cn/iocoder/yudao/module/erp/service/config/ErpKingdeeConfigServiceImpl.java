@@ -149,8 +149,21 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
             throw exception(KINGDEE_CONNECTION_CONFIG_INVALID,
                     ErpKingdeeConnectionTypeEnum.PRODUCTION.getName(), "JSON 格式错误");
         }
+        applyDefaultApplicationCredentials(connectionConfig);
         validateProductionConnection(connectionConfig);
         return connectionConfig;
+    }
+
+    private void applyDefaultApplicationCredentials(ErpKingdeeConnectionConfig connectionConfig) {
+        if (connectionConfig == null) {
+            return;
+        }
+        if (connectionConfig.getAppId() == null) {
+            connectionConfig.setAppId(defaultKingdeeProperties.getAppId());
+        }
+        if (connectionConfig.getAppSecret() == null) {
+            connectionConfig.setAppSecret(defaultKingdeeProperties.getAppSecret());
+        }
     }
 
     private void validateProductionConnection(ErpKingdeeConnectionConfig connectionConfig) {
@@ -169,6 +182,12 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         }
         if (StrUtil.isBlank(connectionConfig.getPassword())) {
             throw productionConnectionInvalid("密码为空");
+        }
+        if (StrUtil.isBlank(connectionConfig.getAppId())) {
+            throw productionConnectionInvalid("应用 ID 为空");
+        }
+        if (StrUtil.isBlank(connectionConfig.getAppSecret())) {
+            throw productionConnectionInvalid("应用密钥为空");
         }
         if (connectionConfig.getLcid() == null) {
             throw productionConnectionInvalid("语言 LCID 为空");
@@ -260,6 +279,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         target.setAcctId(source.getAcctId());
         target.setUsername(source.getUsername());
         target.setPassword(source.getPassword());
+        target.setAppId(source.getAppId());
+        target.setAppSecret(source.getAppSecret());
         target.setLcid(source.getLcid());
     }
 
@@ -268,6 +289,12 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         target.setAcctId(source.getAcctId());
         target.setUsername(source.getUsername());
         target.setPassword(source.getPassword());
+        if (source.getAppId() != null) {
+            target.setAppId(source.getAppId());
+        }
+        if (source.getAppSecret() != null) {
+            target.setAppSecret(source.getAppSecret());
+        }
         target.setLcid(source.getLcid());
         if (source.getProduct() != null) {
             target.getProduct().setQueryLimit(source.getProduct().getQueryLimit());
@@ -297,6 +324,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
         private String acctId;
         private String username;
         private String password;
+        private String appId;
+        private String appSecret;
         private Integer lcid;
 
         private static ErpKingdeeConnectionConfig from(ErpKingdeeConfigSaveReqVO source) {
@@ -305,6 +334,8 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
             connectionConfig.setAcctId(source.getAcctId());
             connectionConfig.setUsername(source.getUsername());
             connectionConfig.setPassword(source.getPassword());
+            connectionConfig.setAppId(source.getAppId());
+            connectionConfig.setAppSecret(source.getAppSecret());
             connectionConfig.setLcid(source.getLcid());
             return connectionConfig;
         }

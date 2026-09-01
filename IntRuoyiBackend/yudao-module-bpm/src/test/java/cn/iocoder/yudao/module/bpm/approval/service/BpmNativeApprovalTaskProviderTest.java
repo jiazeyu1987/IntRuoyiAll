@@ -15,10 +15,13 @@ import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceCopyService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.history.HistoricTaskInstance;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -40,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,8 +61,20 @@ class BpmNativeApprovalTaskProviderTest {
     private org.flowable.engine.TaskService flowableTaskService;
     @Mock
     private PermissionApi permissionApi;
+    @Mock
+    private RoleApi roleApi;
     @InjectMocks
     private BpmNativeApprovalTaskProvider provider;
+
+    @BeforeEach
+    void stubRuntimeProcessInstancesForExistingScenarios() {
+        lenient().when(processInstanceService.getProcessInstanceMap(any())).thenAnswer(invocation -> {
+            Set<String> ids = invocation.getArgument(0);
+            Map<String, ProcessInstance> processInstances = new java.util.LinkedHashMap<>();
+            ids.forEach(id -> processInstances.put(id, mock(ProcessInstance.class)));
+            return processInstances;
+        });
+    }
 
     @Test
     void pageTodoMapsNativeBpmTodoTasksToUnifiedSummary() {
@@ -83,6 +99,8 @@ class BpmNativeApprovalTaskProviderTest {
         assertEquals("通用审批", summary.getBusinessTitle());
         assertEquals("TODO", summary.getBusinessStatus());
         assertEquals(910272L, summary.getAssigneeUserId());
+        assertNull(summary.getAssigneeRoleCode());
+        assertNull(summary.getAssigneeRoleName());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
         assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
         assertEquals("pi-100", summary.getDetailQuery().get("id"));
@@ -185,24 +203,35 @@ class BpmNativeApprovalTaskProviderTest {
         when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
         when(task.getProcessInstanceId()).thenReturn("pi-regcert-access-summary");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(task.getProcessVariables()).thenReturn(Map.of(
-                "registrationCertificateAccessRequestId", 8801L,
-                "requestId", 8801L,
-                "certificateId", 7701L,
-                "ownerCompanyId", 6601L,
-                "requestType", "UPLOAD_CERTIFICATE",
-                "requestKey", "REG-UPLOAD-20260830-001"));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8801L),
+                Map.entry("requestId", 8801L),
+                Map.entry("certificateId", 7701L),
+                Map.entry("ownerCompanyId", 6601L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestKey", "REG-UPLOAD-20260830-001"),
+                Map.entry("certificateNo", "国械注准20263000001"),
+                Map.entry("classification", "III类"),
+                Map.entry("productName", "一次性使用无菌导管"),
+                Map.entry("ownerCompanyName", "示例医疗器械有限公司")));
         when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
 
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REG-UPLOAD", 1, 10)).getList().get(0);
 
-        assertEquals("注册证上传审批 REG-UPLOAD-20260830-001", summary.getBusinessTitle());
-        assertEquals("REG-UPLOAD-20260830-001", summary.getBusinessCode());
-        assertEquals(List.of("申请类型：注册证上传", "申请编号：8801", "注册证：7701", "所属公司：6601"),
+        assertEquals("注册证上传审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000001", "分类：III类", "产品：一次性使用无菌导管",
+                        "所属公司：示例医疗器械有限公司"),
                 summary.getBusinessContextTags());
         assertEquals("注册证访问审批", summary.getCurrentNodeName());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
     }
 
     @Test
@@ -213,23 +242,91 @@ class BpmNativeApprovalTaskProviderTest {
         when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
         when(task.getProcessInstanceId()).thenReturn("pi-regcert-renewal-summary");
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
-        when(task.getProcessVariables()).thenReturn(Map.of(
-                "registrationCertificateAccessRequestId", 8802L,
-                "requestId", 8802L,
-                "certificateId", 7702L,
-                "ownerCompanyId", 6601L,
-                "requestType", "UPLOAD_CERTIFICATE",
-                "requestOperation", "RENEWAL_CERTIFICATE",
-                "requestKey", "DCC-REG-CERT-RENEWAL-20260831-001"));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8802L),
+                Map.entry("requestId", 8802L),
+                Map.entry("certificateId", 7702L),
+                Map.entry("ownerCompanyId", 6601L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "RENEWAL_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-RENEWAL-20260831-001"),
+                Map.entry("certificateNo", "国械注准20263000002"),
+                Map.entry("classification", "II类"),
+                Map.entry("productName", "球囊扩张导管"),
+                Map.entry("ownerCompanyName", "示例医疗器械有限公司")));
         when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
 
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RENEWAL", 1, 10)).getList().get(0);
 
-        assertEquals("注册证延续审批 DCC-REG-CERT-RENEWAL-20260831-001", summary.getBusinessTitle());
-        assertEquals(List.of("申请类型：注册证延续", "申请编号：8802", "注册证：7702", "所属公司：6601"),
+        assertEquals("注册证延续审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000002", "分类：II类", "产品：球囊扩张导管",
+                        "所属公司：示例医疗器械有限公司"),
                 summary.getBusinessContextTags());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+    }
+
+    @Test
+    void pageTodoHidesMissingRegistrationCertificateSummaryTags() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-summary-missing");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-summary-missing");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8803L),
+                Map.entry("requestId", 8803L),
+                Map.entry("certificateId", 7703L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "RENEWAL_CERTIFICATE"),
+                Map.entry("productName", "球囊扩张导管")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("注册证延续审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("产品：球囊扩张导管"), summary.getBusinessContextTags());
+    }
+
+    @Test
+    void pageTodoDoesNotFailWhenRegistrationCertificateOperationIsMissing() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-operation-missing");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-operation-missing");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8804L),
+                Map.entry("requestId", 8804L),
+                Map.entry("certificateId", 7704L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("productName", "球囊扩张导管")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
+
+        assertEquals("注册证审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("产品：球囊扩张导管"), summary.getBusinessContextTags());
     }
 
     @Test
@@ -499,6 +596,15 @@ class BpmNativeApprovalTaskProviderTest {
         assertNull(summary.getApprovalResult());
         assertNull(summary.getApprovalRemark());
         assertEquals("pi-done-legacy", summary.getDetailQuery().get("id"));
+    }
+
+    private static RoleRespDTO registrationManagerRole() {
+        RoleRespDTO role = new RoleRespDTO();
+        role.setId(990819191L);
+        role.setCode("dcc_registration_certificate_approver");
+        role.setName("注册部经理");
+        role.setStatus(0);
+        return role;
     }
 
     @Test

@@ -226,6 +226,8 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessStatus(task.getStatus())
                 .currentNodeCode(hasText(task.getSignatureCellKey()) ? task.getSignatureCellKey() : task.getTaskType())
                 .currentNodeName(task.getProcessName())
+                .initiatorUserId(task.getSourceUserId())
+                .initiatorUserName(task.getSourceUserName())
                 .assigneeUserId(task.getAssigneeUserId())
                 .processInstanceId(resolveProcessInstanceId(task))
                 .taskCreatedAt(task.getCreateTime())

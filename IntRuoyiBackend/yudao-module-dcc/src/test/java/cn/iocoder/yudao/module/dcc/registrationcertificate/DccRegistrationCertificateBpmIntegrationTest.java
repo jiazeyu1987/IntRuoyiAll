@@ -163,6 +163,14 @@ class DccRegistrationCertificateBpmIntegrationTest {
                 TENANT_ID, ACTOR_ID, new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
 
         assertEquals("proc-upload-1001", result.processInstanceId());
+        ArgumentCaptor<BpmProcessInstanceCreateReqDTO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
+        verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
+        Map<String, Object> variables = captor.getValue().getVariables();
+        assertEquals("国械注准20263000001", variables.get("certificateNo"));
+        assertEquals("III类", variables.get("classification"));
+        assertEquals("一次性使用无菌导管", variables.get("productName"));
+        assertEquals("示例医疗器械有限公司", variables.get("ownerCompanyName"));
         verify(permissionApi).hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION);
         verify(permissionApi).getUserRoleIdListByRoleIds(List.of(8L));
         verify(companyScopeApi, never()).resolveRecipientUserIds(eq(10L), any(Collection.class), eq(UPLOAD_APPROVAL_PERMISSION));
@@ -171,7 +179,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
     @Test
     void startCarriesRenewalOperationIntoNativeApprovalVariables() {
         DccRegistrationCertificateAccessRequestDO request = submittedUploadRequest();
-        request.setDetailJson("{\"operation\":\"RENEWAL_CERTIFICATE\"}");
+        request.setDetailJson(registrationCertificateDetail("RENEWAL_CERTIFICATE"));
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
         when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION))
@@ -189,7 +197,12 @@ class DccRegistrationCertificateBpmIntegrationTest {
         ArgumentCaptor<BpmProcessInstanceCreateReqDTO> captor =
                 ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
         verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
-        assertEquals("RENEWAL_CERTIFICATE", captor.getValue().getVariables().get("requestOperation"));
+        Map<String, Object> variables = captor.getValue().getVariables();
+        assertEquals("RENEWAL_CERTIFICATE", variables.get("requestOperation"));
+        assertEquals("国械注准20263000001", variables.get("certificateNo"));
+        assertEquals("III类", variables.get("classification"));
+        assertEquals("一次性使用无菌导管", variables.get("productName"));
+        assertEquals("示例医疗器械有限公司", variables.get("ownerCompanyName"));
     }
 
     @Test
@@ -316,7 +329,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
 
         assertEquals("proc-winner", result.processInstanceId());
         verify(bpmProcessInstanceApi).cancelProcessInstance(
-                ACTOR_ID, "proc-loser", "duplicate registration certificate access BPM binding");
+                ACTOR_ID, "proc-loser", "注册证访问审批绑定重复");
     }
 
     @Test
@@ -337,7 +350,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
 
         assertTrue(thrown == databaseFailure);
         verify(bpmProcessInstanceApi).cancelProcessInstance(
-                ACTOR_ID, "proc-rollback", "registration certificate access BPM persistence failed");
+                ACTOR_ID, "proc-rollback", "注册证访问审批数据保存失败");
     }
 
     @Test
@@ -424,8 +437,20 @@ class DccRegistrationCertificateBpmIntegrationTest {
     private static DccRegistrationCertificateAccessRequestDO submittedUploadRequest() {
         DccRegistrationCertificateAccessRequestDO request = submittedRequest();
         request.setRequestType("UPLOAD_CERTIFICATE");
-        request.setDetailJson("{\"operation\":\"UPLOAD_CERTIFICATE\"}");
+        request.setDetailJson(registrationCertificateDetail("UPLOAD_CERTIFICATE"));
         return request;
+    }
+
+    private static String registrationCertificateDetail(String operation) {
+        return """
+                {
+                  "operation": "%s",
+                  "certificateNo": "国械注准20263000001",
+                  "classification": "III类",
+                  "productName": "一次性使用无菌导管",
+                  "ownerCompanyName": "示例医疗器械有限公司"
+                }
+                """.formatted(operation);
     }
 
     private static DccRegistrationCertificateBpmBindingDO runningBinding() {

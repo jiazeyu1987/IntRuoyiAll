@@ -77,7 +77,7 @@ class DccRegistrationCertificateQueryControllerTest {
         List<DccRegistrationCertificateHistoryItem> expected = List.of(
                 new DccRegistrationCertificateHistoryItem("FORMALIZED", "FORMALIZED", null, "{}", 22L,
                         null, null, null, null, null, null, null, null, null, null, null, null,
-                        null));
+                        null, null, null, null, null));
         when(historyService.listHistory(11L, 33L)).thenReturn(expected);
 
         TenantContextHolder.setTenantId(11L);

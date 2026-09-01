@@ -17,22 +17,64 @@
         </el-tag>
       </div>
 
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="版本号">V{{ detail.versionNo }}</el-descriptions-item>
+      <el-descriptions :column="detailDescriptionColumns" border>
+        <el-descriptions-item label="版本号">第 {{ detail.versionNo }} 版</el-descriptions-item>
         <el-descriptions-item label="分类">{{ displayText(detail.classification) }}</el-descriptions-item>
         <el-descriptions-item label="首次获证日">{{ formatRegistrationCertificateDate(detail.firstObtainedDate) }}</el-descriptions-item>
         <el-descriptions-item label="批准日">{{ formatRegistrationCertificateDate(detail.approvalDate) }}</el-descriptions-item>
         <el-descriptions-item label="生效日">{{ formatRegistrationCertificateDate(detail.effectiveDate) }}</el-descriptions-item>
         <el-descriptions-item label="有效期至">{{ formatRegistrationCertificateDate(detail.expiryDate) }}</el-descriptions-item>
         <el-descriptions-item label="项目代码">{{ displayText(detail.projectCode) }}</el-descriptions-item>
+        <el-descriptions-item label="上传人">
+          {{ displayOperationName(detail.uploadOperatorName) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="上传时间">
+          {{ formatDateTimeValue(detail.uploadedAt, '缺少正式记录') }}
+        </el-descriptions-item>
+        <el-descriptions-item label="上传审批人">
+          {{ displayOperationName(detail.uploadApproverName) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="上传审批时间">
+          {{ formatDateTimeValue(detail.uploadApprovedAt, '缺少正式记录') }}
+        </el-descriptions-item>
         <el-descriptions-item label="注册证文件">
           <div
             v-if="detail.registrationFileId && detail.registrationFileName"
             class="detail-attachment"
             data-testid="registration-certificate-detail-attachment"
           >
-            <Icon icon="lucide:paperclip" :size="16" />
-            <span class="detail-attachment__name">{{ detail.registrationFileName }}</span>
+            <span class="detail-attachment__identity">
+              <Icon icon="lucide:paperclip" :size="16" />
+              <span class="detail-attachment__name">{{ detail.registrationFileName }}</span>
+            </span>
+            <span class="detail-attachment__actions">
+              <el-button
+                link
+                type="primary"
+                data-testid="registration-certificate-detail-attachment-preview"
+                @click="openAttachmentPreview(detail.registrationFileId, detail.registrationFileName)"
+              >
+                <Icon icon="lucide:eye" />在线查看
+              </el-button>
+              <el-button
+                v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                link
+                type="primary"
+                data-testid="registration-certificate-detail-attachment-download"
+                :loading="isAttachmentDownloading(detail.registrationFileId)"
+                @click="downloadAttachment(detail.registrationFileId)"
+              >
+                <Icon icon="lucide:download" />下载
+              </el-button>
+              <el-button
+                v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                link
+                data-testid="registration-certificate-detail-attachment-request-download"
+                @click="openDownloadRequest(detail.registrationFileId)"
+              >
+                <Icon icon="lucide:file-key-2" />申请下载
+              </el-button>
+            </span>
           </div>
           <span v-else>未提供</span>
         </el-descriptions-item>
@@ -71,6 +113,16 @@
         :project-code-id="detail.projectCodeId"
         :business-file-id="detail.registrationFileId"
         :downloadable-files="downloadableFiles"
+        :initial-access-request-type="routeDownloadFileId ? 'DOWNLOAD_FILE' : undefined"
+        :initial-download-business-file-id="routeDownloadFileId"
+      />
+
+      <el-alert
+        v-if="attachmentActionError"
+        type="error"
+        show-icon
+        :closable="false"
+        :title="attachmentActionError"
       />
 
       <el-card
@@ -93,7 +145,7 @@
           >
             <div class="renewal-history__heading">
               <div class="renewal-history__version">
-                <strong v-if="item.versionNo">V{{ item.versionNo }}</strong>
+                <strong v-if="item.versionNo">第 {{ item.versionNo }} 版</strong>
                 <strong v-else class="renewal-history__missing">版本信息缺失</strong>
                 <span>记录时间 {{ formatDateTimeValue(item.occurredAt) }}</span>
               </div>
@@ -101,6 +153,26 @@
                 {{ formatCategoryChangedStatus(item.categoryChanged) }}
               </el-tag>
             </div>
+
+            <div class="renewal-history__section-label">操作记录</div>
+            <dl class="renewal-history__audit">
+              <div>
+                <dt>延续操作人</dt>
+                <dd>{{ displayOperationName(item.renewalOperatorName) }}</dd>
+              </div>
+              <div>
+                <dt>延续操作时间</dt>
+                <dd>{{ formatDateTimeValue(item.renewalOperatedAt, '缺少正式记录') }}</dd>
+              </div>
+              <div>
+                <dt>延续审批人</dt>
+                <dd>{{ displayOperationName(item.renewalApproverName) }}</dd>
+              </div>
+              <div>
+                <dt>延续审批时间</dt>
+                <dd>{{ formatDateTimeValue(item.renewalApprovedAt, '缺少正式记录') }}</dd>
+              </div>
+            </dl>
 
             <div class="renewal-history__section-label">延续参数</div>
             <dl class="renewal-history__parameters">
@@ -141,6 +213,36 @@
               <el-tag v-if="item.fileStatus === 'BOUND'" type="success">已归档</el-tag>
               <el-tag v-else-if="item.fileStatus === 'VOIDED'" type="info">已作废</el-tag>
               <el-tag v-else type="danger">缺少正式文件</el-tag>
+              <span
+                v-if="item.fileStatus === 'BOUND' && item.businessFileId && item.originalFileName"
+                class="renewal-history__file-actions"
+              >
+                <el-button
+                  link
+                  type="primary"
+                  data-testid="registration-certificate-renewal-attachment-preview"
+                  @click="openAttachmentPreview(item.businessFileId, item.originalFileName)"
+                >
+                  <Icon icon="lucide:eye" />在线查看
+                </el-button>
+                <el-button
+                  v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                  link
+                  type="primary"
+                  data-testid="registration-certificate-renewal-attachment-download"
+                  :loading="isAttachmentDownloading(item.businessFileId)"
+                  @click="downloadAttachment(item.businessFileId)"
+                >
+                  <Icon icon="lucide:download" />下载
+                </el-button>
+                <el-button
+                  v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                  link
+                  @click="openDownloadRequest(item.businessFileId)"
+                >
+                  <Icon icon="lucide:file-key-2" />申请下载
+                </el-button>
+              </span>
             </div>
           </section>
         </div>
@@ -163,20 +265,41 @@
         </el-table>
       </el-card>
     </div>
+
+    <Dialog
+      v-model="previewDialogVisible"
+      :title="selectedPreviewTitle || '注册证附件在线查看'"
+      width="min(1120px, 94vw)"
+      destroy-on-close
+    >
+      <ProtectedPdfViewer
+        v-if="selectedPreviewSource"
+        :preview-source="selectedPreviewSource"
+        title="附件在线查看"
+      />
+      <el-empty v-else description="暂无可在线查看的附件" />
+    </Dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
+  downloadRegistrationCertificateFile,
   getRegistrationCertificateDetail,
   getRegistrationCertificateHistory,
   type DccRegistrationCertificateDetailVO,
   type DccRegistrationCertificateHistoryItemVO
 } from '@/api/dcc/registrationCertificate'
+import {
+  buildDccRegistrationCertificatePreviewSource,
+  type OnlineFilePreviewSource
+} from '@/api/common/filePreview'
+import { downloadByData } from '@/utils/filt'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
 import {
   displayText,
@@ -185,14 +308,17 @@ import {
   formatRegistrationCertificateReminder,
   formatRegistrationCertificateStatus,
   getRegistrationCertificateReminderTagType,
-  getRegistrationCertificateStatusTagType
+  getRegistrationCertificateStatusTagType,
+  resolveRegistrationCertificateUserMessage
 } from '../shared/state'
 
 defineOptions({ name: 'DccRegistrationCertificateDetail' })
 
 const route = useRoute()
+const router = useRouter()
 const certificateId = computed(() => parsePositiveRouteQueryId(route.params.id))
 const detailVersionId = computed(() => parsePositiveRouteQueryId(route.query.versionId))
+const routeDownloadFileId = computed(() => parsePositiveRouteQueryId(route.query.downloadFileId))
 const viewMode = computed(() => {
   if (route.query.mode === 'access-request') return 'access-request'
   if (route.query.mode === 'old-detail') return 'old-detail'
@@ -202,6 +328,13 @@ const invalidRoute = computed(() => !certificateId.value)
 const loading = ref(false)
 const detail = ref<DccRegistrationCertificateDetailVO>()
 const history = ref<DccRegistrationCertificateHistoryItemVO[]>([])
+const previewDialogVisible = ref(false)
+const selectedPreviewSource = ref<OnlineFilePreviewSource | null>(null)
+const selectedPreviewTitle = ref('')
+const downloadingBusinessFileId = ref('')
+const attachmentActionError = ref('')
+const viewportWidth = ref(typeof window === 'undefined' ? 1024 : window.innerWidth)
+const detailDescriptionColumns = computed(() => viewportWidth.value <= 720 ? 1 : 2)
 const renewalHistory = computed(() => history.value
   .filter((item) => item.eventType === 'RENEWAL_UPLOADED')
   .slice()
@@ -215,6 +348,11 @@ const formatBooleanChoice = (value?: boolean) => {
   return '缺少正式记录'
 }
 
+const displayOperationName = (value?: string) => {
+  if (typeof value !== 'string' || !value.trim()) return '缺少正式记录'
+  return value.trim()
+}
+
 const formatCategoryChangedStatus = (value?: boolean) => {
   if (value === true) return '类别已变更'
   if (value === false) return '类别未变更'
@@ -225,6 +363,58 @@ const getCategoryChangedTagType = (value?: boolean) => {
   if (value === true) return 'warning'
   if (value === false) return 'info'
   return 'danger'
+}
+
+const openAttachmentPreview = (businessFileId: number | string, fileName: string) => {
+  attachmentActionError.value = ''
+  selectedPreviewSource.value = buildDccRegistrationCertificatePreviewSource(businessFileId)
+  selectedPreviewTitle.value = fileName
+  previewDialogVisible.value = true
+}
+
+const isAttachmentDownloading = (businessFileId: number | string) =>
+  downloadingBusinessFileId.value === String(businessFileId)
+
+const resolveAttachmentDownloadError = (error: unknown) => {
+  const message = String((error as { message?: string })?.message || '').trim()
+  const messages: Record<string, string> = {
+    '注册证访问授权范围不合法':
+      '当前附件尚未获得下载授权，请先申请下载。',
+    '注册证访问授权已过期': '附件下载授权已过期，请重新申请。',
+    '注册证访问授权已撤销': '附件下载授权已撤销，请重新申请。',
+    '注册证下载授权已使用': '本次下载授权已使用，请重新申请。'
+  }
+  return messages[message] || resolveRegistrationCertificateUserMessage(
+    error,
+    '注册证附件下载失败，请确认下载授权后重试。'
+  )
+}
+
+const downloadAttachment = async (businessFileId: number | string) => {
+  attachmentActionError.value = ''
+  downloadingBusinessFileId.value = String(businessFileId)
+  try {
+    const result = await downloadRegistrationCertificateFile(businessFileId)
+    downloadByData(result.blob, result.fileName, result.blob.type || 'application/octet-stream')
+  } catch (error) {
+    attachmentActionError.value = resolveAttachmentDownloadError(error)
+  } finally {
+    downloadingBusinessFileId.value = ''
+  }
+}
+
+const openDownloadRequest = async (businessFileId: number | string) => {
+  attachmentActionError.value = ''
+  await router.replace({
+    query: {
+      ...route.query,
+      mode: 'access-request',
+      downloadFileId: String(businessFileId)
+    }
+  })
+  await nextTick()
+  document.querySelector('[data-testid="registration-certificate-access-request-action"]')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 type DownloadableFileOption = {
@@ -247,15 +437,25 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   }
   let changeApprovalFileIndex = 0
   history.value.forEach((item) => {
-    if (!item.businessFileId || item.fileKind !== 'CHANGE_APPROVAL') {
+    if (!item.businessFileId) {
       return
     }
-    changeApprovalFileIndex += 1
-    files.push({
-      businessFileId: item.businessFileId,
-      fileKind: item.fileKind,
-      label: `变更批件文件 ${changeApprovalFileIndex}`
-    })
+    if (item.fileKind === 'CHANGE_APPROVAL') {
+      changeApprovalFileIndex += 1
+      files.push({
+        businessFileId: item.businessFileId,
+        fileKind: item.fileKind,
+        label: `变更批件文件 ${changeApprovalFileIndex}`
+      })
+      return
+    }
+    if (item.fileKind === 'REGISTRATION_CERTIFICATE' && item.fileStatus === 'BOUND') {
+      files.push({
+        businessFileId: item.businessFileId,
+        fileKind: item.fileKind,
+        label: item.versionNo ? `延续注册证文件（第 ${item.versionNo} 版）` : '延续注册证文件'
+      })
+    }
   })
   const seen = new Set<string>()
   return files.filter((file) => {
@@ -279,7 +479,18 @@ const loadDetail = async () => {
   }
 }
 
-onMounted(loadDetail)
+const updateViewportWidth = () => {
+  viewportWidth.value = window.innerWidth
+}
+
+onMounted(() => {
+  window.addEventListener('resize', updateViewportWidth)
+  void loadDetail()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportWidth)
+})
 </script>
 
 <style scoped>
@@ -354,6 +565,7 @@ onMounted(loadDetail)
 .renewal-history__version span,
 .renewal-history__section-label,
 .renewal-history__parameters dt,
+.renewal-history__audit dt,
 .renewal-history__file-label {
   color: var(--el-text-color-secondary);
   font-size: 13px;
@@ -367,23 +579,28 @@ onMounted(loadDetail)
   margin: 18px 0 8px;
 }
 
-.renewal-history__parameters {
+.renewal-history__parameters,
+.renewal-history__audit {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 24px;
   margin: 0;
 }
 
-.renewal-history__parameters div {
+.renewal-history__parameters div,
+.renewal-history__audit div {
   min-width: 0;
 }
 
 .renewal-history__parameters dt,
-.renewal-history__parameters dd {
+.renewal-history__parameters dd,
+.renewal-history__audit dt,
+.renewal-history__audit dd {
   margin: 0;
 }
 
-.renewal-history__parameters dd {
+.renewal-history__parameters dd,
+.renewal-history__audit dd {
   margin-top: 4px;
   color: var(--el-text-color-primary);
   line-height: 22px;
@@ -406,6 +623,20 @@ onMounted(loadDetail)
   overflow-wrap: anywhere;
 }
 
+.renewal-history__file-actions,
+.detail-attachment__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.renewal-history__file-actions :deep(.el-button),
+.detail-attachment__actions :deep(.el-button) {
+  gap: 4px;
+  margin-left: 0;
+}
+
 .detail-enterprise-names {
   margin: 0;
   white-space: pre-wrap;
@@ -425,6 +656,13 @@ onMounted(loadDetail)
   overflow-wrap: anywhere;
 }
 
+.detail-attachment__identity {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
 .detail-remark {
   margin: 0;
   white-space: pre-wrap;
@@ -439,8 +677,23 @@ onMounted(loadDetail)
     flex-direction: column;
   }
 
-  .renewal-history__parameters {
+  .renewal-history__parameters,
+  .renewal-history__audit {
     grid-template-columns: 1fr;
+  }
+
+  .renewal-history__file-actions,
+  .detail-attachment__actions {
+    width: 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .detail-attachment {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

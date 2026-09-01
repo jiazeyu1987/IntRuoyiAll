@@ -106,6 +106,36 @@ class MesProEdhrApprovalTaskAdapterTest {
     }
 
     @Test
+    void pageTodoMapsSourceUserToUnifiedApplicant() {
+        MesProEdhrWorkTaskRespVO task = new MesProEdhrWorkTaskRespVO()
+                .setId(67L)
+                .setTaskCode("EDHR-WT-67")
+                .setTaskType("PQC_PRODUCTION_RELEASE")
+                .setBatchCode("BATCH-APPLICANT")
+                .setProcessName("PQC生产放行")
+                .setSourceUserId(201L)
+                .setSourceUserName("张三")
+                .setAssigneeUserId(188L)
+                .setStatus("TODO")
+                .setCreateTime(LocalDateTime.parse("2026-08-31T04:41:37"));
+        when(workTaskService.getApprovalCenterTodoPage(
+                org.mockito.ArgumentMatchers.any(MesProEdhrWorkTaskPageReqVO.class),
+                org.mockito.ArgumentMatchers.eq(false)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(workTaskService.getApprovalCenterCandidateSignatureTodoPage(
+                org.mockito.ArgumentMatchers.any(MesProEdhrWorkTaskPageReqVO.class),
+                org.mockito.ArgumentMatchers.eq(false)))
+                .thenReturn(PageResult.empty());
+
+        ApprovalTaskSummary summary = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.EDHR, "BATCH-APPLICANT", 1, 10))
+                .getList().get(0);
+
+        assertEquals(201L, summary.getInitiatorUserId());
+        assertEquals("张三", summary.getInitiatorUserName());
+    }
+
+    @Test
     void pageTodoUsesFillActionUrlAsDecisionDetailInsteadOfApprovalDetail() {
         MesProEdhrWorkTaskRespVO task = new MesProEdhrWorkTaskRespVO()
                 .setId(1166L)

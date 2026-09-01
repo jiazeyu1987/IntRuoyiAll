@@ -67,6 +67,14 @@ const alertItems = computed(() => [
     routeName: 'MesProWorkOrder',
     count: props.summary.workOrderPrepareCount,
     iconClass: 'bg-[rgba(64,158,255,0.1)] color-[#409eff]'
+  },
+  {
+    label: '不合格评审',
+    desc: '待处理的冻结批次',
+    icon: 'ep:document-checked',
+    routeName: 'MesProFeedbackEdhrNonconformanceReview',
+    count: props.summary.nonconformanceReviewPendingCount,
+    iconClass: 'bg-[rgba(245,108,108,0.1)] color-[#f56c6c]'
   }
 ])
 </script>

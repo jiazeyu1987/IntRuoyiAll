@@ -99,3 +99,51 @@
 ## Release Recommendation
 
 - MVP 代码实现、迁移门禁、完整后端打包、静态/类型验证和真实 E2E 均通过，可进入任务收尾。当前不建议扩大功能范围；先保留最小状态机和现有追溯口径。
+
+## 当前 int_main E2E 复验（2026-08-31）
+
+- 验证提交：`c3a134a797c3aab24feba3aafec32815f8345cf1`。
+- 运行态：已登记 `int_main slot 54`，前端 `8309`、后端 `48309`；后端完整构建 30 模块 PASS，health=`UP`，前端 HTTP 200。
+- 迁移前置：三层依赖闭包门禁 PASS；本地评审表最新 nullable/index schema 已存在。
+- 静态与类型：后端合同 PASS；前端合同、E2E 语法和 `pnpm ts:check` PASS。
+- 真实 E2E：`ncr-int-main-20260831-07` PASS。该轮续接同一真实页面已完成的让步评审，继续完成 PQC提交返工、PQC放行作废和三次追溯；E2E 结果覆盖 `concession_release/rework/void`，目标页面和目标控制台错误均为 0。
+- 数据库终态：批次 `900000000783` 的实际评审为 `11/12/13`，来源依次 `PQC_RELEASE/PQC_SUBMISSION/PQC_RELEASE`，全部 closed；批次最终 `voided(60)`、待处理评审 `0`。另一完整业务轮次批次 `900000000953` 的评审 `8/9/10` 同样满足三类处置和最终作废。
+- 发现并修复：admin 金手指曾绕过前端不合格冻结提示；修复后不合格冻结对任何角色生效，其他锁定仍保持原有高权限语义。
+- 非目标遗留：全局审批待办角标接口报 `APPROVAL_ADAPTER_PAGE_INCONSISTENT`，已作为 `nonTargetConsoleErrors` 留证；不合格评审接口和页面未出现目标错误。
+- 安全收尾：所有 Playwright trace、任务运行日志和任务专属运行进程均已清理，`8309/48309` 已释放。
+- Git 状态：本轮 1 个前端修复、2 个 E2E 文件及任务文档已在 `E:\IntRuoyi` 工作树更新，但未暂存、未提交、未 push。
+
+## PQC提交入口迁移复验（2026-08-31）
+
+- 变更结论：`PQC_SUBMISSION` 的 `不合格审查` 已从一线 PQC 固定模板页移除，新增到 `PQC组长 -> PQC管理` 行操作区。
+- 后端数据：`PQC管理` 列表新增 `batchExecutionId` 返回值，按工单、工艺路线、批号解析最新有效 eDHR 批次；旧 `pqc_submission_trace` 连接已移除。
+- RED: `node src\test\js\mes-edhr-nonconformance-review-mvp-static.spec.cjs` -> FAIL，原因是读模型仍走旧追溯连接。
+- GREEN: `node src\test\js\mes-edhr-nonconformance-review-mvp-static.spec.cjs` -> PASS。
+- GREEN: `node tests\e2e\edhr-nonconformance-review-mvp-static.spec.js` -> PASS。
+- GREEN: `node --check tests\e2e\edhr-nonconformance-review-mvp-real.e2e.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` -> PASS，24 个 Maven 模块全部 SUCCESS。
+- GREEN: `git diff --check -- <task-owned paths>` -> PASS，仅 CRLF 换行提示。
+- 未执行真实 Playwright E2E：当前 `8081` 前端 HTTP 200，但 `48081` 后端无监听，且 `NCR_E2E_PASSWORD` 为空；按 fail-fast 记录前置阻塞。
+- Cleanup: `task_closeout.py --mode preview/apply` 均 PASS，delete 为空，blocked 为空；当前为主工作区 `int_main`，未执行 worktree 合并或删除。
+
+## 后端重启后 PQC管理入口复验（2026-09-01）
+
+- 当前代码结论：入口迁移实现仍成立，`PQC_SUBMISSION` 不合格审查按钮位于 `PQC组长 -> PQC管理` 行操作区，一线 PQC 固定模板页不再显示该提交类审查入口。
+- 定向验证：前端静态契约 PASS，后端静态契约 PASS，真实 E2E 脚本语法 PASS，后端 `yudao-module-mes` 依赖编译 PASS，scoped diff check PASS。
+- 后端修复包核验：标准 backend 重启曾生成 `backend-runtime-control-20260901-022725.jar`，该包内嵌 MES Mapper 包含 `CAST(batch_execution.batch_code AS BINARY) = CAST(work_order.batch_code AS BINARY)`，默认本机租户 `PQC管理` 列表接口业务码为 `0`。
+- 当前阻塞：用户本轮重启后，`48081` health=`UP`，但当前运行包为 `backend-runtime-control-20260901-024209-approval-center.jar`；该包仍包含旧 unary `BINARY` 写法，不包含 `CAST(... AS BINARY)` 修复。
+- 当前接口结果：默认本机租户登录态请求 `PQC管理` 列表返回业务 `500/系统异常`，因此不能证明红框行操作入口在真实页面可点击可用。
+- Playwright 结果：`ncr-int-main-20260901-pqc-entry-04/05/06` 均未到达目标入口闭环；失败原因分别为测试租户业务账号登录失败、QA 列表阶段页面/请求异常、登录页加载超时与 Vite deps cache `EPERM rename` 风险。结果文件均未记录已完成处置。
+- Artifact cleanup：已删除本任务 5 个 `failure-trace.zip`，剩余 trace 压缩包 `0`；保留截图和 `result.json` 作为失败证据。
+- 放行结论：代码与定向验证可确认修改方向正确；当前共享运行态没有加载后端修复，真实页面验收为 BLOCKED。未用 API-only、旧截图、静态合同或空数据列表冒充真实入口通过。
+
+## 用户授权替换后续复验（2026-09-01）
+
+- 后端状态：用户授权后已替换旧 `approval-center` 运行包；当前 `48081` 运行 `backend-runtime-control-20260901-024209-approval-center-pqc-fixed.jar`，health=`UP`，内嵌 MES Mapper 含 `CAST(... AS BINARY)` 修复。
+- 接口状态：默认本机租户 `PQC管理` 列表返回业务码 `0`、总数 `54`；测试租户 `PQC管理` 列表返回业务码 `0`、总数 `0`。
+- 定向验证：前端静态合同 PASS，真实 E2E 脚本语法 PASS，scoped diff check PASS；新增只读入口模式的 RED/GREEN 已记录。
+- 真实完整 E2E：`ncr-int-main-20260901-pqc-entry-07` FAIL，阻塞在测试租户正式批次创建前置，返回 `1040750403`，表示缺 eDHR 批记录配置或默认批记录；该 run 未完成处置写入。
+- 安全状态：路线 `RT000028` 已确认恢复停用；本轮新增 `failure-trace.zip` 已删除。
+- 最终检查：前端静态合同、后端静态合同、真实 E2E 脚本语法、scoped diff check 均 PASS；本任务 Playwright trace 压缩包剩余 `0`。
+- 当前阻塞：真实红框点击验收还缺一个可登录的真实页面会话或测试租户内可点击的 PQC 提交样本；本轮未猜密码、未复用 token、未用 API-only 替代页面点击。

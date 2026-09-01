@@ -117,7 +117,7 @@ public class DccRegistrationCertificateMigrationService {
                 .rowVersion(1)
                 .build();
         certificate.setTenantId(command.tenantId());
-        requireSingle("insert migration certificate", certificateMapper.insert(certificate));
+        requireSingle("新增迁移注册证", certificateMapper.insert(certificate));
 
         DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
                 .certificateId(certificate.getId())
@@ -134,7 +134,7 @@ public class DccRegistrationCertificateMigrationService {
                 .formalizedBy(command.actorId())
                 .build();
         version.setTenantId(command.tenantId());
-        requireSingle("insert migration version", versionMapper.insert(version));
+        requireSingle("新增迁移注册证版本", versionMapper.insert(version));
 
         DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
                 .versionId(version.getId())
@@ -153,7 +153,7 @@ public class DccRegistrationCertificateMigrationService {
                 .effectiveAt(row.effectiveDate().atStartOfDay())
                 .build();
         snapshot.setTenantId(command.tenantId());
-        requireSingle("insert migration snapshot", snapshotMapper.insert(snapshot));
+        requireSingle("新增迁移注册证快照", snapshotMapper.insert(snapshot));
 
         int sort = 1;
         for (EntrustedEnterpriseCommand enterprise : safeList(row.entrustedEnterprises())) {
@@ -165,10 +165,10 @@ public class DccRegistrationCertificateMigrationService {
                             .sortOrder(sort++)
                             .build();
             entrusted.setTenantId(command.tenantId());
-            requireSingle("insert migration entrusted enterprise", entrustedMapper.insert(entrusted));
+            requireSingle("新增迁移受托企业", entrustedMapper.insert(entrusted));
         }
 
-        requireSingle("update migration certificate pointers",
+        requireSingle("更新迁移注册证关联",
                 certificateMapper.update(null, new LambdaUpdateWrapper<DccRegistrationCertificateDO>()
                         .eq(DccRegistrationCertificateDO::getId, certificate.getId())
                         .eq(DccRegistrationCertificateDO::getTenantId, command.tenantId())
@@ -188,11 +188,11 @@ public class DccRegistrationCertificateMigrationService {
         if (immediate) {
             projectionService.registerActive(key, before, after,
                     certificate.getId(), version.getId(), "1", versionStatus, command.actorId(),
-                    "Historical registration certificate import");
+                    "注册证历史数据导入");
         } else {
             projectionService.registerReadyCandidate(key, before, after,
                     certificate.getId(), version.getId(), "1", versionStatus, command.actorId(),
-                    "Historical registration certificate import awaits effective date");
+                    "注册证历史数据导入后等待生效日期");
         }
 
         HistoricalImportAuditDetail detail = new HistoricalImportAuditDetail(
@@ -214,7 +214,7 @@ public class DccRegistrationCertificateMigrationService {
                 .occurredAt(businessClock.now())
                 .creator(String.valueOf(command.actorId()))
                 .build();
-        requireSingle("insert migration audit", auditMapper.insert(audit));
+        requireSingle("新增迁移审计记录", auditMapper.insert(audit));
         return new CommittedRow(detail);
     }
 
@@ -265,7 +265,7 @@ public class DccRegistrationCertificateMigrationService {
             HistoricalImportAuditDetail detail =
                     JsonUtils.parseObject(existing.getDetailJson(), HistoricalImportAuditDetail.class);
             if (detail == null || isBlank(detail.getPayloadHash())) {
-                throw new IllegalArgumentException("missing payload hash");
+                throw new IllegalArgumentException("注册证迁移载荷校验值缺失");
             }
             return detail;
         } catch (RuntimeException ex) {
@@ -324,7 +324,7 @@ public class DccRegistrationCertificateMigrationService {
 
     private void requireSingle(String action, int updated) {
         if (updated != 1) {
-            throw new IllegalStateException(action + " expected one row but was " + updated);
+            throw new IllegalStateException(action + "应影响一行，实际影响" + updated + "行");
         }
     }
 
@@ -338,7 +338,7 @@ public class DccRegistrationCertificateMigrationService {
             }
             return builder.toString();
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
+            throw new IllegalStateException("SHA-256 算法不可用", e);
         }
     }
 
@@ -360,7 +360,7 @@ public class DccRegistrationCertificateMigrationService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

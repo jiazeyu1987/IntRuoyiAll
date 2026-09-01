@@ -14,7 +14,7 @@ public enum DccRegistrationCertificateVersionStatus {
         return Arrays.stream(values())
                 .filter(value -> value.name().equals(code))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown registration certificate version status: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("未知的注册证版本状态：" + code));
     }
 
     public Integer currentUniqueFlag() {

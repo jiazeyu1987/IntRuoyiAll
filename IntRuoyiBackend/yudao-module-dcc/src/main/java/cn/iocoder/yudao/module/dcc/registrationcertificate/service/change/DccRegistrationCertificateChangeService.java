@@ -543,7 +543,7 @@ public class DccRegistrationCertificateChangeService {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
+            throw new IllegalStateException("SHA-256 算法不可用", exception);
         }
     }
 
@@ -551,7 +551,7 @@ public class DccRegistrationCertificateChangeService {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
         } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
+            throw new IllegalStateException("SHA-256 算法不可用", exception);
         }
     }
 
@@ -567,7 +567,7 @@ public class DccRegistrationCertificateChangeService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

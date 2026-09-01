@@ -72,6 +72,39 @@ const feedbackService = readModule(
 assert.match(feedbackService, /ensureWorkOrderNotFrozen\(.*"报工"/s)
 assert.match(feedbackService, /ensureWorkOrderNotFrozen\(.*"PQC提交"/s)
 
+const timelineReadDo = readModule(
+  'src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/ProcessPoolTimelineEventReadDO.java'
+)
+assert.match(timelineReadDo, /private Long batchExecutionId;/)
+
+const timelineResp = readModule(
+  'src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/vo/ProcessPoolTimelineEventRespVO.java'
+)
+assert.match(timelineResp, /private Long batchExecutionId;/)
+
+const timelineService = readModule(
+  'src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/ProcessPoolTimelineServiceImpl.java'
+)
+assert.match(timelineService, /setBatchExecutionId\(event\.getBatchExecutionId\(\)\)/)
+
+const timelineMapperXml = readModule(
+  'src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml'
+)
+assert.match(timelineMapperXml, /SELECT batch_execution\.id\s+FROM mes_pro_edhr_batch_execution batch_execution/s)
+assert.match(timelineMapperXml, /batch_execution\.work_order_id = pool_event\.work_order_id/s)
+assert.match(timelineMapperXml, /batch_execution\.route_id = pool_event\.route_id/s)
+assert.match(
+  timelineMapperXml,
+  /CAST\(batch_execution\.batch_code AS BINARY\)\s*=\s*CAST\(work_order\.batch_code AS BINARY\)/s,
+  'PQC管理批次匹配必须用精确二进制比较，避免不同表批号字段排序规则不一致导致列表 500。'
+)
+assert.match(timelineMapperXml, /batch_execution\.status\s+<!\[CDATA\[<>\]\]>\s+60/s)
+assert.match(
+  timelineMapperXml,
+  /ORDER BY COALESCE\(batch_execution\.attempt_no, 1\) DESC,\s*batch_execution\.id DESC\s*LIMIT 1\s*\) AS batchExecutionId/s
+)
+assert.doesNotMatch(timelineMapperXml, /pqc_submission_trace/)
+
 const domainTraceDetail = readModule(
   'src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProBatchRecordDomainTraceDetailRespVO.java'
 )

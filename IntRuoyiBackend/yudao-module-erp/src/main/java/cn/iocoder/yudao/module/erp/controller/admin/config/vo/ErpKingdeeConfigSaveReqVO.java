@@ -27,6 +27,14 @@ public class ErpKingdeeConfigSaveReqVO {
     @NotBlank(message = "密码不能为空")
     private String password;
 
+    @Schema(description = "金蝶应用 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "invoice-print-app")
+    @NotBlank(message = "金蝶应用 ID 不能为空")
+    private String appId;
+
+    @Schema(description = "金蝶应用密钥", requiredMode = Schema.RequiredMode.REQUIRED, example = "invoice-print-secret")
+    @NotBlank(message = "金蝶应用密钥不能为空")
+    private String appSecret;
+
     @Schema(description = "语言 LCID", requiredMode = Schema.RequiredMode.REQUIRED, example = "2052")
     @NotNull(message = "语言 LCID 不能为空")
     private Integer lcid;

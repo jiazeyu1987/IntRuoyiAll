@@ -140,7 +140,10 @@ import {
 import { generateUUID } from '@/utils'
 import { computed, reactive, ref } from 'vue'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
-import { formatRegistrationCertificateDate } from '../shared/state'
+import {
+  formatRegistrationCertificateDate,
+  resolveRegistrationCertificateUserMessage
+} from '../shared/state'
 
 defineOptions({ name: 'RegistrationCertificateRenewalDialog' })
 
@@ -347,7 +350,7 @@ const submit = async () => {
     dialogVisible.value = false
     emit('saved')
   } catch (error) {
-    message.error((error as { message?: string })?.message || '提交延续申请失败')
+    message.error(resolveRegistrationCertificateUserMessage(error, '提交延续申请失败'))
     throw error
   } finally {
     saving.value = false

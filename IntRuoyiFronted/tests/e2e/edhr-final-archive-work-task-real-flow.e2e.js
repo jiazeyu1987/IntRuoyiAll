@@ -2,7 +2,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 
-const TASK_ID = '20260612-edhr-final-archive-todo-assessment'
+const TASK_ID =
+  (process.env.EDHR_ARCHIVE_TASK_E2E_TASK_ID || '').trim() ||
+  '20260612-edhr-final-archive-todo-assessment'
 const RESULT_DIR = path.resolve(process.cwd(), 'test-results', 'edhr-final-archive-work-task')
 const EVIDENCE_FILE = path.resolve(process.cwd(), '..', 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
 const REQUIRED_BASE_URL = 'http://localhost:8081'
@@ -197,7 +199,16 @@ async function clickFirstEnabledButton(root, name, label) {
       return
     }
   }
-  throw new Error(`Cannot find enabled button: ${label}`)
+  const visibleButtonNames = await root.getByRole('button').evaluateAll((items) =>
+    items
+      .filter((item) => {
+        const rect = item.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0 && getComputedStyle(item).visibility !== 'hidden'
+      })
+      .map((item) => item.textContent?.replace(/\s+/g, ' ').trim() || item.getAttribute('aria-label') || '<empty>')
+      .filter(Boolean)
+  )
+  throw new Error(`Cannot find enabled button: ${label}. Visible buttons: ${visibleButtonNames.join(' / ')}`)
 }
 
 function createBlockedError(message) {
@@ -206,15 +217,114 @@ function createBlockedError(message) {
   return error
 }
 
-async function selectArchiveTaskTypeFilter(page) {
+async function fillToolbarInput(toolbar, label, value) {
+  if (!value) return
+  const item = toolbar.locator('.el-form-item').filter({ hasText: label }).first()
+  await item.waitFor({ state: 'visible', timeout: 60000 })
+  const input = item.locator('input').first()
+  await input.fill(value)
+}
+
+async function waitForTaskTableIdle(page) {
+  await page.locator('.edhr-work-task-page .el-table').first().waitFor({ state: 'visible', timeout: 60000 })
+  await page.waitForFunction(
+    () => !document.querySelector('.edhr-work-task-page .el-loading-mask'),
+    undefined,
+    { timeout: 60000 }
+  ).catch(() => undefined)
+  await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => undefined)
+}
+
+async function waitForBatchDetailReady(page) {
+  const shell = page.locator('.edhr-batch-detail').first()
+  await shell.waitFor({ state: 'visible', timeout: 60000 })
+  await page
+    .waitForFunction(
+      () => !document.querySelector('.edhr-batch-detail .el-loading-mask'),
+      undefined,
+      { timeout: 60000 }
+    )
+    .catch(() => undefined)
+  await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => undefined)
+}
+
+async function selectArchiveTaskTypeFilter(page, batchCode) {
   const toolbar = page.locator('.edhr-work-task-page__toolbar').first()
   await toolbar.waitFor({ state: 'visible', timeout: 60000 })
   await toolbar.locator('.el-select').first().click()
   const option = page.locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: '最终归档' }).first()
   await option.waitFor({ state: 'visible', timeout: 60000 })
   await option.click()
+  await fillToolbarInput(toolbar, '批次', batchCode)
   await clickFirstEnabledButton(toolbar, /^查询$/, '查询最终归档待办')
-  await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => undefined)
+  await waitForTaskTableIdle(page)
+}
+
+async function findVisibleTableRowByTexts(page, texts, timeout = 60000) {
+  const needles = texts.map((item) => String(item || '').trim()).filter(Boolean)
+  const rows = page.locator('.edhr-work-task-page .el-table__body-wrapper tr')
+  const deadline = Date.now() + timeout
+  let lastVisibleText = ''
+  while (Date.now() < deadline) {
+    const count = await rows.count().catch(() => 0)
+    for (let index = 0; index < count; index += 1) {
+      const row = rows.nth(index)
+      if (!(await row.isVisible().catch(() => false))) continue
+      const text = (await row.innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+      if (text) lastVisibleText = text
+      if (needles.every((needle) => text.includes(needle))) {
+        return row
+      }
+    }
+    await page.waitForTimeout(500)
+  }
+  throw createBlockedError(
+    `测试租户工作任务看板没有可见的真实 ARCHIVE/TODO 待办：${needles.join(' / ')}。最后可见行：${lastVisibleText || '<empty>'}`
+  )
+}
+
+async function clickWorkTaskRowAction(page, row, name, label) {
+  const directButtons = row.getByRole('button', { name })
+  const directCount = await directButtons.count()
+  for (let index = 0; index < directCount; index += 1) {
+    const button = directButtons.nth(index)
+    if ((await button.isVisible()) && !(await button.isDisabled())) {
+      await button.click()
+      return
+    }
+  }
+
+  const rowHandle = await row.elementHandle()
+  if (!rowHandle) throw new Error(`Cannot resolve table row for ${label}.`)
+  const rows = page.locator('.edhr-work-task-page .el-table__body-wrapper tr')
+  const rowCount = await rows.count()
+  let rowIndex = -1
+  for (let index = 0; index < rowCount; index += 1) {
+    const sameRow = await rows.nth(index).evaluate((element, target) => element === target, rowHandle)
+    if (sameRow) {
+      rowIndex = index
+      break
+    }
+  }
+  await rowHandle.dispose()
+  if (rowIndex < 0) throw new Error(`Cannot match fixed action row for ${label}.`)
+
+  const fixedRows = page.locator('.edhr-work-task-page .el-table__fixed-right .el-table__body-wrapper tr')
+  if ((await fixedRows.count()) > rowIndex) {
+    await clickFirstEnabledButton(fixedRows.nth(rowIndex), name, label)
+    return
+  }
+  await clickFirstEnabledButton(page.locator('.edhr-work-task-page').first(), name, label)
+}
+
+async function readBatchCodeFromTaskRow(row) {
+  const text = await row.innerText()
+  const match = text.match(/批次：\s*([^\r\n]+)/)
+  const batchCode = match?.[1]?.trim()
+  if (!batchCode || batchCode === '--') {
+    throw createBlockedError('真实最终归档待办缺少批次号，无法继续 E2E。')
+  }
+  return batchCode
 }
 
 async function readCellText(row, index, label) {
@@ -227,15 +337,10 @@ async function readCellText(row, index, label) {
 
 async function discoverArchiveWorkTaskFromBoard(page, steps) {
   await selectArchiveTaskTypeFilter(page)
-  const targetRow = page.locator('.el-table__body-wrapper tr').filter({ hasText: '最终归档' }).first()
-  try {
-    await targetRow.waitFor({ state: 'visible', timeout: 60000 })
-  } catch {
-    throw createBlockedError('测试租户工作任务看板没有真实 ARCHIVE/TODO 待办。')
-  }
-  const batchCode = await readCellText(targetRow, 3, '批次号')
+  const targetRow = await findVisibleTableRowByTexts(page, ['最终归档'])
+  const batchCode = await readBatchCodeFromTaskRow(targetRow)
   steps.push({ name: '工作任务看板发现最终归档待办', screenshot: await screenshot(page, 'work-task-board', steps) })
-  await clickFirstEnabledButton(targetRow, /处理/, '处理最终归档待办')
+  await clickWorkTaskRowAction(page, targetRow, /处理/, '处理最终归档待办')
   await page.waitForURL(
     (url) => url.pathname === BATCH_DETAIL_ROUTE && Boolean(url.searchParams.get('workTaskId')) && Boolean(url.searchParams.get('id')),
     { timeout: 60000 }
@@ -251,9 +356,37 @@ async function discoverArchiveWorkTaskFromBoard(page, steps) {
 
 async function selectTenant(page, tenant) {
   const loginForm = page.locator('.login-form:visible').first()
-  const tenantInput = loginForm.locator('.el-select input[role="combobox"], input[placeholder="请输入租户名称"]').first()
-  if ((await tenantInput.count()) > 0 && (await tenantInput.isVisible())) {
+  const tenantSelect = loginForm.locator('.el-select').first()
+  if ((await tenantSelect.count()) > 0 && (await tenantSelect.isVisible())) {
+    await tenantSelect.click()
+    const tenantInput = loginForm.locator('.el-select input[role="combobox"], .el-select input').first()
     await tenantInput.click()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
+    await page.keyboard.press('Backspace')
+    await page.keyboard.type(tenant)
+    const deadline = Date.now() + 5000
+    while (Date.now() < deadline) {
+      const options = page.locator('.el-select-dropdown__item, [role="option"]')
+      const count = await options.count()
+      for (let index = 0; index < count; index += 1) {
+        const option = options.nth(index)
+        if (!(await option.isVisible().catch(() => false))) continue
+        const optionText = (await option.innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+        if (optionText === tenant || optionText.includes(tenant)) {
+          await option.click()
+          return
+        }
+      }
+      await page.waitForTimeout(250)
+    }
+    if ((await tenantSelect.innerText().catch(() => '')).includes(tenant)) return
+    await page.keyboard.press('Escape')
+    throw new Error(`Cannot select tenant option: ${tenant}`)
+  } else {
+    const tenantInput = loginForm.locator('input[placeholder="请输入租户名称"]').first()
+    if ((await tenantInput.count()) === 0 || !(await tenantInput.isVisible())) {
+      return
+    }
     await tenantInput.fill(tenant)
     await page.keyboard.press('Enter')
   }
@@ -386,13 +519,19 @@ async function runRealFlow(config) {
     await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => undefined)
 
     if (hasExplicitArchiveTarget(config)) {
-      await page.getByText('最终归档').first().waitFor({ state: 'visible', timeout: 60000 })
-      await page.getByText(config.batchCode).first().waitFor({ state: 'visible', timeout: 60000 })
+      await selectArchiveTaskTypeFilter(page, config.batchCode)
+      const targetRow = await findVisibleTableRowByTexts(page, [config.batchCode, '最终归档'])
       steps.push({ name: '工作任务看板展示最终归档待办', screenshot: await screenshot(page, 'work-task-board', steps) })
 
-      const targetRow = page.locator('.el-table__body-wrapper tr').filter({ hasText: config.batchCode }).filter({ hasText: '最终归档' }).first()
-      await targetRow.waitFor({ state: 'visible', timeout: 60000 })
-      await clickFirstEnabledButton(targetRow, /处理/, '处理最终归档待办')
+      const detailResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          response.url().includes(
+            `/admin-api/mes/pro/edhr-batch-execution/get?id=${encodeURIComponent(String(target.batchExecutionId))}`
+          ),
+        { timeout: 60000 }
+      )
+      await clickWorkTaskRowAction(page, targetRow, /处理/, '处理最终归档待办')
       await page.waitForURL(
         (url) =>
           url.pathname === BATCH_DETAIL_ROUTE &&
@@ -400,13 +539,21 @@ async function runRealFlow(config) {
           url.searchParams.get('id') === String(target.batchExecutionId),
         { timeout: 60000 }
       )
+      await detailResponsePromise
     } else {
       target = await discoverArchiveWorkTaskFromBoard(page, steps)
     }
 
-    await page.getByText(target.batchCode).first().waitFor({ state: 'visible', timeout: 60000 })
+    await waitForBatchDetailReady(page)
+    await clickFirstEnabledButton(page, /^归档打印$/, '打开归档打印抽屉')
+    const archiveDrawer = page.locator('.el-drawer:visible').filter({ hasText: '归档打印' }).first()
+    const generateArchiveButton = archiveDrawer.getByRole('button', { name: /^生成归档$/ }).first()
+    await generateArchiveButton.waitFor({ state: 'visible', timeout: 60000 })
     steps.push({ name: '待办入口进入批次详情并携带 workTaskId', screenshot: await screenshot(page, 'batch-detail-from-task', steps) })
 
+    if (await generateArchiveButton.isDisabled()) {
+      throw createBlockedError('归档打印抽屉中的“生成归档”不可点击，当前批次不满足最终归档前置条件。')
+    }
     const archiveResponsePromise = page.waitForResponse(
       (response) => response.url().includes(ARCHIVE_GENERATE_ENDPOINT) && response.request().method() === 'POST',
       { timeout: 60000 }
@@ -416,7 +563,7 @@ async function runRealFlow(config) {
         archivePayload = request.postDataJSON()
       }
     })
-    await clickFirstEnabledButton(page, /^生成最终归档$/, '生成最终归档')
+    await generateArchiveButton.click()
     const archiveResponse = await archiveResponsePromise
     assert.equal(archiveResponse.status(), 200, `归档生成 HTTP 状态应为 200，实际 ${archiveResponse.status()}`)
     const archiveBody = await archiveResponse.json()

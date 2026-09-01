@@ -22,11 +22,14 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
             "STERILIZATION_REPORT",
             "FINISHED_PRODUCT_INSPECTION_REPORT",
             "FINISHED_PRODUCT_INSPECTION_RECORD");
+    String TASK_TYPE_ARCHIVE = "ARCHIVE";
     String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
+    String ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL = "40, 50, 60";
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
                                                           String status) {
-        return selectPage(reqVO, excludeTerminalBatchWrapper(baseMyWrapper(reqVO, assigneeUserId, true))
+        return selectPage(reqVO, applyOpenWorkTaskBatchVisibility(
+                baseMyWrapper(reqVO, assigneeUserId, true), reqVO.getTaskType())
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
@@ -63,7 +66,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, taskType)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status);
         if (MesProEdhrWorkTaskStatus.TODO.equals(status) || MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
-            excludeTerminalBatchWrapper(wrapper);
+            applyOpenWorkTaskBatchVisibility(wrapper, taskType);
         }
         return selectCount(wrapper);
     }
@@ -71,14 +74,15 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     default PageResult<MesProEdhrWorkTaskDO> selectCandidateTodoPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                      Long candidateUserId,
                                                                      String status) {
-        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = excludeTerminalBatchWrapper(
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = applyOpenWorkTaskBatchVisibility(
                 new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
-                .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName()));
+                .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName()),
+                reqVO.getTaskType());
         applyProductionReleaseNodeTypeFilter(wrapper, reqVO.getNodeTypes());
         if (candidateUserId != null) {
             String candidateToken = "," + candidateUserId + ",";
@@ -345,12 +349,42 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> excludeTerminalBatchWrapper(
             LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper) {
+        return excludeBatchStatusWrapper(wrapper, TERMINAL_BATCH_STATUS_SQL);
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyOpenWorkTaskBatchVisibility(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper,
+            String taskType) {
+        String normalizedTaskType = taskType == null ? null : taskType.trim();
+        if (TASK_TYPE_ARCHIVE.equals(normalizedTaskType)) {
+            return excludeBatchStatusWrapper(wrapper, ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL);
+        }
+        if (normalizedTaskType != null && !normalizedTaskType.isEmpty()) {
+            return excludeTerminalBatchWrapper(wrapper);
+        }
         wrapper.and(query -> query
                 .isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
                 .or()
                 .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
                         "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
-                                + TERMINAL_BATCH_STATUS_SQL + ")"));
+                                + TERMINAL_BATCH_STATUS_SQL + ")")
+                .or(archiveQuery -> archiveQuery
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, TASK_TYPE_ARCHIVE)
+                        .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
+                                "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
+                                        + ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL + ")")));
+        return wrapper;
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> excludeBatchStatusWrapper(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper,
+            String batchStatusSql) {
+        wrapper.and(query -> query
+                .isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
+                .or()
+                .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
+                        "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
+                                + batchStatusSql + ")"));
         return wrapper;
     }
 

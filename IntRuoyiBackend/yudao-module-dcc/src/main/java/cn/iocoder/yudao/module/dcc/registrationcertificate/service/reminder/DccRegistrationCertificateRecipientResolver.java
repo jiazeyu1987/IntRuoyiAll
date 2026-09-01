@@ -19,7 +19,7 @@ public class DccRegistrationCertificateRecipientResolver {
 
     public DccRegistrationCertificateRecipientResolver(MdmCompanyScopeApi companyScopeApi) {
         if (companyScopeApi == null) {
-            throw new IllegalArgumentException("companyScopeApi must not be null");
+            throw new IllegalArgumentException("公司范围服务不能为空");
         }
         this.companyScopeApi = companyScopeApi;
     }

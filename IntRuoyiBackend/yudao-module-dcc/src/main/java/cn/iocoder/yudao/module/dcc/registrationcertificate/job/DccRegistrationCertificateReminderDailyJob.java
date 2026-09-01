@@ -83,7 +83,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         List<TenantFailure> failures = new ArrayList<>();
         for (Long tenantId : tenantIds) {
             if (tenantId == null || tenantId <= 0) {
-                failures.add(new TenantFailure(tenantId, "invalid tenant id"));
+                failures.add(new TenantFailure(tenantId, "租户 ID 不合法"));
                 continue;
             }
             try {
@@ -97,11 +97,11 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         long successes = outcomes.stream().filter(TenantOutcome::success).count();
         long skipped = outcomes.stream().filter(TenantOutcome::skipped).count();
         if (!failures.isEmpty()) {
-            throw new IllegalStateException("registration certificate reminder job failed: businessDate="
+            throw new IllegalStateException("注册证提醒任务执行失败：业务日期="
                     + businessDate + ", successes=" + successes + ", skipped=" + skipped
                     + ", failures=" + failures);
         }
-        return "registrationCertificateReminderDailyJob businessDate=%s successes=%d skipped=%d failures=0"
+        return "注册证提醒每日任务：业务日期=%s，成功=%d，跳过=%d，失败=0"
                 .formatted(businessDate, successes, skipped);
     }
 
@@ -334,7 +334,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             reason = exception.getCause().getMessage();
         }
         if (isBlank(reason)) {
-            reason = "registration certificate reminder job failed";
+            reason = "注册证提醒任务执行失败";
         }
         String trimmed = reason.trim();
         return trimmed.length() <= 512 ? trimmed : trimmed.substring(0, 512);
@@ -346,7 +346,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

@@ -31,6 +31,7 @@ export interface ApprovalTaskSummaryVO {
   businessKey?: string
   businessTitle: string
   businessCode?: string
+  businessIdentifierHidden?: boolean
   businessStatus?: string
   businessContextTags?: string[]
   businessDeleted?: boolean
@@ -40,6 +41,8 @@ export interface ApprovalTaskSummaryVO {
   initiatorUserName?: string
   assigneeUserId?: number
   assigneeUserName?: string
+  assigneeRoleCode?: string
+  assigneeRoleName?: string
   processInstanceId?: string
   initiatedAt?: string
   taskCreatedAt?: string

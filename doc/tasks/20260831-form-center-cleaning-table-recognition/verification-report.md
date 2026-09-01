@@ -55,3 +55,10 @@ PASS：表单中心能够从包含多个物理表格和同表多个工序的 Wor
 - 融合后在 `E:\IntRuoyi` 重跑后端 10 项回归、前端静态合同、ESLint、TypeScript、完整后端打包和端口门禁，结果全部通过。
 - `D:\IntRuoyiWorktree\form-center-cleaning-recognition` 已从 Git worktree 登记和文件系统中删除；本地任务分支提交已由 `int_main` 包含。
 - 端口登记中的 `form-center-cleaning-recognition / slot 57 / 8312 / 48312` 已标记 `active=false`，并保留 `deletedAt`、`cleanupTask` 审计信息；其它 worktree 登记未变。
+
+## 2026-09-01 Int Main Recheck
+
+- 用户再次要求融合后，复核当前 `int_main` 历史已包含清洗工序识别实现提交 `59316b6a1` 与融合收尾提交 `5b875f56c`。
+- 未把旧 detached worktree 的 `FormCenterRuntimeServiceImpl.java` 覆盖到主线，因为该旧文件缺少 `int_main` 后续表单模板编辑相关实现，覆盖会造成回退风险。
+- `scripts\preflight\branch-runtime-port-guard.ps1` PASS，确认 `int_main/int_main` 仍使用前端 `8081`、后端 `48081`。
+- BPM 识别相关回归 PASS：`FormCenterRuntimeImportRecognitionFlowContractTest`、`DefaultWordFormTemplateRecognizerTest`、`WordTableVisualSchemaBuilderTypeRecognitionTest` 共 9 tests、0 failures、0 errors。

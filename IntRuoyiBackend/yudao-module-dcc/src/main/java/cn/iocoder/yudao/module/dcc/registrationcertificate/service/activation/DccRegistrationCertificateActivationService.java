@@ -218,7 +218,7 @@ public class DccRegistrationCertificateActivationService {
                     ControlledContentProjectionSnapshot.of(key, command.currentVersionId(), command.pendingVersionId()),
                     ControlledContentProjectionSnapshot.of(key, command.pendingVersionId(), null),
                     VERSION_STATUS_OLD, VERSION_STATUS_CURRENT, command.actorId(),
-                    "Registration certificate candidate reached effective date");
+                    "注册证候选版本已到达生效日期");
         } catch (RuntimeException exception) {
             ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT);
             mapped.initCause(exception);
@@ -407,7 +407,7 @@ public class DccRegistrationCertificateActivationService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

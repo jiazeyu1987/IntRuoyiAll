@@ -30,10 +30,10 @@ public class DccRegistrationCertificateThresholdNotificationService {
     public DccRegistrationCertificateThresholdNotificationService(
             JdbcTemplate jdbcTemplate, NotifyMessageSendApi notifyMessageSendApi) {
         if (jdbcTemplate == null) {
-            throw new IllegalArgumentException("jdbcTemplate must not be null");
+            throw new IllegalArgumentException("数据库访问组件不能为空");
         }
         if (notifyMessageSendApi == null) {
-            throw new IllegalArgumentException("notifyMessageSendApi must not be null");
+            throw new IllegalArgumentException("通知消息发送服务不能为空");
         }
         this.jdbcTemplate = jdbcTemplate;
         this.notifyMessageSendApi = notifyMessageSendApi;
@@ -44,7 +44,7 @@ public class DccRegistrationCertificateThresholdNotificationService {
         if (STATUS_SENT.equals(row.status())) {
             if (row.notifyMessageId() == null || row.notifyMessageId() <= 0) {
                 markFailed(row, REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED,
-                        "sent delivery has no message id");
+                        "已发送记录缺少消息 ID");
                 throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED);
             }
             return new DccRegistrationCertificateThresholdDeliveryResult(row.deliveryId(), STATUS_SENT,
@@ -64,7 +64,7 @@ public class DccRegistrationCertificateThresholdNotificationService {
         }
         if (messageId == null || messageId <= 0) {
             markFailed(row, REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED,
-                    "empty notify message id");
+                    "通知消息 ID 为空");
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED);
         }
         int affected = jdbcTemplate.update("""
@@ -143,7 +143,7 @@ public class DccRegistrationCertificateThresholdNotificationService {
     }
 
     private static String safeReason(String reason) {
-        String value = reason == null || reason.trim().isEmpty() ? "notification delivery failed" : reason.trim();
+        String value = reason == null || reason.trim().isEmpty() ? "通知发送失败" : reason.trim();
         return value.length() <= 1024 ? value : value.substring(0, 1024);
     }
 

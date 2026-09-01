@@ -211,6 +211,7 @@
                         详情
                       </el-button>
                       <el-button
+                        v-if="row.status === 'CURRENT'"
                         link
                         type="primary"
                         v-hasPermi="['dcc:registration-certificate:renewal:upload']"

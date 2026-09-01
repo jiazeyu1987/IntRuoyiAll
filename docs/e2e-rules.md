@@ -28,6 +28,7 @@
 
 - Trigger: 本地端口已有后端进程、运行 Jar 早于目标提交、目标修复依赖新增类或迁移，或完整构建被其它模块编译错误阻断但仍需做定向 E2E。
 - Preflight check: 在浏览器验证前同时记录分支、提交、监听端口进程和运行 Jar；按目标修复列出关键类或资源，并直接核对运行 Jar 内嵌模块是否包含它们。需要组合定向测试 Jar 时，只能使用同一提交的干净 worktree 构建产物，校验内嵌 Jar 哈希和 Spring Boot nested Jar 压缩方式，并明确标为测试运行产物。
+- Worktree port check: 可复用到多个 profile/worktree 的 E2E 脚本不得写死某次任务端口；必须按当前 repo root 读取正式 `worktree-ports.json` active 登记并校验前后端成对端口。主工作区只允许固定基准端口，附加 worktree 找不到唯一 active 登记时必须在浏览器启动前失败。
 - Blocker: 运行 Jar 来源不明、关键类缺失、内嵌模块不是同一提交、哈希或压缩方式不符、替换后 health 未恢复，或定向组合产物被用作完整发布构建通过证据时必须停止。
 - Verification: 证据包含提交、运行 Jar 路径与哈希、关键类清单、替换模块哈希、端口 PID 和 health；完整构建若失败，必须单独记录失败模块与错误数量，定向 E2E 只能证明目标模块运行行为，不能证明发布构建通过。
 - Forbidden action: 禁止在未核对运行 Jar 内容时宣称当前代码 E2E 通过；禁止把旧 Jar、脏主工作区临时编译物、跨提交模块或静默拼装产物冒充当前运行态。
@@ -49,6 +50,7 @@
 - Preflight check: 静态合同脚本可能按仓库根目录或前端根目录解析相对路径，运行前必须从脚本的 `process.cwd()` 和路径拼接方式确认期望工作目录；若只因工作目录错误导致文件不存在，应修正命令后重跑，不能把路径错误写成业务 FAIL。
 - Preflight check: 验收文档包含写入型用户路径时，还必须同时确认真实页面入口、前端 route、权限 meta、页面主按钮和写 API wrapper 全链路存在；只有 API wrapper 或只读追溯页存在时，不得宣称写路径已实现。
 - Preflight check: 复用历史真实脚本前，必须先按当前源码或真实 DOM 核对入口按钮文案、稳定锚点和可点击条件；按钮已 visible 但仍受 loading、navigationLoading、saving 或权限状态禁用时，脚本应等待正式可点击状态并记录禁用来源，不能把瞬时 disabled 或旧文案定位失败直接写成产品功能失败。
+- Preflight check: Element Plus 弹窗标题可能使用业务文件名、编号或动态标题；脚本等待弹窗时应锚定真实 DOM 中稳定可见的业务文本或 `data-testid`，不得硬等旧固定标题。打开预览、抽屉或遮罩后继续操作底层页面按钮前，必须先关闭覆盖层并等待其隐藏，不能把遮罩拦截点击误判为业务按钮不可用或下载失败。
 - Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失，或当前源码/DOM 已证明入口文案和历史脚本定位不一致且未修正脚本时，必须停止并记录具体前置缺口。
 - Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
@@ -67,10 +69,12 @@
 
 - Trigger: Playwright 在 Element Plus 表格、多条件筛选、quick filter、页签过滤或列表搜索中填入目标业务编号，但列表结果仍返回大批量数据、目标样本缺失、或失败信息疑似“数据不存在”。
 - Preflight check: 点击查询前必须同时确认目标筛选容器内可见输入框的 DOM value 已等于目标值，并监听正式分页请求；请求返回后必须记录实际 request URL、业务码、total 和前几条业务 code，确认 URL 中包含目标筛选参数。对于需要页签或筛选状态同步的组件，必须等待组件内部状态更新后再点击查询。
+- UnifiedList upgrade check: 复用历史脚本时先检查当前列表使用 `TableQuickFilter` 还是 `TableMultiFilter`。多条件筛选默认空状态必须按真实“新增筛选条件 -> 选择字段 -> 填值 -> 查询”操作；Element Plus 条件行可能同时含只读操作符 input 和业务文本框，必须按 placeholder/role 精确定位可填写控件，禁止继续使用泛化 `input`。
+- Preflight check: 若目标列表在某租户下没有可见筛选框、筛选区被权限或页面布局隐藏，不能直接判定目标样本缺失；应先按真实分页控件逐页查找目标可见行，并记录命中的 pageNo、pageSize、目标行文本和目标写请求数。分页查找仍属于真实页面路径，但不得用 API-only 查询替代页面可见性断言。
 - Blocker: 输入框可见值正确但正式分页请求 URL 未带目标参数、请求命中错误页签/错误接口、返回 list 前几条 code 明显未按目标过滤，或只能证明 DOM 值而不能证明请求参数时，必须停止并归因为脚本/组件同步问题，不得把结果写成目标业务数据缺失。
 - Verification: 真实 E2E 证据需包含目标筛选值、最终请求 URL、业务码、total、前几条 code，以及修复后同一用户路径命中目标样本并完成后续断言。
 - Forbidden action: 禁止只填 placeholder 输入框、只检查输入框 value、用 API-only 查询替代页面筛选、改成模糊全表扫描、或把未带筛选参数的大列表结果当作目标样本缺失证据。
-- Evidence: `doc/tasks/20260813-scheduler-seven-issues-closure/execution-log.md`，排产目标 7 E2E 曾因生产工单分页 URL 未带 `code` 参数误报缺少 `CODexERP20260610E`，修复 quick filter 状态同步后真实页面闭环 PASS。
+- Evidence: `doc/tasks/20260813-scheduler-seven-issues-closure/execution-log.md`，排产目标 7 E2E 曾因生产工单分页 URL 未带 `code` 参数误报缺少 `CODexERP20260610E`，修复 quick filter 状态同步后真实页面闭环 PASS；`doc/tasks/20260830-bind-pressure-pump-idpr/verification-report.md`，表单中心测试租户无可见产品筛选框时，按真实分页到第 13 页找到目标产品行并验证项目代码显示。
 
 ### DCC 文控审批处理入口门禁
 
@@ -131,10 +135,11 @@
 
 - Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN、非当前页签接口或其它非本轮目标链路资源。
 - Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只读页面若自动触发命令式 POST（如一线页面 `switch-employee` 用于授权校验、运行态读取和模板解析），必须先核对后端实现没有 insert/update/delete 或业务状态推进，再把它单独归类为“只读型 POST”；不得把它混入目标业务写请求，也不得在未核对实现时直接放行。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。浏览器只给出通用 `Failed to load resource` 文本时，必须同时记录 response URL、HTTP status、status text，并按出现次数逐条绑定；只有非本机响应和 console 文本一一对应的条目可归类为外部资源错误。本机响应、数量不匹配或缺 URL 的通用错误继续作为目标失败。
+- Preflight check: 同源但非当前目标的全局角标、通知、待办数量或布局附属请求返回“系统异常”时，必须单独记录接口归属和影响范围；只有目标列表接口、目标控件和目标行断言均通过，且该异常不阻断当前页面操作时，才可归类为非目标链路异常。
 - Blocker: 任一本机目标业务请求失败、出现未解释的 `pageerror`、外部或非目标请求失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
 - Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言、目标写请求数量，以及被单独归类的只读型 POST 数量和后端只读实现依据；只读/取消确认路径必须明确证明真正业务写请求为 0。若分类通用 console 错误，还必须保存与之关联的第三方失败响应 URL、状态、分类数量，并用负向合同证明未关联、本机或多余的同文错误不会被忽略。
 - Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、仅按错误文案宽泛忽略超时、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
-- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0；`doc/tasks/20260811-route-publish-chain-clarity/verification-report.md`，一线生产只读 E2E 将模板解析 `switch-employee` POST 与真正业务写请求分开统计，核对后端只读实现后证明业务写请求为 0；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，活跃订单提交 E2E 以精确关联合同分离第三方请求超时，目标页面、请求、HTTP 和控制台错误均保持为 0。
+- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0；`doc/tasks/20260811-route-publish-chain-clarity/verification-report.md`，一线生产只读 E2E 将模板解析 `switch-employee` POST 与真正业务写请求分开统计，核对后端只读实现后证明业务写请求为 0；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，活跃订单提交 E2E 以精确关联合同分离第三方请求超时，目标页面、请求、HTTP 和控制台错误均保持为 0；`doc/tasks/20260830-bind-pressure-pump-idpr/verification-report.md`，表单中心目标行显示通过时，将审批待办角标“系统异常”单独归类为非目标链路异常。
 
 ### 多步骤 E2E 子步骤与脚本总状态判定门禁
 
@@ -289,10 +294,10 @@
 ## 全局开关类 E2E 恢复门禁
 
 - Trigger: Playwright 验证全局开关、共享配置、租户级开关、系统级配置或任何影响后续用户路径的运行态状态切换。
-- Preflight check: 切换前读取并记录原始状态；脚本必须有 `finally` 恢复逻辑，恢复后再用独立 API 或页面断言确认状态回到原始值。
+- Preflight check: 切换前读取并记录原始状态；脚本必须有 `finally` 恢复逻辑，恢复后再用独立 API 或页面断言确认状态回到原始值。共享路线、租户开关等状态如果目标值已满足，脚本必须记录“未改变”并跳过恢复，禁止用固定布尔值把原本启用的共享状态在异常分支改回停用。
 - Blocker: 关闭/开启断言通过但恢复失败、恢复后接口值不一致、或页面仍显示变更后的状态时，必须立即执行受控恢复并记录失败位置；不得把产品断言 PASS 当作完整 E2E PASS。
 - Verification: 证据必须同时包含变更态断言、恢复动作结果、恢复后页面或接口复验；恢复使用 API 时必须说明它是 cleanup，不得替代真实页面变更路径。
-- Forbidden action: 禁止留下全局开关关闭、禁止记录密码/token、禁止用未复验的 `finally` 假设恢复成功。
+- Forbidden action: 禁止留下全局开关关闭、禁止记录密码/token、禁止用未复验的 `finally` 假设恢复成功，禁止在未确认本脚本实际改变共享状态时执行反向恢复。
 - Evidence: `doc/tasks/20260725-edhr-global-recordbook-switch/verification-report.md`。
 
 ### 当前共享数据写入 E2E 派生状态恢复门禁

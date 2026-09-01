@@ -10,7 +10,7 @@ import lombok.Data;
 
 import java.util.List;
 
-@Schema(description = "管理后台 - 国内注册证访问申请提交 Request VO")
+@Schema(description = "管理后台 - 国内注册证访问申请提交请求参数")
 @Data
 public class DccRegistrationCertificateAccessRequestSubmitReqVO {
 
@@ -19,7 +19,7 @@ public class DccRegistrationCertificateAccessRequestSubmitReqVO {
     @Positive
     private Long certificateId;
 
-    @Schema(description = "申请类型：VIEW_OLD_CERTIFICATE / DOWNLOAD_FILE", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "申请类型：查看旧证或下载文件", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank
     @Size(max = 32)
     private String requestType;

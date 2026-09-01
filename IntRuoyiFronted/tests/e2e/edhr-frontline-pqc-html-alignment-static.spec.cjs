@@ -45,8 +45,8 @@ assert.match(
 )
 assert.match(
   source,
-  /applyPqcTaskOptionToDraft[\s\S]*pqcDraft\.inspectionQuantity = option\.plannedInspectionQuantity/,
-  'PQC inspection quantity must come from the formal PQC task snapshot.'
+  /applyPqcTaskOptionToDraft[\s\S]*pqcDraft\.inspectionQuantity = storedDraft\.inspectionQuantity \?\? option\.plannedInspectionQuantity/,
+  'PQC inspection quantity must default from the formal PQC task snapshot while preserving an operator draft.'
 )
 assert.match(
   source,

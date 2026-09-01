@@ -47,6 +47,9 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
@@ -56,6 +59,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -65,6 +69,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -266,8 +271,10 @@ class MesFrontlinePqcContextServiceTest {
                 "ID-001");
     }
 
-    @Test
-    void submitPqcInspectionDoesNotBindProductionSubmitEventFromSameActiveOrderProcess() {
+    @ParameterizedTest(name = "{0} inspection permits adjusted actual quantity")
+    @MethodSource("adjustableTaskIdentities")
+    void submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType(
+            String inspectionType, String ruleKey, String shiftCode) {
         long loginUserId = 3001L;
         long actualEmployeeId = 3002L;
         long pqcTaskId = 9101L;
@@ -275,7 +282,8 @@ class MesFrontlinePqcContextServiceTest {
         long signatureId = 9301L;
         LocalDateTime submitTime = LocalDateTime.of(2026, 8, 19, 15, 30);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID, submitTime);
-        when(pqcTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(pendingTask(pqcTaskId));
+        when(pqcTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(
+                pendingTask(pqcTaskId, inspectionType, ruleKey, shiftCode));
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
         when(processSnapshotMapper.selectByActiveOrderAndProcess(ACTIVE_ORDER_ID, 30001L, 40001L))
                 .thenReturn(processSnapshot(30001L, 40001L));
@@ -298,7 +306,8 @@ class MesFrontlinePqcContextServiceTest {
                 .id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID).build());
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(DccProjectCodeDO.builder()
                 .id(DCC_PROJECT_ID).build());
-        when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(publishedItem()));
+        when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID))
+                .thenReturn(List.of(publishedItem(inspectionType)));
         when(pqcTaskMapper.updateSubmittedIfPending(anyLong(), any(), anyString(), anyString(), anyString()))
                 .thenReturn(1);
         when(signatureService.recordPqcSubmitSignature(actualEmployeeId, "sign-123", "PQC任务" + pqcTaskId + "正式提交"))
@@ -329,12 +338,12 @@ class MesFrontlinePqcContextServiceTest {
                 .regulationVersionId(REGULATION_VERSION_ID)
                 .qaProcessId(QA_PROCESS_ID)
                 .actualEmployeeId(actualEmployeeId)
-                .actualInspectionQuantity(1)
+                .actualInspectionQuantity(2)
                 .scrapQuantity(0)
                 .signaturePassword("sign-123")
                 .itemResults(List.of(MesFrontlinePqcSubmitCommand.ItemResult.builder()
                         .itemCode("ID-001")
-                        .sampleValues(List.of("合格"))
+                        .sampleValues(List.of("合格", "合格"))
                         .build()))
                 .rawPayload(Map.of(
                         "nonconformanceDescription", "must-not-be-written",
@@ -345,6 +354,7 @@ class MesFrontlinePqcContextServiceTest {
         MesFrontlinePqcSubmitResult result = service.submitPqcInspection(loginUserId, command);
 
         assertEquals(pqcEventId, result.pqcEventId());
+        verify(pqcTaskMapper).updateSubmittedIfPending(eq(pqcTaskId), eq(2), anyString(), anyString(), anyString());
         assertNull(command.getProductionSubmitEventId());
         ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> requestCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
@@ -361,6 +371,14 @@ class MesFrontlinePqcContextServiceTest {
         assertNull(pqcDraft.get("nonconformanceDescription"));
         assertNull(pqcDraft.get("defectDescription"));
         verify(processPoolEventMapper, never()).selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID);
+    }
+
+    private static Stream<Arguments> adjustableTaskIdentities() {
+        return Stream.of(
+                Arguments.of("FIRST", "FIRST", "FIRST"),
+                Arguments.of("PATROL", "PATROL_AM", "AM"),
+                Arguments.of("PATROL", "PATROL_PM", "PM"),
+                Arguments.of("FINAL", "FINAL", "FINAL"));
     }
 
     @Test
@@ -711,6 +729,13 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     private static MesPqcInspectionTaskDO pendingTask(long taskId) {
+        return pendingTask(taskId, "FIRST", "FIRST", "FIRST");
+    }
+
+    private static MesPqcInspectionTaskDO pendingTask(long taskId,
+                                                       String inspectionType,
+                                                       String inspectionRuleKey,
+                                                       String shiftCode) {
         return MesPqcInspectionTaskDO.builder()
                 .id(taskId)
                 .activeOrderId(ACTIVE_ORDER_ID)
@@ -722,10 +747,10 @@ class MesFrontlinePqcContextServiceTest {
                 .qaProcessId(QA_PROCESS_ID)
                 .qaItemCode("ID-001")
                 .regulationVersionId(REGULATION_VERSION_ID)
-                .inspectionType("FIRST")
-                .inspectionRuleKey("FIRST")
+                .inspectionType(inspectionType)
+                .inspectionRuleKey(inspectionRuleKey)
                 .businessDate(LocalDate.of(2026, 8, 19))
-                .shiftCode("FIRST")
+                .shiftCode(shiftCode)
                 .roundNo(1)
                 .plannedInspectionQuantity(1)
                 .taskStatus("PENDING")
@@ -733,11 +758,15 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     private static MesQaInspectionRegulationItemDO publishedItem() {
+        return publishedItem("FIRST");
+    }
+
+    private static MesQaInspectionRegulationItemDO publishedItem(String inspectionType) {
         return MesQaInspectionRegulationItemDO.builder()
                 .id(8101L)
                 .regulationVersionId(REGULATION_VERSION_ID)
                 .qaProcessId(QA_PROCESS_ID)
-                .inspectionType("FIRST")
+                .inspectionType(inspectionType)
                 .itemSort(1)
                 .itemCode("ID-001")
                 .itemName("外观")

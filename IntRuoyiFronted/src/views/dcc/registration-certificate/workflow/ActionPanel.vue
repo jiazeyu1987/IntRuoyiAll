@@ -169,7 +169,7 @@
       </el-tab-pane>
       <el-tab-pane label="审批结果" name="approvalResult">
         <div data-testid="registration-certificate-approval-result-action" class="registration-certificate-workflow__panel">
-          <el-alert type="info" :closable="false" title="审批结果由 BPM Native 待办处理，页面只展示后端返回结果，不本地伪造通过。" />
+          <el-alert type="info" :closable="false" title="审批结果由审批中心待办处理，页面仅展示系统返回的正式结果。" />
           <el-input v-model="accessReason" data-field="accessReason" aria-label="撤回或撤销原因" />
           <el-button :disabled="!accessRequestId" :loading="submitting" @click="handleRefreshAccessStatus">刷新申请状态</el-button>
           <el-button
@@ -180,15 +180,19 @@
             @click="handleWithdrawAccessRequest"
           >撤回申请</el-button>
           <el-descriptions v-if="accessStatus" :column="2" border class="registration-certificate-workflow__status">
-            <el-descriptions-item label="申请状态">{{ accessStatus.requestStatus }}</el-descriptions-item>
-            <el-descriptions-item label="BPM 实例">{{ accessStatus.bpmProcessInstanceId || '未创建' }}</el-descriptions-item>
-            <el-descriptions-item label="BPM 状态">{{ accessStatus.bpmBindingStatus || '未绑定' }}</el-descriptions-item>
+            <el-descriptions-item label="申请状态">{{ formatRegistrationCertificateWorkflowStatus(accessStatus.requestStatus) }}</el-descriptions-item>
+            <el-descriptions-item label="审批流程实例">{{ accessStatus.bpmProcessInstanceId || '未创建' }}</el-descriptions-item>
+            <el-descriptions-item label="审批状态">{{ formatRegistrationCertificateWorkflowStatus(accessStatus.bpmBindingStatus) }}</el-descriptions-item>
             <el-descriptions-item label="申请用途">{{ accessStatus.purpose }}</el-descriptions-item>
           </el-descriptions>
           <el-table v-if="accessStatus" :data="accessStatus.grants" row-key="grantId" class="registration-certificate-workflow__grants">
             <el-table-column label="授权 ID" prop="grantId" width="120" />
             <el-table-column label="文件 ID" prop="businessFileId" width="120" />
-            <el-table-column label="授权状态" prop="status" width="120" />
+            <el-table-column label="授权状态" prop="status" width="120">
+              <template #default="scope">
+                {{ formatRegistrationCertificateWorkflowStatus(scope.row.status) }}
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="260">
               <template #default="scope">
                 <el-button
@@ -217,6 +221,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
+import {
+  formatRegistrationCertificateWorkflowStatus,
+  resolveRegistrationCertificateUserMessage
+} from '../shared/state'
 import {
   createRegistrationCertificateDraft,
   updateRegistrationCertificateDraft,
@@ -251,6 +259,8 @@ const props = defineProps<{
   projectCodeId?: number | string
   businessFileId?: number | string
   downloadableFiles?: DownloadableFileOption[]
+  initialAccessRequestType?: 'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'
+  initialDownloadBusinessFileId?: number | string
   supportingDocumentId?: number | string
   initialAction?: 'draft' | 'formalize' | 'renewal' | 'change' | 'supporting' | 'access' | 'approvalResult'
   readOnly?: boolean
@@ -261,13 +271,17 @@ const activeAction = ref(props.initialAction || 'draft')
 const submitting = ref(false)
 const lastActionError = ref('')
 const lastActionResult = ref('')
-const accessRequestType = ref<'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'>('VIEW_OLD_CERTIFICATE')
+const accessRequestType = ref<'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'>(
+  props.initialAccessRequestType || 'VIEW_OLD_CERTIFICATE'
+)
 const accessRequestId = ref<number | string>('')
 const accessReason = ref('')
 const accessStatus = ref<DccRegistrationCertificateAccessRequestStatusVO>()
 const pendingVersionId = ref<number | string>()
 const activeSupportingDocumentId = ref<number | string>(props.supportingDocumentId ?? '')
-const selectedDownloadBusinessFileId = ref<number | string>('')
+const selectedDownloadBusinessFileId = ref<number | string>(
+  props.initialDownloadBusinessFileId ?? ''
+)
 
 const operationKeys = {
   draftCreate: ref(''),
@@ -350,12 +364,32 @@ watch(
   downloadFileOptions,
   (options) => {
     const current = String(selectedDownloadBusinessFileId.value || '')
-    if (options.some((option) => String(option.businessFileId) === current)) {
+    const selected = options.find((option) => String(option.businessFileId) === current)
+    if (selected) {
+      selectedDownloadBusinessFileId.value = selected.businessFileId
       return
     }
     selectedDownloadBusinessFileId.value = options[0]?.businessFileId ?? ''
   },
   { immediate: true }
+)
+
+watch(
+  () => props.initialAccessRequestType,
+  (value) => {
+    if (value) {
+      accessRequestType.value = value
+    }
+  }
+)
+
+watch(
+  () => props.initialDownloadBusinessFileId,
+  (value) => {
+    if (value !== undefined && value !== null && value !== '') {
+      selectedDownloadBusinessFileId.value = value
+    }
+  }
 )
 
 const handleChangeFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
@@ -462,11 +496,11 @@ const runAction = async (
   lastActionError.value = ''
   lastActionResult.value = ''
   try {
-    const result = await action()
+    await action()
     if (operation) resetIdempotencyKey(operation)
-    lastActionResult.value = `${name}已提交，后端结果：${String(result ?? '')}`
+    lastActionResult.value = `${name}成功`
   } catch (error) {
-    lastActionError.value = error instanceof Error ? error.message : String(error || `${name}失败`)
+    lastActionError.value = resolveRegistrationCertificateUserMessage(error, `${name}失败`)
     throw error
   } finally {
     submitting.value = false

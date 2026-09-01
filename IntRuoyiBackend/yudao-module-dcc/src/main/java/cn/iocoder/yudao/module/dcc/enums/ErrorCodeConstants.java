@@ -317,31 +317,31 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_STATUS_INVALID = new ErrorCode(1_080_000_210,
             "注册证状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_VERSION_CONFLICT = new ErrorCode(1_080_000_211,
-            "Registration certificate version already exists");
+            "注册证版本已存在");
     ErrorCode REGISTRATION_CERTIFICATE_CURRENT_CONFLICT = new ErrorCode(1_080_000_212,
-            "Registration certificate already has a current version");
+            "注册证已存在当前有效版本");
     ErrorCode REGISTRATION_CERTIFICATE_PENDING_CONFLICT = new ErrorCode(1_080_000_213,
-            "Registration certificate already has a pending version");
+            "注册证已存在待生效版本");
     ErrorCode REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID = new ErrorCode(1_080_000_214,
             "注册证生产方式不合法：是否委托生产和是否自行生产不能同时为否，委托生产为是时必须选择受托企业");
     ErrorCode REGISTRATION_CERTIFICATE_PROJECTION_MISMATCH = new ErrorCode(1_080_000_215,
-            "Registration certificate entrusted projection does not match authoritative facts");
+            "注册证受托生产关系投影与正式数据不一致");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_CONFLICT = new ErrorCode(1_080_000_216,
-            "Registration certificate file is already bound");
+            "注册证文件已绑定");
     ErrorCode REGISTRATION_CERTIFICATE_FORMAL_FACT_IMMUTABLE = new ErrorCode(1_080_000_217,
-            "Formal registration certificate facts are immutable");
+            "已正式化的注册证信息不可修改");
     ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_KEY_REQUIRED = new ErrorCode(1_080_000_218,
-            "Registration certificate audit event key is required");
+            "注册证审计事件标识不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT = new ErrorCode(1_080_000_219,
-            "Registration certificate audit event already exists");
+            "注册证审计事件已存在");
     ErrorCode REGISTRATION_CERTIFICATE_REVISION_CONFLICT = new ErrorCode(1_080_000_220,
-            "Registration certificate revision conflict");
+            "注册证数据版本已变更，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_IDEMPOTENCY_KEY_REQUIRED = new ErrorCode(1_080_000_221,
-            "Registration certificate idempotency key is required");
+            "注册证请求幂等键不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_222,
-            "Registration certificate idempotency key is bound to different input");
+            "注册证幂等键已绑定其他请求内容");
     ErrorCode REGISTRATION_CERTIFICATE_TENANT_MISMATCH = new ErrorCode(1_080_000_223,
-            "Registration certificate tenant mismatch");
+            "注册证不属于当前租户");
     ErrorCode REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED = new ErrorCode(1_080_000_224,
             "请选择公司名称");
     ErrorCode REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED = new ErrorCode(1_080_000_225,
@@ -375,128 +375,128 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT = new ErrorCode(1_080_000_239,
             "注册证审批入库状态冲突，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN = new ErrorCode(1_080_000_240,
-            "Registration certificate renewal field is forbidden");
+            "注册证延续不允许修改当前字段");
     ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED = new ErrorCode(1_080_000_241,
-            "Registration certificate renewal category change fields are required");
+            "注册证延续变更类别时，必须填写新注册证号和类别");
     ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT = new ErrorCode(1_080_000_242,
-            "Registration certificate renewal pending conflict");
+            "该注册证已有待审批或待生效的延续，请勿重复提交");
     ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT = new ErrorCode(1_080_000_243,
-            "Registration certificate renewal base conflict");
+            "注册证延续基准版本已变更，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT = new ErrorCode(1_080_000_244,
-            "Registration certificate activation base conflict");
+            "注册证生效基准版本已变更，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE = new ErrorCode(1_080_000_245,
-            "Registration certificate activation replay is incomplete");
+            "注册证生效重放记录不完整");
     ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_EVENT_CONFLICT = new ErrorCode(1_080_000_246,
-            "Registration certificate activation event conflict");
+            "注册证生效事件冲突");
     ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED = new ErrorCode(1_080_000_247,
-            "Registration certificate supporting document is required");
+            "请提供注册证支持文件");
     ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID = new ErrorCode(1_080_000_248,
-            "Registration certificate supporting document status is invalid");
+            "注册证支持文件状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_249,
-            "Registration certificate supporting document reject reason is required");
+            "请填写注册证支持文件驳回原因");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID = new ErrorCode(1_080_000_250,
-            "Registration certificate change type is invalid");
+            "注册证变更类型不合法");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED = new ErrorCode(1_080_000_251,
-            "Registration certificate change value is required");
+            "请填写注册证变更内容");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN = new ErrorCode(1_080_000_252,
-            "Registration certificate change value is forbidden");
+            "当前注册证变更类型不允许填写该内容");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED = new ErrorCode(1_080_000_253,
-            "Registration certificate change production relation is required");
+            "注册证生产关系变更信息不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT = new ErrorCode(1_080_000_254,
-            "Registration certificate change history conflict");
+            "注册证变更历史冲突");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT = new ErrorCode(1_080_000_255,
-            "Registration certificate lifecycle event conflict");
+            "注册证生命周期事件冲突");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_SEQUENCE_CONFLICT = new ErrorCode(1_080_000_256,
-            "Registration certificate lifecycle event sequence conflict");
+            "注册证生命周期事件顺序冲突");
     ErrorCode REGISTRATION_CERTIFICATE_CANDIDATE_VOID_REASON_REQUIRED = new ErrorCode(1_080_000_257,
-            "Registration certificate candidate void reason is required");
+            "请填写注册证延续候选作废原因");
     ErrorCode REGISTRATION_CERTIFICATE_TOP_LEVEL_VOID_REASON_REQUIRED = new ErrorCode(1_080_000_258,
-            "Registration certificate void reason is required");
+            "请填写注册证作废原因");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_SCHEMA_CONFLICT = new ErrorCode(1_080_000_259,
-            "Registration certificate lifecycle schema conflict");
+            "注册证生命周期数据结构不完整");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT = new ErrorCode(1_080_000_260,
-            "Registration certificate reminder config revision conflict");
+            "注册证提醒配置已被修改，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_CONFIG_TIME_INVALID = new ErrorCode(1_080_000_261,
-            "Registration certificate reminder config time is invalid");
+            "注册证提醒配置时间不合法");
     ErrorCode REGISTRATION_CERTIFICATE_DAILY_RUN_CONFLICT = new ErrorCode(1_080_000_262,
-            "Registration certificate reminder daily run conflict");
+            "注册证提醒每日任务运行冲突");
     ErrorCode REGISTRATION_CERTIFICATE_DAILY_RUN_FAILED = new ErrorCode(1_080_000_263,
-            "Registration certificate reminder daily run failed");
+            "注册证提醒每日任务运行失败");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_OCCURRENCE_CONFLICT = new ErrorCode(1_080_000_264,
-            "Registration certificate reminder occurrence conflict");
+            "注册证提醒事件冲突");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_OCCURRENCE_STATUS_INVALID = new ErrorCode(1_080_000_265,
-            "Registration certificate reminder occurrence status is invalid");
+            "注册证提醒事件状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_CONFLICT = new ErrorCode(1_080_000_266,
-            "Registration certificate reminder delivery conflict");
+            "注册证提醒发送记录冲突");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_STATUS_INVALID = new ErrorCode(1_080_000_267,
-            "Registration certificate reminder delivery status is invalid");
+            "注册证提醒发送状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED = new ErrorCode(1_080_000_268,
-            "Registration certificate reminder delivery message id is required");
+            "注册证提醒发送消息 ID 不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED = new ErrorCode(1_080_000_269,
-            "Registration certificate reminder recipient is required");
+            "注册证提醒接收人不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID = new ErrorCode(1_080_000_270,
-            "Registration certificate reminder threshold is invalid");
+            "注册证提醒阈值不合法");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_RESOLUTION_FAILED = new ErrorCode(1_080_000_271,
-            "Registration certificate reminder recipient resolution failed");
+            "注册证提醒接收人解析失败");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_INVALID = new ErrorCode(1_080_000_272,
-            "Registration certificate reminder notify template is invalid");
+            "注册证提醒通知模板不合法");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING = new ErrorCode(1_080_000_273,
-            "Registration certificate reminder notify template parameter is missing");
+            "注册证提醒通知模板参数缺失");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_NOTIFY_SEND_FAILED = new ErrorCode(1_080_000_274,
-            "Registration certificate reminder notify send failed");
+            "注册证提醒通知发送失败");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED = new ErrorCode(1_080_000_275,
-            "Registration certificate reminder job is not configured");
+            "未配置注册证提醒任务");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RUN_RETRY_CONFLICT = new ErrorCode(1_080_000_276,
-            "Registration certificate reminder run retry conflict");
+            "注册证提醒任务重试冲突");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SUPPRESSION_CONFLICT = new ErrorCode(1_080_000_277,
-            "Registration certificate reminder suppression conflict");
+            "注册证提醒抑制状态冲突");
     ErrorCode REGISTRATION_CERTIFICATE_EVENT_NOTIFICATION_SCOPE_UNAPPROVED = new ErrorCode(1_080_000_278,
-            "Registration certificate event notification scope is not approved");
+            "注册证事件通知范围未获批准");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SCHEMA_CONFLICT = new ErrorCode(1_080_000_279,
-            "Registration certificate reminder schema conflict");
+            "注册证提醒数据结构不完整");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED = new ErrorCode(1_080_000_280,
-            "Registration certificate access request idempotency key is required");
+            "注册证访问申请幂等键不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT = new ErrorCode(1_080_000_281,
-            "Registration certificate access request conflict");
+            "注册证访问申请冲突");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID = new ErrorCode(1_080_000_282,
-            "Registration certificate access request type is invalid");
+            "注册证访问申请类型不合法");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID = new ErrorCode(1_080_000_283,
-            "Registration certificate access request status is invalid");
+            "注册证访问申请状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED = new ErrorCode(1_080_000_284,
-            "Registration certificate access download requires a valid project code");
+            "注册证下载申请必须关联有效的项目代码");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT = new ErrorCode(1_080_000_285,
             "注册证审批绑定状态异常，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY = new ErrorCode(1_080_000_286,
             "未配置注册部经理审批人，请先配置注册证上传审批权限");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_APPROVAL_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_287,
-            "Registration certificate access approval reject reason is required");
+            "请填写注册证访问申请驳回原因");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT = new ErrorCode(1_080_000_288,
-            "Registration certificate access withdraw conflict");
+            "注册证访问申请无法撤回，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_CONFLICT = new ErrorCode(1_080_000_289,
-            "Registration certificate access grant conflict");
+            "注册证访问授权冲突");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID = new ErrorCode(1_080_000_290,
-            "Registration certificate access grant status is invalid");
+            "注册证访问授权状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED = new ErrorCode(1_080_000_291,
-            "Registration certificate access grant is expired");
+            "注册证访问授权已过期");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED = new ErrorCode(1_080_000_292,
-            "Registration certificate access grant is revoked");
+            "注册证访问授权已撤销");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID = new ErrorCode(1_080_000_293,
-            "Registration certificate access grant scope is invalid");
+            "注册证访问授权范围不合法");
     ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_CONSUMPTION_CONFLICT = new ErrorCode(1_080_000_294,
-            "Registration certificate download consumption conflict");
+            "注册证下载记录冲突");
     ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_ALREADY_CONSUMED = new ErrorCode(1_080_000_295,
-            "Registration certificate download has already been consumed");
+            "注册证下载授权已使用");
     ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID = new ErrorCode(1_080_000_296,
-            "Registration certificate download project code is invalid");
+            "注册证下载项目代码不合法");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_DELIVERY_AUDIT_CONFLICT = new ErrorCode(1_080_000_297,
-            "Registration certificate file delivery audit conflict");
+            "注册证文件交付审计记录冲突");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_AUDIT_CONFLICT = new ErrorCode(1_080_000_298,
-            "Registration certificate access audit conflict");
+            "注册证访问审计记录冲突");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_SCHEMA_CONFLICT = new ErrorCode(1_080_000_299,
-            "Registration certificate access schema conflict");
+            "注册证访问数据结构不完整");
     ErrorCode REGISTRATION_CERTIFICATE_SORT_INVALID = new ErrorCode(1_080_000_300,
-            "Registration certificate list sort parameter is invalid");
+            "注册证列表排序参数不合法");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID = new ErrorCode(1_080_000_301,
-            "Registration certificate reminder state parameter is invalid");
+            "注册证提醒状态参数不合法");
 
 }

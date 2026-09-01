@@ -52,6 +52,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     private static final String RESULT_FAILURE = "FAILURE";
     private static final String RESULT_FAILED_BEFORE_START = "FAILED_BEFORE_START";
     private static final String EVENT_TYPE_DOWNLOAD = "DOWNLOAD";
+    private static final String GRANT_SOURCE_REGISTRATION_MANAGER_ROLE = "REGISTRATION_MANAGER_ROLE";
     private static final DateTimeFormatter APPROVAL_DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final DccRegistrationCertificateAccessPolicyService accessPolicyService;
@@ -102,18 +103,39 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     public DccRegistrationCertificateFileDownloadResult download(Long tenantId, Long userId, Long businessFileId,
                                                                  String attemptKey,
                                                                  DccRequestAuditContext auditContext) {
-        String normalizedAttemptKey = requireText(attemptKey, "download attempt key");
+        String normalizedAttemptKey = requireText(attemptKey, "下载尝试标识");
         DccRequestAuditContext checkedAuditContext = require(auditContext, "auditContext");
-        checkedAuditContext.requireRequestId("registration certificate file download");
+        checkedAuditContext.requireRequestId("注册证文件下载");
         LocalDateTime now = businessClock.now();
         DccRegistrationCertificateGrantDO grant = null;
         DccRegistrationCertificateFileDO businessFile = null;
         try {
-            grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             businessFile = requireBusinessFile(tenantId, businessFileId);
             DccRegistrationCertificateVersionDO version = requireVersion(tenantId, businessFile);
-            DccRegistrationCertificateDO certificate = requireCertificate(tenantId, grant.getCertificateId());
+            DccRegistrationCertificateDO certificate = requireCertificate(tenantId, version.getCertificateId());
             DccRegistrationCertificateSnapshotDO snapshot = requireSnapshot(version.getId());
+            if (accessPolicyService.authorizeRegistrationManagerDownloadIfRole(tenantId, userId,
+                    certificate.getId())) {
+                String fileName = buildFileName(null, version, snapshot, businessFile);
+                FileDO infraFile = requireInfraFile(businessFile);
+                byte[] content;
+                try {
+                    content = fileService.getFileContent(infraFile.getConfigId(), infraFile.getPath());
+                } catch (Exception ex) {
+                    recordAudit(tenantId, userId, null, businessFileId, normalizedAttemptKey, RESULT_FAILURE,
+                            checkedAuditContext, failureMessage(ex));
+                    throw propagate(ex);
+                }
+                recordSuccessfulRegistrationManagerDelivery(tenantId, userId, businessFileId,
+                        normalizedAttemptKey, checkedAuditContext);
+                return new DccRegistrationCertificateFileDownloadResult(
+                        fileName,
+                        firstNotBlank(businessFile.getMimeType(), infraFile.getType()),
+                        content,
+                        null,
+                        businessFileId);
+            }
+            grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
             DccProjectCodeDO projectCode = requireLiveProjectCode(userId, request.getProjectCodeId(),
                     certificate.getProductMasterId());
@@ -154,7 +176,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             throw ex;
         } catch (DuplicateKeyException ex) {
             recordFailureAuditIfPossible(tenantId, userId, grant, businessFileId, normalizedAttemptKey,
-                    checkedAuditContext, "download duplicate consumption");
+                    checkedAuditContext, "重复使用注册证下载授权");
             throw new ServiceException(REGISTRATION_CERTIFICATE_DOWNLOAD_ALREADY_CONSUMED);
         } catch (RuntimeException ex) {
             recordFailureAuditIfPossible(tenantId, userId, grant, businessFileId, normalizedAttemptKey,
@@ -269,8 +291,21 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         });
     }
 
+    private void recordSuccessfulRegistrationManagerDelivery(Long tenantId, Long userId, Long businessFileId,
+                                                             String attemptKey,
+                                                             DccRequestAuditContext auditContext) {
+        transactionTemplate.executeWithoutResult(status -> recordAudit(tenantId, userId, null, businessFileId,
+                attemptKey, RESULT_SUCCESS, auditContext, null, GRANT_SOURCE_REGISTRATION_MANAGER_ROLE));
+    }
+
     private void recordAudit(Long tenantId, Long userId, DccRegistrationCertificateGrantDO grant, Long businessFileId,
                              String attemptKey, String result, DccRequestAuditContext auditContext, String reason) {
+        recordAudit(tenantId, userId, grant, businessFileId, attemptKey, result, auditContext, reason, null);
+    }
+
+    private void recordAudit(Long tenantId, Long userId, DccRegistrationCertificateGrantDO grant, Long businessFileId,
+                             String attemptKey, String result, DccRequestAuditContext auditContext, String reason,
+                             String grantSource) {
         DccRegistrationCertificateAccessAuditDO audit = DccRegistrationCertificateAccessAuditDO.builder()
                 .requestId(grant == null ? null : grant.getRequestId())
                 .grantId(grant == null ? null : grant.getId())
@@ -280,7 +315,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                 .eventKey(attemptKey + ":" + EVENT_TYPE_DOWNLOAD + ":" + result)
                 .result(result)
                 .occurredAt(businessClock.now())
-                .detailJson(buildAuditDetail(auditContext, reason))
+                .detailJson(buildAuditDetail(auditContext, reason, grantSource))
                 .build();
         audit.setTenantId(tenantId);
         try {
@@ -305,48 +340,50 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         String extension = extensionOf(businessFile.getOriginalName());
         String changeSuffix = "CHANGE".equals(businessFile.getOwnerType()) ? "_变更文件" : "";
         String expiredSuffix = "OLD".equals(version.getStatus()) ? "_已失效" : "";
-        return safeSegment(projectCode.getProjectCode()) + "_"
+        String projectPrefix = projectCode == null ? "" : safeSegment(projectCode.getProjectCode()) + "_";
+        return projectPrefix
                 + version.getApprovalDate().format(APPROVAL_DATE_FORMAT) + "_"
                 + safeSegment(snapshot.getProductName()) + changeSuffix + "_"
                 + safeSegment(version.getCertificateNo()) + expiredSuffix + extension;
     }
 
     private static String extensionOf(String originalName) {
-        String name = requireText(originalName, "registration certificate original filename");
+        String name = requireText(originalName, "注册证原始文件名");
         int dot = name.lastIndexOf('.');
         if (dot < 0 || dot == name.length() - 1) {
-            throw invalidParamException("registration certificate original filename extension is required");
+            throw invalidParamException("注册证原始文件名必须包含扩展名");
         }
         String extension = name.substring(dot).toLowerCase();
         if (!extension.matches("\\.[a-z0-9]{1,12}")) {
-            throw invalidParamException("registration certificate original filename extension is invalid");
+            throw invalidParamException("注册证原始文件扩展名不合法");
         }
         return extension;
     }
 
     private static String safeSegment(String value) {
-        String text = requireText(value, "registration certificate filename segment");
+        String text = requireText(value, "注册证文件名组成部分");
         String normalized = text.replaceAll("[\\\\/:*?\"<>|\\s]+", "_");
         normalized = normalized.replaceAll("_+", "_");
         normalized = normalized.replaceAll("^_+|_+$", "");
         if (StrUtil.isBlank(normalized)) {
-            throw invalidParamException("registration certificate filename segment is invalid");
+            throw invalidParamException("注册证文件名组成部分不合法");
         }
         return normalized;
     }
 
-    private static String buildAuditDetail(DccRequestAuditContext auditContext, String reason) {
+    private static String buildAuditDetail(DccRequestAuditContext auditContext, String reason, String grantSource) {
         String reasonJson = reason == null ? "" : ",\"reason\":\"" + jsonEscape(reason) + "\"";
+        String grantSourceJson = grantSource == null ? "" : ",\"grantSource\":\"" + jsonEscape(grantSource) + "\"";
         return "{\"requestId\":\"" + jsonEscape(auditContext.requestId()) + "\",\"sourceIp\":\""
                 + jsonEscape(auditContext.sourceIp()) + "\",\"userAgent\":\""
-                + jsonEscape(auditContext.userAgent()) + "\"" + reasonJson + "}";
+                + jsonEscape(auditContext.userAgent()) + "\"" + reasonJson + grantSourceJson + "}";
     }
 
     private static RuntimeException propagate(Exception ex) {
         if (ex instanceof RuntimeException runtimeException) {
             return runtimeException;
         }
-        return new IllegalStateException("registration certificate file content unavailable", ex);
+        return new IllegalStateException("注册证文件内容不可用", ex);
     }
 
     private static String failureMessage(Throwable ex) {
@@ -355,7 +392,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     }
 
     private static String firstNotBlank(String first, String second) {
-        return StrUtil.isNotBlank(first) ? first : requireText(second, "registration certificate content type");
+        return StrUtil.isNotBlank(first) ? first : requireText(second, "注册证文件内容类型");
     }
 
     private static String jsonEscape(String value) {
@@ -364,14 +401,14 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
 
     private static String requireText(String value, String fieldName) {
         if (StrUtil.isBlank(value)) {
-            throw invalidParamException("{} is required", fieldName);
+            throw invalidParamException("{}不能为空", fieldName);
         }
         return StrUtil.trim(value);
     }
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

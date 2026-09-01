@@ -198,8 +198,8 @@ const loginData = reactive({
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE !== 'false',
   loginForm: {
     tenantName: import.meta.env.VITE_APP_DEFAULT_LOGIN_TENANT || '',
-    username: import.meta.env.VITE_APP_DEFAULT_LOGIN_USERNAME || '',
-    password: import.meta.env.VITE_APP_DEFAULT_LOGIN_PASSWORD || '',
+    username: '',
+    password: '',
     captchaVerification: '',
     rememberMe: false
   }

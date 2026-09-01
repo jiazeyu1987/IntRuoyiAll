@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.home.vo.MesHomeProductionTre
 import cn.iocoder.yudao.module.mes.controller.admin.home.vo.MesHomeSummaryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.home.vo.MesHomeWorkOrderStatusRespVO;
 import cn.iocoder.yudao.module.mes.dal.mysql.home.MesHomeStatisticsMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.dv.MesDvMachineryStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import jakarta.annotation.Resource;
@@ -26,6 +27,8 @@ public class MesHomeStatisticsServiceImpl implements MesHomeStatisticsService {
 
     @Resource
     private MesHomeStatisticsMapper homeStatisticsMapper;
+    @Resource
+    private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
 
     @Override
     public MesHomeSummaryRespVO getHomeSummary() {
@@ -89,6 +92,7 @@ public class MesHomeStatisticsServiceImpl implements MesHomeStatisticsService {
         // 5. 异常/待办
         summary.setAndonActiveCount(homeStatisticsMapper.selectAndonActiveCount());
         summary.setRepairActiveCount(homeStatisticsMapper.selectRepairActiveCount());
+        summary.setNonconformanceReviewPendingCount(nonconformanceReviewMapper.selectPendingCount());
 
         return summary;
     }

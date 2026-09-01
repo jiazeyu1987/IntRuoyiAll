@@ -21,5 +21,9 @@ public record DccRegistrationCertificateHistoryItem(
         String classification,
         String originalFileName,
         String fileStatus,
-        LocalDateTime occurredAt) {
+        LocalDateTime occurredAt,
+        String renewalOperatorName,
+        LocalDateTime renewalOperatedAt,
+        String renewalApproverName,
+        LocalDateTime renewalApprovedAt) {
 }

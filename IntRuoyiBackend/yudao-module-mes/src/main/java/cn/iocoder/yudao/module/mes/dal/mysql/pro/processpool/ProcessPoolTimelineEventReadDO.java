@@ -46,6 +46,7 @@ public class ProcessPoolTimelineEventReadDO {
     private String productCode;
     private String productName;
     private Long activeOrderId;
+    private Long batchExecutionId;
     private Boolean released;
     private Long pqcTaskId;
     private String inspectionType;

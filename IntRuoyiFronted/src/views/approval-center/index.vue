@@ -79,26 +79,31 @@
                     <span class="approval-center__primary">{{ resolveBusinessTitleLabel(row) }}</span>
                     <el-tag v-if="row.businessDeleted" size="small" type="danger" effect="plain">已删除</el-tag>
                   </div>
-                  <div class="approval-center__muted">{{ resolveBusinessIdentifierLabel(row) }}</div>
                   <div
-                    v-if="row.moduleCode === 'DCC'"
+                    v-if="!row.businessIdentifierHidden"
+                    class="approval-center__muted"
+                  >
+                    {{ resolveBusinessIdentifierLabel(row) }}
+                  </div>
+                  <div
+                    v-if="resolveVisibleDccKeyFields(row).length"
                     class="approval-center__dcc-key-fields"
                     data-testid="approval-center-dcc-key-fields"
                   >
                     <span
-                      v-for="field in resolveDccKeyFields(row)"
+                      v-for="field in resolveVisibleDccKeyFields(row)"
                       :key="field.label"
                     >
                       {{ field.label }}：{{ field.value }}
                     </span>
                   </div>
                   <div
-                    v-if="row.businessContextTags?.length"
+                    v-if="resolveVisibleBusinessContextTags(row).length"
                     class="approval-center__dcc-context"
                     data-testid="approval-center-dcc-business-context"
                   >
                     <el-tag
-                      v-for="tag in row.businessContextTags"
+                      v-for="tag in resolveVisibleBusinessContextTags(row)"
                       :key="tag"
                       size="small"
                       effect="plain"
@@ -532,6 +537,7 @@ const APPROVAL_BUSINESS_KEY_PREFIX_LABELS: Record<string, string> = {
 const ENGLISH_LETTER_PATTERN = /[A-Za-z]/
 const CHINESE_CHARACTER_PATTERN = /[\u4e00-\u9fff]/
 const BUSINESS_CONTEXT_CODE_PATTERN = /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9._/-]*$/
+const EMPTY_CONTEXT_VALUE_PATTERN = /^(?:--|null|undefined)$/i
 
 const modules = ref<ApprovalProviderDescriptorVO[]>([])
 const list = ref<ApprovalTaskSummaryVO[]>([])
@@ -1130,6 +1136,14 @@ const normalizeApprovalDisplayText = (value?: string | number | null) => {
   return value === undefined || value === null ? '' : String(value).trim()
 }
 
+const isApprovalDisplayValueVisible = (value?: string | number | null) => {
+  const text = normalizeApprovalDisplayText(value)
+  if (!text || EMPTY_CONTEXT_VALUE_PATTERN.test(text)) {
+    return false
+  }
+  return !text.startsWith('未配置') && !text.endsWith('已配置')
+}
+
 const containsEnglishLetters = (value: string) => ENGLISH_LETTER_PATTERN.test(value)
 
 const containsChineseCharacters = (value: string) => CHINESE_CHARACTER_PATTERN.test(value)
@@ -1220,7 +1234,9 @@ const resolveNodeNameLabel = (row: ApprovalTaskSummaryVO) => {
 }
 
 const resolveReviewerLabel = (row: ApprovalTaskSummaryVO) =>
-  row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
+  row.assigneeRoleName
+    ? `审批角色：${row.assigneeRoleName}`
+    : row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
 
 const resolveApplicantLabel = (row: ApprovalTaskSummaryVO) =>
   row.initiatorUserName || (row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY)
@@ -1250,6 +1266,20 @@ const resolveBusinessContextValueLabel = (value: string, missingLabel: string) =
 }
 
 const normalizeDccContextTag = (tag: string) => tag.replace(/^[^:：]+[:：]\s*/, '').trim()
+
+const isBusinessContextTagVisible = (tag: string) => {
+  const text = normalizeApprovalDisplayText(tag)
+  if (!text) {
+    return false
+  }
+  const parts = text.match(/^([^:：]+)([:：])\s*(.*)$/)
+  const value = parts ? parts[3] : text
+  const label = resolveBusinessContextValueLabel(value, '')
+  return isApprovalDisplayValueVisible(label)
+}
+
+const resolveVisibleBusinessContextTags = (row: ApprovalTaskSummaryVO) =>
+  (row.businessContextTags || []).filter(isBusinessContextTagVisible)
 
 const resolveBusinessContextTagLabel = (tag: string) => {
   const text = normalizeApprovalDisplayText(tag)
@@ -1290,6 +1320,11 @@ const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
     value: resolveNodeNameLabel(row)
   }
 ]
+
+const resolveVisibleDccKeyFields = (row: ApprovalTaskSummaryVO) =>
+  row.moduleCode === 'DCC'
+    ? resolveDccKeyFields(row).filter((field) => isApprovalDisplayValueVisible(field.value))
+    : []
 
 const resolveNodeSubLabel = (row: ApprovalTaskSummaryVO) => {
   const reviewerLabel = resolveReviewerLabel(row)

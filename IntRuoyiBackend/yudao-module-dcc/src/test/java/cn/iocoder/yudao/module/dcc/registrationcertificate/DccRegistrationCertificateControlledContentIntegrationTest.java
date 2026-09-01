@@ -14,15 +14,20 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFilePreviewService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFilePreviewServiceImpl;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceServiceImpl;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePreviewService;
+import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Bean;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +36,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import javax.sql.DataSource;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,10 +51,20 @@ import static org.mockito.Mockito.when;
 @Import({
         DccRegistrationCertificateFilePreviewServiceImpl.class,
         DccRegistrationCertificateFileReferenceServiceImpl.class,
+        DccRegistrationCertificateAccessPolicyService.class,
         DccRegistrationCertificateReadAuditService.class,
-        DccRegistrationCertificateBusinessClock.class
+        DccRegistrationCertificateBusinessClock.class,
+        DccRegistrationCertificateControlledContentIntegrationTest.JdbcTestConfiguration.class
 })
 class DccRegistrationCertificateControlledContentIntegrationTest extends BaseDbUnitTest {
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class JdbcTestConfiguration {
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
+    }
 
     @Resource
     private DccRegistrationCertificateFilePreviewService previewService;
@@ -64,6 +81,10 @@ class DccRegistrationCertificateControlledContentIntegrationTest extends BaseDbU
 
     @MockitoBean
     private DccOnlineFilePreviewService onlineFilePreviewService;
+    @MockitoBean
+    private MdmCompanyScopeApi companyScopeApi;
+    @MockitoBean
+    private PermissionApi permissionApi;
 
     @Test
     void controllerFreezesApi018BusinessFileRoutesAndQueryCurrentPermission() throws Exception {

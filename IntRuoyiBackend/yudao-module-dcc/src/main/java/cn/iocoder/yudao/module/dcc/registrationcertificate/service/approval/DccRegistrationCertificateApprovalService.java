@@ -62,6 +62,7 @@ public class DccRegistrationCertificateApprovalService {
     private static final String BINDING_REJECTED = "REJECTED";
     private static final String BINDING_WITHDRAWN = "WITHDRAWN";
     private static final String OPERATION_RENEWAL_CERTIFICATE = "RENEWAL_CERTIFICATE";
+    private static final String OPERATION_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private final DccRegistrationCertificateAccessRequestMapper requestMapper;
     private final DccRegistrationCertificateBpmBindingMapper bindingMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
@@ -142,10 +143,7 @@ public class DccRegistrationCertificateApprovalService {
         variables.put("requestType", request.getRequestType());
         variables.put("requestKey", request.getRequestKey());
         if (REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
-            String requestOperation = resolveRequestOperation(request);
-            if (!isBlank(requestOperation)) {
-                variables.put("requestOperation", requestOperation);
-            }
+            addRegistrationCertificateSummaryVariables(variables, request);
         }
         bpmRequest.setVariables(variables);
         String processInstanceId = bpmProcessInstanceApi.createProcessInstance(actorId, bpmRequest);
@@ -168,7 +166,7 @@ public class DccRegistrationCertificateApprovalService {
             }
         } catch (DuplicateKeyException ex) {
             cancelCreatedProcess(actorId, processInstanceId.trim(),
-                    "duplicate registration certificate access BPM binding", ex);
+                    "注册证访问审批绑定重复", ex);
             DccRegistrationCertificateBpmBindingDO winner = bindingMapper.selectByRequestId(tenantId, request.getId());
             if (winner != null && Objects.equals(winner.getBusinessKey(), businessKey)) {
                 DccRegistrationCertificateAccessRequestDO winnerRequest = requestMapper.selectById(request.getId());
@@ -179,7 +177,7 @@ public class DccRegistrationCertificateApprovalService {
             throw ex;
         } catch (RuntimeException ex) {
             cancelCreatedProcess(actorId, processInstanceId.trim(),
-                    "registration certificate access BPM persistence failed", ex);
+                    "注册证访问审批数据保存失败", ex);
             throw ex;
         }
         return result(request, binding, List.of());
@@ -514,7 +512,7 @@ public class DccRegistrationCertificateApprovalService {
         if (!REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
             return false;
         }
-        return "UPLOAD_CERTIFICATE".equals(resolveRequestOperation(request));
+        return OPERATION_UPLOAD_CERTIFICATE.equals(resolveRequestOperation(request));
     }
 
     private static String resolveRequestOperation(DccRegistrationCertificateAccessRequestDO request) {
@@ -527,9 +525,36 @@ public class DccRegistrationCertificateApprovalService {
         return operation.isEmpty() ? null : operation;
     }
 
+    private static void addRegistrationCertificateSummaryVariables(
+            Map<String, Object> variables, DccRegistrationCertificateAccessRequestDO request) {
+        Map<?, ?> detail = isBlank(request.getDetailJson())
+                ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
+        if (detail == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        String operation = requireSummaryText(detail, "operation");
+        if (!OPERATION_UPLOAD_CERTIFICATE.equals(operation)
+                && !OPERATION_RENEWAL_CERTIFICATE.equals(operation)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        variables.put("requestOperation", operation);
+        variables.put("certificateNo", requireSummaryText(detail, "certificateNo"));
+        variables.put("classification", requireSummaryText(detail, "classification"));
+        variables.put("productName", requireSummaryText(detail, "productName"));
+        variables.put("ownerCompanyName", requireSummaryText(detail, "ownerCompanyName"));
+    }
+
+    private static String requireSummaryText(Map<?, ?> detail, String key) {
+        Object value = detail.get(key);
+        if (value == null || isBlank(String.valueOf(value))) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        return String.valueOf(value).trim();
+    }
+
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

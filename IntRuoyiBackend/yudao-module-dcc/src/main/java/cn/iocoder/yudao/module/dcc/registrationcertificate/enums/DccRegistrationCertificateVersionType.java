@@ -11,6 +11,6 @@ public enum DccRegistrationCertificateVersionType {
         return Arrays.stream(values())
                 .filter(value -> value.name().equals(code))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown registration certificate version type: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("未知的注册证版本类型：" + code));
     }
 }

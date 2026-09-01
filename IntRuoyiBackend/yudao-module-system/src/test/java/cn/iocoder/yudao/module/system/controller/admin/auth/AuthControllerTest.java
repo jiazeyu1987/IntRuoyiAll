@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintTicketValidateReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintTicketValidateRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintAssistantStatusRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
@@ -14,6 +15,8 @@ import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintAssistantService;
+import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider;
+import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider.KingdeeConfigSnapshot;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
@@ -71,6 +74,8 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     private StringRedisTemplate stringRedisTemplate;
     @Mock
     private InvoiceVoucherPrintAssistantService invoiceVoucherPrintAssistantService;
+    @Mock
+    private InvoiceVoucherPrintKingdeeConfigProvider kingdeeConfigProvider;
     @Mock
     private ValueOperations<String, String> valueOperations;
 
@@ -521,13 +526,53 @@ class AuthControllerTest extends BaseMockitoUnitTest {
 
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(eq(redisKey))).thenReturn("203|erp:invoice-voucher-print:query|" + expiresTime);
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot())
+                .thenReturn(KingdeeConfigSnapshot.builder()
+                        .baseUrl("http://kingdee/K3Cloud")
+                        .acctId("acct-001")
+                        .username("kingdee-user")
+                        .password("kingdee-password")
+                        .appId("invoice-print-app")
+                        .appSecret("invoice-print-secret")
+                        .lcid(2052)
+                        .build());
 
-        var respVO = authController.validateInvoiceVoucherPrintTicket(reqVO).getData();
+        AuthInvoiceVoucherPrintTicketValidateRespVO respVO = authController.validateInvoiceVoucherPrintTicket(reqVO).getData();
 
         assertTrue(respVO.getValid());
         assertEquals(203L, respVO.getUserId());
         assertEquals("erp:invoice-voucher-print:query", respVO.getPermission());
+        assertNotNull(respVO.getKingdeeConfig());
+        assertEquals("http://kingdee/K3Cloud", respVO.getKingdeeConfig().getBaseUrl());
+        assertEquals("acct-001", respVO.getKingdeeConfig().getAcctId());
+        assertEquals("kingdee-user", respVO.getKingdeeConfig().getUsername());
+        assertEquals("invoice-print-app", respVO.getKingdeeConfig().getAppId());
+        assertEquals("invoice-print-secret", respVO.getKingdeeConfig().getAppSecret());
+        assertEquals(2052, respVO.getKingdeeConfig().getLcid());
         verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
+    }
+
+    @Test
+    void validateInvoiceVoucherPrintTicketFailsWhenKingdeeConfigMissing() {
+        String ticket = "valid-ticket";
+        String redisKey = "invoice_voucher_print_ticket:" + ticket;
+        LocalDateTime expiresTime = LocalDateTime.now().plusMinutes(1);
+        AuthInvoiceVoucherPrintTicketValidateReqVO reqVO = new AuthInvoiceVoucherPrintTicketValidateReqVO();
+        reqVO.setTicket(ticket);
+
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq(redisKey))).thenReturn("203|erp:invoice-voucher-print:query|" + expiresTime);
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot())
+                .thenThrow(new ServiceException(400, "发票凭证打印助手 ERP 配置缺失：appId"));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> authController.validateInvoiceVoucherPrintTicket(reqVO));
+
+        assertEquals(400, exception.getCode());
+        assertTrue(exception.getMessage().contains("ERP 配置缺失"));
+        verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
     }
 
     @Test
@@ -607,4 +652,5 @@ class AuthControllerTest extends BaseMockitoUnitTest {
                 .setKeepAlive(true)
                 .setAlwaysShow(false);
     }
+
 }

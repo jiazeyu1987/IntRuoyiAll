@@ -17,10 +17,10 @@
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
-- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表或个人中心聚合页的任一子请求返回业务码 500 且日志为缺列，先修复运行库迁移漂移，再判断前端错误归属；不要通过隐藏该子请求错误或返回空数据掩盖 schema 缺口。
+- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表、个人中心聚合页或批记录建立链接的任一子请求返回业务码 500 且日志为缺列、字段过短或数据截断，先修复运行库迁移漂移和字段容量，再判断前端错误归属；不要通过隐藏该子请求错误、返回空数据或截断业务字段编码掩盖 schema 缺口。
 - Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。
 - Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
-- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`；`doc/tasks/20260826-schedule-order-system-exception/verification-report.md`。
+- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`；`doc/tasks/20260826-schedule-order-system-exception/verification-report.md`；`doc/tasks/20260830-dcc-process-device-type-parameter-catalog/verification-report.md`。
 
 ### 一对多读模型聚合门禁
 
@@ -93,6 +93,15 @@
 - Verification: 执行前用静态合同记录 RED；执行后核对旧绑定清零、迁移绑定数量、旧模板版本 `BOUND`、路线快照无旧 `formTemplateId`、表单中心列表可查 `FORMTPL:*` 且真实页面能打开目标表单。
 - Forbidden action: 禁止只更新路线绑定表而不更新路线快照，禁止保留运行态继续把已迁移行当旧 `formBindings` 输出，禁止用 API-only 或数据库行存在代替真实页面列表验证，禁止删除旧模板字段来掩盖追溯关系。
 - Evidence: `doc/tasks/20260829-switch-old-form-template-bindings/verification-report.md`。
+
+### 表单中心批记录项目代码数据修复门禁
+
+- Trigger: 表单中心列表项目代码列、`mes_pro_batch_record_report.project_code`、批记录报表改绑定、按产品名称修正批记录显示项目代码、批记录单元格链接进入时的 DCC 项目代码上下文。
+- Preflight check: 先区分列表显示字段和路线正式 DCC 绑定：表单中心列表展示来自批记录报表 `project_code`，路线/单元格链接上下文可能来自 `mes_pro_route_dcc_project_binding.dcc_project_code_id` 或路线版本身份。数据修复前必须冻结目标租户、目标产品、目标报表主键、当前项目代码、目标 DCC 项目代码在同租户启用且未删除；中文产品名只能用于缩小候选范围，最终写入必须锁定主键集合和当前值。若用户同时要求点击链接自动选择 DCC 项目代码，必须另行核对路线绑定和版本路线身份，不能把列表字段更新当作路线绑定已完成。
+- Blocker: 目标租户或目标报表集合无法唯一冻结、目标 DCC 项目代码在同租户缺失/禁用/已删除、同一产品下存在非目标项目代码且未获授权、或链接上下文需要改路线绑定但当前任务未授权时必须停止。
+- Verification: 执行前记录目标范围不满足期望项目代码的 RED；写入事务必须保存 `ROW_COUNT()` 并断言冻结行数、影响行数、写入后目标代码数和旧代码剩余数；写入后按租户和槽位复核列表字段，并在运行态可用时用真实表单中心页面筛选目标产品确认项目代码列显示正确。
+- Forbidden action: 禁止按 DCC 项目中文名反推项目代码、禁止只改路线绑定就宣称列表列已变、禁止只改列表 `project_code` 就宣称链接上下文或路线正式绑定已变、禁止扩大到其它租户/其它产品/空项目代码行，禁止用 API-only 代替可访问页面的列表显示验证。
+- Evidence: `doc/tasks/20260831-bind-pressure-pump-idi/verification-report.md`。
 
 ### DCC 文件类别规则种子门禁
 

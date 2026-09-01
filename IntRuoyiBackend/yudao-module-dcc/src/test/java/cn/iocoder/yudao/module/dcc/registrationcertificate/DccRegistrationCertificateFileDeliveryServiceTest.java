@@ -55,15 +55,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DOWNLOAD_ALREADY_CONSUMED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_DELIVERY_AUDIT_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -139,6 +143,62 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-success-1:DOWNLOAD:SUCCESS"));
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-success-2:DOWNLOAD:FAILURE"));
         verify(fileService, times(1)).getFileContent(fixture.infraConfigId(), fixture.infraPath());
+    }
+
+    @Test
+    void registrationManagerDownloadsCurrentFileWithoutGrantOrProjectCode() throws Exception {
+        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
+                "manager-registration.pdf", 20L, null);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "manager-registration.pdf"));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
+                .thenReturn("MANAGER-CERT".getBytes(StandardCharsets.UTF_8));
+
+        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
+                1L, 99L, fixture.businessFileId(), "attempt-manager-direct", context("REQ-MANAGER-DIRECT"));
+
+        assertEquals("20200201_ProductA_CERT-DL-001.pdf", result.fileName());
+        assertArrayEquals("MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
+        assertNull(consumptionMapper.selectByAttemptKey(1L, "attempt-manager-direct"));
+        DccRegistrationCertificateAccessAuditDO audit =
+                accessAuditMapper.selectByEventKey(1L, "attempt-manager-direct:DOWNLOAD:SUCCESS");
+        assertNotNull(audit);
+        assertNull(audit.getGrantId());
+        assertTrue(audit.getDetailJson().contains("REGISTRATION_MANAGER_ROLE"));
+        verify(projectCodeService, never()).getProjectCode(99L, 40L);
+    }
+
+    @Test
+    void nonRegistrationManagerWithoutDownloadGrantStillFailsBeforeStorageIo() throws Exception {
+        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
+                "registration.pdf", 20L, 40L);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(false);
+
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
+                        "attempt-no-grant", context("REQ-NO-GRANT")));
+
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), failure.getCode());
+        assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-no-grant:DOWNLOAD:FAILURE"));
+        verify(fileService, never()).getFileContent(fixture.infraConfigId(), fixture.infraPath());
+    }
+
+    @Test
+    void registrationManagerDownloadStillRequiresCompanyScopeBeforeStorageIo() throws Exception {
+        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
+                "manager-denied.pdf", 20L, null);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+        doThrow(new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID))
+                .when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
+                        "attempt-manager-company-denied", context("REQ-MANAGER-COMPANY-DENIED")));
+
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), failure.getCode());
+        assertNotNull(accessAuditMapper.selectByEventKey(
+                1L, "attempt-manager-company-denied:DOWNLOAD:FAILURE"));
+        verify(fileService, never()).getFileContent(fixture.infraConfigId(), fixture.infraPath());
     }
 
     @Test
@@ -313,7 +373,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
                         "attempt-bad-filename", context("REQ-DOWNLOAD-BAD-FILENAME")));
 
-        assertTrue(failure.getMessage().contains("extension"));
+        assertTrue(failure.getMessage().contains("扩展名"));
         assertEquals(0L, consumptionMapper.countSuccess(1L, fixture.grantId(), fixture.businessFileId()));
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-bad-filename:DOWNLOAD:FAILURE"));
         verify(fileService, never()).getFileContent(fixture.infraConfigId(), fixture.infraPath());
@@ -375,6 +435,60 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
 
     private FormalFixture seedGrantedDownload(String masterStatus, String versionStatus, String fileStatus,
                                               String infraOriginalName, Long productMasterId) {
+        FormalFixture fixture = seedDownloadCandidate(masterStatus, versionStatus, fileStatus,
+                infraOriginalName, productMasterId, 40L);
+        DccRegistrationCertificateFileDO file = registrationFileMapper.selectById(fixture.businessFileId());
+
+        DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
+                .ownerCompanyId(10L)
+                .certificateId(fixture.certificateId())
+                .requesterUserId(99L)
+                .requestType("DOWNLOAD_FILE")
+                .requestKey("request-download-" + System.nanoTime())
+                .purpose("approved file delivery")
+                .projectCodeId(40L)
+                .status("APPROVED")
+                .requestedAt(businessClock.now().minusHours(2))
+                .completedAt(businessClock.now().minusHours(1))
+                .detailJson("{}")
+                .build();
+        request.setTenantId(1L);
+        assertEquals(1, requestMapper.insert(request));
+
+        DccRegistrationCertificateAccessRequestFileDO requestFile =
+                DccRegistrationCertificateAccessRequestFileDO.builder()
+                        .requestId(request.getId())
+                        .businessFileId(file.getId())
+                        .fileKind("REGISTRATION_CERTIFICATE")
+                        .downloadRequested(true)
+                        .status("GRANTED")
+                        .detailJson("{}")
+                        .build();
+        requestFile.setTenantId(1L);
+        assertEquals(1, requestFileMapper.insert(requestFile));
+
+        DccRegistrationCertificateGrantDO grant = DccRegistrationCertificateGrantDO.builder()
+                .requestId(request.getId())
+                .requestFileId(requestFile.getId())
+                .ownerCompanyId(10L)
+                .certificateId(fixture.certificateId())
+                .businessFileId(file.getId())
+                .granteeUserId(99L)
+                .grantType("DOWNLOAD")
+                .grantKey("grant-download-" + System.nanoTime())
+                .status("ACTIVE")
+                .grantedAt(businessClock.now().minusMinutes(30))
+                .expiresAt(businessClock.now().plusHours(24))
+                .detailJson("{}")
+                .build();
+        grant.setTenantId(1L);
+        assertEquals(1, grantMapper.insert(grant));
+        return new FormalFixture(fixture.certificateId(), fixture.versionId(), fixture.snapshotId(), file.getId(),
+                fixture.infraFileId(), fixture.infraConfigId(), fixture.infraPath(), grant.getId());
+    }
+
+    private FormalFixture seedDownloadCandidate(String masterStatus, String versionStatus, String fileStatus,
+                                                String infraOriginalName, Long productMasterId, Long projectCodeId) {
         Long infraFileId = 930_000L + Math.abs(System.nanoTime() % 10_000L);
         Long infraConfigId = 7001L;
         String infraPath = "registration/" + infraOriginalName;
@@ -382,7 +496,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
                 .ownerCompanyId(10L)
                 .productMasterId(productMasterId)
-                .projectCodeId(40L)
+                .projectCodeId(projectCodeId)
                 .firstObtainedDate(LocalDate.of(2020, 1, 1))
                 .status(masterStatus)
                 .rowVersion(1)
@@ -435,54 +549,10 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         assertEquals(1, registrationFileMapper.insert(file));
         certificate.setCurrentVersionId("CURRENT".equals(versionStatus) ? version.getId() : null);
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
+        certificate.setPendingVersionId("PENDING_EFFECTIVE".equals(versionStatus) ? version.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
-
-        DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
-                .ownerCompanyId(10L)
-                .certificateId(certificate.getId())
-                .requesterUserId(99L)
-                .requestType("DOWNLOAD_FILE")
-                .requestKey("request-download-" + System.nanoTime())
-                .purpose("approved file delivery")
-                .projectCodeId(40L)
-                .status("APPROVED")
-                .requestedAt(businessClock.now().minusHours(2))
-                .completedAt(businessClock.now().minusHours(1))
-                .detailJson("{}")
-                .build();
-        request.setTenantId(1L);
-        assertEquals(1, requestMapper.insert(request));
-
-        DccRegistrationCertificateAccessRequestFileDO requestFile =
-                DccRegistrationCertificateAccessRequestFileDO.builder()
-                        .requestId(request.getId())
-                        .businessFileId(file.getId())
-                        .fileKind("REGISTRATION_CERTIFICATE")
-                        .downloadRequested(true)
-                        .status("GRANTED")
-                        .detailJson("{}")
-                        .build();
-        requestFile.setTenantId(1L);
-        assertEquals(1, requestFileMapper.insert(requestFile));
-
-        DccRegistrationCertificateGrantDO grant = DccRegistrationCertificateGrantDO.builder()
-                .requestId(request.getId())
-                .requestFileId(requestFile.getId())
-                .ownerCompanyId(10L)
-                .certificateId(certificate.getId())
-                .businessFileId(file.getId())
-                .granteeUserId(99L)
-                .grantType("DOWNLOAD")
-                .grantKey("grant-download-" + System.nanoTime())
-                .status("ACTIVE")
-                .grantedAt(businessClock.now().minusMinutes(30))
-                .expiresAt(businessClock.now().plusHours(24))
-                .detailJson("{}")
-                .build();
-        grant.setTenantId(1L);
-        assertEquals(1, grantMapper.insert(grant));
         return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId(), file.getId(),
-                infraFileId, infraConfigId, infraPath, grant.getId());
+                infraFileId, infraConfigId, infraPath, null);
     }
 
     private FileDO infraFile(FormalFixture fixture, String name) {

@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateOperationAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderService;
@@ -31,6 +32,8 @@ import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +50,7 @@ import java.lang.reflect.Modifier;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,6 +65,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -69,6 +74,7 @@ import static org.mockito.Mockito.when;
 
 @Import({
         DccRegistrationCertificateQueryServiceImpl.class,
+        DccRegistrationCertificateOperationAuditService.class,
         DccRegistrationCertificateReadAuditService.class,
         DccRegistrationCertificateAccessPolicyService.class,
         DccRegistrationCertificateBusinessClock.class,
@@ -110,10 +116,16 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     private MdmEnterpriseApi enterpriseApi;
     @MockitoBean
     private PermissionApi permissionApi;
+    @MockitoBean
+    private AdminUserApi adminUserApi;
 
     @BeforeEach
     void setUp() {
-        reset(companyScopeApi, enterpriseApi, permissionApi);
+        reset(companyScopeApi, enterpriseApi, permissionApi, adminUserApi);
+        when(adminUserApi.getUserList(any())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            return ids.stream().map(DccRegistrationCertificateQueryServiceTest::user).toList();
+        });
     }
 
     @Test
@@ -142,6 +154,14 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "detail response must expose the registration reminder color");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("visualState"),
                 "detail response must expose the registration reminder state");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("uploadOperatorName"),
+                "detail response must expose the formal initial upload operator name");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("uploadedAt"),
+                "detail response must expose the formal initial upload time");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("uploadApproverName"),
+                "detail response must expose the formal initial upload approver name");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("uploadApprovedAt"),
+                "detail response must expose the formal initial upload approval time");
     }
 
     @Test
@@ -599,6 +619,24 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void detailReturnsInitialUploadOperatorAndApproverFromFormalWorkflowFacts() {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-UPLOAD-AUDIT", true, 20L);
+        LocalDateTime uploadedAt = LocalDateTime.of(2026, 8, 16, 15, 30);
+        seedApprovedUploadRequest(visible, 88L, uploadedAt);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, visible.certificateId(), null, context("REQ-DETAIL-UPLOAD-AUDIT"));
+
+        assertEquals("用户-88", detail.getUploadOperatorName());
+        assertEquals(uploadedAt, detail.getUploadedAt());
+        assertEquals("用户-99", detail.getUploadApproverName());
+        assertEquals(LocalDateTime.of(2026, 8, 17, 9, 0), detail.getUploadApprovedAt());
+    }
+
+    @Test
     void currentPageShowsApprovedInitialUploadWaitingForFirstEffectiveDate() {
         FormalFixture pendingInitial = seedFormal(
                 1L, 10L, "PENDING_FIRST_EFFECTIVE", "PENDING_EFFECTIVE",
@@ -671,6 +709,28 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(old.versionId(), oldDetail.getVersionId());
         assertEquals("OLD", oldDetail.getStatus());
         assertEquals("CERT-OLD-SPECIFIC-VERSION", oldDetail.getCertificateNo());
+    }
+
+    @Test
+    void detailPrefersPendingEffectiveVersionAttachmentWhenCurrentVersionHasOnlyStagedFile() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-PENDING-FILE", false, 20L);
+        FormalFixture pending = seedPendingRenewal(current.certificateId(), current.snapshotId());
+        Long pendingRegistrationFileId = seedRegistrationFile(1L, pending.versionId(), "CERT-PENDING-FILE", "BOUND");
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, current.certificateId(), null, context("REQ-DETAIL-PENDING-FILE"));
+
+        assertEquals(pending.versionId(), detail.getVersionId(),
+                "detail must prefer the pending-effective version when it carries the attached registration file");
+        assertEquals(pendingRegistrationFileId, detail.getRegistrationFileId(),
+                "detail must return the formal business-file id from the same pending-effective version");
+        assertEquals("sensitive-CERT-PENDING-FILE.pdf", detail.getRegistrationFileName(),
+                "detail must return the original attachment name from the same pending-effective version");
+        assertTrue(detail.getHasRegistrationFile(),
+                "detail must report the pending-effective registration attachment as present");
     }
 
     @Test
@@ -757,26 +817,11 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 INSERT INTO dcc_registration_certificate_snapshot_entrusted
                     (snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id, deleted)
                 VALUES (?, ?, ?, ?, ?, 0)
-                """, snapshot.getId(), 30L, "Factory A", 1, tenantId));
+        """, snapshot.getId(), 30L, "Factory A", 1, tenantId));
 
         Long registrationFileId = null;
         if (hasFile) {
-            DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()
-                    .ownerType("VERSION")
-                    .ownerId(version.getId())
-                    .fileKind("REGISTRATION_CERTIFICATE")
-                    .infraFileId(7000L + version.getId())
-                    .originalName("sensitive-" + certificateNo + ".pdf")
-                    .mimeType("application/pdf")
-                    .fileSize(128L)
-                    .sha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-                    .status("BOUND")
-                    .boundAt(java.time.LocalDateTime.of(2026, 8, 17, 9, 5))
-                    .boundBy(99L)
-                    .build();
-            file.setTenantId(tenantId);
-            assertEquals(1, dbFileMapper.insert(file));
-            registrationFileId = file.getId();
+            registrationFileId = seedRegistrationFile(tenantId, version.getId(), certificateNo, "BOUND");
         }
 
         certificate.setCurrentVersionId("CURRENT".equals(versionStatus) ? version.getId() : null);
@@ -784,6 +829,25 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
         return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId(), registrationFileId);
+    }
+
+    private Long seedRegistrationFile(Long tenantId, Long versionId, String certificateNo, String status) {
+        DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()
+                .ownerType("VERSION")
+                .ownerId(versionId)
+                .fileKind("REGISTRATION_CERTIFICATE")
+                .infraFileId(7000L + versionId)
+                .originalName("sensitive-" + certificateNo + ".pdf")
+                .mimeType("application/pdf")
+                .fileSize(128L)
+                .sha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .status(status)
+                .boundAt(java.time.LocalDateTime.of(2026, 8, 17, 9, 5))
+                .boundBy(99L)
+                .build();
+        file.setTenantId(tenantId);
+        assertEquals(1, dbFileMapper.insert(file));
+        return file.getId();
     }
 
     private void updateExpiryDate(Long versionId, LocalDate expiryDate) {
@@ -953,6 +1017,25 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(1, grantMapper.insert(grant));
     }
 
+    private void seedApprovedUploadRequest(FormalFixture fixture, Long requesterUserId, LocalDateTime requestedAt) {
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_access_request
+                    (id, tenant_id, owner_company_id, certificate_id, requester_user_id,
+                     request_type, request_key, purpose, status, requested_at, completed_at,
+                     detail_json, creator, deleted)
+                VALUES (8001, 1, 10, ?, ?, 'UPLOAD_CERTIFICATE', 'upload-audit-8001',
+                        '注册证上传审批', 'APPROVED', ?, ?, '{}', 'junit', 0)
+                """, fixture.certificateId(), requesterUserId, requestedAt,
+                LocalDateTime.of(2026, 8, 17, 9, 0)));
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_access_request_file
+                    (id, tenant_id, request_id, business_file_id, file_kind,
+                     download_requested, status, detail_json, creator, deleted)
+                VALUES (8101, 1, 8001, ?, 'REGISTRATION_CERTIFICATE',
+                        FALSE, 'APPROVED', '{}', 'junit', 0)
+                """, fixture.registrationFileId()));
+    }
+
     private static MdmEnterpriseRespDTO owner(Long id, String name) {
         return MdmEnterpriseRespDTO.builder()
                 .id(id)
@@ -961,6 +1044,13 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .status("ENABLED")
                 .name(name)
                 .build();
+    }
+
+    private static AdminUserRespDTO user(Long id) {
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(id);
+        user.setNickname("用户-" + id);
+        return user;
     }
 
     private static DccRequestAuditContext context(String requestId) {

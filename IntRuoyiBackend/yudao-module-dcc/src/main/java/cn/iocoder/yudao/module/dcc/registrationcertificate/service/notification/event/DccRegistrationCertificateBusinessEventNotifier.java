@@ -79,7 +79,7 @@ public class DccRegistrationCertificateBusinessEventNotifier {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

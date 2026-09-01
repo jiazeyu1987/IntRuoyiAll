@@ -30,6 +30,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -275,6 +277,71 @@ class DccApprovalTaskAdapterTest {
         assertEquals(1, page.getList().size());
         assertEquals("6001", page.getList().get(0).getBusinessKey());
         assertEquals("DCC-SOP-001", page.getList().get(0).getBusinessTitle());
+    }
+
+    @Test
+    void pageTodoPaginatesAfterFilteringSharedFormCenterTasks() {
+        List<Task> sourceTasks = new ArrayList<>();
+        Map<String, ProcessInstance> processInstances = new HashMap<>();
+        for (int index = 1; index <= 10; index++) {
+            Task formTask = mock(Task.class);
+            String processInstanceId = "pi-form-action-" + index;
+            when(formTask.getProcessInstanceId()).thenReturn(processInstanceId);
+            sourceTasks.add(formTask);
+
+            ProcessInstance formProcess = mock(ProcessInstance.class);
+            when(formProcess.getBusinessKey()).thenReturn("FORM_ACTION:FCI-122-" + index);
+            processInstances.put(processInstanceId, formProcess);
+        }
+
+        Task dccTask = mock(Task.class);
+        when(dccTask.getId()).thenReturn("task-dcc-after-form-actions");
+        when(dccTask.getName()).thenReturn("文控审核");
+        when(dccTask.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(dccTask.getProcessInstanceId()).thenReturn("pi-dcc-after-form-actions");
+        when(dccTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+        sourceTasks.add(dccTask);
+
+        ProcessInstance dccProcess = mock(ProcessInstance.class);
+        when(dccProcess.getBusinessKey()).thenReturn("6008");
+        when(dccProcess.getStartUserId()).thenReturn("501");
+        processInstances.put("pi-dcc-after-form-actions", dccProcess);
+
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenAnswer(invocation -> {
+                    BpmTaskPageReqVO request = invocation.getArgument(1);
+                    int fromIndex = Math.min((request.getPageNo() - 1) * request.getPageSize(), sourceTasks.size());
+                    int toIndex = Math.min(fromIndex + request.getPageSize(), sourceTasks.size());
+                    return new PageResult<>(sourceTasks.subList(fromIndex, toIndex), (long) sourceTasks.size());
+                });
+        when(processInstanceService.getProcessInstanceMap(any()))
+                .thenAnswer(invocation -> {
+                    Set<String> ids = invocation.getArgument(0);
+                    Map<String, ProcessInstance> result = new HashMap<>();
+                    ids.forEach(id -> result.put(id, processInstances.get(id)));
+                    return result;
+                });
+
+        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        file.setId(6008L);
+        file.setTitle("DCC-SOP-008");
+        file.setFileNumber("SOP-008");
+        file.setVersionNo("A");
+        file.setCategoryId(7001L);
+        file.setStatus("PENDING_DOC_CONTROL_REVIEW");
+        when(workflowService.getControlledFile(6008L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(1, page.getList().size());
+        assertEquals("6008", page.getList().get(0).getBusinessKey());
     }
 
     @Test

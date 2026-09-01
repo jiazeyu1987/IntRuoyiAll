@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.access.DccRegistrationCertificateBusinessFileAccessProvider;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceService;
@@ -27,6 +28,10 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.JdbcTemplate;
+import javax.sql.DataSource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDate;
@@ -36,6 +41,7 @@ import java.util.List;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.access.DccRegistrationCertificateBusinessFileAccessProvider.BUSINESS_TYPE;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.access.DccRegistrationCertificateBusinessFileAccessProvider.PROVIDER_ID;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.access.DccRegistrationCertificateBusinessFileAccessProvider.QUERY_CURRENT_PERMISSION;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -50,15 +56,29 @@ import static org.mockito.Mockito.when;
 @Import({
         DccRegistrationCertificateBusinessFileAccessProvider.class,
         DccRegistrationCertificateFileReferenceServiceImpl.class,
+        DccRegistrationCertificateAccessPolicyService.class,
         DccRegistrationCertificateReadAuditService.class,
-        DccRegistrationCertificateBusinessClock.class
+        DccRegistrationCertificateBusinessClock.class,
+        DccRegistrationCertificateBusinessFileAccessProviderTest.JdbcTestConfiguration.class
 })
 class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUnitTest {
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class JdbcTestConfiguration {
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
+    }
 
     @Resource
     private DccRegistrationCertificateBusinessFileAccessProvider provider;
     @Resource
     private DccRegistrationCertificateFileReferenceService referenceService;
+    @Resource
+    private DccRegistrationCertificateAccessPolicyService accessPolicyService;
+    @Resource
+    private DccRegistrationCertificateBusinessClock businessClock;
     @Resource
     private DccRegistrationCertificateMapper certificateMapper;
     @Resource
@@ -105,6 +125,41 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
     }
 
     @Test
+    void previewAllowsPendingEffectiveBusinessFileSelectedByTheMasterProjection() {
+        FormalFile pendingInitial = seedFormalFile(
+                1L, 10L, "PENDING_FIRST_EFFECTIVE", "PENDING_EFFECTIVE", "BOUND", 91006L);
+        FormalFile pendingRenewal = seedFormalFile(
+                1L, 10L, "ACTIVE", "PENDING_EFFECTIVE", "BOUND", 91007L);
+        when(permissionApi.hasAnyPermissions(99L, QUERY_CURRENT_PERMISSION)).thenReturn(true);
+
+        for (FormalFile file : List.of(pendingInitial, pendingRenewal)) {
+            BusinessFileAccessReference reference = accessService.assertAllowed(new BusinessFileAccessRequest(
+                    BusinessFileAccessOperation.PREVIEW, file.infraFileId(), 1L, 99L, null,
+                    "REQ-RC-PENDING-" + file.infraFileId(), null, "10.0.0.1", "JUnit")).orElseThrow();
+
+            assertEquals(file.businessFileId(), reference.businessId());
+            assertEquals(file.certificateId(), reference.versionKey() == null ? null : file.certificateId());
+        }
+    }
+
+    @Test
+    void onlyOfficePreviewAllowsOldVersionForRegistrationManagerWithinCompanyScope() {
+        FormalFile file = seedFormalFile(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "BOUND", 91008L);
+        when(permissionApi.hasAnyPermissions(99L, QUERY_CURRENT_PERMISSION)).thenReturn(true);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+
+        BusinessFileAccessReference reference = accessService.assertAllowed(new BusinessFileAccessRequest(
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, file.infraFileId(), 1L, 99L, null,
+                "REQ-RC-OLD-OFFICE-001", null, "10.0.0.1", "JUnit")).orElseThrow();
+
+        assertEquals(file.businessFileId(), reference.businessId());
+        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        assertNotNull(auditMapper.selectByTenantIdAndEventKey(
+                1L, "REQ-RC-OLD-OFFICE-001:ONLYOFFICE_PREVIEW:CERTIFICATE:"
+                        + file.certificateId() + ":SUCCESS"));
+    }
+
+    @Test
     void permissionDeniedIsAuditedBeforeFileIo() {
         FormalFile file = seedFormalFile(1L, 10L, "ACTIVE", "CURRENT", "BOUND", 91004L);
         when(permissionApi.hasAnyPermissions(99L, QUERY_CURRENT_PERMISSION)).thenReturn(false);
@@ -127,8 +182,8 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
         IllegalStateException auditFailure = new IllegalStateException("audit unavailable");
         doThrow(auditFailure).when(brokenAuditService).record(any());
         BusinessFileAccessService guardedService = new BusinessFileAccessService(List.of(
-                new DccRegistrationCertificateBusinessFileAccessProvider(referenceService, companyScopeApi,
-                        permissionApi, brokenAuditService)));
+                new DccRegistrationCertificateBusinessFileAccessProvider(referenceService, accessPolicyService,
+                        permissionApi, brokenAuditService, businessClock)));
 
         BusinessFileAccessDeniedException denied = assertThrows(BusinessFileAccessDeniedException.class,
                 () -> guardedService.assertAllowed(new BusinessFileAccessRequest(
@@ -237,6 +292,7 @@ class DccRegistrationCertificateBusinessFileAccessProviderTest extends BaseDbUni
 
         certificate.setCurrentVersionId("CURRENT".equals(versionStatus) ? version.getId() : null);
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
+        certificate.setPendingVersionId("PENDING_EFFECTIVE".equals(versionStatus) ? version.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
         return new FormalFile(certificate.getId(), version.getId(), file.getId(), infraFileId);
     }

@@ -21,7 +21,7 @@ public class DccRegistrationCertificateApprovalStatusListener extends BpmProcess
     public DccRegistrationCertificateApprovalStatusListener(
             DccRegistrationCertificateApprovalService approvalService) {
         if (approvalService == null) {
-            throw new IllegalArgumentException("approvalService is required");
+            throw new IllegalArgumentException("注册证审批服务不能为空");
         }
         this.approvalService = approvalService;
     }

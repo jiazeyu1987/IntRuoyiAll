@@ -19,7 +19,9 @@ const extractBetween = (source, startNeedle, endNeedle, label) => {
 }
 
 const packageJson = JSON.parse(readSource('package.json'))
-const timelineSource = readSource('src/views/bpm/processInstance/detail/ProcessInstanceTimeline.vue')
+const timelineSource = readSource(
+  'src/views/bpm/processInstance/detail/ProcessInstanceTimeline.vue'
+)
 
 assert.equal(
   packageJson.scripts['e2e:bpm:timeline-current-node-green:static'],
@@ -47,7 +49,7 @@ assert.match(
 
 assert.match(
   timelineSource,
-  /:style="isCurrentApprovalNodeStatus\(activity\.status\) \? \{ color: APPROVAL_ACTIVE_COLOR \} : undefined"/,
+  /:style="\s*isCurrentApprovalNodeStatus\(activity\.status\)\s*\?\s*\{\s*color:\s*APPROVAL_ACTIVE_COLOR\s*\}\s*:\s*undefined\s*"/,
   'timeline node label must become green for the current active node.'
 )
 

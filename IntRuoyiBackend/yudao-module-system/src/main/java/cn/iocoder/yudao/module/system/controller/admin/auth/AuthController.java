@@ -24,6 +24,8 @@ import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.social.SocialClientService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintAssistantService;
+import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider;
+import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider.KingdeeConfigSnapshot;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -73,6 +75,7 @@ public class AuthController {
     private static final String INVOICE_VOUCHER_PRINT_PERMISSION = "erp:invoice-voucher-print:query";
     private static final long INVOICE_VOUCHER_PRINT_TICKET_TTL_SECONDS = 120L;
     private static final String INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR = "|";
+    private static final String KINGDEE_CONFIG_PREFIX = "发票凭证打印助手 ERP 配置缺失：";
 
     @Resource
     private AdminAuthService authService;
@@ -90,6 +93,8 @@ public class AuthController {
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private InvoiceVoucherPrintAssistantService invoiceVoucherPrintAssistantService;
+    @Resource
+    private InvoiceVoucherPrintKingdeeConfigProvider kingdeeConfigProvider;
 
     @Resource
     private SecurityProperties securityProperties;
@@ -227,7 +232,25 @@ public class AuthController {
         if (!INVOICE_VOUCHER_PRINT_PERMISSION.equals(respVO.getPermission())) {
             return success(invalidInvoiceVoucherPrintTicket("permission_mismatch"));
         }
+        respVO.setKingdeeConfig(buildInvoiceVoucherPrintKingdeeConfig());
         return success(respVO);
+    }
+
+    private AuthInvoiceVoucherPrintTicketValidateRespVO.KingdeeConfig buildInvoiceVoucherPrintKingdeeConfig() {
+        KingdeeConfigSnapshot snapshot = kingdeeConfigProvider.getCurrentConfigSnapshot();
+        if (snapshot == null) {
+            throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(),
+                    KINGDEE_CONFIG_PREFIX + "kingdeeConfig");
+        }
+        return AuthInvoiceVoucherPrintTicketValidateRespVO.KingdeeConfig.builder()
+                .baseUrl(snapshot.getBaseUrl())
+                .acctId(snapshot.getAcctId())
+                .username(snapshot.getUsername())
+                .password(snapshot.getPassword())
+                .appId(snapshot.getAppId())
+                .appSecret(snapshot.getAppSecret())
+                .lcid(snapshot.getLcid())
+                .build();
     }
 
     private List<MenuDO> getEnabledMenuList(Set<Long> menuIds) {

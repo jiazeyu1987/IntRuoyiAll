@@ -57,7 +57,7 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
                 return Optional.empty();
             }
             if (files.size() != 1) {
-                throw new IllegalStateException("ambiguous registration certificate file references: infraFileId="
+                throw new IllegalStateException("注册证文件引用不唯一：文件 ID="
                         + infraFileId + ", count=" + files.size());
             }
             return Optional.of(toReference(files.get(0), infraFileId));
@@ -80,6 +80,20 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
     }
 
     @Override
+    public DccRegistrationCertificateFileReference requireBoundByBusinessFileId(
+            Long tenantId, Long businessFileId) {
+        DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
+        if (file == null || !Objects.equals(file.getTenantId(), tenantId)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
+        }
+        DccRegistrationCertificateFileReference reference = toReference(file, file.getInfraFileId());
+        if (!FILE_STATUS_BOUND.equals(file.getStatus())) {
+            throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        return reference;
+    }
+
+    @Override
     public DccRegistrationCertificateFileReference requireCurrentByBusinessFileId(Long tenantId, Long businessFileId) {
         DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenantId)) {
@@ -97,6 +111,26 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
                 throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
             }
             return toCurrentReference(file, expectedInfraFileId);
+        });
+        if (!Objects.equals(reference.tenantId(), tenantId)) {
+            throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        return reference;
+    }
+
+    @Override
+    public DccRegistrationCertificateFileReference requireBoundByReference(
+            Long tenantId, Long businessFileId, Long expectedInfraFileId) {
+        DccRegistrationCertificateFileReference reference = executeTenantNeutral(() -> {
+            DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
+            if (file == null) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
+            }
+            DccRegistrationCertificateFileReference resolved = toReference(file, expectedInfraFileId);
+            if (!FILE_STATUS_BOUND.equals(file.getStatus())) {
+                throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
+            }
+            return resolved;
         });
         if (!Objects.equals(reference.tenantId(), tenantId)) {
             throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
@@ -154,7 +188,7 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

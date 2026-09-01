@@ -1114,6 +1114,16 @@
                   修改
                 </el-button>
                 <el-button
+                  v-if="canOpenPqcSubmissionNonconformanceReview(row)"
+                  v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
+                  link
+                  type="danger"
+                  :data-pqc-submission-nonconformance-review-event-id="String(row.id)"
+                  @click="openPqcSubmissionNonconformanceReview(row)"
+                >
+                  不合格审查
+                </el-button>
+                <el-button
                   v-if="canRejectProductionSubmission(row)"
                   link
                   type="danger"
@@ -3773,6 +3783,7 @@ import {
   correctProcessPoolPqcInspection,
   correctProcessPoolProductionReport
 } from '@/api/mes/pro/processpool/eventRevision'
+import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
@@ -4248,7 +4259,7 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
   { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
   { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
-  { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
+  { key: 'operation', label: '操作', width: 360, hideable: false, business: false }
 ]
 const pqcFormHistoryDefaultColumns: UserTableColumnDefinition[] = [
   ...pqcSubmissionDefaultColumns.filter((column) => column.key !== 'operation'),
@@ -4474,6 +4485,9 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   row.submissionReviewStatus !== 'APPROVED' &&
   row.processInspectionAggregationStatus !== 'AGGREGATED' &&
   Boolean(row.id)
+
+const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
+  canReviewSubmission(row) && Boolean(row.batchExecutionId)
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
@@ -7522,6 +7536,22 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
   }
 }
 
+const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) => {
+  requirePositiveNumber(row.id, '工序池提交事件编号不能为空')
+  if (!canOpenPqcSubmissionNonconformanceReview(row)) {
+    ElMessage.error('缺少PQC提交批次，无法发起不合格审查')
+    return
+  }
+  router.push({
+    name: 'MesProFeedbackEdhrNonconformanceReview',
+    query: {
+      sourceType: SOURCE_TYPE_PQC_SUBMISSION,
+      sourceId: String(row.id),
+      batchExecutionId: String(row.batchExecutionId)
+    }
+  })
+}
+
 const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canRejectProductionSubmission(event)) {
@@ -8709,6 +8739,17 @@ onMounted(() => {
 
 .team-leader-workbench__module-tabs--flat :deep(.el-tabs__header) {
   margin: 0 0 12px;
+}
+
+.team-leader-workbench__module-tabs :deep(.el-tabs__nav-wrap) {
+  min-width: 0;
+}
+
+.team-leader-workbench__module-tabs :deep(.el-tabs__item) {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .team-leader-workbench__module-tabs--flat :deep(.el-tabs__item) {

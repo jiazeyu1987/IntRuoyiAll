@@ -52,6 +52,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static final String SOURCE_TASK_TYPE = "DCC_CONTROLLED_FILE_TASK";
     private static final String APPROVAL_CENTER_VIEWER_FROM = "approval-center";
     private static final String APPROVAL_CENTER_HANDLING_MODE = "approval";
+    private static final int SOURCE_PAGE_SIZE = 200;
     private static final Set<String> PROCESS_IN_MODULE_ACTIONS = Set.of("PROCESS_IN_MODULE");
     private static final Set<String> QUICK_REVIEW_ACTIONS = Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE");
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
@@ -141,57 +142,88 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
-        BpmTaskPageReqVO reqVO = toBpmTaskPageReqVO(context);
-        PageResult<Task> page = bpmTaskService.getTaskTodoPage(resolveQueryUserId(context), reqVO);
-        Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: DCC");
-        Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: DCC");
-        if (page.getList().isEmpty()) {
-            return new PageResult<>(List.of(), page.getTotal());
-        }
-        Map<String, ProcessInstance> processInstanceMap = processInstanceService.getProcessInstanceMap(
-                toProcessInstanceIds(page.getList(), Task::getProcessInstanceId));
+        VisibleWindow window = visibleWindow(context);
         List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        long skipped = 0L;
-        for (Task task : page.getList()) {
-            ApprovalTaskSummary summary = toSummary(task,
-                    requireProcessInstance(processInstanceMap, task.getProcessInstanceId()));
-            if (summary == null) {
-                skipped++;
-                continue;
+        long visibleTotal = 0L;
+        long sourceOffset = 0L;
+        int sourcePageNo = 1;
+        while (true) {
+            PageResult<Task> page = requireSourcePage(
+                    bpmTaskService.getTaskTodoPage(resolveQueryUserId(context),
+                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE)),
+                    "TODO", sourcePageNo);
+            if (page.getList().isEmpty()) {
+                if (sourceOffset < page.getTotal()) {
+                    throw sourcePageInconsistent("TODO", sourcePageNo, sourceOffset, page.getTotal());
+                }
+                break;
             }
-            summaries.add(summary);
+            Map<String, ProcessInstance> processInstanceMap = processInstanceService.getProcessInstanceMap(
+                    toProcessInstanceIds(page.getList(), Task::getProcessInstanceId));
+            for (Task task : page.getList()) {
+                ProcessInstance processInstance = requireProcessInstance(processInstanceMap,
+                        task.getProcessInstanceId());
+                if (!isDccControlledFileBusinessKey(requireBusinessKey(processInstance.getBusinessKey()))) {
+                    continue;
+                }
+                if (window.contains(visibleTotal)) {
+                    summaries.add(toSummary(task, processInstance));
+                }
+                visibleTotal++;
+            }
+            sourceOffset += page.getList().size();
+            if (sourceOffset >= page.getTotal()) {
+                break;
+            }
+            sourcePageNo++;
         }
-        return new PageResult<>(summaries, adjustedTotal(page.getTotal(), skipped, summaries.size()));
+        return new PageResult<>(summaries, visibleTotal);
     }
 
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
-        BpmTaskPageReqVO reqVO = toBpmTaskPageReqVO(context);
-        PageResult<HistoricTaskInstance> page = bpmTaskService.getTaskDonePage(resolveQueryUserId(context), reqVO);
-        Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: DCC");
-        Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: DCC");
-        if (page.getList().isEmpty()) {
-            return new PageResult<>(List.of(), page.getTotal());
-        }
-        Map<String, HistoricProcessInstance> processInstanceMap = processInstanceService.getHistoricProcessInstanceMap(
-                toProcessInstanceIds(page.getList(), HistoricTaskInstance::getProcessInstanceId));
+        VisibleWindow window = visibleWindow(context);
         List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        long skipped = 0L;
-        for (HistoricTaskInstance task : page.getList()) {
-            ApprovalTaskSummary summary = toSummary(task, requireHistoricProcessInstance(processInstanceMap,
-                    task.getProcessInstanceId()));
-            if (summary == null) {
-                skipped++;
-                continue;
+        long visibleTotal = 0L;
+        long sourceOffset = 0L;
+        int sourcePageNo = 1;
+        while (true) {
+            PageResult<HistoricTaskInstance> page = requireSourcePage(
+                    bpmTaskService.getTaskDonePage(resolveQueryUserId(context),
+                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE)),
+                    "DONE", sourcePageNo);
+            if (page.getList().isEmpty()) {
+                if (sourceOffset < page.getTotal()) {
+                    throw sourcePageInconsistent("DONE", sourcePageNo, sourceOffset, page.getTotal());
+                }
+                break;
             }
-            summaries.add(summary);
+            Map<String, HistoricProcessInstance> processInstanceMap =
+                    processInstanceService.getHistoricProcessInstanceMap(
+                            toProcessInstanceIds(page.getList(), HistoricTaskInstance::getProcessInstanceId));
+            for (HistoricTaskInstance task : page.getList()) {
+                HistoricProcessInstance processInstance = requireHistoricProcessInstance(processInstanceMap,
+                        task.getProcessInstanceId());
+                if (!isDccControlledFileBusinessKey(requireBusinessKey(processInstance.getBusinessKey()))) {
+                    continue;
+                }
+                if (window.contains(visibleTotal)) {
+                    summaries.add(toSummary(task, processInstance));
+                }
+                visibleTotal++;
+            }
+            sourceOffset += page.getList().size();
+            if (sourceOffset >= page.getTotal()) {
+                break;
+            }
+            sourcePageNo++;
         }
-        return new PageResult<>(summaries, adjustedTotal(page.getTotal(), skipped, summaries.size()));
+        return new PageResult<>(summaries, visibleTotal);
     }
 
-    private BpmTaskPageReqVO toBpmTaskPageReqVO(ApprovalTaskQueryContext context) {
+    private BpmTaskPageReqVO toBpmTaskPageReqVO(ApprovalTaskQueryContext context, int pageNo, int pageSize) {
         BpmTaskPageReqVO reqVO = new BpmTaskPageReqVO();
-        reqVO.setPageNo(context.getPageNo() == null ? 1 : context.getPageNo());
-        reqVO.setPageSize(context.getPageSize() == null ? 10 : context.getPageSize());
+        reqVO.setPageNo(pageNo);
+        reqVO.setPageSize(pageSize);
         reqVO.setProcessDefinitionKey(PROCESS_DEFINITION_KEY);
         reqVO.setName(context.getKeyword());
         return reqVO;
@@ -562,11 +594,29 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         return businessKey != null && businessKey.chars().allMatch(Character::isDigit);
     }
 
-    private static long adjustedTotal(Long originalTotal, long skipped, int visibleSize) {
-        if (originalTotal == null) {
-            return visibleSize;
+    private static <T> PageResult<T> requireSourcePage(PageResult<T> page, String viewType, int pageNo) {
+        Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: DCC " + viewType);
+        Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: DCC " + viewType);
+        Objects.requireNonNull(page.getTotal(), "APPROVAL_ADAPTER_PAGE_TOTAL_REQUIRED: DCC " + viewType);
+        if (page.getTotal() < 0) {
+            throw new IllegalStateException("APPROVAL_ADAPTER_PAGE_TOTAL_INVALID: DCC " + viewType
+                    + " page " + pageNo + " reported " + page.getTotal());
         }
-        return Math.max(visibleSize, originalTotal - skipped);
+        return page;
+    }
+
+    private static IllegalStateException sourcePageInconsistent(String viewType, int pageNo,
+                                                                 long sourceOffset, long sourceTotal) {
+        return new IllegalStateException("APPROVAL_ADAPTER_SOURCE_PAGE_INCONSISTENT: DCC " + viewType
+                + " page " + pageNo + " is empty at offset " + sourceOffset
+                + " but source total is " + sourceTotal);
+    }
+
+    private static VisibleWindow visibleWindow(ApprovalTaskQueryContext context) {
+        int pageNo = context.getPageNo() == null || context.getPageNo() < 1 ? 1 : context.getPageNo();
+        int pageSize = context.getPageSize() == null || context.getPageSize() < 1 ? 10 : context.getPageSize();
+        long fromIndex = (long) (pageNo - 1) * pageSize;
+        return new VisibleWindow(fromIndex, fromIndex + pageSize);
     }
 
     private static Long parseLong(String value) {
@@ -606,5 +656,12 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .map(mapper)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+    }
+
+    private record VisibleWindow(long fromIndex, long toIndex) {
+
+        private boolean contains(long index) {
+            return index >= fromIndex && index < toIndex;
+        }
     }
 }

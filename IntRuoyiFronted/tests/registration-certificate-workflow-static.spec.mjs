@@ -73,7 +73,7 @@ const uploadDialog = read(uploadDialogPath)
 assert.match(uploadDialog, /data-testid="registration-certificate-upload-dialog"/,
   'upload dialog must expose a stable anchor')
 for (const token of [
-  'DCC项目代码',
+  'DCC 项目代码',
   '公司名称',
   '项目代码',
   '产品名称',

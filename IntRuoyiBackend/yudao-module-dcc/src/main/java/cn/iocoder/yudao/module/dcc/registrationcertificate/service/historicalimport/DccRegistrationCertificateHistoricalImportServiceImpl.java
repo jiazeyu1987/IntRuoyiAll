@@ -155,7 +155,7 @@ public class DccRegistrationCertificateHistoricalImportServiceImpl
                     || detail.getSourceRow() == null || detail.getSourceRow() <= 0
                     || detail.getPayloadHash() == null || detail.getPayloadHash().isBlank()
                     || detail.getRestrictedReasons() == null) {
-                throw new IllegalArgumentException("invalid detail");
+                throw new IllegalArgumentException("注册证历史导入明细不合法");
             }
             detail.setSourceHash(detail.getSourceHash().trim().toUpperCase(Locale.ROOT));
             return detail;
@@ -200,7 +200,7 @@ public class DccRegistrationCertificateHistoricalImportServiceImpl
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " is required");
+            throw new IllegalArgumentException(name + "不能为空");
         }
         return value;
     }

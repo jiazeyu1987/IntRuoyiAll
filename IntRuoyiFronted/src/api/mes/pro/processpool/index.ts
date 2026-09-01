@@ -96,6 +96,7 @@ export interface ProcessPoolTimelineEventVO {
   productCode?: string
   productName?: string
   activeOrderId?: number
+  batchExecutionId?: number
   released?: boolean
   pqcTaskId?: number
   inspectionType?: string

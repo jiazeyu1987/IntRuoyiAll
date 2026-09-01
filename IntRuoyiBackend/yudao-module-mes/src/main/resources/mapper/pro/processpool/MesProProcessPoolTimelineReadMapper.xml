@@ -38,6 +38,18 @@
         product_item.code AS productCode,
         product_item.name AS productName,
         pqc_task.active_order_id AS activeOrderId,
+        (
+            SELECT batch_execution.id
+            FROM mes_pro_edhr_batch_execution batch_execution
+            WHERE batch_execution.tenant_id = pool_event.tenant_id
+              AND batch_execution.deleted = 0
+              AND batch_execution.work_order_id = pool_event.work_order_id
+              AND batch_execution.route_id = pool_event.route_id
+              AND CAST(batch_execution.batch_code AS BINARY) = CAST(work_order.batch_code AS BINARY)
+              AND batch_execution.status <![CDATA[<>]]> 60
+            ORDER BY COALESCE(batch_execution.attempt_no, 1) DESC, batch_execution.id DESC
+            LIMIT 1
+        ) AS batchExecutionId,
         CASE WHEN EXISTS (
             SELECT 1
             FROM mes_pro_process_pool_active_order_release_application release_application

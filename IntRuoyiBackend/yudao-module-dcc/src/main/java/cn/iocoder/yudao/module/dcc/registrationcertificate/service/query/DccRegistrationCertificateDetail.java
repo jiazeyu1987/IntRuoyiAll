@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -45,6 +46,10 @@ public class DccRegistrationCertificateDetail {
     private String entrustedEnterprisesJson;
     private Long registrationFileId;
     private String registrationFileName;
+    private String uploadOperatorName;
+    private LocalDateTime uploadedAt;
+    private String uploadApproverName;
+    private LocalDateTime uploadApprovedAt;
     private Boolean hasRegistrationFile;
     private String reminderColor;
     private String visualState;

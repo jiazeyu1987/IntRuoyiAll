@@ -6311,6 +6311,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (batch == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
+        if (!isActiveBatch(batch)) {
+            return buildPersistedTaskPredecessorRouteProcessIdMap(tasks);
+        }
         if (batch.getRouteVersionId() != null) {
             JSONObject snapshot = parseFrozenRouteSnapshot(batch.getRouteSnapshotJson());
             JSONObject configSnapshots = requireFrozenObject(snapshot, "configSnapshots");
@@ -6340,6 +6343,22 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
         return buildRouteProcessPredecessorSetMap(batch.getRouteId(), routeProcessIds);
+    }
+
+    private Map<Long, Set<Long>> buildPersistedTaskPredecessorRouteProcessIdMap(
+            List<MesProEdhrBatchExecutionTaskDO> tasks) {
+        Map<Long, Set<Long>> result = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : tasks) {
+            if (!isRouteForm(task) || task.getRouteProcessId() == null) {
+                continue;
+            }
+            Set<Long> predecessors = result.computeIfAbsent(task.getRouteProcessId(),
+                    ignored -> new LinkedHashSet<>());
+            if (task.getPredecessorRouteProcessId() != null) {
+                predecessors.add(task.getPredecessorRouteProcessId());
+            }
+        }
+        return result;
     }
 
     private boolean hasCurrentBatchProcessConfigForRouteProcessIds(Long routeId, Set<Long> routeProcessIds) {

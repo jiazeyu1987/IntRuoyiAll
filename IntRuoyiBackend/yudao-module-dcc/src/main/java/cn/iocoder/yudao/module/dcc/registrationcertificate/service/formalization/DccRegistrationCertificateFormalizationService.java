@@ -110,13 +110,13 @@ public class DccRegistrationCertificateFormalizationService {
                         ControlledContentProjectionSnapshot.of(key, state.version().getId(), null),
                         state.certificate().getId(), state.version().getId(),
                         String.valueOf(state.version().getVersionNo()), versionStatus, actorId,
-                        "Initial registration certificate became effective on formalization");
+                        "首份注册证正式化后立即生效");
             } else {
                 projectionService.registerReadyCandidate(key, before,
                         ControlledContentProjectionSnapshot.of(key, null, state.version().getId()),
                         state.certificate().getId(), state.version().getId(),
                         String.valueOf(state.version().getVersionNo()), versionStatus, actorId,
-                        "Initial registration certificate awaits its effective date");
+                        "首份注册证正式化后等待生效日期");
             }
         } catch (RuntimeException exception) {
             ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
@@ -192,7 +192,7 @@ public class DccRegistrationCertificateFormalizationService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

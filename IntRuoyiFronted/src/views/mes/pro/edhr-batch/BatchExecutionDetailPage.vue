@@ -1189,14 +1189,14 @@
         >
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading"
+          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
           @click="handleDownloadArchive"
         >
           下载打印版 PDF
         </el-button>
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading"
+          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
           @click="handlePrintArchive"
         >
           打印
@@ -1488,10 +1488,7 @@ import {
   type EdhrStage4DossierUploadSimulationRespVO,
   type MesProductionReleaseReportNodeCompleteRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
-import {
-  SOURCE_TYPE_PQC_RELEASE,
-  SOURCE_TYPE_PQC_SUBMISSION
-} from '@/api/mes/pro/edhr/nonconformanceReview'
+import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES,
   EDHR_WORK_TASK_STATUS_TODO,
@@ -2496,7 +2493,7 @@ const RELEASE_ACTION_LOCKED_MESSAGE = '放行审批中，只能处理放行审�
 const releaseActionLocked = computed(
   () =>
     !hasGoldenFingerActionBypass.value &&
-    (detail.value?.releaseActionLocked === true || releasePendingApproval.value)
+    (releasePendingApproval.value || (detail.value?.releaseActionLocked === true && releaseStatus.value !== 'RELEASED'))
 )
 const releaseActionLockMessage = computed(
   () => detail.value?.releaseActionLockReason || RELEASE_ACTION_LOCKED_MESSAGE
@@ -2544,10 +2541,9 @@ const nonconformanceFrozenActionLocked = computed(
 )
 const batchActionLocked = computed(
   () =>
-    !hasGoldenFingerActionBypass.value &&
-    (pendingVoidActionLocked.value ||
-      nonconformanceFrozenActionLocked.value ||
-      releaseActionLocked.value)
+    nonconformanceFrozenActionLocked.value ||
+    (!hasGoldenFingerActionBypass.value &&
+      (pendingVoidActionLocked.value || releaseActionLocked.value))
 )
 const batchActionLockMessage = computed(() =>
   pendingVoidActionLocked.value
@@ -3452,7 +3448,11 @@ const assertArchiveWorkTaskId = () => {
   if (!archiveWorkTaskId.value) {
     throw new Error('地址缺少有效归档工作任务ID，请从电子批记录工作任务看板进入最终归档。')
   }
-  return archiveWorkTaskId.value
+  const workTaskId = Number(archiveWorkTaskId.value)
+  if (!Number.isSafeInteger(workTaskId) || workTaskId <= 0) {
+    throw new Error('地址缺少有效归档工作任务ID，请从电子批记录工作任务看板进入最终归档。')
+  }
+  return workTaskId
 }
 
 const resolveBatchStatusLabel = (status?: number) => {
@@ -4292,6 +4292,9 @@ const resolveRouteQueryTaskSelection = () => {
   )
 }
 
+const hasBatchLevelWorkTaskRouteContext = () =>
+  Boolean(parsePositiveRouteQueryId(route.query.workTaskId)) && !resolveRouteQueryTaskSelection()
+
 const applyRouteFocus = () => {
   const focus = resolveDetailFocus()
   if (focus === 'process') {
@@ -4310,9 +4313,10 @@ const resolveDefaultTaskSelection = () =>
 
 const applyInitialBatchTaskSelection = () => {
   const focus = resolveDetailFocus()
-  if (focus === 'precheck' || focus === 'approval') {
+  if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
     selectReleaseProcess()
-    viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
+    viewedReleaseStageKey.value =
+      focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
     return
   }
   selectedExecutionId.value = ''
@@ -4359,9 +4363,10 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = nextReviewTimeline
     const focus = resolveDetailFocus()
-    if (focus === 'precheck' || focus === 'approval') {
+    if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
       selectReleaseProcess()
-      viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
+      viewedReleaseStageKey.value =
+        focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
       return
     }
     const routeQueryTask = resolveRouteQueryTaskSelection()
@@ -4392,9 +4397,10 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     reviewTimeline.value = undefined
     selectedExecutionId.value = ''
     const focus = resolveDetailFocus()
-    if (focus === 'precheck' || focus === 'approval') {
+    if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
       selectReleaseProcess()
-      viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
+      viewedReleaseStageKey.value =
+        focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
       return
     }
     selectedTaskId.value = String(
@@ -5084,7 +5090,7 @@ const submitReleaseReturn = async () => {
   }
 }
 
-const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_SUBMISSION) => {
+const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_RELEASE) => {
   if (!ensureViewedReleaseStageWritable('不合格审查')) return
   if (!canOpenNonconformanceReview.value) {
     message.error(

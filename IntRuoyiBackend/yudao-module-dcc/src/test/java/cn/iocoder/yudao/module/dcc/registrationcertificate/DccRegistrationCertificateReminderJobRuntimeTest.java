@@ -133,7 +133,7 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
 
         String retrySummary = assertDoesNotThrow(() -> job.execute(PARAM));
 
-        assertTrue(retrySummary.contains("successes=1"));
+        assertTrue(retrySummary.contains("成功=1"));
         assertEquals("SUCCESS", dailyStatus(1L));
         assertEquals("SUCCESS", dailyStatus(2L));
         assertEquals(1, dailyRetryCount(2L));

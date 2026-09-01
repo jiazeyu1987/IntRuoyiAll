@@ -33,7 +33,7 @@ export const formatRegistrationCertificateStatus = (
   status?: DccRegistrationCertificateStatus | string | null
 ) => {
   if (!status) return '未返回状态'
-  return REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.label || status
+  return REGISTRATION_CERTIFICATE_STATUS_META[status as DccRegistrationCertificateStatus]?.label ?? '未识别状态'
 }
 
 export const getRegistrationCertificateStatusTagType = (
@@ -50,17 +50,44 @@ export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
   label: string
 }> = [
   { value: 'NORMAL', label: '正常' },
-  { value: 'T_30', label: 'T-30' },
-  { value: 'T_8', label: 'T-8' },
-  { value: 'T_2', label: 'T-2' },
-  { value: 'T_1', label: 'T-1' }
+  { value: 'T_30', label: '到期前 30 个月' },
+  { value: 'T_8', label: '到期前 8 个月' },
+  { value: 'T_2', label: '到期前 2 个月' },
+  { value: 'T_1', label: '到期前 1 个月' }
 ]
+
+const REGISTRATION_CERTIFICATE_REMINDER_LABELS: Record<string, string> = {
+  NORMAL: '正常',
+  NONE: '正常',
+  CLEARED: '正常',
+  T_30: '到期前 30 个月',
+  T_8: '到期前 8 个月',
+  T_2: '到期前 2 个月',
+  T_1: '到期前 1 个月'
+}
+
+const REGISTRATION_CERTIFICATE_WORKFLOW_STATUS_LABELS: Record<string, string> = {
+  SUBMITTED: '已提交',
+  BPM_BOUND: '审批中',
+  RUNNING: '审批中',
+  APPROVED: '已通过',
+  REJECTED: '已驳回',
+  WITHDRAWN: '已撤回',
+  ACTIVE: '有效',
+  EXPIRED: '已过期',
+  REVOKED: '已撤销'
+}
 
 export const formatRegistrationCertificateReminder = (
   state?: DccRegistrationCertificateReminderVisualState | string | null
 ) => {
-  if (!state || state === 'NONE' || state === 'CLEARED') return '正常'
-  return state.replace('_', '-')
+  if (!state) return '正常'
+  return REGISTRATION_CERTIFICATE_REMINDER_LABELS[state] ?? '提醒状态异常'
+}
+
+export const formatRegistrationCertificateWorkflowStatus = (status?: string | null) => {
+  if (!status) return '未返回状态'
+  return REGISTRATION_CERTIFICATE_WORKFLOW_STATUS_LABELS[status] ?? '未识别状态'
 }
 
 export const getRegistrationCertificateReminderTagType = (color?: string | null): TagProps['type'] => {
@@ -72,6 +99,29 @@ export const getRegistrationCertificateReminderTagType = (color?: string | null)
 export const displayText = (value?: string | number | boolean | null) => {
   if (value === undefined || value === null || value === '') return '—'
   return String(value)
+}
+
+const containsChinese = (value: string) => /[\u4e00-\u9fff]/.test(value)
+
+export const resolveRegistrationCertificateUserMessage = (
+  error: unknown,
+  fallback: string
+) => {
+  const record = error as {
+    message?: string
+    msg?: string
+    response?: { data?: { msg?: string; message?: string } }
+  }
+  const candidates = [
+    record?.response?.data?.msg,
+    record?.response?.data?.message,
+    record?.msg,
+    record?.message
+  ]
+  const businessMessage = candidates.find(
+    (candidate): candidate is string => typeof candidate === 'string' && containsChinese(candidate.trim())
+  )
+  return businessMessage?.trim() || fallback
 }
 
 const assertValidLocalDate = (year: number, month: number, day: number) => {

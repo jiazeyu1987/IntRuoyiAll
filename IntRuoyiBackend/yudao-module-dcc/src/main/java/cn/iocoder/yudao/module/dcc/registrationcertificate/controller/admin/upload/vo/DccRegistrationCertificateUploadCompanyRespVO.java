@@ -4,7 +4,7 @@ import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
-@Schema(description = "管理后台 - 注册证上传公司候选 Response VO")
+@Schema(description = "管理后台 - 注册证上传公司候选响应数据")
 @Data
 public class DccRegistrationCertificateUploadCompanyRespVO {
 

@@ -11,9 +11,18 @@
 ## 本机登录来源
 
 - 前端本机模式使用 `IntRuoyiFronted\.env.local`：`VITE_PORT=8081`，`VITE_BASE_URL=http://127.0.0.1:48081`，`VITE_PROXY_TARGET=http://127.0.0.1:48081`，本机验证码关闭。
-- 登录表单默认租户、用户与密码来自 `IntRuoyiFronted\.env` 的 `VITE_APP_DEFAULT_LOGIN_*` 配置；本文档只记录来源，不复制或传播密码。
+- 登录表单只允许从 `IntRuoyiFronted\.env` 的 `VITE_APP_DEFAULT_LOGIN_TENANT` 读取默认租户；用户名和密码不得通过环境变量或源码默认预填。
 - 需要描述默认本机 E2E 身份时，使用 `芋道源码/admin` 作为身份标签；它只表示本机默认租户和用户名，不代表正式环境地址或正式环境授权。
 - 用户要求修改截图或当前页面中的本机数据但未另行指定租户时，写入前必须通过真实登录确认截图对应的租户/账号，并同时核对页面可见业务范围标识（例如负责路线）和目标列表数量；不得因为另一“测试租户”更便于操作就静默切换。无法从页面证据唯一确认目标租户时必须先阻塞询问。
+
+### 登录页默认凭据禁止门禁
+
+- Trigger: 登录页默认出现 `admin`、无浏览记录浏览器出现默认用户名、构建环境或源码出现 `VITE_APP_DEFAULT_LOGIN_USERNAME` / `VITE_APP_DEFAULT_LOGIN_PASSWORD`，或有人要求恢复默认账号密码。
+- Preflight check: 修改登录页、登录缓存、`.env`、发布包或 E2E 登录脚本前，运行 `node IntRuoyiFronted/tests/e2e/login-default-credentials-static.spec.mjs`，并用 `rg -n "VITE_APP_DEFAULT_LOGIN_USERNAME|VITE_APP_DEFAULT_LOGIN_PASSWORD" IntRuoyiFronted/.env IntRuoyiFronted/src IntRuoyiFronted/types` 确认默认用户名/密码未进入源码和环境配置。
+- Blocker: 登录组件读取默认用户名/密码环境变量、`.env` 设置默认用户名或密码、空浏览器登录页预填 `admin` 或默认密码、旧缓存只按单一租户清理默认凭据，必须停止并修复。
+- Verification: 静态合同通过；空缓存登录页用户名和密码为空；用户主动保存的非默认登录历史仍可回填；旧版默认 `admin` / `admin123` 缓存会被清理。
+- Forbidden action: 禁止用隐藏输入框、仅清本机浏览器缓存、只改测试脚本、只改发布环境变量、继续保留默认密码变量、或把“仅测试环境方便登录”作为默认管理员凭据保留理由。
+- Evidence: `doc/tasks/20260901-remove-login-default-admin/execution-log.md`。
 
 ## 环境门禁
 
@@ -67,9 +76,10 @@
 - Preflight check: 先确认 ERP 角色、菜单权限和入口路径，再确认前端不会直接把 iframe 指向助手首页；前端必须先向 ERP 后端申请短期票据，助手只能通过 `/auth/callback` 校验票据并换取助手会话，首页和业务 API 直连必须拒绝。
 - Runtime readiness: 外部助手由 ERP 页面承载时，进入页签先通过 ERP 后端探测助手是否在线；在线才申请票据并加载 iframe，未在线且配置可启动时显示明确的“启动助手”动作，由 ERP 后端启动配置的助手程序并等待健康探测成功后再进入，不能把连接拒绝页直接展示给业务用户。状态查询和启动接口必须继续使用同一业务权限保护。
 - Port contract: 发票凭证打印助手使用独立固定端口 `18733`，不得占用 ERP 前端 `8081` 或通过环境变量静默改成其它端口。测试服务器和正式服务器是不同机器时可以复用 `18733`；助手和 ERP 后端都必须在启动阶段拒绝非 `18733` 配置。
-- Blocker: 助手缺少 ERP 票据校验地址、票据不是短期有效或一次性消费、无权限用户可拿到票据、iframe 直接打开助手首页、助手首页/API 直连仍展示业务功能，或只隐藏菜单但独立助手仍可直连时必须停止。
-- Verification: 后端单测覆盖有权限签票、无权限拒绝、票据校验和消费；前端静态合同覆盖票据入口与 `/auth/callback`；助手静态合同覆盖会话拦截；真实 Playwright 必须证明 admin 从 ERP 菜单可打开助手、无权限账号看不到菜单、直接访问助手返回 403。
-- Forbidden action: 禁止把菜单隐藏当成直连防护，禁止把 ERP 登录态 token 直接暴露给外部助手，禁止用 mock 校验、默认放行、配置缺失时开放访问或 API-only 冒充页面验收。
+- ERP config bridge: 发票凭证打印助手的金蝶连接信息必须由 ERP 后端在短期票据校验成功后返回当前生效配置快照，字段至少覆盖基础地址、账套 ID、用户名、密码、应用 ID、应用密钥和 LCID；助手只能把该快照写入授权会话专用配置文件并传给查询/生成/上传脚本，不得依赖独立部署的全局 `.env.kingdee` 或 `KINGDEE_ENV_PATH`。容器只保留 `KINGDEE_RUNTIME_DIR` 作为会话配置文件目录。
+- Blocker: 助手缺少 ERP 票据校验地址、票据不是短期有效或一次性消费、无权限用户可拿到票据、iframe 直接打开助手首页、助手首页/API 直连仍展示业务功能、只隐藏菜单但独立助手仍可直连，或短期票据校验成功后缺少当前 ERP 金蝶配置快照时必须停止。
+- Verification: 后端单测覆盖有权限签票、无权限拒绝、票据校验和消费、当前金蝶配置快照返回；前端静态合同覆盖票据入口与 `/auth/callback` 以及 ERP 配置页可维护助手所需字段；助手静态合同覆盖会话拦截、会话级配置文件生成和业务脚本使用会话配置；真实 Playwright 必须证明 admin 从 ERP 菜单可打开助手、无权限账号看不到菜单、直接访问助手返回 403。
+- Forbidden action: 禁止把菜单隐藏当成直连防护，禁止把 ERP 登录态 token 直接暴露给外部助手，禁止用 mock 校验、默认放行、配置缺失时开放访问、让助手回退读取全局 `.env.kingdee`，或 API-only 冒充页面验收。
 - Evidence: `doc/tasks/20260829-invoice-voucher-print-assistant-auth-gate/verification-report.md`。
 
 ## ERP 金蝶账套登录连通性门禁

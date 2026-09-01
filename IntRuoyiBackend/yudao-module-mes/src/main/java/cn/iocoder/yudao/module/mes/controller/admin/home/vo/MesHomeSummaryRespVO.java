@@ -58,4 +58,7 @@ public class MesHomeSummaryRespVO {
     @Schema(description = "未完成维修工单数", requiredMode = Schema.RequiredMode.REQUIRED, example = "2")
     private Long repairActiveCount;
 
+    @Schema(description = "不合格评审待审数", requiredMode = Schema.RequiredMode.REQUIRED, example = "4")
+    private Long nonconformanceReviewPendingCount;
+
 }

@@ -14,7 +14,7 @@ public enum DccRegistrationCertificateMasterStatus {
         return Arrays.stream(values())
                 .filter(value -> value.name().equals(code))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown registration certificate master status: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("未知的注册证主档状态：" + code));
     }
 
     public boolean isFormal() {

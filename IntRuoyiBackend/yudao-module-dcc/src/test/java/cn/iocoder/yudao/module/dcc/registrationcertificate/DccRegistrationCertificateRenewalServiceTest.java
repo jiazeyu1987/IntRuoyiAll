@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotEntrustedMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalCommand;
@@ -20,10 +22,14 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRe
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitResult;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
+import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
+import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -40,10 +46,15 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
@@ -63,9 +74,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @Import({
         DccRegistrationCertificateRenewalService.class,
+        DccRegistrationCertificateActivationService.class,
         DccRegistrationCertificateRenewalServiceTest.DbTestConfiguration.class
 })
 class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
@@ -91,6 +104,20 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     private FileService fileService;
     @MockitoBean
     private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
+    @MockitoBean
+    private MdmEnterpriseApi enterpriseApi;
+
+    @BeforeEach
+    void stubOwnerCompany() {
+        lenient().when(enterpriseApi.getEnabledEnterprises(
+                        List.of(10L), Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())))
+                .thenReturn(List.of(MdmEnterpriseRespDTO.builder()
+                        .id(10L)
+                        .tenantId(1L)
+                        .type(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())
+                        .name("Company A")
+                        .build()));
+    }
 
     @Test
     void sameCategoryRenewalCreatesPendingCandidateAndKeepsCurrentActive() {
@@ -177,6 +204,40 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void dueRenewalActivatesImmediatelyAndAllowsAnotherRenewal() {
+        CurrentFixture current = seedCurrentCertificate();
+
+        DccRegistrationCertificateRenewalResult firstRenewal = uploadOrFail(
+                new DccRegistrationCertificateRenewalCommand(
+                        1L, 99L, "renewal-due-now-1", "trace-renewal-due-now-1",
+                        current.certificateId(), 1, current.currentVersionId(), current.stagedFileId(),
+                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 17),
+                        LocalDate.of(2031, 8, 17), false, null, null));
+
+        assertEquals("CURRENT", firstRenewal.renewalVersionStatus());
+        DccRegistrationCertificateDO activated = certificateMapper.selectById(current.certificateId());
+        assertEquals(firstRenewal.renewalVersionId(), activated.getCurrentVersionId());
+        assertNull(activated.getPendingVersionId());
+        assertEquals(3, activated.getRowVersion());
+        assertEquals("OLD", versionMapper.selectById(current.currentVersionId()).getStatus());
+        assertEquals("CURRENT", versionMapper.selectById(firstRenewal.renewalVersionId()).getStatus());
+
+        Long nextFileId = seedStagedFile(firstRenewal.renewalVersionId(), 7002L);
+        DccRegistrationCertificateRenewalResult nextRenewal = uploadOrFail(
+                new DccRegistrationCertificateRenewalCommand(
+                        1L, 99L, "renewal-after-due-2", "trace-renewal-after-due-2",
+                        current.certificateId(), 3, firstRenewal.renewalVersionId(), nextFileId,
+                        LocalDate.of(2026, 8, 17), LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2032, 9, 1), false, null, null));
+
+        assertEquals("PENDING_EFFECTIVE", nextRenewal.renewalVersionStatus());
+        assertEquals(firstRenewal.renewalVersionId(),
+                certificateMapper.selectById(current.certificateId()).getCurrentVersionId());
+        assertEquals(nextRenewal.renewalVersionId(),
+                certificateMapper.selectById(current.certificateId()).getPendingVersionId());
+    }
+
+    @Test
     void categoryChangedRenewalRequiresBothCertificateNoAndClassification() {
         CurrentFixture current = seedCurrentCertificate();
 
@@ -241,6 +302,17 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         assertEquals("SUBMITTED", result.requestStatus());
         assertFalse(service.isRenewalUploadMissing(1L, current.certificateId()));
         assertNull(certificateMapper.selectById(current.certificateId()).getPendingVersionId());
+        String detailJson = jdbcTemplate.queryForObject("""
+                SELECT detail_json
+                  FROM dcc_registration_certificate_access_request
+                 WHERE tenant_id = 1
+                   AND request_key = 'renewal-approval-pending-1'
+                """, String.class);
+        Map<?, ?> detail = JsonUtils.parseObject(detailJson, Map.class);
+        assertEquals("CERT-001", detail.get("certificateNo"));
+        assertEquals("II", detail.get("classification"));
+        assertEquals("Product A", detail.get("productName"));
+        assertEquals("Company A", detail.get("ownerCompanyName"));
         assertEquals(1, count("""
                 SELECT COUNT(*)
                   FROM dcc_registration_certificate_access_request r
@@ -262,6 +334,45 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                    AND r.status IN ('SUBMITTED', 'BPM_BOUND')
                    AND r.deleted = 0
                 """, current.currentVersionId(), current.certificateId()));
+    }
+
+    @Test
+    void concurrentRenewalSubmissionsCreateOnlyOneOpenApproval() throws Exception {
+        CurrentFixture current = seedCurrentCertificate();
+        CountDownLatch uploadsEntered = new CountDownLatch(2);
+        AtomicLong infraFileId = new AtomicLong(9100L);
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("renewal.pdf"), anyString(),
+                eq("application/pdf"))).thenAnswer(invocation -> {
+            uploadsEntered.countDown();
+            uploadsEntered.await(500, TimeUnit.MILLISECONDS);
+            return infraFileId.incrementAndGet();
+        });
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Callable<Object>> calls = List.of(
+                    () -> submitOutcome(current, "renewal-submit-race-1"),
+                    () -> submitOutcome(current, "renewal-submit-race-2"));
+            List<Future<Object>> futures = pool.invokeAll(calls);
+            List<Object> outcomes = new ArrayList<>();
+            for (Future<Object> future : futures) {
+                outcomes.add(future.get());
+            }
+
+            assertEquals(1, outcomes.stream()
+                    .filter(DccRegistrationCertificateRenewalSubmitResult.class::isInstance).count());
+            assertEquals(1, outcomes.stream()
+                    .filter(ServiceException.class::isInstance)
+                    .map(ServiceException.class::cast)
+                    .filter(error -> error.getCode().equals(REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT.getCode()))
+                    .count());
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
+                + "WHERE tenant_id = 1 AND certificate_id = ? AND status = 'SUBMITTED'",
+                current.certificateId()));
     }
 
     @Test
@@ -414,6 +525,18 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         } catch (ServiceException exception) {
             return exception;
         } catch (RuntimeException exception) {
+            return exception;
+        }
+    }
+
+    private Object submitOutcome(CurrentFixture current, String key) {
+        try {
+            return service.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
+                    1L, 99L, key, "trace-" + key,
+                    current.certificateId(), 1, current.currentVersionId(),
+                    LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2031, 9, 1), false, null, null, renewalApprovalFile()));
+        } catch (ServiceException exception) {
             return exception;
         }
     }

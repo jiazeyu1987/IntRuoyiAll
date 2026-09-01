@@ -7,9 +7,8 @@ const { wsCache } = useCache()
 const AccessTokenKey = 'ACCESS_TOKEN'
 const RefreshTokenKey = 'REFRESH_TOKEN'
 const LegacyLoginTenantNameMap = new Map([['瑛泰源码', '芋道源码']])
-const OldDefaultTestTenantName = '测试租户'
-const OldDefaultTestUsernames = new Set(['aoteman', 'admin'])
-const OldDefaultTestPasswords = new Set(['', 'admin123'])
+const LegacyDefaultLoginUsernames = new Set(['aoteman', 'admin'])
+const LegacyDefaultLoginPasswords = new Set(['', 'admin123'])
 const LoginFormCacheExpireSeconds = 30 * 24 * 60 * 60
 const LoginTenantHistoryLimit = 10
 
@@ -96,14 +95,13 @@ const decryptLoginForm = (loginForm?: Partial<LoginFormType>) => {
   }
 }
 
-const isOldDefaultTestLoginForm = (loginForm?: Partial<LoginFormType>) => {
+const isLegacyDefaultLoginForm = (loginForm?: Partial<LoginFormType>) => {
   if (!loginForm) {
     return false
   }
   return (
-    loginForm.tenantName === OldDefaultTestTenantName &&
-    OldDefaultTestUsernames.has(loginForm.username || '') &&
-    OldDefaultTestPasswords.has(loginForm.password || '')
+    LegacyDefaultLoginUsernames.has(loginForm.username || '') &&
+    LegacyDefaultLoginPasswords.has(loginForm.password || '')
   )
 }
 
@@ -132,7 +130,7 @@ export const getLoginForm = () => {
   const loginForm: LoginFormType = wsCache.get(CACHE_KEY.LoginForm)
   if (loginForm) {
     const decryptedLoginForm = decryptLoginForm(loginForm)
-    if (isOldDefaultTestLoginForm(decryptedLoginForm)) {
+    if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
       wsCache.delete(CACHE_KEY.LoginForm)
     } else {
       return decryptedLoginForm
@@ -147,15 +145,15 @@ export const getLoginFormHistory = () => {
   if (!Array.isArray(loginHistory)) {
     return []
   }
-  let removedOldDefaultTestLoginForm = false
+  let removedLegacyDefaultLoginForm = false
   const nextLoginHistory = loginHistory
     .map((item) => {
       const decryptedLoginForm = decryptLoginForm(item)
       if (!decryptedLoginForm) {
         return undefined
       }
-      if (isOldDefaultTestLoginForm(decryptedLoginForm)) {
-        removedOldDefaultTestLoginForm = true
+      if (isLegacyDefaultLoginForm(decryptedLoginForm)) {
+        removedLegacyDefaultLoginForm = true
         return undefined
       }
       return {
@@ -165,7 +163,7 @@ export const getLoginFormHistory = () => {
     })
     .filter((item): item is LoginTenantHistoryRecord => Boolean(item?.tenantName))
     .sort((left, right) => right.updatedAt - left.updatedAt)
-  if (removedOldDefaultTestLoginForm) {
+  if (removedLegacyDefaultLoginForm) {
     setEncryptedLoginTenantHistory(nextLoginHistory)
   }
   return nextLoginHistory

@@ -13,6 +13,6 @@ public enum DccRegistrationCertificateFileKind {
         return Arrays.stream(values())
                 .filter(value -> value.name().equals(code))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown registration certificate file kind: " + code));
+                .orElseThrow(() -> new IllegalArgumentException("未知的注册证文件类别：" + code));
     }
 }

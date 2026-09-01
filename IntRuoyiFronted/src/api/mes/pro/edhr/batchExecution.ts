@@ -347,7 +347,7 @@ export interface EdhrBatchExecutionGoldenFingerBulkVoidRespVO {
 export interface EdhrBatchExecutionArchiveGenerateReqVO {
   batchExecutionId: EdhrRouteId
   artifactType: string
-  workTaskId: EdhrRouteId
+  workTaskId: number
   signatureTime?: EdhrSignatureTimeReqVO
 }
 

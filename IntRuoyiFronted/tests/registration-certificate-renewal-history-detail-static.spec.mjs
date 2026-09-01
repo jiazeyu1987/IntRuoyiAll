@@ -93,15 +93,15 @@ assert.match(
   /item\.originalFileName/,
   'renewal history must show the original uploaded filename'
 )
-assert.doesNotMatch(
+assert.match(
   detail,
   /downloadRegistrationCertificateFile/,
-  'history display must not bypass the existing file-download authorization flow'
+  'history download must reuse the existing authorized file-download flow'
 )
 assert.match(
   detail,
-  /item\.fileKind\s*!==\s*'CHANGE_APPROVAL'/,
-  'renewal history files must not silently expand the existing download-request candidates'
+  /item\.fileKind\s*===\s*'REGISTRATION_CERTIFICATE'[\s\S]*item\.fileStatus\s*===\s*'BOUND'/,
+  'renewal history files must enter download-request candidates only from formal bound facts'
 )
 
 console.log('registration certificate renewal history detail static contract passed')

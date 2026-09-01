@@ -20,7 +20,7 @@ public class DccRegistrationCertificateBusinessClock {
 
     public DccRegistrationCertificateBusinessClock(Clock clock) {
         if (clock == null || !BUSINESS_ZONE.equals(clock.getZone())) {
-            throw new IllegalArgumentException("registration certificate clock must use Asia/Shanghai");
+            throw new IllegalArgumentException("注册证业务时钟必须使用亚洲上海时区");
         }
         this.clock = clock;
     }

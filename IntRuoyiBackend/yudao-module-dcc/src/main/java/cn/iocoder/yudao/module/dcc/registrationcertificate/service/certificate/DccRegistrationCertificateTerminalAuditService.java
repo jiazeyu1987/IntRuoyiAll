@@ -29,7 +29,7 @@ public class DccRegistrationCertificateTerminalAuditService {
                               DccRegistrationCertificateCommandContext context,
                               Long versionId, Long snapshotId, Long businessFileId) {
         if (context.ownerCompanyId() == null || context.certificateId() == null) {
-            throw new IllegalStateException("successful registration certificate audit requires trusted identity");
+            throw new IllegalStateException("注册证成功审计必须包含可信业务身份");
         }
         DccRegistrationCertificateAuditDetail detail = new DccRegistrationCertificateAuditDetail(
                 metadata.commandKind(), metadata.actorId(), metadata.payloadHash(), context.certificateId(),
@@ -63,7 +63,7 @@ public class DccRegistrationCertificateTerminalAuditService {
 
     private static <T> T require(T value, String name) {
         if (value == null) {
-            throw new IllegalArgumentException(name + " must not be null");
+            throw new IllegalArgumentException(name + " 不能为空");
         }
         return value;
     }

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestDO;
@@ -37,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -189,6 +191,11 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals("一次性使用无菌导管", draft.getValue().productName());
         assertNull(draft.getValue().projectCodeId());
         assertNull(request.getValue().getProjectCodeId());
+        Map<?, ?> detail = JsonUtils.parseObject(request.getValue().getDetailJson(), Map.class);
+        assertEquals("REG-CERT-UPLOAD-1", detail.get("certificateNo"));
+        assertEquals("A类", detail.get("classification"));
+        assertEquals("一次性使用无菌导管", detail.get("productName"));
+        assertEquals("上海七木医疗器械有限公司", detail.get("ownerCompanyName"));
         verify(projectCodeService, never()).getProjectCode(any(), any());
     }
 

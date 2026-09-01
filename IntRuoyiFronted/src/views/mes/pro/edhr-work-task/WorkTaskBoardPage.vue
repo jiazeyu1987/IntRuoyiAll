@@ -408,7 +408,7 @@
               {{ managerReleaseTask.id }}
             </el-descriptions-item>
             <el-descriptions-item label="版本">
-              {{ managerReleaseReceipt?.version || managerReleaseTask.version }}
+              {{ managerReleaseReceipt?.version ?? managerReleaseTask.version }}
             </el-descriptions-item>
             <el-descriptions-item label="状态">
               {{ resolveManagerReleaseStatusLabel(managerReleaseReceipt?.releaseStatus) }}
@@ -753,7 +753,12 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
 }
 
 const requireJsonLongId = (value: unknown, label: string) => {
-  const normalized = typeof value === 'string' ? value.trim() : ''
+  let normalized = ''
+  if (typeof value === 'string') {
+    normalized = value.trim()
+  } else if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    normalized = String(value)
+  }
   if (!/^[1-9]\d*$/.test(normalized)) {
     throw new Error(`${label}缺失或格式无效。`)
   }
@@ -762,6 +767,13 @@ const requireJsonLongId = (value: unknown, label: string) => {
 
 const requirePositiveVersion = (value: unknown, label: string) => {
   if (!Number.isInteger(value) || Number(value) < 1) {
+    throw new Error(`${label}缺失或格式无效。`)
+  }
+  return Number(value)
+}
+
+const requireNonNegativeVersion = (value: unknown, label: string) => {
+  if (!Number.isInteger(value) || Number(value) < 0) {
     throw new Error(`${label}缺失或格式无效。`)
   }
   return Number(value)
@@ -847,9 +859,7 @@ const isManagerReleaseTask = (row: EdhrWorkTaskRespVO) =>
 
 const hasManagerReleaseTaskContext = (row: EdhrWorkTaskRespVO) =>
   /^[1-9]\d*$/.test(row.businessScopeId || '') &&
-  /^[1-9]\d*$/.test(row.id || '') &&
-  Number.isInteger(row.version) &&
-  Number(row.version) > 0
+  /^[1-9]\d*$/.test(row.id || '')
 
 const canHandleManagerRelease = (row: EdhrWorkTaskRespVO) =>
   activeTab.value === 'candidate' &&
@@ -972,7 +982,7 @@ const resolveInactionReasonLabel = (row: EdhrWorkTaskRespVO) => {
     if (row.inactionReason?.trim()) return row.inactionReason
     if (activeTab.value !== 'candidate') return '仅冻结候选可处理管理者代表最终放行'
     if (row.status !== EDHR_WORK_TASK_STATUS_TODO) return '该最终放行待办已结束'
-    if (!hasManagerReleaseTaskContext(row)) return '最终放行待办缺少事务或版本信息'
+    if (!hasManagerReleaseTaskContext(row)) return '最终放行待办缺少事务或待办信息'
     return '当前用户是冻结候选，可执行最终放行'
   }
   if (isProductionReleaseReportTask(row)) {
@@ -1507,7 +1517,7 @@ const assertManagerReleaseReceiptMatchesTask = (
     throw new Error('最终放行回执与当前管理者代表待办不一致。')
   }
   requireJsonLongId(receipt.batchExecutionId, '最终放行回执生产批次编号')
-  requirePositiveVersion(receipt.version, '最终放行回执版本')
+  requireNonNegativeVersion(receipt.version, '最终放行回执版本')
 }
 
 const assertManagerReleaseApprovalResult = (
@@ -1641,7 +1651,7 @@ const submitManagerReleaseApproval = async () => {
   }
   await managerReleaseFormRef.value?.validate()
   const context = requireManagerReleaseTaskContext(row)
-  const expectedVersion = requirePositiveVersion(currentReceipt.version, '最终放行权威版本')
+  const expectedVersion = requireNonNegativeVersion(currentReceipt.version, '最终放行权威版本')
   if (!managerReleaseIdempotencyKey.value) {
     managerReleaseIdempotencyKey.value = createManagerReleaseIdempotencyKey(
       context.releaseTransactionId

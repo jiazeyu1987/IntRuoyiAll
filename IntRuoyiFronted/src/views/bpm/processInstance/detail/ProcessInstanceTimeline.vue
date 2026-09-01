@@ -31,9 +31,13 @@
         <div class="flex w-full">
           <div
             class="font-bold"
-            :style="isCurrentApprovalNodeStatus(activity.status) ? { color: APPROVAL_ACTIVE_COLOR } : undefined"
+            :style="
+              isCurrentApprovalNodeStatus(activity.status)
+                ? { color: APPROVAL_ACTIVE_COLOR }
+                : undefined
+            "
           >
-            {{ resolveDccTimelineActivityName(activity.id, activity.name) }}
+            {{ resolveProcessNodeDisplayName(activity.id, activity.name) }}
             <span v-if="activity.status === TaskStatusEnum.SKIP">【跳过】</span>
           </div>
           <!-- 信息：时间 -->
@@ -193,7 +197,7 @@ import { TaskStatusEnum } from '@/api/bpm/task'
 import { NodeType, CandidateStrategy } from '@/components/SimpleProcessDesignerV2/src/consts'
 import { isEmpty } from '@/utils/is'
 import { Check, Close, Loading, Clock, Minus, Delete, ArrowDown } from '@element-plus/icons-vue'
-import { resolveDccTimelineActivityName } from '@/views/dcc/controlled-file/shared/stage-name'
+import { resolveProcessNodeDisplayName } from './display-name'
 import starterSvg from '@/assets/svgs/bpm/starter.svg'
 import auditorSvg from '@/assets/svgs/bpm/auditor.svg'
 import copySvg from '@/assets/svgs/bpm/copy.svg'
