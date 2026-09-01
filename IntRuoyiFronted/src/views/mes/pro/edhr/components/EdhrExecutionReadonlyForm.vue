@@ -763,10 +763,12 @@ const resolveReadonlyCheckboxLabelText = (
   columnIndex: number,
   cell: RawLayoutCell | undefined
 ) => {
-  if (!cell?.fillForm) return ''
+  if (!cell?.fillForm && !cell?.edhrCellRule) return ''
   void rowIndex
   void columnIndex
-  return normalizeReadonlyCheckboxLabelText(cell?.fillForm?.labelText)
+  return normalizeReadonlyCheckboxLabelText(
+    cell?.fillForm?.labelText || cell?.fillForm?.label || cell?.edhrCellRule?.label
+  )
 }
 
 const resolveCellText = (rowIndex: number, columnIndex: number, cell: RawLayoutCell | undefined) => {

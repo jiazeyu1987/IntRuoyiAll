@@ -104,6 +104,57 @@ class DefaultWordFormTemplateRecognizerTest {
     }
 
     @Test
+    void recognizeLightCuringProcessPreservesNestedMaterialTable() throws Exception {
+        Path sample = findRepoResource("按压式球囊扩充压力泵IDI-001",
+                "RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.docx");
+        assertTrue(Files.exists(sample), "pressure pump IDI production record DOCX fixture is required");
+        DefaultWordFormTemplateRecognizer recognizer = new DefaultWordFormTemplateRecognizer();
+
+        FormTemplateRecognition recognition = recognizer.recognize(FormTemplateImportCommand.of(
+                "光固工序", "V1.0", sample.getFileName().toString(), Files.readAllBytes(sample), null));
+
+        assertTrue(recognition.isSuccess());
+        Map<String, Object> schema = parseMap(recognition.getJimuSchemaJson());
+        Map<String, Object> layout = parseMap((String) schema.get("sheetLayoutJson"));
+        Map<String, Object> rows = castMap(layout.get("rows"));
+        assertEquals(81, number(castMap(layout.get("cols")).get("len")));
+        assertEquals(20, number(rows.get("len")),
+                "the four-row nested material table must expand its one parent row by three visual rows");
+        assertEquals(List.of(11, 0), castMap(cellAt(rows, 5, 0)).get("merge"),
+                "the light-curing operation band must expand across the nested rows and following operation rows");
+        assertTrue(hasRowContaining(rows,
+                List.of("物料编码", "物料名称", "批号")),
+                "the nested material header must remain in the light-curing layout");
+        assertEquals("物料编码", castMap(cellAt(rows, 5, 1)).get("text"));
+        assertEquals("物料名称", castMap(cellAt(rows, 5, 11)).get("text"));
+        assertEquals("批号", castMap(cellAt(rows, 5, 25)).get("text"));
+        assertEquals("物料编码", castMap(cellAt(rows, 5, 38)).get("text"));
+        assertEquals("物料名称", castMap(cellAt(rows, 5, 54)).get("text"));
+        assertEquals("批号", castMap(cellAt(rows, 5, 69)).get("text"));
+        assertEquals("A003.017.02.002.5001", castMap(cellAt(rows, 6, 1)).get("text"));
+        assertEquals("外套", castMap(cellAt(rows, 6, 11)).get("text"));
+        assertEquals("A001.02.033.106", castMap(cellAt(rows, 6, 38)).get("text"));
+        assertEquals("□30atm压力表", castMap(cellAt(rows, 6, 54)).get("text"));
+        assertTrue(hasRowContaining(rows,
+                List.of("A003.017.02.002.5001", "外套", "A001.02.033.106", "□30atm压力表")));
+        assertTrue(hasRowContainingFragments(rows,
+                List.of("A004.002.04.1008", "延长管（尼龙编织管）", "A001.02.033.107", "□40atm压力表")));
+        assertTrue(hasRowContaining(rows,
+                List.of("A006.001.1001", "旋转接头", "A001.03.003.1004", "光固胶")));
+
+        List<Map<String, Object>> batchRules = castMapList(schema.get("cellRules")).stream()
+                .filter(rule -> "批号".equals(rule.get("label")))
+                .toList();
+        assertEquals(6, batchRules.size(), "each nested material must keep one fillable batch-number cell");
+        assertTrue(batchRules.stream().allMatch(rule -> "STRING".equals(rule.get("valueType"))
+                && "input-text".equals(rule.get("componentFlag"))));
+        assertEquals(List.of("6:25", "6:69", "7:25", "7:69", "8:25", "8:69"), batchRules.stream()
+                .map(rule -> rule.get("rowIndex") + ":" + rule.get("columnIndex"))
+                .sorted()
+                .toList());
+    }
+
+    @Test
     void recognizeProcessInspectionDocxPreservesSourceGridAndCreatesEquipmentTextInputs() throws Exception {
         Path sample = findRepoResource("按压式球囊扩充压力泵IDI-001", "old/过程检验记录.docx");
         assertTrue(Files.exists(sample), "pressure pump process inspection DOCX fixture is required");

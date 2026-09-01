@@ -45,23 +45,24 @@ final class WordTableVisualSchemaBuilder {
             throw new IllegalArgumentException("invalid Word table row range");
         }
         int columnCount = resolveColumnCount(table);
+        RowExpansionPlan rowPlan = buildRowExpansionPlan(table, startRowInclusive, endRowExclusive);
         List<Map<String, Object>> styles = new ArrayList<>();
         Map<String, Integer> styleIndexes = new HashMap<>();
         List<String> merges = new ArrayList<>();
         Map<String, Object> layout = new LinkedHashMap<>();
         layout.put("cols", buildColumns(table, columnCount));
         layout.put("rows", buildRows(table, columnCount, startRowInclusive, endRowExclusive,
-                styles, styleIndexes, merges));
+                rowPlan, styles, styleIndexes, merges));
         layout.put("styles", styles);
         layout.put("merges", merges);
 
         List<Map<String, Object>> cellRules = buildCellRules(table, columnCount,
-                startRowInclusive, endRowExclusive);
+                startRowInclusive, endRowExclusive, rowPlan);
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("sheetLayoutJson", JsonUtils.toJsonString(layout));
         schema.put("cellRules", cellRules);
         schema.put("signatureCellMarkers", buildSignatureCellMarkers(table, columnCount,
-                startRowInclusive, endRowExclusive, cellRules));
+                startRowInclusive, endRowExclusive, rowPlan, cellRules));
         schema.put("assistRows", List.of());
         schema.put("fillAssignments", List.of());
         return JsonUtils.toJsonString(schema);
@@ -81,15 +82,22 @@ final class WordTableVisualSchemaBuilder {
 
     private static Map<String, Object> buildRows(XWPFTable table, int columnCount,
                                                   int startRowInclusive, int endRowExclusive,
+                                                  RowExpansionPlan rowPlan,
                                                   List<Map<String, Object>> styles,
                                                   Map<String, Integer> styleIndexes,
                                                   List<String> merges) {
         Map<String, Object> rows = new LinkedHashMap<>();
         List<XWPFTableRow> tableRows = table.getRows();
         for (int sourceRowIndex = startRowInclusive; sourceRowIndex < endRowExclusive; sourceRowIndex++) {
-            int rowIndex = sourceRowIndex - startRowInclusive;
+            int rowIndex = rowPlan.visualStart(sourceRowIndex);
             XWPFTableRow row = tableRows.get(sourceRowIndex);
-            Map<String, Object> cells = new LinkedHashMap<>();
+            int expansion = rowPlan.expansion(sourceRowIndex);
+            List<Map<String, Object>> expandedCells = new ArrayList<>();
+            List<Integer> expandedHeights = new ArrayList<>();
+            for (int offset = 0; offset < expansion; offset++) {
+                expandedCells.add(new LinkedHashMap<>());
+                expandedHeights.add(resolveRowHeight(row));
+            }
             int columnIndex = 0;
             List<XWPFTableCell> rowCells = row.getTableCells();
             for (int physicalCellIndex = 0; physicalCellIndex < rowCells.size(); physicalCellIndex++) {
@@ -99,19 +107,27 @@ final class WordTableVisualSchemaBuilder {
                     columnIndex += columnSpan;
                     continue;
                 }
-                int rowSpan = isVerticalMergeRestart(cell)
+                if (hasNestedTable(cell)) {
+                    appendNestedTableLayout(table, cell.getTables().get(0), rowIndex, columnIndex, columnSpan,
+                            expandedCells, expandedHeights, styles, styleIndexes, merges);
+                    columnIndex += columnSpan;
+                    continue;
+                }
+                int sourceRowSpan = isVerticalMergeRestart(cell)
                         ? resolveVerticalSpan(table, sourceRowIndex, columnIndex, columnSpan, endRowExclusive) : 1;
+                int rowSpan = isVerticalMergeRestart(cell)
+                        ? rowPlan.visualSpan(sourceRowIndex, sourceRowSpan) : expansion;
                 int styleIndex = resolveStyleIndex(cell, styles, styleIndexes);
                 List<InlineInputSegment> segmentedInputs = parseSegmentedInputCell(cell.getText());
                 if (!segmentedInputs.isEmpty()) {
-                    appendSegmentedInputLayout(cells, rowIndex, columnIndex, rowSpan, columnSpan,
+                    appendSegmentedInputLayout(expandedCells.get(0), rowIndex, columnIndex, rowSpan, columnSpan,
                             segmentedInputs, styleIndex, merges);
                     columnIndex += columnSpan;
                     continue;
                 }
                 InlineTextInput inlineInput = parseInlineTextInput(cell.getText());
                 if (inlineInput == null) {
-                    cells.put(String.valueOf(columnIndex), layoutCell(resolveCellText(cell),
+                    expandedCells.get(0).put(String.valueOf(columnIndex), layoutCell(resolveCellText(cell),
                             rowIndex, columnIndex, rowSpan, columnSpan, styleIndex,
                             resolveDiagonalDirection(cell), merges));
                     columnIndex += columnSpan;
@@ -119,22 +135,39 @@ final class WordTableVisualSchemaBuilder {
                 }
 
                 int visualSpan = Math.max(columnSpan, 2);
-                cells.put(String.valueOf(columnIndex), layoutCell(inlineInput.label(),
+                expandedCells.get(0).put(String.valueOf(columnIndex), layoutCell(inlineInput.label(),
                         rowIndex, columnIndex, rowSpan, 1, styleIndex, null, merges));
-                cells.put(String.valueOf(columnIndex + 1), layoutCell("",
+                expandedCells.get(0).put(String.valueOf(columnIndex + 1), layoutCell("",
                         rowIndex, columnIndex + 1, rowSpan, visualSpan - 1, styleIndex, null, merges));
                 columnIndex += visualSpan;
             }
-            rows.put(String.valueOf(rowIndex), Map.of(
-                    "height", resolveRowHeight(row),
-                    "cells", cells));
+            for (int offset = 0; offset < expansion; offset++) {
+                rows.put(String.valueOf(rowIndex + offset), Map.of(
+                        "height", expandedHeights.get(offset),
+                        "cells", expandedCells.get(offset)));
+            }
         }
-        rows.put("len", endRowExclusive - startRowInclusive);
+        rows.put("len", rowPlan.totalRows());
         return rows;
     }
 
     private static List<Map<String, Object>> buildCellRules(XWPFTable table, int columnCount,
-                                                             int startRowInclusive, int endRowExclusive) {
+                                                             int startRowInclusive, int endRowExclusive,
+                                                             RowExpansionPlan rowPlan) {
+        List<Map<String, Object>> sourceRules = buildSourceCellRules(table, columnCount,
+                startRowInclusive, endRowExclusive);
+        List<Map<String, Object>> rules = new ArrayList<>();
+        for (Map<String, Object> sourceRule : sourceRules) {
+            int sourceRowIndex = startRowInclusive + ((Number) sourceRule.get("rowIndex")).intValue();
+            rules.add(remapRule(sourceRule, rowPlan.visualStart(sourceRowIndex),
+                    ((Number) sourceRule.get("columnIndex")).intValue()));
+        }
+        appendNestedTableRules(table, startRowInclusive, endRowExclusive, rowPlan, rules);
+        return rules;
+    }
+
+    private static List<Map<String, Object>> buildSourceCellRules(XWPFTable table, int columnCount,
+                                                                   int startRowInclusive, int endRowExclusive) {
         List<Map<String, Object>> rules = new ArrayList<>();
         List<XWPFTableRow> tableRows = table.getRows().subList(startRowInclusive, endRowExclusive);
         buildHeaderRules(tableRows.isEmpty() ? null : tableRows.get(0), rules);
@@ -147,6 +180,10 @@ final class WordTableVisualSchemaBuilder {
             int columnIndex = 0;
             for (XWPFTableCell cell : tableRows.get(rowIndex).getTableCells()) {
                 int columnSpan = resolveColumnSpan(cell);
+                if (hasNestedTable(cell)) {
+                    columnIndex += columnSpan;
+                    continue;
+                }
                 if (isVerticalMergeFollower(cell)) {
                     columnIndex += columnSpan;
                     continue;
@@ -211,6 +248,11 @@ final class WordTableVisualSchemaBuilder {
         String pendingLabel = null;
         for (XWPFTableCell cell : row.getTableCells()) {
             int columnSpan = resolveColumnSpan(cell);
+            if (hasNestedTable(cell)) {
+                pendingLabel = null;
+                columnIndex += columnSpan;
+                continue;
+            }
             String text = normalizeText(cell.getText());
             if (!text.isBlank()) {
                 pendingLabel = text;
@@ -273,6 +315,7 @@ final class WordTableVisualSchemaBuilder {
     private static List<Map<String, Object>> buildSignatureCellMarkers(XWPFTable table, int columnCount,
                                                                         int startRowInclusive,
                                                                         int endRowExclusive,
+                                                                        RowExpansionPlan rowPlan,
                                                                         List<Map<String, Object>> cellRules) {
         List<Map<String, Object>> markers = new ArrayList<>();
         List<XWPFTableRow> tableRows = table.getRows().subList(startRowInclusive, endRowExclusive);
@@ -284,11 +327,12 @@ final class WordTableVisualSchemaBuilder {
                 .findFirst().orElse(null);
         for (int rowIndex = headerRowIndex + 1; signatureColumn != null && rowIndex < tableRows.size(); rowIndex++) {
             if (!isFooterRow(rowText(tableRows.get(rowIndex)))) {
+                int visualRowIndex = rowPlan.visualStart(startRowInclusive + rowIndex);
                 markers.add(Map.of(
-                        "rowIndex", rowIndex,
+                        "rowIndex", visualRowIndex,
                         "columnIndex", signatureColumn,
                         "enabled", true,
-                        "signatureCellKey", rowIndex + ":" + signatureColumn,
+                        "signatureCellKey", visualRowIndex + ":" + signatureColumn,
                         "actionType", "FORM_REVIEW",
                         "label", "复核人/日期"));
             }
@@ -424,6 +468,192 @@ final class WordTableVisualSchemaBuilder {
         return cell;
     }
 
+    private static RowExpansionPlan buildRowExpansionPlan(XWPFTable table, int startRowInclusive,
+                                                           int endRowExclusive) {
+        List<Integer> visualStarts = new ArrayList<>();
+        List<Integer> expansions = new ArrayList<>();
+        int visualRowIndex = 0;
+        for (int sourceRowIndex = startRowInclusive; sourceRowIndex < endRowExclusive; sourceRowIndex++) {
+            visualStarts.add(visualRowIndex);
+            int expansion = 1;
+            for (XWPFTableCell cell : table.getRow(sourceRowIndex).getTableCells()) {
+                if (cell.getTables().size() > 1) {
+                    throw new IllegalArgumentException("multiple nested Word tables in one cell are not supported");
+                }
+                if (!hasNestedTable(cell)) {
+                    continue;
+                }
+                if (!resolveCellText(cell).isBlank()) {
+                    throw new IllegalArgumentException("nested Word table host cell also contains direct text");
+                }
+                XWPFTable nestedTable = cell.getTables().get(0);
+                if (nestedTable.getRows().isEmpty()) {
+                    throw new IllegalArgumentException("nested Word table has no rows");
+                }
+                validateNestedTableDepth(nestedTable);
+                expansion = Math.max(expansion, nestedTable.getRows().size());
+            }
+            expansions.add(expansion);
+            visualRowIndex += expansion;
+        }
+        return new RowExpansionPlan(startRowInclusive, visualStarts, expansions, visualRowIndex);
+    }
+
+    private static void validateNestedTableDepth(XWPFTable nestedTable) {
+        boolean containsNestedTable = nestedTable.getRows().stream()
+                .flatMap(row -> row.getTableCells().stream())
+                .anyMatch(WordTableVisualSchemaBuilder::hasNestedTable);
+        if (containsNestedTable) {
+            throw new IllegalArgumentException("nested Word tables deeper than one level are not supported");
+        }
+    }
+
+    private static void appendNestedTableLayout(XWPFTable parentTable, XWPFTable nestedTable,
+                                                 int visualStartRow, int hostStartColumn, int hostColumnSpan,
+                                                 List<Map<String, Object>> expandedCells,
+                                                 List<Integer> expandedHeights,
+                                                 List<Map<String, Object>> styles,
+                                                 Map<String, Integer> styleIndexes,
+                                                 List<String> merges) {
+        int nestedColumnCount = resolveColumnCount(nestedTable);
+        int[] boundaries = resolveNestedColumnBoundaries(parentTable, hostStartColumn, hostColumnSpan,
+                nestedTable, nestedColumnCount);
+        for (int nestedRowIndex = 0; nestedRowIndex < nestedTable.getRows().size(); nestedRowIndex++) {
+            XWPFTableRow nestedRow = nestedTable.getRow(nestedRowIndex);
+            Map<String, Object> targetCells = expandedCells.get(nestedRowIndex);
+            expandedHeights.set(nestedRowIndex,
+                    Math.max(expandedHeights.get(nestedRowIndex), resolveRowHeight(nestedRow)));
+            int nestedColumnIndex = 0;
+            for (XWPFTableCell nestedCell : nestedRow.getTableCells()) {
+                int nestedColumnSpan = resolveColumnSpan(nestedCell);
+                if (nestedColumnIndex + nestedColumnSpan > nestedColumnCount) {
+                    throw new IllegalArgumentException("nested Word table row exceeds its declared column grid");
+                }
+                if (isVerticalMergeFollower(nestedCell)) {
+                    nestedColumnIndex += nestedColumnSpan;
+                    continue;
+                }
+                int mappedColumn = hostStartColumn + boundaries[nestedColumnIndex];
+                int mappedEndColumn = hostStartColumn + boundaries[nestedColumnIndex + nestedColumnSpan];
+                int mappedColumnSpan = mappedEndColumn - mappedColumn;
+                int rowSpan = isVerticalMergeRestart(nestedCell)
+                        ? resolveVerticalSpan(nestedTable, nestedRowIndex, nestedColumnIndex,
+                        nestedColumnSpan, nestedTable.getRows().size()) : 1;
+                int styleIndex = resolveStyleIndex(nestedCell, styles, styleIndexes);
+                List<InlineInputSegment> segmentedInputs = parseSegmentedInputCell(nestedCell.getText());
+                if (!segmentedInputs.isEmpty()) {
+                    appendSegmentedInputLayout(targetCells, visualStartRow + nestedRowIndex,
+                            mappedColumn, rowSpan, mappedColumnSpan, segmentedInputs, styleIndex, merges);
+                    nestedColumnIndex += nestedColumnSpan;
+                    continue;
+                }
+                InlineTextInput inlineInput = parseInlineTextInput(nestedCell.getText());
+                if (inlineInput == null) {
+                    targetCells.put(String.valueOf(mappedColumn), layoutCell(resolveCellText(nestedCell),
+                            visualStartRow + nestedRowIndex, mappedColumn, rowSpan, mappedColumnSpan,
+                            styleIndex, resolveDiagonalDirection(nestedCell), merges));
+                } else {
+                    int visualSpan = Math.max(mappedColumnSpan, 2);
+                    targetCells.put(String.valueOf(mappedColumn), layoutCell(inlineInput.label(),
+                            visualStartRow + nestedRowIndex, mappedColumn, rowSpan, 1,
+                            styleIndex, null, merges));
+                    targetCells.put(String.valueOf(mappedColumn + 1), layoutCell("",
+                            visualStartRow + nestedRowIndex, mappedColumn + 1, rowSpan,
+                            visualSpan - 1, styleIndex, null, merges));
+                }
+                nestedColumnIndex += nestedColumnSpan;
+            }
+        }
+    }
+
+    private static void appendNestedTableRules(XWPFTable parentTable, int startRowInclusive,
+                                                int endRowExclusive, RowExpansionPlan rowPlan,
+                                                List<Map<String, Object>> rules) {
+        for (int sourceRowIndex = startRowInclusive; sourceRowIndex < endRowExclusive; sourceRowIndex++) {
+            int hostStartColumn = 0;
+            for (XWPFTableCell cell : parentTable.getRow(sourceRowIndex).getTableCells()) {
+                int hostColumnSpan = resolveColumnSpan(cell);
+                if (!hasNestedTable(cell)) {
+                    hostStartColumn += hostColumnSpan;
+                    continue;
+                }
+                XWPFTable nestedTable = cell.getTables().get(0);
+                int nestedColumnCount = resolveColumnCount(nestedTable);
+                int[] boundaries = resolveNestedColumnBoundaries(parentTable, hostStartColumn, hostColumnSpan,
+                        nestedTable, nestedColumnCount);
+                List<Map<String, Object>> nestedRules = buildSourceCellRules(nestedTable, nestedColumnCount,
+                        0, nestedTable.getRows().size());
+                for (Map<String, Object> nestedRule : nestedRules) {
+                    int nestedRowIndex = ((Number) nestedRule.get("rowIndex")).intValue();
+                    int nestedColumnIndex = ((Number) nestedRule.get("columnIndex")).intValue();
+                    if (nestedColumnIndex < 0 || nestedColumnIndex >= nestedColumnCount) {
+                        throw new IllegalArgumentException("nested Word table rule exceeds its declared column grid");
+                    }
+                    rules.add(remapRule(nestedRule,
+                            rowPlan.visualStart(sourceRowIndex) + nestedRowIndex,
+                            hostStartColumn + boundaries[nestedColumnIndex]));
+                }
+                hostStartColumn += hostColumnSpan;
+            }
+        }
+    }
+
+    private static Map<String, Object> remapRule(Map<String, Object> sourceRule,
+                                                  int rowIndex, int columnIndex) {
+        Map<String, Object> rule = new LinkedHashMap<>(sourceRule);
+        rule.put("rowIndex", rowIndex);
+        rule.put("columnIndex", columnIndex);
+        return rule;
+    }
+
+    private static int[] resolveNestedColumnBoundaries(XWPFTable parentTable, int hostStartColumn,
+                                                        int hostColumnSpan, XWPFTable nestedTable,
+                                                        int nestedColumnCount) {
+        if (hostColumnSpan < nestedColumnCount) {
+            throw new IllegalArgumentException("nested Word table has more columns than its parent cell grid span");
+        }
+        double[] parentCumulative = cumulativeWidths(resolveGridColumns(parentTable),
+                hostStartColumn, hostColumnSpan);
+        double[] nestedCumulative = cumulativeWidths(resolveGridColumns(nestedTable), 0, nestedColumnCount);
+        double parentTotal = parentCumulative[hostColumnSpan];
+        double nestedTotal = nestedCumulative[nestedColumnCount];
+        int[] boundaries = new int[nestedColumnCount + 1];
+        boundaries[0] = 0;
+        boundaries[nestedColumnCount] = hostColumnSpan;
+        for (int nestedBoundary = 1; nestedBoundary < nestedColumnCount; nestedBoundary++) {
+            double target = parentTotal * nestedCumulative[nestedBoundary] / nestedTotal;
+            int minimum = boundaries[nestedBoundary - 1] + 1;
+            int maximum = hostColumnSpan - (nestedColumnCount - nestedBoundary);
+            int selected = minimum;
+            double selectedDistance = Double.MAX_VALUE;
+            for (int candidate = minimum; candidate <= maximum; candidate++) {
+                double distance = Math.abs(parentCumulative[candidate] - target);
+                if (distance < selectedDistance) {
+                    selected = candidate;
+                    selectedDistance = distance;
+                }
+            }
+            boundaries[nestedBoundary] = selected;
+        }
+        return boundaries;
+    }
+
+    private static double[] cumulativeWidths(List<CTTblGridCol> gridColumns, int startColumn, int columnCount) {
+        double[] cumulative = new double[columnCount + 1];
+        for (int offset = 0; offset < columnCount; offset++) {
+            int gridIndex = startColumn + offset;
+            Object width = gridIndex < gridColumns.size() ? gridColumns.get(gridIndex).getW() : null;
+            double value = width instanceof Number number && number.doubleValue() > 0
+                    ? number.doubleValue() : 1D;
+            cumulative[offset + 1] = cumulative[offset] + value;
+        }
+        return cumulative;
+    }
+
+    private static boolean hasNestedTable(XWPFTableCell cell) {
+        return cell != null && !cell.getTables().isEmpty();
+    }
+
     private static int resolveColumnCount(XWPFTable table) {
         int gridColumnCount = resolveGridColumns(table).size();
         if (gridColumnCount > 0) {
@@ -500,7 +730,7 @@ final class WordTableVisualSchemaBuilder {
             for (XWPFTableCell cell : rows.get(rowIndex).getTableCells()) {
                 int columnSpan = resolveColumnSpan(cell);
                 String key = rowIndex + ":" + columnIndex;
-                if (!isVerticalMergeFollower(cell) && normalizeText(cell.getText()).isBlank()
+                if (!hasNestedTable(cell) && !isVerticalMergeFollower(cell) && normalizeText(cell.getText()).isBlank()
                         && !hasDiagonalBorder(cell) && !existing.contains(key)) {
                     String label = resolveBlankCellLabel(rows, rowIndex, columnIndex, columnSpan, columnCount);
                     if (!label.isBlank()) {
@@ -767,6 +997,27 @@ final class WordTableVisualSchemaBuilder {
     }
 
     private record PositionedCell(XWPFTableCell cell, int columnIndex, int columnSpan) {
+    }
+
+    private record RowExpansionPlan(int sourceStartRow, List<Integer> visualStarts,
+                                    List<Integer> expansions, int totalRows) {
+
+        private int visualStart(int sourceRowIndex) {
+            return visualStarts.get(sourceRowIndex - sourceStartRow);
+        }
+
+        private int expansion(int sourceRowIndex) {
+            return expansions.get(sourceRowIndex - sourceStartRow);
+        }
+
+        private int visualSpan(int sourceRowIndex, int sourceRowSpan) {
+            int span = 0;
+            int startOffset = sourceRowIndex - sourceStartRow;
+            for (int offset = 0; offset < sourceRowSpan; offset++) {
+                span += expansions.get(startOffset + offset);
+            }
+            return span;
+        }
     }
 
 }
