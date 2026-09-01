@@ -4,6 +4,9 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 SQL_PATH = BACKEND_ROOT / "sql/mysql/20260817_dcc_registration_certificate_core.sql"
 MYSQL_SCRIPT_PATH = BACKEND_ROOT / "script/tests/test-dcc-registration-certificate-core-mysql.ps1"
+PROJECT_CATEGORY_SQL_PATH = (
+    BACKEND_ROOT / "sql/mysql/20260901_dcc_registration_certificate_file_project_category.sql"
+)
 
 
 def _normalized(path: Path) -> str:
@@ -88,3 +91,26 @@ def test_mysql_core_contract_script_keeps_registrant_name_nullable():
     assert "modify column registrant_name varchar(255) not null comment 'registrant name snapshot'" not in script
     assert "modify column product_name varchar(255) null comment 'product name snapshot'" in script
     assert "modify column product_name varchar(255) not null comment 'product name snapshot'" in script
+
+
+def test_core_contract_defers_project_category_file_columns_to_later_migration():
+    core_sql = _normalized(SQL_PATH)
+    project_category_sql = _normalized(PROJECT_CATEGORY_SQL_PATH)
+    later_columns = (
+        "dcc_project_code_id",
+        "file_type_taxonomy_id",
+        "file_type_level1",
+        "file_type_level2",
+        "file_type_level3",
+        "file_type_level4",
+        "file_type_level5",
+    )
+
+    assert "dependson=20260817_dcc_registration_certificate_core" in project_category_sql
+    assert "required_column boolean not null default true" in core_sql
+    assert "update tmp_dcc_reg_cert_expected_column" in core_sql
+    assert "set required_column = false" in core_sql
+    assert "optional project-category columns must be absent or complete" in core_sql
+    for column in later_columns:
+        assert f"('dcc_registration_certificate_file', '{column}'," in core_sql
+        assert f"column_name = '{column}'" in project_category_sql
