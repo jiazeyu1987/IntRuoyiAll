@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
@@ -45,6 +46,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -191,6 +193,25 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         assertArrayEquals("UPLOADED-MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
         assertNotNull(accessAuditMapper.selectByEventKey(
                 1L, "attempt-manager-uploaded-no-approval:DOWNLOAD:SUCCESS"));
+    }
+
+    @Test
+    void registrationManagerDownloadSerializesControlCharactersInAuditUserAgent() throws Exception {
+        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
+                "manager-registration.pdf", 20L, null);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "manager-registration.pdf"));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
+                .thenReturn("MANAGER-CERT".getBytes(StandardCharsets.UTF_8));
+
+        deliveryService.download(1L, 99L, fixture.businessFileId(), "attempt-manager-audit-user-agent",
+                context("REQ-MANAGER-AUDIT-USER-AGENT", "Chrome\tBrowser\nAudit"));
+
+        DccRegistrationCertificateAccessAuditDO audit = accessAuditMapper.selectByEventKey(
+                1L, "attempt-manager-audit-user-agent:DOWNLOAD:SUCCESS");
+        assertNotNull(audit);
+        Map<?, ?> detail = JsonUtils.parseObject(audit.getDetailJson(), Map.class);
+        assertEquals("Chrome\tBrowser\nAudit", detail.get("userAgent"));
     }
 
     @Test
@@ -603,7 +624,11 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     private static DccRequestAuditContext context(String requestId) {
-        return new DccRequestAuditContext("10.0.0.1", "JUnit", requestId);
+        return context(requestId, "JUnit");
+    }
+
+    private static DccRequestAuditContext context(String requestId, String userAgent) {
+        return new DccRequestAuditContext("10.0.0.1", userAgent, requestId);
     }
 
     private record FormalFixture(Long certificateId, Long versionId, Long snapshotId, Long businessFileId,

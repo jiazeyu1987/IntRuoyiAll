@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.file;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessAuditDO;
@@ -35,6 +36,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -385,11 +388,17 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     }
 
     private static String buildAuditDetail(DccRequestAuditContext auditContext, String reason, String grantSource) {
-        String reasonJson = reason == null ? "" : ",\"reason\":\"" + jsonEscape(reason) + "\"";
-        String grantSourceJson = grantSource == null ? "" : ",\"grantSource\":\"" + jsonEscape(grantSource) + "\"";
-        return "{\"requestId\":\"" + jsonEscape(auditContext.requestId()) + "\",\"sourceIp\":\""
-                + jsonEscape(auditContext.sourceIp()) + "\",\"userAgent\":\""
-                + jsonEscape(auditContext.userAgent()) + "\"" + reasonJson + grantSourceJson + "}";
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("requestId", auditContext.requestId());
+        detail.put("sourceIp", auditContext.sourceIp());
+        detail.put("userAgent", auditContext.userAgent());
+        if (reason != null) {
+            detail.put("reason", reason);
+        }
+        if (grantSource != null) {
+            detail.put("grantSource", grantSource);
+        }
+        return JsonUtils.toJsonString(detail);
     }
 
     private static RuntimeException propagate(Exception ex) {
@@ -406,10 +415,6 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
 
     private static String firstNotBlank(String first, String second) {
         return StrUtil.isNotBlank(first) ? first : requireText(second, "注册证文件内容类型");
-    }
-
-    private static String jsonEscape(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static String requireText(String value, String fieldName) {
