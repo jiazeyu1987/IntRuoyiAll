@@ -26,6 +26,9 @@ PASS
 - E2E GREEN: 使用真实前端页面登录 `芋道源码/admin`，打开注册证 `990819202` 详情并点击附件下载；附件 `990819112` 返回 HTTP 200，文件名 `20260801_5555555_33333333.png`，内容类型 `image/png`，大小 76,733 字节；页面未出现“系统异常”，页面错误、控制台错误和失败响应均为 0。
 - FINAL CLOSEOUT: cleanup preview/apply -> PASS，仅删除本任务临时 E2E 脚本和结果 JSON；服务停止后 `8084/48084` 均未监听。
 - IMPLEMENTATION COMMIT: `7905873f8`，提交文件范围仅限本任务四个实现、测试和经验文件。
+- INT_MAIN MERGE: `git merge --ff-only codex/20260901-int-main-worktree-03` -> PASS，`int_main` 包含 `7905873f8`、`ee06f18e1`。
+- INT_MAIN REGRESSION: 注册证文件下载服务 15 tests PASS；前端附件下载静态合同 PASS。
+- INT_MAIN CLOSEOUT: cleanup preview/apply -> PASS，未删除文件、worktree，未停止或重启服务。
 
 ## Business Impact
 
@@ -40,5 +43,5 @@ PASS
 
 ## Remaining Blockers
 
-- 无代码或 E2E 阻塞；等待 `int_main` 快进融合和最终记录提交。
-- 默认 worktree 集成预览提示 TR3 不能快进合并且主工作区有其他改动；这不属于本任务完成门禁。按项目 Git 政策未执行提交、合并、推送或 worktree 删除。
+- 无代码、E2E 或融合阻塞；未推送远端。
+- TR3 仍保留其它未提交改动；本次只融合注册证下载任务文件，未删除 worktree 或处理无关改动。

@@ -53,6 +53,9 @@ BDD: 批准日期为空的真实注册证下载 -> Given 已授权用户通过 T
 - FINAL CLOSEOUT: task-closeout cleanup preview/apply with `--worktree-closeout off` -> PASS，仅删除 `registration-certificate-download.e2e.cjs` 和结果 JSON，保留正式任务记录与后端回归测试；TR3 前后端正常停止，`8084/48084` 均为 `not-listening`。按项目 Git 政策未提交、未合并、未删除 worktree。
 - INTEGRATION PREP: TR3 先通过 `git merge --ff-only int_main` 从 `37ca712e3` 快进到 `70a30f8e3`，现有未提交改动保持；branch runtime port guard -> PASS。
 - IMPLEMENTATION COMMIT: `7905873f8 fix(dcc): 修复注册证下载审计异常`，仅包含注册证下载服务、回归测试、`docs/backend-development.md` 和 `docs/experience-index.md`；TR3 的登录页相关并行改动未暂存、未提交。
+- INT_MAIN MERGE: 主工作区先精确保全 `docs/backend-development.md`、`docs/experience-index.md` 的并行差异，再执行 `git merge --ff-only codex/20260901-int-main-worktree-03`，`int_main` 从 `70a30f8e3` 快进到 `ee06f18e1`。恢复并行文档时保留双方内容，恢复后的两文件差异规模与保全前一致（`5/2`、`15/6`），未提交并行内容。
+- INT_MAIN REGRESSION: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateFileDeliveryServiceTest" test` -> PASS，15 tests，0 failures，0 errors，0 skipped；前端注册证附件下载静态合同 -> PASS；`7905873f8`、`ee06f18e1` 均为 `int_main` 祖先。
+- INT_MAIN CLOSEOUT: task-closeout preview/apply with `--worktree-closeout off` -> PASS，删除项为空；未停止、重启或删除 TR3，未释放其槽位或端口登记，未推送远端。
 
 ## Blockers
 

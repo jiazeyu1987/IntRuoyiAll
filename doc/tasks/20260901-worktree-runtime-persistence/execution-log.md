@@ -18,6 +18,8 @@
 - EXPERIENCE: 用户指定根 `AGENTS.md` 为正式归宿，未向 `docs/worktree-memory.md` 重复写入同义规则。
 - CLOSEOUT: task-closeout cleanup preview/apply with `--worktree-closeout off` -> PASS，保留三份任务记录，没有删除文件、停止服务或执行 Git 集成。
 - INTEGRATION PREP: `AGENTS.md` 存在其它未提交规则，本次只允许选择性暂存新增的 worktree 运行态基线；其它 hunks 必须保留在工作区。
+- COMMIT: `fa019209e docs: 保留 worktree 前后端运行态`，缓存区只包含新增基线和本任务三份记录；`AGENTS.md` 其它未提交 hunks 保留在工作区。
+- FINAL CLOSEOUT: task-closeout preview/apply with `--worktree-closeout off` -> PASS，删除项为空；未停止、重启或删除任何 worktree 服务，未释放端口登记，未推送远端。
 
 ## Blockers
 
