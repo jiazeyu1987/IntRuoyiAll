@@ -18,3 +18,5 @@
 - GREEN: 恢复脚本改为 MySQL 原生 Base64 写入、规范化 SHA-256 指纹比较并保留快照元数据后执行 Restore -> PASS，仅还原目标三条 ERP 配置记录且指纹一致。
 - verification: 加密快照与密钥分离 -> 快照位于工作区并可纳入 Git；32 字节密钥仅位于当前用户本机应用数据目录，不在工作区或任务记录中。
 - closeout: `task_closeout.py --task-id 20260901-erp-simpas-config-versioned-recovery --mode preview/apply` -> PASS；无待删除文件、无阻塞项。
+- git: 实现提交 `382fc9a66 feat(config): add encrypted ERP recovery snapshot` -> 仅包含加密快照、恢复脚本和本任务记录。
+- git: `git push origin int_main` -> PASS，提交已推送；未暂存或提交工作区其他任务改动。
