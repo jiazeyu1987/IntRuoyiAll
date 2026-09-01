@@ -1,0 +1,21 @@
+# Execution Log
+
+- 用户意图：直接重写一份 MVP PRD 和用户操作文档，不在原文档上修改；文档必须说明最小实现，并要求删除之前已经实现但不符合当前方案的物料逻辑。
+- 约束：不从 ERP 实时读取；系统每日同步 ERP 表单；系统内无数据即无；数量不一致取最小值；物料绑定针对工艺路线内的工序，不针对产品或独立工序主数据；颜色仅灰/绿，完成数量填写即绿色，不做其他校验；版本统一由工艺路线维护，工序不单独多版本。
+- BDD: 路线工序绑定物料 -> Given 管理员维护某条工艺路线的工序, When 绑定批记录需要展示的物料, Then 新建/启动订单按该路线版本形成快照并供一线生产展示。
+- BDD: 一线生产物料页签提交 -> Given 某工序包含弹簧和杠杆两个物料, When 员工填写某物料完成数量, Then 该物料页签从灰色变绿色，正式提交时随工序数据一起提交。
+- BDD: ERP 同步表单读取 -> Given 系统已有每日 ERP 同步表单数据, When 批记录需要批号或可用数量, Then 只从系统同步表单读取；如果系统没有则显示没有；数量不一致取最小值。
+- READ: `product-requirements-docs` 技能、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/experience-index.md` 和命中的一线生产/路线工序/物料页签经验门禁。
+- WRITE: 新增 `docs/product/frontline-process-material-batch-record-mvp-prd.md`。
+- WRITE: 新增 `docs/product/frontline-process-material-batch-record-mvp-user-operation.md`。
+- VERIFY: `python -X utf8 C:\Users\BJB110\.codex\skills\product-requirements-docs\scripts\validate_product_requirements.py --self-test` -> PASS。
+- VERIFY: 自定义结构校验 -> PASS，PRD 与用户操作文档章节完整、无弱占位词。
+- VERIFY: `rg` 关键词核对 -> PASS，MVP、工艺路线工序、灰/绿、完成数量、ERP 同步、最小值、快照、审批、删除旧逻辑等要求均已覆盖。
+- EXPERIENCE: 本次没有新增需要写入长期经验文档的通用工程经验；现有 `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见` 已覆盖多物料页签、最小值、系统内同步批号和禁止直连 ERP 等门禁。
+- CLOSEOUT: `task-closeout-cleanup --mode preview` -> PASS，delete=<none>，blocked=<none>，warnings=<none>。
+- CLOSEOUT: `task-closeout-cleanup --mode apply` -> PASS，deleted_paths=<none>。
+- USER AUTH: 2026-09-01 用户明确授权“提交、合并”。
+- VERIFY: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，int_main/int_main 端口合同为 frontend 8081、backend 48081。
+- COMMIT: `11c5666ad` -> `docs: add frontline process material batch record MVP`，提交文件为 `docs/product/frontline-process-material-batch-record-mvp-prd.md` 与 `docs/product/frontline-process-material-batch-record-mvp-user-operation.md`。
+- MERGE: 当前工作区已在 `int_main`，`codex/20260831-route-process-material-binding` 为 `int_main` 的已合并祖先；`git merge --ff-only codex/20260831-route-process-material-binding` -> PASS，Already up to date，无额外文件变更。
+- EXPERIENCE: 按 `project-experience-consolidation` 收尾检查，本次没有新增需要写入长期经验文档的通用工程经验；现有经验门禁已覆盖本任务的多物料页签、系统内同步批号和禁止直连 ERP 规则。
