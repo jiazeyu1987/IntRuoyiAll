@@ -183,3 +183,4 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Agent 委派策略：除非用户明确要求，否则不得启动子 Agent、子智能体或其他协作子任务；用户未明确要求时由当前 Agent 独立完成任务。
 - Thread baseline: QA首检数量和巡检比例按工序分别配置，不要求跨工序一致；末检适用性是项目级统一开关。
 - Thread baseline: Windows 命令优先使用已批准 PowerShell 精确前缀并指定 workdir=E:\IntRuoyi；不要额外夹 -NoProfile。
+- Thread baseline: 未经用户当轮明确授权，不得停止、重启或释放 worktree 前后端；冲突只报告不强杀，收尾保留运行态并报告端口和健康状态。
