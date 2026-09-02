@@ -45,7 +45,7 @@
 
 ready_for_closeout
 
-实现、主链路验证、冻结三操作验证和用户新增“双入口都要进行 E2E 验证”的专门验收点均已完成。entry-only 双入口 E2E 脚本和静态合同已补强：`PQC生产放行` 待放行按钮与 `PQC组长 > PQC管理` 行按钮都进入同一不合格评审页，且评审创建/处置写请求数为 `0`。最新通过运行 `20260902-yudao-20-entry-both-source-trace` 使用既有源批次 `900000000926 / EDHRB-1785810846141` 做只读入口验证，并已导出 24 张逐步截图。重启后本任务 worktree 运行态仍可用：前端 `8088` HTTP 200，后端 `48088` health `UP`。收尾 preview 已执行但 blocked：当前项目规则要求 Git 提交/推送/融合必须当轮明确授权；同时主工作区 `E:\IntRuoyi` 存在非本任务脏改，且当前任务分支落后 `int_main`，不能直接 ff-only 融合。
+实现、主链路验证、冻结三操作验证和用户新增“双入口都要进行 E2E 验证”的专门验收点均已完成。entry-only 双入口 E2E 脚本和静态合同已补强：`PQC生产放行` 待放行按钮与 `PQC组长 > PQC管理` 行按钮都进入同一不合格评审页，且评审创建/处置写请求数为 `0`。任务实现提交已经落在当前 `int_main` HEAD `9ac7af7df`。重启后已在 `int_main` 主工作区端口复验：前端 `8081` HTTP 200，后端 `48081` health `UP`；Playwright `20260902-int-main-04-entry-both-after-reboot` 双入口真实页面验证 PASS，并导出 24 张逐步截图。收尾仍未标记 completed：当前 `int_main` 领先 `origin/int_main`，且工作区存在其它非本任务脏改；cleanup、推送和最终收尾提交需按项目 closeout 规则另行处理。
 
 ## Cleanup Keep
 

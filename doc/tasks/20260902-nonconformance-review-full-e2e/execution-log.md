@@ -152,3 +152,18 @@ BDD: PQC双入口只读可达验证 -> Given 已存在一个可从PQC管理与PQ
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260902-nonconformance-review-full-e2e --mode preview` -> BLOCKED，expected reason: 当前项目规则要求 Git 提交/推送/融合必须当轮明确授权，本轮未获得新的 Git 授权；主工作区 `E:\IntRuoyi` 存在非本任务脏改且 `int_main` ahead 6，不能接收 ff-only merge；当前任务分支 `codex/20260902-nonconformance-review-full-e2e` 落后 `int_main`，当前实现改动尚未提交。
 - READONLY: `git status --short --branch --untracked-files=all` in `E:\IntRuoyi` -> `int_main...origin/int_main [ahead 6]`，并存在 DCC、route、docs 等非本任务脏改。
 - READONLY: `git merge-base --is-ancestor int_main codex/20260902-nonconformance-review-full-e2e` -> no；`git merge-base --is-ancestor codex/20260902-nonconformance-review-full-e2e int_main` -> yes，说明任务 worktree 基线早于当前 `int_main`。
+
+## 2026-09-02 int_main Reboot Continuation Verification
+
+- 用户在重启后要求继续，并已在前文明确要求先提交主干、融合进 `int_main` 后在 `int_main` 进行 E2E 验证。
+- READONLY: `git log --oneline --decorate -12` -> `int_main` 与 `codex/20260902-nonconformance-review-full-e2e` 均位于 `9ac7af7df fix: complete nonconformance review e2e flow`；说明实现提交已经落在当前主工作区 HEAD。
+- GREEN: `http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`；`http://127.0.0.1:8081/` -> HTTP `200`。
+- GREEN: Playwright `20260902-int-main-04-entry-both-after-reboot` -> PASS，使用 `芋道源码/admin` 从真实登录页进入真实页面，验证 `PQC生产放行` 与 `PQC组长 > PQC管理` 两个入口均进入同一不合格评审页。
+- GREEN: `PQC生产放行` 入口 -> source 为 `PQC_RELEASE`，sourceId 为 `104`，batchExecutionId 为 `900000000926`。
+- GREEN: `PQC组长 > PQC管理` 入口 -> source 为 `PQC_SUBMISSION`，eventId/sourceId 为 `160`，batchExecutionId 为 `900000000926`。
+- GREEN: 双入口写请求门禁 -> review create/dispose 写请求数为 `0`，pageErrors 为 `0`，targetConsoleErrors 为 `0`；仅存在非目标静态资源 `502` console 记录。
+- GREEN: 主工作区逐步截图导出 -> 从当前通过的 `trace.zip` 导出 `24` 张步骤截图，索引为 `IntRuoyiFronted\output\playwright\nonconformance-review-mvp\step-screenshots\20260902-int-main-04-entry-both-after-reboot\step-screenshots-index.md`。
+- GREEN: `node --check tests\e2e\edhr-nonconformance-review-mvp-real.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-nonconformance-review-mvp-static.spec.js` -> PASS。
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` 前端 `8081`、后端 `48081`。
+- NOTE: 主工作区此前已有 `20260902-int-main-01/02/03-full-after-merge` 完整链路尝试，均因共享批记录模板未确认填写规则单元格触发正式业务错误 `1040750243`，属于既有测试数据前置阻塞；本轮未修改共享模板，按用户当前关注点完成双入口真实页面 E2E。

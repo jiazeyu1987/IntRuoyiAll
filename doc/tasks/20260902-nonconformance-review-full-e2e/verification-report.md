@@ -27,6 +27,12 @@ PASS。最新代码下已在独立 worktree `D:\IntRuoyiWorktree\20260902-noncon
 - `PQC组长 > PQC管理` 入口进入同一不合格评审页，source 为 `PQC_SUBMISSION`，sourceId/eventId 为 `160`。
 - Double entry write guard: review create/dispose 写请求数 `0`，pageErrors `0`，targetConsoleErrors `0`。
 - Double entry screenshots: `entry-pqc-release.png`、`entry-pqc-management.png`、`trace.zip` 和 24 张逐步截图已生成。
+- int_main reboot continuation: `IntRuoyiFronted/output/playwright/nonconformance-review-mvp/20260902-int-main-04-entry-both-after-reboot/result.json` -> PASS。
+- int_main runtime: `http://127.0.0.1:8081/` -> HTTP `200`；`http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`。
+- int_main `PQC生产放行` 入口进入同一不合格评审页，source 为 `PQC_RELEASE`，sourceId 为 `104`，batchExecutionId 为 `900000000926`。
+- int_main `PQC组长 > PQC管理` 入口进入同一不合格评审页，source 为 `PQC_SUBMISSION`，sourceId/eventId 为 `160`，batchExecutionId 为 `900000000926`。
+- int_main double entry write guard: review create/dispose 写请求数 `0`，pageErrors `0`，targetConsoleErrors `0`。
+- int_main screenshots: `entry-pqc-release.png`、`entry-pqc-management.png`、`trace.zip` 和 24 张逐步截图已生成，逐步截图索引为 `IntRuoyiFronted/output/playwright/nonconformance-review-mvp/step-screenshots/20260902-int-main-04-entry-both-after-reboot/step-screenshots-index.md`。
 
 ## Database Evidence
 
@@ -50,6 +56,9 @@ PASS。最新代码下已在独立 worktree `D:\IntRuoyiWorktree\20260902-noncon
 - `validate_database_schema.py --evidence doc\tasks\20260902-nonconformance-review-full-e2e\database-schema-evidence.md` -> PASS。
 - `validate_bug_regression.py --evidence doc\tasks\20260902-nonconformance-review-full-e2e\bug-regression-evidence.md` -> PASS。
 - `git diff --check` -> PASS，仅报告 Windows CRLF 提示，无空白错误。
+- `node --check tests\e2e\edhr-nonconformance-review-mvp-real.e2e.js` in `int_main` -> PASS。
+- `node tests\e2e\edhr-nonconformance-review-mvp-static.spec.js` in `int_main` -> PASS。
+- `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` in `int_main` -> PASS，frontend `8081`，backend `48081`。
 
 ## Issues Found And Fixed
 
@@ -72,4 +81,4 @@ PASS。最新代码下已在独立 worktree `D:\IntRuoyiWorktree\20260902-noncon
 
 ## Remaining Closeout
 
-Verification is complete. Cleanup preview/apply and Git submit/merge remain subject to the current project closeout and current-turn Git authorization rules.
+Verification is complete. 当前 `int_main` 与任务分支均位于 `9ac7af7df fix: complete nonconformance review e2e flow`，但 `int_main` 仍领先 `origin/int_main` 且存在其它非本任务脏改；cleanup preview/apply、推送和最终收尾提交仍受当前项目 closeout 规则约束。
