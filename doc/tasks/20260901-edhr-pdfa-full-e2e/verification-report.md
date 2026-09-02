@@ -2,7 +2,7 @@
 
 ## Decision
 
-PASS - 最新真实页面链路已完成并核验 PDF/A、历史追溯只读入口、下载产物和数据库终态；任务进入 `ready_for_closeout`。
+PASS - 最新真实页面链路已完成并核验 PDF/A、历史追溯只读入口、下载产物和数据库终态；任务分支已 fast-forward 融合进 `int_main`，临时产物已清理，独立 worktree 已删除。
 
 ## Requirement To Test Matrix
 
@@ -31,14 +31,16 @@ PASS - 最新真实页面链路已完成并核验 PDF/A、历史追溯只读入�
 
 - `node tests/e2e/edhr-pdfa-simulation-bootstrap-real-flow.e2e.js`：PASS；输出批次 `900000001025`、批次号 `STAGE4-BATCH-STAGE4DOSSIEAF98370BEF8D`、待办 `2438`。
 - `pnpm e2e:edhr:final-archive-task`：PASS；归档状态 `SEALED`，批次状态 `40`，待办状态 `DONE`，下载字节数 `31516`。
-- 历史追溯真实页面：PASS；页面截图 `doc/tasks/20260901-edhr-pdfa-full-e2e/artifacts/history-latest-page.png`，未发现保存、提交、放行、生成归档、编辑、删除按钮。
-- PDF/A 下载产物：`doc/tasks/20260901-edhr-pdfa-full-e2e/artifacts/history-final-archive-latest.pdf`，4 页、31516 bytes、PDF version 1.4、Metadata Stream=yes、OutputIntent=1、Keywords 包含 `PDF/A-1b`。
-- PDF 渲染产物：`doc/tasks/20260901-edhr-pdfa-full-e2e/artifacts/pdf-render-latest/page-1.png` 至 `page-4.png`，4 页均非空并已视觉检查。
+- 历史追溯真实页面：PASS；页面截图在收尾前完成检查，未发现保存、提交、放行、生成归档、编辑、删除按钮；截图文件已按收尾规则删除。
+- PDF/A 下载产物：PASS；收尾前下载文件为 4 页、31516 bytes、PDF version 1.4、Metadata Stream=yes、OutputIntent=1、Keywords 包含 `PDF/A-1b`；临时 PDF 文件已按收尾规则删除。
+- PDF 渲染产物：PASS；收尾前 4 页均渲染为非空 PNG 并完成视觉检查；临时渲染文件已按收尾规则删除。
 - 数据库只读核验：批次 `900000001025` 状态 `40`；归档 `33` 为 `SEALED/PDF/A-1b/VALID`，对象锁 `COMPLIANCE` 且 `objectLock=true`、`legalHold=true`；工作任务 `2438` 为 `ARCHIVE/DONE`。
 - 经验沉淀：`docs/e2e-rules.md#E2E 显式目标环境变量门禁` 和 `docs/experience-index.md` 已更新，`rg` 关键词校验通过。
-- 收尾清理预览：已运行 task-closeout preview；因主工作区 dirty 且本轮未授权 Git commit/merge/push，apply 未执行。
-- 任务分支提交：rebase 后实现提交为 `ec3aff5db`，当前 `git rev-list --left-right --count int_main...HEAD` 为 `0 1`，具备提交层面的 ff-only 前置关系。
+- 主工作区 dirty 基线：PASS；按用户授权提交为 `3d8e6490f`，提交前已将任务日志中的明文测试密码字段替换为 `<REDACTED_PASSWORD>`。
+- 任务分支融合：PASS；rebase 后 `git rev-list --left-right --count int_main...HEAD` 为 `0 2`，`git diff --check int_main...HEAD` 无输出；`git merge --ff-only codex/20260901-edhr-pdfa-full-e2e` 后 `int_main` 到 `afb7c83f5`。
+- 融合后验证：PASS；`git status --short --branch` clean 且 ahead 5，`git merge-base --is-ancestor codex/20260901-edhr-pdfa-full-e2e int_main` 通过，`scripts\preflight\branch-runtime-port-guard.ps1` 通过，`git diff --check` 无输出。
+- 收尾清理：PASS；task-closeout preview/apply 删除临时截图、PDF、渲染 PNG、运行日志和一次性证据，保留三份核心任务记录；无 cleanup commit；独立 worktree `D:\IntRuoyiWorktree\20260901-edhr-pdfa-full-e2e` 已删除。
 
 ## Blockers
 
-- 当前无 E2E 阻塞。ff-only 融合尚未执行：主工作区 `E:\IntRuoyi` dirty，包含已修改 `docs/powershell-memory.md` 和多个未跟踪路径；需先由对应任务处理、提交或明确归属，之后再执行合入。
+- 当前无阻塞。代码与任务记录仅完成本地提交和本地融合，未执行远程 push。

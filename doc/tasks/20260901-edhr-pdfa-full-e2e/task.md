@@ -11,7 +11,7 @@
 3. `M3`：已完成 - 通过真实管理员页面为 `admin` 临时补齐“管理者代表”角色，独立页面重新登录后可进入候选审核。
 4. `M4`：已完成 - 以回归测试先行修复审批服务从放行事务恢复批次编号的问题，定向 Maven 回归通过。
 5. `M5`：已完成 - 重建并重启独立后端，Playwright 已完成最新真实 PDF/A 全链路。
-6. `M6`：进行中 - 汇总证据并执行任务收尾门禁。
+6. `M6`：已完成 - 任务分支已融合进 `int_main`，临时证据已按收尾规则清理，独立 worktree 已删除。
 
 ## Expected Verification
 
@@ -38,4 +38,4 @@
 
 ## Current Status
 
-ready_for_closeout - 最新真实链路已完成：批次 `900000001025` 已归档，最终归档待办 `2438` 已完成，归档 `33` 为 `SEALED`，PDF/A-1b 校验和历史追溯只读验证通过；任务分支已提交并 rebase 到 `int_main`，当前因主工作区 `E:\IntRuoyi` dirty 阻塞 ff-only 融合。
+completed - 最新真实链路已完成：批次 `900000001025` 已归档，最终归档待办 `2438` 已完成，归档 `33` 为 `SEALED`，PDF/A-1b 校验和历史追溯只读验证通过；已先提交主工作区 dirty 基线，再将任务分支 fast-forward 融合进 `int_main`；收尾清理 apply 通过，临时截图、PDF、运行日志和一次性证据已删除，独立 worktree `D:\IntRuoyiWorktree\20260901-edhr-pdfa-full-e2e` 已删除。

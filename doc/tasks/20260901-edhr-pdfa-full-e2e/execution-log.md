@@ -41,6 +41,12 @@ BDD: 历史追溯下载打印 -> Given 批次已完成最终归档 When 用户�
 - GREEN: `git commit -m "feat: complete edhr pdfa archive flow"` -> PASS，任务实现、回归测试、任务记录和经验沉淀已提交；rebase 后提交为 `ec3aff5db`。
 - GREEN: `git rebase int_main` -> PASS，任务分支已更新到当前 `int_main` 之上；`git rev-list --left-right --count int_main...HEAD` 输出 `0 1`。
 - BLOCKED: ff-only merge into `E:\IntRuoyi` -> NOT RUN，主工作区 `git status --short --branch` 显示 `docs/powershell-memory.md` 已修改，并存在 `.pytest-temp/`、`LOG_FILE_IS_UNDEFINED`、`resource/...` 等未跟踪项；按收尾规则目标主工作区 dirty 时禁止合入、清理或删除 worktree。
+- GREEN: 主工作区基线提交 -> PASS，按用户授权先提交 `int_main` dirty 基线，提交为 `3d8e6490f`，并在提交前将任务日志中的明文测试密码字段替换为 `<REDACTED_PASSWORD>`。
+- GREEN: `git rebase int_main` -> PASS，任务分支已重放到主工作区基线提交之上；`git rev-list --left-right --count int_main...HEAD` 输出 `0 2`，`git diff --check int_main...HEAD` 无输出。
+- GREEN: `git merge --ff-only codex/20260901-edhr-pdfa-full-e2e` -> PASS，`int_main` fast-forward 到 `afb7c83f5`。
+- GREEN: 融合后门禁 -> PASS，`git status --short --branch` 显示 `int_main` clean 且 ahead 5；`git merge-base --is-ancestor codex/20260901-edhr-pdfa-full-e2e int_main` 通过；`scripts\preflight\branch-runtime-port-guard.ps1` 通过；`git diff --check` 无输出。
+- GREEN: `task_closeout.py --task-id 20260901-edhr-pdfa-full-e2e --mode preview` -> PASS，预览仅删除任务临时截图、下载 PDF、渲染 PNG、运行日志和一次性证据，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- GREEN: `task_closeout.py --task-id 20260901-edhr-pdfa-full-e2e --mode apply` -> PASS，删除预览范围内临时产物，无额外 cleanup commit；确认任务分支已融合至 `E:\IntRuoyi`，并删除独立 worktree `D:\IntRuoyiWorktree\20260901-edhr-pdfa-full-e2e`。
 
 ## Worktree Initialization
 
