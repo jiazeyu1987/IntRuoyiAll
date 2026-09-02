@@ -33,6 +33,11 @@ PASS。最新代码下已在独立 worktree `D:\IntRuoyiWorktree\20260902-noncon
 - int_main `PQC组长 > PQC管理` 入口进入同一不合格评审页，source 为 `PQC_SUBMISSION`，sourceId/eventId 为 `160`，batchExecutionId 为 `900000000926`。
 - int_main double entry write guard: review create/dispose 写请求数 `0`，pageErrors `0`，targetConsoleErrors `0`。
 - int_main screenshots: `entry-pqc-release.png`、`entry-pqc-management.png`、`trace.zip` 和 24 张逐步截图已生成，逐步截图索引为 `IntRuoyiFronted/output/playwright/nonconformance-review-mvp/step-screenshots/20260902-int-main-04-entry-both-after-reboot/step-screenshots-index.md`。
+- int_main full chain fixture: `IntRuoyiFronted/output/playwright/nonconformance-review-mvp/20260902-int-main-05-full-fixture-after-reboot/result.json` -> PASS。
+- int_main full chain batch: `900000001028`，`NCR-E2E-20260902-FIXTURE-04`。
+- int_main full chain review ids: `22/23/24`。
+- int_main full chain dispositions: `concession_release`、`rework`、`void`。
+- int_main full chain screenshots: `trace.zip` 和 73 张逐步截图已生成，逐步截图索引为 `IntRuoyiFronted/output/playwright/nonconformance-review-mvp/step-screenshots/20260902-int-main-05-full-fixture-after-reboot/step-screenshots-index.md`。
 
 ## Database Evidence
 
@@ -41,6 +46,10 @@ PASS。最新代码下已在独立 worktree `D:\IntRuoyiWorktree\20260902-noncon
 - Review `20`: source `PQC_SUBMISSION`，status `closed`，disposition `rework`，材料/意见/签名/追溯快照均有值。
 - Review `21`: source `PQC_RELEASE`，status `closed`，disposition `void`，材料/意见/签名/追溯快照均有值。
 - Review `18`: frozen action verification review，status `closed`，disposition `void`。
+- int_main Review `22`: source `PQC_RELEASE`，status `closed`，disposition `concession_release`，材料/意见/签名/追溯快照均有值，closed/unfrozen 已记录。
+- int_main Review `23`: source `PQC_SUBMISSION`，status `closed`，disposition `rework`，材料/意见/签名/追溯快照均有值，closed/unfrozen 已记录。
+- int_main Review `24`: source `PQC_RELEASE`，status `closed`，disposition `void`，材料/意见/签名/追溯快照均有值，closed/voided 已记录。
+- int_main Batch `900000001028`: status `60`，deleted `0`。
 - Target pending review count: `0`。
 - Frozen action fixture cleanup: 临时员工有效数 `0`，临时路线版本 `740` 有效数 `0`。
 

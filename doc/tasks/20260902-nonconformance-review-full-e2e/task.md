@@ -45,7 +45,7 @@
 
 completed
 
-实现、主链路验证、冻结三操作验证和用户新增“双入口都要进行 E2E 验证”的专门验收点均已完成。entry-only 双入口 E2E 脚本和静态合同已补强：`PQC生产放行` 待放行按钮与 `PQC组长 > PQC管理` 行按钮都进入同一不合格评审页，且评审创建/处置写请求数为 `0`。任务实现提交已经落在当前 `int_main` HEAD `9ac7af7df`。重启后已在 `int_main` 主工作区端口复验：前端 `8081` HTTP 200，后端 `48081` health `UP`；Playwright `20260902-int-main-04-entry-both-after-reboot` 双入口真实页面验证 PASS，并导出 24 张逐步截图。`int_main` 已推送到 `origin/int_main`，cleanup preview/apply 均通过且没有删除文件；本任务完成。
+实现、主链路验证、冻结三操作验证和用户新增“双入口都要进行 E2E 验证”的专门验收点均已完成。entry-only 双入口 E2E 脚本和静态合同已补强：`PQC生产放行` 待放行按钮与 `PQC组长 > PQC管理` 行按钮都进入同一不合格评审页，且评审创建/处置写请求数为 `0`。任务实现提交已经落在当前 `int_main` HEAD `9ac7af7df`。重启后已在 `int_main` 主工作区端口复验：前端 `8081` HTTP 200，后端 `48081` health `UP`；Playwright `20260902-int-main-04-entry-both-after-reboot` 双入口真实页面验证 PASS，并导出 24 张逐步截图；Playwright `20260902-int-main-05-full-fixture-after-reboot` 完整闭环验证 PASS，并导出 73 张逐步截图。`int_main` 已推送到 `origin/int_main`，cleanup preview/apply 均通过且没有删除文件；本任务完成。
 
 ## Cleanup Keep
 

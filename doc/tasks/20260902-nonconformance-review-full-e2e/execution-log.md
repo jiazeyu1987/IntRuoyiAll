@@ -175,3 +175,15 @@ BDD: PQC双入口只读可达验证 -> Given 已存在一个可从PQC管理与PQ
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260902-nonconformance-review-full-e2e --mode preview` -> PASS，keep 三份任务记录，delete `<none>`，blocked `<none>`。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260902-nonconformance-review-full-e2e --mode apply` -> PASS，deleted_paths `<none>`。
 - GREEN: `task.md` Current Status 已更新为 `completed`，本任务收尾完成。
+
+## 2026-09-02 int_main Full Chain Fixture Verification
+
+- 用户前文已授权在测试链路中模拟任务自有数据；本轮未修改共享模板，新增任务自有 fixture `NCR-E2E-20260902-FIXTURE-04` 用于主工作区完整闭环验证。
+- GREEN: fixture 创建 -> batchExecutionId `900000001028`，batchTaskId `8254`，executionId `1633`，workTaskId `2441`。
+- GREEN: Playwright `20260902-int-main-05-full-fixture-after-reboot` -> PASS，使用 `芋道源码/admin` 在 `int_main` 前端 `8081`、后端 `48081` 完成让步放行、返工、作废三处置闭环。
+- GREEN: 评审单 `22/23/24` -> dispositions `concession_release/rework/void`，pageErrors `0`，targetConsoleErrors `0`。
+- GREEN: 主工作区完整链路逐步截图导出 -> 从当前通过的 `trace.zip` 导出 `73` 张步骤截图，索引为 `IntRuoyiFronted\output\playwright\nonconformance-review-mvp\step-screenshots\20260902-int-main-05-full-fixture-after-reboot\step-screenshots-index.md`。
+- GREEN: 数据库只读复核 -> review `22` source `PQC_RELEASE` status `closed` disposition `concession_release`，材料/意见/签名/追溯/关闭/解冻均存在。
+- GREEN: 数据库只读复核 -> review `23` source `PQC_SUBMISSION` status `closed` disposition `rework`，材料/意见/签名/追溯/关闭/解冻均存在。
+- GREEN: 数据库只读复核 -> review `24` source `PQC_RELEASE` status `closed` disposition `void`，材料/意见/签名/追溯/关闭/作废均存在。
+- GREEN: 数据库只读复核 -> batchExecution `900000001028` status `60`，deleted `0`。
