@@ -37,7 +37,7 @@ class MesProcessPoolTeamLeaderControllerReleaseExceptionTest {
                                 .setReason("production release application does not exist"))));
         MesProcessPoolTeamLeaderController controller = new MesProcessPoolTeamLeaderController(
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null);
         CommonResult<MesReleaseFlowFailureRespVO> result = controller.handleReleaseFlowBlocker(exception);
         assertTrue(result.getCode() != 0);
         assertEquals("SP_1", result.getData().getStage());

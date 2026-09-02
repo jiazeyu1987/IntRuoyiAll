@@ -1,0 +1,77 @@
+{
+  "taskId": "20260902-active-order-latest-version-upgrade-restart-code",
+  "frontendUrl": "http://127.0.0.1:8093",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "workOrderCode": "KDMO-309748-1416202028",
+  "activeOrderId": 150,
+  "requests": [
+    {
+      "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/version-upgrade/preview?activeOrderId=150",
+      "method": "GET",
+      "status": 200,
+      "businessCode": 0,
+      "data": {
+        "activeOrderId": 150,
+        "workOrderId": 903081,
+        "workOrderCode": "KDMO-309748-1416202028",
+        "allLatestFormalVersions": false,
+        "perVersionSelectionAllowed": false,
+        "submittable": false,
+        "blockers": [
+          "全部受控对象已是最新正式版本，无需发起版本升级重启"
+        ],
+        "currentVersions": [
+          {
+            "objectType": "PROCESS_ROUTE",
+            "objectName": "球囊扩张压力泵",
+            "objectId": 922119,
+            "currentVersionId": 632,
+            "currentVersionNo": "V29",
+            "targetVersionId": 632,
+            "targetVersionNo": "V29",
+            "changed": false
+          },
+          {
+            "objectType": "QA_INSPECTION_REGULATION",
+            "objectName": "（椎体）球囊扩张压力泵组装过程检验规程",
+            "objectId": 59,
+            "currentVersionId": 66,
+            "currentVersionNo": "B/1",
+            "targetVersionId": 66,
+            "targetVersionNo": "B/1",
+            "changed": false
+          }
+        ],
+        "targetVersions": [
+          {
+            "objectType": "PROCESS_ROUTE",
+            "objectName": "球囊扩张压力泵",
+            "objectId": 922119,
+            "currentVersionId": 632,
+            "currentVersionNo": "V29",
+            "targetVersionId": 632,
+            "targetVersionNo": "V29",
+            "changed": false
+          },
+          {
+            "objectType": "QA_INSPECTION_REGULATION",
+            "objectName": "（椎体）球囊扩张压力泵组装过程检验规程",
+            "objectId": 59,
+            "currentVersionId": 66,
+            "currentVersionNo": "B/1",
+            "targetVersionId": 66,
+            "targetVersionNo": "B/1",
+            "changed": false
+          }
+        ]
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "login": "PASS",
+  "status": "FAIL",
+  "error": "locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-dialog:visible').filter({ hasText: '版本升级重启' }).first().getByText('V3') to be visible\u001b[22m\n\n    at run (D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\IntRuoyiFronted\\tests\\e2e\\active-order-version-upgrade-submit-real.e2e.cjs:189:52)",
+  "screenshot": "D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\doc\\tasks\\20260902-active-order-latest-version-upgrade-restart-code\\e2e-artifacts\\active-order-version-upgrade-submit-real.png"
+}

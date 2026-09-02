@@ -35,6 +35,8 @@
     "e2e:frontline-team-config:static": "node tests/e2e/frontline-team-config-static.spec.cjs",
     "e2e:team-leader-report-allocation:static": "node tests/e2e/team-leader-report-allocation-static.spec.cjs",
     "e2e:team-leader-workbench:static": "node tests/e2e/team-leader-workbench-static.spec.cjs",
+    "e2e:mes:active-order-version-upgrade:static": "node tests/e2e/active-order-version-upgrade-entry-static.spec.cjs",
+    "e2e:mes:active-order-version-upgrade:final-state:real": "node tests/e2e/active-order-version-upgrade-final-state-real.e2e.cjs",
     "e2e:team-leader-workbench:real:check": "node --check tests/e2e/team-leader-workbench-real-flow.e2e.js",
     "e2e:team-leader-workbench:real": "node tests/e2e/team-leader-workbench-real-flow.e2e.js",
     "e2e:production-personnel-management:real:check": "node --check tests/e2e/production-personnel-management-real.e2e.js",
