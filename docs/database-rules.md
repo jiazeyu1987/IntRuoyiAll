@@ -67,6 +67,15 @@
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
 - Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过。
 
+### MySQL 存储过程标识符长度门禁
+
+- Trigger: required SQL、seed migration 或 schema migration 创建、调用或删除 MySQL 存储过程，尤其过程名由模块、业务对象和日期拼接。
+- Preflight check: 发布前枚举每个 `CREATE PROCEDURE`、`CALL`、`DROP PROCEDURE` 标识符；同一迁移的三类引用必须使用同一稳定名称，且每个名称长度不超过 MySQL 64 字符限制。涉及中文模板或业务文案时，过程标识符仍使用 ASCII 安全短名，并由静态回归和隔离 MySQL 首次/重复执行共同覆盖。
+- Blocker: MySQL 返回 `ERROR 1059 Identifier name ... is too long`、CREATE/CALL/DROP 名称不一致、无法证明全部标识符长度安全，或只通过文本替换但未运行隔离迁移回归时，必须停止发布并生成新的 releaseTag。
+- Verification: 静态测试解析过程声明与调用并断言长度和一致性；隔离 schema 首次、重复执行目标迁移，验证目标 seed 只写入预期行、过程已清理、隔离 schema 已删除；随后运行 migration policy gate。
+- Forbidden action: 禁止手工修改测试/正式库过程名、迁移 ledger 或 release lock，禁止复用失败 releaseTag，禁止只缩短 CREATE 而遗漏 CALL/DROP，禁止把过程名错误解释为环境偶发。
+- Evidence: `doc/tasks/20260902-dcc-business-event-notify-template-identifier-fix/`，注册证业务事件通知模板迁移因超长过程名在测试服发布失败；改用统一短名并通过静态、隔离 MySQL 和 migration policy 验证。
+
 ### 数据修复 DML 影响行数读取顺序门禁
 
 - Trigger: 数据修复事务在 `INSERT`、`UPDATE` 或 `DELETE` 后同时需要断言 `ROW_COUNT()`，并读取 `LAST_INSERT_ID()`、执行 `SET`、`SELECT` 或其它会改变会话诊断值的语句。

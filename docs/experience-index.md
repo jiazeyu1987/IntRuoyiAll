@@ -443,6 +443,7 @@
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点, 批记录测试页签业务描述, 不出现程序细节, 业务环节, 业务说明, 测试项名称加载旧说明, 固定列表内部词扫描, 历史按钮状态颜色, 测试成功绿色, 测试失败红色, ready 统一变绿禁止 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复字符串比较, 存储过程局部字符串变量, collation_connection, BINARY 精确比较, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
+- Keywords: ERROR 1059, Identifier name is too long, MySQL 标识符, 存储过程名称, CREATE PROCEDURE, CALL PROCEDURE, DROP PROCEDURE, 64 字符, 过程名长度, seed migration -> `docs/database-rules.md#mysql-存储过程标识符长度门禁`
 - Keywords: 20260726_system_codex_smart_scheduling_test_items, tmp_codex_smart_scheduling_case_seed, tmp_codex_smart_scheduling_checkpoint_seed, ensure_system_codex_smart_scheduling_test_items, utf8mb4_general_ci vs utf8mb4_0900_ai_ci -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
 - Keywords: ERROR 1137, Can't reopen table, 临时表重复读取, SELECT COUNT INTO, 数据修复事务, 工作站资源同步 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
 - Keywords: ROW_COUNT, LAST_INSERT_ID, DML 影响行数, SET 覆盖诊断值, 数据修复事务回滚 -> `docs/database-rules.md#数据修复-dml-影响行数读取顺序门禁`
