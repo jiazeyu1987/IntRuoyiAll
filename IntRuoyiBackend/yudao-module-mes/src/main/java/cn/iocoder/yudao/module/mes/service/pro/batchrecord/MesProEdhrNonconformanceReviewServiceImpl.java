@@ -97,7 +97,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
             }
         }
-        MesProWorkOrderDO workOrder = application == null ? null : lockWorkOrder(application.getWorkOrderId());
+        Long workOrderId = application == null ? batch.getWorkOrderId() : application.getWorkOrderId();
+        MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
         LocalDateTime now = now();
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(batch == null ? application.getId() : batch.getId(), now))
@@ -145,8 +146,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (SOURCE_TYPE_PQC_RELEASE.equals(review.getSourceType()) && review.getBatchExecutionId() == null) {
             application = requirePqcReleaseApplicationForUpdate(review.getSourceId());
         }
-        MesProWorkOrderDO workOrder = application == null ? null : lockWorkOrder(review.getWorkOrderId());
-        if (workOrder != null && review.getPreviousWorkOrderTemporaryFrozen() == null) {
+        MesProWorkOrderDO workOrder = lockWorkOrder(review.getWorkOrderId());
+        if (review.getPreviousWorkOrderTemporaryFrozen() == null) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED);
         }
         LocalDateTime now = now();

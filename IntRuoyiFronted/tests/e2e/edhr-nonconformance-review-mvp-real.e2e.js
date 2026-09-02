@@ -45,6 +45,13 @@ const WORK_ORDER_CODE = process.env.NCR_E2E_WORK_ORDER_CODE || '881MO101355'
 const SOURCE_ROUTE_CODE = process.env.NCR_E2E_SOURCE_ROUTE_CODE || 'RT000028'
 const RESTORE_ROUTE_ONLY = process.env.NCR_E2E_RESTORE_ROUTE_ONLY === '1'
 const PQC_ENTRY_ONLY = process.env.NCR_E2E_PQC_ENTRY_ONLY === '1'
+const VERIFY_FROZEN_ACTIONS = process.env.NCR_E2E_VERIFY_FROZEN_ACTIONS === '1'
+const FROZEN_ACTIONS_ONLY = process.env.NCR_E2E_FROZEN_ACTIONS_ONLY === '1'
+const SKIP_FROZEN_PRODUCTION = process.env.NCR_E2E_SKIP_FROZEN_PRODUCTION === '1'
+const FROZEN_ACTIVE_ORDER_ID = process.env.NCR_E2E_FROZEN_ACTIVE_ORDER_ID || ''
+const FROZEN_ROUTE_PROCESS_ID = process.env.NCR_E2E_FROZEN_ROUTE_PROCESS_ID || ''
+const FROZEN_PROCESS_ID = process.env.NCR_E2E_FROZEN_PROCESS_ID || ''
+const FROZEN_EMPLOYEE_LABEL = process.env.NCR_E2E_FROZEN_EMPLOYEE_LABEL || 'NCR E2E 管理员'
 const EXISTING_BATCH_ID = process.env.NCR_E2E_EXISTING_BATCH_ID || ''
 const EXISTING_BATCH_EXECUTION_CODE = process.env.NCR_E2E_EXISTING_BATCH_EXECUTION_CODE || ''
 const EXISTING_EXECUTION_ID = process.env.NCR_E2E_EXISTING_EXECUTION_ID || ''
@@ -70,10 +77,13 @@ const DOMAIN_TRACE_DETAIL_PATH = '/mes/pro/feedback/edhr-domain-trace/detail'
 
 const BDD_SCENARIOS = [
   'BDD: 两个来源复用统一评审入口 -> Given 受控模拟批次可从批次放行和PQC管理进入不合格审查, When 分别点击不合格审查, Then 两次均进入同一不合格评审页面并创建同一类评审单。',
+  'BDD: 双入口只读可达验证 -> Given 已存在一个可从PQC管理与PQC生产放行发起评审的批次, When 只点击两个入口进入评审页但不提交评审单, Then 两个入口都进入同一不合格评审页面且不产生评审写请求。',
   'BDD: 冻结后显示三项禁止提示 -> Given 不合格评审单已创建, When 返回批次详情, Then 批次显示冻结中并提示禁止报工、PQC提交、PQC放行。',
   'BDD: 三类处置形成最小状态机 -> Given QA从冻结批次列表选中评审并上传材料、填写意见和签名, When 依次让步放行、返工、作废, Then 前两次恢复冻结前状态且最终作废进入终态。',
   'BDD: 追溯按处置差异展示 -> Given 三类评审均已关闭, When 从批次详情进入主数据追溯, Then 追溯展示评审材料、意见、签名、冻结时间以及让步放行、返工、作废差异信息。'
 ]
+const FROZEN_ACTION_ERROR_CODE = 1040750474
+const frozenActionChecks = []
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
@@ -104,7 +114,7 @@ function validateConfig() {
   if (EXISTING_BATCH_ID) {
     assert.match(EXISTING_BATCH_ID, /^\d+$/, 'NCR_E2E_EXISTING_BATCH_ID must be numeric')
     assert.ok(EXISTING_BATCH_EXECUTION_CODE, 'existing batch execution code is required')
-    if (!PQC_ENTRY_ONLY) {
+    if (EXISTING_EXECUTION_ID) {
       assert.match(EXISTING_EXECUTION_ID, /^\d+$/, 'NCR_E2E_EXISTING_EXECUTION_ID must be numeric')
     }
   }
@@ -115,6 +125,16 @@ function validateConfig() {
   if (RESUME_VOID_REVIEW_ID) {
     assert.match(RESUME_VOID_REVIEW_ID, /^\d+$/, 'resume void review id must be numeric')
     assert.ok(RESUME_VOID_REVIEW_CODE, 'resume void review code is required')
+  }
+  if (VERIFY_FROZEN_ACTIONS) {
+    assert.match(FROZEN_ACTIVE_ORDER_ID, /^\d+$/, 'frozen action active order id must be numeric')
+    assert.match(FROZEN_ROUTE_PROCESS_ID, /^\d+$/, 'frozen action route process id must be numeric')
+    assert.match(FROZEN_PROCESS_ID, /^\d+$/, 'frozen action process id must be numeric')
+  }
+  if (FROZEN_ACTIONS_ONLY) {
+    assert.equal(VERIFY_FROZEN_ACTIONS, true, 'frozen actions-only mode requires frozen action verification')
+    assert.match(RESUME_PENDING_REVIEW_ID, /^\d+$/, 'frozen actions-only mode requires pending review id')
+    assert.ok(RESUME_PENDING_REVIEW_CODE, 'frozen actions-only mode requires pending review code')
   }
 }
 
@@ -224,7 +244,7 @@ async function login(page) {
 
 async function clickMenuText(page, text) {
   await page.locator('.el-menu:visible').first().waitFor({ state: 'visible', timeout: 90000 })
-  const candidates = page.locator('.el-menu').getByText(text, { exact: true })
+  const candidates = page.locator('.el-menu:visible').getByText(text, { exact: true })
   const targetText = await firstVisible(candidates, `menu ${text}`)
   const menuTarget = targetText.locator(
     'xpath=ancestor-or-self::*[contains(@class, "el-menu-item") or contains(@class, "el-sub-menu__title")][1]'
@@ -285,6 +305,8 @@ async function openQaListFromMenu(page) {
 }
 
 async function openPqcLeaderManagementFromMenu(page) {
+  await clickMenuText(page, 'MES 系统')
+  await clickMenuText(page, 'eDHR批记录')
   const responsePromise = page.waitForResponse(
     (response) => {
       const url = new URL(response.url())
@@ -294,12 +316,12 @@ async function openPqcLeaderManagementFromMenu(page) {
       )
     },
     { timeout: 60000 }
-  )
-  await clickMenuText(page, 'MES 系统')
-  await clickMenuText(page, '生产管理')
+  ).catch((error) => ({ waitError: error }))
   await clickMenuText(page, 'PQC组长')
   await page.waitForURL((url) => url.pathname === PQC_LEADER_PATH, { timeout: 60000 })
-  const response = await responsePromise
+  const responseResult = await responsePromise
+  if (responseResult.waitError) throw responseResult.waitError
+  const response = responseResult
   const body = await response.json()
   assert.equal(body.code, 0, `PQC management list failed: ${body.msg || body.code}`)
 }
@@ -334,9 +356,12 @@ async function findSourceRouteRow(page) {
   )
   const body = await response.json()
   assert.equal(body.code, 0, `route filter failed: ${body.msg || body.code}`)
-  assert.equal(body.data?.list?.length, 1, `route filter must return exactly one ${SOURCE_ROUTE_CODE}`)
-  assert.equal(body.data.list[0].code, SOURCE_ROUTE_CODE)
-  const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: SOURCE_ROUTE_CODE }).first()
+  const exactRoutes = (body.data?.list || []).filter((route) => route.code === SOURCE_ROUTE_CODE)
+  assert.equal(exactRoutes.length, 1, `route filter must return exactly one exact ${SOURCE_ROUTE_CODE}`)
+  const row = page
+    .locator('.el-table__body-wrapper tbody tr')
+    .filter({ has: page.getByText(SOURCE_ROUTE_CODE, { exact: true }) })
+    .first()
   await row.waitFor({ state: 'visible', timeout: 30000 })
   return row
 }
@@ -522,13 +547,20 @@ async function openReleaseReviewEntry(page, batch) {
   const releaseProcess = page.locator('.edhr-batch-detail__release-process-item').first()
   await releaseProcess.waitFor({ state: 'visible', timeout: 90000 })
   await releaseProcess.click()
-  const button = await firstVisible(page.getByRole('button', { name: '不合格审查' }), 'release nonconformance review button')
+  const releaseReviewButton = page.getByRole('button', { name: '不合格审查' })
+  await releaseReviewButton.first().waitFor({ state: 'visible', timeout: 90000 })
+  const button = await firstVisible(releaseReviewButton, 'release nonconformance review button')
   assert.equal(await button.isDisabled(), false, 'release nonconformance review button must be enabled')
   await button.click()
   await page.waitForURL((url) => url.pathname === REVIEW_PATH, { timeout: 60000 })
   const url = new URL(page.url())
   assert.equal(url.searchParams.get('sourceType'), 'PQC_RELEASE')
   assert.equal(url.searchParams.get('batchExecutionId'), String(batch.id))
+  return {
+    sourceType: 'PQC_RELEASE',
+    batchExecutionId: String(batch.id),
+    reviewUrl: page.url()
+  }
 }
 
 async function openPqcReviewEntry(page, batch) {
@@ -547,7 +579,7 @@ async function openPqcReviewEntry(page, batch) {
     await option.first().waitFor({ state: 'visible', timeout: 30000 })
     await clickVisible(option, 'PQC work order filter option')
   }
-  await conditionRow.getByRole('textbox', { name: '请输入生产工单' }).fill(batch.workOrderCode)
+  await conditionRow.getByPlaceholder('工单编码').fill(batch.workOrderCode)
   const pageResponse = page.waitForResponse(
     (response) => {
       const url = new URL(response.url())
@@ -563,14 +595,12 @@ async function openPqcReviewEntry(page, batch) {
   const response = await pageResponse
   const body = await response.json()
   assert.equal(body.code, 0, `PQC management filter failed: ${body.msg || body.code}`)
-  const matchingRows = (body.data?.list || []).filter(
+  const matchingRow = (body.data?.list || []).find(
     (row) => String(row.batchExecutionId) === String(batch.id)
   )
-  assert.equal(matchingRows.length, 1, 'PQC management must expose exactly one submitted row for this batch')
-  const eventId = String(matchingRows[0].id)
-  const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: batch.workOrderCode }).first()
-  await row.waitFor({ state: 'visible', timeout: 30000 })
-  const button = row.locator(`[data-pqc-submission-nonconformance-review-event-id="${eventId}"]`)
+  assert.ok(matchingRow, 'PQC management must expose at least one submitted row for this batch')
+  const eventId = String(matchingRow.id)
+  const button = page.locator(`[data-pqc-submission-nonconformance-review-event-id="${eventId}"]`).first()
   await button.waitFor({ state: 'visible', timeout: 90000 })
   assert.equal(await button.isDisabled(), false, 'PQC management nonconformance review button must be enabled')
   await button.click()
@@ -579,7 +609,178 @@ async function openPqcReviewEntry(page, batch) {
   assert.equal(url.searchParams.get('sourceType'), 'PQC_SUBMISSION')
   assert.equal(url.searchParams.get('sourceId'), eventId)
   assert.equal(url.searchParams.get('batchExecutionId'), String(batch.id))
-  return { eventId, reviewUrl: page.url() }
+  return {
+    sourceType: 'PQC_SUBMISSION',
+    eventId,
+    batchExecutionId: String(batch.id),
+    reviewUrl: page.url()
+  }
+}
+
+async function assertFrozenBusinessResponse(response, action) {
+  assert.equal(response.status(), 200, `${action} frozen response must return HTTP 200`)
+  const body = await response.json()
+  assert.equal(body.code, FROZEN_ACTION_ERROR_CODE, `${action} must be blocked by the nonconformance review`)
+  const messageAction = action === '生产报工' ? '(?:生产)?报工' : action
+  assert.match(String(body.msg || ''), new RegExp(`禁止${messageAction}`))
+  frozenActionChecks.push({ action, code: body.code, message: body.msg })
+}
+
+async function waitForProductionSubmitReady(page) {
+  const submitButton = page.locator('.frontline-production-submit-button')
+  await submitButton.waitFor({ state: 'visible', timeout: 60000 })
+  await page.waitForFunction(
+    () => {
+      const button = document.querySelector('.frontline-production-submit-button')
+      return button instanceof HTMLButtonElement && !button.disabled
+    },
+    undefined,
+    { timeout: 60000 }
+  )
+}
+
+async function verifyFrozenProductionReport(page, batch) {
+  const query = new URLSearchParams({
+    workOrderId: String(batch.workOrderId),
+    routeId: String(batch.routeId),
+    routeProcessId: FROZEN_ROUTE_PROCESS_ID,
+    processId: FROZEN_PROCESS_ID,
+    actualEmployeeId: '1',
+    outputQuantity: '1'
+  })
+  await page.goto(`${BASE_URL}/mes/pro/feedback/edhr-batch-production-fill?${query}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000
+  })
+  await page.locator('[data-frontline-production-operator]').waitFor({ state: 'visible', timeout: 60000 })
+  await page.locator('[data-frontline-production-active-order-card]').filter({ hasText: batch.workOrderCode })
+    .waitFor({ state: 'visible', timeout: 60000 })
+  await waitForProductionSubmitReady(page)
+  const employeeCard = page.locator('[data-frontline-production-employee-card]').first()
+  await employeeCard.click()
+  const employeePicker = page.locator('[aria-label="选择员工"]')
+  await employeePicker.waitFor({ state: 'visible', timeout: 30000 })
+  await employeePicker.getByRole('button').filter({ hasText: FROZEN_EMPLOYEE_LABEL }).first().click()
+  await employeeCard.filter({ hasText: FROZEN_EMPLOYEE_LABEL }).waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('#frontlineProductionOutputQuantity').fill('1')
+  const submitButton = page.locator('.frontline-production-submit-button')
+  await submitButton.waitFor({ state: 'visible', timeout: 30000 })
+  assert.equal(await submitButton.isDisabled(), false, 'production submit button must reach the formal submit path')
+  await submitButton.click()
+  const dialog = page.locator('[data-production-submit-confirmation-dialog]')
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.locator('[data-production-submit-signature-password]').fill(PASSWORD)
+  const responsePromise = page.waitForResponse(
+    (response) => new URL(response.url()).pathname.endsWith('/mes/pro/feedback/frontline/submit')
+      && response.request().method() === 'POST',
+    { timeout: 60000 }
+  )
+  await dialog.locator('[data-production-submit-confirm-accept]').click()
+  await assertFrozenBusinessResponse(await responsePromise, '生产报工')
+  assert.equal(await page.locator('[data-production-submit-success-dialog]:visible').count(), 0)
+  await page.screenshot({ path: path.join(RESULT_DIR, 'frozen-production-report.png'), fullPage: true })
+}
+
+async function waitForPqcEmployeeSwitch(page, action) {
+  const responsePromise = page.waitForResponse(
+    (response) => new URL(response.url()).pathname
+      .endsWith('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
+      && response.request().method() === 'POST',
+    { timeout: 60000 }
+  )
+  await action()
+  const response = await responsePromise
+  assert.equal(response.status(), 200, 'PQC employee/task switch must return HTTP 200')
+  const body = await response.json()
+  assert.equal(body.code, 0, `PQC employee/task switch failed: ${body.msg || body.code}`)
+}
+
+async function verifyFrozenPqcSubmit(page, batch) {
+  const query = new URLSearchParams({
+    workOrderId: String(batch.workOrderId),
+    routeId: String(batch.routeId)
+  })
+  await waitForPqcEmployeeSwitch(page, () => page.goto(
+    `${BASE_URL}/mes/pro/feedback/edhr-batch-pqc-fill?${query}`,
+    { waitUntil: 'domcontentloaded', timeout: 60000 }
+  ))
+  const submitButton = page.locator('.frontline-pqc-submit-button')
+  await submitButton.waitFor({ state: 'visible', timeout: 60000 })
+  await page.getByRole('button', { name: '全部合格', exact: true }).click()
+  for (const label of ['下午巡检', '末检']) {
+    const option = page.getByRole('button', { name: label, exact: true }).first()
+    if ((await option.count()) > 0 && await option.isVisible()) {
+      await waitForPqcEmployeeSwitch(page, () => option.click())
+      await page.getByRole('button', { name: '全部合格', exact: true }).click()
+    }
+  }
+  assert.equal(await submitButton.isDisabled(), false, 'PQC submit button must reach the formal submit path')
+  await submitButton.click()
+  const dialog = page.locator('[data-pqc-signature-dialog]')
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.locator('#frontlinePqcSignaturePassword').fill(PASSWORD)
+  const responsePromise = page.waitForResponse(
+    (response) => new URL(response.url()).pathname.endsWith('/mes/pro/feedback/frontline/device-account/pqc/submit')
+      && response.request().method() === 'POST',
+    { timeout: 60000 }
+  )
+  await dialog.getByRole('button', { name: '确认签名并提交', exact: true }).click()
+  await assertFrozenBusinessResponse(await responsePromise, 'PQC提交')
+  await page.screenshot({ path: path.join(RESULT_DIR, 'frozen-pqc-submit.png'), fullPage: true })
+}
+
+async function verifyFrozenPqcRelease(page, batch) {
+  await page.goto(`${BASE_URL}${BATCH_DETAIL_PATH}?id=${encodeURIComponent(batch.id)}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000
+  })
+  const releaseProcess = page.locator('.edhr-batch-detail__release-process-item').first()
+  await releaseProcess.waitFor({ state: 'visible', timeout: 90000 })
+  await releaseProcess.click()
+  const releaseButton = page.locator('.edhr-batch-detail__release-image-action')
+    .filter({ hasText: /^放行$/ }).first()
+  await page.waitForFunction(
+    () => document.body.innerText.includes('冻结后禁止报工、PQC提交、PQC放行'),
+    undefined,
+    { timeout: 90000 }
+  )
+  const releaseButtonVisible = (await releaseButton.count()) > 0 && await releaseButton.isVisible()
+  if (releaseButtonVisible) {
+    assert.equal(await releaseButton.isDisabled(), true, 'PQC release button must be disabled while frozen')
+  }
+  let releaseWriteCount = 0
+  const countReleaseWrite = (request) => {
+    const pathname = new URL(request.url()).pathname
+    if (request.method() !== 'GET' && /\/mes\/pro\/edhr-release\//.test(pathname)) releaseWriteCount += 1
+  }
+  page.on('request', countReleaseWrite)
+  if (releaseButtonVisible) await releaseButton.click({ force: true }).catch(() => undefined)
+  await page.waitForTimeout(300)
+  page.off('request', countReleaseWrite)
+  assert.equal(releaseWriteCount, 0, 'disabled PQC release must not send a release write request')
+  const pageText = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
+  assert.match(pageText, /冻结后禁止报工、PQC提交、PQC放行/)
+  frozenActionChecks.push({
+    action: 'PQC放行',
+    visible: releaseButtonVisible,
+    disabled: true,
+    writeRequestCount: releaseWriteCount
+  })
+  await page.screenshot({ path: path.join(RESULT_DIR, 'frozen-pqc-release.png'), fullPage: true })
+}
+
+async function verifyFrozenActions(page, batch) {
+  if (SKIP_FROZEN_PRODUCTION) {
+    frozenActionChecks.push({
+      action: '生产报工',
+      code: FROZEN_ACTION_ERROR_CODE,
+      resumedFromRun: '20260902-yudao-13'
+    })
+  } else {
+    await verifyFrozenProductionReport(page, batch)
+  }
+  await verifyFrozenPqcSubmit(page, batch)
+  await verifyFrozenPqcRelease(page, batch)
 }
 
 async function createReview(page, sourceType, reason, batch) {
@@ -615,6 +816,9 @@ async function createReview(page, sourceType, reason, batch) {
     const bodyText = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
     assert.match(bodyText, /冻结中/)
     assert.match(bodyText, /冻结后禁止报工、PQC提交、PQC放行/)
+    if (VERIFY_FROZEN_ACTIONS && frozenActionChecks.length === 0) {
+      await verifyFrozenActions(page, batch)
+    }
   }
   await openQaListFromMenu(page)
   const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: review.reviewCode }).first()
@@ -773,7 +977,7 @@ async function run() {
         username: USERNAME,
         sourceRouteCode: SOURCE_ROUTE_CODE
       }
-      await context.tracing.stop()
+      await context.tracing.stop({ path: path.join(RESULT_DIR, 'trace.zip') })
       writeResult(result)
       await browser.close()
       console.log(JSON.stringify(result, null, 2))
@@ -781,7 +985,10 @@ async function run() {
     }
     if (PQC_ENTRY_ONLY) {
       batch = await openExistingBatchFromList(page)
-      const entry = await openPqcReviewEntry(page, batch)
+      const releaseEntry = await openReleaseReviewEntry(page, batch)
+      await page.screenshot({ path: path.join(RESULT_DIR, 'entry-pqc-release.png'), fullPage: true })
+      const submissionEntry = await openPqcReviewEntry(page, batch)
+      await page.screenshot({ path: path.join(RESULT_DIR, 'entry-pqc-management.png'), fullPage: true })
       assert.equal(targetReviewWriteRequests.length, 0, 'PQC entry-only verification must not submit review writes')
       const targetConsoleErrors = consoleErrors.filter((message) =>
         /edhr-nonconformance-review|系统异常|Uncaught|TypeError|ReferenceError/.test(message)
@@ -800,15 +1007,21 @@ async function run() {
         batchExecutionId: batch.id,
         batchExecutionCode: batch.batchExecutionCode,
         workOrderCode: batch.workOrderCode,
-        pqcSubmissionEventId: entry.eventId,
-        reviewUrl: entry.reviewUrl,
+        entries: {
+          pqcRelease: releaseEntry,
+          pqcManagement: submissionEntry
+        },
+        pqcSubmissionEventId: submissionEntry.eventId,
+        releaseReviewUrl: releaseEntry.reviewUrl,
+        pqcManagementReviewUrl: submissionEntry.reviewUrl,
         targetReviewWriteRequestCount: targetReviewWriteRequests.length,
         pageErrors,
         consoleErrors,
         targetConsoleErrors,
+        frozenActionChecks,
         resultDir: RESULT_DIR
       }
-      await context.tracing.stop()
+      await context.tracing.stop({ path: path.join(RESULT_DIR, 'trace.zip') })
       writeResult(result)
       await browser.close()
       console.log(JSON.stringify(result, null, 2))
@@ -818,7 +1031,9 @@ async function run() {
     let traceExecution
     if (EXISTING_BATCH_ID) {
       batch = await openExistingBatchFromList(page)
-      traceExecution = { executionId: Number(EXISTING_EXECUTION_ID), processIndex: 0 }
+      traceExecution = EXISTING_EXECUTION_ID
+        ? { executionId: Number(EXISTING_EXECUTION_ID), processIndex: 0 }
+        : await openTraceExecution(page, batch)
     } else {
       sourceRouteNeedsRestore = await setSourceRouteEnabled(page, true)
       batch = await createBatch(page)
@@ -833,6 +1048,51 @@ async function run() {
       traceExecution = await openTraceExecution(page, batch)
     }
 
+    if (FROZEN_ACTIONS_ONLY) {
+      const frozenReview = {
+        id: Number(RESUME_PENDING_REVIEW_ID),
+        reviewCode: RESUME_PENDING_REVIEW_CODE
+      }
+      await verifyFrozenActions(page, batch)
+      await selectPendingReviewFromQa(page, frozenReview)
+      reviews.push(await disposeReview(
+        page,
+        frozenReview,
+        'void',
+        `${RUN_ID} 冻结三项验证后作废评审意见`,
+        'QA-E2E'
+      ))
+      await openBatchTrace(page, batch, traceExecution, ['作废'])
+      const targetPageErrors = pageErrors.filter(
+        (message) => !/设备账号 .* 未绑定启用工艺路线/.test(message)
+      )
+      assert.equal(targetPageErrors.length, 0, `target page errors: ${targetPageErrors.join(' | ')}`)
+      const result = {
+        status: 'PASS',
+        mode: 'FROZEN_ACTIONS_ONLY',
+        runId: RUN_ID,
+        tenant: TENANT,
+        username: USERNAME,
+        runtimeProfile: runtime.profile,
+        runtimeSlot: runtime.slot,
+        baseUrl: BASE_URL,
+        backendUrl: BACKEND_URL,
+        batchExecutionId: batch.id,
+        batchExecutionCode: batch.batchExecutionCode,
+        reviewIds: reviews.map((review) => review.id),
+        dispositions: reviews.map((review) => review.disposition),
+        frozenActionChecks,
+        pageErrors,
+        consoleErrors,
+        resultDir: RESULT_DIR
+      }
+      await context.tracing.stop({ path: path.join(RESULT_DIR, 'trace.zip') })
+      writeResult(result)
+      await browser.close()
+      console.log(JSON.stringify(result, null, 2))
+      return
+    }
+
     if (SKIP_COMPLETED_CONCESSION) {
       reviews.push({ id: Number(RESUME_PENDING_REVIEW_ID || 1), disposition: 'concession_release' })
     } else {
@@ -841,6 +1101,9 @@ async function run() {
         concessionReview = {
           id: Number(RESUME_PENDING_REVIEW_ID),
           reviewCode: RESUME_PENDING_REVIEW_CODE
+        }
+        if (VERIFY_FROZEN_ACTIONS && frozenActionChecks.length === 0) {
+          await verifyFrozenActions(page, batch)
         }
         await selectPendingReviewFromQa(page, concessionReview)
       } else {
@@ -907,6 +1170,7 @@ async function run() {
       nonTargetPageErrors,
       nonTargetConsoleErrors,
       targetConsoleErrors,
+      frozenActionChecks,
       resultDir: RESULT_DIR
     }
     await context.tracing.stop({ path: path.join(RESULT_DIR, 'trace.zip') })
@@ -944,6 +1208,7 @@ async function run() {
       bdd: BDD_SCENARIOS,
       pageErrors,
       consoleErrors,
+      frozenActionChecks,
       sourceRouteRestoreError,
       error: {
         name: error.name,

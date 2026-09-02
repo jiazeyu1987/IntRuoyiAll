@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,8 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
     private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     @MockitoBean
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @MockitoBean
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Test
     void shouldStorePqcInspectionAsPoolEvent() {

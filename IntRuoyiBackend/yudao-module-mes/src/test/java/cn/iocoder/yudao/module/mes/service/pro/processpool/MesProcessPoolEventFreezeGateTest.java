@@ -2,40 +2,59 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProcessPoolEventFreezeGateTest {
 
     @Mock private MesProProcessPoolEventMapper eventMapper;
-    @Mock private MesProWorkOrderMapper workOrderMapper;
+    @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Test
-    void newProductionSubmitIsBlockedWhenWorkOrderIsFrozen() {
+    void newProductionSubmitIsBlockedWhenNonconformanceReviewIsPending() {
         MesProcessPoolEventServiceImpl service = new MesProcessPoolEventServiceImpl();
         ReflectionTestUtils.setField(service, "processPoolEventMapper", eventMapper);
-        ReflectionTestUtils.setField(service, "workOrderMapper", workOrderMapper);
+        ReflectionTestUtils.setField(service, "nonconformanceReviewService", nonconformanceReviewService);
         when(eventMapper.selectSubmitByIdempotency(any())).thenReturn(null);
-        when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
-                new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(true));
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "生产报工");
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.createEvent(validEventReq()));
 
-        assertEquals(PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN.getCode(), exception.getCode());
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), exception.getCode());
+        verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "生产报工");
+    }
+
+    @Test
+    void newPqcSubmitIsBlockedWhenNonconformanceReviewIsPending() {
+        MesProcessPoolEventServiceImpl service = new MesProcessPoolEventServiceImpl();
+        ReflectionTestUtils.setField(service, "processPoolEventMapper", eventMapper);
+        ReflectionTestUtils.setField(service, "nonconformanceReviewService", nonconformanceReviewService);
+        when(eventMapper.selectPqcByIdempotency(any())).thenReturn(null);
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC提交");
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.createPqcInspectionEvent(validPqcReq()));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), exception.getCode());
+        verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC提交");
     }
 
     private MesProcessPoolCreateEventReqDTO validEventReq() {
@@ -55,6 +74,29 @@ class MesProcessPoolEventFreezeGateTest {
                 .feedbackSourceId(6001L)
                 .rawPayload("{\"outputQuantity\":10}")
                 .signatureId(7001L)
+                .signatureUserId(5001L)
+                .build();
+    }
+
+    private MesProcessPoolCreatePqcInspectionReqDTO validPqcReq() {
+        return MesProcessPoolCreatePqcInspectionReqDTO.builder()
+                .workOrderId(3001L)
+                .productionSubmitEventId(8001L)
+                .pqcSubmissionIdempotencyKey("PQC-FREEZE-GATE-2")
+                .routeId(4001L)
+                .qaProcessId(4301L)
+                .actualEmployeeId(5001L)
+                .deviceAccountId(5101L)
+                .deviceId(5201L)
+                .workstationId(5301L)
+                .templateType("PQC_SIMPLE")
+                .feedbackSourceType("MES_PQC")
+                .feedbackSourceId(6002L)
+                .recordbookSourceType("MES_RECORDBOOK_ENTRY")
+                .recordbookSourceId(6003L)
+                .inspectionResult("SUCCESS")
+                .rawPayload("{\"inspectionResult\":\"SUCCESS\"}")
+                .signatureId(7002L)
                 .signatureUserId(5001L)
                 .build();
     }

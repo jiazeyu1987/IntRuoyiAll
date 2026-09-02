@@ -10,8 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineParameterAuditResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
@@ -34,8 +33,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RESULT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN;
 
 @Service
 @Validated
@@ -52,7 +49,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
     @Resource
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @Resource
-    private MesProWorkOrderMapper workOrderMapper;
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Override
     public Optional<MesProcessPoolSubmitEventResult> findExistingSubmitEvent(MesProcessPoolCreateEventReqDTO reqDTO) {
@@ -77,7 +74,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 return existing.get().getProcessPoolEventId();
             }
             if (reqDTO.getWorkOrderId() != null) {
-                ensureWorkOrderNotFrozen(reqDTO.getWorkOrderId(), "生产报工");
+                nonconformanceReviewService.ensureWorkOrderNotFrozen(reqDTO.getWorkOrderId(), "生产报工");
             }
         }
         validateUniqueSignature(reqDTO.getSignatureId());
@@ -93,16 +90,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         return event.getId();
     }
 
-    private void ensureWorkOrderNotFrozen(Long workOrderId, String actionName) {
-        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(workOrderId);
-        if (workOrder == null) {
-            throw exception(PRO_WORK_ORDER_NOT_EXISTS);
-        }
-        if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
-            throw exception(PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN, actionName, workOrderId);
-        }
-    }
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createPqcInspectionEvent(MesProcessPoolCreatePqcInspectionReqDTO reqDTO) {
@@ -114,6 +101,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         if (existing.isPresent()) {
             return existing.get().getId();
         }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(reqDTO.getWorkOrderId(), "PQC提交");
 
         Long eventId = createEvent(MesProcessPoolCreateEventReqDTO.builder()
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)

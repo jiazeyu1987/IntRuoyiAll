@@ -4,12 +4,10 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
@@ -33,14 +31,7 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @MockitoBean
-    private MesProWorkOrderMapper workOrderMapper;
-
-    @BeforeEach
-    void stubExistingWorkOrder() {
-        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(org.mockito.ArgumentMatchers.any()))
-                .thenAnswer(invocation -> new MesProWorkOrderDO()
-                        .setId(invocation.getArgument(0)).setTemporaryFrozen(false));
-    }
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Test
     void shouldRejectEventWhenRequiredContextMissing() {

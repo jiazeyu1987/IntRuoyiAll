@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -82,6 +83,67 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertNull(result.getBatchExecutionId());
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3001L), true);
         verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void batchReviewFreezesWorkOrderAndCapturesOriginalState() {
+        when(batchExecutionMapper.selectById(9001L)).thenReturn(new MesProEdhrBatchExecutionDO()
+                .setId(9001L)
+                .setBatchExecutionCode("BE-9001")
+                .setWorkOrderId(3002L)
+                .setWorkOrderCode("WO-002")
+                .setBatchCode("BATCH-002")
+                .setStatus(20));
+        when(workOrderMapper.selectByIdForUpdate(3002L)).thenReturn(
+                new MesProWorkOrderDO().setId(3002L).setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3002L), true)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1002L);
+            return 1;
+        });
+
+        service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
+                .setSourceType("PQC_RELEASE")
+                .setBatchExecutionId(9001L)
+                .setNonconformanceReason("批次不合格"));
+
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).insert(reviewCaptor.capture());
+        assertEquals(false, reviewCaptor.getValue().getPreviousWorkOrderTemporaryFrozen());
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3002L), true);
+        verify(batchExecutionMapper).updateById(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void batchVoidKeepsWorkOrderFrozen() {
+        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
+                .id(1002L)
+                .sourceType("PQC_RELEASE")
+                .batchExecutionId(9001L)
+                .workOrderId(3002L)
+                .reviewStatus("pending_review")
+                .previousBatchStatus(20)
+                .previousWorkOrderTemporaryFrozen(false)
+                .nonconformanceReason("批次不合格")
+                .build();
+        when(reviewMapper.selectByIdForUpdate(1002L)).thenReturn(review);
+        when(reviewMapper.selectById(1002L)).thenReturn(review.setDisposition("void"));
+        when(batchExecutionMapper.selectById(9001L)).thenReturn(
+                new MesProEdhrBatchExecutionDO().setId(9001L).setStatus(15));
+        when(workOrderMapper.selectByIdForUpdate(3002L)).thenReturn(
+                new MesProWorkOrderDO().setId(3002L).setTemporaryFrozen(true));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3002L), true)).thenReturn(1);
+
+        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
+                .setId(1002L)
+                .setDisposition("void")
+                .setReviewMaterialUrl("https://example.invalid/review.pdf")
+                .setReviewOpinion("作废处理")
+                .setQaSignature("QA-SIGNATURE"));
+
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3002L), true);
+        verify(batchExecutionMapper).updateById(any(MesProEdhrBatchExecutionDO.class));
     }
 
     @Test
