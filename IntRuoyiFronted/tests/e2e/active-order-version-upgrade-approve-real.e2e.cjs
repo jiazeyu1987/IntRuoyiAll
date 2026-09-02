@@ -204,6 +204,26 @@ async function openActiveOrderPoolAndReadList(page) {
   return listBody.data || []
 }
 
+async function findActiveOrderRowAcrossPages(page, workOrderCode) {
+  const rowSelector = '[data-team-leader-active-order-list] .el-table__body-wrapper tbody tr'
+  for (let pageIndex = 1; pageIndex <= 30; pageIndex++) {
+    const row = page.locator(rowSelector, { hasText: workOrderCode }).first()
+    if ((await row.count()) > 0) {
+      try {
+        await row.waitFor({ state: 'visible', timeout: 2000 })
+        return row
+      } catch (_) {
+        // Continue to the next rendered page.
+      }
+    }
+    const nextButton = page.locator('[data-team-leader-active-order-config] .el-pagination button.btn-next').first()
+    if ((await nextButton.count()) === 0 || (await nextButton.isDisabled())) break
+    await nextButton.click()
+    await page.waitForTimeout(500)
+  }
+  throw new Error(`审批通过后未在活跃订单池分页中找到新订单：${workOrderCode}`)
+}
+
 async function run() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
   const evidence = {
@@ -259,9 +279,7 @@ async function run() {
     assert.equal(replacement.routeVersionNo, EXPECTED_TARGET_ROUTE_VERSION_NO, '新活跃订单必须显示冻结目标工艺路线版本号')
     assert.equal(replacement.activeStatus, 'ACTIVE', '新活跃订单必须进入 ACTIVE 状态')
     assert.equal(replacement.businessStatus, 'ACTIVE', '新活跃订单业务状态必须为 ACTIVE')
-    await page.locator('[data-team-leader-active-order-list] .el-table__body-wrapper tbody tr', {
-      hasText: WORK_ORDER_CODE
-    }).first().waitFor({ state: 'visible', timeout: 30000 })
+    await findActiveOrderRowAcrossPages(page, WORK_ORDER_CODE)
     evidence.replacementActiveOrder = {
       id: replacement.id,
       workOrderCode: replacement.workOrderCode,

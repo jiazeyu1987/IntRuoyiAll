@@ -136,10 +136,47 @@ async function openActiveOrderPool(page) {
   assert.equal(listResponse.ok(), true, `活跃订单列表 HTTP 失败：${listResponse.status()}`)
 }
 
+async function scanActiveOrderRowsAcrossPages(page) {
+  const rowSelector = '[data-team-leader-active-order-list] .el-table__body-wrapper tbody tr'
+  const rows = []
+  for (let pageIndex = 1; pageIndex <= 30; pageIndex++) {
+    await page.locator('[data-team-leader-active-order-list]').first().waitFor({ state: 'visible', timeout: 30000 })
+    const pageRows = await page.locator(rowSelector).evaluateAll((elements) =>
+      elements.map((row) => {
+        const id = row.querySelector('[data-team-leader-active-order-id]')?.textContent?.trim() || ''
+        return {
+          id,
+          text: row.innerText
+        }
+      })
+    )
+    rows.push(...pageRows)
+    const nextButton = page.locator('[data-team-leader-active-order-config] .el-pagination button.btn-next').first()
+    if ((await nextButton.count()) === 0 || (await nextButton.isDisabled())) break
+    await nextButton.click()
+    await page.waitForTimeout(500)
+  }
+  return rows
+}
+
 async function findActiveOrderRowByVisibleId(page, activeOrderId) {
-  const idCell = page.locator(`[data-team-leader-active-order-id="${activeOrderId}"]`).first()
-  await idCell.waitFor({ state: 'visible', timeout: 30000 })
-  return idCell.locator('xpath=ancestor::tr[1]')
+  const target = String(activeOrderId)
+  for (let pageIndex = 1; pageIndex <= 30; pageIndex++) {
+    const idCell = page.locator(`[data-team-leader-active-order-id="${target}"]`).first()
+    if ((await idCell.count()) > 0) {
+      try {
+        await idCell.waitFor({ state: 'visible', timeout: 2000 })
+        return idCell.locator('xpath=ancestor::tr[1]')
+      } catch (_) {
+        // Continue to the next rendered page.
+      }
+    }
+    const nextButton = page.locator('[data-team-leader-active-order-config] .el-pagination button.btn-next').first()
+    if ((await nextButton.count()) === 0 || (await nextButton.isDisabled())) break
+    await nextButton.click()
+    await page.waitForTimeout(500)
+  }
+  throw new Error(`新活跃订单 ${activeOrderId} 未出现在活跃订单池任一分页中`)
 }
 
 async function run() {
@@ -181,8 +218,14 @@ async function run() {
     await login(page)
     evidence.login = 'PASS'
     await openActiveOrderPool(page)
-    const sourceIdCellCount = await page.locator(`[data-team-leader-active-order-id="${SOURCE_ACTIVE_ORDER_ID}"]`).count()
-    assert.equal(sourceIdCellCount, 0, `旧活跃订单 ${SOURCE_ACTIVE_ORDER_ID} 不得继续出现在当前活跃订单池可见表格中`)
+    const visibleRows = await scanActiveOrderRowsAcrossPages(page)
+    evidence.visibleActiveOrderIds = visibleRows.map((row) => row.id).filter(Boolean)
+    assert.equal(
+      visibleRows.some((row) => row.id === String(SOURCE_ACTIVE_ORDER_ID)),
+      false,
+      `旧活跃订单 ${SOURCE_ACTIVE_ORDER_ID} 不得继续出现在当前活跃订单池任一分页中`
+    )
+    await openActiveOrderPool(page)
 
     const targetRow = await findActiveOrderRowByVisibleId(page, TARGET_ACTIVE_ORDER_ID)
     const targetRowText = await targetRow.innerText({ timeout: 10000 })
