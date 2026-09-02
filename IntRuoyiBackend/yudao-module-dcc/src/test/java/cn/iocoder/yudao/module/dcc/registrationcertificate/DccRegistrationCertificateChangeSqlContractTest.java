@@ -16,9 +16,9 @@ class DccRegistrationCertificateChangeSqlContractTest {
     @Test
     void changeInsertSqlDoesNotWriteGeneratedSelectedItemCount() throws Exception {
         String source = Files.readString(resolveChangeServiceSource());
-        Pattern changeInsert = Pattern.compile("""
-                INSERT\\s+INTO\\s+dcc_registration_certificate_change\\s*\\R\\s*\\((.*?)\\)\\s*\\R\\s*VALUES
-                """, Pattern.DOTALL);
+        Pattern changeInsert = Pattern.compile(
+                "INSERT\\s+INTO\\s+dcc_registration_certificate_change\\s*\\((.*?)\\)\\s*VALUES",
+                Pattern.DOTALL);
         Matcher matcher = changeInsert.matcher(source);
         int insertCount = 0;
         while (matcher.find()) {

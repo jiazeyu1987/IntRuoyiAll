@@ -579,8 +579,8 @@ public class DccRegistrationCertificateChangeService {
                 INSERT INTO dcc_registration_certificate_change
                   (tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
                    resulting_snapshot_id, event_id, approval_date, selected_change_types_json,
-                   selected_item_count, status, actor_id, applied_at, creator)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPLIED', ?, ?, ?)
+                   status, actor_id, applied_at, creator)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPLIED', ?, ?, ?)
                 """, ps -> {
             ps.setLong(1, command.tenantId());
             ps.setLong(2, state.ownerCompanyId());
@@ -591,10 +591,9 @@ public class DccRegistrationCertificateChangeService {
             ps.setLong(7, eventId);
             ps.setObject(8, command.approvalDate());
             ps.setString(9, JsonUtils.toJsonString(itemTypes));
-            ps.setInt(10, itemTypes.size());
-            ps.setLong(11, command.actorId());
-            ps.setObject(12, businessClock.now());
-            ps.setString(13, String.valueOf(command.actorId()));
+            ps.setLong(10, command.actorId());
+            ps.setObject(11, businessClock.now());
+            ps.setString(12, String.valueOf(command.actorId()));
         });
     }
 
@@ -604,8 +603,8 @@ public class DccRegistrationCertificateChangeService {
                 INSERT INTO dcc_registration_certificate_change
                   (tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
                    resulting_snapshot_id, event_id, approval_date, selected_change_types_json,
-                   selected_item_count, status, actor_id, applied_at, creator)
-                VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+                   status, actor_id, applied_at, creator)
+                VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)
                 """, ps -> {
             ps.setLong(1, command.tenantId());
             ps.setLong(2, state.ownerCompanyId());
@@ -615,11 +614,10 @@ public class DccRegistrationCertificateChangeService {
             ps.setLong(6, eventId);
             ps.setObject(7, command.approvalDate());
             ps.setString(8, JsonUtils.toJsonString(itemTypes));
-            ps.setInt(9, itemTypes.size());
-            ps.setString(10, STATUS_PENDING_APPROVAL);
-            ps.setLong(11, command.actorId());
-            ps.setNull(12, java.sql.Types.TIMESTAMP);
-            ps.setString(13, String.valueOf(command.actorId()));
+            ps.setString(9, STATUS_PENDING_APPROVAL);
+            ps.setLong(10, command.actorId());
+            ps.setNull(11, java.sql.Types.TIMESTAMP);
+            ps.setString(12, String.valueOf(command.actorId()));
         });
     }
 
