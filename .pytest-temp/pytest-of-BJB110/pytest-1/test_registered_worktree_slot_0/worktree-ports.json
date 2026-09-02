@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "contractVersion": "2026-08-24-branch-runtime-v7",
+  "worktrees": [
+    {
+      "name": "slot-above-limit",
+      "path": "D:\\IntRuoyiWorktree\\slot-above-limit",
+      "branch": "codex/slot-above-limit",
+      "profile": "int_main",
+      "slot": 101,
+      "frontendPort": 9999,
+      "backendPort": 49999,
+      "active": true
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+    "version":  1,
+    "contractVersion":  "2026-08-24-branch-runtime-v7",
+    "updatedAt":  "2026-08-24T18:48:33.2147679+08:00",
+    "worktrees":  [
+                      {
+                          "name":  "concurrent-a",
+                          "path":  "D:\\IntRuoyiWorktree\\concurrent-a",
+                          "branch":  "codex/concurrent-a",
+                          "profile":  "int_main",
+                          "slot":  1,
+                          "frontendPort":  8082,
+                          "backendPort":  48082,
+                          "active":  true,
+                          "createdAt":  "2026-08-24T18:48:32.7253611+08:00",
+                          "updatedAt":  "2026-08-24T18:48:32.7253611+08:00"
+                      },
+                      {
+                          "name":  "concurrent-b",
+                          "path":  "D:\\IntRuoyiWorktree\\concurrent-b",
+                          "branch":  "codex/concurrent-b",
+                          "profile":  "int_main",
+                          "slot":  2,
+                          "frontendPort":  8083,
+                          "backendPort":  48083,
+                          "active":  true,
+                          "createdAt":  "2026-08-24T18:48:33.2147679+08:00",
+                          "updatedAt":  "2026-08-24T18:48:33.2147679+08:00"
+                      }
+                  ]
+}

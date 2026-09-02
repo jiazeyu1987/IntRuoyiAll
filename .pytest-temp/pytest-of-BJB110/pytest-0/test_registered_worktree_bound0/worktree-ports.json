@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "contractVersion": "2026-08-24-branch-runtime-v7",
+  "worktrees": [
+    {
+      "name": "boundary-slot-1",
+      "path": "D:\\IntRuoyiWorktree\\boundary-slot-1",
+      "branch": "codex/boundary-slot-1",
+      "profile": "int_main",
+      "slot": 1,
+      "frontendPort": 8082,
+      "backendPort": 48082,
+      "active": true
+    }
+  ]
+}

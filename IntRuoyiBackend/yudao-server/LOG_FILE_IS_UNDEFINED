@@ -1,0 +1,183 @@
+2026-08-25 19:52:16.303 [background-preinit] INFO  org.hibernate.validator.internal.util.Version:21 - HV000001: Hibernate Validator 8.0.3.Final
+2026-08-25 19:52:16.474 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:53 - Starting YudaoServerApplication using Java 21.0.10 with PID 51860 (E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260825-1952-stage6.jar started by BJB110 in E:\IntRuoyi\IntRuoyiBackend\yudao-server)
+2026-08-25 19:52:16.474 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:658 - The following 1 profile is active: "local"
+2026-08-25 19:52:26.706 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:23 -  ******************* init miniDao config [ begin ] *********************** 
+2026-08-25 19:52:26.707 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:26 -  ------ minidao.base-package ------- org.jeecg.modules.jmreport.*,org.jeecg.modules.drag.*
+2026-08-25 19:52:26.708 [main] INFO  o.j.minidao.auto.MinidaoAutoConfiguration:50 -  *******************  init miniDao config  [ end ] *********************** 
+2026-08-25 19:52:27.464 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportCategoryDao }
+2026-08-25 19:52:27.465 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDao }
+2026-08-25 19:52:27.467 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDataSourceDao }
+2026-08-25 19:52:27.467 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbDao }
+2026-08-25 19:52:27.467 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbFieldDao }
+2026-08-25 19:52:27.467 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDbParamDao }
+2026-08-25 19:52:27.467 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictDao }
+2026-08-25 19:52:27.468 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportDictItemDao }
+2026-08-25 19:52:27.469 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportJobDao }
+2026-08-25 19:52:27.469 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExportLogDao }
+2026-08-25 19:52:27.470 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportExtDataDao }
+2026-08-25 19:52:27.470 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportLinkDao }
+2026-08-25 19:52:27.471 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportMapDao }
+2026-08-25 19:52:27.471 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportShareDao }
+2026-08-25 19:52:27.471 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.jmreport.desreport.dao.JimuReportSheetDao }
+2026-08-25 19:52:27.472 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragCategoryDao }
+2026-08-25 19:52:27.472 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuDragMapDao }
+2026-08-25 19:52:27.472 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.JimuReportIconLibDao }
+2026-08-25 19:52:27.473 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragCompDao }
+2026-08-25 19:52:27.473 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDataSourceDao }
+2026-08-25 19:52:27.473 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetHeadDao }
+2026-08-25 19:52:27.475 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetItemDao }
+2026-08-25 19:52:27.475 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragDatasetParamDao }
+2026-08-25 19:52:27.476 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageCompDao }
+2026-08-25 19:52:27.476 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragPageDao }
+2026-08-25 19:52:27.476 [main] INFO  o.j.minidao.factory.MiniDaoClassPathMapperScanner:55 - register minidao name is { org.jeecg.modules.drag.dao.OnlDragShareDao }
+2026-08-25 19:52:29.276 [main] INFO  c.g.y.a.MybatisPlusJoinAutoConfiguration:142 - MPJ SqlSessionFactory bean definition: sqlSessionFactory factoryBeanName: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration factoryMethodName: sqlSessionFactory source: com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration.sqlSessionFactory(javax.sql.DataSource)
+2026-08-25 19:52:42.638 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer:111 - Tomcat initialized with port 48083 (http)
+2026-08-25 19:52:42.675 [main] INFO  org.apache.coyote.http11.Http11NioProtocol:168 - Initializing ProtocolHandler ["http-nio-48083"]
+2026-08-25 19:52:42.679 [main] INFO  org.apache.catalina.core.StandardService:168 - Starting service [Tomcat]
+2026-08-25 19:52:42.680 [main] INFO  org.apache.catalina.core.StandardEngine:168 - Starting Servlet engine: [Apache Tomcat/10.1.54]
+2026-08-25 19:52:42.754 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/]:168 - Initializing Spring embedded WebApplicationContext
+2026-08-25 19:52:42.754 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext:301 - Root WebApplicationContext: initialization completed in 25746 ms
+2026-08-25 19:52:43.871 [main] INFO  com.alibaba.druid.pool.DruidDataSource:673 - {dataSource-1,master} inited
+2026-08-25 19:52:43.876 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [slave] success
+2026-08-25 19:52:43.876 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:158 - dynamic-datasource - add a datasource named [master] success
+2026-08-25 19:52:43.877 [main] INFO  c.b.dynamic.datasource.DynamicRoutingDataSource:241 - dynamic-datasource initial loaded [2] datasource,primary datasource named [master]
+2026-08-25 19:52:48.537 [main] INFO  org.redisson.Version:43 - Redisson 4.3.1
+2026-08-25 19:52:49.253 [redisson-netty-1-4] INFO  org.redisson.connection.ConnectionsHolder:152 - 1 connections initialized for 127.0.0.1/127.0.0.1:26379
+2026-08-25 19:52:49.324 [redisson-netty-1-19] INFO  org.redisson.connection.ConnectionsHolder:152 - 24 connections initialized for 127.0.0.1/127.0.0.1:26379
+2026-08-25 19:52:54.113 [main] INFO  c.a.c.config.AjCaptchaServiceAutoConfiguration:33 - 自定义配置项：
+AjCaptchaProperties{type=BLOCKPUZZLE, jigsaw='classpath:images/jigsaw', picClick='classpath:images/pic-click', waterMark='瑛泰源码', waterFont='WenQuanZhengHei.ttf', fontType='WenQuanZhengHei.ttf', slipOffset='5', aesStatus=true, interferenceOptions='0', cacheNumber='1000', timingClear='180', cacheType=redis, reqFrequencyLimitEnable=false, reqGetLockLimit=5, reqGetLockSeconds=10, reqGetMinuteLimit=30, reqCheckMinuteLimit=60, reqVerifyMinuteLimit=60}
+2026-08-25 19:52:54.197 [main] INFO  com.anji.captcha.util.ImageUtils:71 - 自定义resource底图:[SLIDING_BLOCK=[Ljava.lang.String;@3d80a80e, ORIGINAL=[Ljava.lang.String;@5fd42d61, PIC_CLICK=[Ljava.lang.String;@4c230867]
+2026-08-25 19:52:54.198 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:52 - supported-captchaCache-service:[redis, local]
+2026-08-25 19:52:54.205 [main] INFO  c.anji.captcha.service.impl.CaptchaServiceFactory:57 - supported-captchaTypes-service:[clickWord, default, blockPuzzle, pictureWord]
+2026-08-25 19:52:54.205 [main] INFO  c.a.c.service.impl.BlockPuzzleCaptchaServiceImpl:80 - --->>>初始化验证码底图<<<---blockPuzzle
+2026-08-25 19:52:58.679 [main] INFO  org.quartz.impl.StdSchedulerFactory:1222 - Using default implementation for ThreadExecutor
+2026-08-25 19:52:58.694 [main] INFO  org.quartz.core.SchedulerSignalerImpl:62 - Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+2026-08-25 19:52:58.695 [main] INFO  org.quartz.core.QuartzScheduler:224 - Quartz Scheduler v2.5.2 created.
+2026-08-25 19:52:58.707 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:676 - Using db table-based data access locking (synchronization).
+2026-08-25 19:52:58.710 [main] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:147 - JobStoreCMT initialized.
+2026-08-25 19:52:58.711 [main] INFO  org.quartz.core.QuartzScheduler:289 - Scheduler meta-data: Quartz Scheduler (v2.5.2) 'schedulerName' with instanceId 'a1787658778683'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 25 threads.
+  Using job-store 'org.springframework.scheduling.quartz.LocalDataSourceJobStore' - which supports persistence. and is clustered.
+
+2026-08-25 19:52:58.711 [main] INFO  org.quartz.impl.StdSchedulerFactory:1376 - Quartz scheduler 'schedulerName' initialized from an externally provided properties instance.
+2026-08-25 19:52:58.711 [main] INFO  org.quartz.impl.StdSchedulerFactory:1378 - Quartz scheduler version: 2.5.2
+2026-08-25 19:52:58.712 [main] INFO  org.quartz.core.QuartzScheduler:2250 - JobFactory set to: org.springframework.scheduling.quartz.SpringBeanJobFactory@41a57497
+2026-08-25 19:52:59.544 [main] INFO  o.f.s.b.e.EventRegistryAutoConfiguration:106 - No deployment resources were found for autodeployment
+2026-08-25 19:53:00.017 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:132 - Creating thread pool queue of size 100
+2026-08-25 19:53:00.018 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:138 - Creating thread factory with naming pattern flowable-async-task-invoker-%d
+2026-08-25 19:53:00.020 [main] INFO  o.f.c.engine.impl.async.DefaultAsyncTaskExecutor:146 - Creating executor service with corePoolSize 8, maxPoolSize 8 and keepAliveTime 5000
+2026-08-25 19:53:00.267 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1076 - Found 2 Engine Configurators in total:
+2026-08-25 19:53:00.268 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 19:53:00.269 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1078 - class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 19:53:00.269 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 19:53:00.276 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1104 - Executing beforeInit() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 19:53:01.711 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.eventregistry.spring.configurator.SpringEventRegistryConfigurator (priority:100000)
+2026-08-25 19:53:01.731 [main] INFO  o.f.eventregistry.impl.EventRegistryEngineImpl:53 - EventRegistryEngine default created
+2026-08-25 19:53:01.733 [main] INFO  o.flowable.spring.SpringProcessEngineConfiguration:1111 - Executing configure() of class org.flowable.idm.engine.configurator.IdmEngineConfigurator (priority:150000)
+2026-08-25 19:53:01.753 [main] INFO  org.flowable.idm.engine.impl.IdmEngineImpl:52 - IdmEngine default created
+2026-08-25 19:53:01.871 [main] INFO  org.flowable.engine.impl.ProcessEngineImpl:89 - ProcessEngine default created
+2026-08-25 19:53:01.906 [main] INFO  o.flowable.engine.impl.cmd.ValidateV5EntitiesCmd:43 - Total of v5 deployments found: 0
+2026-08-25 19:53:17.435 [main] INFO  c.i.yudao.module.ai.tool.method.PersonServiceImpl:145 - Initializing PersonService data store...
+2026-08-25 19:53:17.439 [main] INFO  c.i.yudao.module.ai.tool.method.PersonServiceImpl:148 - PersonService initialized with 100 records. Next ID: 101
+2026-08-25 19:53:27.038 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer:110 - Global AuthenticationManager configured with UserDetailsService bean with name adminUserDetailsManager
+2026-08-25 19:53:27.527 [main] INFO  o.s.b.actuate.endpoint.web.EndpointLinksResolver:60 - Exposing 15 endpoints beneath base path '/actuator'
+2026-08-25 19:53:28.248 [main] INFO  c.i.yudao.framework.dict.core.DictFrameworkUtils:44 - [init][初始化 DictFrameworkUtils 成功]
+2026-08-25 19:53:28.848 [main] INFO  c.b.m.e.spring.MybatisPlusApplicationContextAware:43 - Register ApplicationContext instances org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@6ea04618
+2026-08-25 19:53:28.853 [main] INFO  com.fhs.common.spring.SpringContextUtil:38 - ------SpringContextUtil setApplicationContext-------
+2026-08-25 19:53:29.338 [main] WARN  o.s.mcp.provider.tool.SyncMcpToolProvider:141 - No tool methods found in the provided tool objects: []
+2026-08-25 19:53:29.618 [main] INFO  c.a.core.http.netty.implementation.NettyUtility:375 - {"az.sdk.message":"The following Netty versions were found on the classpath and have a mismatch with the versions used by azure-core-http-netty. If your application runs without issue this message can be ignored, otherwise please align the Netty versions used in your application. For more information, see https://aka.ms/azsdk/java/dependency/troubleshoot.","azure-netty-version":"4.1.130.Final","azure-netty-native-version":"2.0.74.Final","classpath-netty-version-io.netty:netty-common":"4.2.12.Final","classpath-netty-version-io.netty:netty-handler":"4.2.12.Final","classpath-netty-version-io.netty:netty-handler-proxy":"4.2.12.Final","classpath-netty-version-io.netty:netty-buffer":"4.2.12.Final","classpath-netty-version-io.netty:netty-codec":"4.2.12.Final","classpath-netty-version-io.netty:netty-codec-http":"4.2.12.Final","classpath-netty-version-io.netty:netty-codec-http2":"4.2.12.Final","classpath-netty-version-io.netty:netty-transport-native-unix-common":"4.2.12.Final","classpath-netty-version-io.netty:netty-transport-native-epoll":"4.1.100.Final","classpath-netty-version-io.netty:netty-transport-native-kqueue":"4.2.12.Final","classpath-native-netty-version-io.netty:netty-tcnative-boringssl-static":"2.0.75.Final"}
+2026-08-25 19:53:31.303 [main] INFO  o.f.j.s.impl.asyncexecutor.AbstractAsyncExecutor:102 - Starting up the async job executor [org.flowable.spring.job.service.SpringAsyncExecutor] for engine bpmn
+2026-08-25 19:53:31.314 [main] INFO  org.apache.coyote.http11.Http11NioProtocol:168 - Starting ProtocolHandler ["http-nio-48083"]
+2026-08-25 19:53:31.314 [Thread-39] INFO  o.f.j.s.i.asyncexecutor.ResetExpiredJobsRunnable:63 - starting to reset expired jobs for engine bpmn
+2026-08-25 19:53:31.315 [Thread-38] INFO  o.f.j.s.i.asyncexecutor.AcquireTimerJobsRunnable:109 - starting to acquire async jobs due for engine bpmn
+2026-08-25 19:53:31.315 [Thread-37] INFO  o.f.j.s.i.a.AcquireAsyncJobsDueRunnable:106 - starting to acquire async jobs due for engine bpmn
+2026-08-25 19:53:31.339 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer:243 - Tomcat started on port 48083 (http) with context path '/'
+2026-08-25 19:53:31.342 [main] INFO  o.s.scheduling.quartz.SchedulerFactoryBean:730 - Starting Quartz Scheduler now
+2026-08-25 19:53:31.376 [main] INFO  org.quartz.core.QuartzScheduler:541 - Scheduler schedulerName_$_a1787658778683 started.
+2026-08-25 19:53:31.396 [main] INFO  cn.iocoder.yudao.server.YudaoServerApplication:59 - Started YudaoServerApplication in 76.306 seconds (process running for 79.11)
+2026-08-25 19:53:31.490 [main] INFO  c.i.y.m.s.s.p.PermissionCacheStartupRefreshRunner:38 - [run][启动阶段已清理权限缓存: [role, user_role_ids, menu_role_ids, permission_menu_ids]]
+2026-08-25 19:53:31.676 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5) handlerName(payNotifyJob) 同步完成]
+2026-08-25 19:53:31.707 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(17) handlerName(payOrderSyncJob) 同步完成]
+2026-08-25 19:53:31.740 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(18) handlerName(payOrderExpireJob) 同步完成]
+2026-08-25 19:53:31.771 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(19) handlerName(payRefundSyncJob) 同步完成]
+2026-08-25 19:53:31.832 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(21) handlerName(tradeOrderAutoCancelJob) 同步完成]
+2026-08-25 19:53:31.904 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(22) handlerName(tradeOrderAutoReceiveJob) 同步完成]
+2026-08-25 19:53:31.933 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(23) handlerName(tradeOrderAutoCommentJob) 同步完成]
+2026-08-25 19:53:31.959 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(24) handlerName(brokerageRecordUnfreezeJob) 同步完成]
+2026-08-25 19:53:31.986 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(25) handlerName(accessLogCleanJob) 同步完成]
+2026-08-25 19:53:32.012 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(26) handlerName(errorLogCleanJob) 同步完成]
+2026-08-25 19:53:32.039 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(27) handlerName(jobLogCleanJob) 同步完成]
+2026-08-25 19:53:32.065 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(33) handlerName(demoJob) 同步完成]
+2026-08-25 19:53:32.094 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(35) handlerName(payTransferSyncJob) 同步完成]
+2026-08-25 19:53:32.122 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(36) handlerName(iotDeviceOfflineCheckJob) 同步完成]
+2026-08-25 19:53:32.146 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(37) handlerName(iotOtaUpgradeJob) 同步完成]
+2026-08-25 19:53:32.171 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(38) handlerName(combinationRecordExpireJob) 同步完成]
+2026-08-25 19:53:32.194 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(39) handlerName(couponExpireJob) 同步完成]
+2026-08-25 19:53:32.219 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(40) handlerName(productStatisticsJob) 同步完成]
+2026-08-25 19:53:32.239 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5600) handlerName(kingdeeProductionOrderSyncJob) 同步完成]
+2026-08-25 19:53:32.264 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5602) handlerName(kingdeeProductItemSyncJob) 同步完成]
+2026-08-25 19:53:32.288 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5603) handlerName(kingdeeStockSyncJob) 同步完成]
+2026-08-25 19:53:32.312 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5604) handlerName(kingdeePurchaseOrderSyncJob) 同步完成]
+2026-08-25 19:53:32.338 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5605) handlerName(kingdeeSaleOrderSyncJob) 同步完成]
+2026-08-25 19:53:32.357 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5606) handlerName(kingdeeBomSyncJob) 同步完成]
+2026-08-25 19:53:32.381 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5607) handlerName(kingdeeProductionMaterialListSyncJob) 同步完成]
+2026-08-25 19:53:32.401 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5608) handlerName(erpNasTableAutoSyncJob) 同步完成]
+2026-08-25 19:53:32.420 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5609) handlerName(erpKingdeeTableAutoSyncJob) 同步完成]
+2026-08-25 19:53:32.440 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5610) handlerName(mesEdhrWorkTaskOverdueJob) 同步完成]
+2026-08-25 19:53:32.459 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5616) handlerName(mesProNightlyReplanJob) 同步完成]
+2026-08-25 19:53:32.483 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5617) handlerName(kingdeeStockMoveSyncJob) 同步完成]
+2026-08-25 19:53:32.507 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5618) handlerName(kingdeeProductionPickListSyncJob) 同步完成]
+2026-08-25 19:53:32.527 [main] INFO  c.i.yudao.module.infra.service.job.JobServiceImpl:162 - [syncJob][id(5620) handlerName(registrationCertificateReminderDailyJob) 同步完成]
+2026-08-25 19:53:32.542 [main] INFO  c.i.y.m.infra.service.job.JobStartupSyncRunner:32 - [run][定时任务已同步到 Quartz]
+2026-08-25 19:53:32.567 [main] INFO  c.i.y.m.i.service.job.LocalQuartzAutoPauseRunner:56 - [run][local 自动暂停 Quartz 任务][jobId(5608) handlerName(erpNasTableAutoSyncJob) cron(0 * * * * ?)]
+2026-08-25 19:53:32.586 [main] INFO  c.i.y.m.i.service.job.LocalQuartzAutoPauseRunner:56 - [run][local 自动暂停 Quartz 任务][jobId(5609) handlerName(erpKingdeeTableAutoSyncJob) cron(0 * * * * ?)]
+2026-08-25 19:53:32.605 [main] INFO  c.i.y.m.i.service.job.LocalQuartzAutoPauseRunner:56 - [run][local 自动暂停 Quartz 任务][jobId(5610) handlerName(mesEdhrWorkTaskOverdueJob) cron(0 0/5 * * * ?)]
+2026-08-25 19:53:32.623 [main] INFO  c.i.y.m.i.service.job.LocalQuartzAutoPauseRunner:56 - [run][local 自动暂停 Quartz 任务][jobId(5616) handlerName(mesProNightlyReplanJob) cron(0 0 2 * * ?)]
+2026-08-25 19:53:32.645 [main] INFO  c.i.y.m.i.service.job.LocalQuartzAutoPauseRunner:56 - [run][local 自动暂停 Quartz 任务][jobId(5620) handlerName(registrationCertificateReminderDailyJob) cron(0 0 9 * * ?)]
+2026-08-25 19:53:32.645 [main] INFO  c.i.y.m.i.service.job.LocalQuartzAutoPauseRunner:59 - [run][local Quartz 自动任务收口完成][pausedCount(5) allowlistedCount(2)]
+2026-08-25 19:53:33.003 [http-nio-48083-exec-1] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/]:168 - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-08-25 19:53:33.004 [http-nio-48083-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet:532 - Initializing Servlet 'dispatcherServlet'
+2026-08-25 19:53:33.009 [http-nio-48083-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet:554 - Completed initialization in 5 ms
+2026-08-25 19:53:33.648 [pool-18-thread-1] INFO  c.i.y.f.banner.core.BannerApplicationRunner:23 - 
+----------------------------------------------------------
+	项目启动成功！
+	接口文档: 	https://doc.iocoder.cn/api-doc/ 
+	开发文档: 	https://doc.iocoder.cn 
+	视频教程: 	https://t.zsxq.com/02Yf6M7Qn 
+----------------------------------------------------------
+2026-08-25 19:54:04.063 [http-nio-48083-exec-3] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 19:54:04.148 [http-nio-48083-exec-3] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(84 ms)]
+2026-08-25 19:54:20.211 [http-nio-48083-exec-4] INFO  org.apache.tomcat.util.http.parser.Cookie:168 - A cookie header was received [Hm_lvt_a1ff8825baa73c3a78eb96aa40325abc=1786927187,1786928266,1786928329,1787543377;] that contained an invalid cookie. That cookie will be ignored.
+ Note: further occurrences of this error will be logged at DEBUG level.
+2026-08-25 19:54:20.216 [http-nio-48083-exec-4] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 19:54:20.240 [http-nio-48083-exec-4] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(22 ms)]
+2026-08-25 19:56:03.888 [http-nio-48083-exec-5] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 19:56:03.916 [http-nio-48083-exec-5] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(27 ms)]
+2026-08-25 19:56:20.208 [http-nio-48083-exec-6] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 19:56:20.229 [http-nio-48083-exec-6] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(19 ms)]
+2026-08-25 19:58:03.884 [http-nio-48083-exec-7] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 19:58:03.903 [http-nio-48083-exec-7] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(18 ms)]
+2026-08-25 19:58:20.214 [http-nio-48083-exec-8] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 19:58:20.232 [http-nio-48083-exec-8] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(18 ms)]
+2026-08-25 19:59:19.823 [http-nio-48083-exec-9] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:51 - [preHandle][开始请求 URL(/admin-api/mes/pro/process-pool/team-leader/active-order/simulation/stage6-idi) 参数({"simulationRunId":"STAGE6-IDI-1787659159761","templateActiveOrderId":45,"signaturePassword":"<REDACTED_PASSWORD>"})]
+2026-08-25 19:59:35.545 [http-nio-48083-exec-9] WARN  c.i.y.f.web.core.handler.GlobalExceptionHandler:309 - [serviceExceptionHandler]
+	cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionProgressPortImpl.sourceMissing(MesTeamLeaderActiveOrderCompletionProgressPortImpl.java:117)
+2026-08-25 19:59:35.547 [http-nio-48083-exec-9] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/mes/pro/process-pool/team-leader/active-order/simulation/stage6-idi) 耗时(15723 ms)]
+2026-08-25 20:00:03.889 [http-nio-48083-exec-10] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 20:00:03.907 [http-nio-48083-exec-10] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(16 ms)]
+2026-08-25 20:00:20.206 [http-nio-48083-exec-1] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 20:00:20.222 [http-nio-48083-exec-1] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(14 ms)]
+2026-08-25 20:00:31.464 [QuartzScheduler_schedulerName-a1787658778683_ClusterManager] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:3561 - ClusterManager: detected 1 failed or restarted instances.
+2026-08-25 20:00:31.465 [QuartzScheduler_schedulerName-a1787658778683_ClusterManager] INFO  o.s.scheduling.quartz.LocalDataSourceJobStore:3426 - ClusterManager: Scanning for instance "a1787657851222"'s failed in-progress jobs.
+2026-08-25 20:02:03.879 [http-nio-48083-exec-2] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 20:02:03.899 [http-nio-48083-exec-2] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(19 ms)]
+2026-08-25 20:02:20.192 [http-nio-48083-exec-3] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 20:02:20.218 [http-nio-48083-exec-3] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(22 ms)]
+2026-08-25 20:04:03.867 [http-nio-48083-exec-4] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 20:04:03.884 [http-nio-48083-exec-4] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(17 ms)]
+2026-08-25 20:04:20.188 [http-nio-48083-exec-5] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:49 - [preHandle][开始请求 URL(/admin-api/system/notify-message/get-unread-count) 无参数]
+2026-08-25 20:04:20.208 [http-nio-48083-exec-5] INFO  c.i.y.f.a.core.interceptor.ApiAccessLogInterceptor:70 - [afterCompletion][完成请求 URL(/admin-api/system/notify-message/get-unread-count) 耗时(19 ms)]

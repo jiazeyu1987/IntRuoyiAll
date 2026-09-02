@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "contractVersion": "2026-08-24-branch-runtime-v7",
+  "worktrees": [
+    {
+      "name": "extended-slot",
+      "path": "D:\\IntRuoyiWorktree\\extended-slot",
+      "branch": "codex/extended-slot",
+      "profile": "int_main",
+      "slot": 20,
+      "frontendPort": 8154,
+      "backendPort": 48154,
+      "active": true
+    }
+  ]
+}
