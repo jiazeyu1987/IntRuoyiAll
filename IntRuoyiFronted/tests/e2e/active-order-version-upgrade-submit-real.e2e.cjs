@@ -131,6 +131,31 @@ async function openActiveOrderPool(page) {
   await page.locator('[data-team-leader-active-order-list]').first().waitFor({ state: 'visible', timeout: 30000 })
 }
 
+async function findActiveOrderRowAcrossPages(page, workOrderCode) {
+  const table = page.locator('[data-team-leader-active-order-list]').first()
+  const rowSelector = '[data-team-leader-active-order-list] .el-table__body-wrapper tbody tr'
+  for (let pageIndex = 1; pageIndex <= 30; pageIndex++) {
+    await table.waitFor({ state: 'visible', timeout: 30000 })
+    const row = page.locator(rowSelector, { hasText: workOrderCode }).first()
+    if ((await row.count()) > 0) {
+      try {
+        await row.waitFor({ state: 'visible', timeout: 2000 })
+        return row
+      } catch (_) {
+        // Continue to the next rendered page.
+      }
+    }
+    const nextButton = page.locator('[data-team-leader-active-order-config] .el-pagination button.btn-next').first()
+    if ((await nextButton.count()) === 0 || (await nextButton.isDisabled())) break
+    await nextButton.click()
+    await page.waitForTimeout(500)
+  }
+  const visibleRows = await page.locator(rowSelector).evaluateAll((rows) =>
+    rows.map((row) => row.innerText).join('\n---ROW---\n')
+  ).catch(() => '')
+  throw new Error(`活跃订单 ${workOrderCode} 未出现在当前活跃订单池分页中；当前页可见行：${visibleRows.slice(0, 2000)}`)
+}
+
 async function run() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
   const evidence = {
@@ -174,10 +199,7 @@ async function run() {
     await login(page)
     evidence.login = 'PASS'
     await openActiveOrderPool(page)
-    const row = page.locator('[data-team-leader-active-order-list] .el-table__body-wrapper tbody tr', {
-      hasText: WORK_ORDER_CODE
-    }).first()
-    await row.waitFor({ state: 'visible', timeout: 30000 })
+    const row = await findActiveOrderRowAcrossPages(page, WORK_ORDER_CODE)
     await row.locator('[data-team-leader-active-order-version-upgrade]').first().click()
 
     const dialog = page.locator('.el-dialog:visible', { hasText: '版本升级重启' }).first()
@@ -230,7 +252,8 @@ async function run() {
     evidence.submit = {
       requestCode: submitBody.data.requestCode,
       approvalStatus: submitBody.data.approvalStatus,
-      freezeStatus: submitBody.data.freezeStatus
+      freezeStatus: submitBody.data.freezeStatus,
+      activeOrderId: submitBody.data.activeOrderId
     }
     await page.locator('.el-message', { hasText: '版本升级审批已提交' }).first().waitFor({
       state: 'visible',

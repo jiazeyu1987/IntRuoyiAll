@@ -151,3 +151,14 @@ WARNING: final-state E2E 期间页面后台审批待办角标加载出现 `系�
 
 - 2026-09-03: 已在 worktree 分支 codex/20260902-active-order-latest-version-upgrade-restart-docs 提交实现、测试、文档与 E2E 证据；实现提交：$full。
 - 2026-09-03: 提交前通过 ranch-runtime-port-guard.ps1、前端静态合同、后端静态合同、SQL 合同、git diff --cached --check，并强制纳入任务保留的 E2E 证据图片与 JSON。
+
+## Work Log Update 2026-09-03 / Fresh Full-Chain Rerun Boundary
+
+- 2026-09-03 01:55:28 +08:00: 在 worktree `D:\IntRuoyiWorktree\20260902-active-order-latest-version-upgrade-restart-docs`、真实运行态 `8093/48093` 继续验证用户要求的完整链路。
+- 修复 E2E 脚本分页定位问题：`submit-real`、`approve-real` 不再只查活跃订单池第一页；`final-state-real` 改为扫描活跃订单池全部分页后再验证旧单缺席和新单详情。
+- 重新运行终态真实 E2E：`node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final-state-real.e2e.cjs` -> PASS。Playwright 从真实前端登录，扫描活跃池可见 ID `[150,348,396,1009200001]`，确认旧活跃订单 `45` 不在任一分页，新活跃订单 `1009200001` 可见并可打开详情。
+- 重新运行定向静态验证：`node --check` 三个真实 E2E 脚本、前端入口静态合同、后端静态合同、SQL 合同 `pytest` -> PASS，SQL 合同 7 tests。
+- Fresh submit rerun boundary: `node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-submit-real.e2e.cjs` 使用任务自有旧版本样本 `1009200000 / CODX-AOUP-20260902205106` -> BLOCKED。真实页面活跃订单池全部分页只渲染 `150/348/396/1009200001`，该样本未进入 DOM，无法从真实前端点击“升级”重新发起。
+- 只读数据库核对显示 `1009200000` 是旧路线 `633 / V3`，但其 `active_order.work_order_id=1009200000`，而进度快照/PQC 任务绑定 `work_order_id=980032`，因此不满足活跃订单列表读取所需的一致进度合同；本轮未进行数据库写入修复，也未修改共享路线/QA 基础版本来制造差异。
+
+BLOCKED: fresh continuous submit -> approve -> final rerun requires a new or repaired task-owned visible old-version active-order fixture. Existing approved chain terminal state remains PASS, but this rerun did not create a fresh approval instance because the only old-version candidate is not visible through the real active-order page.

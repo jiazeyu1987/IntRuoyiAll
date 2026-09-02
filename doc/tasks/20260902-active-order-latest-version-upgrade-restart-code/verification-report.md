@@ -274,3 +274,44 @@ Note: The rerun captured a background approval-todo badge console error (`系统
 Feature branch commit: $full.
 
 Committed scope includes backend implementation, frontend entry/API integration, SQL migrations, static tests, real E2E scripts, task records, PRD/user-flow docs, and preserved E2E artifacts.
+
+### 2026-09-03 Fresh Full-Chain Rerun Boundary
+
+User gate: continue E2E verification beyond old-order freeze and prove the terminal chain.
+
+Changes to E2E coverage:
+
+- `active-order-version-upgrade-submit-real.e2e.cjs`: now scans active-order pagination before declaring a source row missing.
+- `active-order-version-upgrade-approve-real.e2e.cjs`: now scans active-order pagination before declaring the replacement row missing after approval.
+- `active-order-version-upgrade-final-state-real.e2e.cjs`: now scans all active-order pages and asserts the old source active-order ID is absent from the full visible active pool, not just page 1.
+
+Verification rerun:
+
+```powershell
+node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final-state-real.e2e.cjs
+```
+
+Result: PASS. Playwright logged in through the real frontend, opened the production-leader active-order pool, scanned visible active-order IDs 150, 348, 396, and 1009200001, verified old active order 45 is absent from all visible active-pool pages, verified replacement active order 1009200001 is visible with work order CODX-PQC-20260807-SP-WO-05 and route version V12, and opened its detail dialog from the real page.
+
+Static and contract rerun:
+
+```powershell
+node --check IntRuoyiFronted\tests\e2e\active-order-version-upgrade-submit-real.e2e.cjs
+node --check IntRuoyiFronted\tests\e2e\active-order-version-upgrade-approve-real.e2e.cjs
+node --check IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final-state-real.e2e.cjs
+node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-entry-static.spec.cjs
+node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-active-order-version-upgrade-code-static.spec.cjs
+python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_active_order_version_upgrade_request_sql.py -q
+```
+
+Result: PASS; SQL contract suite reported 7 tests.
+
+Fresh continuous-chain rerun boundary:
+
+```powershell
+node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-submit-real.e2e.cjs
+```
+
+Result: BLOCKED by current test data, not by a successful business assertion. The task-owned old-version candidate 1009200000 / CODX-AOUP-20260902205106 has route 633 / V3, but it is not visible in the real active-order pool DOM. The page rendered only active orders 150, 348, 396, and 1009200001. Read-only DB inspection found the candidate's active-order row has work_order_id=1009200000, while its process snapshots and PQC tasks are bound to work_order_id=980032; this inconsistent fixture prevents list readability. No direct DB write, route publication, QA publication, or shared master-data mutation was performed to manufacture a fresh upgradable source order.
+
+Conclusion: the previously approved chain plus today's final-state rerun proves the post-approval terminal outcome. A brand-new submit -> approve -> final E2E instance still needs an approved setup path for a visible old-version task-owned fixture.

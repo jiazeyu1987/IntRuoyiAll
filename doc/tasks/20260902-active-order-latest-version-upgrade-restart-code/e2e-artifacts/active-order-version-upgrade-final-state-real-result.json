@@ -17,6 +17,11 @@
       "status": 200
     },
     {
+      "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/list",
+      "method": "GET",
+      "status": 200
+    },
+    {
       "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/detail?activeOrderId=1009200001",
       "method": "GET",
       "status": 200
@@ -24,10 +29,18 @@
   ],
   "consoleErrors": [
     "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
+    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
+    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
     "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24"
   ],
   "pageErrors": [],
   "login": "PASS",
+  "visibleActiveOrderIds": [
+    "150",
+    "348",
+    "396",
+    "1009200001"
+  ],
   "replacementActiveOrder": {
     "id": 1009200001,
     "workOrderCode": "CODX-PQC-20260807-SP-WO-05",
