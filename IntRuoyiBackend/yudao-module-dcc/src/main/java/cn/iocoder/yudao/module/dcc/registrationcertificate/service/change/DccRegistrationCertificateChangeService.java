@@ -160,7 +160,6 @@ public class DccRegistrationCertificateChangeService {
             return replayChangeSubmission(existing, payloadHash);
         }
         ChangeSelection selection = validateSelection(command);
-        validateMvpProjectionValues(selection);
         CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
                 command.expectedRowVersion());
         Long eventId = insertLifecycleEvent(command, state, state.snapshotId(), EVENT_CHANGE_SUBMITTED,
@@ -203,11 +202,11 @@ public class DccRegistrationCertificateChangeService {
                 || !Objects.equals(state.versionId(), application.sourceVersionId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REVISION_CONFLICT);
         }
-        Map<String, String> projectionValues = loadMvpProjectionValues(tenantId, application.changeId());
+        ApprovedProjection projection = loadApprovedProjection(tenantId, application.changeId());
         Long resultingSnapshotId = state.snapshotId();
         String notificationProductName = state.snapshot().productName();
-        if (!projectionValues.isEmpty()) {
-            SnapshotRow target = state.snapshot().withMvpDisplayChanges(projectionValues);
+        if (!projection.structuredValues().isEmpty()) {
+            SnapshotRow target = state.snapshot().withApprovedChanges(projection);
             resultingSnapshotId = insertSnapshot(tenantId, state.versionId(), target);
             notificationProductName = target.productName();
             requireSingle(jdbcTemplate.update("""
@@ -343,8 +342,7 @@ public class DccRegistrationCertificateChangeService {
             }
         }
         for (String type : selected) {
-            if (("PRODUCT_NAME".equals(type) || "REGISTRANT_NAME".equals(type))
-                    && isBlank(structured.get(type))) {
+            if (STRUCTURED_COLUMNS.containsKey(type) && isBlank(structured.get(type))) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
             }
         }
@@ -360,14 +358,6 @@ public class DccRegistrationCertificateChangeService {
         }
         return new ChangeSelection(structured, hasOther ? command.otherDescription().trim() : null,
                 new ArrayList<>(selected));
-    }
-
-    private void validateMvpProjectionValues(ChangeSelection selection) {
-        for (String type : selection.structuredValues().keySet()) {
-            if (!"PRODUCT_NAME".equals(type) && !"REGISTRANT_NAME".equals(type)) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
-            }
-        }
     }
 
     private ChangeSelection validateImmediateSelection(DccRegistrationCertificateChangeCommand command) {
@@ -698,17 +688,23 @@ public class DccRegistrationCertificateChangeService {
         return application;
     }
 
-    private Map<String, String> loadMvpProjectionValues(Long tenantId, Long changeId) {
+    private ApprovedProjection loadApprovedProjection(Long tenantId, Long changeId) {
         List<Map.Entry<String, String>> rows = jdbcTemplate.query("""
                 SELECT item_type, after_value_json
                   FROM dcc_registration_certificate_change_item
                  WHERE tenant_id = ? AND change_id = ?
-                   AND item_type IN ('PRODUCT_NAME', 'REGISTRANT_NAME')
+                   AND item_type <> 'OTHER_CONTENT'
                  ORDER BY sort_order ASC, id ASC
                 """, (rs, rowNum) -> Map.entry(rs.getString("item_type"), rs.getString("after_value_json")),
                 tenantId, changeId);
         Map<String, String> values = new LinkedHashMap<>();
+        Boolean entrustedProduction = null;
+        Boolean selfProduction = null;
+        String entrustedEnterprisesJson = null;
         for (Map.Entry<String, String> row : rows) {
+            if (!STRUCTURED_COLUMNS.containsKey(row.getKey())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
+            }
             Map<?, ?> parsed = JsonUtils.parseObject(row.getValue(), Map.class);
             String value = parsed == null || parsed.get("value") == null
                     ? null : String.valueOf(parsed.get("value")).trim();
@@ -716,8 +712,20 @@ public class DccRegistrationCertificateChangeService {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED);
             }
             values.put(row.getKey(), value);
+            if ("PRODUCTION_ADDRESS".equals(row.getKey())) {
+                entrustedProduction = parsed.get("entrustedProduction") instanceof Boolean valueFlag
+                        ? valueFlag : null;
+                selfProduction = parsed.get("selfProduction") instanceof Boolean valueFlag
+                        ? valueFlag : null;
+                entrustedEnterprisesJson = parsed.get("entrustedEnterprisesJson") == null
+                        ? null : String.valueOf(parsed.get("entrustedEnterprisesJson")).trim();
+                if (entrustedProduction == null || selfProduction == null
+                        || isBlank(entrustedEnterprisesJson)) {
+                    throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED);
+                }
+            }
         }
-        return values;
+        return new ApprovedProjection(values, entrustedProduction, selfProduction, entrustedEnterprisesJson);
     }
 
     private void insertChangeItems(DccRegistrationCertificateChangeCommand command, Long tenantId, Long changeId,
@@ -745,10 +753,9 @@ public class DccRegistrationCertificateChangeService {
         if ("OTHER_CONTENT".equals(itemType)) {
             return valueJson(selection.otherDescription());
         }
-        if ("PRODUCTION_ADDRESS".equals(itemType)
-                && !selection.structuredValues().containsKey("PRODUCTION_ADDRESS")) {
+        if ("PRODUCTION_ADDRESS".equals(itemType)) {
             Map<String, Object> relation = new LinkedHashMap<>();
-            relation.put("value", "");
+            relation.put("value", after.valueOf(itemType));
             relation.put("entrustedProduction", command.entrustedProduction());
             relation.put("selfProduction", command.selfProduction());
             relation.put("entrustedEnterprisesJson", normalize(command.entrustedEnterprisesJson()));
@@ -935,6 +942,12 @@ public class DccRegistrationCertificateChangeService {
                                    List<String> itemTypes) {
     }
 
+    private record ApprovedProjection(Map<String, String> structuredValues,
+                                      Boolean entrustedProduction,
+                                      Boolean selfProduction,
+                                      String entrustedEnterprisesJson) {
+    }
+
     private record ChangeApplication(Long changeId, Long certificateId, Long sourceVersionId,
                                      Long sourceSnapshotId, String changeStatus, String requestStatus,
                                      Integer baselineRowVersion) {
@@ -983,13 +996,22 @@ public class DccRegistrationCertificateChangeService {
                     effectiveAt);
         }
 
-        SnapshotRow withMvpDisplayChanges(Map<String, String> changes) {
+        SnapshotRow withApprovedChanges(ApprovedProjection projection) {
+            Map<String, String> changes = projection.structuredValues();
+            boolean productionAddressChanged = changes.containsKey("PRODUCTION_ADDRESS");
             return new SnapshotRow(id, versionId, revisionNo,
                     changes.getOrDefault("PRODUCT_NAME", productName),
                     changes.getOrDefault("REGISTRANT_NAME", registrantName),
-                    modelSpecification, structureComposition, intendedUse, technicalRequirements,
-                    residenceAddress, productionAddress, entrustedProduction, selfProduction,
-                    entrustedEnterprisesJson, effectiveAt);
+                    changes.getOrDefault("MODEL_SPECIFICATION", modelSpecification),
+                    changes.getOrDefault("STRUCTURE_COMPOSITION", structureComposition),
+                    changes.getOrDefault("INTENDED_USE", intendedUse),
+                    changes.getOrDefault("TECHNICAL_REQUIREMENTS", technicalRequirements),
+                    changes.getOrDefault("RESIDENCE_ADDRESS", residenceAddress),
+                    changes.getOrDefault("PRODUCTION_ADDRESS", productionAddress),
+                    productionAddressChanged ? projection.entrustedProduction() : entrustedProduction,
+                    productionAddressChanged ? projection.selfProduction() : selfProduction,
+                    productionAddressChanged ? projection.entrustedEnterprisesJson() : entrustedEnterprisesJson,
+                    effectiveAt);
         }
 
         String valueOf(String itemType) {

@@ -821,7 +821,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(PRODUCT_BOMS_KEY, JSON.toJSON(routeProductBomMapper.selectList(routeId, null, null)));
         configSnapshots.put(SCHEDULE_CONFIGS_KEY,
                 JSON.toJSON(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)));
-        configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId));
+        configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId,
+                resolveExistingConfigSnapshot(routeVersionId, BATCH_USE_CONFIGS_KEY), routeVersionId));
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
         Object batchRecordAttachmentOwners =
@@ -865,7 +866,10 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         return configSnapshot;
     }
 
-    private JSONArray buildBatchUseConfigSnapshots(Long routeId) {
+    private JSONArray buildBatchUseConfigSnapshots(Long routeId, Object existingBatchUseConfigs,
+                                                   Long routeVersionId) {
+        Map<Long, Object> frontlineReportMaterialIdsByRouteProcessId =
+                extractFrontlineReportMaterialIds(existingBatchUseConfigs, routeVersionId);
         List<MesProRouteFlowProcessConfigDO> processConfigs = routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType());
         List<MesProRouteFlowProcessBatchRecordDO> records = routeFlowProcessBatchRecordMapper
@@ -884,7 +888,36 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                     recordsByConfigId.getOrDefault(processConfig.getId(), Collections.emptyList());
             config.put("formBindings", buildFormBindingSnapshots(ownedRecords));
             config.put("batchRecordReports", buildBatchRecordReportSnapshots(ownedRecords));
+            if (frontlineReportMaterialIdsByRouteProcessId.containsKey(processConfig.getRouteProcessId())) {
+                config.put("frontlineReportMaterialIds",
+                        frontlineReportMaterialIdsByRouteProcessId.get(processConfig.getRouteProcessId()));
+            }
             result.add(config);
+        }
+        return result;
+    }
+
+    private Map<Long, Object> extractFrontlineReportMaterialIds(Object existingBatchUseConfigs,
+                                                                  Long routeVersionId) {
+        if (existingBatchUseConfigs == null) {
+            return Collections.emptyMap();
+        }
+        if (!(existingBatchUseConfigs instanceof JSONArray configs)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        Map<Long, Object> result = new LinkedHashMap<>();
+        for (Object value : configs) {
+            if (!(value instanceof JSONObject config)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+            Long routeProcessId = config.getLong("routeProcessId");
+            if (routeProcessId == null || routeProcessId <= 0) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+            if (config.containsKey("frontlineReportMaterialIds")
+                    && result.put(routeProcessId, config.get("frontlineReportMaterialIds")) != null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
         }
         return result;
     }

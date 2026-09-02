@@ -623,6 +623,22 @@ class MesProRouteServiceImplTest {
         graph.setRouteId(routeId);
         graph.setNodes(emptyList());
         when(routeMapper.selectById(routeId)).thenReturn(route);
+        when(routeVersionMapper.selectById(routeVersionId)).thenReturn(MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeId(routeId)
+                .routeSnapshotJson("""
+                        {
+                          "configSnapshots": {
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "frontlineReportMaterialIds": [8801, 8802]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
         when(routeProcessFlowService.getGraph(routeId)).thenReturn(graph);
         when(routeProductMapper.selectListByRouteId(routeId)).thenReturn(emptyList());
         when(routeProductBomMapper.selectList(routeId, null, null)).thenReturn(emptyList());
@@ -639,6 +655,8 @@ class MesProRouteServiceImplTest {
 
         JSONObject batchUseConfig = snapshot.getJSONObject("configSnapshots")
                 .getJSONArray("batchUseConfigs").getJSONObject(0);
+        assertEquals(List.of(8801L, 8802L), batchUseConfig.getJSONArray("frontlineReportMaterialIds")
+                .toJavaList(Long.class));
         JSONArray formBindings = batchUseConfig.getJSONArray("formBindings");
         assertEquals(1, formBindings.size());
         assertEquals("FB-LIVE", formBindings.getJSONObject(0).getString("formBindingKey"));

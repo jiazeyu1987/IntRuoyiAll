@@ -87,7 +87,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void submittedChangeWaitsForApprovalBeforeUpdatingOnlyMvpDisplayFields() {
+    void submittedChangeWaitsForApprovalBeforeUpdatingSelectedDisplayFields() {
         seedCurrentCertificate();
 
         Long requestId = assertDoesNotThrow(() -> service.submitChangeForApproval(command(
@@ -108,6 +108,47 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(55L, longValue("SELECT reviewer_user_id FROM dcc_registration_certificate_change WHERE id = ?", changeId));
         assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
         assertEquals("Registrant B", text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
+    }
+
+    @Test
+    void submittedChangeApprovalUpdatesAllSelectedStructuredFieldsAndProductionRelation() {
+        seedCurrentCertificate();
+
+        Long requestId = assertDoesNotThrow(() -> service.submitChangeForApproval(command(
+                "change-all-fields-pending", 3, Map.of(
+                        "PRODUCT_NAME", "Product B",
+                        "REGISTRANT_NAME", "Registrant B",
+                        "MODEL_SPECIFICATION", "Model B",
+                        "STRUCTURE_COMPOSITION", "Structure B",
+                        "INTENDED_USE", "Use B",
+                        "TECHNICAL_REQUIREMENTS", "Requirements B",
+                        "RESIDENCE_ADDRESS", "Residence B",
+                        "PRODUCTION_ADDRESS", "Production B"),
+                null, true, "[{\"enterpriseName\":\"Entrusted B\"}]", null)));
+
+        Long changeId = longValue("SELECT id FROM dcc_registration_certificate_change WHERE approval_request_id = ?", requestId);
+        assertEquals(3001L, longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001"));
+
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_access_request SET status = 'APPROVED' WHERE id = ?", requestId);
+        assertDoesNotThrow(() -> service.approveChangeRequest(1L, 55L, requestId, "change-all-fields-approval"));
+
+        Long snapshotId = longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001");
+        assertEquals("APPLIED", text("SELECT status FROM dcc_registration_certificate_change WHERE id = ?", changeId));
+        assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Registrant B", text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Model B", text("SELECT model_specification FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Structure B", text("SELECT structure_composition FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Use B", text("SELECT intended_use FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Requirements B", text("SELECT technical_requirements FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Residence B", text("SELECT residence_address FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals("Production B", text("SELECT production_address FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals(Boolean.TRUE, jdbcTemplate.queryForObject(
+                "SELECT entrusted_production FROM dcc_registration_certificate_snapshot WHERE id = ?", Boolean.class, snapshotId));
+        assertEquals(Boolean.FALSE, jdbcTemplate.queryForObject(
+                "SELECT self_production FROM dcc_registration_certificate_snapshot WHERE id = ?", Boolean.class, snapshotId));
+        assertEquals("[{\"enterpriseName\":\"Entrusted B\"}]",
+                text("SELECT entrusted_enterprises_json FROM dcc_registration_certificate_snapshot WHERE id = ?", snapshotId));
+        assertEquals(8, count("SELECT COUNT(*) FROM dcc_registration_certificate_change_item WHERE change_id = ?", changeId));
     }
 
     @Test

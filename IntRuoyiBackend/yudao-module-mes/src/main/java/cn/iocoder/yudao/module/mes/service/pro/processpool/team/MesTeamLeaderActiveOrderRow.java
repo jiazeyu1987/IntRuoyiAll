@@ -48,6 +48,9 @@ public class MesTeamLeaderActiveOrderRow {
     private Boolean hasQuantityConflict;
     private Integer quantityConflictProcessCount;
     private BigDecimal overageQuantity;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 
     @Data
     @Accessors(chain = true)

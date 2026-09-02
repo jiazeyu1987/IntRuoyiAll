@@ -29,6 +29,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationCopyReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationCopyRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage6IdiSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage6IdiSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage2_5BackfillBatchExecutionSimulationReqVO;
@@ -91,6 +93,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationCopyResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationResult;
@@ -457,6 +460,35 @@ public class MesProcessPoolTeamLeaderController {
         MesTeamLeaderActiveOrderSimulationResult result = activeOrderSimulationService.simulateActiveOrderCompletion(
                 SecurityFrameworkUtils.getLoginUserId(), reqVO.getActiveOrderId());
         return success(toActiveOrderSimulationRespVO(result));
+    }
+
+    @PostMapping("/active-order/simulation/copy-latest")
+    @Operation(summary = "复制为最新版本测试模拟活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderActiveOrderSimulationCopyRespVO> copyLatestSimulationActiveOrder(
+            @Valid @RequestBody MesTeamLeaderActiveOrderSimulationCopyReqVO reqVO) {
+        MesTeamLeaderActiveOrderSimulationCopyResult result = activeOrderService.copyLatestSimulationActiveOrder(
+                SecurityFrameworkUtils.getLoginUserId(), reqVO.getSourceActiveOrderId(), reqVO.getSimulationRunId());
+        return success(new MesTeamLeaderActiveOrderSimulationCopyRespVO()
+                .setActiveOrderId(result.getActiveOrderId())
+                .setWorkOrderId(result.getWorkOrderId())
+                .setWorkOrderCode(result.getWorkOrderCode())
+                .setWorkOrderName(result.getWorkOrderName())
+                .setRouteId(result.getRouteId())
+                .setRouteVersionId(result.getRouteVersionId())
+                .setRouteVersionNo(result.getRouteVersionNo())
+                .setQaRegulationVersionId(result.getQaRegulationVersionId())
+                .setSimulationRunId(result.getSimulationRunId()));
+    }
+
+    @PostMapping("/active-order/simulation/copy-latest/cleanup")
+    @Operation(summary = "清理最新版本测试模拟活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> cleanupLatestSimulationActiveOrder(
+            @Valid @RequestBody MesTeamLeaderActiveOrderRemoveReqVO reqVO) {
+        activeOrderService.cleanupLatestSimulationActiveOrder(SecurityFrameworkUtils.getLoginUserId(),
+                reqVO.getActiveOrderId());
+        return success(Boolean.TRUE);
     }
 
     @PostMapping("/active-order/simulation/stage1")
@@ -1125,7 +1157,10 @@ public class MesProcessPoolTeamLeaderController {
                 .setQuantityConflict(activeOrder.getQuantityConflict())
                 .setHasQuantityConflict(activeOrder.getHasQuantityConflict())
                 .setQuantityConflictProcessCount(activeOrder.getQuantityConflictProcessCount())
-                .setOverageQuantity(activeOrder.getOverageQuantity());
+                .setOverageQuantity(activeOrder.getOverageQuantity())
+                .setSimulated(activeOrder.getSimulated())
+                .setSimulationStage(activeOrder.getSimulationStage())
+                .setSimulationRunId(activeOrder.getSimulationRunId());
     }
 
     private static List<MesTeamLeaderActiveOrderRespVO.ProcessRemainingQuantity>

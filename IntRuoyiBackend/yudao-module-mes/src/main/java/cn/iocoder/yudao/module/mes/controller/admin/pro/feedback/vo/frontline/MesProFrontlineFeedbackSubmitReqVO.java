@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -23,7 +22,7 @@ public class MesProFrontlineFeedbackSubmitReqVO {
 
     @Schema(description = "当前冻结工序的全部报工物料明细", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid
-    @NotEmpty(message = "报工物料明细不能为空")
+    @NotNull(message = "报工物料明细不能为 null")
     private List<MesProFrontlineFeedbackMaterialReqVO> materialDetails;
 
     @Schema(description = "记录本原始条目载荷；一线生产无记录本上下文时可为空")

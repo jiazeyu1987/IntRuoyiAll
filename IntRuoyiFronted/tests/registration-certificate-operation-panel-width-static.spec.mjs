@@ -96,13 +96,13 @@ assert.match(
 )
 assert.match(
   currentActionPanel,
-  /v-hasPermi="\['dcc:registration-certificate:change:submit'\]"[\s\S]*@click="openChange\(row\.certificateId\)"[\s\S]*>\s*变更\s*</,
+  /v-hasPermi="\['dcc:registration-certificate:change:submit'\]"[\s\S]*@click="openChange\(row\)"[\s\S]*>\s*变更\s*</,
   'current registration-certificate action panel must show the change action as 变更 and keep the change approval upload permission and handler'
 )
 assert.match(
   list,
-  /const openChange = \(certificateId: number \| string\) => \{[\s\S]*query: \{ mode: 'change' \}/,
-  'current registration-certificate change button must route to detail change mode'
+  /const openChange = \(row: DccRegistrationCertificatePageItemVO\) => \{[\s\S]*selectedChangeCertificate\.value = row[\s\S]*showChangeDialog\.value = true/,
+  'current registration-certificate change button must open the row-level change dialog'
 )
 assert.match(
   currentActionPanel,
@@ -171,15 +171,10 @@ assert.match(
   'registration-certificate row action buttons must keep Element Plus spacing from expanding the layout'
 )
 
-assert.match(
+assert.doesNotMatch(
   detail,
   /route\.query\.mode === 'change'/,
-  'registration-certificate detail page must recognize change mode'
-)
-assert.match(
-  detail,
-  /v-if="viewMode === 'change'"[\s\S]*initial-action="change"[\s\S]*change-only/,
-  'registration-certificate detail page must mount the change-only action panel for change mode'
+  'registration-certificate detail page must not keep the list-level change mode'
 )
 assert.match(
   detail,

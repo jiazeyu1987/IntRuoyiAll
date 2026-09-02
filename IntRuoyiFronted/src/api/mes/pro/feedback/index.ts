@@ -507,7 +507,7 @@ export interface FrontlineRuntimeMaterialVO {
   materialCode: string
   materialName: string
   materialSpecification?: string
-  bomQuantity: number
+  bomQuantity?: number | null
   batchCodes: string[]
 }
 

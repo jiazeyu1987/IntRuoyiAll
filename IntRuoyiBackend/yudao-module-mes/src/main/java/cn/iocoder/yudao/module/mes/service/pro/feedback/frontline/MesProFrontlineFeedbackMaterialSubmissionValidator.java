@@ -58,6 +58,34 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
                 Objects.requireNonNull(progressQuantity), totalLossQuantity, List.copyOf(validated));
     }
 
+    public MesFrontlineLossReasonSnapshot validateProcessPayload(
+            MesProFrontlineFeedbackPayloadReqVO payload,
+            List<MesFrontlineDefectReasonOption> frozenLossReasons) {
+        if (payload == null) {
+            throw invalid("报工载荷不能为空");
+        }
+        BigDecimal outputQuantity = payload.getOutputQuantity();
+        BigDecimal lossQuantity = payload.getLossQuantity();
+        if (outputQuantity == null || outputQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw invalid("输出数量必须大于 0");
+        }
+        if (lossQuantity == null || lossQuantity.compareTo(BigDecimal.ZERO) < 0
+                || lossQuantity.compareTo(outputQuantity) > 0) {
+            throw invalid("损耗数量不能小于 0 或大于输出数量");
+        }
+        List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails = payload.getLossDetails();
+        BigDecimal detailTotal = lossDetails == null ? BigDecimal.ZERO : lossDetails.stream()
+                .map(detail -> detail == null || detail.getQuantity() == null
+                        ? BigDecimal.ZERO : detail.getQuantity())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (detailTotal.compareTo(lossQuantity) != 0) {
+            throw invalid("损耗数量必须等于各损耗原因数量之和");
+        }
+        List<MesFrontlineLossReasonSnapshot> snapshots = lossReasonValidator.requireSnapshotLossReasons(
+                frozenLossReasons, lossDetails, lossQuantity);
+        return snapshots == null || snapshots.isEmpty() ? null : snapshots.get(0);
+    }
+
     private Map<Long, MesFrontlineProcessMaterial> indexFrozenMaterials(
             List<MesFrontlineProcessMaterial> frozenMaterials) {
         if (frozenMaterials == null || frozenMaterials.isEmpty()) {

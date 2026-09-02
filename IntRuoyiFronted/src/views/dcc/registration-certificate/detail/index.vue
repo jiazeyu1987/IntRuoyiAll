@@ -124,16 +124,6 @@
         :initial-download-business-file-id="routeDownloadFileId"
       />
 
-      <RegistrationCertificateActionPanel
-        v-if="viewMode === 'change'"
-        initial-action="change"
-        :certificate-id="detail.certificateId"
-        :version-id="detail.versionId"
-        :row-version="detail.rowVersion"
-        :snapshot-revision="detail.snapshotRevision"
-        change-only
-      />
-
       <el-alert
         v-if="attachmentActionError"
         type="error"
@@ -402,7 +392,6 @@ const routeDownloadFileId = computed(() => parsePositiveRouteQueryId(route.query
 const viewMode = computed(() => {
   if (route.query.mode === 'access-request') return 'access-request'
   if (route.query.mode === 'old-detail') return 'old-detail'
-  if (route.query.mode === 'change') return 'change'
   return 'current'
 })
 const invalidRoute = computed(() => !routeCertificateId.value && !accessRequestId.value)

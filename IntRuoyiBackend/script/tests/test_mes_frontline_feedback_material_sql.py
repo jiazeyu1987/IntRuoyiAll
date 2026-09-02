@@ -4,6 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SQL_PATH = REPO_ROOT / "sql/mysql/20260831_mes_frontline_feedback_material.sql"
+OPTIONAL_BOM_PATH = REPO_ROOT / "sql/mysql/20260901_mes_frontline_feedback_material_optional_bom_quantity.sql"
 
 
 def read_sql() -> str:
@@ -61,3 +62,20 @@ def test_migration_is_additive_and_preserves_existing_feedback() -> None:
         "ALTER TABLE MES_PRO_FEEDBACK",
     ]:
         assert forbidden not in upper_sql
+
+
+def test_batch_record_material_source_makes_legacy_bom_quantity_optional() -> None:
+    assert OPTIONAL_BOM_PATH.exists(), "missing optional BOM quantity migration"
+    sql = OPTIONAL_BOM_PATH.read_text(encoding="utf-8")
+    assert sql.splitlines()[0] == (
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=20260831_mes_frontline_feedback_material; type=schema; riskLevel=low"
+    )
+    flat = compact(sql)
+    assert "alter table `mes_pro_feedback_material`" in flat
+    assert (
+        "modify column `bom_quantity` decimal(24,6) default null "
+        "comment 'legacy bom usage ratio; null for batch-record material configuration'"
+    ) in flat
+    for forbidden in ["drop table", "truncate table", "delete from", "update mes_pro_feedback_material"]:
+        assert forbidden not in flat

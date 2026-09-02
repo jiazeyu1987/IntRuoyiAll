@@ -110,6 +110,15 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "累计超出工序目标数量", example = "1500")
     private BigDecimal overageQuantity;
 
+    @Schema(description = "是否为测试模拟订单", example = "true")
+    private Boolean simulated;
+
+    @Schema(description = "模拟阶段")
+    private String simulationStage;
+
+    @Schema(description = "模拟运行编号")
+    private String simulationRunId;
+
     @Schema(description = "管理后台 - MES 班组长活跃订单工序剩余量 Response VO")
     @Data
     @Accessors(chain = true)

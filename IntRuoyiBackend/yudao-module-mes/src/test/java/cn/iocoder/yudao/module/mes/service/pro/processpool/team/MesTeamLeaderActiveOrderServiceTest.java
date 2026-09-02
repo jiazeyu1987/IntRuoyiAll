@@ -63,13 +63,19 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBinding
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderBomMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,6 +95,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -196,6 +203,14 @@ class MesTeamLeaderActiveOrderServiceTest {
     private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock
     private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    @Mock
+    private MesProWorkOrderBomMapper workOrderBomMapper;
+    @Mock
+    private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Mock
+    private MesWmProductIssueMapper productIssueMapper;
+    @Mock
+    private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -212,7 +227,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                 inspectionRegulationMapper, inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService,
-                pickListMapper, pickListItemMapper, pickListBindingMapper, pickListBindingItemMapper);
+                pickListMapper, pickListItemMapper, pickListBindingMapper, pickListBindingItemMapper,
+                workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(pickListMapper.selectById(9001L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
                 .id(9001L).sourceFormId("PRD_PickMtrl").sourceFid("9001").sourceBillNo("PICK-9001")
@@ -1134,6 +1150,133 @@ class MesTeamLeaderActiveOrderServiceTest {
                 Objects.equals(9903L, task.getRegulationVersionId())
                         && Objects.equals(928601L, task.getRouteProcessId())
                         && Objects.equals(6001L, task.getProcessId())));
+    }
+
+    @Test
+    void simulationCopyAddShouldFreezeLatestSourcesAndPersistSimulationMetadata() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .idempotencyKey("SIM-COPY-unit")
+                .simulated(Boolean.TRUE)
+                .simulationStage("LATEST_VERSION_COPY")
+                .simulationRunId("SIMCOPY-unit")
+                .build());
+
+        verify(activeOrderMapper).insert(argThat((MesProcessPoolActiveOrderDO activeOrder) ->
+                Boolean.TRUE.equals(activeOrder.getSimulated())
+                        && Objects.equals("LATEST_VERSION_COPY", activeOrder.getSimulationStage())
+                        && Objects.equals("SIMCOPY-unit", activeOrder.getSimulationRunId())
+                        && Objects.equals(448L, activeOrder.getRouteVersionId())
+                        && Objects.equals(9902L, activeOrder.getQaRegulationVersionId())));
+        verify(processSnapshotMapper).insertBatch(argThat(snapshots -> snapshots != null
+                && !snapshots.isEmpty()
+                && snapshots.stream().allMatch(snapshot -> Boolean.TRUE.equals(snapshot.getSimulated())
+                && Objects.equals("LATEST_VERSION_COPY", snapshot.getSimulationStage())
+                && Objects.equals("SIMCOPY-unit", snapshot.getSimulationRunId())
+                && Objects.equals(448L, snapshot.getRouteVersionId()))));
+        verify(pqcInspectionTaskMapper, times(4)).insert(argThat((MesPqcInspectionTaskDO task) ->
+                Boolean.TRUE.equals(task.getSimulated())
+                        && Objects.equals("LATEST_VERSION_COPY", task.getSimulationStage())
+                        && Objects.equals("SIMCOPY-unit", task.getSimulationRunId())
+                        && Objects.equals(9902L, task.getRegulationVersionId())));
+        verify(pickListBindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
+    }
+
+    @Test
+    void copyLatestSimulationActiveOrderShouldCreateIndependentWorkOrderAndUseCurrentSources() {
+        MesProcessPoolActiveOrderDO sourceActiveOrder = existingActiveOrder(8101L, "ACTIVE", 7);
+        MesProWorkOrderDO sourceWorkOrder = confirmedWorkOrder(new BigDecimal("200"))
+                .setName("来源生产工单")
+                .setType(1)
+                .setOrderSourceType(1)
+                .setOrderSourceCode("ERP-9001")
+                .setClientId(3001L)
+                .setVendorId(4001L)
+                .setRequestDate(LocalDateTime.of(2026, 9, 1, 8, 0));
+        MesProWorkOrderDO copiedWorkOrder = confirmedWorkOrder(9101L,
+                "SIM-COPY-WO-9001-SIMCOPYunit", new BigDecimal("200"), 1001L)
+                .setName("来源生产工单-测试复制-SIMCOPYunit")
+                .setType(1)
+                .setOrderSourceType(1)
+                .setOrderSourceCode("ERP-9001")
+                .setClientId(3001L)
+                .setVendorId(4001L)
+                .setRequestDate(LocalDateTime.of(2026, 9, 1, 8, 0));
+        AtomicReference<MesProcessPoolActiveOrderDO> insertedActiveOrder = new AtomicReference<>();
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(sourceActiveOrder);
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(sourceWorkOrder);
+        when(workOrderService.createWorkOrder(any(MesProWorkOrderSaveReqVO.class))).thenReturn(9101L);
+        when(workOrderService.validateWorkOrderExists(9101L)).thenReturn(copiedWorkOrder);
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
+            MesProcessPoolActiveOrderDO activeOrder = invocation.getArgument(0);
+            activeOrder.setId(8201L);
+            insertedActiveOrder.set(activeOrder);
+            return 1;
+        });
+        when(activeOrderMapper.selectByIdForUpdate(8201L)).thenAnswer(invocation -> insertedActiveOrder.get());
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        MesTeamLeaderActiveOrderSimulationCopyResult result = service.copyLatestSimulationActiveOrder(
+                3001L, 8101L, "SIMCOPY-unit");
+
+        assertEquals(8201L, result.getActiveOrderId());
+        assertEquals(9101L, result.getWorkOrderId());
+        assertEquals("SIM-COPY-WO-9001-SIMCOPYunit", result.getWorkOrderCode());
+        assertEquals(448L, result.getRouteVersionId());
+        assertEquals(9902L, result.getQaRegulationVersionId());
+        verify(workOrderService).createWorkOrder(argThat((MesProWorkOrderSaveReqVO request) ->
+                Objects.equals("SIM-COPY-WO-9001-SIMCOPYunit", request.getCode())
+                        && Objects.equals("来源生产工单-测试复制-SIMCOPYunit", request.getName())
+                        && Objects.equals(1001L, request.getProductId())
+                        && new BigDecimal("200").compareTo(request.getQuantity()) == 0
+                        && Objects.equals(MesProWorkOrderTypeEnum.SELF.getType(), request.getType())
+                        && request.getOrderSourceCode().startsWith("SIM-COPY:WO-9001:")
+                        && BigDecimal.ZERO.compareTo(request.getQuantityProduced()) == 0
+                        && BigDecimal.ZERO.compareTo(request.getQuantityScheduled()) == 0
+                        && request.getRemark().contains("sourceActiveOrderId=8101")
+                        && request.getRemark().contains("simulationRunId=SIMCOPY-unit")));
+        verify(workOrderService).confirmWorkOrder(9101L);
+        verify(processSnapshotMapper, never()).selectListByActiveOrderIdForUpdate(8101L);
+        verify(pqcInspectionTaskMapper, never()).selectListByActiveOrderIdForUpdate(8101L);
+    }
+
+    @Test
+    void cleanupLatestSimulationActiveOrderShouldDeleteOnlyOwnedSimulationCopyData() {
+        MesProcessPoolActiveOrderDO simulation = existingActiveOrder(8201L, "ACTIVE", 0)
+                .setWorkOrderId(9101L)
+                .setSimulated(Boolean.TRUE)
+                .setSimulationStage("LATEST_VERSION_COPY")
+                .setSimulationRunId("SIMCOPY-unit");
+        when(activeOrderMapper.selectByIdForUpdate(8201L)).thenReturn(simulation);
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8201L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8201L)).thenReturn(List.of());
+        when(orderProcessCompletionMapper.selectListByWorkOrderIdsForUpdate(List.of(9101L))).thenReturn(List.of());
+        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8201L)).thenReturn(List.of(
+                frozenProcessSnapshot().setActiveOrderId(8201L).setWorkOrderId(9101L)));
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8201L))).thenReturn(List.of());
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8201L)).thenReturn(List.of());
+        when(batchExecutionMapper.selectList(
+                org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.Wrapper<
+                        cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO>>any()))
+                .thenReturn(List.of());
+        when(productIssueMapper.selectCountByWorkOrderId(9101L)).thenReturn(0L);
+        when(pickListBindingMapper.selectByActiveOrderId(8201L)).thenReturn(null);
+
+        service.cleanupLatestSimulationActiveOrder(3001L, 8201L);
+
+        verify(processSnapshotMapper).deleteByActiveOrderId(8201L);
+        verify(pqcInspectionTaskMapper).deleteByActiveOrderId(8201L);
+        verify(workOrderBomMapper).deleteByWorkOrderId(9101L);
+        verify(workOrderMapper).deleteById(9101L);
+        verify(activeOrderMapper).deleteById(8201L);
     }
 
     @Test

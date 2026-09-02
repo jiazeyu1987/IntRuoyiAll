@@ -10,6 +10,11 @@ public interface MesTeamLeaderActiveOrderService {
 
     MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
 
+    MesTeamLeaderActiveOrderSimulationCopyResult copyLatestSimulationActiveOrder(
+            Long leaderUserId, Long sourceActiveOrderId, String simulationRunId);
+
+    void cleanupLatestSimulationActiveOrder(Long leaderUserId, Long activeOrderId);
+
     MesTeamLeaderActiveOrderRebuildPreview previewRebuildActiveOrder(Long leaderUserId, Long activeOrderId);
 
     MesTeamLeaderActiveOrderRebuildResult rebuildActiveOrder(MesTeamLeaderActiveOrderRebuildReqBO reqBO);

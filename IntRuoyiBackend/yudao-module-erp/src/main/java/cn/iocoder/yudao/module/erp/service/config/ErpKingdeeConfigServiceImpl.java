@@ -52,7 +52,12 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
 
     @Override
     public ErpKingdeeConfigRespVO getConfig() {
-        return JsonUtils.parseObject(JsonUtils.toJsonString(getEffectiveProperties()), ErpKingdeeConfigRespVO.class);
+        ErpKingdeeConnectionTypeEnum activeType = resolveActiveConnectionType();
+        ErpKingdeeProperties properties = getTestProperties();
+        if (activeType == ErpKingdeeConnectionTypeEnum.PRODUCTION) {
+            applyConnection(properties, loadProductionConnection());
+        }
+        return JsonUtils.parseObject(JsonUtils.toJsonString(properties), ErpKingdeeConfigRespVO.class);
     }
 
     @Override
@@ -137,6 +142,12 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     }
 
     private ErpKingdeeConnectionConfig getProductionConnection() {
+        ErpKingdeeConnectionConfig connectionConfig = loadProductionConnection();
+        validateProductionConnection(connectionConfig);
+        return connectionConfig;
+    }
+
+    private ErpKingdeeConnectionConfig loadProductionConnection() {
         ConfigDO config = configService.getConfigByKey(PRODUCTION_CONNECTION_CONFIG_KEY);
         if (config == null || StrUtil.isBlank(config.getValue())) {
             throw exception(KINGDEE_CONNECTION_CONFIG_MISSING,
@@ -149,24 +160,7 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
             throw exception(KINGDEE_CONNECTION_CONFIG_INVALID,
                     ErpKingdeeConnectionTypeEnum.PRODUCTION.getName(), "JSON 格式错误");
         }
-        applyDefaultApplicationCredentials(connectionConfig);
-        validateProductionConnection(connectionConfig);
         return connectionConfig;
-    }
-
-    private void applyDefaultApplicationCredentials(ErpKingdeeConnectionConfig connectionConfig) {
-        if (connectionConfig == null) {
-            return;
-        }
-        if (connectionConfig.getAppId() == null) {
-            connectionConfig.setAppId(defaultKingdeeProperties.getAppId());
-        }
-        if (connectionConfig.getSignedData() == null) {
-            connectionConfig.setSignedData(defaultKingdeeProperties.getSignedData());
-        }
-        if (connectionConfig.getTimestamp() == null) {
-            connectionConfig.setTimestamp(defaultKingdeeProperties.getTimestamp());
-        }
     }
 
     private void validateProductionConnection(ErpKingdeeConnectionConfig connectionConfig) {

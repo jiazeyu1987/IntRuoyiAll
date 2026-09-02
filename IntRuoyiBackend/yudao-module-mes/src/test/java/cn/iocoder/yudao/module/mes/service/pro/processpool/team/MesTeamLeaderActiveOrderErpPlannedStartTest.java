@@ -49,6 +49,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBinding
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderBomMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
@@ -161,6 +165,10 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock
     private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    @Mock private MesProWorkOrderBomMapper workOrderBomMapper;
+    @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Mock private MesWmProductIssueMapper productIssueMapper;
+    @Mock private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -179,7 +187,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService, pickListMapper, pickListItemMapper,
-                pickListBindingMapper, pickListBindingItemMapper);
+                pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
+                batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))

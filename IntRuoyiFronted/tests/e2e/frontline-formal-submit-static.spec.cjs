@@ -76,8 +76,8 @@ assert.match(
 )
 assert.match(
   panel,
-  /const progressQuantity = Math\.min\(\.\.\.materialDetails\.map\(\(material\) => material\.outputQuantity\)\)/,
-  'the frontend summary must calculate process progress from the minimum material output quantity.'
+  /const resolveProductionProgressQuantity[\s\S]*materialDetails\.length > 0[\s\S]*Math\.min\(\.\.\.materialDetails\.map\(\(material\) => material\.outputQuantity\)\)[\s\S]*productionDraft\.outputQuantity/,
+  'the frontend summary must use minimum material output when configured and process output when material configuration is empty.'
 )
 assert.match(
   panel,

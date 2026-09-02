@@ -237,7 +237,7 @@ class ErpKingdeeConfigServiceImplTest {
     }
 
     @Test
-    void getEffectiveProperties_usesDefaultApplicationCredentialsWhenSavedProductionConfigPredatesThem() {
+    void getConfig_allowsEditingIncompleteProductionConnection() {
         ConfigDO testConfig = config(1L, ErpKingdeeConfigServiceImpl.CONFIG_KEY,
                 "{\"baseUrl\":\"http://test/K3Cloud\",\"acctId\":\"test-acct\","
                         + "\"username\":\"test-user\",\"password\":\"test-password\",\"lcid\":2052,"
@@ -256,14 +256,33 @@ class ErpKingdeeConfigServiceImplTest {
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
                 .thenReturn(productionConfig);
 
-        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        ErpKingdeeConfigRespVO properties = kingdeeConfigService.getConfig();
 
         assertEquals("http://prod/K3Cloud", properties.getBaseUrl());
         assertEquals("prod-acct", properties.getAcctId());
         assertEquals("prod-user", properties.getUsername());
-        assertEquals("default-test-app-id", properties.getAppId());
-        assertEquals("default-test-signed-data", properties.getSignedData());
+        assertEquals(null, properties.getAppId());
+        assertEquals(null, properties.getSignedData());
         assertEquals(9000, properties.getProduct().getQueryLimit());
+    }
+
+    @Test
+    void getEffectiveProperties_failsFastWhenProductionSimPasFieldsAreMissing() {
+        ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
+        ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
+                "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
+                        + "\"username\":\"prod-user\",\"password\":\"prod-password\",\"lcid\":2052}");
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(activeConfig);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(productionConfig);
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> kingdeeConfigService.getEffectiveProperties());
+
+        assertTrue(exception.getMessage().contains("应用 ID 为空"));
     }
 
     @Test

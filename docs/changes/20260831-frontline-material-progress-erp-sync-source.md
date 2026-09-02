@@ -31,6 +31,7 @@
 - 删除内部 ERP 回填接口设计。
 - `mes_pro_feedback_material` 只保存一线报工事实，不复制 ERP 批号。
 - 查询报工物料详情时，按生产工单编号和物料编码读取同步领料单明细。
+- 工序需要哪些批记录物料不再从产品 BOM 或用料比例自动推导；MVP 在工艺路线候选版本的当前工序“批记录表单”字段明细中维护 `frontlineReportMaterialIds`，随路线版本审批和发布形成快照。
 
 ### Data Impact
 

@@ -1397,6 +1397,12 @@
           </el-table-column>
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
           <el-table-column label="版本号" prop="routeVersionNo" min-width="100" />
+          <el-table-column label="订单类型" min-width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.simulated" type="warning" effect="plain">测试模拟</el-tag>
+              <span v-else>正式订单</span>
+            </template>
+          </el-table-column>
           <el-table-column label="ERP生产数量" min-width="130">
             <template #default="{ row }">
               {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
@@ -1430,7 +1436,7 @@
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="560" fixed="right">
+          <el-table-column label="操作" width="790" fixed="right">
             <template #default="{ row }">
               <el-tooltip content="上移" placement="top">
                 <el-button
@@ -1533,6 +1539,36 @@
                 @click="handleRebuildActiveOrder(row)"
               >
                 重建
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                :loading="activeOrderSimulationSubmittingId === row.id"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
+                data-team-leader-copy-latest-simulation-order
+                @click="handleCopyLatestSimulationActiveOrder(row)"
+              >
+                <Icon icon="ep:document-copy" />
+                复制测试单
+              </el-button>
+              <el-button
+                v-if="row.simulated && row.simulationStage === 'LATEST_VERSION_COPY'"
+                link
+                type="danger"
+                :loading="activeOrderSimulationSubmittingId === row.id"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
+                data-team-leader-cleanup-latest-simulation-order
+                @click="handleCleanupLatestSimulationActiveOrder(row)"
+              >
+                清理测试单
               </el-button>
               <el-button
                 link
@@ -3732,6 +3768,8 @@ import {
   previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
   rebuildTeamLeaderActiveOrder,
+  copyLatestTeamLeaderSimulationActiveOrder,
+  cleanupLatestTeamLeaderSimulationActiveOrder,
   simulateStage1ActiveOrderCompletion,
   simulateStage2_5BackfillBatchExecution,
   simulateTeamLeaderActiveOrderCompletion,
@@ -3759,6 +3797,7 @@ import {
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
   type TeamLeaderActiveOrderReleaseFailureRespVO,
   type TeamLeaderActiveOrderRespVO,
+  type TeamLeaderActiveOrderSimulationCopyRespVO,
   type TeamLeaderLossReasonVO,
   type TeamDeviceParameterRuleSaveReqVO,
   type TeamLeaderProcessConfigDeviceVO,
@@ -8479,6 +8518,70 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
     )
   } finally {
     activeOrderRebuildSubmittingId.value = undefined
+  }
+}
+
+const createSimulationCopyRunId = () => `SIMCOPY-${Date.now()}-${crypto.randomUUID()}`
+
+const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  activeOrderSimulationSubmittingId.value = row.id
+  let result: TeamLeaderActiveOrderSimulationCopyRespVO | undefined
+  try {
+    await ElMessageBox.confirm(
+      '系统将创建一张仅供测试、可清理的新工单，复制产品、数量、客户等基础信息，并重新绑定最新生效工艺路线和最新正式发布 QA 规程。不复制原订单的报工、进度、PQC 结果、批记录、领料、异常或放行历史。',
+      '确认复制测试单',
+      { type: 'warning', confirmButtonText: '确认复制', cancelButtonText: '取消' }
+    )
+    result = await copyLatestTeamLeaderSimulationActiveOrder({
+      sourceActiveOrderId: requirePositiveNumber(row.id, '来源活跃订单ID不能为空'),
+      simulationRunId: createSimulationCopyRunId()
+    })
+    ElMessage.success(
+      `测试单 ${result.workOrderCode} 已创建，路线 ${result.routeVersionNo}，QA版本 ${result.qaRegulationVersionId}`
+    )
+    try {
+      await loadActiveOrders()
+    } catch (refreshError) {
+      ElMessage.error(
+        `测试单 ${result.workOrderCode} 已创建，但列表刷新失败：${resolveErrorMessage(refreshError, '列表刷新失败')}`
+      )
+    }
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '复制测试单失败'))
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
+const handleCleanupLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  activeOrderSimulationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      `确认清理测试模拟订单 ${row.workOrderCode || row.id}？系统只允许清理当前账号创建且带完整模拟标识的副本。`,
+      '清理测试单',
+      { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
+    )
+    await cleanupLatestTeamLeaderSimulationActiveOrder(
+      requirePositiveNumber(row.id, '测试活跃订单ID不能为空')
+    )
+    writeCompleted = true
+    ElMessage.success('测试模拟订单已清理')
+    try {
+      await loadActiveOrders()
+    } catch (refreshError) {
+      ElMessage.error(
+        `测试模拟订单已清理，但列表刷新失败：${resolveErrorMessage(refreshError, '列表刷新失败')}`
+      )
+    }
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(
+      resolveErrorMessage(error, writeCompleted ? '测试单已清理，但列表刷新失败' : '清理测试单失败')
+    )
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
   }
 }
 

@@ -14,4 +14,7 @@ public class MesTeamLeaderActiveOrderAddReqBO {
     private Long pickListId;
     private String pickListCandidateSnapshotHash;
     private String idempotencyKey;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

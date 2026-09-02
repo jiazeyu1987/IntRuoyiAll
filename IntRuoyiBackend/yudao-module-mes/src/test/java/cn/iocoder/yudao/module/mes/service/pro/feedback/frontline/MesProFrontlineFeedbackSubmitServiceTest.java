@@ -201,6 +201,33 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
+    void shouldSubmitWithoutMaterialFactsWhenFrozenBatchRecordMaterialsAreEmpty() {
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(
+                submitAuthorizationService, List.of());
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(9001L, "sign-123", "一线生产报工提交"))
+                .thenReturn(4001L);
+        stubValidLossReason();
+        MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
+                .setMaterialDetails(List.of());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+        }
+
+        verify(feedbackService).createFrontlineFeedback(argThat(payload ->
+                new BigDecimal("100.500").compareTo(payload.getFeedbackQuantity()) == 0
+                        && new BigDecimal("98.000").compareTo(payload.getQualifiedQuantity()) == 0
+                        && new BigDecimal("2.500").compareTo(payload.getUnqualifiedQuantity()) == 0));
+        verify(processPoolSubmitEventService).createInitialAllocation(
+                801L, 81L, new BigDecimal("100.500"));
+        verifyNoInteractions(feedbackMaterialService);
+    }
+
+    @Test
     void shouldAssignProductionSubmitToSelectedActiveOrderWithoutQuantityCap() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);

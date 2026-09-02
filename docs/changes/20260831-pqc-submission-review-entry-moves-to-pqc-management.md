@@ -50,7 +50,12 @@
 ### Release And Operations Impact
 
 - 不需要新增外部依赖。
-- 需要同步更新前端、后端和静态契约后再做回归验证。
+- 需要同步更新前端、后端、权限迁移和静态契约后再做回归验证。
+- 若行按钮源码已存在但 `PQC管理` 页面仍不显示，应优先核对 `PQC组长` 角色是否拥有不合格审查隐藏查询/创建按钮权限；不要为显示行按钮而授予独立不合格评审页面菜单或 QA 处置权限。
+
+## Follow-up Experience
+
+- 2026-09-01 复核：`PQC管理` 行操作按钮存在但被 `v-hasPermi` 隐藏时，根因可能是 `pqc_leader_permission` 缺少 `mes:pro-edhr-nonconformance-review:create`。正式修复应给 PQC 组长补隐藏查询/创建按钮菜单，保持入口在行操作区，不新增独立页面菜单，不授予 `dispose` 处置权限；迁移执行后需重新登录或刷新权限缓存。
 
 ## Decision
 

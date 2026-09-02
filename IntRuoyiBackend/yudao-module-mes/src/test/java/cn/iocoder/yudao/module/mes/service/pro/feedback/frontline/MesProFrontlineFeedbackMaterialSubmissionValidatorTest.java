@@ -77,6 +77,22 @@ class MesProFrontlineFeedbackMaterialSubmissionValidatorTest {
         assertEquals(BigDecimal.ZERO, result.progressQuantity());
     }
 
+    @Test
+    void validateProcessPayload_acceptsProcessQuantityWhenFrozenMaterialsAreEmpty() {
+        MesProFrontlineFeedbackPayloadReqVO payload = new MesProFrontlineFeedbackPayloadReqVO()
+                .setOutputQuantity(new BigDecimal("10"))
+                .setLossQuantity(new BigDecimal("1"))
+                .setLossDetails(List.of(new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                        .setReasonId(8301L).setQuantity(BigDecimal.ONE)));
+        when(lossReasonValidator.requireSnapshotLossReasons(any(), any(), eq(BigDecimal.ONE)))
+                .thenReturn(List.of(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗")));
+
+        MesFrontlineLossReasonSnapshot result = validator.validateProcessPayload(payload, List.of());
+
+        assertEquals("LOSS-001", result.reasonCode());
+        assertEquals("正常损耗", result.reasonName());
+    }
+
     private static List<MesFrontlineProcessMaterial> frozenMaterials() {
         return List.of(
                 new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE),

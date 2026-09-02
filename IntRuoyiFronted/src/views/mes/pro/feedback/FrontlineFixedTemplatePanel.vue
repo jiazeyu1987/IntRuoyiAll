@@ -4181,23 +4181,29 @@ watch(currentLoginUserId, async () => {
 
 const assertProductionSubmissionReady = () => {
   persistActiveProductionMaterialDraft()
-  if (!configuredProductionMaterials.value.length) {
-    throw new Error('当前工序没有冻结物料，无法提交')
-  }
-  const missingMaterials = configuredProductionMaterials.value.filter(
-    (material) => productionMaterialDrafts[material.key]?.outputQuantity === undefined
-  )
-  if (missingMaterials.length) {
-    throw new Error(`请填写完成数量：${missingMaterials.map((material) => material.materialName).join('、')}`)
-  }
-  const invalidLossMaterials = configuredProductionMaterials.value.filter((material) => {
-    const materialDraft = productionMaterialDrafts[material.key]
-    const lossQuantity = Object.values(materialDraft.defectQuantities)
-      .reduce((total, quantity) => total + quantity, 0)
-    return lossQuantity > materialDraft.outputQuantity!
-  })
-  if (invalidLossMaterials.length) {
-    throw new Error(`损耗数量不能大于完成数量：${invalidLossMaterials.map((material) => material.materialName).join('、')}`)
+  if (configuredProductionMaterials.value.length > 0) {
+    const missingMaterials = configuredProductionMaterials.value.filter(
+      (material) => productionMaterialDrafts[material.key]?.outputQuantity === undefined
+    )
+    if (missingMaterials.length) {
+      throw new Error(`请填写完成数量：${missingMaterials.map((material) => material.materialName).join('、')}`)
+    }
+    const invalidLossMaterials = configuredProductionMaterials.value.filter((material) => {
+      const materialDraft = productionMaterialDrafts[material.key]
+      const lossQuantity = Object.values(materialDraft.defectQuantities)
+        .reduce((total, quantity) => total + quantity, 0)
+      return lossQuantity > materialDraft.outputQuantity!
+    })
+    if (invalidLossMaterials.length) {
+      throw new Error(`损耗数量不能大于完成数量：${invalidLossMaterials.map((material) => material.materialName).join('、')}`)
+    }
+  } else {
+    if (productionDraft.outputQuantity === undefined || productionDraft.outputQuantity <= 0) {
+      throw new Error('请填写工序完成数量：输出数量必须大于 0')
+    }
+    if (productionScrapQuantity.value > productionDraft.outputQuantity) {
+      throw new Error('损耗数量不能大于完成数量')
+    }
   }
   const device = activeProductionDevice.value
   if (!device) {
@@ -4221,15 +4227,25 @@ const assertProductionSubmissionReady = () => {
   }
 }
 
+const resolveProductionProgressQuantity = (materialDetails: ProFrontlineFeedbackMaterialReqVO[]) =>
+  materialDetails.length > 0
+    ? Math.min(...materialDetails.map((material) => material.outputQuantity))
+    : productionDraft.outputQuantity!
+
+const resolveProductionLossQuantity = (materialDetails: ProFrontlineFeedbackMaterialReqVO[]) =>
+  materialDetails.length > 0
+    ? materialDetails.reduce((total, material) => total + material.lossQuantity, 0)
+    : productionScrapQuantity.value
+
 const buildProductionFormalSubmitConfirmation = () => {
   const materialDetails = buildProductionMaterialDetailsPayload()
-  const progressQuantity = Math.min(...materialDetails.map((material) => material.outputQuantity))
+  const progressQuantity = resolveProductionProgressQuantity(materialDetails)
   const materialSummary = configuredProductionMaterials.value
     .map((material, index) => {
       const detail = materialDetails[index]
       return `${material.materialName}=完成${detail.outputQuantity}件、损耗${detail.lossQuantity}件`
     })
-    .join('；')
+    .join('；') || '无批记录物料'
   const device = activeProductionDevice.value
   const parameterSummary = device
     ? getProductionSubmittableParameters(device).map((parameter) => {
@@ -4701,13 +4717,10 @@ const buildFrontlineFormalSubmitPayload = (
   if (!signaturePassword) {
     throw new Error('请输入所选员工的电子签名密码。')
   }
-  const selectedDevice = activeProductionDevice.value
-  const materialDetails = buildProductionMaterialDetailsPayload()
-  const progressQuantity = Math.min(...materialDetails.map((material) => material.outputQuantity))
-  const totalLossQuantity = materialDetails.reduce(
-    (total, material) => total + material.lossQuantity,
-    0
-  )
+    const selectedDevice = activeProductionDevice.value
+    const materialDetails = buildProductionMaterialDetailsPayload()
+    const progressQuantity = resolveProductionProgressQuantity(materialDetails)
+    const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
   const equipmentParameters = selectedDevice
     ? { [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key) }
     : {}

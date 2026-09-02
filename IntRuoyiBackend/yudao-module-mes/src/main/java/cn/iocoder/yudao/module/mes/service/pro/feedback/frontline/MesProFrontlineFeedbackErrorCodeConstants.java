@@ -24,8 +24,6 @@ public interface MesProFrontlineFeedbackErrorCodeConstants {
             new ErrorCode(1_040_753_608, "选用设备不属于当前工序或不可用：{}");
     ErrorCode PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID =
             new ErrorCode(1_040_753_609, "设备参数不属于当前工序/设备配置或不可用：{}");
-    ErrorCode PRO_FRONTLINE_PROCESS_MATERIAL_REQUIRED =
-            new ErrorCode(1_040_753_610, "当前工序未配置报工物料：activeOrderId={}，processId={}");
     ErrorCode PRO_FRONTLINE_PROCESS_MATERIAL_INVALID =
             new ErrorCode(1_040_753_611, "冻结工序报工物料无效：{}");
     ErrorCode PRO_FRONTLINE_FEEDBACK_MATERIAL_INVALID =

@@ -1352,34 +1352,23 @@
                               disable-transitions
                               @close="removeFrontlineReportMaterial(item.id)"
                             >
-                              {{ formatFrontlineReportMaterialOption(item) }}
+                              {{ formatFrontlineReportMaterialSelectedLabel(item) }}
                             </el-tag>
                           </div>
                         </div>
-                        <el-select
-                          :model-value="selectedProcessAttributes.frontlineReportMaterialIds || []"
+                        <el-autocomplete
+                          v-model="frontlineReportMaterialSearchKeyword"
                           clearable
                           data-route-process-setting-field="frontline-report-material"
                           :disabled="recordBindingEditorDisabled"
-                          filterable
-                          :loading="frontlineReportMaterialOptionsLoading"
-                          multiple
-                          placeholder="请选择批记录物料"
-                          remote
-                          reserve-keyword
+                          :fetch-suggestions="fetchFrontlineReportMaterialSuggestions"
+                          :hide-loading="!frontlineReportMaterialOptionsLoading"
+                          placeholder="输入物料编号、名称或规格"
                           size="small"
-                          :teleported="false"
-                          :remote-method="loadFrontlineReportMaterialOptions"
-                          @update:model-value="handleFrontlineReportMaterialIdsChange"
-                          @visible-change="(visible) => visible && loadFrontlineReportMaterialOptions()"
+                          :trigger-on-focus="true"
+                          @select="handleFrontlineReportMaterialSuggestionSelect"
                         >
-                          <el-option
-                            v-for="item in buildFrontlineReportMaterialOptions()"
-                            :key="item.id"
-                            :label="formatFrontlineReportMaterialOption(item)"
-                            :disabled="isFrontlineReportMaterialSelected(item.id)"
-                            :value="item.id"
-                          >
+                          <template #default="{ item }">
                             <span
                               class="route-flow-graph-designer__frontline-report-material-option"
                             >
@@ -1394,8 +1383,8 @@
                                 {{ [item.name, item.specification].filter(Boolean).join(' / ') }}
                               </span>
                             </span>
-                          </el-option>
-                        </el-select>
+                          </template>
+                        </el-autocomplete>
                         <span class="route-flow-graph-designer__selected-detail-note">
                           当前工序一线提交时，需要分别填写这些物料的完成数量、损耗数量和批号。
                         </span>
@@ -1973,6 +1962,7 @@ type BatchRecordReportSelectOption = Pick<
   | 'batchRecordDefinitionId'
   | 'batchRecordVersionId'
 >
+type FrontlineReportMaterialSuggestion = MdItemVO & { value: string }
 type SelectedProcessAttributes = {
   routeProcessId?: number
   routeVersionId?: MesRouteId
@@ -2180,6 +2170,7 @@ const selectedLegacyBatchRecords = ref<RouteFlowLegacyBatchRecord[]>([])
 const batchRecordReportOptions = ref<BatchRecordReportSelectOption[]>([])
 const batchRecordReportOptionsLoading = ref(false)
 const frontlineReportMaterialOptions = ref<MdItemVO[]>([])
+const selectedFrontlineReportMaterialOptions = ref<MdItemVO[]>([])
 const frontlineReportMaterialOptionsLoading = ref(false)
 let frontlineReportMaterialSearchRequest = 0
 const frontlineReportMaterialSearchKeyword = ref('')
@@ -3095,11 +3086,17 @@ const normalizeFrontlineReportMaterialIds = (values?: Array<number | string> | n
 const formatFrontlineReportMaterialOption = (item: MdItemVO) =>
   [item.code, item.name, item.specification].filter(Boolean).join(' / ')
 
+const formatFrontlineReportMaterialSelectedLabel = (item: MdItemVO) =>
+  [item.code, item.name].filter(Boolean).join(' / ')
+
 const mergeFrontlineReportMaterialOptions = (items: MdItemVO[]) => {
-  const optionMap = new Map(frontlineReportMaterialOptions.value.map((item) => [item.id, item]))
+  const optionMap = new Map(
+    frontlineReportMaterialOptions.value.map((item) => [Number(item.id), item])
+  )
   items.forEach((item) => {
-    if (item?.id) {
-      optionMap.set(item.id, item)
+    const materialId = Number(item?.id)
+    if (Number.isFinite(materialId) && materialId > 0) {
+      optionMap.set(materialId, item)
     }
   })
   frontlineReportMaterialOptions.value = Array.from(optionMap.values())
@@ -3109,12 +3106,13 @@ const replaceFrontlineReportMaterialOptions = (items: MdItemVO[]) => {
   const selectedIds = new Set(selectedProcessAttributes.frontlineReportMaterialIds || [])
   const optionMap = new Map(
     frontlineReportMaterialOptions.value
-      .filter((item) => selectedIds.has(item.id))
-      .map((item) => [item.id, item])
+      .filter((item) => selectedIds.has(Number(item.id)))
+      .map((item) => [Number(item.id), item])
   )
   items.forEach((item) => {
-    if (item?.id) {
-      optionMap.set(item.id, item)
+    const materialId = Number(item?.id)
+    if (Number.isFinite(materialId) && materialId > 0) {
+      optionMap.set(materialId, item)
     }
   })
   frontlineReportMaterialOptions.value = Array.from(optionMap.values())
@@ -3162,12 +3160,19 @@ const loadFrontlineReportMaterialOptions = async (keyword = '') => {
 const loadSelectedFrontlineReportMaterialOptions = async (
   materialIds?: Array<number | string> | null
 ) => {
-  const missingIds = normalizeFrontlineReportMaterialIds(materialIds).filter(
-    (materialId) => !frontlineReportMaterialOptions.value.some((item) => item.id === materialId)
+  const selectedIds = normalizeFrontlineReportMaterialIds(materialIds)
+  const optionMap = new Map(
+    frontlineReportMaterialOptions.value.map((item) => [Number(item.id), item])
   )
-  if (missingIds.length === 0) return
-  const items = await Promise.all(missingIds.map((materialId) => MdItemApi.getItem(materialId)))
-  mergeFrontlineReportMaterialOptions(items)
+  const missingIds = selectedIds.filter((materialId) => !optionMap.has(materialId))
+  if (missingIds.length > 0) {
+    const items = await Promise.all(missingIds.map((materialId) => MdItemApi.getItem(materialId)))
+    mergeFrontlineReportMaterialOptions(items)
+    items.forEach((item) => optionMap.set(Number(item.id), item))
+  }
+  selectedFrontlineReportMaterialOptions.value = selectedIds
+    .map((materialId) => optionMap.get(materialId))
+    .filter((item): item is MdItemVO => Boolean(item))
 }
 
 const filterFrontlineReportMaterialOptions = (items: MdItemVO[]): MdItemVO[] => {
@@ -3182,22 +3187,49 @@ const filterFrontlineReportMaterialOptions = (items: MdItemVO[]): MdItemVO[] => 
 
 const buildFrontlineReportMaterialOptions = (): MdItemVO[] => {
   const selectedIds = new Set(selectedProcessAttributes.frontlineReportMaterialIds || [])
-  const options = [
-    ...frontlineReportMaterialOptions.value.filter((item) => selectedIds.has(item.id)),
-    ...frontlineReportMaterialOptions.value.filter((item) => !selectedIds.has(item.id))
-  ]
-  const selectedOptions = options.filter((item) => selectedIds.has(item.id))
-  const candidateOptions = filterFrontlineReportMaterialOptions(
-    options.filter((item) => !selectedIds.has(item.id))
+  return filterFrontlineReportMaterialOptions(
+    frontlineReportMaterialOptions.value.filter((item) => !selectedIds.has(Number(item.id)))
   )
-  return [...selectedOptions, ...candidateOptions]
 }
 
-const isFrontlineReportMaterialSelected = (materialId?: number | null) =>
-  Boolean(materialId && selectedProcessAttributes.frontlineReportMaterialIds?.includes(materialId))
+const fetchFrontlineReportMaterialSuggestions = async (
+  keyword: string,
+  callback: (items: FrontlineReportMaterialSuggestion[]) => void
+) => {
+  await loadFrontlineReportMaterialOptions(keyword)
+  callback(
+    buildFrontlineReportMaterialOptions().map((item) => ({
+      ...item,
+      value: formatFrontlineReportMaterialOption(item)
+    }))
+  )
+}
+
+const handleFrontlineReportMaterialSuggestionSelect = (
+  item: FrontlineReportMaterialSuggestion
+) => {
+  const materialId = Number(item?.id)
+  if (recordBindingEditorDisabled.value || !Number.isFinite(materialId) || materialId <= 0) return
+  const materialIds = selectedProcessAttributes.frontlineReportMaterialIds || []
+  if (!materialIds.includes(materialId)) {
+    selectedFrontlineReportMaterialOptions.value = [
+      ...selectedFrontlineReportMaterialOptions.value.filter(
+        (selectedItem) => Number(selectedItem.id) !== materialId
+      ),
+      item
+    ]
+    handleFrontlineReportMaterialIdsChange([...materialIds, materialId])
+  }
+  frontlineReportMaterialSearchKeyword.value = ''
+}
 
 const getSelectedFrontlineReportMaterialOptions = (): MdItemVO[] => {
-  const optionMap = new Map(frontlineReportMaterialOptions.value.map((item) => [item.id, item]))
+  const optionMap = new Map(
+    [...selectedFrontlineReportMaterialOptions.value, ...frontlineReportMaterialOptions.value].map((item) => [
+      Number(item.id),
+      item
+    ])
+  )
   return (selectedProcessAttributes.frontlineReportMaterialIds || [])
     .map((materialId) => optionMap.get(materialId))
     .filter((item): item is MdItemVO => Boolean(item))
@@ -10066,6 +10098,10 @@ defineExpose({
   --el-tag-text-color: #0f8a55;
 }
 
+.route-flow-graph-designer__frontline-report-material-editor :deep(.el-autocomplete) {
+  width: 100%;
+}
+
 .route-flow-graph-designer__frontline-report-material-selected {
   display: flex;
   flex-direction: column;
@@ -10082,11 +10118,6 @@ defineExpose({
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.route-flow-graph-designer__frontline-report-material-editor
-  :deep(.el-select__selection > .el-select__selected-item:not(.el-select__input-wrapper)) {
-  display: none;
 }
 
 .route-flow-graph-designer__frontline-report-material-option {

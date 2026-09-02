@@ -16,6 +16,15 @@
 - Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 101`、自行推算扩展端口、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile；禁止为迁就旧分支守卫而删除或改写其它任务的合法登记，也禁止整体复制混有无关业务内容的提交来同步守卫。
 - Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`；`doc/tasks/20260803-pqc-equipment-standard-method-design/execution-log.md`，PQC 文档 worktree 未启动服务但提交钩子仍要求 registry，补跑 `reserve-worktree-slot.ps1` 登记 slot 15 后解除阻塞；`doc/tasks/20260815-expand-worktree-slots-30/verification-report.md`，保留既有 1–19 映射并用独立扩展段把容量扩至 30；`doc/tasks/20260814-production-release-flow-implementation/verification-report.md`，长期 PQC 分支的 v3 `1..19` 守卫拒绝共享登记中的 v4 合法 slot 20，任务保持阻塞且未修改并发登记。
 
+## Worktree 重命名与端口登记原子同步门禁
+
+- Trigger: 重命名 `D:\IntRuoyiWorktree\` 下已经具有活动端口登记项的 worktree，或要求只修改 worktree 显示名称和目录而保留原分支、slot 与端口。
+- Preflight check: 先读取 `docs\worktree-restrictions.md`，逐个确认旧目录存在、目标目录不存在、目标绝对路径仍是固定 worktree 根目录的子路径；用 `git worktree list --porcelain`、目标分支和登记表旧路径唯一匹配每个活动项。执行时使用 `git worktree move` 更新 Git 元数据，并取得与 `reserve-worktree-slot.ps1` 相同的登记表 mutex，在同一受控操作中更新登记项 `name/path/updatedAt`；保留 `branch/profile/slot/frontendPort/backendPort/createdAt`。
+- Blocker: 任一目标名已占用、旧目录或 Git 注册缺失、登记项按旧路径和分支不能唯一命中、路径越界、登记表 mutex 超时、任一步移动或登记表校验失败时必须停止；多项批量重命名出现中途失败时必须报告并恢复已移动项和原登记内容，不能留下半完成状态。
+- Verification: 重命名后重新运行 `git worktree list --porcelain`，确认新目录存在、旧目录不存在；逐个核对分支、HEAD、`git status --short`、活动登记项唯一性以及原 slot/前后端端口未变化。任务证据同时记录 Git 路径和登记表最终名称、路径、槽位、端口。
+- Forbidden action: 禁止用文件系统直接移动代替 `git worktree move`，禁止无锁直接改写 `worktree-ports.json`，禁止把重命名误做成删除重建，禁止重新分配槽位、随机换端口或顺带重命名用户未要求变更的分支。
+- Evidence: `doc/tasks/20260901-rename-worktrees-tr1-tr5/verification-report.md`，五个 `int_main` worktree 批量改名为 `TR1..TR5` 时保留原分支、slot `1..5` 和端口，并同步通过 Git 注册、物理路径和端口登记复核。
+
 ## Worktree 旧无监听槽位释放门禁
 
 - Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..100 全占用但多数端口未监听。

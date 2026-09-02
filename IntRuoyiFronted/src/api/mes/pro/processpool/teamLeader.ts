@@ -233,6 +233,23 @@ export interface TeamLeaderActiveOrderSimulationRespVO {
   inspectionProgressPercent: number | string
 }
 
+export interface TeamLeaderActiveOrderSimulationCopyReqVO {
+  sourceActiveOrderId: number
+  simulationRunId: string
+}
+
+export interface TeamLeaderActiveOrderSimulationCopyRespVO {
+  activeOrderId: number
+  workOrderId: number
+  workOrderCode: string
+  workOrderName: string
+  routeId: number
+  routeVersionId: number
+  routeVersionNo: string
+  qaRegulationVersionId: number
+  simulationRunId: string
+}
+
 export interface Stage2_5BackfillBatchExecutionSimulationReqVO {
   simulationRunId: string
   activeOrderId: number
@@ -491,6 +508,9 @@ export interface TeamLeaderActiveOrderRespVO {
   hasQuantityConflict?: boolean
   quantityConflictProcessCount?: number
   overageQuantity?: number | string
+  simulated?: boolean
+  simulationStage?: string
+  simulationRunId?: string
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {
@@ -886,6 +906,24 @@ export const simulateStage1ActiveOrderCompletion = async (
   return await request.post<Stage1ActiveOrderCompleteSimulationRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/stage1',
     data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const copyLatestTeamLeaderSimulationActiveOrder = async (
+  data: TeamLeaderActiveOrderSimulationCopyReqVO
+) => {
+  return await request.post<TeamLeaderActiveOrderSimulationCopyRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/copy-latest',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const cleanupLatestTeamLeaderSimulationActiveOrder = async (activeOrderId: number) => {
+  return await request.post<boolean>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/copy-latest/cleanup',
+    data: { activeOrderId },
     ignoreErrorMessage: true
   })
 }

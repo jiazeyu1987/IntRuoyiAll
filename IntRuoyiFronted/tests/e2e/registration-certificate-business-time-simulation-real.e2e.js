@@ -12,7 +12,8 @@ const BROWSER_EXECUTABLE =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const OUTPUT_DIR = path.resolve(
-  'D:/IntRuoyiWorktree/20260901-registration-business-time-simulation-integration/doc/tasks/20260901-registration-business-time-simulation-integration/e2e-output'
+  __dirname,
+  '../../../doc/tasks/20260901-registration-business-time-simulation-integration/e2e-output'
 )
 
 function readRequiredPassword() {
@@ -78,8 +79,8 @@ async function waitUntilEnabled(page, locator, timeoutMs = 30000) {
 }
 
 async function run() {
-  assert.match(BASE_URL, /^http:\/\/(127\.0\.0\.1|localhost):8315$/)
-  assert.match(BACKEND_URL, /^http:\/\/(127\.0\.0\.1|localhost):48315$/)
+  assert.match(BASE_URL, /^http:\/\/(127\.0\.0\.1|localhost):(8081|8315)$/)
+  assert.match(BACKEND_URL, /^http:\/\/(127\.0\.0\.1|localhost):(48081|48315)$/)
   assert.ok(
     /^\d{4}-\d{2}-\d{2}$/.test(BUSINESS_DATE) && BUSINESS_DATE < '2000-01-02',
     'E2E must use a no-due-candidate safety date before 2000-01-02'
@@ -92,9 +93,15 @@ async function run() {
   const context = await browser.newContext({ viewport: { width: 1680, height: 900 }, locale: 'zh-CN' })
   const page = await context.newPage()
   const consoleErrors = []
+  const failedResponses = []
   page.on('console', (message) => {
     if (message.type() === 'error') {
       consoleErrors.push(message.text())
+    }
+  })
+  page.on('response', (response) => {
+    if (response.status() >= 400) {
+      failedResponses.push(`${response.status()} ${response.request().method()} ${response.url()}`)
     }
   })
 
@@ -156,7 +163,11 @@ async function run() {
       `${JSON.stringify(result, null, 2)}\n`,
       'utf8'
     )
-    assert.equal(consoleErrors.length, 0, `console errors: ${consoleErrors.join('\n')}`)
+    assert.equal(
+      consoleErrors.length,
+      0,
+      `console errors: ${consoleErrors.join('\n')}\nfailed responses: ${failedResponses.join('\n')}`
+    )
     console.log(
       `PASS: registration certificate business time simulation tenant=${TENANT_NAME} date=${BUSINESS_DATE} simulatedAt=${simulateBody.data.simulatedAt}`
     )

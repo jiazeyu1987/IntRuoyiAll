@@ -223,7 +223,7 @@
                         link
                         type="primary"
                         v-hasPermi="['dcc:registration-certificate:change:submit']"
-                        @click="openChange(row.certificateId)"
+                        @click="openChange(row)"
                       >
                         变更
                       </el-button>
@@ -404,6 +404,11 @@
     :certificate="selectedRenewalCertificate"
     @saved="handleRenewalSaved"
   />
+  <RegistrationCertificateChangeDialog
+    v-model="showChangeDialog"
+    :certificate="selectedChangeCertificate"
+    @saved="handleChangeSaved"
+  />
 </template>
 
 <script setup lang="ts">
@@ -431,6 +436,7 @@ import {
 } from '@/hooks/web/useUserTableColumns'
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
+import RegistrationCertificateChangeDialog from '../change/ChangeDialog.vue'
 import {
   REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS,
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
@@ -461,6 +467,8 @@ const oldTotal = ref(0)
 const showUploadDialog = ref(false)
 const showRenewalDialog = ref(false)
 const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
+const showChangeDialog = ref(false)
+const selectedChangeCertificate = ref<DccRegistrationCertificatePageItemVO>()
 const simulationDate = ref('')
 const simulationLoading = ref(false)
 const simulationResult = ref<DccRegistrationCertificateBusinessTimeSimulationRespVO>()
@@ -897,11 +905,9 @@ const openDetail = (certificateId: number | string) => {
   router.push(`/mdm/registration-certificate/detail/${certificateId}`)
 }
 
-const openChange = (certificateId: number | string) => {
-  router.push({
-    path: `/mdm/registration-certificate/detail/${certificateId}`,
-    query: { mode: 'change' }
-  })
+const openChange = (row: DccRegistrationCertificatePageItemVO) => {
+  selectedChangeCertificate.value = row
+  showChangeDialog.value = true
 }
 
 const openOldDetail = (certificateId: number | string, versionId: number | string) => {
@@ -935,6 +941,11 @@ const handleUploadSaved = async () => {
 
 const handleRenewalSaved = async () => {
   showRenewalDialog.value = false
+  await loadPage()
+}
+
+const handleChangeSaved = async () => {
+  showChangeDialog.value = false
   await loadPage()
 }
 

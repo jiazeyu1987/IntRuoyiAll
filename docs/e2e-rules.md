@@ -219,6 +219,7 @@
 - Blocker: 若静态合同在目标 worktree 自身也失败，必须先判断是合同过期、换行误判、正则范围过宽还是产品实现失败；不得把目标 worktree 自身失败直接当作融合漏项。
 - Narrow fix: 若当前任务只修一个窄范围页面缺陷，而同一个宽静态合同存在无关既存失败，先保留失败证据，再新增或运行聚焦本缺陷的独立静态合同；不得为了通过宽合同顺手改无关产品逻辑或断言。
 - Verification: 更新静态合同后必须重跑目标 worktree 涉及的全部静态合同；涉及真实 E2E 脚本行为变更时，至少用静态合同断言真实脚本等待的 API、点击的按钮和禁止的旧弹窗步骤。
+- Experience: 前端静态合同若使用相对源码路径，必须从脚本约定的工作目录执行；从仓库根目录直接执行导致 `ENOENT` 时，应先修正命令工作目录再判断产品实现，不能把测试前置错误记为功能回归。
 - Forbidden action: 禁止为通过静态合同改产品文案或 DOM 顺序；禁止保留真实脚本里的废弃确认弹窗、签名密码输入或 API-only 替代页面点击。
 - Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`。
 
@@ -479,11 +480,11 @@
 ## Element Plus 下拉选择门禁
 
 - Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户、弹框表单项或其他写入型业务对象。
-- Preflight check: 优先按页面可见业务唯一文本定位选项，例如租户名称、工单编码、路线编码/名称/ID；填入搜索词后必须等待目标 `.el-select-dropdown__item:visible` 出现并点击该选项。Element Plus 的 placeholder 可能由外层组件展示而不写入真实 `input[placeholder]`，真实 E2E 定位搜索型 `el-select` 时应先用 DOM 快照确认可见 `input.el-select__input[role="combobox"]` 或控件作用域内稳定选择器，再填值触发远程搜索。若同一弹框内存在多个下拉或校验消息会产生重复可见文本，必须先按精确可见 `.el-form-item__label` 定位当前表单项，再在该 `.el-form-item` 内读取当前 combobox 的 `aria-controls`，只从对应下拉面板选择选项。若标签存在包含关系，例如“类别”和“类别否变更”，不得用 `hasText('类别').first()` 定位目标下拉，应给目标控件增加稳定 `data-testid` 或使用精确标签边界定位。若 `el-select` 位于 `el-popover`、抽屉内局部弹层或 click-outside 容器中，必须确认下拉面板归属不会触发外层误关闭，必要时使用受控可见状态和 `:teleported="false"` 静态合同锁定。
-- Blocker: 如果只按 `input[placeholder=...]` 找不到控件、只填输入框后按 Enter 未触发真实选项选择、目标选项未出现、页面显示文本与脚本断言字段不一致、同名校验消息或重复下拉项导致 locator 命中多个字段、或选择项点击导致外层 Popover 在确认动作前误关闭，必须停止并记录输入框 DOM 快照、下拉可见文本、弹层状态和相关接口响应，不得继续提交写入。
+- Preflight check: 优先按页面可见业务唯一文本定位选项，例如租户名称、工单编码、路线编码/名称/ID；填入搜索词后必须等待目标 `.el-select-dropdown__item:visible` 出现并点击该选项。Element Plus 的 placeholder 可能由外层组件展示而不写入真实 `input[placeholder]`，真实 E2E 定位搜索型 `el-select` 时应先用 DOM 快照确认可见 `input.el-select__input[role="combobox"]` 或控件作用域内稳定选择器，再填值触发远程搜索。若同一弹框内存在多个下拉或校验消息会产生重复可见文本，必须先按精确可见 `.el-form-item__label` 定位当前表单项，再在该 `.el-form-item` 内读取当前 combobox 的 `aria-controls`，只从对应下拉面板选择选项。若上一步操作的是 `multiple` 多选下拉，Element Plus 选择后可能继续保持浮层展开，切换到另一个下拉前必须显式关闭旧浮层并等待目标表单项自己的下拉面板可见；读取选项时优先限定当前表单项或最新可见下拉，避免把旧多选面板当成新字段选项。若标签存在包含关系，例如“类别”和“类别否变更”，不得用 `hasText('类别').first()` 定位目标下拉，应给目标控件增加稳定 `data-testid` 或使用精确标签边界定位。若 `el-select` 位于 `el-popover`、抽屉内局部弹层或 click-outside 容器中，必须确认下拉面板归属不会触发外层误关闭，必要时使用受控可见状态和 `:teleported="false"` 静态合同锁定。
+- Blocker: 如果只按 `input[placeholder=...]` 找不到控件、只填输入框后按 Enter 未触发真实选项选择、目标选项未出现、页面显示文本与脚本断言字段不一致、同名校验消息或重复下拉项导致 locator 命中多个字段、多选旧浮层未关闭导致读取到错误选项、或选择项点击导致外层 Popover 在确认动作前误关闭，必须停止并记录输入框 DOM 快照、下拉可见文本、弹层状态和相关接口响应，不得继续提交写入。
 - Verification: 对写入结果使用 UI 响应和最终只读 API/DB 核验；涉及发布版/草稿版差异时，必须核验落库版本 ID、版本号、快照 JSON 和当前草稿仍存在。Popover 内下拉还必须验证“选择后保持打开、确认成功后显式关闭”。
 - Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
-- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`；`doc/tasks/20260726-route-flow-copy-popover-stability/execution-log.md`；`doc/tasks/20260730-standard-template-list-search-alias/`，顶部菜单搜索框视觉上显示 placeholder，但真实 DOM 只有 `input.el-select__input[role="combobox"]`，最终真实 E2E 改用 combobox 后通过；`doc/tasks/20260829-registration-certificate-upload-production-fields/bug-regression-evidence.md`。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`；`doc/tasks/20260726-route-flow-copy-popover-stability/execution-log.md`；`doc/tasks/20260730-standard-template-list-search-alias/`，顶部菜单搜索框视觉上显示 placeholder，但真实 DOM 只有 `input.el-select__input[role="combobox"]`，最终真实 E2E 改用 combobox 后通过；`doc/tasks/20260829-registration-certificate-upload-production-fields/bug-regression-evidence.md`；`doc/tasks/20260901-registration-change-mvp-e2e/execution-log.md`。
 
 ### Element Plus 权限树与多选提交门禁
 

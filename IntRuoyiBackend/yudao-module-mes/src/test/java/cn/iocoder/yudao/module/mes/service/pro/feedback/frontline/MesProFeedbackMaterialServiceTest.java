@@ -51,6 +51,7 @@ class MesProFeedbackMaterialServiceTest {
         assertEquals(9001L, rows.get(0).getFeedbackId());
         assertEquals(627L, rows.get(0).getRouteVersionId());
         assertEquals(501L, rows.get(0).getMaterialId());
+        assertEquals(null, rows.get(0).getBomQuantity());
         assertEquals(new BigDecimal("5"), rows.get(0).getOutputQuantity());
         assertEquals("[]", rows.get(0).getLossDetailsJson());
         assertEquals(502L, rows.get(1).getMaterialId());
@@ -88,7 +89,7 @@ class MesProFeedbackMaterialServiceTest {
 
     private static MesProFeedbackMaterialCreateCommand.Entry entry(
             Long materialId, String code, String name, String output, String loss) {
-        return new MesProFeedbackMaterialCreateCommand.Entry(materialId, code, name, null, BigDecimal.ONE,
+        return new MesProFeedbackMaterialCreateCommand.Entry(materialId, code, name, null, null,
                 new BigDecimal(output), new BigDecimal(loss), "[]", null, "[]");
     }
 }

@@ -2,18 +2,18 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const apiPath = 'IntRuoyiFronted/src/api/dcc/registrationCertificate/index.ts'
-const panelPath = 'IntRuoyiFronted/src/views/dcc/registration-certificate/workflow/ActionPanel.vue'
+const dialogPath = 'IntRuoyiFronted/src/views/dcc/registration-certificate/change/ChangeDialog.vue'
 const backendControllerPath =
   'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/change/DccRegistrationCertificateChangeController.java'
 const backendReqPath =
   'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/change/vo/DccRegistrationCertificateChangeApplyReqVO.java'
 
-for (const path of [apiPath, panelPath, backendControllerPath, backendReqPath]) {
+for (const path of [apiPath, dialogPath, backendControllerPath, backendReqPath]) {
   assert.ok(fs.existsSync(path), `${path} must exist`)
 }
 
 const api = fs.readFileSync(apiPath, 'utf8')
-const panel = fs.readFileSync(panelPath, 'utf8')
+const dialog = fs.readFileSync(dialogPath, 'utf8')
 const backendController = fs.readFileSync(backendControllerPath, 'utf8')
 const backendReq = fs.readFileSync(backendReqPath, 'utf8')
 
@@ -36,24 +36,24 @@ assert.doesNotMatch(
 assert.match(backendController, /@ModelAttribute\s+DccRegistrationCertificateChangeApplyReqVO/, 'backend change submit must bind multipart model')
 assert.match(backendReq, /MultipartFile\s+file/, 'backend change request must require uploaded file')
 
-const changePanelStart = panel.indexOf('data-testid="registration-certificate-change-form"')
-const changePanelEnd = panel.indexOf('data-testid="registration-certificate-supporting-document-action"', changePanelStart)
-assert.ok(changePanelStart >= 0 && changePanelEnd > changePanelStart, 'change panel block must be locatable')
-const changePanel = panel.slice(changePanelStart, changePanelEnd)
+const changeDialogStart = dialog.indexOf('data-testid="registration-certificate-change-form"')
+const changeDialogEnd = dialog.indexOf('<template #footer>', changeDialogStart)
+assert.ok(changeDialogStart >= 0 && changeDialogEnd > changeDialogStart, 'change dialog form block must be locatable')
+const changeDialog = dialog.slice(changeDialogStart, changeDialogEnd)
 
-assert.match(changePanel, /v-model="changeForm\.changeTypes"[\s\S]{0,180}multiple/, 'change content must support multiple selection')
-assert.match(changePanel, /变更批件文件/, 'change panel must ask for the actual change approval file')
-assert.match(changePanel, /data-testid="registration-certificate-change-approval-file"/, 'change file upload must have a stable test id')
+assert.match(changeDialog, /v-model="form\.changeTypes"[\s\S]{0,180}multiple/, 'change content must support multiple selection')
+assert.match(changeDialog, /变更批件文件/, 'change dialog must ask for the actual change approval file')
+assert.match(changeDialog, /data-testid="registration-certificate-change-approval-file"/, 'change file upload must have a stable test id')
 for (const field of ['PRODUCT_NAME', 'REGISTRANT_NAME', 'PRODUCTION_ADDRESS', 'OTHER_CONTENT']) {
-  assert.match(changePanel, new RegExp(field), `${field} option must be present`)
+  assert.match(changeDialog, new RegExp(field), `${field} option must be present`)
 }
-assert.match(changePanel, /是否委托生产/, 'production address change must expose entrusted production')
-assert.match(changePanel, /是否自行生产/, 'production address change must expose self production')
-assert.doesNotMatch(changePanel, /变更批件业务文件 ID/, 'users must not manually type business file ids')
+assert.match(changeDialog, /是否委托生产/, 'production address change must expose entrusted production')
+assert.match(changeDialog, /是否自行生产/, 'production address change must expose self production')
+assert.doesNotMatch(changeDialog, /变更批件业务文件 ID/, 'users must not manually type business file ids')
 
-assert.match(panel, /selectedChangeFile\.value/, 'change submit must read the selected upload file')
-assert.match(panel, /payload\.append\('file',\s*selectedChangeFile\.value\)/, 'change submit must append uploaded file')
-assert.match(panel, /changeForm\.changeTypes\.includes\('OTHER_CONTENT'\)/, 'other content must be handled as one selected item')
-assert.match(panel, /changeForm\.changeTypes\.includes\('PRODUCTION_ADDRESS'\)/, 'production address must trigger production relation validation')
+assert.match(dialog, /selectedFile\.value/, 'change submit must read the selected upload file')
+assert.match(dialog, /payload\.append\('file',\s*selectedFile\.value\)/, 'change submit must append uploaded file')
+assert.match(dialog, /form\.changeTypes\.includes\('OTHER_CONTENT'\)/, 'other content must be handled as one selected item')
+assert.match(dialog, /form\.changeTypes\.includes\('PRODUCTION_ADDRESS'\)/, 'production address must trigger production relation validation')
 
 console.log('registration certificate change approval upload static contract passed')

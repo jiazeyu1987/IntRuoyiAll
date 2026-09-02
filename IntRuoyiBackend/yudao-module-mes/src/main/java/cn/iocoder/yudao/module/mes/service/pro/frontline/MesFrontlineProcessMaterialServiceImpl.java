@@ -15,7 +15,6 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -27,12 +26,12 @@ import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_PROCESS_MATERIAL_INVALID;
-import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_PROCESS_MATERIAL_REQUIRED;
 
 @Service
 public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProcessMaterialService {
 
-    private static final String PRODUCT_BOMS_CONFIG_KEY = "productBoms";
+    private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
+    private static final String FRONTLINE_REPORT_MATERIAL_IDS_KEY = "frontlineReportMaterialIds";
 
     private final ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
@@ -64,9 +63,8 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         requireIdentity(activeOrder, routeId, routeProcessId, processId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         MesProRouteVersionDO routeVersion = requireRouteVersion(activeOrder);
-        List<FrozenProductBom> productBoms = parseFrozenProductBoms(activeOrder, routeVersion,
-                workOrder.getProductId(), processId);
-        return attachMaterialMasterData(productBoms, workOrder.getId());
+        List<Long> materialIds = parseFrozenMaterialIds(activeOrder, routeVersion, routeProcessId);
+        return attachMaterialMasterData(materialIds, workOrder.getId());
     }
 
     private void requireIdentity(ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder, Long routeId,
@@ -89,9 +87,8 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
 
     private MesProWorkOrderDO requireWorkOrder(ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder) {
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(activeOrder.workOrderId());
-        if (workOrder == null || !Objects.equals(workOrder.getId(), activeOrder.workOrderId())
-                || workOrder.getProductId() == null || workOrder.getProductId() <= 0) {
-            throw invalid("活跃订单生产工单缺少正式产品物料");
+        if (workOrder == null || !Objects.equals(workOrder.getId(), activeOrder.workOrderId())) {
+            throw invalid("活跃订单生产工单缺失或身份不一致");
         }
         return workOrder;
     }
@@ -106,11 +103,10 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         return routeVersion;
     }
 
-    private List<FrozenProductBom> parseFrozenProductBoms(
+    private List<Long> parseFrozenMaterialIds(
             ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder,
             MesProRouteVersionDO routeVersion,
-            Long productId,
-            Long processId) {
+            Long routeProcessId) {
         JSONObject snapshot;
         try {
             snapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
@@ -121,47 +117,56 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
             throw invalid("锁定工艺版本物料快照路线身份不一致");
         }
         JSONObject configSnapshots = snapshot.getJSONObject("configSnapshots");
-        Object rawProductBoms = configSnapshots == null ? null : configSnapshots.get(PRODUCT_BOMS_CONFIG_KEY);
-        List<JSONObject> rows = normalizeRows(rawProductBoms);
-        Map<Long, FrozenProductBom> matched = new LinkedHashMap<>();
+        Object rawBatchUseConfigs = configSnapshots == null ? null : configSnapshots.get(BATCH_USE_CONFIGS_KEY);
+        List<JSONObject> rows = normalizeRows(rawBatchUseConfigs);
+        JSONObject matched = null;
         for (JSONObject row : rows) {
-            if (row == null || !Objects.equals(row.getLong("productId"), productId)
-                    || !Objects.equals(row.getLong("processId"), processId)) {
+            if (row == null || !Objects.equals(row.getLong("routeProcessId"), routeProcessId)) {
                 continue;
             }
-            Long materialId = row.getLong("itemId");
-            BigDecimal bomQuantity = row.getBigDecimal("quantity");
-            if (materialId == null || materialId <= 0) {
+            if (matched != null) {
+                throw invalid("冻结工序批记录配置重复：" + routeProcessId);
+            }
+            matched = row;
+        }
+        if (matched == null || matched.get(FRONTLINE_REPORT_MATERIAL_IDS_KEY) == null) {
+            return List.of();
+        }
+        Object rawMaterialIds = matched.get(FRONTLINE_REPORT_MATERIAL_IDS_KEY);
+        if (!(rawMaterialIds instanceof JSONArray materialIds)) {
+            throw invalid("冻结工序批记录物料配置结构无效");
+        }
+        Set<Long> normalized = new LinkedHashSet<>();
+        for (Object rawMaterialId : materialIds) {
+            if (!(rawMaterialId instanceof Number number) || number.longValue() <= 0) {
                 throw invalid("冻结工序报工物料身份缺失");
             }
-            if (bomQuantity == null || bomQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-                throw invalid("物料 " + materialId + " 的用料比例必须大于 0");
-            }
-            if (matched.putIfAbsent(materialId, new FrozenProductBom(materialId, bomQuantity)) != null) {
+            Long materialId = number.longValue();
+            if (!normalized.add(materialId)) {
                 throw invalid("冻结工序报工物料重复：" + materialId);
             }
         }
-        if (matched.isEmpty()) {
-            throw exception(PRO_FRONTLINE_PROCESS_MATERIAL_REQUIRED, activeOrder.activeOrderId(), processId);
-        }
-        return List.copyOf(matched.values());
+        return List.copyOf(normalized);
     }
 
-    private List<JSONObject> normalizeRows(Object rawProductBoms) {
+    private List<JSONObject> normalizeRows(Object rawConfigs) {
         List<JSONObject> rows = new ArrayList<>();
-        if (rawProductBoms instanceof JSONObject object) {
+        if (rawConfigs == null) {
+            return rows;
+        }
+        if (rawConfigs instanceof JSONObject object) {
             for (Object value : object.values()) {
                 rows.add(toJsonObject(value));
             }
             return rows;
         }
-        if (rawProductBoms instanceof JSONArray array) {
+        if (rawConfigs instanceof JSONArray array) {
             for (Object value : array) {
                 rows.add(toJsonObject(value));
             }
             return rows;
         }
-        return rows;
+        throw invalid("冻结工序批记录配置结构无效");
     }
 
     private JSONObject toJsonObject(Object value) {
@@ -175,25 +180,24 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         }
     }
 
-    private List<MesFrontlineProcessMaterial> attachMaterialMasterData(List<FrozenProductBom> productBoms,
+    private List<MesFrontlineProcessMaterial> attachMaterialMasterData(List<Long> materialIds,
                                                                        Long workOrderId) {
-        Set<Long> materialIds = productBoms.stream()
-                .map(FrozenProductBom::materialId)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (materialIds.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> expectedMaterialIds = new LinkedHashSet<>(materialIds);
         List<MesMdItemDO> items = itemMapper.selectListByIds(materialIds);
         Map<Long, MesMdItemDO> itemsById = items == null ? Map.of() : items.stream()
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toMap(MesMdItemDO::getId, item -> item,
                         (left, ignored) -> left, LinkedHashMap::new));
-        if (!itemsById.keySet().equals(materialIds)) {
-            Set<Long> missing = new LinkedHashSet<>(materialIds);
+        if (!itemsById.keySet().equals(expectedMaterialIds)) {
+            Set<Long> missing = new LinkedHashSet<>(expectedMaterialIds);
             missing.removeAll(itemsById.keySet());
             throw invalid("冻结工序报工物料主档缺失：" + missing);
         }
-        Map<Long, BigDecimal> quantityByMaterial = productBoms.stream().collect(
-                java.util.stream.Collectors.toMap(FrozenProductBom::materialId, FrozenProductBom::bomQuantity));
         return itemsById.values().stream()
-                .map(item -> toMaterial(item, quantityByMaterial.get(item.getId()), workOrderId))
+                .map(item -> toMaterial(item, workOrderId))
                 .sorted(Comparator
                         .comparing(MesFrontlineProcessMaterial::materialCode,
                                 Comparator.nullsLast(String::compareTo))
@@ -201,14 +205,14 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
                 .toList();
     }
 
-    private MesFrontlineProcessMaterial toMaterial(MesMdItemDO item, BigDecimal bomQuantity, Long workOrderId) {
+    private MesFrontlineProcessMaterial toMaterial(MesMdItemDO item, Long workOrderId) {
         String code = normalize(item.getCode());
         String name = normalize(item.getName());
         if (code == null || name == null) {
             throw invalid("冻结工序报工物料缺少编码或名称：" + item.getId());
         }
         return new MesFrontlineProcessMaterial(item.getId(), code, name,
-                normalize(item.getSpecification()), bomQuantity,
+                normalize(item.getSpecification()), null,
                 batchQueryService.listBatchCodes(workOrderId, code));
     }
 
@@ -222,8 +226,5 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
 
     private static ServiceException invalid(String detail) {
         return exception(PRO_FRONTLINE_PROCESS_MATERIAL_INVALID, detail);
-    }
-
-    private record FrozenProductBom(Long materialId, BigDecimal bomQuantity) {
     }
 }

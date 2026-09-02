@@ -10,7 +10,7 @@ const feedbackApi = readUtf8('src/api/mes/pro/feedback/index.ts')
 
 assert.match(
   feedbackApi,
-  /export interface FrontlineRuntimeMaterialVO[\s\S]*materialId:\s*number[\s\S]*bomQuantity:\s*number[\s\S]*batchCodes:\s*string\[\]/,
+  /export interface FrontlineRuntimeMaterialVO[\s\S]*materialId:\s*number[\s\S]*bomQuantity\?:\s*number\s*\|\s*null[\s\S]*batchCodes:\s*string\[\]/,
   'runtime API must expose frozen process materials and locally synchronized batch codes.'
 )
 assert.match(
@@ -62,6 +62,21 @@ assert.match(
   panel,
   /const switchProductionMaterial[\s\S]*persistActiveProductionMaterialDraft\(\)[\s\S]*restoreProductionMaterialDraft\(materialKey\)/,
   'switching tabs must persist the current material before restoring the target material.'
+)
+assert.doesNotMatch(
+  panel,
+  /当前工序没有冻结物料，无法提交/,
+  'an empty batch-record material configuration must not block formal production submission.'
+)
+assert.match(
+  panel,
+  /const resolveProductionProgressQuantity[\s\S]*materialDetails\.length[\s\S]*productionDraft\.outputQuantity/,
+  'formal submission must use the process completion quantity when no material details are configured.'
+)
+assert.match(
+  panel,
+  /const buildFrontlineFormalSubmitPayload[\s\S]*materialDetails[\s\S]*resolveProductionProgressQuantity\(materialDetails\)/,
+  'the formal request must send an empty material collection without calculating Math.min over an empty array.'
 )
 assert.match(
   panel,

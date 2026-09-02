@@ -65,7 +65,9 @@ public class MesProFeedbackMaterialServiceImpl implements MesProFeedbackMaterial
         requirePositive(entry.materialId(), "materialId");
         requireText(entry.materialCode(), "materialCode");
         requireText(entry.materialName(), "materialName");
-        requirePositive(entry.bomQuantity(), "bomQuantity");
+        if (entry.bomQuantity() != null) {
+            requirePositive(entry.bomQuantity(), "bomQuantity");
+        }
         requireNonNegative(entry.outputQuantity(), "完成数量不能小于 0");
         requireNonNegative(entry.lossQuantity(), "损耗数量不能小于 0");
         if (entry.lossQuantity().compareTo(entry.outputQuantity()) > 0) {

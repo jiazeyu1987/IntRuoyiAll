@@ -294,6 +294,15 @@
 - Supplementary evidence: 若必须在 Maven 阻塞时证明 RED/GREEN，可用 JUnit Console 或“显式 javac 参数文件编译目标测试类 + `mvn ... surefire:test`”运行任务目标测试，但只能记录为补充证据；必须把 classpath 隔离清楚（旧实现 RED、新实现 GREEN）、同时保留标准 Maven lifecycle 为 blocked，禁止把该补充结果写成完整 Maven lifecycle 通过。
 - Supplementary evidence: `doc/tasks/20260826-edhr-pdf-signature-compliance/verification-report.md`，eDHR PDF 签名修复中标准 `-pl yudao-module-mes -am` 目标测试被无关 testCompile 失败阻塞且一次 Maven 主编译触发 JVM native memory OOM；在主代码 `compile` PASS 后，用 `dependency:build-classpath` 生成 classpath、显式 javac 参数文件只编译 `ExecutionArchiveRendererTest`，再执行 `mvn -pl yudao-module-mes -Dtest=ExecutionArchiveRendererTest surefire:test` 获得 11/11 PASS，并继续把标准 lifecycle 记录为 blocked。
 
+### PowerShell Maven 心跳包装器门禁
+
+- Trigger: Maven `compile/test/package` 在 javac、testCompile、Surefire 启动或 repackage 阶段长时间无输出，导致 Codex 工具会话断开、但命令本身可能仍在运行。
+- Preflight check: 首选前台执行并保留 Maven 原始输出；若需要避免空输出断链，可用 `System.Diagnostics.Process` 前台包装 Maven 绝对路径，并每 15 秒打印一次心跳。不要用 PowerShell 异步 `OutputDataReceived` 脚本块写控制台，容易因无 Runspace 崩溃并留下孤儿 Maven。
+- Blocker: 出现重复 Maven PID、父 PowerShell 已崩溃但子 `mvn.cmd/java.exe` 仍在跑、或同模块存在非当前任务 Maven 写同一 `target` 时，必须先归属 PID；只停止当前任务自有重复进程，不得强杀并行任务或运行态 Java。
+- Verification: 记录 Maven 绝对路径、PID、心跳区间、重复进程处置、最终 `BUILD SUCCESS/FAILURE` 和目标 Surefire 摘要；旧 surefire 报告只能作为历史证据，不能代替本次命令结果。
+- Forbidden action: 禁止因会话断开就宣称 Maven 失败或通过；禁止继续叠加多个同模块 Maven；禁止把 PowerShell 包装器异常写成业务 RED。
+- Evidence: `doc/tasks/20260901-sync-registration-change-mvp-to-main/execution-log.md`，注册证变更审批同步验证中，异步输出包装器触发 Runspace 崩溃并留下重复 Maven，最终仅停止本任务重复 PID，使用简单前台心跳包装器取得目标后端测试 PASS。
+
 ### Windows Maven 页面文件不足门禁
 
 - Trigger: Maven 编译或测试报 JVM native memory allocation / `G1 virtual space` / Windows `页面文件太小，无法完成操作`，或同仓存在多个并发 Maven/Java 编译测试进程且工作集持续增长。

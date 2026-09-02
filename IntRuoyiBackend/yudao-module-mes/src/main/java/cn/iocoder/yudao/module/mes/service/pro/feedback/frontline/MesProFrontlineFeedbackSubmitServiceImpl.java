@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityTrace;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_LOGIN_USER_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_MATERIAL_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED;
 
@@ -88,16 +90,24 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         MesFrontlineSubmitIdentityTrace identityTrace = submitAuthorizationService.authorize(
                 buildSubmitIdentityCommand(reqVO, loginUserId));
         validateSelectedActiveOrderContext(reqVO);
-        MesProFrontlineFeedbackMaterialSubmission materialSubmission = materialSubmissionValidator.validate(
-                identityTrace.sessionSnapshot().content().materials(),
-                identityTrace.sessionSnapshot().content().defectReasons(), reqVO.getMaterialDetails());
-        applyMaterialAggregate(reqVO, materialSubmission);
-        MesFrontlineLossReasonSnapshot lossReasonSnapshot = firstLossReason(materialSubmission);
+        List<MesFrontlineProcessMaterial> frozenMaterials = identityTrace.sessionSnapshot().content().materials();
+        MesProFrontlineFeedbackMaterialSubmission materialSubmission = frozenMaterials.isEmpty() ? null
+                : materialSubmissionValidator.validate(frozenMaterials,
+                        identityTrace.sessionSnapshot().content().defectReasons(), reqVO.getMaterialDetails());
+        MesFrontlineLossReasonSnapshot lossReasonSnapshot;
+        if (materialSubmission == null) {
+            lossReasonSnapshot = validateEmptyMaterialSubmission(reqVO, identityTrace);
+        } else {
+            applyMaterialAggregate(reqVO, materialSubmission);
+            lossReasonSnapshot = firstLossReason(materialSubmission);
+        }
 
         LocalDateTime submittedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         MesProFrontlineFeedbackSplitPayload splitPayload = payloadSplitter.split(reqVO, loginUserId,
                 submittedAt, lossReasonSnapshot);
-        applyFormalFeedbackAggregate(splitPayload, materialSubmission);
+        if (materialSubmission != null) {
+            applyFormalFeedbackAggregate(splitPayload, materialSubmission);
+        }
         Optional<cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult> existing =
                 processPoolSubmitEventService.findExistingSubmitEvent(splitPayload.getProcessPoolEventPayload());
         if (existing.isPresent()) {
@@ -114,12 +124,16 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 reqVO.getSignaturePassword(), "一线生产报工提交");
         reqVO.setSignatureId(signatureId);
         splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt, lossReasonSnapshot);
-        applyFormalFeedbackAggregate(splitPayload, materialSubmission);
+        if (materialSubmission != null) {
+            applyFormalFeedbackAggregate(splitPayload, materialSubmission);
+        }
 
         Long feedbackId = feedbackService.createFrontlineFeedback(splitPayload.getFeedbackPayload());
         feedbackService.submitFeedback(feedbackId);
-        feedbackMaterialService.createMaterials(buildMaterialCreateCommand(
-                feedbackId, activeOrderSnapshot, reqVO, materialSubmission));
+        if (materialSubmission != null) {
+            feedbackMaterialService.createMaterials(buildMaterialCreateCommand(
+                    feedbackId, activeOrderSnapshot, reqVO, materialSubmission));
+        }
 
         // The submit stage stores the recordbook payload only as a source snapshot.
         // Flow 4 owns creation of the formal batch record at the explicit completion command.
@@ -129,9 +143,11 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .setRecordbookEventId(null);
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
-        if (materialSubmission.progressQuantity().compareTo(BigDecimal.ZERO) > 0) {
+        BigDecimal allocationQuantity = materialSubmission == null
+                ? reqVO.getFeedbackPayload().getOutputQuantity() : materialSubmission.progressQuantity();
+        if (allocationQuantity.compareTo(BigDecimal.ZERO) > 0) {
             processPoolSubmitEventService.createInitialAllocation(processPoolEventId,
-                    context.getActiveOrderId(), materialSubmission.progressQuantity());
+                    context.getActiveOrderId(), allocationQuantity);
         }
 
         MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()
@@ -219,7 +235,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (reqVO.getFeedbackPayload() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "feedbackPayload");
         }
-        if (reqVO.getMaterialDetails() == null || reqVO.getMaterialDetails().isEmpty()) {
+        if (reqVO.getMaterialDetails() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "materialDetails");
         }
         if (reqVO.getProcessPoolContext() == null) {
@@ -281,6 +297,17 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         rawPayload.put("materialDetails", reqVO.getMaterialDetails());
         rawPayload.put("progressQuantity", submission.progressQuantity());
         reqVO.setRawPayload(rawPayload);
+    }
+
+    private MesFrontlineLossReasonSnapshot validateEmptyMaterialSubmission(
+            MesProFrontlineFeedbackSubmitReqVO reqVO,
+            MesFrontlineSubmitIdentityTrace identityTrace) {
+        if (!reqVO.getMaterialDetails().isEmpty()) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_MATERIAL_INVALID,
+                    "提交物料集合与冻结工序不一致：当前工序未配置批记录物料");
+        }
+        return materialSubmissionValidator.validateProcessPayload(
+                reqVO.getFeedbackPayload(), identityTrace.sessionSnapshot().content().defectReasons());
     }
 
     private void applyFormalFeedbackAggregate(
