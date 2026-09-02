@@ -10,7 +10,7 @@
 - [x] 识别待融合 worktree、分支、提交和验证证据
 - [x] 在 `int_main` 主工作区执行受控融合并处理冲突
 - [x] 运行要求的端口契约、构建/测试/E2E 或记录明确阻塞
-- [ ] 完成任务记录、经验沉淀和收尾
+- [x] 完成任务记录、经验沉淀和收尾
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout - worktree 内容已融合到 `int_main` 本地提交 `89db09fcd`，验证通过；按项目规则，推送和最终 `completed` 状态需用户明确授权。
 
 ## Design Constraints Check
 

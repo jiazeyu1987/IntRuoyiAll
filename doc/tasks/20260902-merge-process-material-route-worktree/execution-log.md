@@ -22,3 +22,9 @@ BDD: merge completed worktree into int_main -> Given 已验证的附加 worktree
 2026-09-02T13:59:00+08:00 REGRESSION `pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json --pretty false` -> FAIL，未设置 8GB Node heap 时 OOM；按前端规则使用单实例 `$env:NODE_OPTIONS='--max-old-space-size=8192'` 重跑。
 
 2026-09-02T14:00:00+08:00 GREEN `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json --pretty false` -> PASS。
+
+2026-09-02T14:01:00+08:00 COMMIT `git commit -m "feat: merge route process input output materials"` -> PASS，提交 `89db09fcd`。仅暂存并提交工艺路线输入/输出物料 allow-list 文件、静态 E2E 脚本和任务记录；主工作区其它脏改保持未暂存。
+
+2026-09-02T14:02:00+08:00 EXPERIENCE 已按 `project-experience-consolidation` 读取并复核长期经验归属；`docs\worktree-memory.md` 已存在“主工作区融合 worktree 切片后的合同复核门禁”和“流程任务主线程复验与收尾证据门禁”，本轮无新增长期经验条目。
+
+2026-09-02T14:02:00+08:00 STATUS 任务进入 `ready_for_closeout`；最终 `completed` 需要用户明确授权 `git push origin int_main` 后再执行。
