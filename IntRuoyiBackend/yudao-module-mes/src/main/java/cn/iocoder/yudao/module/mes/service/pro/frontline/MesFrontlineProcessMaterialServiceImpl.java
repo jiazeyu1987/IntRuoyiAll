@@ -31,7 +31,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProcessMaterialService {
 
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
-    private static final String FRONTLINE_REPORT_MATERIAL_IDS_KEY = "frontlineReportMaterialIds";
+    private static final String OUTPUT_MATERIAL_IDS_KEY = "outputMaterialIds";
 
     private final ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
@@ -129,10 +129,10 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
             }
             matched = row;
         }
-        if (matched == null || matched.get(FRONTLINE_REPORT_MATERIAL_IDS_KEY) == null) {
+        if (matched == null || matched.get(OUTPUT_MATERIAL_IDS_KEY) == null) {
             return List.of();
         }
-        Object rawMaterialIds = matched.get(FRONTLINE_REPORT_MATERIAL_IDS_KEY);
+        Object rawMaterialIds = matched.get(OUTPUT_MATERIAL_IDS_KEY);
         if (!(rawMaterialIds instanceof JSONArray materialIds)) {
             throw invalid("冻结工序批记录物料配置结构无效");
         }

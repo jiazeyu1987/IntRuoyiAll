@@ -37,8 +37,11 @@ public class MesProRouteFlowProcessConfigRespVO {
     @Schema(description = "生产数量系数，工序计划数量=成品数量*生产数量系数", example = "3.000000")
     private BigDecimal productionQuantityFactor;
 
-    @Schema(description = "一线批记录报工需要填写批号的物料ID列表")
-    private List<Long> frontlineReportMaterialIds;
+    @Schema(description = "当前工序输入物料ID列表")
+    private List<Long> inputMaterialIds;
+
+    @Schema(description = "当前工序输出物料ID列表，一线报工需要填写完成数量、损耗数量和批号")
+    private List<Long> outputMaterialIds;
 
     @Schema(description = "用途内批记录报表列表")
     private List<MesProRouteFlowBatchRecordRespVO> batchRecordReports;

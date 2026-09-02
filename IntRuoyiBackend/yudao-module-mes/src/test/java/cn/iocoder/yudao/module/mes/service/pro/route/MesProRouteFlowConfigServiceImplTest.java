@@ -242,7 +242,13 @@ class MesProRouteFlowConfigServiceImplTest {
                               ]
                             },
                             "batchUseConfigs": [
-                              {"routeProcessId": 100, "enabled": true, "productionQuantityFactor": 1}
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "productionQuantityFactor": 1,
+                                "inputMaterialIds": [8801],
+                                "outputMaterialIds": [8802, 8803]
+                              }
                             ]
                           }
                         }
@@ -263,6 +269,8 @@ class MesProRouteFlowConfigServiceImplTest {
         assertEquals(100L, result.get(0).getRouteProcessId());
         assertEquals("P1000", result.get(0).getProcessCode());
         assertEquals("生效工序", result.get(0).getProcessName());
+        assertEquals(List.of(8801L), result.get(0).getInputMaterialIds());
+        assertEquals(List.of(8802L, 8803L), result.get(0).getOutputMaterialIds());
         verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
         verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
@@ -290,6 +298,8 @@ class MesProRouteFlowConfigServiceImplTest {
                                 "routeProcessId": 3100,
                                 "enabled": true,
                                 "productionQuantityFactor": 1,
+                                "inputMaterialIds": [7001, 7002],
+                                "outputMaterialIds": [8001],
                                 "formBindings": [
                                   {
                                     "formBindingKey": "FB-ACTIVE-SNAPSHOT",
@@ -357,6 +367,8 @@ class MesProRouteFlowConfigServiceImplTest {
             assertEquals(2000L, result.get(0).getRouteProcessId());
             assertEquals("P1000", result.get(0).getProcessCode());
             assertEquals("已发布快照工序", result.get(0).getProcessName());
+            assertEquals(List.of(7001L, 7002L), result.get(0).getInputMaterialIds());
+            assertEquals(List.of(8001L), result.get(0).getOutputMaterialIds());
             assertEquals(1, result.get(0).getFormBindings().size());
             assertEquals("FB-ACTIVE-SNAPSHOT", result.get(0).getFormBindings().get(0).getFormBindingKey());
         }
@@ -402,6 +414,8 @@ class MesProRouteFlowConfigServiceImplTest {
         assertEquals(2000L, result.get(0).getRouteProcessId());
         assertEquals("P1000", result.get(0).getProcessCode());
         assertEquals("当前工序", result.get(0).getProcessName());
+        assertEquals(List.of(), result.get(0).getInputMaterialIds());
+        assertEquals(List.of(), result.get(0).getOutputMaterialIds());
         assertTrue(result.get(0).getFormBindings().isEmpty());
     }
 

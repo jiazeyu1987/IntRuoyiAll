@@ -868,8 +868,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private JSONArray buildBatchUseConfigSnapshots(Long routeId, Object existingBatchUseConfigs,
                                                    Long routeVersionId) {
-        Map<Long, Object> frontlineReportMaterialIdsByRouteProcessId =
-                extractFrontlineReportMaterialIds(existingBatchUseConfigs, routeVersionId);
+        Map<Long, RouteProcessMaterialSnapshot> materialSnapshotsByRouteProcessId =
+                extractRouteProcessMaterialSnapshots(existingBatchUseConfigs, routeVersionId);
         List<MesProRouteFlowProcessConfigDO> processConfigs = routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType());
         List<MesProRouteFlowProcessBatchRecordDO> records = routeFlowProcessBatchRecordMapper
@@ -888,24 +888,27 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                     recordsByConfigId.getOrDefault(processConfig.getId(), Collections.emptyList());
             config.put("formBindings", buildFormBindingSnapshots(ownedRecords));
             config.put("batchRecordReports", buildBatchRecordReportSnapshots(ownedRecords));
-            if (frontlineReportMaterialIdsByRouteProcessId.containsKey(processConfig.getRouteProcessId())) {
-                config.put("frontlineReportMaterialIds",
-                        frontlineReportMaterialIdsByRouteProcessId.get(processConfig.getRouteProcessId()));
+            RouteProcessMaterialSnapshot materialSnapshot =
+                    materialSnapshotsByRouteProcessId.get(processConfig.getRouteProcessId());
+            if (materialSnapshot != null) {
+                config.put("inputMaterialIds", materialSnapshot.inputMaterialIds());
+                config.put("outputMaterialIds", materialSnapshot.outputMaterialIds());
             }
             result.add(config);
         }
         return result;
     }
 
-    private Map<Long, Object> extractFrontlineReportMaterialIds(Object existingBatchUseConfigs,
-                                                                  Long routeVersionId) {
+    private Map<Long, RouteProcessMaterialSnapshot> extractRouteProcessMaterialSnapshots(
+            Object existingBatchUseConfigs,
+            Long routeVersionId) {
         if (existingBatchUseConfigs == null) {
             return Collections.emptyMap();
         }
         if (!(existingBatchUseConfigs instanceof JSONArray configs)) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
         }
-        Map<Long, Object> result = new LinkedHashMap<>();
+        Map<Long, RouteProcessMaterialSnapshot> result = new LinkedHashMap<>();
         for (Object value : configs) {
             if (!(value instanceof JSONObject config)) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
@@ -914,12 +917,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
             if (routeProcessId == null || routeProcessId <= 0) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
             }
-            if (config.containsKey("frontlineReportMaterialIds")
-                    && result.put(routeProcessId, config.get("frontlineReportMaterialIds")) != null) {
+            if ((config.containsKey("inputMaterialIds") || config.containsKey("outputMaterialIds"))
+                    && result.put(routeProcessId, new RouteProcessMaterialSnapshot(
+                    config.get("inputMaterialIds"), config.get("outputMaterialIds"))) != null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
             }
         }
         return result;
+    }
+
+    private record RouteProcessMaterialSnapshot(Object inputMaterialIds, Object outputMaterialIds) {
     }
 
     private boolean isSnapshotBatchRecordOwnedByConfig(MesProRouteFlowProcessBatchRecordDO record,

@@ -179,7 +179,8 @@ export interface ProRouteFlowProcessConfigVO {
   keyFlag?: boolean | null
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
-  frontlineReportMaterialIds?: number[]
+  inputMaterialIds?: number[]
+  outputMaterialIds?: number[]
   batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingVO[]
   routeScheduleConfigId?: number | null
@@ -201,7 +202,8 @@ export interface ProRouteFlowProcessConfigSaveVO {
   enabled: boolean
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
-  frontlineReportMaterialIds?: number[]
+  inputMaterialIds?: number[]
+  outputMaterialIds?: number[]
   batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingSaveVO[]
   remark?: string | null

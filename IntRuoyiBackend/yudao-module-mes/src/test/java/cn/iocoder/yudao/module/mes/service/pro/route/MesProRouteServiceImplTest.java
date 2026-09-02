@@ -58,6 +58,7 @@ import java.util.Map;
 import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -632,7 +633,8 @@ class MesProRouteServiceImplTest {
                             "batchUseConfigs": [
                               {
                                 "routeProcessId": 100,
-                                "frontlineReportMaterialIds": [8801, 8802]
+                                "inputMaterialIds": [7701, 7702],
+                                "outputMaterialIds": [8801, 8802]
                               }
                             ]
                           }
@@ -655,8 +657,11 @@ class MesProRouteServiceImplTest {
 
         JSONObject batchUseConfig = snapshot.getJSONObject("configSnapshots")
                 .getJSONArray("batchUseConfigs").getJSONObject(0);
-        assertEquals(List.of(8801L, 8802L), batchUseConfig.getJSONArray("frontlineReportMaterialIds")
+        assertEquals(List.of(7701L, 7702L), batchUseConfig.getJSONArray("inputMaterialIds")
                 .toJavaList(Long.class));
+        assertEquals(List.of(8801L, 8802L), batchUseConfig.getJSONArray("outputMaterialIds")
+                .toJavaList(Long.class));
+        assertFalse(batchUseConfig.containsKey("frontlineReportMaterialIds"));
         JSONArray formBindings = batchUseConfig.getJSONArray("formBindings");
         assertEquals(1, formBindings.size());
         assertEquals("FB-LIVE", formBindings.getJSONObject(0).getString("formBindingKey"));

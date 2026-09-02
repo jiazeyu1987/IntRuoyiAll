@@ -77,8 +77,8 @@ class MesFrontlineProcessMaterialServiceTest {
                   "routeId": 101,
                   "configSnapshots": {
                     "batchUseConfigs": [
-                      {"routeProcessId": 1001, "frontlineReportMaterialIds": [502, 501]},
-                      {"routeProcessId": 1002, "frontlineReportMaterialIds": [504]}
+                      {"routeProcessId": 1001, "inputMaterialIds": [503], "outputMaterialIds": [502, 501]},
+                      {"routeProcessId": 1002, "inputMaterialIds": [], "outputMaterialIds": [504]}
                     ],
                     "productBoms": {
                       "201:61:503": {"processId": 201, "productId": 61, "itemId": 503, "quantity": 9}
@@ -113,7 +113,7 @@ class MesFrontlineProcessMaterialServiceTest {
                   "routeId": 101,
                   "configSnapshots": {
                     "batchUseConfigs": [
-                      {"routeProcessId": 1001, "frontlineReportMaterialIds": []}
+                      {"routeProcessId": 1001, "inputMaterialIds": [503], "outputMaterialIds": []}
                     ],
                     "productBoms": {
                       "201:61:503": {"processId": 201, "productId": 61, "itemId": 503, "quantity": 1}
@@ -136,7 +136,7 @@ class MesFrontlineProcessMaterialServiceTest {
                   "routeId": 101,
                   "configSnapshots": {
                     "batchUseConfigs": [
-                      {"routeProcessId": 1001, "frontlineReportMaterialIds": [501, 501]}
+                      {"routeProcessId": 1001, "inputMaterialIds": [], "outputMaterialIds": [501, 501]}
                     ]
                   }
                 }
