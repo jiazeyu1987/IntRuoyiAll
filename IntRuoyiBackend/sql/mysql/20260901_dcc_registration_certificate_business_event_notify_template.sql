@@ -5,9 +5,9 @@
 
 SET NAMES utf8mb4;
 
-DROP PROCEDURE IF EXISTS ensure_dcc_registration_certificate_business_event_notify_template_20260901;
+DROP PROCEDURE IF EXISTS ensure_dcc_reg_cert_event_notice_20260901;
 DELIMITER $$
-CREATE PROCEDURE ensure_dcc_registration_certificate_business_event_notify_template_20260901()
+CREATE PROCEDURE ensure_dcc_reg_cert_event_notice_20260901()
 BEGIN
   DECLARE active_template_count INT DEFAULT 0;
 
@@ -72,6 +72,6 @@ BEGIN
 END $$
 DELIMITER ;
 
-CALL ensure_dcc_registration_certificate_business_event_notify_template_20260901();
+CALL ensure_dcc_reg_cert_event_notice_20260901();
 
-DROP PROCEDURE IF EXISTS ensure_dcc_registration_certificate_business_event_notify_template_20260901;
+DROP PROCEDURE IF EXISTS ensure_dcc_reg_cert_event_notice_20260901;

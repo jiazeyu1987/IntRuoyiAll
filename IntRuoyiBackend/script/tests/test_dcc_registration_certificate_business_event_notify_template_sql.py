@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -44,3 +45,18 @@ def test_business_event_notify_template_hides_internal_event_and_identity_fields
     ]
     for snippet in forbidden:
         assert snippet not in sql
+
+
+def test_business_event_notify_template_procedure_identifier_is_mysql_length_safe() -> None:
+    sql = _read_sql()
+
+    procedure_declarations = re.findall(
+        r"\b(?:CREATE|DROP)\s+PROCEDURE(?:\s+IF\s+EXISTS)?\s+([A-Za-z0-9_]+)",
+        sql,
+    )
+    procedure_calls = re.findall(r"\bCALL\s+([A-Za-z0-9_]+)\s*\(", sql)
+    expected_name = "ensure_dcc_reg_cert_event_notice_20260901"
+
+    assert procedure_declarations == [expected_name] * 3
+    assert procedure_calls == [expected_name]
+    assert all(len(name) <= 64 for name in [*procedure_declarations, *procedure_calls])
