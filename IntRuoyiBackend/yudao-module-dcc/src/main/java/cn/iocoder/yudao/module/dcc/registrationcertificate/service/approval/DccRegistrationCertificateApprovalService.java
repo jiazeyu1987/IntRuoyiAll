@@ -151,7 +151,7 @@ public class DccRegistrationCertificateApprovalService {
             addRegistrationCertificateSummaryVariables(variables, request);
         }
         bpmRequest.setVariables(variables);
-        String processInstanceId = bpmProcessInstanceApi.createProcessInstance(actorId, bpmRequest);
+        String processInstanceId = createNativeProcessInstance(actorId, bpmRequest);
         if (isBlank(processInstanceId)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
         }
@@ -510,6 +510,18 @@ public class DccRegistrationCertificateApprovalService {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String createNativeProcessInstance(Long actorId, BpmProcessInstanceCreateReqDTO bpmRequest) {
+        try {
+            return bpmProcessInstanceApi.createProcessInstance(actorId, bpmRequest);
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+            mapped.initCause(exception);
+            throw mapped;
+        }
     }
 
     private static boolean isRenewalUploadRequest(DccRegistrationCertificateAccessRequestDO request) {

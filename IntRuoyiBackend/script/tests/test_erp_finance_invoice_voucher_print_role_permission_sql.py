@@ -6,6 +6,9 @@ SQL_PATH = REPO_ROOT / "sql" / "mysql" / "20260829_erp_finance_invoice_voucher_p
 TEST_USER_SQL_PATH = (
     REPO_ROOT / "sql" / "mysql" / "20260830_erp_finance_invoice_voucher_print_test_tenant_user_permission.sql"
 )
+TEST_SERVER_USER_SQL_PATH = (
+    REPO_ROOT / "sql" / "mysql" / "20260902_erp_finance_invoice_voucher_print_test_server_user_permission.sql"
+)
 
 
 def read_sql() -> str:
@@ -16,6 +19,11 @@ def read_sql() -> str:
 def read_test_user_sql() -> str:
     assert TEST_USER_SQL_PATH.exists(), "missing test tenant invoice voucher print user permission migration"
     return TEST_USER_SQL_PATH.read_text(encoding="utf-8")
+
+
+def read_test_server_user_sql() -> str:
+    assert TEST_SERVER_USER_SQL_PATH.exists(), "missing test server invoice voucher print user permission migration"
+    return TEST_SERVER_USER_SQL_PATH.read_text(encoding="utf-8")
 
 
 def test_role_permission_sql_declares_release_contract_and_fail_fast_guards() -> None:
@@ -151,5 +159,36 @@ def test_test_tenant_user_permission_sql_assigns_aoteman_via_code_only_permissio
         "DROP TEMPORARY TABLE",
         "MAX(ID)",
         "LAST_INSERT_ID()",
+    ]:
+        assert forbidden not in upper_text
+
+
+def test_test_server_user_permission_sql_assigns_reported_users_by_exact_role_code() -> None:
+    text = read_test_server_user_sql()
+    upper_text = text.upper()
+
+    assert text.splitlines()[0] == (
+        "-- release-migration: allowedEnvironments=test; "
+        "dependsOn=20260829_erp_finance_invoice_voucher_print_role_permission; "
+        "type=permission; riskLevel=low"
+    )
+    assert "SET NAMES utf8mb4;" in text
+    assert "`target_user`.`username` IN ('admin', 'jiyingying')" in text
+    assert "`role`.`code` = 'finance_invoice_voucher_print'" in text
+    assert "INSERT INTO `system_user_role`" in text
+    assert "Test server invoice voucher print user admin is missing or ambiguous" in text
+    assert "Test server invoice voucher print user jiyingying is missing or ambiguous" in text
+    assert "Test server invoice voucher print user permission grant incomplete" in text
+    assert "erp:invoice-voucher-print:query" in text
+
+    for forbidden in [
+        "DELETE FROM",
+        "TRUNCATE TABLE",
+        "DROP TABLE",
+        "DROP TEMPORARY TABLE",
+        "MAX(ID)",
+        "LAST_INSERT_ID()",
+        "SUPER_ADMIN",
+        "TENANT_ADMIN",
     ]:
         assert forbidden not in upper_text

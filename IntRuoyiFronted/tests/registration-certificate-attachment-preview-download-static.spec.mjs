@@ -77,6 +77,21 @@ assert.match(
 )
 assert.match(
   detail,
+  /const canDirectDownload = computed\(\(\) => checkRole\(\['dcc_registration_certificate_approver'\]\)\)/,
+  'detail must derive direct-download visibility from the formal registration manager role'
+)
+assert.equal(
+  (detail.match(/v-if="canDirectDownload"/g) || []).length,
+  2,
+  'registration and renewal attachment areas must each expose one direct-download branch'
+)
+assert.equal(
+  (detail.match(/v-else\n\s+v-hasPermi="\['dcc:registration-certificate:access-request:create'\]"/g) || []).length,
+  2,
+  'registration and renewal attachment areas must each expose one request-download branch'
+)
+assert.match(
+  detail,
   /mode:\s*'access-request'[\s\S]*downloadFileId:/,
   'detail must keep a formal download-request entry for files without a grant'
 )

@@ -25,10 +25,11 @@ assert.match(openChange, /showChangeDialog\.value = true/, 'change click must sh
 assert.doesNotMatch(openChange, /router\.push|mode:\s*'change'/, 'change click must not route to the detail change mode')
 
 assert.match(dialog, /data-testid="registration-certificate-change-dialog"/, 'change dialog must expose a stable UI anchor')
-assert.match(dialog, /title="变更\/作废"/, 'change dialog title must match the business action')
-for (const label of ['批准日期', '变更内容', '变更批件文件', '作废证书']) {
+assert.match(dialog, /title="变更"/, 'change dialog title must match the business action')
+for (const label of ['批准日期', '变更内容', '变更批件文件']) {
   assert.match(dialog, new RegExp(label), `change dialog must render ${label}`)
 }
+assert.doesNotMatch(dialog, /作废证书|voidRegistrationCertificate|const voidCertificate = async/, 'change dialog must not expose or keep the removed certificate void action')
 assert.match(dialog, /multiple[\s\S]*data-change-type-values="PRODUCT_NAME,MODEL_SPECIFICATION,STRUCTURE_COMPOSITION,INTENDED_USE,TECHNICAL_REQUIREMENTS,REGISTRANT_NAME,RESIDENCE_ADDRESS,PRODUCTION_ADDRESS,OTHER_CONTENT"/, 'change dialog must keep all nine multi-select change types')
 assert.match(dialog, /placeholder: '变更后的产品名称'/, 'product-name change must request the changed value')
 assert.match(dialog, /placeholder: '变更后的注册人名称'/, 'registrant-name change must request the changed value')
@@ -59,10 +60,10 @@ assert.match(dialog, /detailLoadError[\s\S]*加载注册证当前信息失败/, 
 assert.match(dialog, /:disabled="saving \|\| detailLoading \|\| Boolean\(detailLoadError\)"[\s\S]*@click="submit"/, 'confirmation must stay disabled until current detail is available')
 assert.match(dialog, /委托生产和自行生产不可同时选择否。/, 'production relation validation must remain explicit')
 assert.match(dialog, /@click="submit"[^>]*>确认</, 'dialog confirmation must submit the change for approval')
-assert.match(dialog, /submitRegistrationCertificateChange\([\s\S]*props\.certificate\.certificateId[\s\S]*buildChangePayload\([\s\S]*DCC-REG-CERT-CHANGE/, 'confirmation must reuse the formal change approval API and idempotency key')
+assert.match(dialog, /submitRegistrationCertificateChange\([\s\S]*props\.certificate\.certificateId[\s\S]*payload[\s\S]*DCC-REG-CERT-CHANGE/, 'confirmation must reuse the formal change approval API and idempotency key')
 assert.match(dialog, /payload\.append\('expectedRowVersion', String\(currentDetail\.value\.rowVersion\)\)/, 'change dialog must submit the row version returned with current detail')
 assert.match(dialog, /dialogVisible\.value = false[\s\S]*emit\('saved'\)/, 'success must close the dialog and notify the list to refresh')
-assert.match(dialog, /message\.error\(resolveRegistrationCertificateUserMessage\(error, '提交变更申请失败'\)\)[\s\S]*throw error/, 'submit errors must remain visible and must not be swallowed')
+assert.match(dialog, /actionError\.value = resolveRegistrationCertificateUserMessage\(error, '提交变更申请失败'\)[\s\S]*message\.error\(actionError\.value\)[\s\S]*throw error/, 'submit errors must remain visible and must not be swallowed')
 
 assert.doesNotMatch(workflowPanel, /label="变更\/作废"/, 'detail workflow must no longer expose a duplicate change entry')
 assert.doesNotMatch(workflowPanel, /handleSubmitChange/, 'detail workflow must not retain the moved change submit handler')

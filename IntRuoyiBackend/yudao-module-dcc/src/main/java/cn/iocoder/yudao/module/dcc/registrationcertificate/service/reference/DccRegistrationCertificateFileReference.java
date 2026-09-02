@@ -8,6 +8,7 @@ public record DccRegistrationCertificateFileReference(
         Integer versionNo,
         Long businessFileId,
         Long infraFileId,
+        String versionStatus,
         String originalName,
         String mimeType) {
 

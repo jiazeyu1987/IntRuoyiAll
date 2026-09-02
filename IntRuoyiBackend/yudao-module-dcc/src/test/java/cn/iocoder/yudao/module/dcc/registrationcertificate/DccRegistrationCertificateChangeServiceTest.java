@@ -17,15 +17,19 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.mock.web.MockMultipartFile;
 
 import javax.sql.DataSource;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
@@ -108,6 +112,17 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(55L, longValue("SELECT reviewer_user_id FROM dcc_registration_certificate_change WHERE id = ?", changeId));
         assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
         assertEquals("Registrant B", text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
+    }
+
+    @Test
+    void submitChangeGeneratedKeyExtractionDoesNotRequireIdColumnName() throws Exception {
+        assertEquals(77L, extractGeneratedId(Map.of("GENERATED_KEY", 77L)));
+
+        Map<String, Object> h2Keys = new LinkedHashMap<>();
+        h2Keys.put("id", 88L);
+        h2Keys.put("create_time", LocalDateTime.of(2026, 9, 2, 10, 0));
+        h2Keys.put("update_time", LocalDateTime.of(2026, 9, 2, 10, 0));
+        assertEquals(88L, extractGeneratedId(h2Keys));
     }
 
     @Test
@@ -346,6 +361,15 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     private int count(String sql, Object... args) {
         Integer value = jdbcTemplate.queryForObject(sql, Integer.class, args);
         return value == null ? 0 : value;
+    }
+
+    private Long extractGeneratedId(Map<String, Object> keyMap) throws Exception {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        keyHolder.getKeyList().add(keyMap);
+        Method method = DccRegistrationCertificateChangeService.class
+                .getDeclaredMethod("extractGeneratedId", KeyHolder.class);
+        method.setAccessible(true);
+        return (Long) method.invoke(null, keyHolder);
     }
 
     @TestConfiguration(proxyBeanMethods = false)

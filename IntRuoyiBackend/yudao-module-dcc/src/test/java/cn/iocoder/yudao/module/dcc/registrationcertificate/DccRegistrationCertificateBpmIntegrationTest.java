@@ -292,7 +292,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
     }
 
     @Test
-    void nativeCreateFailureIsVisibleAndDoesNotPersistBinding() {
+    void nativeCreateFailureReturnsBusinessErrorAndDoesNotPersistBinding() {
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(submittedRequest());
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
         when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(APPROVAL_PERMISSION)))
@@ -301,11 +301,12 @@ class DccRegistrationCertificateBpmIntegrationTest {
         doThrow(outage).when(bpmProcessInstanceApi)
                 .createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class));
 
-        IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> service.startNativeApproval(
+        ServiceException thrown = assertThrows(ServiceException.class, () -> service.startNativeApproval(
                 TENANT_ID, ACTOR_ID,
                 new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID)));
 
-        assertTrue(thrown == outage);
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT.getCode(), thrown.getCode());
+        assertTrue(thrown.getCause() == outage);
         verify(bindingMapper, never()).insert(any(DccRegistrationCertificateBpmBindingDO.class));
     }
 

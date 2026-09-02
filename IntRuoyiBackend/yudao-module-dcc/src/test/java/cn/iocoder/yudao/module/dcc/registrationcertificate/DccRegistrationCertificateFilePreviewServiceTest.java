@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFilePreviewServiceImpl;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReference;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reference.DccRegistrationCertificateFileReferenceService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBinary;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePreviewService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -85,10 +87,41 @@ class DccRegistrationCertificateFilePreviewServiceTest {
                 org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    void oldPreviewFileNameAddsExpiredSuffixForViewerDownload() {
+        DccRegistrationCertificateFileReference reference = oldReference();
+        DccRequestAuditContext context = context("REQ-OLD-PREVIEW");
+        LocalDateTime now = LocalDateTime.of(2026, 8, 31, 9, 0);
+        DccControlledFilePreviewMetadataRespVO metadata = new DccControlledFilePreviewMetadataRespVO();
+        metadata.setFileName("old-registration.pdf");
+        DccControlledFileBinary binary = new DccControlledFileBinary(
+                "old-registration.pdf", "application/pdf", new byte[]{1, 2, 3}, null);
+        when(referenceService.requireBoundByBusinessFileId(1L, 7001L)).thenReturn(reference);
+        when(businessClock.now()).thenReturn(now);
+        when(onlineFilePreviewService.getPreviewMetadata(99L, 8001L, context)).thenReturn(metadata);
+        when(onlineFilePreviewService.readPreviewFile(99L, 8001L, "viewer-token", "event-code",
+                "watermark-code", "viewer-token-id", "viewer-nonce", context)).thenReturn(binary);
+
+        DccControlledFilePreviewMetadataRespVO actualMetadata =
+                service.getPreviewMetadata(1L, 99L, 7001L, context);
+        DccControlledFileBinary actualBinary = service.readPreviewFile(1L, 99L, 7001L, "viewer-token",
+                "event-code", "watermark-code", "viewer-token-id", "viewer-nonce", context);
+
+        assertEquals("old-registration_已失效.pdf", actualMetadata.getFileName());
+        assertEquals("old-registration_已失效.pdf", actualBinary.fileName());
+        verify(accessPolicyService, times(2)).assertFilePreviewAllowed(1L, 99L, 1001L, 2002L, now);
+    }
+
     private static DccRegistrationCertificateFileReference reference() {
         return new DccRegistrationCertificateFileReference(
                 1L, 10L, 1001L, 2002L, 2, 7001L, 8001L,
-                "renewal.pdf", "application/pdf");
+                "CURRENT", "renewal.pdf", "application/pdf");
+    }
+
+    private static DccRegistrationCertificateFileReference oldReference() {
+        return new DccRegistrationCertificateFileReference(
+                1L, 10L, 1001L, 2002L, 1, 7001L, 8001L,
+                "OLD", "old-registration.pdf", "application/pdf");
     }
 
     private static DccRequestAuditContext context(String requestId) {

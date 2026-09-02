@@ -15,9 +15,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +31,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class DccRegistrationCertificateChangeControllerTest {
 
@@ -83,6 +88,46 @@ class DccRegistrationCertificateChangeControllerTest {
         assertEquals("变更后的产品名称", command.getValue().structuredValues().get("PRODUCT_NAME"));
         assertEquals(Boolean.FALSE, command.getValue().entrustedProduction());
         assertEquals(Boolean.TRUE, command.getValue().selfProduction());
+    }
+
+    @Test
+    void applyChangeBindsMultipartFormDataWithMultipleStructuredValues() throws Exception {
+        DccRegistrationCertificateChangeService changeService =
+                mock(DccRegistrationCertificateChangeService.class);
+        DccRegistrationCertificateApprovalService approvalService =
+                mock(DccRegistrationCertificateApprovalService.class);
+        DccRegistrationCertificateChangeController controller =
+                new DccRegistrationCertificateChangeController(changeService, approvalService);
+        when(changeService.submitChangeForApproval(any(DccRegistrationCertificateChangeCommand.class)))
+                .thenReturn(66L);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        TenantContextHolder.setTenantId(11L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(22L);
+            mockMvc.perform(multipart("/dcc/registration-certificates/99/changes")
+                            .file(new MockMultipartFile("file", "change.pdf", "application/pdf",
+                                    "%PDF-1.4".getBytes(StandardCharsets.UTF_8)))
+                            .header("Idempotency-Key", "CHANGE-IDEMPOTENCY-HTTP")
+                            .header("User-Agent", "JUnit registration change multipart")
+                            .param("expectedRowVersion", "7")
+                            .param("approvalDate", "2027-09-23")
+                            .param("changeTypes", "PRODUCT_NAME")
+                            .param("changeTypes", "STRUCTURE_COMPOSITION")
+                            .param("structuredValues[PRODUCT_NAME]", "5555555A")
+                            .param("structuredValues[STRUCTURE_COMPOSITION]", "123"))
+                    .andExpect(status().isOk());
+        }
+
+        ArgumentCaptor<DccRegistrationCertificateChangeCommand> command =
+                ArgumentCaptor.forClass(DccRegistrationCertificateChangeCommand.class);
+        verify(changeService).submitChangeForApproval(command.capture());
+        assertEquals(List.of("PRODUCT_NAME", "STRUCTURE_COMPOSITION"), command.getValue().changeTypes());
+        assertEquals("5555555A", command.getValue().structuredValues().get("PRODUCT_NAME"));
+        assertEquals("123", command.getValue().structuredValues().get("STRUCTURE_COMPOSITION"));
+        verify(approvalService).startNativeApproval(
+                org.mockito.ArgumentMatchers.eq(11L), org.mockito.ArgumentMatchers.eq(22L),
+                any(DccRegistrationCertificateApprovalStartCommand.class));
     }
 
     private static DccRegistrationCertificateChangeApplyReqVO changeRequest() {

@@ -1455,6 +1455,33 @@
                       @change="handleCheckFlagToggle"
                     />
                   </div>
+                  <div
+                    v-if="
+                      selectedProcessDetailField.key === 'batchRecordFormNames' &&
+                      !isProcessDetailFieldEditable(selectedProcessDetailField.key)
+                    "
+                    class="route-flow-graph-designer__frontline-report-material-readonly"
+                    data-flow-panel="frontline-report-material-readonly"
+                  >
+                    <span class="route-flow-graph-designer__frontline-report-material-selected-label">
+                      批记录物料
+                    </span>
+                    <div
+                      v-if="getSelectedFrontlineReportMaterialOptions().length"
+                      class="route-flow-graph-designer__frontline-report-material-selected-tags"
+                    >
+                      <el-tag
+                        v-for="item in getSelectedFrontlineReportMaterialOptions()"
+                        :key="item.id"
+                        disable-transitions
+                      >
+                        {{ formatFrontlineReportMaterialSelectedLabel(item) }}
+                      </el-tag>
+                    </div>
+                    <span v-else class="route-flow-graph-designer__selected-detail-note">
+                      未配置批记录物料
+                    </span>
+                  </div>
             </template>
           </template>
         </div>
@@ -10118,6 +10145,16 @@ defineExpose({
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.route-flow-graph-designer__frontline-report-material-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: #f7fffb;
+  border: 1px solid #b7ebd1;
+  border-radius: 6px;
 }
 
 .route-flow-graph-designer__frontline-report-material-option {

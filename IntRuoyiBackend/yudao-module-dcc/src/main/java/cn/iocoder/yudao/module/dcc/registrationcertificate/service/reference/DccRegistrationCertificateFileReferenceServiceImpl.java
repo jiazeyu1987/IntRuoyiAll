@@ -173,7 +173,7 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
         }
         return new DccRegistrationCertificateFileReference(file.getTenantId(), certificate.getOwnerCompanyId(),
                 certificate.getId(), version.getId(), version.getVersionNo(), file.getId(), file.getInfraFileId(),
-                file.getOriginalName(), file.getMimeType());
+                version.getStatus(), file.getOriginalName(), file.getMimeType());
     }
 
     private <T> T executeTenantNeutral(Supplier<T> action) {

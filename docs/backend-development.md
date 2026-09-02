@@ -918,3 +918,12 @@
 - Verification: 后端单测必须覆盖清空字段的 Mapper 调用；真实 E2E 或数据库验证必须证明有效业务记录不再被旧外键、旧任务号或旧状态影响。
 - Forbidden action: 禁止用 `updateById` 设置对象字段为 `null` 后直接宣称数据库已清空，禁止靠前端状态文案掩盖旧外键残留，禁止吞掉清空失败。
 - Evidence: `doc/tasks/20260830-nas-original-path-sync/verification-report.md`。
+
+## 2026-09-02 JDBC GeneratedKeyHolder 自增主键读取门禁
+
+- Trigger: 后端服务用 `GeneratedKeyHolder` / `Statement.RETURN_GENERATED_KEYS` 读取 INSERT 自增主键，尤其同一代码需要同时跑 H2 单元测试和 MySQL 运行态。
+- Preflight check: 不得假设生成键 Map 固定包含 `id` 或固定只返回一列；实现必须同时覆盖 MySQL 可能返回单列驱动键名（如 `GENERATED_KEY`）和 H2 可能返回 `id + create_time/update_time` 等多列键的形态。
+- Blocker: 成功 INSERT 后因取不到主键而转成业务冲突、用 `KeyHolder.getKey()` 在 H2 多列键下抛 `InvalidDataAccessApiUsageException`、或把驱动差异包装成“历史冲突/数据冲突”时必须停止并补回归测试。
+- Verification: 后端回归必须直接覆盖单列非 `id` generated key 与多列含 `id` generated key；相邻服务测试覆盖真实提交、审批、履历/文件绑定或对应业务主链。
+- Forbidden action: 禁止通过改测试库生成键行为、吞异常、重查最新一行、默认返回 0/空 ID、或放宽业务冲突校验来掩盖 generated key 读取错误。
+- Evidence: `doc/tasks/20260902-registration-change-history-conflict/verification-report.md`。

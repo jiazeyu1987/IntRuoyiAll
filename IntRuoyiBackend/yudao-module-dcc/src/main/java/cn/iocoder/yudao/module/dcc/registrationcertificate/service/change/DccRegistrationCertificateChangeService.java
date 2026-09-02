@@ -832,9 +832,19 @@ public class DccRegistrationCertificateChangeService {
             return statement;
         }, keyHolder);
         requireSingle(affected, REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
-        Map<String, Object> keys = keyHolder.getKeys();
-        Object id = keys == null ? null : keys.get("id");
+        Long key = extractGeneratedId(keyHolder);
+        return key;
+    }
+
+    private static Long extractGeneratedId(KeyHolder keyHolder) {
+        List<Map<String, Object>> keyList = keyHolder.getKeyList();
+        Map<String, Object> keys = keyList.isEmpty() ? Map.of() : keyList.get(0);
+        Object id = keys.get("id");
         Number key = id instanceof Number number ? number : null;
+        if (key == null && keys.size() == 1) {
+            Object singleValue = keys.values().iterator().next();
+            key = singleValue instanceof Number number ? number : null;
+        }
         if (key == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT);
         }

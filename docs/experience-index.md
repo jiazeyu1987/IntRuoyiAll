@@ -565,6 +565,7 @@
 - Keywords: 持久化列表排序, 上移下移, 相邻交换, sort_order, 当前负责人范围, 完整列表边界, 条件更新行数, 刷新后保持, 前端 splice sort 禁止, 历史顺序确定性迁移 -> `docs/backend-development.md#持久化列表相邻手动排序门禁`
 - Keywords: 行级异步测试, Tab 全量测试, 测试全部, 顺序批量, 历史按钮, 灰色历史, 绿色历史, Codex CLI 回复, row history, caseName, executionId, run token, poll token, 轮询结果归属, 可等待终态 Promise, 逐行 await, 禁止 Promise.all, 不可等待递归定时器, PASS FAIL BLOCKED 继续, 传输异常停止, 完成数总数, 过期轮询, 快速连点, 当前行清空, 其它行保留, 两行回复隔离, 热更新重建内存状态 -> `docs/frontend-development.md#前端行级异步结果归属门禁`
 - Keywords: vue-tsc 8GB, 全量类型检查 OOM, 重复 vue-tsc 进程, 静态合同宽泛正则, 旧 DOM 实现形态, 统一列表迁移, 局部类型收窄, 目标代码块负向断言, `@deviceGroup`, 设备组字段, 旧物理设备字段过滤, real_device_group_not_visible, PROCESS_POOL_REPORT 分组字段页面不可见 -> `docs/frontend-development.md#全量类型检查与静态合同边界门禁`
+- Keywords: 弹框确认没反应, 批准日期为空, 提交弹框内联错误, actionError, 校验失败不发请求, 短暂 toast 不够, 预期校验异常不抛给事件系统, 变更弹框作废按钮移除 -> `docs/frontend-development.md#编辑弹框当前值回显与提交能力一致性门禁`
 - Keywords: 隐藏原生 checkbox, checkbox 可见替身, position absolute input, grid 空列, grid-template-columns 多余列, checkbox 文字整体居中, getBoundingClientRect 中心偏差, 水平垂直居中 -> `docs/frontend-development.md#隐藏原生控件可见替身居中门禁`
 - Keywords: 底部版权不显示, 红框底部区域, Copyright, Footer, hideFooter, 页面级隐藏全局页脚, app-footer-height, 排产工单底部空白 -> `docs/frontend-development.md#页面级全局布局元素隐藏门禁`
 - Keywords: 固定画布跨行面板, 左下提交区, 右侧设备面板跨两行, 右侧填写面板跨两行, 删除生产提交事件, 一线PQC布局重排, grid-row 1/3, footer 纳入主网格, 参数区吸收高度, 固定卡片轨道, minmax 0 1fr, 双视口边界验证 -> `docs/frontend-development.md#固定画布跨行面板布局门禁`
@@ -583,3 +584,4 @@
 - Keywords: 活跃订单列表单条隔离, 工艺路线不存在不阻断全部订单, 历史缺损订单, 已知订单完整性错误白名单, 记录订单ID读取阶段业务错误码, 未知异常继续失败, 禁止通用异常吞掉, 列表读取不修改数据, 重建或删除后重新新增 -> `docs/backend-development.md#一线-pqc-dcc-qa-正式关系目标态切换门禁`
 - Keywords: 已选物料回显丢失, 远程搜索候选替换, selectedFrontlineReportMaterialOptions, 已选详情独立状态, options 不得作为唯一回显来源, 批记录物料标签稳定显示 -> `docs/frontend-development.md#已选项回显状态必须与搜索候选状态隔离`
 - Keywords: 批记录物料发布丢失, frontlineReportMaterialIds, batchUseConfigs, 发布刷新快照, 路线候选版本, routeProcessId, 旧BATCH工序配置表, 精确保留候选字段, 正式批记录表单绑定重建, 不得用BOM或formBindings补齐 -> `docs/backend-development.md#当前配置与发布快照边界`
+- Keywords: GeneratedKeyHolder, RETURN_GENERATED_KEYS, JDBC 自增主键, GENERATED_KEY, H2 多列 generated keys, 注册证变更历史冲突 -> `docs/backend-development.md#2026-09-02-jdbc-generatedkeyholder-自增主键读取门禁`

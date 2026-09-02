@@ -4,7 +4,7 @@
     class="registration-certificate-change-dialog"
     data-testid="registration-certificate-change-dialog"
     destroy-on-close
-    title="变更/作废"
+    title="变更"
     width="860px"
     @closed="resetForm"
   >
@@ -21,6 +21,15 @@
       show-icon
       :closable="false"
       :title="detailLoadError"
+    />
+    <el-alert
+      v-if="actionError"
+      class="mb-16px"
+      type="error"
+      show-icon
+      :closable="false"
+      :title="actionError"
+      data-testid="registration-certificate-change-action-error"
     />
     <el-form
       v-loading="detailLoading"
@@ -76,12 +85,6 @@
         type="primary"
         @click="submit"
       >确认</el-button>
-      <el-button
-        :disabled="saving || detailLoading || Boolean(detailLoadError)"
-        type="danger"
-        plain
-        @click="voidCertificate"
-      >作废证书</el-button>
     </template>
   </el-dialog>
 </template>
@@ -92,7 +95,6 @@ import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 import {
   getRegistrationCertificateDetail,
   submitRegistrationCertificateChange,
-  voidRegistrationCertificate,
   type DccRegistrationCertificateDetailVO,
   type DccRegistrationCertificatePageItemVO
 } from '@/api/dcc/registrationCertificate'
@@ -106,6 +108,7 @@ const message = useMessage()
 const saving = ref(false)
 const detailLoading = ref(false)
 const detailLoadError = ref('')
+const actionError = ref('')
 const currentDetail = ref<DccRegistrationCertificateDetailVO>()
 const fileList = ref<UploadUserFile[]>([])
 const selectedFile = ref<File | null>(null)
@@ -150,20 +153,25 @@ const buildChangePayload = () => {
   payload.append('file', selectedFile.value); return payload
 }
 const submit = async () => {
+  actionError.value = ''
+  let payload: FormData
+  try {
+    payload = buildChangePayload()
+  } catch (error) {
+    actionError.value = resolveRegistrationCertificateUserMessage(error, '提交变更申请失败')
+    message.error(actionError.value)
+    return
+  }
   saving.value = true
   try {
     if (!props.certificate) throw new Error('缺少当前注册证行，无法提交变更申请')
-    await submitRegistrationCertificateChange(props.certificate.certificateId, buildChangePayload(), `DCC-REG-CERT-CHANGE-${generateUUID()}`)
+    await submitRegistrationCertificateChange(props.certificate.certificateId, payload, `DCC-REG-CERT-CHANGE-${generateUUID()}`)
     message.success('变更已提交审核'); dialogVisible.value = false; emit('saved')
-  } catch (error) { message.error(resolveRegistrationCertificateUserMessage(error, '提交变更申请失败')); throw error } finally { saving.value = false }
-}
-const voidCertificate = async () => {
-  saving.value = true
-  try {
-    if (!props.certificate || !currentDetail.value) throw new Error('注册证当前信息尚未加载完成，无法作废证书')
-    await voidRegistrationCertificate(props.certificate.certificateId, { expectedRowVersion: currentDetail.value.rowVersion, approvalDate: form.approvalDate, voidReason: '页面提交的证书作废原因' }, `DCC-REG-CERT-VOID-${generateUUID()}`)
-    message.success('证书作废已提交审核'); dialogVisible.value = false; emit('saved')
-  } catch (error) { message.error(resolveRegistrationCertificateUserMessage(error, '提交证书作废失败')); throw error } finally { saving.value = false }
+  } catch (error) {
+    actionError.value = resolveRegistrationCertificateUserMessage(error, '提交变更申请失败')
+    message.error(actionError.value)
+    throw error
+  } finally { saving.value = false }
 }
 let detailLoadToken = 0
 
@@ -181,6 +189,7 @@ const resetForm = () => {
   currentDetail.value = undefined
   detailLoading.value = false
   detailLoadError.value = ''
+  actionError.value = ''
 }
 
 const parseEntrustedEnterpriseNames = (raw?: string) => {

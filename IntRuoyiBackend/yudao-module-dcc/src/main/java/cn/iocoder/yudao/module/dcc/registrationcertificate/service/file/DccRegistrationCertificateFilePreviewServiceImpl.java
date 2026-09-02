@@ -44,7 +44,10 @@ public class DccRegistrationCertificateFilePreviewServiceImpl implements DccRegi
                                                                      DccRequestAuditContext auditContext) {
         DccRegistrationCertificateFileReference reference = requireAuthorizedForPreview(
                 tenantId, userId, businessFileId, auditContext, "预览信息");
-        return onlineFilePreviewService.getPreviewMetadata(userId, reference.infraFileId(), auditContext);
+        DccControlledFilePreviewMetadataRespVO metadata =
+                onlineFilePreviewService.getPreviewMetadata(userId, reference.infraFileId(), auditContext);
+        metadata.setFileName(previewDownloadFileName(reference, metadata.getFileName()));
+        return metadata;
     }
 
     @Override
@@ -54,8 +57,11 @@ public class DccRegistrationCertificateFilePreviewServiceImpl implements DccRegi
                                                    String viewerTokenNonce, DccRequestAuditContext auditContext) {
         DccRegistrationCertificateFileReference reference = requireAuthorizedForPreview(
                 tenantId, userId, businessFileId, auditContext, "预览文件内容");
-        return onlineFilePreviewService.readPreviewFile(userId, reference.infraFileId(), viewerToken, accessEventCode,
+        DccControlledFileBinary binary = onlineFilePreviewService.readPreviewFile(
+                userId, reference.infraFileId(), viewerToken, accessEventCode,
                 watermarkTraceCode, viewerTokenId, viewerTokenNonce, auditContext);
+        return new DccControlledFileBinary(previewDownloadFileName(reference, binary.fileName()),
+                binary.contentType(), binary.bytes(), binary.watermark());
     }
 
     private DccRegistrationCertificateFileReference requireAuthorizedForPreview(
@@ -94,6 +100,19 @@ public class DccRegistrationCertificateFilePreviewServiceImpl implements DccRegi
                                 "reason", resultCode)))
                         .build()));
     }
+
+    private String previewDownloadFileName(DccRegistrationCertificateFileReference reference, String fileName) {
+        if (!"OLD".equals(reference.versionStatus()) || fileName == null || fileName.isBlank()) {
+            return fileName;
+        }
+        String trimmed = fileName.trim();
+        int extensionIndex = trimmed.lastIndexOf('.');
+        if (extensionIndex <= 0 || extensionIndex == trimmed.length() - 1) {
+            return trimmed + "_已失效";
+        }
+        return trimmed.substring(0, extensionIndex) + "_已失效" + trimmed.substring(extensionIndex);
+    }
+
     private static <T> T require(T value, String name) {
         if (value == null) {
             throw new IllegalArgumentException(name + "不能为空");

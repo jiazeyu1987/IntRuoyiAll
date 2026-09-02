@@ -64,7 +64,7 @@
                 <Icon icon="lucide:eye" />在线查看
               </el-button>
               <el-button
-                v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                v-if="canDirectDownload"
                 link
                 type="primary"
                 data-testid="registration-certificate-detail-attachment-download"
@@ -74,6 +74,7 @@
                 <Icon icon="lucide:download" />下载
               </el-button>
               <el-button
+                v-else
                 v-hasPermi="['dcc:registration-certificate:access-request:create']"
                 link
                 data-testid="registration-certificate-detail-attachment-request-download"
@@ -233,7 +234,7 @@
                   <Icon icon="lucide:eye" />在线查看
                 </el-button>
                 <el-button
-                  v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                  v-if="canDirectDownload"
                   link
                   type="primary"
                   data-testid="registration-certificate-renewal-attachment-download"
@@ -243,6 +244,7 @@
                   <Icon icon="lucide:download" />下载
                 </el-button>
                 <el-button
+                  v-else
                   v-hasPermi="['dcc:registration-certificate:access-request:create']"
                   link
                   @click="openDownloadRequest(item.businessFileId)"
@@ -352,6 +354,7 @@ import {
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
 import { downloadByData } from '@/utils/filt'
+import { checkRole } from '@/utils/permission'
 import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
@@ -403,6 +406,7 @@ const previewDialogVisible = ref(false)
 const selectedPreviewSource = ref<OnlineFilePreviewSource | null>(null)
 const selectedPreviewTitle = ref('')
 const downloadingBusinessFileId = ref('')
+const canDirectDownload = computed(() => checkRole(['dcc_registration_certificate_approver']))
 const attachmentActionError = ref('')
 const viewportWidth = ref(typeof window === 'undefined' ? 1024 : window.innerWidth)
 const detailDescriptionColumns = computed(() => viewportWidth.value <= 720 ? 1 : 2)
