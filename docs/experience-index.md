@@ -577,6 +577,7 @@
 - Keywords: 租户识别失败, 登录请求未发出, 登录接口失败, 权限信息请求超时, 同一业务账号重登 -> `docs/login-access.md#失败处理`
 - Keywords: int_main 融合后运行态核验, 新旧 jar, PID 归属, 48081, 独立启动日志, 主工作区 dirty 不清理并行文件 -> `docs/worktree-memory.md#运行时融合后的版本与端口交叉核验`
 - Keywords: 真实页面配置行缺失, 允许超量比例, 只读 E2E, 配置列表行数为 0, 禁止 API-only 补行, 无测试租户阻断 -> `docs/e2e-rules.md#真实页面配置行缺失的-e2e-阻断门禁`
+- Keywords: E2E 环境变量名, 显式目标 env, WORK_TASK_ID, BATCH_EXECUTION_ID, BATCH_CODE, 旧目标键名, 缺少真实最终归档待办 E2E 前置条件, 下载字节数不等于文件有效, PDF/A 渲染检查 -> `docs/e2e-rules.md#e2e-显式目标环境变量门禁`
 - Keywords: eDHR 批次创建入口, 批次入口缺少 entryType, Flow 9, entryBusinessId, sourceCredentialId, sourceContextHash, idempotencyKey, MANUAL 凭证, 独立前置凭证, 禁止固定 entryType, 正式入口来源, 手动重排, replanApply_shouldSkipEdhrBatchCreationAfterScheduleComplete, 排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池 -> `docs/backend-development.md#eDHR-批次创建入口必须与正式入口合同一致`
 - Keywords: 手动重排, 排产预览, PROTECTED_TASK, 同一工单工序存在多个受保护任务, CANCELED 历史任务, 已取消历史任务, 取消任务不参与保护冲突, FINISHED 已完成任务仍保护, 软删扩展, deleted=1, ext == null, MANUAL 保留误判, replan cancelled task protection -> `docs/backend-development.md#已取消历史任务不得参与受保护任务冲突`
 - Keywords: 活跃订单列表单条隔离, 工艺路线不存在不阻断全部订单, 历史缺损订单, 已知订单完整性错误白名单, 记录订单ID读取阶段业务错误码, 未知异常继续失败, 禁止通用异常吞掉, 列表读取不修改数据, 重建或删除后重新新增 -> `docs/backend-development.md#一线-pqc-dcc-qa-正式关系目标态切换门禁`

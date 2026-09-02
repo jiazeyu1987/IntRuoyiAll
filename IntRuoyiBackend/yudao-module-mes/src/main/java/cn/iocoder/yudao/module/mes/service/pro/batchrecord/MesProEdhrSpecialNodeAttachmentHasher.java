@@ -6,7 +6,7 @@ import com.alibaba.fastjson.JSON;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-final class MesProEdhrSpecialNodeAttachmentHasher {
+public final class MesProEdhrSpecialNodeAttachmentHasher {
 
     private static final String RETENTION_PREFIX = "EDHR_SPECIAL_NODE_ATTACHMENT_V1:RETENTION\n";
     private static final String LEDGER_PREFIX = "EDHR_SPECIAL_NODE_ATTACHMENT_V1:LEDGER\n";
@@ -14,12 +14,12 @@ final class MesProEdhrSpecialNodeAttachmentHasher {
     private MesProEdhrSpecialNodeAttachmentHasher() {
     }
 
-    static String retentionHash(String retentionJson) {
+    public static String retentionHash(String retentionJson) {
         return MesProBatchRecordExecutionFieldAuditHasher.sha256(RETENTION_PREFIX
                 + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(retentionJson));
     }
 
-    static String attachmentHash(MesProBatchRecordExecutionAttachmentDO attachment) {
+    public static String attachmentHash(MesProBatchRecordExecutionAttachmentDO attachment) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("executionId", attachment.getExecutionId());
         root.put("batchExecutionId", attachment.getBatchExecutionId());

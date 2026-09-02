@@ -134,8 +134,28 @@ assert.match(
 )
 assert.match(
   simulationBootstrap,
-  /const MANAGER_USERNAME = 'xujianhai'/,
-  'PDF\/A 模拟补齐脚本必须按真实管理者代表账号处理最终放行。'
+  /EDHR_ARCHIVE_TASK_E2E_BASE_URL/,
+  'PDF\/A 模拟补齐脚本必须允许显式指定独立 worktree 前端入口。'
+)
+assert.match(
+  simulationBootstrap,
+  /EDHR_ARCHIVE_TASK_E2E_TENANT/,
+  'PDF\/A 模拟补齐脚本必须允许显式指定已授权测试租户。'
+)
+assert.match(
+  simulationBootstrap,
+  /EDHR_ARCHIVE_TASK_E2E_ARCHIVER_USERNAME/,
+  'PDF\/A 模拟补齐脚本必须允许显式指定归档责任人账号。'
+)
+assert.match(
+  simulationBootstrap,
+  /EDHR_ARCHIVE_TASK_E2E_MANAGER_USERNAME/,
+  'PDF\/A 模拟补齐脚本必须允许显式指定管理者代表账号。'
+)
+assert.match(
+  simulationBootstrap,
+  /EDHR_ARCHIVE_TASK_E2E_SOURCE_BATCH_EXECUTION_ID/,
+  'PDF\/A 模拟补齐脚本必须允许显式指定详情页入口批次编号。'
 )
 assert.match(
   simulationBootstrap,
@@ -161,6 +181,16 @@ assert.match(
   simulationBootstrap,
   /\.el-form-item:has-text\("签核证据"\) input[\s\S]*signoffEvidenceHash\.trim\(\)/,
   'Stage5 管理者代表放行必须显式填写签核证据，不能只依赖弹窗自动回填。'
+)
+assert.doesNotMatch(
+  realFlow,
+  /config\.baseUrl\s*!==\s*REQUIRED_BASE_URL/,
+  '最终归档真实 E2E 不得拒绝端口登记表分配的独立 worktree 入口。'
+)
+assert.doesNotMatch(
+  realFlow,
+  /config\.tenant\s*!==\s*DEFAULT_TENANT/,
+  '最终归档真实 E2E 不得拒绝用户当轮明确授权的本机测试租户。'
 )
 
 console.log('PASS: eDHR final archive work task static contract')

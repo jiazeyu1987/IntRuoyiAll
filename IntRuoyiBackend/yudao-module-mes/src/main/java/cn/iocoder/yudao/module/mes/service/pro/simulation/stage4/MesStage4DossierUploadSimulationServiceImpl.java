@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchProvisioningRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
@@ -20,6 +21,7 @@ import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeP
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchProvisioningRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
@@ -47,6 +49,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachment;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionReceiptHash;
 import com.alibaba.fastjson.JSON;
 import org.springframework.stereotype.Service;
@@ -90,6 +94,7 @@ public class MesStage4DossierUploadSimulationServiceImpl
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     private final MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
+    private final MesProEdhrWorkTaskAssignmentRuleMapper assignmentRuleMapper;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
     private final MesProcessPoolActiveOrderCompletionBackfillMapper completionBackfillMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
@@ -107,6 +112,7 @@ public class MesStage4DossierUploadSimulationServiceImpl
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
             MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper,
+            MesProEdhrWorkTaskAssignmentRuleMapper assignmentRuleMapper,
             MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper,
             MesProcessPoolActiveOrderCompletionBackfillMapper completionBackfillMapper,
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
@@ -122,6 +128,7 @@ public class MesStage4DossierUploadSimulationServiceImpl
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchTaskMapper = batchTaskMapper;
         this.provisioningRecordMapper = provisioningRecordMapper;
+        this.assignmentRuleMapper = assignmentRuleMapper;
         this.completionReceiptMapper = completionReceiptMapper;
         this.completionBackfillMapper = completionBackfillMapper;
         this.pickListBindingMapper = pickListBindingMapper;
@@ -379,8 +386,11 @@ public class MesStage4DossierUploadSimulationServiceImpl
                 .filter(item -> Objects.equals(item.getBatchTaskId(), batchTaskId))
                 .max(java.util.Comparator.comparing(MesProBatchRecordExecutionAttachmentDO::getId))
                 .stream().toList();
-        attachments.forEach(item -> attachmentMapper.updateById(item
-                .setReasonText(SIMULATION_MARKER + "[simulationRunId=" + runId + "]")));
+        attachments.forEach(item -> {
+            item.setReasonText(SIMULATION_MARKER + "[simulationRunId=" + runId + "]");
+            item.setAttachmentHash(MesProEdhrSpecialNodeAttachmentHasher.attachmentHash(item));
+            attachmentMapper.updateById(item);
+        });
     }
 
     private IndependentBatchExecutionInputFixture createIndependentBatchExecutionInputFixture(
@@ -392,6 +402,19 @@ public class MesStage4DossierUploadSimulationServiceImpl
         String marker = MesStage4DossierUploadSimulationMarker.value(simulationRunId);
         Long routeId = base + 300;
         String routeSnapshotJson = buildRouteSnapshot(actorUserId, simulationRunId);
+        MesProEdhrWorkTaskAssignmentRuleDO archiveRule = new MesProEdhrWorkTaskAssignmentRuleDO()
+                .setScopeType("ROUTE")
+                .setScopeId(routeId)
+                .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE)
+                .setAssigneeUserId(actorUserId)
+                .setCandidateSourceType("USER")
+                .setCandidateSourceId(actorUserId)
+                .setDueMinutes(1440)
+                .setEnabled(true)
+                .setRemark(marker);
+        if (assignmentRuleMapper.insert(archiveRule) != 1 || archiveRule.getId() == null) {
+            throw new IllegalStateException("STAGE4_INDEPENDENT_ARCHIVE_RULE_CREATE_FAILED");
+        }
 
         MesProWorkOrderDO workOrder = new MesProWorkOrderDO()
                 .setCode("STAGE4-WO-" + safe)
@@ -670,10 +693,6 @@ public class MesStage4DossierUploadSimulationServiceImpl
                 .setCompletedBy(actorUserId);
         receipt.setTenantId(tenantId);
         receipt.setCreateTime(now);
-        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
-        if (completionReceiptMapper.insert(receipt) != 1 || receipt.getId() == null) {
-            throw new IllegalStateException("STAGE4_INDEPENDENT_COMPLETION_RECEIPT_CREATE_FAILED");
-        }
 
         MesProcessPoolActiveOrderCompletionBackfillDO batchRecordBackfill = createIndependentBackfill(
                 activeOrder, workOrder, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD,
@@ -688,14 +707,31 @@ public class MesStage4DossierUploadSimulationServiceImpl
         MesProcessPoolActiveOrderCompletionBackfillDO lossReportBackfill = createIndependentBackfill(
                 activeOrder, workOrder, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT,
                 "[]", hash(lossFacts), lossFacts, actorUserId, now);
+        receipt.setBatchRecordId(batchRecordBackfill.getId())
+                .setProcessInspectionId(processInspectionBackfill.getId())
+                .setBatchRecordSourceIdsJson(JSON.toJSONString(List.of(batchRecordBackfill.getId())))
+                .setProcessInspectionSourceIdsJson(JSON.toJSONString(List.of(processInspectionBackfill.getId())));
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        if (completionReceiptMapper.insert(receipt) != 1 || receipt.getId() == null) {
+            throw new IllegalStateException("STAGE4_INDEPENDENT_COMPLETION_RECEIPT_CREATE_FAILED");
+        }
+        MesProcessPoolActiveOrderCompletionReceiptDO persistedReceipt = completionReceiptMapper.selectById(receipt.getId());
+        if (persistedReceipt == null) {
+            throw new IllegalStateException("STAGE4_INDEPENDENT_COMPLETION_RECEIPT_NOT_PERSISTED");
+        }
+        persistedReceipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(persistedReceipt));
+        if (completionReceiptMapper.updateById(persistedReceipt) != 1) {
+            throw new IllegalStateException("STAGE4_INDEPENDENT_COMPLETION_RECEIPT_SEAL_FAILED");
+        }
+        receipt = persistedReceipt;
 
         MesProEdhrBatchProvisioningRecordDO provisioningRecord = new MesProEdhrBatchProvisioningRecordDO()
                 .setTenantId(tenantId)
                 .setBatchExecutionId(batch.getId())
                 .setEntryType("ACTIVE_ORDER_COMPLETION")
                 .setEntryBusinessId(String.valueOf(activeOrder.getId()))
-                .setSourceCredentialId(String.valueOf(receipt.getId()))
-                .setSourceCredentialHash(receipt.getReceiptHash())
+                .setSourceCredentialId(String.valueOf(persistedReceipt.getId()))
+                .setSourceCredentialHash(persistedReceipt.getReceiptHash())
                 .setSourceSnapshotHash(sourceSnapshotHash)
                 .setSourceVersion("stage4-independent-v1")
                 .setIdempotencyKey("STAGE4-INDEPENDENT-PROVISION-" + simulationRunId)

@@ -146,7 +146,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
 
         MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
-                .setWorkTaskId(50L).setOrigin(MesReleaseOrigin.ACTIVE_ORDER);
+                .setWorkTaskId(50L);
 
         MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
                 releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
@@ -154,6 +154,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 traceabilityService, independentReceiptService).require(command);
 
         assertSame(gate, evidence.getMaterialGateReceipt());
+        assertEquals(MesReleaseOrigin.ACTIVE_ORDER, command.getOrigin());
         assertEquals("ACTIVE_ORDER_COMPLETION", command.getEntryType());
         assertEquals("900", evidence.getCompletionBackfillReceipt().getReceiptId());
         assertEquals(70L, command.getActiveOrderId());

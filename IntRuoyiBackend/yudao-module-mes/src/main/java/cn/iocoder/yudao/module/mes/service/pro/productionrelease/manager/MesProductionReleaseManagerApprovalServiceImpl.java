@@ -56,7 +56,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     private static final String EVENT_TYPE_APPROVE = "APPROVE";
     private static final String TASK_TYPE_RELEASE_APPROVE = "RELEASE_APPROVE";
     private static final String BUSINESS_SCOPE_RELEASE_TRANSACTION = "RELEASE_TRANSACTION";
-    private static final String CANDIDATE_SOURCE_ROLE = "ROLE";
+    private static final String CANDIDATE_SOURCE_ROLE = "ROLE_GROUP";
     private static final int BATCH_TASK_STATUS_APPROVED = 40;
     private static final Set<String> REQUIRED_NODE_TYPES = Set.of(
             "INCOMING_INSPECTION_REPORT",

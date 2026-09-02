@@ -94,7 +94,25 @@
                   {{ selectedBatch.productName || selectedBatch.productCode || '--' }}
                 </div>
               </div>
-              <el-tag type="success">{{ resolveBatchStatusLabel(selectedBatch.status) }}</el-tag>
+              <div class="edhr-batch-history__archive-actions">
+                <el-tag type="success">{{ resolveBatchStatusLabel(selectedBatch.status) }}</el-tag>
+                <el-button
+                  v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
+                  type="primary"
+                  plain
+                  :loading="archiveActionLoading"
+                  @click="handleDownloadArchive"
+                >
+                  下载打印版 PDF
+                </el-button>
+                <el-button
+                  v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
+                  :loading="archiveActionLoading"
+                  @click="handlePrintArchive"
+                >
+                  打印
+                </el-button>
+              </div>
             </section>
 
             <el-descriptions :column="4" border class="edhr-batch-history__summary-table">
@@ -397,8 +415,11 @@ import dayjs from 'dayjs'
 import {
   EDHR_BATCH_TASK_STATUS_SKIPPED,
   EDHR_BATCH_STATUS_ARCHIVED,
+  downloadEdhrBatchArchive,
   getEdhrBatchExecutionPage,
   getEdhrBatchReviewTimeline,
+  getLatestEdhrBatchArchive,
+  printEdhrBatchArchive,
   type EdhrBatchExecutionReviewBatchEvent,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionDossierItemRespVO,
@@ -418,11 +439,13 @@ import {
 defineOptions({ name: 'MesProEdhrBatchHistory' })
 
 const router = useRouter()
+const message = useMessage()
 
 const loading = ref(false)
 const timelineLoading = ref(false)
 const loadError = ref('')
 const timelineError = ref('')
+const archiveActionLoading = ref(false)
 const batchList = ref<EdhrBatchExecutionRespVO[]>([])
 const total = ref(0)
 const selectedBatchId = ref<number>()
@@ -876,6 +899,38 @@ const resetQuery = () => {
   queryParams.status = EDHR_BATCH_STATUS_ARCHIVED
   queryParams.createTime = undefined
   getBatchList()
+}
+
+const requireSelectedBatch = () => {
+  const batch = selectedBatch.value
+  if (!batch?.id) throw new Error('请选择一条已归档批记录。')
+  return batch
+}
+
+const handleDownloadArchive = async () => {
+  archiveActionLoading.value = true
+  try {
+    const batch = requireSelectedBatch()
+    const archive = await getLatestEdhrBatchArchive(batch.id)
+    await downloadEdhrBatchArchive(archive.id, archive.fileName, archive.artifactType)
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '打印版 PDF 下载失败。'))
+  } finally {
+    archiveActionLoading.value = false
+  }
+}
+
+const handlePrintArchive = async () => {
+  archiveActionLoading.value = true
+  try {
+    const batch = requireSelectedBatch()
+    const archive = await getLatestEdhrBatchArchive(batch.id)
+    await printEdhrBatchArchive(archive.id, archive.fileName)
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '打印版 PDF 打印入口打开失败。'))
+  } finally {
+    archiveActionLoading.value = false
+  }
 }
 
 onMounted(() => {

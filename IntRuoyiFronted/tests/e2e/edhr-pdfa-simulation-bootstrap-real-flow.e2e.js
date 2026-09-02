@@ -3,12 +3,17 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const BASE_URL = 'http://localhost:8081'
-const TENANT = '测试租户'
-const USERNAME = 'aoteman'
-const MANAGER_USERNAME = 'xujianhai'
+function envValue(key) {
+  return (process.env[key] || '').trim()
+}
+
+const BASE_URL = envValue('EDHR_ARCHIVE_TASK_E2E_BASE_URL') || 'http://localhost:8081'
+const TENANT = envValue('EDHR_ARCHIVE_TASK_E2E_TENANT') || '测试租户'
+const USERNAME = envValue('EDHR_ARCHIVE_TASK_E2E_ARCHIVER_USERNAME') || 'aoteman'
+const MANAGER_USERNAME = envValue('EDHR_ARCHIVE_TASK_E2E_MANAGER_USERNAME') || 'xujianhai'
 const STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY = 'mes:stage5-final-release:signoff-evidence-hash'
-const SOURCE_BATCH_EXECUTION_ID = '900000000708'
+const SOURCE_BATCH_EXECUTION_ID =
+  envValue('EDHR_ARCHIVE_TASK_E2E_SOURCE_BATCH_EXECUTION_ID') || '900000000708'
 const RESULT_DIR = path.resolve(process.cwd(), 'test-results', 'edhr-pdfa-simulation-bootstrap')
 
 function requiredEnv(key) {

@@ -56,6 +56,15 @@
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`；`doc/tasks/20260828-batch-record-mappable-cells-int-main-e2e/verification-report.md`，融合后批记录可映射格子 E2E 先因旧按钮文案“规则”和按钮加载禁用态校准失败，最终按当前“填写配置”入口并等待“正式化可映射格子”按钮可点击后通过真实页面验证。
 
+### E2E 显式目标环境变量门禁
+
+- Trigger: 真实 E2E 需要通过环境变量指定租户、账号、目标业务 ID、批次号、workTaskId、baseUrl 或其它显式目标。
+- Preflight check: 运行前用 `rg` 同时核对 `package.json` 脚本名和目标 E2E 文件实际读取的 `process.env` 键名；复用上一次命令时也要复核键名是否仍与当前脚本一致。下载或归档类 E2E 若脚本只断言字节数，还必须额外保存本次真实下载文件并做格式、元数据和渲染检查。
+- Blocker: 环境变量名不匹配、只设置了旧脚本键名、显式目标缺少任一必要 ID/业务编号、或无法证明下载产物来自当前已登录真实页面时，必须记录为 E2E 前置/脚本配置问题后修正命令重跑；不得把第一次缺参失败当作产品业务失败。
+- Verification: 证据记录实际脚本名、目标 env 键集合、baseUrl、业务目标 ID、最终页面 PASS、下载文件路径、PDF/文件格式检查和可视化渲染结果。
+- Forbidden action: 禁止凭历史命令猜环境变量名，禁止把 API 字节数直接冒充归档文件有效性，禁止用旧批次或旧下载产物补当前批次的文件证据。
+- Evidence: `doc/tasks/20260901-edhr-pdfa-full-e2e/execution-log.md`，最终归档 E2E 首次因使用旧目标键名缺参失败，核对当前脚本键名后以 `EDHR_ARCHIVE_TASK_E2E_WORK_TASK_ID`、`EDHR_ARCHIVE_TASK_E2E_BATCH_EXECUTION_ID` 和 `EDHR_ARCHIVE_TASK_E2E_BATCH_CODE` 复跑通过，并保存最新 PDF/A 产物做元数据与渲染检查。
+
 ### 前端 API 路径同源门禁
 
 - Trigger: Playwright 已通过真实页面完成提交或导入，但后续用 `fetch` 做最终状态核验时返回模块禁用兜底、请求地址不存在、401/403 或与页面网络请求不一致；尤其是 Form Center、DCC、MES 等前端 API wrapper 自带业务前缀时。

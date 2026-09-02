@@ -7968,7 +7968,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         manifest.put("routeCode", route == null ? null : route.getCode());
         manifest.put("routeName", route == null ? null : route.getName());
         manifest.put("aggregateHash", batch.getAggregateHash());
-        manifest.put("generatedAt", generatedAt);
+        manifest.put("generatedAt", generatedAt.toString());
         manifest.put("releaseTransactionSnapshot", toArchiveReleaseTransactionManifest(releaseTransaction));
         manifest.put("releaseEvents", buildArchiveReleaseEventManifests(releaseTransaction));
         manifest.put("tasks", buildArchiveTaskManifests(tasks));

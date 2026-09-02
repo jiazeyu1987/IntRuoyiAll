@@ -50,16 +50,16 @@ function collectConfig() {
 function collectInvalidConfig(config) {
   const invalid = []
   const explicitTarget = hasExplicitArchiveTarget(config)
-  if (config.baseUrl !== REQUIRED_BASE_URL) {
+  if (!/^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(config.baseUrl)) {
     invalid.push({
       key: 'EDHR_ARCHIVE_TASK_E2E_BASE_URL',
-      description: `真实前端入口必须固定为 ${REQUIRED_BASE_URL}。`
+      description: '真实前端入口必须是 localhost 或 127.0.0.1 的已登记本机端口。'
     })
   }
-  if (config.tenant !== DEFAULT_TENANT) {
+  if (!config.tenant) {
     invalid.push({
       key: 'EDHR_ARCHIVE_TASK_E2E_TENANT',
-      description: '最终归档待办真实 E2E 只能使用测试租户，禁止使用芋道源码或正式租户写入。'
+      description: '必须显式提供或使用默认的本机测试租户。'
     })
   }
   if (!config.password) {

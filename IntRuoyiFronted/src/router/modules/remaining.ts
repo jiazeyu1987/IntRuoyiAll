@@ -1839,6 +1839,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-history',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue'),
+        name: 'MesProEdhrBatchHistory',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'eDHR历史追溯',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-form-fill-log',
         component: () => import('@/views/mes/pro/edhr/FormFillLogPage.vue'),
         name: 'MesProEdhrFormFillLogPage',

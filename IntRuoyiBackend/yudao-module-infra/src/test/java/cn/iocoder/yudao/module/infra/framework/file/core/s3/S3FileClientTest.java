@@ -139,6 +139,36 @@ public class S3FileClientTest {
     }
 
     @Test
+    public void testUploadWithStorageRetention_preservesPolicyChecksumWhenResponseOmitsChecksum() {
+        S3FileClientConfig config = buildBaseConfig();
+        config.setObjectLockRequired(true);
+        config.setRetentionMode("COMPLIANCE");
+        config.setRetentionDays(7);
+        config.setLegalHoldRequired(true);
+        config.setDomain("http://127.0.0.1:9000/edhr-archive");
+        config.setEnablePublicAccess(true);
+        S3FileClient client = new S3FileClient(0L, config);
+        S3Client s3Client = mock(S3Client.class);
+        ReflectionTestUtils.setField(client, "client", s3Client);
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().versionId("version-1").build());
+        when(s3Client.getObjectRetention(any(GetObjectRetentionRequest.class))).thenReturn(
+                GetObjectRetentionResponse.builder()
+                        .retention(ObjectLockRetention.builder()
+                                .mode(ObjectLockRetentionMode.COMPLIANCE)
+                                .retainUntilDate(Instant.parse("2036-05-28T00:00:00Z"))
+                                .build())
+                        .build());
+        when(s3Client.getObjectLegalHold(any(GetObjectLegalHoldRequest.class))).thenReturn(legalHoldResponse());
+        StorageRetentionPolicy policy = buildRetentionPolicy().setRetainUntil(null).setRetentionDays(7);
+
+        StorageRetentionEvidence evidence = client.uploadWithStorageRetention(
+                new byte[]{1}, "archive/eDHR.pdf", "application/pdf", policy);
+
+        assertEquals("sha256", evidence.getChecksumSha256());
+    }
+
+    @Test
     public void testGetContentWithStorageRetention_usesSameObjectVersionId() throws Exception {
         S3FileClient client = new S3FileClient(0L, buildBaseConfig());
         S3Client s3Client = mock(S3Client.class);

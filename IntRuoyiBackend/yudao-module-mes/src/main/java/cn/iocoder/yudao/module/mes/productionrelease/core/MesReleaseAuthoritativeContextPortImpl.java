@@ -108,17 +108,32 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         }
         String entryType = command.getEntryType() != null ? command.getEntryType()
                 : command.getOrigin() == null ? null : command.getOrigin().name();
+        List<MesProEdhrBatchExecutionOriginDO> allOrigins =
+                originMapper.selectListByBatchExecutionId(batchExecutionId);
+        String persistedEntryType;
+        List<MesProEdhrBatchExecutionOriginDO> origins;
         if (isBlank(entryType)) {
-            throw blocker(application, "entryType is required to select the authoritative source owner");
-        }
-        String persistedEntryType = MesReleaseOrigin.ACTIVE_ORDER.name().equals(entryType)
-                ? "ACTIVE_ORDER_COMPLETION" : entryType;
-        List<MesProEdhrBatchExecutionOriginDO> origins = originMapper.selectListByBatchExecutionId(batchExecutionId)
-                .stream().filter(origin -> Objects.equals(origin.getEntryType(), persistedEntryType))
+            origins = allOrigins.stream()
+                    .filter(origin -> application.getActiveOrderId() == null
+                            ? origin.getActiveOrderId() == null
+                            : Objects.equals(origin.getEntryType(), "ACTIVE_ORDER_COMPLETION")
+                            && Objects.equals(origin.getActiveOrderId(), application.getActiveOrderId()))
+                    .toList();
+            if (origins.size() != 1) {
+                throw blocker(application, "formal Flow 7 origin must uniquely identify the release entry");
+            }
+            persistedEntryType = origins.get(0).getEntryType();
+            entryType = persistedEntryType;
+        } else {
+            persistedEntryType = MesReleaseOrigin.ACTIVE_ORDER.name().equals(entryType)
+                    ? "ACTIVE_ORDER_COMPLETION" : entryType;
+            origins = allOrigins.stream()
+                .filter(origin -> Objects.equals(origin.getEntryType(), persistedEntryType))
                 .filter(origin -> "ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)
                         ? Objects.equals(origin.getActiveOrderId(), application.getActiveOrderId())
                         : origin.getActiveOrderId() == null)
                 .toList();
+        }
         if (origins.size() != 1) {
             throw blocker(application, "formal Flow 7 origin must be unique for the release entry");
         }

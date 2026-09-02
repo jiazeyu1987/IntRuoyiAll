@@ -92,6 +92,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNOFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE;
 
 @Service
@@ -550,6 +551,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         command.setActorUserId(authenticatedActorUserId);
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
+            hydrateBatchExecutionIdFromReleaseTransaction(command);
             MesProEdhrFourMaterialGateResult currentGate =
                     fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId());
             MesReleaseFinalizationEvidence evidence = authoritativeContextPort.require(command);
@@ -565,6 +567,17 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             case WITHDRAW -> finalizeWithdraw(command);
             case APPROVE -> throw new IllegalStateException("approve action must use approval finalizer");
         };
+    }
+
+    private void hydrateBatchExecutionIdFromReleaseTransaction(MesReleaseFinalizationCommand command) {
+        MesProEdhrReleaseTransactionDO transaction = requireTransaction(command.getReleaseTransactionId());
+        if (command.getBatchExecutionId() == null) {
+            command.setBatchExecutionId(transaction.getBatchExecutionId());
+            return;
+        }
+        if (!Objects.equals(command.getBatchExecutionId(), transaction.getBatchExecutionId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
     }
 
     private void hydrateFromAuthoritativeEvidence(MesReleaseFinalizationCommand command,
@@ -644,6 +657,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     .setFinalizationPayloadHash(managerPayloadHash));
             MesProductionReleaseManagerApprovalResult result = managerApprovalService.completeAfterFinalization(
                     command.getActorUserId(), approve, prepared, released);
+            closeBatchAfterFinalRelease(batch, released, command, occurredAt);
             closeUpstreamAfterRelease(command, released, decision);
             reportManagementSummaryService.refreshByReleaseTransactionId(command.getReleaseTransactionId());
             return toResp(result.getBatchExecution(), released);
@@ -682,6 +696,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setFinalizationPayloadHash(finalizationPayloadHash));
         transaction.setReleaseDecisionId(decision.getId())
                 .setFinalizationPayloadHash(finalizationPayloadHash);
+        closeBatchAfterFinalRelease(batch, transaction, command, occurredAt);
         closeUpstreamAfterRelease(command, transaction, decision);
         workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), EVENT_TYPE_APPROVE, opinion);
         recordTransactionEvent(transaction, EVENT_TYPE_APPROVE, STATUS_PENDING_APPROVAL, STATUS_RELEASED,
@@ -691,6 +706,28 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 command.getActorUserId(), null, opinion, command.getIdempotencyKey(),
                 command.getSignoffEvidenceHash(), occurredAt);
         return toResp(batch, transaction);
+    }
+
+    private void closeBatchAfterFinalRelease(MesProEdhrBatchExecutionDO batch,
+                                             MesProEdhrReleaseTransactionDO transaction,
+                                             MesReleaseFinalizationCommand command,
+                                             LocalDateTime occurredAt) {
+        if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)) {
+            return;
+        }
+        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+        String aggregateHash = DigestUtil.sha256Hex(String.join(":",
+                String.valueOf(batch.getAggregateHash()),
+                String.valueOf(transaction.getId()),
+                String.valueOf(command.getSignoffEvidenceHash())));
+        batch.setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedBy(command.getActorUserId())
+                .setClosedAt(occurredAt)
+                .setAggregateHash(aggregateHash);
+        batchExecutionMapper.updateById(batch);
+        workTaskService.createArchiveTaskAfterBatchClose(batch);
     }
 
     @Override

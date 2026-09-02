@@ -324,7 +324,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
                     .setBatchExecutionId(901L)
                     .setBusinessScopeType("RELEASE_TRANSACTION")
                     .setBusinessScopeId(1001L)
-                    .setCandidateSourceType("ROLE")
+                    .setCandidateSourceType("ROLE_GROUP")
                     .setCandidateSourceId(77L)
                     .setCandidateUserSnapshot(String.valueOf(ACTOR_USER_ID))
                     .setResponsibilitySourceKey(MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE)

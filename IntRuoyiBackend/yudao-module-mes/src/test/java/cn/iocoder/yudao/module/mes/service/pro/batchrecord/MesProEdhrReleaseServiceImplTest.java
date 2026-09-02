@@ -143,6 +143,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesReleaseAuthoritativeContextPort authoritativeContextPort;
     @MockitoBean
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
+    @MockitoBean
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
@@ -796,6 +798,76 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("mes:pro-edhr-release:approve", audit.getPermissionCode());
         assertTrue(audit.getMetadataJson().contains("\"signoffEvidenceHash\":\"" + signoffEvidenceHash + "\""));
         assertTrue(audit.getMetadataJson().contains("\"toStatus\":\"RELEASED\""));
+    }
+
+    @Test
+    void approveHydratesBatchExecutionIdFromReleaseTransactionBeforeMaterialGate() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-HYDRATE-BATCH-ID");
+        MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
+        MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7905L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(approvalTask);
+        String signatureUrl = "http://localhost/signature/edhr-release-7905.png";
+        String signoffEvidenceHash = DigestUtil.sha256Hex(signatureUrl);
+        when(approvalSignatureRecordMapper.selectList(any())).thenReturn(List.of(
+                BpmApprovalSignatureRecordDO.builder()
+                        .moduleCode("EDHR")
+                        .sourceTaskType("EDHR_WORK_TASK")
+                        .sourceTaskId(String.valueOf(approvalTask.getId()))
+                        .signerUserId(10001L)
+                        .reviewResult("APPROVE")
+                        .passwordVerified(Boolean.TRUE)
+                        .signatureImageFileUrl(signatureUrl)
+                        .build()));
+        when(fourMaterialGateService.requireMaterialsReady(batch.getId()))
+                .thenReturn(readyMaterialGate(batch.getId()));
+        when(fourMaterialGateService.requireMaterialsReady(null))
+                .thenThrow(new AssertionError("material gate must not receive a null batchExecutionId"));
+
+        MesProEdhrReleaseApproveReqVO request = approvalRequest(precheck, batch, approvalTask,
+                "approve-hydrate-batch-id", signoffEvidenceHash, "事务上下文恢复批次编号").setBatchExecutionId(null);
+
+        MesProEdhrReleaseRespVO approved;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审批放行人");
+            approved = releaseService.approve(request);
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, approved.getReleaseStatus());
+        assertEquals(batch.getId(), approved.getBatchExecutionId());
+    }
+
+    @Test
+    void approveClosesReadyBatchAndCreatesArchiveTask() {
+        MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-APPROVE-CLOSE-AND-ARCHIVE");
+        MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
+        MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7906L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(approvalTask);
+        String signatureUrl = "http://localhost/signature/edhr-release-7906.png";
+        String signoffEvidenceHash = DigestUtil.sha256Hex(signatureUrl);
+        when(approvalSignatureRecordMapper.selectList(any())).thenReturn(List.of(
+                BpmApprovalSignatureRecordDO.builder()
+                        .moduleCode("EDHR")
+                        .sourceTaskType("EDHR_WORK_TASK")
+                        .sourceTaskId(String.valueOf(approvalTask.getId()))
+                        .signerUserId(10001L)
+                        .reviewResult("APPROVE")
+                        .passwordVerified(Boolean.TRUE)
+                        .signatureImageFileUrl(signatureUrl)
+                        .build()));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审批放行人");
+            releaseService.approve(approvalRequest(precheck, batch, approvalTask,
+                    "approve-close-and-archive", signoffEvidenceHash, "批准后进入归档"));
+        }
+
+        MesProEdhrBatchExecutionDO closed = batchExecutionMapper.selectById(batch.getId());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
+        assertEquals(10001L, closed.getClosedBy());
+        assertNotNull(closed.getClosedAt());
+        verify(workTaskService).createArchiveTaskAfterBatchClose(any());
     }
 
     @Test
