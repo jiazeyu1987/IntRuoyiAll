@@ -167,3 +167,11 @@ BDD: PQC双入口只读可达验证 -> Given 已存在一个可从PQC管理与PQ
 - GREEN: `node tests\e2e\edhr-nonconformance-review-mvp-static.spec.js` -> PASS。
 - GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` 前端 `8081`、后端 `48081`。
 - NOTE: 主工作区此前已有 `20260902-int-main-01/02/03-full-after-merge` 完整链路尝试，均因共享批记录模板未确认填写规则单元格触发正式业务错误 `1040750243`，属于既有测试数据前置阻塞；本轮未修改共享模板，按用户当前关注点完成双入口真实页面 E2E。
+
+## 2026-09-02 Final Closeout
+
+- GREEN: `git commit -m "docs: record int_main nonconformance e2e verification"` -> `2f1eafab0`，提交本任务重启后 `int_main` 验证记录。
+- GREEN: `git push origin int_main` -> PASS，`83f990db8..2f1eafab0 int_main -> int_main`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260902-nonconformance-review-full-e2e --mode preview` -> PASS，keep 三份任务记录，delete `<none>`，blocked `<none>`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260902-nonconformance-review-full-e2e --mode apply` -> PASS，deleted_paths `<none>`。
+- GREEN: `task.md` Current Status 已更新为 `completed`，本任务收尾完成。
