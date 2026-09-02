@@ -268,3 +268,9 @@ rg -n "fetch\(|request\.get|APIRequest|axios|\.json\(|response\.json|docker exec
 Result: PASS, no matches.
 
 Note: The rerun captured a background approval-todo badge console error (`系统异常`). It did not block the verified upgrade chain because login, active-order pool visibility, replacement order row, page-triggered active-order requests, and detail dialog all completed successfully. This warning should be tracked separately if the approval badge is in scope.
+
+### 2026-09-03 Feature Branch Commit
+
+Feature branch commit: $full.
+
+Committed scope includes backend implementation, frontend entry/API integration, SQL migrations, static tests, real E2E scripts, task records, PRD/user-flow docs, and preserved E2E artifacts.

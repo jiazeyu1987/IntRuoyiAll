@@ -146,3 +146,8 @@ GREEN: node --check IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final
 GREEN: static frontend-only E2E gate rerun -> PASS, `active-order-version-upgrade-final-state-real.e2e.cjs` 未命中直接 API、DB 或 HTTP 客户端断言模式；完整终态仍由 Playwright 页面操作完成。
 
 WARNING: final-state E2E 期间页面后台审批待办角标加载出现 `系统异常` console 错误，但验收链路本身的登录、活跃订单池、详情弹窗和页面触发的活跃订单接口均成功；该警告未作为本次升级重启链路阻塞项处理。
+
+## Work Log Update 2026-09-03 / Feature Branch Commit
+
+- 2026-09-03: 已在 worktree 分支 codex/20260902-active-order-latest-version-upgrade-restart-docs 提交实现、测试、文档与 E2E 证据；实现提交：$full。
+- 2026-09-03: 提交前通过 ranch-runtime-port-guard.ps1、前端静态合同、后端静态合同、SQL 合同、git diff --cached --check，并强制纳入任务保留的 E2E 证据图片与 JSON。
