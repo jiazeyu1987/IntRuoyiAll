@@ -17,4 +17,7 @@ public class MesTeamLeaderActiveOrderAddReqBO {
     private Boolean simulated;
     private String simulationStage;
     private String simulationRunId;
+    private Boolean forceNewVersionUpgradeOrder;
+    private Long targetRouteVersionId;
+    private Long targetQaRegulationVersionId;
 }

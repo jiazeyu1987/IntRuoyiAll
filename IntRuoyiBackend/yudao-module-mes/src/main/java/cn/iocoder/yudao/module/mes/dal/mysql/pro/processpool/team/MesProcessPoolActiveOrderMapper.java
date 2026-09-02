@@ -237,6 +237,63 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
 
     @Update("""
             UPDATE mes_pro_process_pool_active_order
+            SET active_status = 'VERSION_UPGRADE_PENDING',
+                business_status = 'VERSION_UPGRADE_PENDING',
+                version = version + 1,
+                updater = CAST(#{leaderUserId} AS CHAR),
+                update_time = #{frozenAt}
+            WHERE id = #{activeOrderId}
+              AND leader_user_id = #{leaderUserId}
+              AND deleted = b'0'
+              AND active_status = 'ACTIVE'
+              AND version = #{expectedVersion}
+            """)
+    int freezeForVersionUpgrade(@Param("activeOrderId") Long activeOrderId,
+                                @Param("expectedVersion") Integer expectedVersion,
+                                @Param("leaderUserId") Long leaderUserId,
+                                @Param("frozenAt") LocalDateTime frozenAt);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order
+            SET active_status = 'ACTIVE',
+                business_status = 'ACTIVE',
+                version = version + 1,
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = #{releasedAt}
+            WHERE id = #{activeOrderId}
+              AND leader_user_id = #{leaderUserId}
+              AND deleted = b'0'
+              AND active_status = 'VERSION_UPGRADE_PENDING'
+              AND version = #{expectedVersion}
+            """)
+    int releaseVersionUpgradeFreeze(@Param("activeOrderId") Long activeOrderId,
+                                    @Param("leaderUserId") Long leaderUserId,
+                                    @Param("expectedVersion") Integer expectedVersion,
+                                    @Param("actorUserId") Long actorUserId,
+                                    @Param("releasedAt") LocalDateTime releasedAt);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order
+            SET active_status = 'REMOVED',
+                business_status = 'VERSION_UPGRADED',
+                removed_at = #{removedAt},
+                version = version + 1,
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = #{removedAt}
+            WHERE id = #{activeOrderId}
+              AND leader_user_id = #{leaderUserId}
+              AND deleted = b'0'
+              AND active_status = 'VERSION_UPGRADE_PENDING'
+              AND version = #{expectedVersion}
+            """)
+    int removePendingVersionUpgradeOrder(@Param("activeOrderId") Long activeOrderId,
+                                         @Param("leaderUserId") Long leaderUserId,
+                                         @Param("expectedVersion") Integer expectedVersion,
+                                         @Param("actorUserId") Long actorUserId,
+                                         @Param("removedAt") LocalDateTime removedAt);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order
             SET active_status = 'CLOSED',
                 business_status = 'RELEASED',
                 release_decision_id = #{releaseDecisionId},

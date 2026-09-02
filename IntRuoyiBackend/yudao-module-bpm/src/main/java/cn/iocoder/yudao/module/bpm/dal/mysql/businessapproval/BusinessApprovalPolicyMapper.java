@@ -24,6 +24,7 @@ public interface BusinessApprovalPolicyMapper extends BaseMapperX<BusinessApprov
             "FORM_TEMPLATE_OBSOLETE",
             "MES_ROUTE_VERSION_PUBLISH",
             "MES_BATCH_RECORD_VERSION_PUBLISH",
+            "MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART",
             "EDHR_BATCH_EXECUTION_SUBMIT_REVIEW",
             "EDHR_BATCH_VOID");
 

@@ -30,6 +30,21 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                                  @Param("id") Long id,
                                  @Param("status") String status);
 
+    @Update("""
+            UPDATE mes_pro_edhr_batch_execution
+            SET status = 60,
+                active_context_key = NULL,
+                remark = CONCAT(COALESCE(remark, ''), #{reason}),
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = NOW()
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND status <> 60
+            """)
+    int voidForVersionUpgrade(@Param("id") Long id,
+                              @Param("actorUserId") Long actorUserId,
+                              @Param("reason") String reason);
+
     default MesProEdhrBatchExecutionDO selectByActiveContextKey(String activeContextKey) {
         if (activeContextKey == null || activeContextKey.isBlank()) {
             return null;

@@ -219,6 +219,43 @@ export interface TeamLeaderActiveOrderRebuildResultRespVO {
   rebuiltPqcTaskCount: number
 }
 
+export interface TeamLeaderActiveOrderVersionUpgradeVersionLineVO {
+  objectType: string
+  objectName?: string
+  objectId?: number
+  currentVersionId?: number
+  currentVersionNo?: string
+  targetVersionId?: number
+  targetVersionNo?: string
+  changed?: boolean
+}
+
+export interface TeamLeaderActiveOrderVersionUpgradePreviewRespVO {
+  activeOrderId: number
+  workOrderId?: number
+  workOrderCode?: string
+  allLatestFormalVersions: boolean
+  perVersionSelectionAllowed: false
+  submittable: boolean
+  blockers: string[]
+  currentVersions: TeamLeaderActiveOrderVersionUpgradeVersionLineVO[]
+  targetVersions: TeamLeaderActiveOrderVersionUpgradeVersionLineVO[]
+}
+
+export interface TeamLeaderActiveOrderVersionUpgradeSubmitReqVO {
+  activeOrderId: number
+  idempotencyKey: string
+  upgradeReason: string
+  confirmRestartFromBeginning: boolean
+}
+
+export interface TeamLeaderActiveOrderVersionUpgradeSubmitRespVO {
+  activeOrderId: number
+  requestCode?: string
+  approvalStatus?: string
+  freezeStatus?: string
+}
+
 export interface TeamLeaderActiveOrderSimulationReqVO {
   activeOrderId: number
 }
@@ -867,6 +904,24 @@ export const rebuildTeamLeaderActiveOrder = async (
 ) => {
   return await request.post<TeamLeaderActiveOrderRebuildResultRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/rebuild',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const previewTeamLeaderActiveOrderVersionUpgrade = async (activeOrderId: number) => {
+  return await request.get<TeamLeaderActiveOrderVersionUpgradePreviewRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/version-upgrade/preview',
+    params: { activeOrderId },
+    ignoreErrorMessage: true
+  })
+}
+
+export const submitTeamLeaderActiveOrderVersionUpgrade = async (
+  data: TeamLeaderActiveOrderVersionUpgradeSubmitReqVO
+) => {
+  return await request.post<TeamLeaderActiveOrderVersionUpgradeSubmitRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/version-upgrade/submit',
     data,
     ignoreErrorMessage: true
   })

@@ -27,6 +27,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderVersionUpgradePreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderVersionUpgradeSubmitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderVersionUpgradeSubmitRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationCopyReqVO;
@@ -115,6 +118,11 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplyCommand;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderVersionUpgradePreview;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderVersionUpgradeService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderVersionUpgradeSubmitCommand;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderVersionUpgradeSubmitResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderVersionUpgradeVersionLine;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowExceptionAdvice;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
@@ -180,6 +188,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesDefectReasonCatalogService defectReasonCatalogService;
     private final MesTeamLeaderProcessConfigService processConfigService;
     private final MesTeamLeaderActiveOrderService activeOrderService;
+    private final MesTeamLeaderActiveOrderVersionUpgradeService activeOrderVersionUpgradeService;
     private final MesTeamLeaderActiveOrderDetailService activeOrderDetailService;
     private final MesReportAllocationCommandService reportAllocationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
@@ -200,6 +209,7 @@ public class MesProcessPoolTeamLeaderController {
                                               MesDefectReasonCatalogService defectReasonCatalogService,
                                               MesTeamLeaderProcessConfigService processConfigService,
                                               MesTeamLeaderActiveOrderService activeOrderService,
+                                              MesTeamLeaderActiveOrderVersionUpgradeService activeOrderVersionUpgradeService,
                                               MesTeamLeaderActiveOrderDetailService activeOrderDetailService,
                                               MesReportAllocationCommandService reportAllocationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
@@ -219,6 +229,7 @@ public class MesProcessPoolTeamLeaderController {
         this.defectReasonCatalogService = defectReasonCatalogService;
         this.processConfigService = processConfigService;
         this.activeOrderService = activeOrderService;
+        this.activeOrderVersionUpgradeService = activeOrderVersionUpgradeService;
         this.activeOrderDetailService = activeOrderDetailService;
         this.reportAllocationService = reportAllocationService;
         this.runtimeConfigService = runtimeConfigService;
@@ -450,6 +461,30 @@ public class MesProcessPoolTeamLeaderController {
                         .confirmDeleteHistoricalRuntimeData(reqVO.getConfirmDeleteHistoricalRuntimeData())
                         .build());
         return success(toActiveOrderRebuildResultRespVO(result));
+    }
+
+    @GetMapping("/active-order/version-upgrade/preview")
+    @Operation(summary = "预览生产组长活跃订单版本升级重启")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:version-upgrade')")
+    public CommonResult<MesTeamLeaderActiveOrderVersionUpgradePreviewRespVO> previewActiveOrderVersionUpgrade(
+            @RequestParam("activeOrderId") Long activeOrderId) {
+        MesTeamLeaderActiveOrderVersionUpgradePreview preview = activeOrderVersionUpgradeService.preview(
+                SecurityFrameworkUtils.getLoginUserId(), activeOrderId);
+        return success(toActiveOrderVersionUpgradePreviewRespVO(preview));
+    }
+
+    @PostMapping("/active-order/version-upgrade/submit")
+    @Operation(summary = "提交生产组长活跃订单版本升级重启审批")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:version-upgrade')")
+    public CommonResult<MesTeamLeaderActiveOrderVersionUpgradeSubmitRespVO> submitActiveOrderVersionUpgrade(
+            @Valid @RequestBody MesTeamLeaderActiveOrderVersionUpgradeSubmitReqVO reqVO) {
+        MesTeamLeaderActiveOrderVersionUpgradeSubmitResult result = activeOrderVersionUpgradeService.submit(
+                SecurityFrameworkUtils.getLoginUserId(), new MesTeamLeaderActiveOrderVersionUpgradeSubmitCommand()
+                        .setActiveOrderId(reqVO.getActiveOrderId())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey())
+                        .setUpgradeReason(reqVO.getUpgradeReason())
+                        .setConfirmRestartFromBeginning(reqVO.getConfirmRestartFromBeginning()));
+        return success(toActiveOrderVersionUpgradeSubmitRespVO(result));
     }
 
     @PostMapping("/active-order/simulate-completion")
@@ -1261,6 +1296,44 @@ public class MesProcessPoolTeamLeaderController {
                 .setDeletedPqcTaskCount(result.getDeletedPqcTaskCount())
                 .setRebuiltProcessSnapshotCount(result.getRebuiltProcessSnapshotCount())
                 .setRebuiltPqcTaskCount(result.getRebuiltPqcTaskCount());
+    }
+
+    private static MesTeamLeaderActiveOrderVersionUpgradePreviewRespVO toActiveOrderVersionUpgradePreviewRespVO(
+            MesTeamLeaderActiveOrderVersionUpgradePreview preview) {
+        return new MesTeamLeaderActiveOrderVersionUpgradePreviewRespVO()
+                .setActiveOrderId(preview.getActiveOrderId())
+                .setWorkOrderId(preview.getWorkOrderId())
+                .setWorkOrderCode(preview.getWorkOrderCode())
+                .setAllLatestFormalVersions(preview.getAllLatestFormalVersions())
+                .setPerVersionSelectionAllowed(preview.getPerVersionSelectionAllowed())
+                .setSubmittable(preview.getSubmittable())
+                .setBlockers(preview.getBlockers())
+                .setCurrentVersions(toActiveOrderVersionUpgradeLines(preview.getCurrentVersions()))
+                .setTargetVersions(toActiveOrderVersionUpgradeLines(preview.getTargetVersions()));
+    }
+
+    private static List<MesTeamLeaderActiveOrderVersionUpgradePreviewRespVO.VersionLine>
+    toActiveOrderVersionUpgradeLines(List<MesTeamLeaderActiveOrderVersionUpgradeVersionLine> lines) {
+        return lines.stream()
+                .map(line -> new MesTeamLeaderActiveOrderVersionUpgradePreviewRespVO.VersionLine()
+                        .setObjectType(line.getObjectType())
+                        .setObjectName(line.getObjectName())
+                        .setObjectId(line.getObjectId())
+                        .setCurrentVersionId(line.getCurrentVersionId())
+                        .setCurrentVersionNo(line.getCurrentVersionNo())
+                        .setTargetVersionId(line.getTargetVersionId())
+                        .setTargetVersionNo(line.getTargetVersionNo())
+                        .setChanged(line.getChanged()))
+                .toList();
+    }
+
+    private static MesTeamLeaderActiveOrderVersionUpgradeSubmitRespVO toActiveOrderVersionUpgradeSubmitRespVO(
+            MesTeamLeaderActiveOrderVersionUpgradeSubmitResult result) {
+        return new MesTeamLeaderActiveOrderVersionUpgradeSubmitRespVO()
+                .setActiveOrderId(result.getActiveOrderId())
+                .setRequestCode(result.getRequestCode())
+                .setApprovalStatus(result.getApprovalStatus())
+                .setFreezeStatus(result.getFreezeStatus());
     }
 
     private static MesTeamLeaderActiveOrderSimulationRespVO toActiveOrderSimulationRespVO(

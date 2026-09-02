@@ -54,6 +54,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "EDHR_BATCH_EXECUTION_VOID";
     private static final String MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE =
             "MES_ROUTE_VERSION_PUBLISH";
+    private static final String MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART_BUSINESS_TYPE =
+            "MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE =
             "UPLOAD_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_OPERATION =
@@ -72,6 +74,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "/mes/pro/feedback/edhr-change";
     private static final String ROUTE_VERSION_DETAIL_ROUTE_PREFIX =
             "/mes/pro/route/edit/";
+    private static final String ACTIVE_ORDER_VERSION_UPGRADE_DETAIL_ROUTE =
+            "/mes/pro/processpool/team-leader";
     private static final String REGISTRATION_CERTIFICATE_DETAIL_ROUTE_PREFIX =
             "/mdm/registration-certificate/detail/";
     private static final Pattern TEMPLATE_PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
@@ -552,6 +556,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         if (Objects.equals(MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE, businessType)) {
             return resolveRouteVersionPublishTitle(variables);
         }
+        if (Objects.equals(MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART_BUSINESS_TYPE, businessType)) {
+            return resolveActiveOrderVersionUpgradeTitle(variables);
+        }
         if (isEdhrExecutionApproval(variables)) {
             return resolveEdhrExecutionApprovalTitle(variables);
         }
@@ -615,6 +622,13 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         return title.toString();
     }
 
+    private static String resolveActiveOrderVersionUpgradeTitle(Map<String, Object> variables) {
+        StringBuilder title = new StringBuilder("活跃订单升级重启");
+        appendTitlePart(title, firstText(variables.get("requestCode"), variables.get("requestId")));
+        appendLabeledTitlePart(title, "工单", variables.get("workOrderCode"));
+        return title.toString();
+    }
+
     private static String resolveBusinessCode(Map<String, Object> variables) {
         if (variables == null || variables.isEmpty()) {
             return null;
@@ -651,6 +665,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             addTag(tags, "路线编号", variables.get("routeCode"));
             addTag(tags, "路线名称", variables.get("routeName"));
             addTag(tags, "版本", firstText(variables.get("routeVersionNo"), variables.get("objectVersion")));
+        } else if (Objects.equals(MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART_BUSINESS_TYPE, businessType)) {
+            addTag(tags, "申请单", variables.get("requestCode"));
+            addTag(tags, "来源活跃订单", variables.get("sourceActiveOrderId"));
+            addTag(tags, "工单", variables.get("workOrderCode"));
+            addTag(tags, "目标版本", variables.get("targetVersionsSummary"));
         } else if (Objects.equals(EDHR_BATCH_EXECUTION_VOID_BUSINESS_TYPE, businessType)) {
             addTag(tags, "工单", variables.get("workOrderCode"));
             addTag(tags, "批次", variables.get("batchCode"));
@@ -684,6 +703,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         }
         if (Objects.equals(MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE, businessType)) {
             return "工艺路线发布审核";
+        }
+        if (Objects.equals(MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART_BUSINESS_TYPE, businessType)) {
+            return "活跃订单升级重启审核";
         }
         if (Objects.equals(EDHR_BATCH_EXECUTION_VOID_BUSINESS_TYPE, businessType)) {
             return "电子批记录批次作废审核";
@@ -866,6 +888,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             String routeId = asText(variables.get("routeId"));
             return hasText(routeId) ? ROUTE_VERSION_DETAIL_ROUTE_PREFIX + routeId.trim() : null;
         }
+        if (Objects.equals(MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART_BUSINESS_TYPE, businessType)) {
+            return ACTIVE_ORDER_VERSION_UPGRADE_DETAIL_ROUTE;
+        }
         if (isRegistrationCertificateAccessApproval(variables)) {
             String certificateId = firstText(variables.get("certificateId"));
             if (!hasText(certificateId)) {
@@ -919,6 +944,15 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                     variables.get("objectVersion")));
             putIfPresent(query, "routeVersionStatus", "PENDING_APPROVAL");
             putIfPresent(query, "tab", "flow");
+            putIfPresent(query, "processInstanceId", processInstanceId);
+            return query;
+        }
+        if (Objects.equals(MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART_BUSINESS_TYPE, businessType)) {
+            putIfPresent(query, "businessType", businessType);
+            putIfPresent(query, "requestId", variables.get("requestId"));
+            putIfPresent(query, "requestCode", variables.get("requestCode"));
+            putIfPresent(query, "sourceActiveOrderId", variables.get("sourceActiveOrderId"));
+            putIfPresent(query, "workOrderCode", variables.get("workOrderCode"));
             putIfPresent(query, "processInstanceId", processInstanceId);
             return query;
         }

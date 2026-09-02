@@ -1542,6 +1542,22 @@
                 重建
               </el-button>
               <el-button
+                v-hasPermi="['mes:pro-process-pool-team-leader:version-upgrade']"
+                link
+                type="warning"
+                :loading="activeOrderVersionUpgradeSubmittingId === row.id"
+                :disabled="
+                  maintenanceSubmitting ||
+                  row.activeStatus !== 'ACTIVE' ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined ||
+                  activeOrderVersionUpgradeSubmittingId !== undefined
+                "
+                title="按全部最新正式版本发起版本升级重启审批"
+                data-team-leader-active-order-version-upgrade
+                @click="handleActiveOrderVersionUpgrade(row)"
+              >升级</el-button>
+              <el-button
                 link
                 type="primary"
                 :loading="activeOrderSimulationSubmittingId === row.id"
@@ -3724,6 +3740,71 @@
       </el-button>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="activeOrderVersionUpgradeDialogVisible" title="版本升级重启" width="760px">
+    <div v-if="activeOrderVersionUpgradePreview" class="active-order-version-upgrade">
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        title="本流程将按全部最新正式版本提交审批；不提供逐项版本选择；审批通过后整单从头执行。"
+      />
+      <div class="upgrade-summary">
+        <div>来源工单：{{ activeOrderVersionUpgradePreview.workOrderCode || '-' }}</div>
+        <div>活跃订单：{{ activeOrderVersionUpgradePreview.activeOrderId }}</div>
+        <div>目标策略：全部最新正式版本</div>
+      </div>
+      <el-table :data="activeOrderVersionUpgradePreview.targetVersions" size="small" border>
+        <el-table-column prop="objectName" label="受控对象" min-width="180" />
+        <el-table-column prop="currentVersionNo" label="当前锁定版本" width="140" />
+        <el-table-column prop="targetVersionNo" label="最新正式版本" width="140" />
+        <el-table-column label="是否变化" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.changed ? 'warning' : 'info'">
+              {{ row.changed ? '变化' : '不变' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-alert
+        v-if="activeOrderVersionUpgradePreview.blockers?.length"
+        type="error"
+        :closable="false"
+        class="mt-12px"
+        :title="activeOrderVersionUpgradePreview.blockers.join('；')"
+      />
+      <el-form label-width="96px" class="mt-12px">
+        <el-form-item label="升级原因" required>
+          <el-input
+            v-model="activeOrderVersionUpgradeReason"
+            type="textarea"
+            :rows="3"
+            placeholder="请说明为什么需要按最新版本重启执行"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="activeOrderVersionUpgradeConfirmRestart">
+            我确认审批通过后旧执行停止，新订单按全部最新正式版本整单从头执行
+          </el-checkbox>
+        </el-form-item>
+      </el-form>
+    </div>
+    <template #footer>
+      <el-button @click="activeOrderVersionUpgradeDialogVisible = false">取消</el-button>
+      <el-button
+        type="warning"
+        :loading="activeOrderVersionUpgradeSubmittingId !== undefined"
+        :disabled="
+          !activeOrderVersionUpgradePreview?.submittable ||
+          !activeOrderVersionUpgradeReason.trim() ||
+          !activeOrderVersionUpgradeConfirmRestart
+        "
+        @click="submitActiveOrderVersionUpgrade"
+      >
+        提交升级审批
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -3768,7 +3849,9 @@ import {
   moveTeamLeaderActiveOrder,
   previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
+  previewTeamLeaderActiveOrderVersionUpgrade,
   rebuildTeamLeaderActiveOrder,
+  submitTeamLeaderActiveOrderVersionUpgrade,
   copyLatestTeamLeaderSimulationActiveOrder,
   cleanupLatestTeamLeaderSimulationActiveOrder,
   simulateStage1ActiveOrderCompletion,
@@ -3799,6 +3882,7 @@ import {
   type TeamLeaderActiveOrderReleaseFailureRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderSimulationCopyRespVO,
+  type TeamLeaderActiveOrderVersionUpgradePreviewRespVO,
   type TeamLeaderLossReasonVO,
   type TeamDeviceParameterRuleSaveReqVO,
   type TeamLeaderProcessConfigDeviceVO,
@@ -4066,6 +4150,7 @@ const activeOrderConflictSubmitting = ref(false)
 const activeOrderMoveSubmittingId = ref<number>()
 const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const activeOrderRebuildSubmittingId = ref<number>()
+const activeOrderVersionUpgradeSubmittingId = ref<number>()
 const activeOrderSimulationSubmittingId = ref<number>()
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
@@ -4091,6 +4176,10 @@ const activeOrderConflictDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderConflictLoading = ref(false)
 const activeOrderConflictError = ref('')
 const activeOrderConflictActiveOrderId = ref<number>()
+const activeOrderVersionUpgradeDialogVisible = ref(false)
+const activeOrderVersionUpgradePreview = ref<TeamLeaderActiveOrderVersionUpgradePreviewRespVO>()
+const activeOrderVersionUpgradeReason = ref('')
+const activeOrderVersionUpgradeConfirmRestart = ref(false)
 const activeOrderCandidateOptions = ref<TeamLeaderActiveOrderCandidateRespVO[]>([])
 const activeOrderSelectedCandidate = ref<TeamLeaderActiveOrderCandidateRespVO>()
 const activeOrderCandidateKeyword = ref('')
@@ -8519,6 +8608,47 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
     )
   } finally {
     activeOrderRebuildSubmittingId.value = undefined
+  }
+}
+
+const handleActiveOrderVersionUpgrade = async (row: TeamLeaderActiveOrderRespVO) => {
+  activeOrderVersionUpgradeSubmittingId.value = row.id
+  try {
+    const preview = await previewTeamLeaderActiveOrderVersionUpgrade(
+      requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+    )
+    activeOrderVersionUpgradePreview.value = preview
+    activeOrderVersionUpgradeReason.value = ''
+    activeOrderVersionUpgradeConfirmRestart.value = false
+    activeOrderVersionUpgradeDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '活跃订单版本升级预览失败'))
+  } finally {
+    activeOrderVersionUpgradeSubmittingId.value = undefined
+  }
+}
+
+const submitActiveOrderVersionUpgrade = async () => {
+  const preview = activeOrderVersionUpgradePreview.value
+  if (!preview) {
+    ElMessage.error('缺少活跃订单版本升级预览结果')
+    return
+  }
+  activeOrderVersionUpgradeSubmittingId.value = preview.activeOrderId
+  try {
+    const result = await submitTeamLeaderActiveOrderVersionUpgrade({
+      activeOrderId: requirePositiveNumber(preview.activeOrderId, '活跃订单记录ID不能为空'),
+      idempotencyKey: `active-order-version-upgrade-${preview.activeOrderId}-${Date.now()}`,
+      upgradeReason: activeOrderVersionUpgradeReason.value.trim(),
+      confirmRestartFromBeginning: activeOrderVersionUpgradeConfirmRestart.value
+    })
+    ElMessage.success(`版本升级审批已提交：${result.requestCode || result.approvalStatus || '待审批'}`)
+    activeOrderVersionUpgradeDialogVisible.value = false
+    await loadActiveOrders()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '提交版本升级审批失败'))
+  } finally {
+    activeOrderVersionUpgradeSubmittingId.value = undefined
   }
 }
 

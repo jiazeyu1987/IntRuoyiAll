@@ -1283,6 +1283,20 @@ public interface ErrorCodeConstants {
             "生产订单工序允许超量比例无效：{}，合法范围为 0-100");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS = new ErrorCode(1_040_760_359,
             "生产工单存在多条历史记录，无法确定应复用的冻结订单：workOrderId={}，activeOrderIds={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_CONFIRM_REQUIRED = new ErrorCode(1_040_760_384,
+            "活跃订单版本升级重启必须确认审批通过后整单从头执行：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_TARGET_REQUIRED = new ErrorCode(1_040_760_385,
+            "活跃订单版本升级重启缺少可提交的全部最新正式版本目标：activeOrderId={}，blockers={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPROVAL_SCHEMA_REQUIRED = new ErrorCode(1_040_760_386,
+            "活跃订单版本升级重启审批持久化结构未就绪，缺少前置表或策略：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_ONGOING_EXISTS = new ErrorCode(1_040_760_387,
+            "活跃订单已存在未关闭的版本升级申请：activeOrderId={}，requestCode={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_FREEZE_CONFLICT = new ErrorCode(1_040_760_388,
+            "活跃订单版本升级冻结失败，请刷新后重试：activeOrderId={}，expectedVersion={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_STATE_INVALID = new ErrorCode(1_040_760_395,
+            "活跃订单版本升级申请状态不可生效：requestId={}，requestStatus={}，approvalStatus={}，freezeStatus={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT = new ErrorCode(1_040_760_396,
+            "活跃订单版本升级生效失败，请刷新后重试：requestId={}，activeOrderId={}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_373,
             "一线生产活跃订单工序快照无效：activeOrderId={}，{}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_374,
