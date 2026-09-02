@@ -38,6 +38,9 @@ BDD: 历史追溯下载打印 -> Given 批次已完成最终归档 When 用户�
 - GREEN: 数据库只读终态核验 -> PASS，批次 `900000001025` 状态 `40` 且有关闭聚合哈希；归档 `33` 为 `SEALED`、`BATCH_FINAL_PDF`、`PDF/A-1b`、`VALID`，对象锁 `COMPLIANCE`、`objectLock=true`、`legalHold=true`；待办 `2438` 为 `ARCHIVE/DONE`。
 - GREEN: 经验沉淀 -> PASS，已在 `docs/e2e-rules.md#E2E 显式目标环境变量门禁` 记录显式目标 env 键名复核与下载产物验证门禁，并在 `docs/experience-index.md` 增加关键词。
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260901-edhr-pdfa-full-e2e --mode preview` -> BLOCKED，预览可识别待删除临时证据，但 apply 需要提交/快进融合，当前主工作区 dirty 且本轮未授权 Git commit/merge/push。
+- GREEN: `git commit -m "feat: complete edhr pdfa archive flow"` -> PASS，任务实现、回归测试、任务记录和经验沉淀已提交；rebase 后提交为 `ec3aff5db`。
+- GREEN: `git rebase int_main` -> PASS，任务分支已更新到当前 `int_main` 之上；`git rev-list --left-right --count int_main...HEAD` 输出 `0 1`。
+- BLOCKED: ff-only merge into `E:\IntRuoyi` -> NOT RUN，主工作区 `git status --short --branch` 显示 `docs/powershell-memory.md` 已修改，并存在 `.pytest-temp/`、`LOG_FILE_IS_UNDEFINED`、`resource/...` 等未跟踪项；按收尾规则目标主工作区 dirty 时禁止合入、清理或删除 worktree。
 
 ## Worktree Initialization
 

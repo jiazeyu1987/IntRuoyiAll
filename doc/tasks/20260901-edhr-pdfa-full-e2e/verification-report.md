@@ -37,7 +37,8 @@ PASS - 最新真实页面链路已完成并核验 PDF/A、历史追溯只读入�
 - 数据库只读核验：批次 `900000001025` 状态 `40`；归档 `33` 为 `SEALED/PDF/A-1b/VALID`，对象锁 `COMPLIANCE` 且 `objectLock=true`、`legalHold=true`；工作任务 `2438` 为 `ARCHIVE/DONE`。
 - 经验沉淀：`docs/e2e-rules.md#E2E 显式目标环境变量门禁` 和 `docs/experience-index.md` 已更新，`rg` 关键词校验通过。
 - 收尾清理预览：已运行 task-closeout preview；因主工作区 dirty 且本轮未授权 Git commit/merge/push，apply 未执行。
+- 任务分支提交：rebase 后实现提交为 `ec3aff5db`，当前 `git rev-list --left-right --count int_main...HEAD` 为 `0 1`，具备提交层面的 ff-only 前置关系。
 
 ## Blockers
 
-- 当前无 E2E 阻塞。收尾 apply / commit / merge / push 尚未执行；项目规则要求当轮明确授权后才能进行，且主工作区需先处理 dirty 状态。
+- 当前无 E2E 阻塞。ff-only 融合尚未执行：主工作区 `E:\IntRuoyi` dirty，包含已修改 `docs/powershell-memory.md` 和多个未跟踪路径；需先由对应任务处理、提交或明确归属，之后再执行合入。

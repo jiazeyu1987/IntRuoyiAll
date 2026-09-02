@@ -38,4 +38,4 @@
 
 ## Current Status
 
-ready_for_closeout - 最新真实链路已完成：批次 `900000001025` 已归档，最终归档待办 `2438` 已完成，归档 `33` 为 `SEALED`，PDF/A-1b 校验和历史追溯只读验证通过；待执行任务收尾清理与集成授权。
+ready_for_closeout - 最新真实链路已完成：批次 `900000001025` 已归档，最终归档待办 `2438` 已完成，归档 `33` 为 `SEALED`，PDF/A-1b 校验和历史追溯只读验证通过；任务分支已提交并 rebase 到 `int_main`，当前因主工作区 `E:\IntRuoyi` dirty 阻塞 ff-only 融合。
