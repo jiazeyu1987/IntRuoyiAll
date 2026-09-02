@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `dcc_data_relation` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_data_relation_catalog_project` (`tenant_id`, `product_catalog_id`, `project_code_id`, `deleted`),
   UNIQUE KEY `uk_dcc_data_relation_identity` (`tenant_id`, `product_catalog_id`, `project_code_id`, `registration_certificate_id`, `deleted`),
   KEY `idx_dcc_data_relation_project_code` (`tenant_id`, `project_code_id`, `deleted`),
   KEY `idx_dcc_data_relation_registration_certificate` (`tenant_id`, `registration_certificate_id`, `deleted`),

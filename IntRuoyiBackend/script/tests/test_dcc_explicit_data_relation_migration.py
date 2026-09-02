@@ -12,6 +12,7 @@ def test_explicit_relation_migration_has_three_id_identity_and_tenant_indexes():
     assert "`project_code_id` bigint NOT NULL" in sql
     assert "`registration_certificate_id` bigint NOT NULL" in sql
     assert "UNIQUE KEY `uk_dcc_data_relation_identity` (`tenant_id`, `product_catalog_id`, `project_code_id`, `registration_certificate_id`, `deleted`)" in sql
+    assert "UNIQUE KEY `uk_dcc_data_relation_catalog_project` (`tenant_id`, `product_catalog_id`, `project_code_id`, `deleted`)" in sql
     assert "KEY `idx_dcc_data_relation_project_code` (`tenant_id`, `project_code_id`, `deleted`)" in sql
     assert "KEY `idx_dcc_data_relation_registration_certificate` (`tenant_id`, `registration_certificate_id`, `deleted`)" in sql
 
