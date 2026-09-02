@@ -1,0 +1,643 @@
+{
+  "product": {
+    "name": "按压式球囊扩充压力泵",
+    "code": "IDI-01"
+  },
+  "schemaVersion": 1,
+  "processes": [
+    {
+      "name": "粗洗工序",
+      "inputs": [],
+      "outputs": [
+        {
+          "code": "A001.02.034.202",
+          "name": "弹簧"
+        },
+        {
+          "code": "A001.02.048.102",
+          "name": "杠杆"
+        }
+      ],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "B09393",
+              "name": "超声波清洗机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "清洗次数",
+              "referenceValue": "2",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗介质",
+              "referenceValue": "纯化水",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗功率",
+              "referenceValue": "20-30%",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗温度",
+              "referenceValue": "室温",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗时间",
+              "referenceValue": "30min",
+              "actualValue": "待填写"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "精洗工序",
+      "inputs": [],
+      "outputs": [
+        {
+          "code": "A001.02.034.202",
+          "name": "弹簧"
+        },
+        {
+          "code": "A001.02.048.102",
+          "name": "杠杆"
+        }
+      ],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "B09031",
+              "name": "超声波清洗机"
+            },
+            {
+              "code": "B09353",
+              "name": "超声波清洗机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "清洗次数",
+              "referenceValue": "2",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗介质",
+              "referenceValue": "注射用水",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗功率",
+              "referenceValue": "100%",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗温度",
+              "referenceValue": "室温",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗时间",
+              "referenceValue": "30min",
+              "actualValue": "待填写"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "清洗工序",
+      "inputs": [],
+      "outputs": [
+        {
+          "code": "A001.02.019.301",
+          "name": "胶塞环"
+        },
+        {
+          "code": "A003.017.02.002.1001",
+          "name": "杠杆架"
+        },
+        {
+          "code": "A003.017.02.002.2001",
+          "name": "螺杆"
+        },
+        {
+          "code": "A003.017.02.002.4001",
+          "name": "后盖"
+        },
+        {
+          "code": "A003.017.02.002.5001",
+          "name": "外套"
+        },
+        {
+          "code": "A003.017.02.002.7001",
+          "name": "按钮"
+        },
+        {
+          "code": "A003.017.02.002.8001",
+          "name": "活塞"
+        },
+        {
+          "code": "A003.017.02.002.9001",
+          "name": "螺纹块"
+        }
+      ],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "B09031",
+              "name": "超声波清洗机"
+            },
+            {
+              "code": "B09353",
+              "name": "超声波清洗机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "清洗次数",
+              "referenceValue": "2",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗介质",
+              "referenceValue": "注射用水",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗功率",
+              "referenceValue": "100%",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗温度",
+              "referenceValue": "室温",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "清洗时间",
+              "referenceValue": "30min",
+              "actualValue": "待填写"
+            }
+          ]
+        },
+        {
+          "equipmentOptions": [
+            {
+              "code": "B04091",
+              "name": "箱型干燥机"
+            },
+            {
+              "code": "B04041",
+              "name": "箱型干燥机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "烘干温度℃",
+              "referenceValue": "60±4",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "烘干时间",
+              "referenceValue": "3h",
+              "actualValue": "待填写"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "清洁工序",
+      "inputs": [],
+      "outputs": [
+        {
+          "code": "A001.02.033.106",
+          "name": "30atm压力表"
+        },
+        {
+          "code": "A001.02.033.107",
+          "name": "40atm压力表"
+        }
+      ],
+      "equipmentGroups": []
+    },
+    {
+      "name": "组装Ⅰ工序",
+      "inputs": [
+        {
+          "code": "A003.017.02.002.1001",
+          "name": "杠杆架"
+        },
+        {
+          "code": "A001.02.048.102",
+          "name": "杠杆"
+        },
+        {
+          "code": "A003.017.02.002.9001",
+          "name": "螺纹块"
+        },
+        {
+          "code": "A001.02.034.202",
+          "name": "弹簧"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "B09340",
+              "name": "杠杆架自动装配机"
+            }
+          ],
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "硅化Ⅰ工序",
+      "inputs": [
+        {
+          "code": "A003.017.02.002.2001",
+          "name": "螺杆"
+        },
+        {
+          "code": null,
+          "name": "KC-6稀释剂/二甲硅油",
+          "sourceCodeLabel": "无编号"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": []
+    },
+    {
+      "name": "组装Ⅱ工序",
+      "inputs": [
+        {
+          "code": "A003.017.02.002.7001",
+          "name": "按钮"
+        },
+        {
+          "code": "A003.017.02.002.4001",
+          "name": "后盖"
+        },
+        {
+          "code": "A003.017.02.002.2001",
+          "name": "螺杆"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": []
+    },
+    {
+      "name": "光固工序",
+      "inputs": [
+        {
+          "code": "A003.017.02.002.5001",
+          "name": "外套"
+        },
+        {
+          "code": "A001.02.033.106",
+          "name": "□30atm压力表"
+        },
+        {
+          "code": "A004.002.04.1008",
+          "name": "延长管（尼龙编织管）"
+        },
+        {
+          "code": "A001.02.033.107",
+          "name": "□40atm压力表"
+        },
+        {
+          "code": "A006.001.1001",
+          "name": "旋转接头"
+        },
+        {
+          "code": "A001.03.003.1004",
+          "name": "光固胶"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "A05075",
+              "name": "光固机"
+            },
+            {
+              "code": "A05059",
+              "name": "光固机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "紫外灯数量",
+              "referenceValue": "1",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "能量范围mJ/cm2",
+              "referenceValue": "800-1000",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "传送带速度",
+              "referenceValue": "10-30",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "运行次数",
+              "referenceValue": "1",
+              "actualValue": "待填写"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "硅化Ⅱ工序",
+      "inputs": [
+        {
+          "code": "A003.017.02.002.5001",
+          "name": "外套"
+        },
+        {
+          "code": null,
+          "name": "9180稀释剂/二甲硅油",
+          "sourceCodeLabel": "无编码"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "B09026",
+              "name": "硅油喷雾阀系统"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "硅油压力kPa",
+              "referenceValue": "20",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "硅油量刻度",
+              "referenceValue": "8-9",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "硅化时间ms",
+              "referenceValue": "55±5",
+              "actualValue": "待填写"
+            }
+          ]
+        },
+        {
+          "equipmentOptions": [
+            {
+              "code": "C01209",
+              "name": "电子天平"
+            }
+          ],
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "硅化Ⅲ工序",
+      "inputs": [
+        {
+          "code": "A001.02.019.301",
+          "name": "活塞环（胶塞环）"
+        },
+        {
+          "code": null,
+          "name": "9180稀释剂/291免溶剂硅油",
+          "sourceCodeLabel": "无编号"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": []
+    },
+    {
+      "name": "组装Ⅲ工序",
+      "inputs": [
+        {
+          "code": "A003.017.02.002.8001",
+          "name": "活塞"
+        },
+        {
+          "code": "A001.02.019.301",
+          "name": "活塞环（胶塞环）"
+        },
+        {
+          "code": null,
+          "name": "环氧树脂/固化剂/增韧剂",
+          "sourceCodeLabel": "无编号"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "C01034",
+              "name": "气动冲床"
+            }
+          ],
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "检测工序",
+      "inputs": [],
+      "outputs": [],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "B09032",
+              "name": "压力泵负压检测机"
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "equipmentOptions": [
+            {
+              "code": "C01160",
+              "name": "压力泵负压检测机"
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "equipmentOptions": [
+            {
+              "code": "G01143",
+              "name": "高压机小气压检测"
+            }
+          ],
+          "parameters": []
+        }
+      ]
+    },
+    {
+      "name": "单包装工序",
+      "inputs": [
+        {
+          "code": "A006.011.2003",
+          "name": "三通旋塞-Ⅰ（高压旋塞阀OFF）"
+        },
+        {
+          "code": "A002.07.003.000025",
+          "name": "顶头袋"
+        },
+        {
+          "code": "A002.06.003.110001",
+          "name": "吸塑盒"
+        },
+        {
+          "code": "A006.046.1001",
+          "name": "面纸（2FS）（空白）"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": [
+        {
+          "equipmentOptions": [
+            {
+              "code": "A05199",
+              "name": "封口热合机"
+            },
+            {
+              "code": "A05203",
+              "name": "封口热合机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "热合温度℃",
+              "referenceValue": "135±10",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "热合时间s",
+              "referenceValue": "1.8±0.5",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "热合压力MPa",
+              "referenceValue": "0.5-0.6",
+              "actualValue": "待填写"
+            }
+          ]
+        },
+        {
+          "equipmentOptions": [
+            {
+              "code": "A05048",
+              "name": "热合机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "热合温度℃",
+              "referenceValue": "150±5",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "热合时间s",
+              "referenceValue": "5±1",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "热合压力MPa",
+              "referenceValue": "0.5-0.6",
+              "actualValue": "待填写"
+            }
+          ]
+        },
+        {
+          "equipmentOptions": [
+            {
+              "code": "A03274",
+              "name": "自动热合机"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "热合温度℃",
+              "referenceValue": "107±10",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "热合时间s",
+              "referenceValue": "4.5±1",
+              "actualValue": "待填写"
+            },
+            {
+              "name": "热合压力MPa",
+              "referenceValue": "0.5-0.6",
+              "actualValue": "待填写"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "中包装工序",
+      "inputs": [
+        {
+          "code": "A002.02.001.113008",
+          "name": "中盒（内贸INT）"
+        },
+        {
+          "code": "A002.11.001.000010",
+          "name": "合格证（内贸INT）"
+        },
+        {
+          "code": "A002.10.001.113008",
+          "name": "说明书（内贸INT）"
+        },
+        {
+          "code": "A002.09.001.113017",
+          "name": "小标签（内贸INT）"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": []
+    },
+    {
+      "name": "大包装工序",
+      "inputs": [
+        {
+          "code": "A002.01.001.113009",
+          "name": "外箱（内贸INT）"
+        },
+        {
+          "code": "A002.11.001.000008",
+          "name": "灭菌指示卡"
+        },
+        {
+          "code": "A001.03.009.6002",
+          "name": "珍珠棉"
+        }
+      ],
+      "outputs": [],
+      "equipmentGroups": []
+    }
+  ]
+}

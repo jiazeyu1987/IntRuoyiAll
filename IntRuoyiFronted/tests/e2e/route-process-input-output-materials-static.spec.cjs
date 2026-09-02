@@ -43,6 +43,41 @@ assert.match(
   /outputMaterialIds:\s*normalizeRouteProcessMaterialIds\(draft\.outputMaterialIds\)/,
   '保存载荷必须写入输出物料字段。'
 )
+assert.match(
+  routeEditor,
+  /buildRouteProcessMaterialSummaryValue\('input'\)/,
+  '已发布只读视图的工序详情摘要必须渲染输入物料。'
+)
+assert.match(
+  routeEditor,
+  /buildRouteProcessMaterialSummaryValue\('output'\)/,
+  '已发布只读视图的工序详情摘要必须渲染输出物料。'
+)
+assert.match(
+  routeEditor,
+  /formatRouteProcessMaterialSummaryLine\(item\)[\s\S]*\.join\('\\n'\)/,
+  '输入物料和输出物料的字段值必须按“编码 名称”逐项换行显示。'
+)
+assert.match(
+  routeEditor,
+  /route-flow-graph-designer__selected-field-value-text--multiline[\s\S]*white-space:\s*pre-line/,
+  '输入物料和输出物料字段值必须保留换行渲染。'
+)
+assert.doesNotMatch(
+  routeEditor,
+  /materialOptions\.map\(formatRouteProcessMaterialSelectedLabel\)\.join\('、'\)/,
+  '字段明细中的多个物料不得用顿号压成同一行。'
+)
+assert.match(
+  routeEditor,
+  /label:\s*getRouteProcessSettingColumnLabel\('inputMaterialIds',\s*'输入物料'\)/,
+  '工序详情字段必须提供独立输入物料摘要。'
+)
+assert.match(
+  routeEditor,
+  /label:\s*getRouteProcessSettingColumnLabel\('outputMaterialIds',\s*'输出物料'\)/,
+  '工序详情字段必须提供独立输出物料摘要。'
+)
 assert.doesNotMatch(routeEditor, /frontlineReportMaterialIds/, '前端路线编辑器不得继续读写旧批记录物料字段。')
 
 console.log('PASS: route process input/output materials are explicit and independent')

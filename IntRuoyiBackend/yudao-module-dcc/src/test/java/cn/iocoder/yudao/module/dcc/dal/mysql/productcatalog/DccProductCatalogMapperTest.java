@@ -37,6 +37,35 @@ class DccProductCatalogMapperTest {
         assertFalse(sqlSegment.contains("TRIM(project_code) <> ''"));
     }
 
+    @Test
+    void selectPageShouldFilterAllVisibleTitlesExceptRecognitionJson() {
+        String sqlSegment = captureSqlSegmentWithVisibleTitleFilters();
+
+        for (String expectedColumn : new String[] {
+                "category_level1",
+                "category_level2",
+                "product_sequence",
+                "product",
+                "data_source",
+                "product_code",
+                "project_name",
+                "project_code",
+                "registration_certificate_name",
+                "registration_certificate_number",
+                "certificate_holder",
+                "registration_place",
+                "effective_date",
+                "expiry_date",
+                "classification",
+                "product_status",
+                "registration_info_link",
+                "remark"
+        }) {
+            assertTrue(sqlSegment.contains(expectedColumn), "missing filter column: " + expectedColumn);
+        }
+        assertFalse(sqlSegment.contains("batch_record_total_recognition_json"));
+    }
+
     private String captureSqlSegment(Boolean projectCodeNotBlank) {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),
                 DccProductCatalogDO.class);
@@ -51,6 +80,43 @@ class DccProductCatalogMapperTest {
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
         reqVO.setProjectCodeNotBlank(projectCodeNotBlank);
+
+        mapper.selectPage(reqVO);
+
+        return wrapperCaptor.getValue().getSqlSegment();
+    }
+
+    private String captureSqlSegmentWithVisibleTitleFilters() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""),
+                DccProductCatalogDO.class);
+        DccProductCatalogMapper mapper = mock(DccProductCatalogMapper.class,
+                withSettings().defaultAnswer(CALLS_REAL_METHODS));
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        ArgumentCaptor<Wrapper<DccProductCatalogDO>> wrapperCaptor =
+                ArgumentCaptor.forClass((Class) Wrapper.class);
+        doReturn(PageResult.empty()).when(mapper)
+                .selectPage(any(PageParam.class), wrapperCaptor.capture());
+        DccProductCatalogPageReqVO reqVO = new DccProductCatalogPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setCategoryLevel1("类别一");
+        reqVO.setCategoryLevel2("类别二");
+        reqVO.setProductSequence("1");
+        reqVO.setProduct("产品");
+        reqVO.setDataSource("瑛泰产品");
+        reqVO.setProductCode("031314");
+        reqVO.setProjectName("项目");
+        reqVO.setProjectCode("IDI");
+        reqVO.setRegistrationCertificateName("注册证名称");
+        reqVO.setRegistrationCertificateNumber("沪械注准");
+        reqVO.setCertificateHolder("持证人");
+        reqVO.setRegistrationPlace("上海");
+        reqVO.setEffectiveDate("2025");
+        reqVO.setExpiryDate("2030");
+        reqVO.setClassification("二类");
+        reqVO.setProductStatus("S");
+        reqVO.setRegistrationInfoLink("http");
+        reqVO.setRemark("备注");
 
         mapper.selectPage(reqVO);
 

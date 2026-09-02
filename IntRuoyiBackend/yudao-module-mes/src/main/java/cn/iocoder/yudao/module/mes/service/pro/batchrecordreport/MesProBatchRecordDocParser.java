@@ -457,7 +457,54 @@ public class MesProBatchRecordDocParser {
             }
         }
         String text = builder.toString();
+        String nestedTableText = resolveDocxNestedTableText(cell);
+        if (!nestedTableText.isBlank()) {
+            text = text.isBlank() ? nestedTableText : text + "\n" + nestedTableText;
+        }
         return text.isBlank() ? cell.getText() : text;
+    }
+
+    private String resolveDocxNestedTableText(XWPFTableCell cell) {
+        if (cell == null || cell.getTables() == null || cell.getTables().isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (XWPFTable nestedTable : cell.getTables()) {
+            if (nestedTable == null || nestedTable.getRows() == null) {
+                continue;
+            }
+            for (XWPFTableRow nestedRow : nestedTable.getRows()) {
+                List<String> values = new ArrayList<>();
+                for (XWPFTableCell nestedCell : nestedRow.getTableCells()) {
+                    values.add(resolveDocxOwnCellText(nestedCell));
+                }
+                String line = String.join("\t", values).trim();
+                if (!line.isBlank()) {
+                    lines.add(line);
+                }
+            }
+        }
+        return String.join("\n", lines);
+    }
+
+    private String resolveDocxOwnCellText(XWPFTableCell cell) {
+        if (cell == null || cell.getParagraphs() == null || cell.getParagraphs().isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+            if (builder.length() > 0) {
+                builder.append('\n');
+            }
+            if (paragraph == null || paragraph.getRuns().isEmpty()) {
+                builder.append(paragraph == null ? "" : paragraph.getText());
+                continue;
+            }
+            for (XWPFRun run : paragraph.getRuns()) {
+                builder.append(resolveDocxRunText(run));
+            }
+        }
+        return builder.toString().trim();
     }
 
     private String resolveDocxRunText(XWPFRun run) {

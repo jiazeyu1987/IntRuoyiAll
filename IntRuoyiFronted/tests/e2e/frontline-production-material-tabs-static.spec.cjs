@@ -31,8 +31,18 @@ assert.match(
 )
 assert.match(
   panel,
-  /v-if="material\.batchCodes\.length > 0"[\s\S]*material\.batchCodes\.join\('、'\)/,
-  'material tabs must show only batch codes already synchronized into this system.'
+  /<strong>\s*\{\{\s*formatProductionMaterialTabLabel\(material\)\s*\}\}\s*<\/strong>/,
+  'material tabs must render the material name with entered output/loss quantity summary.'
+)
+assert.match(
+  panel,
+  /const formatProductionMaterialTabLabel = \(material: ProductionMaterialOption\) => \{[\s\S]*outputQuantity[\s\S]*lossQuantity[\s\S]*`\$\{material\.materialName\}\(\$\{outputQuantity\}\/\$\{lossQuantity\}\)`/,
+  'completed material tabs must show only name(output/loss), for example 杠杆(3012/12).'
+)
+assert.doesNotMatch(
+  panel,
+  /frontline-production-material-batches|material\.batchCodes\.join\('、'\)|<small>\s*\{\{\s*material\.materialCode/,
+  'material tabs must not render material codes or batch-code rows.'
 )
 assert.match(
   panel,

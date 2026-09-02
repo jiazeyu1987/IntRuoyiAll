@@ -88,6 +88,7 @@ export interface DccRegistrationCertificatePageItemVO {
   status: DccRegistrationCertificateStatus
   classification: string
   remark?: string
+  hasPendingChange: boolean
   hasProjectCode: boolean
   hasRegistrationFile: boolean
   reminderColor: string

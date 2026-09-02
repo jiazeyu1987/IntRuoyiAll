@@ -279,6 +279,42 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void pageTodoUsesChangeOperationForRegistrationCertificateApprovalTitle() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-change-summary");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-change-summary");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8805L),
+                Map.entry("requestId", 8805L),
+                Map.entry("certificateId", 7705L),
+                Map.entry("ownerCompanyId", 6601L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "CHANGE_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-CHANGE-20260902-001"),
+                Map.entry("productName", "球囊扩张导管变更后")));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "CHANGE", 1, 10)).getList().get(0);
+
+        assertEquals("注册证变更审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("产品：球囊扩张导管变更后"), summary.getBusinessContextTags());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7705", summary.getDecisionDetailRoute());
+        assertEquals("8805", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-change-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
     void pageTodoHidesMissingRegistrationCertificateSummaryTags() {
         Task task = mock(Task.class);
         when(task.getId()).thenReturn("task-regcert-summary-missing");

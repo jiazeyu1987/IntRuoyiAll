@@ -1846,6 +1846,7 @@ CREATE TABLE IF NOT EXISTS "dcc_project_code" (
     "priority" varchar(64) DEFAULT NULL,
     "status" varchar(32) NOT NULL,
     "last_import_batch_id" bigint DEFAULT NULL,
+    "batch_record_total_recognition_json" clob DEFAULT NULL,
     "associated_file_count" bigint NOT NULL DEFAULT 0,
     "creator" varchar(64) DEFAULT '',
     "create_time" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

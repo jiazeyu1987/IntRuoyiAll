@@ -91,7 +91,7 @@ public class MesProFeedbackMaterialServiceImpl implements MesProFeedbackMaterial
                 .materialCode(entry.materialCode().trim())
                 .materialName(entry.materialName().trim())
                 .materialSpecification(normalize(entry.materialSpecification()))
-                .bomQuantity(entry.bomQuantity())
+                .bomQuantity(entry.bomQuantity() == null ? BigDecimal.ZERO : entry.bomQuantity())
                 .outputQuantity(entry.outputQuantity())
                 .lossQuantity(entry.lossQuantity())
                 .lossDetailsJson(entry.lossDetailsJson())

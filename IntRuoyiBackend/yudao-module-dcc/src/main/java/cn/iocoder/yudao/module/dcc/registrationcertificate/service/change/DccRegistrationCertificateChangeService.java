@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED;
@@ -162,6 +163,7 @@ public class DccRegistrationCertificateChangeService {
         ChangeSelection selection = validateSelection(command);
         CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
                 command.expectedRowVersion());
+        ensureNoOpenChangeApproval(command.tenantId(), command.certificateId());
         Long eventId = insertLifecycleEvent(command, state, state.snapshotId(), EVENT_CHANGE_SUBMITTED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertPendingChange(command, state, eventId, selection.itemTypes());
@@ -416,6 +418,7 @@ public class DccRegistrationCertificateChangeService {
                           JOIN dcc_registration_certificate_snapshot s
                             ON s.id = c.current_snapshot_id AND s.tenant_id = c.tenant_id
                          WHERE c.tenant_id = ? AND c.id = ?
+                         FOR UPDATE
                         """, (rs, rowNum) -> new CertificateState(
                         rs.getLong("owner_company_id"),
                         rs.getLong("current_version_id"),
@@ -454,6 +457,20 @@ public class DccRegistrationCertificateChangeService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REVISION_CONFLICT);
         }
         return state;
+    }
+
+    private void ensureNoOpenChangeApproval(Long tenantId, Long certificateId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_change
+                 WHERE tenant_id = ?
+                   AND certificate_id = ?
+                   AND status = ?
+                   AND deleted = 0
+                """, Integer.class, tenantId, certificateId, STATUS_PENDING_APPROVAL);
+        if (count != null && count > 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT);
+        }
     }
 
     private void voidBoundRegistrationFiles(Long tenantId, Long versionId) {

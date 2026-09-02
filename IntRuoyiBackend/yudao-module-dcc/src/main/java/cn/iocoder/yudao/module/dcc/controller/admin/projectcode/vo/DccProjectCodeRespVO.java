@@ -22,6 +22,8 @@ public class DccProjectCodeRespVO {
     private String priority;
     private String status;
     private Long associatedFileCount;
+    @Schema(description = "Word 批记录总识别 JSON")
+    private String batchRecordTotalRecognitionJson;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

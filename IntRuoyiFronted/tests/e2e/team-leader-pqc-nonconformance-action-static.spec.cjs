@@ -16,14 +16,20 @@ assert.match(
 
 assert.match(
   page,
-  /const canOpenPqcSubmissionNonconformanceReview = \(row: ProcessPoolTimelineEventVO\) =>[\s\S]*canReviewSubmission\(row\)[\s\S]*Boolean\(row\.batchExecutionId\)/,
-  '不合格审查按钮必须只对待复核且已带出正式批次上下文的PQC提交行开放。'
+  /const canOpenPqcSubmissionNonconformanceReview = \(row: ProcessPoolTimelineEventVO\) =>\s*[\r\n]+\s*canReviewSubmission\(row\)/,
+  '不合格审查按钮必须对待复核PQC提交行开放，不能依赖批次执行上下文。'
 )
 
 assert.match(
   page,
-  /sourceType:\s*SOURCE_TYPE_PQC_SUBMISSION[\s\S]*sourceId:\s*String\(row\.id\)[\s\S]*batchExecutionId:\s*String\(row\.batchExecutionId\)/,
-  'PQC管理入口跳转必须携带PQC提交来源ID和批次上下文。'
+  /sourceType:\s*SOURCE_TYPE_PQC_SUBMISSION[\s\S]*sourceId:\s*String\(row\.id\)/,
+  'PQC管理入口跳转必须携带PQC提交来源ID。'
+)
+
+assert.doesNotMatch(
+  page,
+  /query\.batchExecutionId\s*=|batchExecutionId:\s*String\(row\.batchExecutionId\)/,
+  'PQC管理入口不得携带可能失效的批次执行ID。'
 )
 
 const frontlinePanel = read(

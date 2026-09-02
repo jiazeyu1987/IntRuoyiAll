@@ -56,11 +56,22 @@ def test_local_restart_applies_idi_device_parameter_rules_migration() -> None:
     assert "project.`project_name` = '按压式球囊扩充压力泵'" not in text
     assert "B09393" in text
     assert "COUNT(DISTINCT target_rule.`parameter_code`)" in text
-    assert "'ROUGH_WASH_COUNT'" in text
-    assert "'ROUGH_WASH_MEDIUM'" in text
-    assert "'ROUGH_WASH_POWER'" in text
-    assert "'ROUGH_WASH_ROOM_TEMPERATURE'" in text
-    assert "'ROUGH_WASH_TIME'" in text
+    for parameter_code in (
+        "IDIJSON_01_B09393_01",
+        "IDIJSON_01_B09393_02",
+        "IDIJSON_01_B09393_03",
+        "IDIJSON_01_B09393_04",
+        "IDIJSON_01_B09393_05",
+    ):
+        assert f"'{parameter_code}'" in text
+    for legacy_code in (
+        "ROUGH_WASH_COUNT",
+        "ROUGH_WASH_MEDIUM",
+        "ROUGH_WASH_POWER",
+        "ROUGH_WASH_ROOM_TEMPERATURE",
+        "ROUGH_WASH_TIME",
+    ):
+        assert f"'{legacy_code}'" not in text
 
 
 def test_local_restart_accepts_completed_route_flow_unification() -> None:

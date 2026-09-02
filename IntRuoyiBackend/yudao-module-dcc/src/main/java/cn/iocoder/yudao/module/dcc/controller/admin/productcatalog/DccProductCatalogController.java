@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRegistrationExpiryCompareRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeNodeRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,6 +74,14 @@ public class DccProductCatalogController {
     public CommonResult<PageResult<DccProductCatalogRespVO>> getProductCatalogPage(
             @Valid DccProductCatalogPageReqVO pageReqVO) {
         return success(productCatalogService.getProductCatalogPage(pageReqVO));
+    }
+
+    @GetMapping("/tree")
+    @Operation(summary = "获得 DCC 产品目录树")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    public CommonResult<List<DccProductCatalogTreeNodeRespVO>> getProductCatalogTree(
+            @Valid DccProductCatalogTreeReqVO reqVO) {
+        return success(productCatalogService.getProductCatalogTree(reqVO));
     }
 
     @PostMapping("/registration-expiry/compare")

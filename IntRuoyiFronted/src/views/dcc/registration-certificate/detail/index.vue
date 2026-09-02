@@ -389,7 +389,6 @@ const accessRequestId = computed(() => {
   )
 })
 const accessRequestCertificateId = ref('')
-const certificateId = computed(() => routeCertificateId.value || accessRequestCertificateId.value)
 const detailVersionId = computed(() => parsePositiveRouteQueryId(route.query.versionId))
 const routeDownloadFileId = computed(() => parsePositiveRouteQueryId(route.query.downloadFileId))
 const viewMode = computed(() => {
@@ -422,7 +421,7 @@ const changeHistory = computed(() => {
   history.value
     .filter((item) => item.eventType === 'CHANGE_SUBMITTED' || item.eventType === 'CHANGE_APPLIED')
     .forEach((item) => {
-      const key = String(item.changeId || item.eventId || `${item.eventType}-${item.occurredAt}`)
+      const key = String(item.changeId)
       const existing = grouped.get(key)
       if (existing) {
         existing.items.push(item)
@@ -461,15 +460,17 @@ const getCategoryChangedTagType = (value?: boolean) => {
 }
 
 const formatChangeStatus = (status?: string, eventType?: string) => {
-  if (status === 'PENDING_APPROVAL' || eventType === 'CHANGE_SUBMITTED') return '待审批'
-  if (status === 'APPLIED' || eventType === 'CHANGE_APPLIED') return '已通过'
+  if (status === 'APPLIED') return '已变更'
+  if (status === 'PENDING_APPROVAL') return '待审批'
   if (status === 'REJECTED') return '已驳回'
+  if (eventType === 'CHANGE_APPLIED') return '已变更'
+  if (eventType === 'CHANGE_SUBMITTED') return '待审批'
   return '记录缺失'
 }
 
 const getChangeStatusTagType = (status?: string, eventType?: string) => {
   const normalized = formatChangeStatus(status, eventType)
-  if (normalized === '已通过') return 'success'
+  if (normalized === '已变更') return 'success'
   if (normalized === '已驳回') return 'danger'
   if (normalized === '待审批') return 'warning'
   return 'info'
@@ -515,6 +516,48 @@ const openAttachmentPreview = (businessFileId: number | string, fileName: string
 const isAttachmentDownloading = (businessFileId: number | string) =>
   downloadingBusinessFileId.value === String(businessFileId)
 
+const resolveRegistrationCertificateDownloadFileName = (fileName: string, expired: boolean) => {
+  const normalizedName = fileName.trim()
+  if (!expired || normalizedName.includes('已失效')) {
+    return normalizedName
+  }
+  const extensionIndex = normalizedName.lastIndexOf('.')
+  if (extensionIndex <= 0) {
+    return `${normalizedName}已失效`
+  }
+  const baseName = normalizedName.slice(0, extensionIndex)
+  const extension = normalizedName.slice(extensionIndex + 1)
+  return `${baseName}已失效.${extension}`
+}
+
+const isOldRegistrationCertificateDetail = computed(() =>
+  viewMode.value === 'old-detail' || detail.value?.status === 'OLD'
+)
+
+const expiredRegistrationCertificateFileIds = computed(() => {
+  const ids = new Set<string>()
+  if (!isOldRegistrationCertificateDetail.value) {
+    return ids
+  }
+  if (detail.value?.registrationFileId) {
+    ids.add(String(detail.value.registrationFileId))
+  }
+  history.value.forEach((item) => {
+    if (!item.businessFileId || item.fileKind !== 'REGISTRATION_CERTIFICATE') {
+      return
+    }
+    if (String(item.targetVersionId) !== String(detail.value?.versionId)) {
+      return
+    }
+    ids.add(String(item.businessFileId))
+  })
+  return ids
+})
+
+const isExpiredRegistrationCertificateDownload = (businessFileId: number | string) =>
+  isOldRegistrationCertificateDetail.value
+  && expiredRegistrationCertificateFileIds.value.has(String(businessFileId))
+
 const resolveAttachmentDownloadError = (error: unknown) => {
   const message = String((error as { message?: string })?.message || '').trim()
   const messages: Record<string, string> = {
@@ -535,7 +578,19 @@ const downloadAttachment = async (businessFileId: number | string) => {
   downloadingBusinessFileId.value = String(businessFileId)
   try {
     const result = await downloadRegistrationCertificateFile(businessFileId)
-    downloadByData(result.blob, result.fileName, result.blob.type || 'application/octet-stream')
+    const expired = isExpiredRegistrationCertificateDownload(businessFileId)
+    const savedFileName = resolveRegistrationCertificateDownloadFileName(result.fileName, expired)
+    console.info('[registration-certificate-download]', {
+      businessFileId: String(businessFileId),
+      viewMode: viewMode.value,
+      detailStatus: detail.value?.status,
+      routeVersionId: detailVersionId.value,
+      registrationFileId: detail.value?.registrationFileId ? String(detail.value.registrationFileId) : '',
+      sourceFileName: result.fileName,
+      savedFileName,
+      expired
+    })
+    downloadByData(result.blob, savedFileName, result.blob.type || 'application/octet-stream')
   } catch (error) {
     attachmentActionError.value = resolveAttachmentDownloadError(error)
   } finally {

@@ -51,7 +51,7 @@ class MesProFeedbackMaterialServiceTest {
         assertEquals(9001L, rows.get(0).getFeedbackId());
         assertEquals(627L, rows.get(0).getRouteVersionId());
         assertEquals(501L, rows.get(0).getMaterialId());
-        assertEquals(null, rows.get(0).getBomQuantity());
+        assertEquals(BigDecimal.ZERO, rows.get(0).getBomQuantity());
         assertEquals(new BigDecimal("5"), rows.get(0).getOutputQuantity());
         assertEquals("[]", rows.get(0).getLossDetailsJson());
         assertEquals(502L, rows.get(1).getMaterialId());

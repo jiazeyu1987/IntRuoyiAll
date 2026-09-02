@@ -18,7 +18,7 @@ def test_product_catalog_migration_declares_global_table_and_seed_rows() -> None
     assert "`uk_dcc_product_catalog_source_row`" in sql
     assert "ON DUPLICATE KEY UPDATE `id` = `id`" in sql
     assert "('子公司产品'," not in sql
-    assert sql.count("('瑛泰产品',") == 181
+    assert sql.count("('瑛泰产品',") == 186
 
 
 def test_product_catalog_table_is_excluded_from_tenant_interceptor() -> None:

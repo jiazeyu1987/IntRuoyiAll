@@ -27,6 +27,7 @@ public class DccRegistrationCertificateQueryRecord {
     private LocalDate expiryDate;
     private String classification;
     private String remark;
+    private Boolean hasPendingChange;
     private String registrantName;
     private String modelSpecification;
     private String structureComposition;

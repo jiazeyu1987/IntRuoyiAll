@@ -1366,6 +1366,7 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `priority` VARCHAR(64) NULL,
   `status` VARCHAR(32) NOT NULL,
   `last_import_batch_id` BIGINT NULL,
+  `batch_record_total_recognition_json` LONGTEXT NULL,
   `associated_file_count` BIGINT NOT NULL DEFAULT 0,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,

@@ -68,4 +68,7 @@ public class BatchRecordReportImportRespVO {
 
     @Schema(description = "本次处理的报表")
     private List<BatchRecordReportRespVO> reports;
+
+    @Schema(description = "本次 Word 导入识别出的产品、工序、物料、设备和参数总 JSON")
+    private String totalRecognitionJson;
 }

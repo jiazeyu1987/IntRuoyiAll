@@ -288,14 +288,15 @@ for (const token of [
 }
 
 for (const token of [
-  'ERP商品 / MES物料产品',
-  'ERP库存',
-  'ERP采购订单',
-  'ERP销售订单',
-  'MES生产工单',
-  'ERP生产领料单列表',
-  'ERP生产用料清单',
-  'ERP产品BOM'
+  '产品信息 / 物料产品管理',
+  '产品库存',
+  '库存调拨',
+  '采购订单',
+  '销售订单',
+  '生产工单',
+  '生产领料单列表',
+  '生产用料清单',
+  '物料清单'
 ]) {
   assert.match(
     component,
@@ -413,7 +414,7 @@ assert.doesNotMatch(
 for (const token of [
   "syncType: 'PRODUCTION_PICK_LIST'",
   "erpTableName: '生产领料单列表'",
-  "localTabName: 'ERP生产领料单列表'",
+  "localTabName: '生产领料单列表'",
   "handlerName: 'kingdeeProductionPickListSyncJob'"
 ]) {
   assert.match(

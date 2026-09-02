@@ -57,7 +57,7 @@ assert.match(teamLeaderPage, /data-pqc-submission-nonconformance-review-event-id
 assert.match(teamLeaderPage, /name:\s*'MesProFeedbackEdhrNonconformanceReview'/)
 assert.match(teamLeaderPage, /sourceType:\s*SOURCE_TYPE_PQC_SUBMISSION/)
 assert.match(teamLeaderPage, /sourceId:\s*String\(row\.id\)/)
-assert.match(teamLeaderPage, /batchExecutionId:\s*String\(row\.batchExecutionId\)/)
+assert.doesNotMatch(teamLeaderPage, /query\.batchExecutionId\s*=|batchExecutionId:\s*String\(row\.batchExecutionId\)/)
 
 const processPoolApi = read('src/api/mes/pro/processpool/index.ts')
 assert.match(processPoolApi, /batchExecutionId\?:\s*number/)

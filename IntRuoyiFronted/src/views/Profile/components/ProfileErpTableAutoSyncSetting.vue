@@ -216,55 +216,55 @@ const syncTypes: ProfileErpSyncType[] = [
   {
     syncType: 'PRODUCT',
     erpTableName: 'ERP 商品',
-    localTabName: 'ERP商品 / MES物料产品',
+    localTabName: '产品信息 / 物料产品管理',
     handlerName: 'kingdeeProductItemSyncJob'
   },
   {
     syncType: 'STOCK',
     erpTableName: 'ERP 库存',
-    localTabName: 'ERP库存',
+    localTabName: '产品库存',
     handlerName: 'kingdeeStockSyncJob'
   },
   {
     syncType: 'STOCK_MOVE',
     erpTableName: '金蝶调拨单',
-    localTabName: '金蝶调拨单只读列表',
+    localTabName: '库存调拨',
     handlerName: 'kingdeeStockMoveSyncJob'
   },
   {
     syncType: 'PURCHASE_ORDER',
     erpTableName: '采购订单',
-    localTabName: 'ERP采购订单',
+    localTabName: '采购订单',
     handlerName: 'kingdeePurchaseOrderSyncJob'
   },
   {
     syncType: 'SALE_ORDER',
     erpTableName: '销售订单',
-    localTabName: 'ERP销售订单',
+    localTabName: '销售订单',
     handlerName: 'kingdeeSaleOrderSyncJob'
   },
   {
     syncType: 'PRODUCTION_ORDER',
     erpTableName: '生产工单',
-    localTabName: 'MES生产工单',
+    localTabName: '生产工单',
     handlerName: 'kingdeeProductionOrderSyncJob'
   },
   {
     syncType: 'PRODUCTION_PICK_LIST',
     erpTableName: '生产领料单列表',
-    localTabName: 'ERP生产领料单列表',
+    localTabName: '生产领料单列表',
     handlerName: 'kingdeeProductionPickListSyncJob'
   },
   {
     syncType: 'PRODUCTION_MATERIAL_LIST',
     erpTableName: '生产用料清单',
-    localTabName: 'ERP生产用料清单',
+    localTabName: '生产用料清单',
     handlerName: 'kingdeeProductionMaterialListSyncJob'
   },
   {
     syncType: 'BOM',
     erpTableName: '产品 BOM',
-    localTabName: 'ERP产品BOM',
+    localTabName: '物料清单',
     handlerName: 'kingdeeBomSyncJob'
   }
 ]

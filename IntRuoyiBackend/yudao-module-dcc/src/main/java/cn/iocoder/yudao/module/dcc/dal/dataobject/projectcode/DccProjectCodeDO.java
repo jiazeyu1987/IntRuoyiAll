@@ -34,6 +34,7 @@ public class DccProjectCodeDO extends TenantBaseDO {
     private String priority;
     private String status;
     private Long lastImportBatchId;
+    private String batchRecordTotalRecognitionJson;
     @TableField(exist = false)
     private Long associatedFileCount;
 }

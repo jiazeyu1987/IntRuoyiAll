@@ -25,6 +25,15 @@ public record MesProBatchRecordImportResult(
         Integer boundProductNameCount,
         Integer boundProductCodeCount,
         List<String> skippedProductNames,
-        List<MesProBatchRecordReportView> reports
+        List<MesProBatchRecordReportView> reports,
+        String totalRecognitionJson
 ) {
+
+    public MesProBatchRecordImportResult withTotalRecognitionJson(String value) {
+        return new MesProBatchRecordImportResult(importedCount, createdCount, updatedCount,
+                batchRecordDefinitionId, batchRecordVersionId, sourceBatchRecordVersionId, versionNo,
+                versionStatus, approvalInstanceId, routeId, routeCode, routeName, routeVersionId,
+                routeVersionNo, routeProcessCount, batchRecordRouteBindingCount, boundProductNameCount,
+                boundProductCodeCount, skippedProductNames, reports, value);
+    }
 }

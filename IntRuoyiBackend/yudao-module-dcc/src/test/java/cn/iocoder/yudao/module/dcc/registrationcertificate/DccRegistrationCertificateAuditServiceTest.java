@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -54,6 +55,20 @@ class DccRegistrationCertificateAuditServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void repeatableListReadKeepsSingleAuditEventForDuplicatePageSuccess() {
+        readAuditService.recordRepeatableListRead(successCommand("REQ-PAGE-001", 1001L, "PAGE"));
+
+        assertDoesNotThrow(() -> readAuditService.recordRepeatableListRead(
+                successCommand("REQ-PAGE-001", 1001L, "PAGE")));
+
+        DccRegistrationCertificateAuditDO stored = auditMapper.selectByTenantIdAndEventKey(
+                1L, "REQ-PAGE-001:PAGE:CERTIFICATE:1001:SUCCESS");
+        assertNotNull(stored);
+        assertEquals("PAGE_SUCCEEDED", stored.getEventType());
+        assertEquals(1, auditMapper.selectListByCertificateId(1001L).size());
+    }
+
+    @Test
     void readAuditPersistsFailureWithRequestedIdentityOnly() {
         readAuditService.record(DccRegistrationCertificateReadAuditCommand.builder()
                 .tenantId(1L)
@@ -78,13 +93,18 @@ class DccRegistrationCertificateAuditServiceTest extends BaseDbUnitTest {
     }
 
     private static DccRegistrationCertificateReadAuditCommand successCommand(String traceId, Long certificateId) {
+        return successCommand(traceId, certificateId, "DETAIL");
+    }
+
+    private static DccRegistrationCertificateReadAuditCommand successCommand(
+            String traceId, Long certificateId, String operation) {
         return DccRegistrationCertificateReadAuditCommand.builder()
                 .tenantId(1L)
                 .ownerCompanyId(10L)
                 .certificateId(certificateId)
                 .versionId(2001L)
                 .snapshotId(3001L)
-                .operation("DETAIL")
+                .operation(operation)
                 .actorId(99L)
                 .result("SUCCESS")
                 .resultCode("OK")

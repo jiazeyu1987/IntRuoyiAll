@@ -287,6 +287,7 @@ public class MesProBatchRecordReportController {
         response.setBoundProductCodeCount(result.boundProductCodeCount());
         response.setSkippedProductNames(result.skippedProductNames());
         response.setReports(toRespVOList(result.reports()));
+        response.setTotalRecognitionJson(result.totalRecognitionJson());
         return response;
     }
 

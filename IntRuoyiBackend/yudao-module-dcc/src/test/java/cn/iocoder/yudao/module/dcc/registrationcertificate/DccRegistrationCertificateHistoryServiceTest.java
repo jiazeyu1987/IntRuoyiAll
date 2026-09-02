@@ -19,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.Collection;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -95,6 +96,43 @@ class DccRegistrationCertificateHistoryServiceTest extends BaseDbUnitTest {
         assertEquals("{\"value\":\"ACTIVE\"}", items.get(1).beforeValueJson());
         assertEquals("{\"voidReason\":\"证书已依法作废\"}", items.get(1).afterValueJson());
         assertEquals(100L, items.get(1).actorId());
+    }
+
+    @Test
+    void listHistoryExposesChangeStatusAndApprovalAuditFields() throws Exception {
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 8, 17, 9, 0);
+        LocalDateTime reviewedAt = LocalDateTime.of(2026, 8, 18, 10, 0);
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_lifecycle_event
+                  (id, tenant_id, owner_company_id, certificate_id, source_version_id, target_version_id,
+                   source_snapshot_id, target_snapshot_id, event_key, event_type, event_sequence,
+                   actor_id, detail_json, occurred_at, creator)
+                VALUES (7101, 1, 10, 1001, 2001, 2001, 3001, 3002, 'change-audit-1',
+                        'CHANGE_SUBMITTED', 1, 88, '{}', ?, '88')
+                """, submittedAt);
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_change
+                  (id, tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
+                   resulting_snapshot_id, event_id, approval_request_id, approval_date,
+                   selected_change_types_json, status, actor_id, reviewer_user_id, reviewed_at, applied_at)
+                VALUES (5101, 1, 10, 1001, 2001, 3001, 3002, 7101, 8101, DATE '2026-08-17',
+                        '["PRODUCT_NAME"]', 'APPLIED', 88, 99, ?, ?)
+                """, reviewedAt, reviewedAt);
+
+        List<DccRegistrationCertificateHistoryItem> items = service.listHistory(1L, 1001L);
+
+        DccRegistrationCertificateHistoryItem item = items.get(0);
+        assertEquals(7101L, component(item, "eventId"));
+        assertEquals(5101L, component(item, "changeId"));
+        assertEquals(8101L, component(item, "approvalRequestId"));
+        assertEquals("APPLIED", component(item, "changeStatus"));
+        assertEquals(88L, component(item, "submittedBy"));
+        assertEquals(submittedAt, component(item, "submittedAt"));
+        assertEquals(99L, component(item, "reviewedBy"));
+        assertEquals(reviewedAt, component(item, "reviewedAt"));
+        assertEquals("用户-88", component(item, "submittedByName"));
+        assertEquals("用户-99", component(item, "reviewedByName"));
+        assertEquals("2026-08-17", component(item, "approvalDate").toString());
     }
 
     @Test
@@ -234,6 +272,10 @@ class DccRegistrationCertificateHistoryServiceTest extends BaseDbUnitTest {
         user.setId(id);
         user.setNickname("用户-" + id);
         return user;
+    }
+
+    private static Object component(DccRegistrationCertificateHistoryItem item, String name) throws Exception {
+        return Objects.requireNonNull(item.getClass().getMethod(name).invoke(item));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

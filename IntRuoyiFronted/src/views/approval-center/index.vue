@@ -1081,11 +1081,12 @@ const openReviewAction = (row: ApprovalTaskSummaryVO) => {
 }
 
 const openDecisionDetail = (row: ApprovalTaskSummaryVO) => {
-  if (!row.businessDeleted && !resolveDecisionDetailRoute(row)) {
+  const detailRoute = resolveDecisionDetailRoute(row)
+  if (!detailRoute) {
     ElMessage.error(resolveViewDisabledReason(row))
     return
   }
-  router.push(resolveDccApprovalDetailLocation(row, resolveDecisionDetailRoute(row), resolveDecisionDetailQuery(row)))
+  router.push(resolveDccApprovalDetailLocation(row, detailRoute, resolveDecisionDetailQuery(row)))
 }
 
 const openReviewDialog = (row: ApprovalTaskSummaryVO) => {

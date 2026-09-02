@@ -232,7 +232,7 @@ const entrySourceType = computed<EdhrNonconformanceReviewSourceType>(() =>
 const canCreateEntry = computed(
   () =>
     Boolean(entryBatchExecutionId.value) ||
-    (entrySourceType.value === SOURCE_TYPE_PQC_RELEASE && Boolean(entrySourceId.value))
+    Boolean(entrySourceId.value)
 )
 
 const entryForm = reactive({
@@ -327,9 +327,9 @@ const submitCreateReview = async () => {
   const batchExecutionId = entryBatchExecutionId.value
   if (
     !batchExecutionId &&
-    !(entryForm.sourceType === SOURCE_TYPE_PQC_RELEASE && entrySourceId.value)
+    !entrySourceId.value
   ) {
-    message.error('缺少批次执行或生产放行申请，无法发起不合格评审。')
+    message.error('缺少批次执行或来源记录，无法发起不合格评审。')
     return
   }
   const reason = entryForm.nonconformanceReason.trim()

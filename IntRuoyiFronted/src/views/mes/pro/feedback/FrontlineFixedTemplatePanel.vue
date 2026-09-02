@@ -561,22 +561,9 @@
               <span
                 class="frontline-production-order-summary__value"
                 data-frontline-production-order-code
+                data-frontline-production-active-order-summary
               >
-                {{ productionOrderLabel }}
-              </span>
-              <span
-                v-if="productionBatchCodeLabel"
-                class="frontline-production-order-summary__value"
-                data-frontline-production-batch-code
-              >
-                {{ productionBatchCodeLabel }}
-              </span>
-              <span
-                v-if="selectedActiveOrder"
-                class="frontline-production-order-summary__value"
-                data-frontline-production-product-name
-              >
-                {{ productionProductNameLabel }}
+                {{ productionActiveOrderSummaryLabel }}
               </span>
             </div>
           </button>
@@ -770,7 +757,6 @@
             </div>
 
             <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
-              <div class="frontline-production-defect-title defect-title">不良明细</div>
               <div class="frontline-production-defect-grid defect-grid">
                 <div
                   v-for="defect in configuredDefectReasons"
@@ -829,18 +815,11 @@
                 role="tab"
                 data-frontline-production-material-tab
                 :aria-selected="material.key === selectedProductionMaterialKey"
-                :aria-label="`${material.materialName} ${material.materialCode}`"
+                :aria-label="formatProductionMaterialTabLabel(material)"
                 :disabled="payloadLoading"
                 @click="switchProductionMaterial(material.key)"
               >
-                <strong>{{ material.materialName }}</strong>
-                <small>{{ material.materialCode }}</small>
-                <small
-                  v-if="material.batchCodes.length > 0"
-                  class="frontline-production-material-batches"
-                >
-                  批号 {{ material.batchCodes.join('、') }}
-                </small>
+                <strong>{{ formatProductionMaterialTabLabel(material) }}</strong>
               </button>
             </section>
             <div
@@ -960,13 +939,16 @@
                     {{ formatProductionParameterTargetRange(parameter) }}
                   </small>
                 </label>
-                <span
+                <input
                   v-if="isTextStandardParameter(parameter)"
-                  class="frontline-production-device-standard-text"
-                  data-frontline-text-parameter-standard
-                >
-                  {{ parameter.standardText }}
-                </span>
+                  class="device-value frontline-production-device-text"
+                  :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                  :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
+                  :aria-label="parameter.parameterName || parameter.parameterCode"
+                  :disabled="payloadLoading"
+                  data-frontline-text-parameter-input
+                  @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
+                />
                 <button
                   v-else-if="isNumericProductionParameter(parameter)"
                   class="device-num"
@@ -1588,7 +1570,6 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
   message.warning(`报工已成功，设备参数需复核：${[...new Set(warnings)].join('；')}`)
 }
 const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 
 const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
@@ -1597,12 +1578,52 @@ const payloadPreview = ref<FrontlineTemplatePayloadVO>()
 const submitConfirmationOpen = ref(false)
 const productionSubmitSuccessOpen = ref(false)
 const frontlineErrorMessage = ref('')
-const resolveErrorMessage = (error: unknown) => {
-  if (typeof error === 'string' && error.trim()) {
-    return error.trim()
+const GENERIC_FRONTLINE_ERROR_MESSAGES = new Set([
+  '系统异常',
+  '操作失败,系统异常!',
+  '操作失败，系统异常！'
+])
+const isGenericFrontlineErrorMessage = (message: string) =>
+  GENERIC_FRONTLINE_ERROR_MESSAGES.has(message.trim())
+const resolveFrontlineErrorMessageCandidate = (value: unknown): string | undefined => {
+  if (typeof value === 'string') {
+    return value.trim() || undefined
   }
-  if (error instanceof Error && error.message) {
-    return error.message
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+  const record = value as Record<string, unknown>
+  return [
+    record.msg,
+    record.message,
+    record.errorMessage,
+    record.detail,
+    record.reason,
+    record.data
+  ].map(resolveFrontlineErrorMessageCandidate)
+    .find((candidate): candidate is string => Boolean(candidate))
+}
+const resolveErrorMessage = (error: unknown) => {
+  const record = error as {
+    details?: unknown
+    msg?: unknown
+    message?: unknown
+    response?: { data?: unknown }
+  }
+  const candidates = [
+    resolveFrontlineErrorMessageCandidate(record?.details),
+    resolveFrontlineErrorMessageCandidate(record?.response?.data),
+    resolveFrontlineErrorMessageCandidate(record?.msg),
+    resolveFrontlineErrorMessageCandidate(record?.message),
+    resolveFrontlineErrorMessageCandidate(error)
+  ].filter((candidate): candidate is string => Boolean(candidate))
+  const specificMessage = candidates.find((candidate) => !isGenericFrontlineErrorMessage(candidate))
+  if (specificMessage) {
+    return specificMessage
+  }
+  const genericMessage = candidates.find((candidate) => isGenericFrontlineErrorMessage(candidate))
+  if (genericMessage) {
+    return '提交失败：后端返回系统异常，请联系组长查看后台日志。'
   }
   return '提交失败'
 }
@@ -1685,9 +1706,6 @@ const pqcSignaturePassword = ref('')
 const pqcSubmitResultUncertain = ref(false)
 
 const isPqcMode = computed(() => props.mode === 'pqc')
-const routeBatchExecutionId = computed(() =>
-  firstRouteQueryNumber(['batchExecutionId', 'edhrBatchExecutionId'])
-)
 const PRODUCTION_CANVAS_WIDTH = 1920
 const PRODUCTION_CANVAS_HEIGHT = 1080
 const productionViewportScale = ref(1)
@@ -1727,6 +1745,23 @@ const currentLoginEmployeeCandidate = computed<FrontlineEmployeeCandidateVO | un
 })
 const selectedActiveOrder = computed(() => deviceState.selectedActiveOrder)
 
+const productionActiveOrderSummaryLabel = computed(() => {
+  const selectedOrder = selectedActiveOrder.value
+  if (!selectedOrder) {
+    return '未选择'
+  }
+  const workOrderCode = selectedOrder.workOrderCode?.trim()
+  if (!workOrderCode) {
+    throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
+  }
+  const productName = selectedOrder.productName?.trim()
+  if (!productName) {
+    throw new Error(`一线活跃订单缺少正式产品名：workOrderId=${selectedOrder.workOrderId}`)
+  }
+  const quantityText = formatProductionQuantity(selectedOrder.quantity)
+  return `${workOrderCode}-${productName}(${quantityText})`
+})
+
 const productionOrderLabel = computed(() => {
   const selectedOrder = selectedActiveOrder.value
   if (!selectedOrder) {
@@ -1738,14 +1773,6 @@ const productionOrderLabel = computed(() => {
   }
   return workOrderCode
 })
-
-const productionBatchCodeLabel = computed(() =>
-  selectedActiveOrder.value?.batchCode?.trim() || ''
-)
-
-const productionProductNameLabel = computed(() =>
-  selectedActiveOrder.value?.productName?.trim() || ''
-)
 
 const formatProductionQuantity = (quantity: number) => {
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -2229,10 +2256,17 @@ const syncProductionDeviceParameterDraft = (devices: ProductionDeviceCard[]) => 
     }
     const params = deviceParameterDraft[device.key]
     for (const parameter of getProductionSubmittableParameters(device)) {
-      if (!parameter.parameterCode || isTextStandardParameter(parameter)) {
+      if (!parameter.parameterCode) {
         continue
       }
       if (params[parameter.parameterCode] !== undefined) {
+        continue
+      }
+      if (isTextStandardParameter(parameter)) {
+        const defaultText = parameter.defaultText?.trim() || parameter.standardText?.trim()
+        if (defaultText) {
+          params[parameter.parameterCode] = defaultText
+        }
         continue
       }
       if (isSelectParameter(parameter)) {
@@ -2385,6 +2419,22 @@ const isProductionMaterialCompletionEntered = (materialKey: string) =>
   materialKey === selectedProductionMaterialKey.value
     ? productionDraft.outputQuantity !== undefined
     : productionMaterialDrafts[materialKey]?.outputQuantity !== undefined
+
+const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) => {
+  const materialDraft = material.key === selectedProductionMaterialKey.value
+    ? {
+        outputQuantity: productionDraft.outputQuantity,
+        defectQuantities: productionDefectDraft
+      }
+    : productionMaterialDrafts[material.key]
+  const outputQuantity = materialDraft?.outputQuantity
+  if (outputQuantity === undefined) {
+    return material.materialName
+  }
+  const lossQuantity = Object.values(materialDraft.defectQuantities)
+    .reduce((total, quantity) => total + quantity, 0)
+  return `${material.materialName}(${outputQuantity}/${lossQuantity})`
+}
 
 const activeProductionDevice = computed(() =>
   visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value) ||
@@ -2626,6 +2676,9 @@ const normalizeProductionQuantity = (value: unknown) => {
 function normalizeProductionParameter(parameter: FrontlineRuntimeDeviceParameterVO, value: unknown) {
   if (value === undefined || value === null || String(value).trim() === '') {
     return undefined
+  }
+  if (isTextStandardParameter(parameter)) {
+    return String(value).trim()
   }
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) {
@@ -4345,28 +4398,31 @@ const handleProductionFormalSubmit = async () => {
   ) {
     return
   }
-  assertProductionSubmissionReady()
-  Object.assign(draft.fieldValues, buildProductionFieldValues())
-  assertFormalPayloadContext()
-  const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
-  const confirmed = await requestProductionFormalSubmitConfirmation(buildProductionFormalSubmitConfirmation())
-  if (!confirmed) {
-    return
-  }
-  const formalPayload = (() => {
-    try {
-      return buildFrontlineFormalSubmitPayload(templatePayload)
-    } finally {
-      productionSignaturePassword.value = ''
-    }
-  })()
-
-  payloadLoading.value = true
   try {
+    assertProductionSubmissionReady()
+    Object.assign(draft.fieldValues, buildProductionFieldValues())
+    assertFormalPayloadContext()
+    const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
+    const confirmed = await requestProductionFormalSubmitConfirmation(buildProductionFormalSubmitConfirmation())
+    if (!confirmed) {
+      return
+    }
+    const formalPayload = (() => {
+      try {
+        return buildFrontlineFormalSubmitPayload(templatePayload)
+      } finally {
+        productionSignaturePassword.value = ''
+      }
+    })()
+
+    payloadLoading.value = true
     const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload)
     resetProductionSubmissionDraft()
     openProductionSubmitSuccessDialog()
     showParameterAuditWarning(submitResult)
+    clearFrontlineError()
+  } catch (error) {
+    showFrontlineError(error)
   } finally {
     payloadLoading.value = false
   }
@@ -4852,9 +4908,24 @@ const buildProductionDeviceParameterReadingsFromDraft = (
     }
     const parameterValues = parameterDraft[device.key] || {}
     return getProductionSubmittableParameters(device)
-      .filter((parameter) => !isTextStandardParameter(parameter))
       .map<ProFrontlineDeviceParameterReadingReqVO | undefined>((parameter) => {
         const value = parameterValues[parameter.parameterCode]
+        if (isTextStandardParameter(parameter)) {
+          const textValue = typeof value === 'string' ? value.trim() : ''
+          if (!textValue) {
+            return undefined
+          }
+          return {
+            deviceId: device.deviceId,
+            deviceCode: device.deviceCode,
+            deviceName: device.deviceName || device.label,
+            parameterCode: parameter.parameterCode,
+            parameterName: parameter.parameterName,
+            unit: parameter.unit,
+            textValue,
+            parameterStatus: 'NORMAL'
+          }
+        }
         if (isSelectParameter(parameter)) {
           const textValue = typeof value === 'string' ? value.trim() : ''
           if (!textValue) {
@@ -5711,11 +5782,14 @@ onUnmounted(() => {
 }
 
 .frontline-production-order-summary {
+  --frontline-production-order-summary-line-height: 30px;
   display: grid;
   width: 100%;
   min-width: 0;
-  gap: 5px;
+  max-height: calc(var(--frontline-production-order-summary-line-height) * 3);
+  gap: 0;
   align-content: center;
+  overflow: hidden;
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -5728,7 +5802,7 @@ onUnmounted(() => {
   color: var(--frontline-ink);
   font-size: 28px;
   font-weight: 900;
-  line-height: 1.08;
+  line-height: var(--frontline-production-order-summary-line-height);
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -5965,25 +6039,31 @@ onUnmounted(() => {
 .frontline-production-quantity-panel {
   grid-column: 1;
   grid-row: 1;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  align-content: stretch;
+  grid-template-rows: auto auto minmax(min-content, 1fr) auto auto;
   gap: 16px;
 }
 
 .frontline-production-material-tabs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, 72px);
+  grid-auto-rows: 72px;
+  gap: 10px 12px;
+  max-height: calc(72px * 2 + 10px);
   min-width: 0;
+  overflow: hidden;
 }
 
 .frontline-production-material-tab {
   display: grid;
-  gap: 4px;
+  align-content: center;
+  gap: 2px;
   min-width: 0;
-  min-height: 88px;
-  padding: 10px 14px;
-  border: 4px solid var(--frontline-line);
-  border-radius: 14px;
+  min-height: 72px;
+  padding: 6px 8px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 12px;
   background: #eef1ef;
   color: var(--frontline-ink);
   cursor: pointer;
@@ -5996,12 +6076,12 @@ onUnmounted(() => {
   }
 
   strong {
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1.1;
   }
 
   small {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 800;
     line-height: 1.1;
   }
@@ -6018,14 +6098,8 @@ onUnmounted(() => {
   }
 }
 
-.frontline-production-material-batches {
-  overflow-wrap: anywhere;
-  color: inherit;
-  line-height: 1.25;
-}
-
 .frontline-inline-error-slot {
-  display: grid;
+  display: none;
   grid-template-columns: 28px minmax(0, 1fr) 36px;
   gap: 12px;
   align-items: center;
@@ -6063,6 +6137,7 @@ onUnmounted(() => {
 }
 
 .frontline-inline-error-slot.is-visible {
+  display: grid;
   border: 3px solid #e85d5d;
   background: #fff2f2;
   opacity: 1;
@@ -6121,22 +6196,18 @@ onUnmounted(() => {
 
 .frontline-production-defect-section {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  grid-template-rows: minmax(min-content, 1fr);
+  gap: 0;
   min-height: 0;
-}
-
-.frontline-production-defect-title {
-  font-size: 32px;
-  font-weight: 900;
-  line-height: 1;
+  overflow: visible;
 }
 
 .frontline-production-defect-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(62px, auto);
   gap: 10px;
+  align-content: start;
   min-height: 0;
 }
 
@@ -6146,7 +6217,7 @@ onUnmounted(() => {
   gap: 8px;
   align-items: center;
   min-width: 0;
-  min-height: 0;
+  min-height: 62px;
   padding: 0 10px;
   border: 3px solid var(--frontline-line);
   border-radius: 16px;

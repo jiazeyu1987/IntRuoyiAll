@@ -834,11 +834,11 @@ SELECT CASE WHEN
      AND target_rule.`enabled` = b'1'
      AND target_rule.`deleted` = b'0'
      AND target_rule.`parameter_code` IN (
-       'ROUGH_WASH_COUNT',
-       'ROUGH_WASH_MEDIUM',
-       'ROUGH_WASH_POWER',
-       'ROUGH_WASH_ROOM_TEMPERATURE',
-       'ROUGH_WASH_TIME'
+       'IDIJSON_01_B09393_01',
+       'IDIJSON_01_B09393_02',
+       'IDIJSON_01_B09393_03',
+       'IDIJSON_01_B09393_04',
+       'IDIJSON_01_B09393_05'
      )
     WHERE project.`tenant_id` = 1
       AND project.`project_code` = 'IDI'

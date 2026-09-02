@@ -53,6 +53,7 @@ export interface BatchRecordReportImportResultVO {
   boundProductCodeCount?: number
   skippedProductNames?: string[]
   reports: BatchRecordReportVO[]
+  totalRecognitionJson?: string
 }
 
 export interface BatchRecordReportImportRouteProductOptionVO {

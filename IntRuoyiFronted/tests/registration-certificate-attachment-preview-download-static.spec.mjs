@@ -77,6 +77,31 @@ assert.match(
 )
 assert.match(
   detail,
+  /const resolveRegistrationCertificateDownloadFileName = \(fileName: string, expired: boolean\) => \{[\s\S]*已失效[\s\S]*lastIndexOf\('\.'\)[\s\S]*return `\$\{baseName\}已失效\.\$\{extension\}`[\s\S]*\}/,
+  'detail download must append 已失效 before the extension for expired old-certificate files'
+)
+assert.match(
+  detail,
+  /const isOldRegistrationCertificateDetail = computed\(\(\) =>[\s\S]*viewMode\.value === 'old-detail'[\s\S]*detail\.value\?\.status === 'OLD'[\s\S]*\)/,
+  'detail must classify old-certificate detail by old-detail route mode or formal OLD status'
+)
+assert.match(
+  detail,
+  /const isExpiredRegistrationCertificateDownload = \(businessFileId: number \| string\) =>[\s\S]*isOldRegistrationCertificateDetail\.value[\s\S]*expiredRegistrationCertificateFileIds\.value\.has\(String\(businessFileId\)\)/,
+  'detail download must append the expired filename marker for every old-detail registration-certificate file id'
+)
+assert.match(
+  detail,
+  /const expiredRegistrationCertificateFileIds = computed\(\(\) => \{[\s\S]*detail\.value\?\.registrationFileId[\s\S]*history\.value\.forEach\(\(item\) => \{[\s\S]*item\.fileKind !== 'REGISTRATION_CERTIFICATE'[\s\S]*String\(item\.targetVersionId\) !== String\(detail\.value\?\.versionId\)[\s\S]*ids\.add\(String\(item\.businessFileId\)\)[\s\S]*return ids[\s\S]*\}\)/,
+  'old-detail expired download ids must include same-version registration-certificate files from renewal history'
+)
+assert.match(
+  detail,
+  /const expired = isExpiredRegistrationCertificateDownload\(businessFileId\)[\s\S]*const savedFileName = resolveRegistrationCertificateDownloadFileName\(result\.fileName, expired\)[\s\S]*downloadByData\(result\.blob, savedFileName, result\.blob\.type \|\| 'application\/octet-stream'\)/,
+  'detail download must save old main registration-certificate downloads with the expired filename marker while keeping other files unchanged'
+)
+assert.match(
+  detail,
   /const canDirectDownload = computed\(\(\) => checkRole\(\['dcc_registration_certificate_approver'\]\)\)/,
   'detail must derive direct-download visibility from the formal registration manager role'
 )

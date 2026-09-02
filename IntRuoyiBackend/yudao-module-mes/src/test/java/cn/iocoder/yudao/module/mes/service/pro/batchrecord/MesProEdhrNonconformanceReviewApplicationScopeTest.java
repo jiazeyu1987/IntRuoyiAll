@@ -5,10 +5,12 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -38,6 +40,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Mock private MesProEdhrNonconformanceReviewMapper reviewMapper;
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    @Mock private MesProProcessPoolEventMapper processPoolEventMapper;
     @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
 
@@ -49,6 +52,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "reviewMapper", reviewMapper);
         ReflectionTestUtils.setField(service, "batchExecutionMapper", batchExecutionMapper);
         ReflectionTestUtils.setField(service, "releaseApplicationMapper", releaseApplicationMapper);
+        ReflectionTestUtils.setField(service, "processPoolEventMapper", processPoolEventMapper);
         ReflectionTestUtils.setField(service, "workOrderMapper", workOrderMapper);
         ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);
     }
@@ -82,6 +86,77 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals("WO-001", result.getWorkOrderCode());
         assertNull(result.getBatchExecutionId());
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3001L), true);
+        verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void pqcSubmissionCanStartReviewWithoutBatchExecution() {
+        when(processPoolEventMapper.selectByIdForUpdate(160L)).thenReturn(
+                new MesProProcessPoolEventDO()
+                        .setId(160L)
+                        .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .setWorkOrderId(3003L));
+        when(workOrderMapper.selectByIdForUpdate(3003L)).thenReturn(
+                new MesProWorkOrderDO()
+                        .setId(3003L)
+                        .setCode("WO-PQC-001")
+                        .setBatchCode("BATCH-PQC-001")
+                        .setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3003L), true)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1003L);
+            return 1;
+        });
+
+        MesProEdhrNonconformanceReviewRespVO result = service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO()
+                        .setSourceType("PQC_SUBMISSION")
+                        .setSourceId(160L)
+                        .setNonconformanceReason("PQC提交不合格"));
+
+        assertEquals(1003L, result.getId());
+        assertEquals("PQC_SUBMISSION", result.getSourceType());
+        assertEquals(160L, result.getSourceId());
+        assertEquals(3003L, result.getWorkOrderId());
+        assertEquals("WO-PQC-001", result.getWorkOrderCode());
+        assertEquals("BATCH-PQC-001", result.getBatchCode());
+        assertNull(result.getBatchExecutionId());
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3003L), true);
+        verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void pqcSubmissionUsesSourceEventWhenBatchExecutionIdIsStale() {
+        when(processPoolEventMapper.selectByIdForUpdate(161L)).thenReturn(
+                new MesProProcessPoolEventDO()
+                        .setId(161L)
+                        .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .setWorkOrderId(3004L));
+        when(workOrderMapper.selectByIdForUpdate(3004L)).thenReturn(
+                new MesProWorkOrderDO()
+                        .setId(3004L)
+                        .setCode("WO-PQC-002")
+                        .setBatchCode("BATCH-PQC-002")
+                        .setTemporaryFrozen(false));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3004L), true)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(1004L);
+            return 1;
+        });
+
+        MesProEdhrNonconformanceReviewRespVO result = service.create(
+                new MesProEdhrNonconformanceReviewCreateReqVO()
+                        .setSourceType("PQC_SUBMISSION")
+                        .setSourceId(161L)
+                        .setBatchExecutionId(999_999L)
+                        .setNonconformanceReason("PQC提交不合格"));
+
+        assertEquals(1004L, result.getId());
+        assertEquals("PQC_SUBMISSION", result.getSourceType());
+        assertEquals(161L, result.getSourceId());
+        assertEquals(3004L, result.getWorkOrderId());
+        assertNull(result.getBatchExecutionId());
+        verify(batchExecutionMapper, never()).selectById(999_999L);
         verify(batchExecutionMapper, never()).updateById(any(MesProEdhrBatchExecutionDO.class));
     }
 

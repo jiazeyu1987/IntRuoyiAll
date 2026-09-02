@@ -28,6 +28,7 @@ public class DccRegistrationCertificatePageItem {
     private String status;
     private String classification;
     private String remark;
+    private Boolean hasPendingChange;
     private Boolean hasProjectCode;
     private Boolean hasRegistrationFile;
     private String reminderColor;

@@ -13,6 +13,8 @@ import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -43,6 +45,8 @@ import static cn.iocoder.yudao.module.dcc.controller.admin.filepreview.DccOnline
 @Validated
 public class DccRegistrationCertificateFilePreviewController {
 
+    private static final Logger log = LoggerFactory.getLogger(DccRegistrationCertificateFilePreviewController.class);
+
     public static final String DOWNLOAD_ATTEMPT_KEY_HEADER = "X-DCC-Download-Attempt-Key";
 
     private final DccRegistrationCertificateFilePreviewService previewService;
@@ -61,8 +65,13 @@ public class DccRegistrationCertificateFilePreviewController {
     public CommonResult<DccControlledFilePreviewMetadataRespVO> getPreviewMetadata(
             @PathVariable("businessFileId") Long businessFileId,
             HttpServletRequest request) {
-        return success(previewService.getPreviewMetadata(TenantContextHolder.getRequiredTenantId(), getLoginUserId(),
-                businessFileId, auditContext(request)));
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long userId = getLoginUserId();
+        DccControlledFilePreviewMetadataRespVO metadata = previewService.getPreviewMetadata(
+                tenantId, userId, businessFileId, auditContext(request));
+        log.info("registration-certificate-preview-metadata tenantId={} userId={} businessFileId={} fileName={}",
+                tenantId, userId, businessFileId, metadata.getFileName());
+        return success(metadata);
     }
 
     @GetMapping("/{businessFileId}/preview")
@@ -75,9 +84,12 @@ public class DccRegistrationCertificateFilePreviewController {
                                               @RequestHeader(VIEWER_TOKEN_ID_HEADER) String viewerTokenId,
                                               @RequestHeader(VIEWER_TOKEN_NONCE_HEADER) String viewerTokenNonce,
                                               HttpServletRequest request) {
-        var binary = previewService.readPreviewFile(TenantContextHolder.getRequiredTenantId(), getLoginUserId(),
-                businessFileId, viewerToken, accessEventCode, watermarkTraceCode, viewerTokenId, viewerTokenNonce,
-                auditContext(request));
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long userId = getLoginUserId();
+        var binary = previewService.readPreviewFile(tenantId, userId, businessFileId, viewerToken, accessEventCode,
+                watermarkTraceCode, viewerTokenId, viewerTokenNonce, auditContext(request));
+        log.info("registration-certificate-preview-file tenantId={} userId={} businessFileId={} fileName={}",
+                tenantId, userId, businessFileId, binary.fileName());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(binary.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDispositionInline(binary.fileName()))
@@ -95,9 +107,12 @@ public class DccRegistrationCertificateFilePreviewController {
             @PathVariable("businessFileId") Long businessFileId,
             @RequestHeader(DOWNLOAD_ATTEMPT_KEY_HEADER) String attemptKey,
             HttpServletRequest request) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long userId = getLoginUserId();
         DccRegistrationCertificateFileDownloadResult binary = deliveryService.download(
-                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), businessFileId, attemptKey,
-                DccRequestAuditContext.from(request, attemptKey));
+                tenantId, userId, businessFileId, attemptKey, DccRequestAuditContext.from(request, attemptKey));
+        log.info("registration-certificate-download-file tenantId={} userId={} businessFileId={} fileName={}",
+                tenantId, userId, businessFileId, binary.fileName());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(binary.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDispositionAttachment(binary.fileName()))

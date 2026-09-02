@@ -60,12 +60,27 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         public static String selectDetail() {
-            return script(select(), commonWhere() + """
-                       AND c.id = #{certificateId}
-                       <if test="versionId != null">
-                         AND v.id = #{versionId}
-                       </if>
-                    """,
+            String latestSnapshotId = latestSnapshotId();
+            return script(select(), commonWhere()
+                            + " AND c.id = #{certificateId}"
+                            + " <choose>"
+                            + " <when test=\"versionId != null\">"
+                            + " AND v.id = #{versionId}"
+                            + " AND ("
+                            + " (v.id = c.current_version_id AND s.id = c.current_snapshot_id)"
+                            + " OR (v.id != c.current_version_id AND s.id = " + latestSnapshotId + ")"
+                            + " OR (c.current_version_id IS NULL AND s.id = " + latestSnapshotId + ")"
+                            + " )"
+                            + " </when>"
+                            + " <otherwise>"
+                            + " AND ("
+                            + " (v.id = c.current_version_id AND s.id = c.current_snapshot_id)"
+                            + " OR (v.id = c.pending_version_id AND s.id = " + latestSnapshotId + ")"
+                            + " OR (c.current_version_id IS NULL AND c.pending_version_id IS NULL"
+                            + " AND s.id = " + latestSnapshotId + ")"
+                            + " )"
+                            + " </otherwise>"
+                            + " </choose>",
                     " ORDER BY CASE v.status"
                             + " WHEN 'PENDING_EFFECTIVE' THEN 1"
                             + " WHEN 'CURRENT' THEN 2"
@@ -75,11 +90,11 @@ public interface DccRegistrationCertificateQueryMapper {
 
         public static String countOldIndex() {
             return script("SELECT COUNT(*) " + from(),
-                    commonWhere() + " AND v.status = 'OLD'" + oldIndexFilters(), "");
+                    commonWhere() + " AND v.status = 'OLD' AND s.id = " + latestSnapshotId() + oldIndexFilters(), "");
         }
 
         public static String selectOldIndexPage() {
-            return script(select(), commonWhere() + " AND v.status = 'OLD'" + oldIndexFilters(),
+            return script(select(), commonWhere() + " AND v.status = 'OLD' AND s.id = " + latestSnapshotId() + oldIndexFilters(),
                     oldIndexOrderBy()
                             + " LIMIT #{limit} OFFSET #{offset}");
         }
@@ -297,6 +312,7 @@ public interface DccRegistrationCertificateQueryMapper {
                            v.expiry_date,
                            v.classification,
                            v.remark,
+                           CASE WHEN pending_change.certificate_id IS NULL THEN FALSE ELSE TRUE END AS has_pending_change,
                            s.registrant_name,
                            s.model_specification,
                            s.structure_composition,
@@ -346,6 +362,15 @@ public interface DccRegistrationCertificateQueryMapper {
                         ON pc.tenant_id = c.tenant_id
                        AND pc.id = c.project_code_id
                        AND pc.deleted = 0
+                      LEFT JOIN (
+                        SELECT tenant_id, certificate_id
+                          FROM dcc_registration_certificate_change
+                         WHERE status = 'PENDING_APPROVAL'
+                           AND deleted = 0
+                         GROUP BY tenant_id, certificate_id
+                      ) pending_change
+                        ON pending_change.tenant_id = c.tenant_id
+                       AND pending_change.certificate_id = c.id
                     """;
         }
 
@@ -361,11 +386,22 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         private static String currentWhere() {
-            return commonWhere() + """
-                    AND c.status IN ('ACTIVE', 'PENDING_FIRST_EFFECTIVE')
-                    AND v.id = COALESCE(c.pending_version_id, c.current_version_id)
-                    AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')
-                    """;
+            return commonWhere()
+                    + " AND c.status IN ('ACTIVE', 'PENDING_FIRST_EFFECTIVE')"
+                    + " AND v.id = COALESCE(c.pending_version_id, c.current_version_id)"
+                    + " AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')"
+                    + " AND ("
+                    + " (v.id = c.current_version_id AND s.id = c.current_snapshot_id)"
+                    + " OR (v.id = c.pending_version_id AND s.id = " + latestSnapshotId() + ")"
+                    + " )";
+        }
+
+        private static String latestSnapshotId() {
+            return "(SELECT s2.id FROM dcc_registration_certificate_snapshot s2"
+                    + " WHERE s2.tenant_id = c.tenant_id"
+                    + " AND s2.version_id = v.id"
+                    + " AND s2.deleted = 0"
+                    + " ORDER BY s2.revision_no DESC, s2.id DESC LIMIT 1)";
         }
 
         private static String filters() {

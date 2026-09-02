@@ -80,7 +80,8 @@ for (const apiToken of [
   'updateProductCatalog',
   '/dcc/product-catalog/update',
   'deleteProductCatalog',
-  '/dcc/product-catalog/delete'
+  '/dcc/product-catalog/delete',
+  'export interface DccProductCatalogTreeNode'
 ]) {
   assert.ok(
     productCatalogApiSource.includes(apiToken),
@@ -96,7 +97,6 @@ for (const requiredToken of [
   '产品状态',
   '数据来源',
   '新增产品目录',
-  'getProductCatalogPage',
   'createProductCatalog',
   'updateProductCatalog',
   'deleteProductCatalog',
@@ -152,6 +152,82 @@ for (const maintenanceToken of [
     `产品目录独立页面必须提供维护能力：${maintenanceToken}`
   )
 }
+
+for (const treeToken of [
+  'getProductCatalogPage',
+  'getAllProductCatalogRows',
+  'PRODUCT_CATALOG_TREE_PAGE_SIZE',
+  'buildProductCatalogTree',
+  'ensureProductCatalogTreeNode',
+  'treeList',
+  'productCatalogFlatRows',
+  'selectedProductCatalogTreeNode',
+  'selectedProductCatalogRows',
+  'handleProductCatalogTreeNodeClick',
+  'matchesProductCatalogTreeSelection',
+  'treeNodeId',
+  'nodeType',
+  "nodeType: 'all'",
+  "nodeType: 'categoryLevel1'",
+  "nodeType: 'categoryLevel2'",
+  "nodeType: 'product'",
+  'node-key="treeNodeId"',
+  ':current-node-key="selectedProductCatalogTreeNode.treeNodeId"',
+  '@node-click="handleProductCatalogTreeNodeClick"'
+]) {
+  assert.ok(
+    productCatalogPanelSource.includes(treeToken),
+    `产品目录必须按产品类别 I / 产品类别 II / 产品构建左树右表：${treeToken}`
+  )
+}
+
+assert.ok(
+  !productCatalogPanelSource.includes('visibleProductCatalogRows'),
+  '产品目录左树右表不得继续用扁平分组行冒充右侧明细列表'
+)
+assert.ok(
+  !productCatalogPanelSource.includes('toggleProductCatalogGroup'),
+  '产品目录左树右表不得继续保留分组表格树行内展开按钮'
+)
+assert.match(
+  productCatalogPanelSource,
+  /<div class="dcc-product-catalog-split-layout">[\s\S]*<aside class="dcc-product-catalog-tree-panel">[\s\S]*<el-tree[\s\S]*<section class="dcc-product-catalog-detail-panel">[\s\S]*<el-table/,
+  '产品目录必须渲染左树右表布局'
+)
+assert.match(
+  productCatalogPanelSource,
+  /data-user-table-key="dcc\.productCatalog\.main"[\s\S]*:data="selectedProductCatalogRows"/,
+  '产品目录右侧表格必须只绑定当前树节点筛选后的正式明细行'
+)
+assert.match(
+  productCatalogPanelSource,
+  /<template #default="\{ data \}">[\s\S]*class="dcc-product-catalog-tree-node"[\s\S]*data\.label[\s\S]*data\.detailCount/,
+  '产品目录左侧树节点必须显示分类/产品名称和明细数量'
+)
+assert.match(
+  productCatalogPanelSource,
+  /const selectedProductCatalogRows = computed<DccProductCatalogRespVO\[\]>\(\(\) =>[\s\S]*productCatalogFlatRows\.value\.filter\(.*matchesProductCatalogTreeSelection/s,
+  '产品目录必须由左侧选中节点过滤右侧产品明细'
+)
+
+assert.ok(
+  !productCatalogPanelSource.includes('getProductCatalogTree'),
+  '当前运行后端没有 /dcc/product-catalog/tree 时，产品目录页面不得请求缺失的 tree 地址'
+)
+assert.ok(
+  !productCatalogApiSource.includes('/dcc/product-catalog/tree'),
+  '产品目录 API wrapper 不应暴露当前运行后端不存在的 tree 地址'
+)
+assert.match(
+  productCatalogPanelSource,
+  /while \(rows\.length < totalRows\)[\s\S]*getProductCatalogPage\(\{ \.\.\.baseQuery, pageNo \}\)/,
+  '产品目录树必须通过现有分页接口循环读取完整数据集，不能只取第一页构建树'
+)
+assert.match(
+  productCatalogPanelSource,
+  /throw new Error\('产品目录分页返回数量与总数不一致，无法构建完整树'\)/,
+  '产品目录分页数据不完整时必须 fail fast，不能用半截树静默成功'
+)
 
 assert.match(
   productCatalogPanelSource,

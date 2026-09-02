@@ -60,6 +60,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "UPLOAD_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_RENEWAL_OPERATION =
             "RENEWAL_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_CHANGE_OPERATION =
+            "CHANGE_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE =
             "dcc_registration_certificate_approver";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION =
@@ -720,7 +722,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return true;
         }
         if (REGISTRATION_CERTIFICATE_UPLOAD_OPERATION.equals(operation)
-                || REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)) {
+                || REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)
+                || REGISTRATION_CERTIFICATE_CHANGE_OPERATION.equals(operation)) {
             return true;
         }
         throw new IllegalArgumentException(
@@ -733,7 +736,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return false;
         }
         if (!REGISTRATION_CERTIFICATE_UPLOAD_OPERATION.equals(operation)
-                && !REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)) {
+                && !REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)
+                && !REGISTRATION_CERTIFICATE_CHANGE_OPERATION.equals(operation)) {
             throw new IllegalArgumentException(
                     "APPROVAL_BUSINESS_SUMMARY_VARIABLE_INVALID: registration certificate requestOperation");
         }
@@ -774,8 +778,14 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 if (!hasKnownRegistrationCertificateOperation(variables)) {
                     yield "注册证审批";
                 }
-                yield REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(firstText(variables.get("requestOperation")))
-                        ? "注册证延续审批" : "注册证上传审批";
+                String operation = firstText(variables.get("requestOperation"));
+                if (REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)) {
+                    yield "注册证延续审批";
+                }
+                if (REGISTRATION_CERTIFICATE_CHANGE_OPERATION.equals(operation)) {
+                    yield "注册证变更审批";
+                }
+                yield "注册证上传审批";
             }
             case "VIEW_OLD_CERTIFICATE" -> "旧注册证查看审批";
             case "DOWNLOAD_FILE" -> "注册证下载审批";

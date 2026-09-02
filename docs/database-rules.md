@@ -15,6 +15,7 @@
 
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
+- Generated-column check: 正式 MySQL 中的 `GENERATED ALWAYS` 列只能由数据库计算，业务 INSERT/UPDATE 不得显式写入。若测试 H2 schema 为普通列，必须用静态 SQL 合同或 MySQL 迁移合同补位，防止 H2 通过但运行库报 `The value specified for generated column ... is not allowed`。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
 - Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表、个人中心聚合页或批记录建立链接的任一子请求返回业务码 500 且日志为缺列、字段过短或数据截断，先修复运行库迁移漂移和字段容量，再判断前端错误归属；不要通过隐藏该子请求错误、返回空数据或截断业务字段编码掩盖 schema 缺口。
@@ -54,7 +55,7 @@
 - Trigger: MES 工序、产品目录、标准只读目录、Excel/外部文件基线等全局只读种子写入 `tenant_id=0`，但页面在普通业务租户下读取。
 - Preflight check: 写全局只读种子前先确认读模型是否应跨租户共享；若种子固定 `tenant_id=0`，对应 DO 或表必须显式 `@TenantIgnore` / `ignore-tables`，并同步确认子表、明细表、分页 count 与 page 查询都不会被当前租户条件过滤。
 - Blocker: 主表忽略租户但子表未忽略、SQL 种子写 `tenant_id=0` 但 Mapper 仍受 `tenant_id=<当前租户>` 限制、只在 Mockito 单元测试通过但未覆盖租户过滤、或用复制多租户数据掩盖全局基线设计不清时必须停止。
-- Verification: 静态合同或 Mapper/集成测试必须同时断言全局只读目录 DO 的租户忽略、SQL 种子租户口径、32/固定行数等源文件基线、以及明细表不会被租户过滤；有运行态时再用业务租户真实页面/API 证明列表非空且行数一致。
+- Verification: 静态合同或 Mapper/集成测试必须同时断言全局只读目录 DO 的租户忽略、SQL 种子租户口径、32/固定行数等源文件基线、以及明细表不会被租户过滤；刷新源 Excel 时必须先记录旧生成器/旧固定行数 RED，再按源文件逐行比对生成 SQL，并同步校正依赖 `original_row_no` 的后续回填映射；有运行态时再用业务租户真实页面/API 证明列表非空且行数一致。
 - Forbidden action: 禁止把 `tenant_id=0` 当作业务租户可见的默认值，禁止只改前端空状态或返回空页，禁止把全局目录改成按当前租户复制多份而不说明同步和一致性策略。
 - Evidence: `doc/tasks/mes-process-xlsx-sync-20260731/verification-report.md`。
 
@@ -170,10 +171,11 @@
 
 - Trigger: 新增或收敛 `system_role`、`system_role_menu`、`system_user_role`、动态菜单权限角色、admin 授权、只允许特定角色看某菜单/页签、授权公司菜单、关联公司菜单、外部工具入口只允许专用角色可见，且迁移通过 `system_tenant_package.menu_ids` 扫描目标租户。
 - Preflight check: 写角色/菜单迁移前，必须核对 tenant 1 的 `system_tenant.package_id` 是否能通过套餐表命中；若 admin 用户需要被赋权，迁移必须显式把 tenant 1 纳入目标角色集合，不能只依赖套餐 menu_ids 扫描。还要先读回 `admin` 的真实有效角色，不能默认它一定是 `tenant_admin`；若实际有效角色是 `super_admin`，也必须把该角色作为正式授权对象写入/回读。普通业务角色不得加入高权限枚举或 admin 特权链路，必须用稳定 `role.code`、目标菜单和精确权限码完成隔离。维护型页面必须同时写入页面 query 权限和按钮 create/update/delete 权限，并把这些权限同步进目标套餐和真实角色菜单；菜单更新必须优先锁定本次拥有的稳定菜单 ID，若按权限名发现其它活动菜单占用同一权限，应先 fail fast，不得用宽泛 `permission IN (...)` 更新历史记录。修复某角色“源码有按钮但页面不显示”时，先核对按钮 `v-hasPermi` 对应权限、目标 `role.code` 是否绑定到正确 `type=3` 菜单 ID；同一个权限码若同时存在页面菜单和按钮菜单，行操作场景只能授权所需按钮菜单，不能顺手授权可见页面菜单或更高处置权限。
+- Named account permission repair: 测试服用户明确报出账号但未明确租户时，迁移必须先证明每个启用账号在启用租户中唯一；若重名、缺用户、目标租户缺专用角色或角色未绑定目标菜单链，应 fail fast 要求补充租户/角色事实。只允许按 `tenant_id + role.code` 精确绑定目标用户到目标专用角色，禁止把同名账号跨租户批量授权、改高权限角色或按用户名宽泛授予其它菜单。
 - Blocker: tenant 1 `admin` 用户存在但目标角色集合不包含 tenant 1，或没有把 `admin` 的真实有效角色（例如 `super_admin`）纳入目标集合、`system_role_category.code='menu'` 缺失、同租户目标角色 code 重复、维护型页面只新增 query 菜单但缺少 create/update/delete 按钮权限、权限码被其它活动菜单占用、目标固定菜单 ID 的最终契约无法证明、目标菜单仍授权给非目标角色、普通业务角色被接入高权限枚举，或迁移只能让租户套餐角色看到菜单而 admin 用户不能通过标准权限解析拿到权限时必须停止。若为补行操作按钮而会授予独立可见菜单、QA/审核处置权限或无关父级权限，也必须停止并收窄授权集合。
 - Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标页面与按钮权限进入套餐和正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。若该角色控制动态菜单可见性，还必须用 fresh Playwright 分别验证已授权 admin 可见、未授权账号不可见，并回读 `get-permission-info` 证明菜单已出现在真实权限树里。
 - Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止默认 `admin` 一定走 `tenant_admin`；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限、broad role grant、宽泛按权限名更新菜单或高权限枚举掩盖 role/menu/user-role 链路未命中。
-- Evidence: `doc/tasks/20260829-admin-associated-company-menu-visible/verification-report.md`；`doc/tasks/20260829-erp-invoice-print-role-permission/verification-report.md`；`doc/tasks/20260830-registration-upload-optimization/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260829_erp_finance_invoice_voucher_print_role_permission.sql`；`doc/tasks/20260901-pqc-management-nonconformance-action-visible/verification-report.md`，PQC 组长不合格审查行按钮缺 `create` 权限时会被 `v-hasPermi` 隐藏，授权需锁定隐藏按钮菜单 ID 并排除独立页面菜单和 QA 处置权限。
+- Evidence: `doc/tasks/20260829-admin-associated-company-menu-visible/verification-report.md`；`doc/tasks/20260829-erp-invoice-print-role-permission/verification-report.md`；`doc/tasks/20260830-registration-upload-optimization/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260829_erp_finance_invoice_voucher_print_role_permission.sql`；`IntRuoyiBackend/sql/mysql/20260902_erp_finance_invoice_voucher_print_test_server_user_permission.sql`；`doc/tasks/20260901-pqc-management-nonconformance-action-visible/verification-report.md`，PQC 组长不合格审查行按钮缺 `create` 权限时会被 `v-hasPermi` 隐藏，授权需锁定隐藏按钮菜单 ID 并排除独立页面菜单和 QA 处置权限。
 
 ### 定时任务迁移业务键与运行态注册门禁
 

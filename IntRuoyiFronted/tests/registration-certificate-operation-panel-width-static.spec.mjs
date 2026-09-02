@@ -17,8 +17,8 @@ assert.match(
 )
 assert.match(
   list,
-  /const OLD_TABLE_KEY = 'dcc\.registrationCertificate\.old\.actionsDoubleWidthV1'/,
-  'old registration-certificate table must use a new versioned key so old compact widths do not override the doubled operation column'
+  /const OLD_TABLE_KEY = 'dcc\.registrationCertificate\.old\.unifiedViewActionV1'/,
+  'old registration-certificate table must use a new versioned key so old widened widths do not override the unified action column'
 )
 assert.match(
   list,
@@ -51,8 +51,8 @@ assert.match(
 )
 assert.match(
   oldColumns,
-  /\{ key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false \}/,
-  'old registration-certificate action column must default to double the previous 210px width'
+  /\{ key: 'actions', label: '操作', width: 140, hideable: false, business: false, sortable: false \}/,
+  'old registration-certificate action column must default to one third of the previous 420px width'
 )
 
 assert.match(
@@ -62,8 +62,8 @@ assert.match(
 )
 assert.match(
   list,
-  /:width="getOldColumnWidthString\('actions', 420\)"/,
-  'old registration-certificate action column must render with the doubled 420px fallback'
+  /:width="getOldColumnWidthString\('actions', 140\)"/,
+  'old registration-certificate action column must render with the unified 140px fallback'
 )
 
 const extractActionPanel = (source, visibilityToken) => {
@@ -122,32 +122,22 @@ assert.doesNotMatch(
 assert.match(
   oldActionPanel,
   /<div class="registration-certificate-row-actions registration-certificate-row-actions--compact registration-certificate-row-actions--old-manager-view">/,
-  'old registration-certificate action panel must use the manager-view row-actions container'
+  'old registration-certificate action panel must use the old unified row-actions container'
 )
 assert.equal(
   (oldActionPanel.match(/<el-button\b/g) ?? []).length,
-  3,
-  'old registration-certificate action panel must render exactly three buttons'
+  1,
+  'old registration-certificate action panel must render exactly one unified button'
 )
 assert.match(
   oldActionPanel,
-  /<el-button link type="primary" @click="openOldDetail\(row\.certificateId,\s*row\.versionId\)">\s*详情\s*<\/el-button>/,
-  'old registration-certificate action panel must keep the detail action and handler'
-)
-assert.match(
-  oldActionPanel,
-  /<el-button\s+v-hasRole="\['dcc_registration_certificate_approver'\]"\s+link\s+type="success"\s+@click="openOldDirectView\(row\.certificateId,\s*row\.versionId\)">\s*查看\s*<\/el-button>/,
-  'old registration-certificate action panel must show direct old-certificate view only for the registration-manager role'
-)
-assert.match(
-  oldActionPanel,
-  /<el-button link type="warning" @click="openOldAccessRequest\(row\.certificateId\)">\s*申请查看\s*<\/el-button>/,
-  'old registration-certificate action panel must keep the old-certificate access request action and handler'
+  /<el-button link type="primary" @click="openOldDetail\(row\.certificateId,\s*row\.versionId\)">\s*查看\s*<\/el-button>/,
+  'old registration-certificate action panel must keep one unified view action and carry the row versionId'
 )
 assert.doesNotMatch(
   oldActionPanel,
-  />\s*(产品|项目代码)\s*</,
-  'old registration-certificate action panel must remove the red-box product and project-code actions'
+  />\s*(详情|申请查看|产品|项目代码)\s*</,
+  'old registration-certificate action panel must remove detail/request-view/product/project-code actions from the list'
 )
 
 assert.match(
@@ -162,8 +152,8 @@ assert.match(
 )
 assert.match(
   list,
-  /\.registration-certificate-row-actions--old-manager-view\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*4px;/,
-  'old registration-certificate manager-view row actions must use a three-column grid inside the compact operation column'
+  /\.registration-certificate-row-actions--old-manager-view\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);[\s\S]*gap:\s*4px;/,
+  'old registration-certificate unified row action must use a single-column grid inside the compact operation column'
 )
 assert.match(
   list,

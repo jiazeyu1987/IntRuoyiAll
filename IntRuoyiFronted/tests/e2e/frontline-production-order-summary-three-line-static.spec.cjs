@@ -55,36 +55,47 @@ const orderCard = extractBetween(
 assert.match(
   orderCard,
   /class="frontline-production-order-summary"/,
-  'active-order card must render the dedicated three-line summary block.'
+  'active-order card must render the dedicated production summary block.'
 )
-const orderCodeIndex = orderCard.indexOf('data-frontline-production-order-code')
-const batchCodeIndex = orderCard.indexOf('data-frontline-production-batch-code')
-const productNameIndex = orderCard.indexOf('data-frontline-production-product-name')
-assert.ok(orderCodeIndex >= 0, 'first summary line must expose the order code marker.')
-assert.ok(batchCodeIndex >= 0, 'second summary line must expose the production batch code marker.')
-assert.ok(productNameIndex >= 0, 'third summary line must expose the product name marker.')
-assert.ok(
-  orderCodeIndex < batchCodeIndex && batchCodeIndex < productNameIndex,
-  'summary lines must be ordered as order code, batch code, product name.'
+assert.match(
+  orderCard,
+  /data-frontline-production-active-order-summary/,
+  'active-order card must expose a single formal summary marker.'
 )
-assert.match(orderCard, /{{\s*productionOrderLabel\s*}}/, 'first line must use the selected order code label.')
-assert.match(orderCard, /v-if="productionBatchCodeLabel"/, 'batch line must render only when the order has a batch code.')
-assert.match(orderCard, /{{\s*productionBatchCodeLabel\s*}}/, 'second line must use the selected order batch code.')
-assert.match(orderCard, /{{\s*productionProductNameLabel\s*}}/, 'third line must use the selected order product name.')
+assert.match(
+  orderCard,
+  /{{\s*productionActiveOrderSummaryLabel\s*}}/,
+  'active-order card must show the selected order as 编号-产品名(数量).'
+)
+assert.doesNotMatch(
+  orderCard,
+  /data-frontline-production-batch-code/,
+  'active-order card must not split the batch code into a separate visible line.'
+)
+assert.doesNotMatch(
+  orderCard,
+  /data-frontline-production-product-name/,
+  'active-order card must not split the product name into a separate visible line.'
+)
 assert.match(
   panel,
-  /const productionOrderLabel = computed\([\s\S]*selectedOrder\.workOrderCode\?\.trim\(\)[\s\S]*一线活跃订单缺少正式订单号/,
-  'first line must fail fast when the formal order code is missing instead of displaying an order name.'
+  /const productionActiveOrderSummaryLabel = computed\([\s\S]*selectedOrder\.workOrderCode\?\.trim\(\)[\s\S]*selectedOrder\.productName\?\.trim\(\)[\s\S]*formatProductionQuantity\(selectedOrder\.quantity\)[\s\S]*`\$\{workOrderCode\}-\$\{productName\}\(\$\{quantityText\}\)`/,
+  'summary label must compose formal order code, product name, and quantity.'
+)
+assert.match(
+  panel,
+  /const productionActiveOrderSummaryLabel = computed\([\s\S]*一线活跃订单缺少正式订单号[\s\S]*一线活跃订单缺少正式产品名/,
+  'summary label must fail fast when formal order code or product name is missing.'
 )
 
-assert.match(api, /export interface FrontlineActiveOrderVO[\s\S]*batchCode\?:\s*string/, 'frontend active-order contract must expose batchCode.')
-assert.match(backendVo, /private String batchCode;/, 'backend frontline active-order response must expose batchCode.')
+assert.match(api, /export interface FrontlineActiveOrderVO[\s\S]*batchCode\?:\s*string/, 'frontend active-order contract must still expose batchCode for downstream payloads.')
+assert.match(backendVo, /private String batchCode;/, 'backend frontline active-order response must still expose batchCode.')
 
 const summaryBlock = extractBalancedBlock(panel, '.frontline-production-order-summary')
-assert.match(summaryBlock, /display:\s*grid/, 'three-line summary must use a stable grid.')
-assert.match(summaryBlock, /white-space:\s*normal/, 'three-line summary values must allow wrapping.')
-assert.match(summaryBlock, /overflow-wrap:\s*anywhere/, 'long order, batch, and product text must wrap inside the card.')
-assert.doesNotMatch(summaryBlock, /text-overflow:\s*ellipsis/, 'three-line summary must not truncate values with ellipsis.')
-assert.doesNotMatch(summaryBlock, /white-space:\s*nowrap/, 'three-line summary must not force a single line.')
+assert.match(summaryBlock, /display:\s*grid/, 'summary must use a stable grid.')
+assert.match(summaryBlock, /white-space:\s*normal/, 'summary value must allow wrapping.')
+assert.match(summaryBlock, /overflow-wrap:\s*anywhere/, 'long order and product text must wrap inside the card.')
+assert.doesNotMatch(summaryBlock, /text-overflow:\s*ellipsis/, 'summary must not truncate values with ellipsis.')
+assert.doesNotMatch(summaryBlock, /white-space:\s*nowrap/, 'summary must not force a single line.')
 
-console.log('PASS: frontline production order summary shows order, batch, and product as full wrapping lines')
+console.log('PASS: frontline production order summary shows 编号-产品名(数量) with full wrapping')

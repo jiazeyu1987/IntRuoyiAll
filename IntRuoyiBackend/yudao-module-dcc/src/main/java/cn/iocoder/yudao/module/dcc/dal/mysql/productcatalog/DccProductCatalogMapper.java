@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogPageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -24,11 +25,18 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
     String COLUMN_CATEGORY_LEVEL2 = "category_level2";
     String COLUMN_PRODUCT_STATUS = "product_status";
     String COLUMN_DATA_SOURCE = "data_source";
+    String COLUMN_PRODUCT_SEQUENCE = "product_sequence";
     String COLUMN_PRODUCT = "product";
     String COLUMN_PRODUCT_CODE = "product_code";
     String COLUMN_REGISTRATION_CERTIFICATE_NAME = "registration_certificate_name";
     String COLUMN_REGISTRATION_CERTIFICATE_NUMBER = "registration_certificate_number";
     String COLUMN_CERTIFICATE_HOLDER = "certificate_holder";
+    String COLUMN_REGISTRATION_PLACE = "registration_place";
+    String COLUMN_EFFECTIVE_DATE = "effective_date";
+    String COLUMN_EXPIRY_DATE = "expiry_date";
+    String COLUMN_CLASSIFICATION = "classification";
+    String COLUMN_REGISTRATION_INFO_LINK = "registration_info_link";
+    String COLUMN_REMARK = "remark";
     String COLUMN_ORIGINAL_ROW_NO = "original_row_no";
     String PROJECT_NAME_COLUMN = "project_name";
     String PROJECT_CODE_COLUMN = "project_code";
@@ -37,10 +45,7 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
 
     default PageResult<DccProductCatalogDO> selectPage(DccProductCatalogPageReqVO reqVO) {
         QueryWrapperX<DccProductCatalogDO> wrapper = new QueryWrapperX<>();
-        wrapper.eqIfPresent(COLUMN_CATEGORY_LEVEL1, reqVO.getCategoryLevel1())
-                .eqIfPresent(COLUMN_CATEGORY_LEVEL2, reqVO.getCategoryLevel2())
-                .eqIfPresent(COLUMN_PRODUCT_STATUS, reqVO.getProductStatus())
-                .eqIfPresent(COLUMN_DATA_SOURCE, reqVO.getDataSource());
+        applyVisibleTitleFilters(wrapper, reqVO);
         applyProjectCodeNotBlankFilter(wrapper, reqVO);
         String keyword = StrUtil.trimToNull(reqVO.getKeyword());
         if (keyword != null) {
@@ -52,6 +57,53 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
         }
         applyPageSort(wrapper, reqVO);
         return selectPage(reqVO, wrapper);
+    }
+
+    default List<DccProductCatalogDO> selectTreeRows(DccProductCatalogTreeReqVO reqVO) {
+        QueryWrapperX<DccProductCatalogDO> wrapper = new QueryWrapperX<>();
+        wrapper.eqIfPresent(COLUMN_CATEGORY_LEVEL1, reqVO.getCategoryLevel1())
+                .eqIfPresent(COLUMN_CATEGORY_LEVEL2, reqVO.getCategoryLevel2())
+                .eqIfPresent(COLUMN_PRODUCT_STATUS, reqVO.getProductStatus())
+                .eqIfPresent(COLUMN_DATA_SOURCE, reqVO.getDataSource());
+        if (Boolean.TRUE.equals(reqVO.getProjectCodeNotBlank())) {
+            wrapper.isNotNull(PROJECT_CODE_COLUMN)
+                    .apply("TRIM(" + PROJECT_CODE_COLUMN + ") <> ''");
+        }
+        String keyword = StrUtil.trimToNull(reqVO.getKeyword());
+        if (keyword != null) {
+            wrapper.and(item -> item.like(COLUMN_PRODUCT, keyword)
+                    .or().like(COLUMN_PRODUCT_CODE, keyword)
+                    .or().like(COLUMN_REGISTRATION_CERTIFICATE_NAME, keyword)
+                    .or().like(COLUMN_REGISTRATION_CERTIFICATE_NUMBER, keyword)
+                    .or().like(COLUMN_CERTIFICATE_HOLDER, keyword));
+        }
+        wrapper.orderByAsc(COLUMN_DATA_SOURCE)
+                .orderByAsc(COLUMN_ORIGINAL_ROW_NO);
+        return selectList(wrapper);
+    }
+
+    private void applyVisibleTitleFilters(QueryWrapperX<DccProductCatalogDO> wrapper,
+            DccProductCatalogPageReqVO reqVO) {
+        wrapper.likeIfPresent(COLUMN_CATEGORY_LEVEL1, reqVO.getCategoryLevel1())
+                .likeIfPresent(COLUMN_CATEGORY_LEVEL2, reqVO.getCategoryLevel2())
+                .likeIfPresent(COLUMN_PRODUCT_SEQUENCE, reqVO.getProductSequence())
+                .likeIfPresent(COLUMN_PRODUCT, reqVO.getProduct())
+                .eqIfPresent(COLUMN_PRODUCT_STATUS, reqVO.getProductStatus())
+                .eqIfPresent(COLUMN_DATA_SOURCE, reqVO.getDataSource())
+                .likeIfPresent(COLUMN_PRODUCT_CODE, reqVO.getProductCode())
+                .likeIfPresent(PROJECT_NAME_COLUMN, reqVO.getProjectName())
+                .likeIfPresent(PROJECT_CODE_COLUMN, reqVO.getProjectCode())
+                .likeIfPresent(COLUMN_REGISTRATION_CERTIFICATE_NAME,
+                        reqVO.getRegistrationCertificateName())
+                .likeIfPresent(COLUMN_REGISTRATION_CERTIFICATE_NUMBER,
+                        reqVO.getRegistrationCertificateNumber())
+                .likeIfPresent(COLUMN_CERTIFICATE_HOLDER, reqVO.getCertificateHolder())
+                .likeIfPresent(COLUMN_REGISTRATION_PLACE, reqVO.getRegistrationPlace())
+                .likeIfPresent(COLUMN_EFFECTIVE_DATE, reqVO.getEffectiveDate())
+                .likeIfPresent(COLUMN_EXPIRY_DATE, reqVO.getExpiryDate())
+                .likeIfPresent(COLUMN_CLASSIFICATION, reqVO.getClassification())
+                .likeIfPresent(COLUMN_REGISTRATION_INFO_LINK, reqVO.getRegistrationInfoLink())
+                .likeIfPresent(COLUMN_REMARK, reqVO.getRemark());
     }
 
     private void applyProjectCodeNotBlankFilter(QueryWrapperX<DccProductCatalogDO> wrapper,

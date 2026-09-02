@@ -938,6 +938,7 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `priority` varchar(64) DEFAULT NULL,
   `status` varchar(32) NOT NULL,
   `last_import_batch_id` bigint DEFAULT NULL,
+  `batch_record_total_recognition_json` longtext DEFAULT NULL COMMENT 'Word batch-record total recognition JSON',
   `associated_file_count` bigint NOT NULL DEFAULT 0,
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,

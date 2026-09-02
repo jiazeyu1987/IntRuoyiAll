@@ -213,6 +213,141 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void currentPageUsesCurrentSnapshotAndDoesNotExpandHistoricalSnapshots() throws Exception {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-SNAPSHOT-UNIQUE", true, 20L);
+        DccRegistrationCertificateSnapshotDO historical = DccRegistrationCertificateSnapshotDO.builder()
+                .versionId(visible.versionId())
+                .revisionNo(2)
+                .productName("Historical Product")
+                .registrantName("Historical Registrant")
+                .modelSpecification("Historical Model")
+                .structureComposition("Historical Structure")
+                .intendedUse("Historical Use")
+                .technicalRequirements("Historical Requirement")
+                .residenceAddress("Historical Residence")
+                .productionAddress("Historical Production")
+                .entrustedProduction(false)
+                .selfProduction(true)
+                .entrustedEnterprisesJson("[]")
+                .effectiveAt(LocalDateTime.of(2026, 9, 2, 0, 0))
+                .build();
+        historical.setTenantId(1L);
+        assertEquals(1, snapshotMapper.insert(historical));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1).pageSize(10).certificateNo("CERT-SNAPSHOT-UNIQUE").build(),
+                context("REQ-SNAPSHOT-UNIQUE"));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(1, page.getList().size());
+        assertEquals(visible.certificateId(), page.getList().get(0).getCertificateId());
+        assertEquals(visible.snapshotId(), page.getList().get(0).getSnapshotId());
+        assertEquals("Product CERT-SNAPSHOT-UNIQUE", page.getList().get(0).getProductName());
+        Object pendingState = page.getList().get(0).getClass()
+                .getMethod("getHasPendingChange").invoke(page.getList().get(0));
+        assertEquals(Boolean.FALSE, pendingState);
+        assertEquals(1L, queryMapper.countPage(1L, List.of(10L),
+                DccRegistrationCertificatePageQuery.builder()
+                        .certificateNo("CERT-SNAPSHOT-UNIQUE").build()));
+    }
+
+    @Test
+    void currentPageMarksCertificateWithPendingChange() {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-PENDING-CHANGE", true, 20L);
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_lifecycle_event
+                  (tenant_id, owner_company_id, certificate_id, source_version_id, target_version_id,
+                   source_snapshot_id, target_snapshot_id, event_key, event_type, event_sequence,
+                   baseline_row_version, baseline_snapshot_revision, actor_id, detail_json, occurred_at, creator)
+                VALUES (1, 10, ?, ?, ?, ?, ?, 'pending-change-query', 'CHANGE_SUBMITTED', 1,
+                        2, 1, 99, '{}', ?, '99')
+                """, visible.certificateId(), visible.versionId(), visible.versionId(),
+                visible.snapshotId(), visible.snapshotId(), LocalDateTime.of(2026, 9, 2, 10, 0)));
+        Long eventId = jdbcTemplate.queryForObject(
+                "SELECT id FROM dcc_registration_certificate_lifecycle_event WHERE event_key = 'pending-change-query'",
+                Long.class);
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_change
+                  (tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
+                   resulting_snapshot_id, event_id, approval_date, selected_change_types_json,
+                   selected_item_count, status, actor_id)
+                VALUES (1, 10, ?, ?, ?, NULL, ?, DATE '2026-09-02', '[\"PRODUCT_NAME\"]',
+                        1, 'PENDING_APPROVAL', 99)
+                """, visible.certificateId(), visible.versionId(), visible.snapshotId(), eventId));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1).pageSize(10).certificateNo("CERT-PENDING-CHANGE").build(),
+                context("REQ-PENDING-CHANGE"));
+
+        assertEquals(1, page.getList().size());
+        assertTrue(page.getList().get(0).getHasPendingChange());
+    }
+
+    @Test
+    void currentDetailUsesCertificateCurrentSnapshotWhenVersionHasHistory() {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-DETAIL-SNAPSHOT", true, 20L);
+        DccRegistrationCertificateSnapshotDO historical = DccRegistrationCertificateSnapshotDO.builder()
+                .versionId(visible.versionId())
+                .revisionNo(2)
+                .productName("Historical Detail Product")
+                .registrantName("Historical Detail Registrant")
+                .modelSpecification("Historical Detail Model")
+                .structureComposition("Historical Detail Structure")
+                .intendedUse("Historical Detail Use")
+                .technicalRequirements("Historical Detail Requirement")
+                .residenceAddress("Historical Detail Residence")
+                .productionAddress("Historical Detail Production")
+                .entrustedProduction(false)
+                .selfProduction(true)
+                .entrustedEnterprisesJson("[]")
+                .effectiveAt(LocalDateTime.of(2026, 9, 2, 0, 0))
+                .build();
+        historical.setTenantId(1L);
+        assertEquals(1, snapshotMapper.insert(historical));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, visible.certificateId(), null, context("REQ-DETAIL-SNAPSHOT"));
+
+        assertEquals(visible.snapshotId(), detail.getSnapshotId());
+        assertEquals("Product CERT-DETAIL-SNAPSHOT", detail.getProductName());
+        assertEquals("Sensitive Registrant", detail.getRegistrantName());
+    }
+
+    @Test
+    void pageReadAuditDuplicateDoesNotBlockRepeatedListRefresh() {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-REFRESH-AUDIT", true, 20L);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        DccRegistrationCertificatePageQuery query = DccRegistrationCertificatePageQuery.builder()
+                .pageNo(1).pageSize(10).certificateNo("CERT-REFRESH-AUDIT").build();
+        DccRequestAuditContext auditContext = context("REQ-PAGE-REFRESH-DUP");
+
+        PageResult<DccRegistrationCertificatePageItem> first = queryService.getPage(
+                1L, 99L, query, auditContext);
+        PageResult<DccRegistrationCertificatePageItem> second = assertDoesNotThrow(() -> queryService.getPage(
+                1L, 99L, query, auditContext));
+
+        assertEquals(List.of(visible.certificateId()),
+                first.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        assertEquals(List.of(visible.certificateId()),
+                second.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        assertEquals(1, auditMapper.selectListByCertificateId(visible.certificateId()).size(),
+                "重复列表刷新应复用同一读审计事件，不应创建重复事件或阻断页面");
+    }
+
+    @Test
     void pageAndDetailExposeReminderVisualStateFromFormalExpiry() {
         FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-REMINDER", true, 20L);
         LocalDate expiryDate = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE)

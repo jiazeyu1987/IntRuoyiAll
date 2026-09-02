@@ -26,6 +26,8 @@ import static org.mockito.Mockito.when;
 class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
 
     private static final String DCC_PROCESS_DEFINITION_KEY = "dcc-controlled-file-approval";
+    private static final String DCC_REGISTRATION_CERTIFICATE_PROCESS_DEFINITION_KEY =
+            "dcc-registration-certificate-access";
     private static final String EDHR_PROCESS_DEFINITION_KEY = "mes-edhr-approval-v1";
     private static final String ROUTE_VERSION_PROCESS_DEFINITION_KEY = "mes-route-version-approval-v1";
 
@@ -74,6 +76,31 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void sendMessageWhenTaskAssigned_registrationCertificateProcess_usesNotifyInbox() {
+        BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
+        reqDTO.setProcessInstanceId("proc-reg-cert-1");
+        reqDTO.setProcessInstanceName("注册证变更审批");
+        reqDTO.setProcessDefinitionKey(DCC_REGISTRATION_CERTIFICATE_PROCESS_DEFINITION_KEY);
+        reqDTO.setStartUserId(99L);
+        reqDTO.setStartUserNickname("提交人");
+        reqDTO.setTaskId("task-reg-cert-1");
+        reqDTO.setTaskName("注册证审批");
+        reqDTO.setAssigneeUserId(100L);
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9301L);
+
+        messageService.sendMessageWhenTaskAssigned(reqDTO);
+
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertEquals(100L, notifyCaptor.getValue().getUserId());
+        assertEquals("dcc_task_assigned", notifyCaptor.getValue().getTemplateCode());
+        assertEquals("注册证变更审批", notifyCaptor.getValue().getTemplateParams().get("processInstanceName"));
+        assertEquals("注册证审批", notifyCaptor.getValue().getTemplateParams().get("taskName"));
+        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+    }
+
+    @Test
     void sendMessageWhenTaskAssigned_nonDccProcess_keepsSmsPath() {
         BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
         reqDTO.setProcessInstanceId("proc-2");
@@ -103,6 +130,26 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
         reqDTO.setProcessDefinitionKey(DCC_PROCESS_DEFINITION_KEY);
         reqDTO.setStartUserId(77L);
         when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9002L);
+
+        messageService.sendMessageWhenProcessInstanceApprove(reqDTO);
+
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertEquals(77L, notifyCaptor.getValue().getUserId());
+        assertEquals("dcc_controlled_file_approved", notifyCaptor.getValue().getTemplateCode());
+        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+    }
+
+    @Test
+    void sendMessageWhenProcessInstanceApprove_registrationCertificateProcess_usesNotifyInbox() {
+        BpmMessageSendWhenProcessInstanceApproveReqDTO reqDTO =
+                new BpmMessageSendWhenProcessInstanceApproveReqDTO();
+        reqDTO.setProcessInstanceId("proc-reg-cert-2");
+        reqDTO.setProcessInstanceName("注册证变更审批");
+        reqDTO.setProcessDefinitionKey(DCC_REGISTRATION_CERTIFICATE_PROCESS_DEFINITION_KEY);
+        reqDTO.setStartUserId(77L);
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9302L);
 
         messageService.sendMessageWhenProcessInstanceApprove(reqDTO);
 

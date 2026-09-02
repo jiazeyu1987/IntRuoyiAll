@@ -606,6 +606,7 @@
           v-loading="loading"
           data-user-table-column-explicit
           data-user-table-key="mes.processPool.teamLeader.submissions"
+          :class="{ 'team-leader-workbench__submission-table--single-line': activeLeaderTab === 'PQC' }"
           :data="submissionList"
           border
           stripe
@@ -4526,7 +4527,7 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   Boolean(row.id)
 
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
-  canReviewSubmission(row) && Boolean(row.batchExecutionId)
+  canReviewSubmission(row)
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
@@ -7578,16 +7579,16 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
 const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) => {
   requirePositiveNumber(row.id, '工序池提交事件编号不能为空')
   if (!canOpenPqcSubmissionNonconformanceReview(row)) {
-    ElMessage.error('缺少PQC提交批次，无法发起不合格审查')
+    ElMessage.error('当前PQC提交记录不能发起不合格审查')
     return
+  }
+  const query: Record<string, string> = {
+    sourceType: SOURCE_TYPE_PQC_SUBMISSION,
+    sourceId: String(row.id)
   }
   router.push({
     name: 'MesProFeedbackEdhrNonconformanceReview',
-    query: {
-      sourceType: SOURCE_TYPE_PQC_SUBMISSION,
-      sourceId: String(row.id),
-      batchExecutionId: String(row.batchExecutionId)
-    }
+    query
   })
 }
 
@@ -10157,6 +10158,41 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.team-leader-workbench__submission-table--single-line:deep(.el-table__body .el-table__cell .cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-leader-workbench__submission-table--single-line .team-leader-workbench__structured-list {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.team-leader-workbench__submission-table--single-line .team-leader-workbench__structured-pill {
+  flex: 0 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.team-leader-workbench__submission-table--single-line .team-leader-workbench__parameter-list {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.team-leader-workbench__submission-table--single-line .team-leader-workbench__parameter-item {
+  flex: 0 0 auto;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .team-leader-workbench__submission-actions {

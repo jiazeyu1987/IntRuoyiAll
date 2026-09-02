@@ -5,9 +5,13 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogPageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeNodeRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -28,6 +32,9 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccProductCatalogMapper productCatalogMapper;
+
+    @Mock
+    private DccProjectCodeMapper projectCodeMapper;
 
     @Test
     void getProductCatalogPageShouldReadDatabasePage() {
@@ -50,6 +57,62 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("WZY", result.getList().get(0).getProjectCode());
         assertEquals(4, result.getList().get(0).getOriginalRowNo());
         verify(productCatalogMapper).selectPage(reqVO);
+    }
+
+    @Test
+    void getProductCatalogPageShouldExposeBatchRecordRecognitionJsonFromProjectCode() {
+        DccProductCatalogPageReqVO reqVO = new DccProductCatalogPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "按压式球囊扩充压力泵")), 1L));
+        when(projectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
+                .projectCode("WZY")
+                .batchRecordTotalRecognitionJson("{\"sourceFileName\":\"RE-PP-IDI-01.docx\"}")
+                .build()));
+
+        PageResult<DccProductCatalogRespVO> result = service.getProductCatalogPage(reqVO);
+
+        assertEquals("{\"sourceFileName\":\"RE-PP-IDI-01.docx\"}",
+                result.getList().get(0).getBatchRecordTotalRecognitionJson());
+        verify(projectCodeMapper).selectEnabledList();
+    }
+
+    @Test
+    void getProductCatalogTreeShouldGroupRowsByThreeExcelCategoryColumns() {
+        DccProductCatalogTreeReqVO reqVO = new DccProductCatalogTreeReqVO();
+        reqVO.setDataSource("瑛泰产品");
+        DccProductCatalogDO first = row(10L, "瑛泰产品", 2, "血管鞘（长鞘）");
+        first.setCategoryLevel1("神经和心血管手术器械");
+        first.setCategoryLevel2("鞘");
+        first.setProductCode("0313140101");
+        first.setRegistrationCertificateName("一次性使用血管鞘");
+        DccProductCatalogDO second = row(11L, "瑛泰产品", 3, "血管鞘（长鞘）");
+        second.setCategoryLevel1("神经和心血管手术器械");
+        second.setCategoryLevel2("鞘");
+        second.setProductCode("0313140102");
+        second.setRegistrationCertificateName("Guiding Sheath 血管鞘");
+        when(productCatalogMapper.selectTreeRows(reqVO)).thenReturn(List.of(first, second));
+
+        List<DccProductCatalogTreeNodeRespVO> tree = service.getProductCatalogTree(reqVO);
+
+        assertEquals(1, tree.size());
+        DccProductCatalogTreeNodeRespVO level1 = tree.get(0);
+        assertEquals("categoryLevel1", level1.getNodeType());
+        assertEquals("神经和心血管手术器械", level1.getCategoryLevel1());
+        assertEquals(1, level1.getChildren().size());
+        DccProductCatalogTreeNodeRespVO level2 = level1.getChildren().get(0);
+        assertEquals("categoryLevel2", level2.getNodeType());
+        assertEquals("鞘", level2.getCategoryLevel2());
+        DccProductCatalogTreeNodeRespVO product = level2.getChildren().get(0);
+        assertEquals("product", product.getNodeType());
+        assertEquals("血管鞘（长鞘）", product.getProduct());
+        assertEquals(2, product.getChildren().size());
+        assertEquals("detail", product.getChildren().get(0).getNodeType());
+        assertEquals(2, product.getChildren().get(0).getOriginalRowNo());
+        assertEquals("0313140101", product.getChildren().get(0).getProductCode());
+        assertEquals(3, product.getChildren().get(1).getOriginalRowNo());
+        verify(productCatalogMapper).selectTreeRows(reqVO);
     }
 
     @Test

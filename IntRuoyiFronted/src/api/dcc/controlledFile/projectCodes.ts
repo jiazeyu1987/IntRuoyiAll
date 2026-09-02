@@ -33,6 +33,7 @@ export interface DccProjectCodeRespVO {
   priority?: string | null
   status: string
   associatedFileCount?: number | null
+  batchRecordTotalRecognitionJson?: string | null
   createTime?: number
   updateTime?: number
 }

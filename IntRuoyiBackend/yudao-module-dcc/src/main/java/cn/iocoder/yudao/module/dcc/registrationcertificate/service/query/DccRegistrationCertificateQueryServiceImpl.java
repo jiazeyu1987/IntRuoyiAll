@@ -108,7 +108,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 : queryMapper.selectPage(tenantId, scopedCompanyIds, normalized,
                 normalized.getPageSize(), offset(normalized));
         Map<Long, String> companyNames = companyNames(tenantId, rows);
-        rows.forEach(row -> readAuditService.record(successAudit(
+        rows.forEach(row -> readAuditService.recordRepeatableListRead(successAudit(
                 tenantId, actorId, row, "PAGE", auditContext, "page")));
         return new PageResult<>(rows.stream()
                 .map(row -> pageItem(tenantId, row, companyNames.get(row.getOwnerCompanyId())))
@@ -155,7 +155,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 : queryMapper.selectOldIndexPage(tenantId, scopedCompanyIds, normalized,
                 normalized.getPageSize(), offset(normalized));
         Map<Long, String> companyNames = companyNames(tenantId, rows);
-        rows.forEach(row -> readAuditService.record(successAudit(
+        rows.forEach(row -> readAuditService.recordRepeatableListRead(successAudit(
                 tenantId, actorId, row, "OLD_INDEX", auditContext, "old-index")));
         return new PageResult<>(rows.stream()
                 .map(row -> oldIndexItem(row, companyNames.get(row.getOwnerCompanyId())))
@@ -252,6 +252,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .status(row.getStatus())
                 .classification(row.getClassification())
                 .remark(row.getRemark())
+                .hasPendingChange(Boolean.TRUE.equals(row.getHasPendingChange()))
                 .hasProjectCode(row.getProjectCodeId() != null)
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
                 .reminderColor(reminder.colorCode())

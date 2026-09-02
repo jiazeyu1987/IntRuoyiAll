@@ -85,11 +85,13 @@
 - Runtime readiness: 外部助手由 ERP 页面承载时，进入页签先通过 ERP 后端探测助手是否在线；在线才申请票据并加载 iframe，未在线且配置可启动时显示明确的“启动助手”动作，由 ERP 后端启动配置的助手程序并等待健康探测成功后再进入，不能把连接拒绝页直接展示给业务用户。状态查询和启动接口必须继续使用同一业务权限保护。
 - Port contract: 发票凭证打印助手使用独立固定端口 `18733`，不得占用 ERP 前端 `8081` 或通过环境变量静默改成其它端口。测试服务器和正式服务器是不同机器时可以复用 `18733`；助手和 ERP 后端都必须在启动阶段拒绝非 `18733` 配置。
 - ERP config bridge: 发票凭证打印助手的金蝶连接信息必须由 ERP 后端在短期票据校验成功后返回当前生效配置快照，字段至少覆盖基础地址、账套 ID、用户名、密码、应用 ID、SimPas 签名数据、SimPas 签名时间戳和 LCID；助手只能把该快照写入授权会话专用配置文件并传给查询/生成/上传脚本，不得依赖独立部署的全局 `.env.kingdee` 或 `KINGDEE_ENV_PATH`。SimPas 的 `signeddata` 只能作为签名数据使用，禁止当作 `appSecret`。容器只保留 `KINGDEE_RUNTIME_DIR` 作为会话配置文件目录。若测试服仍报 `ERP配置文件不存在：/opt/invoice-voucher-print-assistant/runtime/.env.kingdee`，先判定远端助手包或运行进程仍是旧版本，必须重新部署并重启新版助手，不能通过补一个全局 `.env.kingdee` 掩盖链路未刷新。
+- HTML5 SSO diagnosis: 881 发票应收单列表依赖金蝶 HTML5 会话时，必须先检查 SimPas SSO 页面是否出现 `金蝶提示`，再调用 `SwitchOrg`。若页面提示签名校验错误次数超限、会话丢失、验证码错误或要求重新登录，应在 SSO 阶段 fail fast 并暴露金蝶原文；不得继续调用组织切换后把根因误报为 `ERP HTML5 organization switch failed`。若 WebAPI `ValidateUser` 和 WebAPI `SwitchOrg` 成功但 HTML5 SSO 失败，根因优先判断为 SimPas 签名数据、时间戳、appSecret/签名生成方式或金蝶账号锁定问题；如果业务目标可由 `ExecuteBillQuery` / `View` 等 WebAPI 表单接口完成，应优先把助手查询链路改为与主程序一致的 WebAPI 登录、组织切换和表单查询，不再依赖 HTML5 页面会话。
+- Permission diagnosis: 从 ERP 入口进入后若 iframe 内仍显示“无权访问发票凭证打印助手”，先区分 ERP 页面申请票据失败、助手 `/auth/callback` 验票失败、助手会话缺失三类证据；菜单可见不等于签票链路已授权。测试服指定账号修复必须核对账号在启用租户内唯一、目标租户存在 `finance_invoice_voucher_print` 角色、用户已绑定该角色，并用精确用户绑定迁移修复；不得给 `super_admin`/`tenant_admin` 增加放行分支或补助手端默认通过。
 - 配置修复边界：正式账套配置页读取必须允许展示缺失授权字段的已保存连接，供管理员补齐并保存；ERP 实际登录、同步和助手配置快照仍必须对缺少 `appId/signedData/timestamp` 明确失败。禁止让配置读取直接复用运行态严格校验，导致管理员无法修复坏配置。
 - Blocker: 助手缺少 ERP 票据校验地址、票据不是短期有效或一次性消费、无权限用户可拿到票据、iframe 直接打开助手首页、助手首页/API 直连仍展示业务功能、只隐藏菜单但独立助手仍可直连，或短期票据校验成功后缺少当前 ERP 金蝶配置快照时必须停止。
 - Verification: 后端单测覆盖有权限签票、无权限拒绝、票据校验和消费、当前金蝶配置快照返回；前端静态合同覆盖票据入口与 `/auth/callback` 以及 ERP 配置页可维护助手所需字段；助手静态合同覆盖会话拦截、会话级配置文件生成和业务脚本使用会话配置；真实 Playwright 必须证明 admin 从 ERP 菜单可打开助手、无权限账号看不到菜单、直接访问助手返回 403。
 - Forbidden action: 禁止把菜单隐藏当成直连防护，禁止把 ERP 登录态 token 直接暴露给外部助手，禁止用 mock 校验、默认放行、配置缺失时开放访问、让助手回退读取全局 `.env.kingdee`，或 API-only 冒充页面验收。
-- Evidence: `doc/tasks/20260829-invoice-voucher-print-assistant-auth-gate/verification-report.md`。
+- Evidence: `doc/tasks/20260829-invoice-voucher-print-assistant-auth-gate/verification-report.md`；`doc/tasks/20260902-invoice-voucher-print-assistant-permission-fix/verification-report.md`。
 
 ## ERP 金蝶账套登录连通性门禁
 

@@ -1151,10 +1151,7 @@ const toParticipantObjects = (entries: CandidateEntry[]): ApprovalParticipantObj
   return objects
 }
 
-const parseParticipantSectionFromNode = (
-  sectionKey: ParticipantSectionKey,
-  node: SimpleModelNode | undefined
-): ApprovalParticipantSection => {
+const parseParticipantSectionFromNode = (node: SimpleModelNode | undefined): ApprovalParticipantSection => {
   if (!node) return createEmptyParticipantSection()
   if (node.type === NodeType.PARALLEL_BRANCH_NODE) {
     const entries = (node.conditionNodes || []).flatMap((conditionNode) =>
@@ -1185,8 +1182,8 @@ const parseSimpleParticipantConfig = (simpleModel?: SimpleModelNode): ApprovalPa
   const firstNode = simpleModel?.type === NodeType.START_USER_NODE ? simpleModel.childNode : simpleModel
   if (!firstNode) return undefined
   return {
-    reviewers: parseParticipantSectionFromNode('reviewers', firstNode),
-    approvers: parseParticipantSectionFromNode('approvers', firstNode.childNode)
+    reviewers: parseParticipantSectionFromNode(firstNode),
+    approvers: parseParticipantSectionFromNode(firstNode.childNode)
   }
 }
 
@@ -1219,8 +1216,8 @@ const parseBpmnParticipantConfig = (bpmnXml?: string): ApprovalParticipantForm |
   const taskNodes = parseBpmnApprovalTaskNodes(bpmnXml)
   if (taskNodes.length === 0) return undefined
   return {
-    reviewers: parseParticipantSectionFromNode('reviewers', taskNodes[0]),
-    approvers: parseParticipantSectionFromNode('approvers', taskNodes[1])
+    reviewers: parseParticipantSectionFromNode(taskNodes[0]),
+    approvers: parseParticipantSectionFromNode(taskNodes[1])
   }
 }
 

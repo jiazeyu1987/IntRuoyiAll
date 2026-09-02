@@ -1525,11 +1525,6 @@ import {
   resolveReleaseCheckSourceObjectTypeLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
 import { isOptionalRouteFormTask } from './progress'
-import {
-  buildSignatureTimePayload,
-  createSignatureTimeForm,
-  type EdhrSignatureTimeForm
-} from '../edhr/signatureTime'
 import { type BusinessActionContextVO } from '@/api/form-center/businessAction'
 import {
   resolveControlledActionProjection,

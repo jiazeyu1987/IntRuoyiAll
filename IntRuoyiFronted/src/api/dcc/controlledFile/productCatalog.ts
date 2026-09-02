@@ -4,14 +4,29 @@ export interface DccProductCatalogPageReqVO extends PageParam {
   keyword?: string
   categoryLevel1?: string
   categoryLevel2?: string
+  productSequence?: string
+  product?: string
   productStatus?: string
   dataSource?: string
+  productCode?: string
+  projectName?: string
+  projectCode?: string
+  registrationCertificateName?: string
+  registrationCertificateNumber?: string
+  certificateHolder?: string
+  registrationPlace?: string
+  effectiveDate?: string
+  expiryDate?: string
+  classification?: string
+  registrationInfoLink?: string
+  remark?: string
   projectCodeNotBlank?: boolean
   sortField?: string
   sortOrder?: 'asc' | 'desc'
 }
 
 export interface DccProductCatalogRespVO {
+  id: number
   dataSource: string
   categoryLevel1?: string | null
   categoryLevel2?: string | null
@@ -20,6 +35,7 @@ export interface DccProductCatalogRespVO {
   productCode?: string | null
   projectName?: string | null
   projectCode?: string | null
+  batchRecordTotalRecognitionJson?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
@@ -31,6 +47,14 @@ export interface DccProductCatalogRespVO {
   productStatus?: string | null
   remark?: string | null
   originalRowNo: number
+}
+
+export interface DccProductCatalogTreeNode extends DccProductCatalogRespVO {
+  treeNodeId: string
+  nodeType: 'categoryLevel1' | 'categoryLevel2' | 'product' | 'detail'
+  treeLevel: number
+  treeLabel: string
+  children?: DccProductCatalogTreeNode[]
 }
 
 export interface DccProductCatalogSaveReqVO {

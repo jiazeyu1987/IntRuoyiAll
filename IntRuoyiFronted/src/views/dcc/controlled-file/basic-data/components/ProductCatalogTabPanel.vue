@@ -39,209 +39,267 @@
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-        <el-table
-          v-loading="loading"
-          class="dcc-product-catalog-resizable-table"
-          data-user-table-column-explicit
-          data-user-table-key="dcc.productCatalog.main"
-          :data="list"
-          border
-          :allow-drag-last-column="true"
-          :stripe="true"
-          :show-overflow-tooltip="true"
-          @header-dragend="handleProductCatalogHeaderDragend"
-          @sort-change="handleTemplateSortChange"
-        >
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('dataSource')"
-            label="数据来源"
-            prop="dataSource"
-            :width="getProductCatalogColumnWidthString('dataSource')"
-            :min-width="getProductCatalogColumnMinWidthString('dataSource', 120)"
-            v-bind="sortColumnAttrs('dataSource')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('categoryLevel1')"
-            label="产品类别 I"
-            prop="categoryLevel1"
-            :width="getProductCatalogColumnWidthString('categoryLevel1')"
-            :min-width="getProductCatalogColumnMinWidthString('categoryLevel1', 180)"
-            v-bind="sortColumnAttrs('categoryLevel1')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('categoryLevel2')"
-            label="产品类别 II"
-            prop="categoryLevel2"
-            :width="getProductCatalogColumnWidthString('categoryLevel2')"
-            :min-width="getProductCatalogColumnMinWidthString('categoryLevel2', 180)"
-            v-bind="sortColumnAttrs('categoryLevel2')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('productSequence')"
-            label="产品序号"
-            prop="productSequence"
-            :width="getProductCatalogColumnWidthString('productSequence')"
-            :min-width="getProductCatalogColumnMinWidthString('productSequence', 100)"
-            v-bind="sortColumnAttrs('productSequence')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('product')"
-            label="产品"
-            prop="product"
-            :width="getProductCatalogColumnWidthString('product')"
-            :min-width="getProductCatalogColumnMinWidthString('product', 220)"
-            v-bind="sortColumnAttrs('product')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('productCode')"
-            label="产品编码"
-            prop="productCode"
-            :width="getProductCatalogColumnWidthString('productCode')"
-            :min-width="getProductCatalogColumnMinWidthString('productCode', 120)"
-            v-bind="sortColumnAttrs('productCode')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('projectName')"
-            label="项目名称"
-            prop="projectName"
-            :width="getProductCatalogColumnWidthString('projectName')"
-            :min-width="getProductCatalogColumnMinWidthString('projectName', 180)"
-            v-bind="sortColumnAttrs('projectName')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('projectCode')"
-            label="项目代码"
-            prop="projectCode"
-            :width="getProductCatalogColumnWidthString('projectCode')"
-            :min-width="getProductCatalogColumnMinWidthString('projectCode', 120)"
-            v-bind="sortColumnAttrs('projectCode')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('registrationCertificateName')"
-            label="注册证名称"
-            prop="registrationCertificateName"
-            :width="getProductCatalogColumnWidthString('registrationCertificateName')"
-            :min-width="
-              getProductCatalogColumnMinWidthString('registrationCertificateName', 220)
-            "
-            v-bind="sortColumnAttrs('registrationCertificateName')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('registrationCertificateNumber')"
-            label="注册证号"
-            prop="registrationCertificateNumber"
-            :width="getProductCatalogColumnWidthString('registrationCertificateNumber')"
-            :min-width="
-              getProductCatalogColumnMinWidthString('registrationCertificateNumber', 180)
-            "
-            v-bind="sortColumnAttrs('registrationCertificateNumber')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('certificateHolder')"
-            label="持证人"
-            prop="certificateHolder"
-            :width="getProductCatalogColumnWidthString('certificateHolder')"
-            :min-width="getProductCatalogColumnMinWidthString('certificateHolder', 160)"
-            v-bind="sortColumnAttrs('certificateHolder')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('registrationPlace')"
-            label="注册地"
-            prop="registrationPlace"
-            :width="getProductCatalogColumnWidthString('registrationPlace')"
-            :min-width="getProductCatalogColumnMinWidthString('registrationPlace', 120)"
-            v-bind="sortColumnAttrs('registrationPlace')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('effectiveDate')"
-            label="生效日期"
-            prop="effectiveDate"
-            :width="getProductCatalogColumnWidthString('effectiveDate', 120)"
-            v-bind="sortColumnAttrs('effectiveDate')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('expiryDate')"
-            label="有效期至"
-            prop="expiryDate"
-            :width="getProductCatalogColumnWidthString('expiryDate', 120)"
-            v-bind="sortColumnAttrs('expiryDate')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('classification')"
-            label="分类"
-            prop="classification"
-            :width="getProductCatalogColumnWidthString('classification')"
-            :min-width="getProductCatalogColumnMinWidthString('classification', 120)"
-            v-bind="sortColumnAttrs('classification')"
-          />
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('productStatus')"
-            label="产品状态"
-            prop="productStatus"
-            :width="getProductCatalogColumnWidthString('productStatus', 120)"
-            v-bind="sortColumnAttrs('productStatus')"
-          >
-            <template #default="{ row }">{{ formatProductStatus(row.productStatus) }}</template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('registrationInfoLink')"
-            label="注册证信息链接"
-            prop="registrationInfoLink"
-            :width="getProductCatalogColumnWidthString('registrationInfoLink')"
-            :min-width="getProductCatalogColumnMinWidthString('registrationInfoLink', 150)"
-            v-bind="sortColumnAttrs('registrationInfoLink')"
-          >
-            <template #default="{ row }">
-              <el-link
-                v-if="row.registrationInfoLink"
-                :href="row.registrationInfoLink"
-                target="_blank"
-                type="primary"
+        <div class="dcc-product-catalog-split-layout">
+          <aside class="dcc-product-catalog-tree-panel">
+            <div class="dcc-product-catalog-tree-title">产品分类</div>
+            <el-tree
+              v-loading="loading"
+              class="dcc-product-catalog-tree"
+              :data="treeList"
+              :props="{ label: 'label', children: 'children' }"
+              node-key="treeNodeId"
+              :current-node-key="selectedProductCatalogTreeNode.treeNodeId"
+              default-expand-all
+              highlight-current
+              @node-click="handleProductCatalogTreeNodeClick"
+            >
+              <template #default="{ data }">
+                <span class="dcc-product-catalog-tree-node">
+                  <span class="dcc-product-catalog-tree-node__label">{{ data.label }}</span>
+                  <span class="dcc-product-catalog-tree-node__count">{{ data.detailCount }}</span>
+                </span>
+              </template>
+            </el-tree>
+          </aside>
+
+          <section class="dcc-product-catalog-detail-panel">
+            <div class="dcc-product-catalog-detail-summary">
+              <span class="dcc-product-catalog-detail-summary__title">
+                {{ selectedProductCatalogTreeNode.label }}
+              </span>
+              <span class="dcc-product-catalog-detail-summary__count">
+                {{ selectedProductCatalogRows.length }} 条产品明细
+              </span>
+            </div>
+            <div class="dcc-product-catalog-table-shell">
+              <el-table
+                v-loading="loading"
+                class="dcc-product-catalog-resizable-table"
+                data-user-table-column-explicit
+                data-user-table-key="dcc.productCatalog.main"
+                :data="selectedProductCatalogRows"
+                height="100%"
+                scrollbar-always-on
+                border
+                :allow-drag-last-column="true"
+                :stripe="true"
+                :show-overflow-tooltip="true"
+                @header-dragend="handleProductCatalogHeaderDragend"
+                @sort-change="handleTemplateSortChange"
               >
-                查看链接
-              </el-link>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('remark')"
-            label="备注"
-            prop="remark"
-            :width="getProductCatalogColumnWidthString('remark')"
-            :min-width="getProductCatalogColumnMinWidthString('remark', 220)"
-            v-bind="sortColumnAttrs('remark')"
-          >
-            <template #default="{ row }">{{ row.remark || '-' }}</template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProductCatalogColumnVisible('actions')"
-            label="操作"
-            prop="actions"
-            fixed="right"
-            :width="getProductCatalogColumnWidthString('actions', 130)"
-          >
-            <template #default="{ row }">
-              <el-button
-                link
-                class="scheme-d-row-action scheme-d-row-action--primary"
-                type="primary"
-                @click="openForm('update', row)"
-                v-hasPermi="['dcc:project-code:update']"
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('categoryLevel1')"
+                label="产品类别 I"
+                prop="categoryLevel1"
+                :width="getProductCatalogColumnWidthString('categoryLevel1')"
+                :min-width="getProductCatalogColumnMinWidthString('categoryLevel1', 180)"
+                v-bind="sortColumnAttrs('categoryLevel1')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('categoryLevel2')"
+                label="产品类别 II"
+                prop="categoryLevel2"
+                :width="getProductCatalogColumnWidthString('categoryLevel2')"
+                :min-width="getProductCatalogColumnMinWidthString('categoryLevel2', 180)"
+                v-bind="sortColumnAttrs('categoryLevel2')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('productSequence')"
+                label="产品序号"
+                prop="productSequence"
+                :width="getProductCatalogColumnWidthString('productSequence')"
+                :min-width="getProductCatalogColumnMinWidthString('productSequence', 100)"
+                v-bind="sortColumnAttrs('productSequence')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('product')"
+                label="产品"
+                prop="product"
+                :width="getProductCatalogColumnWidthString('product')"
+                :min-width="getProductCatalogColumnMinWidthString('product', 220)"
+                v-bind="sortColumnAttrs('product')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('dataSource')"
+                label="数据来源"
+                prop="dataSource"
+                :width="getProductCatalogColumnWidthString('dataSource')"
+                :min-width="getProductCatalogColumnMinWidthString('dataSource', 120)"
+                v-bind="sortColumnAttrs('dataSource')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('productCode')"
+                label="产品编码"
+                prop="productCode"
+                :width="getProductCatalogColumnWidthString('productCode')"
+                :min-width="getProductCatalogColumnMinWidthString('productCode', 120)"
+                v-bind="sortColumnAttrs('productCode')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('projectName')"
+                label="项目名称"
+                prop="projectName"
+                :width="getProductCatalogColumnWidthString('projectName')"
+                :min-width="getProductCatalogColumnMinWidthString('projectName', 180)"
+                v-bind="sortColumnAttrs('projectName')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('projectCode')"
+                label="项目代码"
+                prop="projectCode"
+                :width="getProductCatalogColumnWidthString('projectCode')"
+                :min-width="getProductCatalogColumnMinWidthString('projectCode', 120)"
+                v-bind="sortColumnAttrs('projectCode')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('batchRecordTotalRecognitionJson')"
+                label="批记录识别JSON"
+                prop="batchRecordTotalRecognitionJson"
+                :width="getProductCatalogColumnWidthString('batchRecordTotalRecognitionJson', 140)"
               >
-                编辑
-              </el-button>
-              <el-button
-                link
-                class="scheme-d-row-action scheme-d-row-action--danger"
-                type="danger"
-                @click="handleDelete(row)"
-                v-hasPermi="['dcc:project-code:delete']"
+                <template #default="{ row }">
+                  <el-button
+                    v-if="row.batchRecordTotalRecognitionJson"
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--primary"
+                    type="primary"
+                    data-testid="dcc-product-catalog-copy-recognition-json"
+                    @click="copyProductCatalogBatchRecordTotalRecognitionJson(row)"
+                  >
+                    复制JSON
+                  </el-button>
+                  <span v-else>-</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('registrationCertificateName')"
+                label="注册证名称"
+                prop="registrationCertificateName"
+                :width="getProductCatalogColumnWidthString('registrationCertificateName')"
+                :min-width="
+                  getProductCatalogColumnMinWidthString('registrationCertificateName', 220)
+                "
+                v-bind="sortColumnAttrs('registrationCertificateName')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('registrationCertificateNumber')"
+                label="注册证号"
+                prop="registrationCertificateNumber"
+                :width="getProductCatalogColumnWidthString('registrationCertificateNumber')"
+                :min-width="
+                  getProductCatalogColumnMinWidthString('registrationCertificateNumber', 180)
+                "
+                v-bind="sortColumnAttrs('registrationCertificateNumber')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('certificateHolder')"
+                label="持证人"
+                prop="certificateHolder"
+                :width="getProductCatalogColumnWidthString('certificateHolder')"
+                :min-width="getProductCatalogColumnMinWidthString('certificateHolder', 160)"
+                v-bind="sortColumnAttrs('certificateHolder')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('registrationPlace')"
+                label="注册地"
+                prop="registrationPlace"
+                :width="getProductCatalogColumnWidthString('registrationPlace')"
+                :min-width="getProductCatalogColumnMinWidthString('registrationPlace', 120)"
+                v-bind="sortColumnAttrs('registrationPlace')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('effectiveDate')"
+                label="生效日期"
+                prop="effectiveDate"
+                :width="getProductCatalogColumnWidthString('effectiveDate', 120)"
+                v-bind="sortColumnAttrs('effectiveDate')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('expiryDate')"
+                label="有效期至"
+                prop="expiryDate"
+                :width="getProductCatalogColumnWidthString('expiryDate', 120)"
+                v-bind="sortColumnAttrs('expiryDate')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('classification')"
+                label="分类"
+                prop="classification"
+                :width="getProductCatalogColumnWidthString('classification')"
+                :min-width="getProductCatalogColumnMinWidthString('classification', 120)"
+                v-bind="sortColumnAttrs('classification')"
+              />
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('productStatus')"
+                label="产品状态"
+                prop="productStatus"
+                :width="getProductCatalogColumnWidthString('productStatus', 120)"
+                v-bind="sortColumnAttrs('productStatus')"
               >
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+                <template #default="{ row }">{{ formatProductStatus(row.productStatus) }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('registrationInfoLink')"
+                label="注册证信息链接"
+                prop="registrationInfoLink"
+                :width="getProductCatalogColumnWidthString('registrationInfoLink')"
+                :min-width="getProductCatalogColumnMinWidthString('registrationInfoLink', 150)"
+                v-bind="sortColumnAttrs('registrationInfoLink')"
+              >
+                <template #default="{ row }">
+                  <el-link
+                    v-if="row.registrationInfoLink"
+                    :href="row.registrationInfoLink"
+                    target="_blank"
+                    type="primary"
+                  >
+                    查看链接
+                  </el-link>
+                  <span v-else>-</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('remark')"
+                label="备注"
+                prop="remark"
+                :width="getProductCatalogColumnWidthString('remark')"
+                :min-width="getProductCatalogColumnMinWidthString('remark', 220)"
+                v-bind="sortColumnAttrs('remark')"
+              >
+                <template #default="{ row }">{{ row.remark || '-' }}</template>
+              </el-table-column>
+              <el-table-column
+                v-if="isProductCatalogColumnVisible('actions')"
+                label="操作"
+                prop="actions"
+                fixed="right"
+                :width="getProductCatalogColumnWidthString('actions', 130)"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--primary"
+                    type="primary"
+                    @click="openForm('update', row)"
+                    v-hasPermi="['dcc:project-code:update']"
+                  >
+                    编辑
+                  </el-button>
+                  <el-button
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--danger"
+                    type="danger"
+                    @click="handleDelete(row)"
+                    v-hasPermi="['dcc:project-code:delete']"
+                  >
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+              </el-table>
+            </div>
+          </section>
+        </div>
       </template>
     </UnifiedListTemplate>
   </ContentWrap>
@@ -346,6 +404,7 @@
 
 <script lang="ts" setup>
 import type { FormRules } from 'element-plus'
+import { useClipboard } from '@vueuse/core'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -373,7 +432,6 @@ const formVisible = ref(false)
 const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
 const total = ref(0)
-const list = ref<DccProductCatalogRespVO[]>([])
 const formRef = ref()
 
 const productStatusOptions = [
@@ -409,6 +467,20 @@ const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     placeholder: '产品类别 II'
   },
   {
+    key: 'productSequence',
+    label: '产品序号',
+    type: 'text',
+    queryParamKey: 'productSequence',
+    placeholder: '产品序号'
+  },
+  {
+    key: 'product',
+    label: '产品',
+    type: 'text',
+    queryParamKey: 'product',
+    placeholder: '产品'
+  },
+  {
     key: 'productStatus',
     label: '产品状态',
     type: 'select',
@@ -423,23 +495,101 @@ const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     options: dataSourceOptions
   },
   {
-    key: 'projectCodeNotBlank',
+    key: 'productCode',
+    label: '产品编码',
+    type: 'text',
+    queryParamKey: 'productCode',
+    placeholder: '产品编码'
+  },
+  {
+    key: 'projectName',
+    label: '项目名称',
+    type: 'text',
+    queryParamKey: 'projectName',
+    placeholder: '项目名称'
+  },
+  {
+    key: 'projectCode',
     label: '项目代码',
-    type: 'select',
-    queryParamKey: 'projectCodeNotBlank',
-    options: [{ label: '不为空', value: true }]
+    type: 'text',
+    queryParamKey: 'projectCode',
+    placeholder: '项目代码'
+  },
+  {
+    key: 'registrationCertificateName',
+    label: '注册证名称',
+    type: 'text',
+    queryParamKey: 'registrationCertificateName',
+    placeholder: '注册证名称'
+  },
+  {
+    key: 'registrationCertificateNumber',
+    label: '注册证号',
+    type: 'text',
+    queryParamKey: 'registrationCertificateNumber',
+    placeholder: '注册证号'
+  },
+  {
+    key: 'certificateHolder',
+    label: '持证人',
+    type: 'text',
+    queryParamKey: 'certificateHolder',
+    placeholder: '持证人'
+  },
+  {
+    key: 'registrationPlace',
+    label: '注册地',
+    type: 'text',
+    queryParamKey: 'registrationPlace',
+    placeholder: '注册地'
+  },
+  {
+    key: 'effectiveDate',
+    label: '生效日期',
+    type: 'text',
+    queryParamKey: 'effectiveDate',
+    placeholder: '生效日期'
+  },
+  {
+    key: 'expiryDate',
+    label: '有效期至',
+    type: 'text',
+    queryParamKey: 'expiryDate',
+    placeholder: '有效期至'
+  },
+  {
+    key: 'classification',
+    label: '分类',
+    type: 'text',
+    queryParamKey: 'classification',
+    placeholder: '分类'
+  },
+  {
+    key: 'registrationInfoLink',
+    label: '注册证信息链接',
+    type: 'text',
+    queryParamKey: 'registrationInfoLink',
+    placeholder: '注册证信息链接'
+  },
+  {
+    key: 'remark',
+    label: '备注',
+    type: 'text',
+    queryParamKey: 'remark',
+    placeholder: '备注'
   }
 ]
 
 const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'dataSource', label: '数据来源', minWidth: 120 },
   { key: 'categoryLevel1', label: '产品类别 I', minWidth: 180 },
   { key: 'categoryLevel2', label: '产品类别 II', minWidth: 180 },
   { key: 'productSequence', label: '产品序号', minWidth: 100 },
   { key: 'product', label: '产品', minWidth: 220 },
+  { key: 'dataSource', label: '数据来源', minWidth: 120 },
   { key: 'productCode', label: '产品编码', minWidth: 120 },
   { key: 'projectName', label: '项目名称', minWidth: 180, sortable: 'custom' },
   { key: 'projectCode', label: '项目代码', minWidth: 120, sortable: 'custom' },
+  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别JSON', width: 140 },
   { key: 'registrationCertificateName', label: '注册证名称', minWidth: 220 },
   { key: 'registrationCertificateNumber', label: '注册证号', minWidth: 180 },
   { key: 'certificateHolder', label: '持证人', minWidth: 160 },
@@ -483,8 +633,22 @@ const queryParams = reactive<DccProductCatalogPageQuery>({
   keyword: undefined,
   categoryLevel1: undefined,
   categoryLevel2: undefined,
+  productSequence: undefined,
+  product: undefined,
   productStatus: undefined,
   dataSource: undefined,
+  productCode: undefined,
+  projectName: undefined,
+  projectCode: undefined,
+  registrationCertificateName: undefined,
+  registrationCertificateNumber: undefined,
+  certificateHolder: undefined,
+  registrationPlace: undefined,
+  effectiveDate: undefined,
+  expiryDate: undefined,
+  classification: undefined,
+  registrationInfoLink: undefined,
+  remark: undefined,
   projectCodeNotBlank: undefined,
   sortField: undefined,
   sortOrder: undefined
@@ -542,15 +706,200 @@ const resetFormData = () => {
   formRef.value?.resetFields()
 }
 
+const PRODUCT_CATALOG_TREE_PAGE_SIZE = 200
+const PRODUCT_CATALOG_UNCLASSIFIED = '未分类'
+const PRODUCT_CATALOG_UNNAMED = '未命名产品'
+
+type DccProductCatalogTreeOption = {
+  treeNodeId: string
+  nodeType: 'all' | 'categoryLevel1' | 'categoryLevel2' | 'product'
+  label: string
+  detailCount: number
+  categoryLevel1?: string | null
+  categoryLevel2?: string | null
+  product?: string | null
+  children: DccProductCatalogTreeOption[]
+}
+
+const createProductCatalogAllTreeNode = (
+  detailCount = 0,
+  children: DccProductCatalogTreeOption[] = []
+): DccProductCatalogTreeOption => ({
+  treeNodeId: 'all',
+  nodeType: 'all',
+  label: '全部产品',
+  detailCount,
+  children
+})
+
+const productCatalogFlatRows = ref<DccProductCatalogRespVO[]>([])
+const treeList = ref<DccProductCatalogTreeOption[]>([createProductCatalogAllTreeNode()])
+const selectedProductCatalogTreeNode = ref<DccProductCatalogTreeOption>(
+  createProductCatalogAllTreeNode()
+)
+
+const selectedProductCatalogRows = computed<DccProductCatalogRespVO[]>(() =>
+  productCatalogFlatRows.value.filter((row) =>
+    matchesProductCatalogTreeSelection(row, selectedProductCatalogTreeNode.value)
+  )
+)
+
 const getList = async () => {
   loading.value = true
   try {
-    const data = await getProductCatalogPage(queryParams)
-    list.value = data.list
-    total.value = data.total
+    const rows = await getAllProductCatalogRows()
+    productCatalogFlatRows.value = rows
+    const nextTreeList = buildProductCatalogTree(rows)
+    treeList.value = nextTreeList
+    selectedProductCatalogTreeNode.value =
+      findProductCatalogTreeNode(nextTreeList, selectedProductCatalogTreeNode.value.treeNodeId) ||
+      nextTreeList[0] ||
+      createProductCatalogAllTreeNode()
+    total.value = rows.length
   } finally {
     loading.value = false
   }
+}
+
+const getAllProductCatalogRows = async (): Promise<DccProductCatalogRespVO[]> => {
+  const baseQuery = buildProductCatalogTreeQuery()
+  const firstPage = await getProductCatalogPage(baseQuery)
+  const rows = [...firstPage.list]
+  const totalRows = firstPage.total || rows.length
+  let pageNo = 2
+  while (rows.length < totalRows) {
+    const nextPage = await getProductCatalogPage({ ...baseQuery, pageNo })
+    if (nextPage.list.length === 0) {
+      throw new Error('产品目录分页返回数量与总数不一致，无法构建完整树')
+    }
+    rows.push(...nextPage.list)
+    pageNo += 1
+  }
+  return rows
+}
+
+const buildProductCatalogTreeQuery = (): DccProductCatalogPageReqVO => ({
+  ...queryParams,
+  pageNo: 1,
+  pageSize: PRODUCT_CATALOG_TREE_PAGE_SIZE
+})
+
+const buildProductCatalogTree = (
+  rows: DccProductCatalogRespVO[]
+): DccProductCatalogTreeOption[] => {
+  const level1Nodes: DccProductCatalogTreeOption[] = []
+  const nodeMap = new Map<string, DccProductCatalogTreeOption>()
+
+  for (const row of rows) {
+    const categoryLevel1 = normalizeTreeLabel(row.categoryLevel1, PRODUCT_CATALOG_UNCLASSIFIED)
+    const categoryLevel2 = normalizeTreeLabel(row.categoryLevel2, PRODUCT_CATALOG_UNCLASSIFIED)
+    const product = normalizeTreeLabel(row.product, PRODUCT_CATALOG_UNNAMED)
+    const level1Key = `categoryLevel1:${row.dataSource}:${categoryLevel1}`
+    const level2Key = `categoryLevel2:${row.dataSource}:${categoryLevel1}:${categoryLevel2}`
+    const productKey = `product:${row.dataSource}:${categoryLevel1}:${categoryLevel2}:${product}`
+
+    const level1Node = ensureProductCatalogTreeNode(nodeMap, level1Nodes, {
+      treeNodeId: level1Key,
+      nodeType: 'categoryLevel1',
+      label: categoryLevel1,
+      categoryLevel1
+    })
+    const level2Node = ensureProductCatalogTreeNode(nodeMap, level1Node.children || [], {
+      treeNodeId: level2Key,
+      nodeType: 'categoryLevel2',
+      label: categoryLevel2,
+      categoryLevel1,
+      categoryLevel2
+    })
+    const productNode = ensureProductCatalogTreeNode(nodeMap, level2Node.children || [], {
+      treeNodeId: productKey,
+      nodeType: 'product',
+      label: product,
+      categoryLevel1,
+      categoryLevel2,
+      product
+    })
+    level1Node.detailCount += 1
+    level2Node.detailCount += 1
+    productNode.detailCount += 1
+  }
+
+  return [createProductCatalogAllTreeNode(rows.length, level1Nodes)]
+}
+
+type ProductCatalogBranchNodeInput = Omit<DccProductCatalogTreeOption, 'detailCount' | 'children'>
+
+const ensureProductCatalogTreeNode = (
+  nodeMap: Map<string, DccProductCatalogTreeOption>,
+  siblings: DccProductCatalogTreeOption[],
+  input: ProductCatalogBranchNodeInput
+): DccProductCatalogTreeOption => {
+  const existing = nodeMap.get(input.treeNodeId)
+  if (existing) {
+    return existing
+  }
+  const node: DccProductCatalogTreeOption = {
+    treeNodeId: input.treeNodeId,
+    nodeType: input.nodeType,
+    label: input.label,
+    detailCount: 0,
+    categoryLevel1: input.categoryLevel1 || null,
+    categoryLevel2: input.categoryLevel2 || null,
+    product: input.product || null,
+    children: []
+  }
+  nodeMap.set(input.treeNodeId, node)
+  siblings.push(node)
+  return node
+}
+
+const findProductCatalogTreeNode = (
+  nodes: DccProductCatalogTreeOption[],
+  treeNodeId: string
+): DccProductCatalogTreeOption | undefined => {
+  for (const node of nodes) {
+    if (node.treeNodeId === treeNodeId) {
+      return node
+    }
+    const childNode = findProductCatalogTreeNode(node.children || [], treeNodeId)
+    if (childNode) {
+      return childNode
+    }
+  }
+  return undefined
+}
+
+const handleProductCatalogTreeNodeClick = (node: DccProductCatalogTreeOption) => {
+  selectedProductCatalogTreeNode.value = node
+}
+
+const normalizeTreeLabel = (value: string | null | undefined, defaultValue: string) => {
+  const normalized = value?.trim()
+  return normalized || defaultValue
+}
+
+const matchesProductCatalogTreeSelection = (
+  row: DccProductCatalogRespVO,
+  selectedNode: DccProductCatalogTreeOption
+) => {
+  if (selectedNode.nodeType === 'all') {
+    return true
+  }
+  const rowCategoryLevel1 = normalizeTreeLabel(row.categoryLevel1, PRODUCT_CATALOG_UNCLASSIFIED)
+  if (rowCategoryLevel1 !== selectedNode.categoryLevel1) {
+    return false
+  }
+  if (selectedNode.nodeType === 'categoryLevel1') {
+    return true
+  }
+  const rowCategoryLevel2 = normalizeTreeLabel(row.categoryLevel2, PRODUCT_CATALOG_UNCLASSIFIED)
+  if (rowCategoryLevel2 !== selectedNode.categoryLevel2) {
+    return false
+  }
+  if (selectedNode.nodeType === 'categoryLevel2') {
+    return true
+  }
+  return normalizeTreeLabel(row.product, PRODUCT_CATALOG_UNNAMED) === selectedNode.product
 }
 
 const productCatalogQuickFilter = useTableQuickFilter(
@@ -572,6 +921,21 @@ const handleProductCatalogSortChange = ({ prop, order }: ProductCatalogSortChang
   queryParams.sortField = sortField
   queryParams.sortOrder = order === 'ascending' ? 'asc' : 'desc'
   getList()
+}
+
+const copyProductCatalogBatchRecordTotalRecognitionJson = async (row: DccProductCatalogRespVO) => {
+  const { copy, copied, isSupported } = useClipboard({
+    legacy: true,
+    source: row.batchRecordTotalRecognitionJson || ''
+  })
+  if (!isSupported) {
+    message.error('当前浏览器不支持复制')
+    return
+  }
+  await copy()
+  if (unref(copied)) {
+    message.success('批记录识别 JSON 已复制')
+  }
 }
 
 const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
@@ -699,6 +1063,99 @@ onMounted(async () => {
   .dcc-product-catalog-list-template.unified-list-template--single-line-toolbar
     :deep(.table-multi-filter__tabs-empty) {
     min-width: 0;
+  }
+}
+
+.dcc-product-catalog-split-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 12px;
+  height: clamp(420px, calc(100vh - 258px), 680px);
+  min-height: 0;
+}
+
+.dcc-product-catalog-tree-panel {
+  min-width: 0;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+}
+
+.dcc-product-catalog-tree-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.dcc-product-catalog-tree {
+  height: 100%;
+  overflow: auto;
+}
+
+.dcc-product-catalog-detail-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dcc-product-catalog-detail-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+
+.dcc-product-catalog-detail-summary__title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.dcc-product-catalog-detail-summary__count {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.dcc-product-catalog-table-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+:deep(.dcc-product-catalog-tree-node) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+:deep(.dcc-product-catalog-tree-node__label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:deep(.dcc-product-catalog-tree-node__count) {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background-color: var(--el-fill-color-light);
+  border-radius: 999px;
+}
+
+@media (max-width: 1180px) {
+  .dcc-product-catalog-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dcc-product-catalog-tree {
+    max-height: 260px;
   }
 }
 

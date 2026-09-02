@@ -292,6 +292,7 @@ service.interceptors.response.use(
     console.log('err' + error) // for debug
     let { message } = error
     const { t } = useI18n()
+    const ignoreErrorMessage = (error.config as RequestCustomConfig | undefined)?.ignoreErrorMessage === true
     if (message === 'Network Error') {
       message = t('sys.api.errorMessage')
     } else if (message.includes('timeout')) {
@@ -299,7 +300,9 @@ service.interceptors.response.use(
     } else if (message.includes('Request failed with status code')) {
       message = t('sys.api.apiRequestFailed') + message.substr(message.length - 3)
     }
-    ElMessage.error(message)
+    if (!ignoreErrorMessage) {
+      ElMessage.error(message)
+    }
     return Promise.reject(error)
   }
 )

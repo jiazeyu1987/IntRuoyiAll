@@ -286,6 +286,26 @@
             <template #default="{ row }">{{ row.associatedFileCount ?? 0 }}</template>
           </el-table-column>
           <el-table-column
+            v-if="isProjectCodeColumnVisible('batchRecordTotalRecognitionJson')"
+            label="批记录识别JSON"
+            prop="batchRecordTotalRecognitionJson"
+            :width="getProjectCodeColumnWidthString('batchRecordTotalRecognitionJson', 140)"
+          >
+            <template #default="{ row }">
+              <el-button
+                v-if="row.batchRecordTotalRecognitionJson"
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                data-testid="dcc-project-code-copy-recognition-json"
+                @click="copyBatchRecordTotalRecognitionJson(row)"
+              >
+                复制JSON
+              </el-button>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column
             v-if="isProjectCodeColumnVisible('routeStatus')"
             label="工艺路线"
             prop="routeStatus"
@@ -1105,6 +1125,7 @@ import { dateFormatter2 } from '@/utils/formatTime'
 import { checkPermi, checkRole } from '@/utils/permission'
 import download from '@/utils/download'
 import type { FormRules } from 'element-plus'
+import { useClipboard } from '@vueuse/core'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -1301,6 +1322,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'category', label: '类别', minWidth: 120 },
   { key: 'associatedFileCount', label: '关联文件数', width: 120, sortable: 'custom' },
+  { key: 'batchRecordTotalRecognitionJson', label: '批记录识别JSON', width: 140 },
   { key: 'routeStatus', label: '工艺路线', width: 140 },
   { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
@@ -2198,6 +2220,21 @@ const handleSortChange = ({ prop, order }: { prop?: string; order?: string | nul
   const sortOrder = order
   queryParams.fileCountSort = sortOrder === 'ascending' ? 'asc' : 'desc'
   getList()
+}
+
+const copyBatchRecordTotalRecognitionJson = async (row: DccProjectCodeRespVO) => {
+  const { copy, copied, isSupported } = useClipboard({
+    legacy: true,
+    source: row.batchRecordTotalRecognitionJson || ''
+  })
+  if (!isSupported) {
+    message.error('当前浏览器不支持复制')
+    return
+  }
+  await copy()
+  if (unref(copied)) {
+    message.success('批记录识别 JSON 已复制')
+  }
 }
 
 const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {

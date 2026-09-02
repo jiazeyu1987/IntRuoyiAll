@@ -34,6 +34,8 @@ import java.util.Map;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REVISION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_TOP_LEVEL_VOID_REASON_REQUIRED;
@@ -112,6 +114,33 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(55L, longValue("SELECT reviewer_user_id FROM dcc_registration_certificate_change WHERE id = ?", changeId));
         assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
         assertEquals("Registrant B", text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
+    }
+
+    @Test
+    void pendingChangeBlocksSecondSubmissionBeforeCreatingMoreFacts() {
+        seedCurrentCertificate();
+
+        assertDoesNotThrow(() -> service.submitChangeForApproval(command(
+                "change-first-pending", 3, Map.of("PRODUCT_NAME", "Product B"),
+                null, null, null, null)));
+        int eventsBeforeSecondSubmit = count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event");
+        int changesBeforeSecondSubmit = count("SELECT COUNT(*) FROM dcc_registration_certificate_change");
+        int filesBeforeSecondSubmit = count("SELECT COUNT(*) FROM dcc_registration_certificate_file");
+        int requestsBeforeSecondSubmit = count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request");
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.submitChangeForApproval(command(
+                "change-second-pending", 3, Map.of("PRODUCT_NAME", "Product C"),
+                null, null, null, null)));
+
+        assertEquals(REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT.getCode(), error.getCode());
+        assertEquals(eventsBeforeSecondSubmit,
+                count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event"));
+        assertEquals(changesBeforeSecondSubmit,
+                count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
+        assertEquals(filesBeforeSecondSubmit,
+                count("SELECT COUNT(*) FROM dcc_registration_certificate_file"));
+        assertEquals(requestsBeforeSecondSubmit,
+                count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request"));
     }
 
     @Test

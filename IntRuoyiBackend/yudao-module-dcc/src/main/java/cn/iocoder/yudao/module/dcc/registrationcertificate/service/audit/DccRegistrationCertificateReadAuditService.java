@@ -27,6 +27,14 @@ public class DccRegistrationCertificateReadAuditService {
     }
 
     public void record(DccRegistrationCertificateReadAuditCommand command) {
+        record(command, false);
+    }
+
+    public void recordRepeatableListRead(DccRegistrationCertificateReadAuditCommand command) {
+        record(command, true);
+    }
+
+    private void record(DccRegistrationCertificateReadAuditCommand command, boolean repeatableListRead) {
         if (command == null) {
             throw new IllegalArgumentException("读取审计命令不能为空");
         }
@@ -60,8 +68,15 @@ public class DccRegistrationCertificateReadAuditService {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT);
             }
         } catch (DuplicateKeyException duplicate) {
+            if (repeatableListRead && isSuccessfulListRead(operation, result)) {
+                return;
+            }
             throw new ServiceException(REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT);
         }
+    }
+
+    private static boolean isSuccessfulListRead(String operation, String result) {
+        return "SUCCESS".equals(result) && ("PAGE".equals(operation) || "OLD_INDEX".equals(operation));
     }
 
     private static String eventKey(String traceId, String operation, Long certificateId,

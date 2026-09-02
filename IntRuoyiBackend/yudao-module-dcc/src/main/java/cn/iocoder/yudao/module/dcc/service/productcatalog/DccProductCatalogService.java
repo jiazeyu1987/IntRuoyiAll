@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRegistrationExpiryCompareRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeNodeRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 
 import java.util.List;
@@ -13,6 +15,8 @@ import java.util.List;
 public interface DccProductCatalogService {
 
     PageResult<DccProductCatalogRespVO> getProductCatalogPage(DccProductCatalogPageReqVO reqVO);
+
+    List<DccProductCatalogTreeNodeRespVO> getProductCatalogTree(DccProductCatalogTreeReqVO reqVO);
 
     DccProductCatalogRespVO createProductCatalog(DccProductCatalogSaveReqVO reqVO);
 

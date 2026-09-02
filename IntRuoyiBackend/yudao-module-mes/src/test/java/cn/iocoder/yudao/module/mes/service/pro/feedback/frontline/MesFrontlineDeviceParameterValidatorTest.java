@@ -47,7 +47,7 @@ class MesFrontlineDeviceParameterValidatorTest {
     }
 
     @Test
-    void rejectsSubmittedReadingForTextStandard() {
+    void acceptsSubmittedTextStandardReading() {
         when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
                 .id(7001L)
                 .leaderUserId(3001L)
@@ -82,7 +82,51 @@ class MesFrontlineDeviceParameterValidatorTest {
                 new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
                         .setDeviceId(7001L)
                         .setParameterCode("cleaning-medium")
-                        .setValue(BigDecimal.ONE);
+                        .setTextValue("纯化水");
+
+        assertDoesNotThrow(() -> validator.validateSelectedDeviceAndParameters(
+                7101L, 6001L, selectedDevice, List.of(reading)));
+        assertEquals("NORMAL", reading.getParameterStatus());
+        assertEquals("清洗介质", reading.getParameterName());
+    }
+
+    @Test
+    void rejectsBlankTextStandardReading() {
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceCode("B09353")
+                .deviceName("超声波清洗机")
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(MesProcessPoolDeviceParameterRuleDO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .parameterCode("cleaning-medium")
+                .parameterName("清洗介质")
+                .standardText("纯化水")
+                .valueType("TEXT_STANDARD")
+                .enabled(Boolean.TRUE)
+                .build()));
+        MesFrontlineDeviceParameterValidator validator = new MesFrontlineDeviceParameterValidatorImpl(
+                processDeviceMapper, deviceMapper, parameterRuleMapper);
+
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO().setDeviceId(7001L);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading =
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(7001L)
+                        .setParameterCode("cleaning-medium")
+                        .setTextValue(" ");
 
         assertThrows(ServiceException.class, () -> validator.validateSelectedDeviceAndParameters(
                 7101L, 6001L, selectedDevice, List.of(reading)));
@@ -204,6 +248,31 @@ class MesFrontlineDeviceParameterValidatorTest {
         assertEquals("ABOVE_UPPER", reading.getParameterStatus());
         assertEquals("B09353", reading.getDeviceCode());
         assertEquals(new BigDecimal("10"), reading.getUpperLimit());
+        verifyNoInteractions(processDeviceMapper, deviceMapper, parameterRuleMapper);
+    }
+
+    @Test
+    void acceptsTextStandardParameterReadingFromSnapshotWithoutMapperReads() {
+        MesFrontlineDeviceParameterValidator validator = new MesFrontlineDeviceParameterValidatorImpl(
+                processDeviceMapper, deviceMapper, parameterRuleMapper);
+        MesFrontlineTeamDeviceOption snapshotDevice = new MesFrontlineTeamDeviceOption(
+                7001L, "B09353", "超声波清洗机", "ENABLED", List.of(
+                new MesFrontlineDeviceParameterOption("cleaning-medium", "清洗介质", null,
+                        null, null, null, "TEXT_STANDARD",
+                        "默认纯化水", List.of(), null, null)));
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO().setDeviceId(7001L);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading =
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(7001L)
+                        .setParameterCode("cleaning-medium")
+                        .setTextValue("已改为自来水");
+
+        validator.validateSnapshotDeviceAndParameters(List.of(snapshotDevice), selectedDevice, List.of(reading));
+
+        assertEquals("NORMAL", reading.getParameterStatus());
+        assertEquals("B09353", reading.getDeviceCode());
+        assertEquals("清洗介质", reading.getParameterName());
         verifyNoInteractions(processDeviceMapper, deviceMapper, parameterRuleMapper);
     }
 

@@ -191,6 +191,10 @@ public interface ErrorCodeConstants {
             "DCC product catalog row key is invalid: {}");
     ErrorCode DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID = new ErrorCode(1_080_000_149,
             "DCC product catalog data source is invalid: {}");
+    ErrorCode DCC_DATA_RELATION_TARGET_INVALID = new ErrorCode(1_080_000_150,
+            "DCC data relation target is missing or identity mismatched");
+    ErrorCode DCC_DATA_RELATION_CONFLICT = new ErrorCode(1_080_000_151,
+            "DCC data relation already exists");
     ErrorCode FILE_CATEGORY_LIFECYCLE_STAGE_INVALID = new ErrorCode(1_080_000_147,
             "Controlled file category lifecycle stage is invalid: {}");
     ErrorCode FILE_CATEGORY_DELETE_CHILD_EXISTS = new ErrorCode(1_080_000_050, "Controlled file category cannot be deleted because child categories still exist");
@@ -404,6 +408,8 @@ public interface ErrorCodeConstants {
             "注册证生产关系变更信息不能为空");
     ErrorCode REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT = new ErrorCode(1_080_000_254,
             "注册证变更历史冲突");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PENDING_CONFLICT = new ErrorCode(1_080_000_262,
+            "该注册证已有待审批的变更，请审批完成后再提交");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT = new ErrorCode(1_080_000_255,
             "注册证生命周期事件冲突");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_SEQUENCE_CONFLICT = new ErrorCode(1_080_000_256,

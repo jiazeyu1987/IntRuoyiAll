@@ -1023,6 +1023,13 @@
                   {{ formatProcessDetailText(selectedProcessDetailField.value) }}
                 </strong>
               </template>
+              <strong
+                v-else-if="isRouteProcessMaterialDetailField(selectedProcessDetailField.key)"
+                class="route-flow-graph-designer__selected-field-value-text--multiline"
+                :title="formatProcessDetailText(selectedProcessDetailField.value)"
+              >
+                {{ formatProcessDetailText(selectedProcessDetailField.value) }}
+              </strong>
               <strong v-else :title="formatProcessDetailText(selectedProcessDetailField.value)">
                 {{ formatProcessDetailText(selectedProcessDetailField.value) }}
               </strong>
@@ -2172,10 +2179,14 @@ const DEFAULT_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
   'processCode',
   'processName',
   'workstation',
-  'batchRecordFormNames'
+  'batchRecordFormNames',
+  'inputMaterialIds',
+  'outputMaterialIds'
 ].filter((key): key is ProcessDetailFieldKey => PROCESS_DETAIL_FIELD_KEY_SET.has(key))
 const REQUIRED_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
-  'batchRecordFormNames'
+  'batchRecordFormNames',
+  'inputMaterialIds',
+  'outputMaterialIds'
 ].filter((key): key is ProcessDetailFieldKey => PROCESS_DETAIL_FIELD_KEY_SET.has(key))
 const CAPACITY_SOURCE_FOCUS_FIELD_KEYS: Record<string, ProcessDetailFieldKey[]> = {
   resource: ['workstation'],
@@ -3148,6 +3159,12 @@ const formatRouteProcessMaterialOption = (item: MdItemVO) =>
 const formatRouteProcessMaterialSelectedLabel = (item: MdItemVO) =>
   [item.code, item.name].filter(Boolean).join(' / ')
 
+const formatRouteProcessMaterialSummaryLine = (item: MdItemVO) =>
+  [item.code, item.name].filter(Boolean).join(' ')
+
+const isRouteProcessMaterialDetailField = (fieldKey?: ProcessDetailFieldKey) =>
+  fieldKey === 'inputMaterialIds' || fieldKey === 'outputMaterialIds'
+
 const getSelectedRouteProcessMaterialIds = (kind: RouteProcessMaterialKind) =>
   kind === 'input'
     ? selectedProcessAttributes.inputMaterialIds || []
@@ -3309,6 +3326,13 @@ const getSelectedRouteProcessMaterialOptions = (kind: RouteProcessMaterialKind):
   return getSelectedRouteProcessMaterialIds(kind)
     .map((materialId) => optionMap.get(materialId))
     .filter((item): item is MdItemVO => Boolean(item))
+}
+
+const buildRouteProcessMaterialSummaryValue = (kind: RouteProcessMaterialKind) => {
+  const materialOptions = getSelectedRouteProcessMaterialOptions(kind)
+  return materialOptions.length
+    ? materialOptions.map((item) => formatRouteProcessMaterialSummaryLine(item)).join('\n')
+    : '未配置'
 }
 
 const removeRouteProcessMaterial = (kind: RouteProcessMaterialKind, materialId: number) => {
@@ -4482,6 +4506,20 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
       label: getRouteProcessSettingColumnLabel('batchRecordFormNames', '批记录表单'),
       value: buildBatchRecordFormValue(),
       links: buildBatchRecordFormLinks(),
+      loading: attributeLoading
+    },
+    {
+      key: 'inputMaterialIds',
+      label: getRouteProcessSettingColumnLabel('inputMaterialIds', '输入物料'),
+      value: buildRouteProcessMaterialSummaryValue('input'),
+      links: [],
+      loading: attributeLoading
+    },
+    {
+      key: 'outputMaterialIds',
+      label: getRouteProcessSettingColumnLabel('outputMaterialIds', '输出物料'),
+      value: buildRouteProcessMaterialSummaryValue('output'),
+      links: [],
       loading: attributeLoading
     },
     {
@@ -9777,6 +9815,15 @@ defineExpose({
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.route-flow-graph-designer__selected-field-value-text--multiline {
+  display: block;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: pre-line !important;
+  overflow-wrap: anywhere;
+  line-height: 20px;
 }
 
 .route-flow-graph-designer__selected-field-coverage {

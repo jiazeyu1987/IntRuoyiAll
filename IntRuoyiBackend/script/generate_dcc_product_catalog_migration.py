@@ -176,7 +176,7 @@ def main() -> None:
 
     rows = read_rows(args.source)
     counts = {data_source: sum(1 for row in rows if row[0] == data_source) for _, data_source in SHEETS}
-    if counts != {"瑛泰产品": 181}:
+    if counts != {"瑛泰产品": 186}:
         raise ValueError(f"unexpected row counts: {counts}")
     args.output.write_text(render_sql(rows, args.source), encoding="utf-8", newline="\n")
     print(f"generated {len(rows)} rows: {counts}")

@@ -1328,42 +1328,6 @@ const assertPqcDecisionResult = (
   }
 }
 
-const openPqcDecisionDialog = async (row: EdhrWorkTaskRespVO, action: 'APPROVE' | 'REJECT') => {
-  resetPqcDecisionDialog()
-  pqcDecisionAction.value = action
-  pqcDecisionTask.value = row
-  pqcDecisionDialogVisible.value = true
-  pqcDecisionLoading.value = true
-  try {
-    if (!canHandlePqcProductionRelease(row)) {
-      throw new Error(resolveInactionReasonLabel(row))
-    }
-    const { applicationId } = requirePqcDecisionTaskContext(row)
-    const receipt = await getPqcProductionRelease(applicationId)
-    assertPqcDecisionReceiptMatchesTask(receipt, row)
-    pqcDecisionReceipt.value = receipt
-    if (receipt.status !== 'PQC_RELEASE_PENDING') {
-      message.warning(
-        `该申请当前状态为${resolvePqcReleaseStatusLabel(receipt.status)}，不能重复处理。`
-      )
-    }
-  } catch (error) {
-    const failure = resolvePqcProductionReleaseFailure(error)
-    if (failure) {
-      pqcDecisionBlockers.value = failure.blockers
-      message.error(resolveErrorMessage(error, failure.blockers[0].reason))
-    } else {
-      pqcDecisionUncertainMessage.value = resolveErrorMessage(
-        error,
-        '生产放行权威回执加载失败，无法提交PQC决定。'
-      )
-      message.error(pqcDecisionUncertainMessage.value)
-    }
-  } finally {
-    pqcDecisionLoading.value = false
-  }
-}
-
 const openPqcProductionReleasePage = (row: EdhrWorkTaskRespVO) => {
   requirePqcDecisionTaskContext(row)
   router.push({ name: 'MesPqcProductionRelease' })

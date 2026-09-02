@@ -220,6 +220,7 @@
                         延续
                       </el-button>
                       <el-button
+                        v-if="row.status === 'CURRENT' && row.hasPendingChange === false"
                         link
                         type="primary"
                         v-hasPermi="['dcc:registration-certificate:change:submit']"
@@ -344,18 +345,12 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getOldColumnWidthString('actions', 420)"
+                  :width="getOldColumnWidthString('actions', 140)"
                 >
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions registration-certificate-row-actions--compact registration-certificate-row-actions--old-manager-view">
                       <el-button link type="primary" @click="openOldDetail(row.certificateId, row.versionId)">
-                        详情
-                      </el-button>
-                      <el-button v-hasRole="['dcc_registration_certificate_approver']" link type="success" @click="openOldDirectView(row.certificateId, row.versionId)">
                         查看
-                      </el-button>
-                      <el-button link type="warning" @click="openOldAccessRequest(row.certificateId)">
-                        申请查看
                       </el-button>
                     </div>
                   </template>
@@ -473,7 +468,7 @@ const simulationDate = ref('')
 const simulationLoading = ref(false)
 const simulationResult = ref<DccRegistrationCertificateBusinessTimeSimulationRespVO>()
 const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsDoubleWidthV1'
-const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsDoubleWidthV1'
+const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.unifiedViewActionV1'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
   Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
@@ -545,7 +540,7 @@ const oldColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
   { key: 'status', label: '状态', width: 130, sortable: 'custom' },
   { key: 'expiryDate', label: '原有效期至', width: 140, sortable: 'custom' },
-  { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 140, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -917,14 +912,6 @@ const openOldDetail = (certificateId: number | string, versionId: number | strin
   })
 }
 
-const openOldDirectView = (certificateId: number | string, versionId: number | string) => {
-  openOldDetail(certificateId, versionId)
-}
-
-const openOldAccessRequest = (certificateId: number | string) => {
-  router.push('/mdm/registration-certificate/detail/' + String(certificateId) + '?mode=access-request')
-}
-
 const openUploadDialog = () => {
   showUploadDialog.value = true
 }
@@ -1095,7 +1082,7 @@ watch(
 .registration-certificate-business-time-result { margin-top: 12px; color: var(--el-color-success); }
 
 .registration-certificate-row-actions--old-manager-view {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 

@@ -10,9 +10,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
@@ -68,6 +70,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     @Resource
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Resource
+    private MesProProcessPoolEventMapper processPoolEventMapper;
+    @Resource
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private MesProWorkOrderMapper workOrderMapper;
@@ -79,9 +83,15 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         String reason = requireText(reqVO.getNonconformanceReason());
         MesProEdhrBatchExecutionDO batch = null;
         MesProcessPoolActiveOrderReleaseApplicationDO application = null;
+        MesProProcessPoolEventDO pqcSubmissionEvent = null;
         if (SOURCE_TYPE_PQC_RELEASE.equals(sourceType) && reqVO.getBatchExecutionId() == null) {
             application = requirePqcReleaseApplicationForUpdate(reqVO.getSourceId());
             if (reviewMapper.selectLatestBySource(sourceType, application.getId()) != null) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
+            }
+        } else if (SOURCE_TYPE_PQC_SUBMISSION.equals(sourceType) && reqVO.getSourceId() != null) {
+            pqcSubmissionEvent = requirePqcSubmissionEventForUpdate(reqVO.getSourceId());
+            if (reviewMapper.selectLatestBySource(sourceType, pqcSubmissionEvent.getId()) != null) {
                 throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
             }
         } else {
@@ -97,18 +107,21 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
             }
         }
-        Long workOrderId = application == null ? batch.getWorkOrderId() : application.getWorkOrderId();
+        Long workOrderId = batch != null ? batch.getWorkOrderId()
+                : application != null ? application.getWorkOrderId() : pqcSubmissionEvent.getWorkOrderId();
         MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
         LocalDateTime now = now();
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
-                .reviewCode(buildReviewCode(batch == null ? application.getId() : batch.getId(), now))
+                .reviewCode(buildReviewCode(batch == null ? reqVO.getSourceId() : batch.getId(), now))
                 .sourceType(sourceType)
                 .sourceId(reqVO.getSourceId())
                 .batchExecutionId(batch == null ? null : batch.getId())
                 .batchExecutionCode(batch == null ? null : batch.getBatchExecutionCode())
-                .workOrderId(batch == null ? application.getWorkOrderId() : batch.getWorkOrderId())
-                .workOrderCode(batch == null ? application.getWorkOrderCode() : batch.getWorkOrderCode())
-                .batchCode(batch == null ? application.getBatchCode() : batch.getBatchCode())
+                .workOrderId(workOrderId)
+                .workOrderCode(batch != null ? batch.getWorkOrderCode()
+                        : application != null ? application.getWorkOrderCode() : workOrder.getCode())
+                .batchCode(batch != null ? batch.getBatchCode()
+                        : application != null ? application.getBatchCode() : workOrder.getBatchCode())
                 .previousBatchStatus(batch == null ? null : batch.getStatus())
                 .previousWorkOrderTemporaryFrozen(workOrder == null ? null : workOrder.getTemporaryFrozen())
                 .reviewStatus(STATUS_PENDING_REVIEW)
@@ -272,6 +285,15 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         }
         return application;
+    }
+
+    private MesProProcessPoolEventDO requirePqcSubmissionEventForUpdate(Long eventId) {
+        MesProProcessPoolEventDO event = processPoolEventMapper.selectByIdForUpdate(eventId);
+        if (event == null || !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
+                || event.getWorkOrderId() == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        return event;
     }
 
     private MesProWorkOrderDO lockWorkOrder(Long workOrderId) {

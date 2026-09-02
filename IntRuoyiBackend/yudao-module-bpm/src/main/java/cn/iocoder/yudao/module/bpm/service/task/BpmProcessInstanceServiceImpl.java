@@ -101,6 +101,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE = "UPLOAD_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_OPERATION = "UPLOAD_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_RENEWAL_OPERATION = "RENEWAL_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_CHANGE_OPERATION = "CHANGE_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE =
             "dcc_registration_certificate_approver";
 
@@ -449,7 +450,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             return true;
         }
         if (REGISTRATION_CERTIFICATE_UPLOAD_OPERATION.equals(operation)
-                || REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)) {
+                || REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)
+                || REGISTRATION_CERTIFICATE_CHANGE_OPERATION.equals(operation)) {
             return true;
         }
         throw new IllegalArgumentException(

@@ -8,9 +8,13 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRegistrationExpiryCompareRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogSaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeNodeRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogTreeReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +22,9 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,6 +45,10 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private static final String STATUS_FETCH_FAILED = "FETCH_FAILED";
     private static final String STATUS_NO_LINK = "NO_LINK";
     private static final String STATUS_UNSUPPORTED = "UNSUPPORTED";
+    private static final String NODE_TYPE_CATEGORY_LEVEL1 = "categoryLevel1";
+    private static final String NODE_TYPE_CATEGORY_LEVEL2 = "categoryLevel2";
+    private static final String NODE_TYPE_PRODUCT = "product";
+    private static final String NODE_TYPE_DETAIL = "detail";
     private static final Set<String> SUPPORTED_DATA_SOURCES = Set.of("瑛泰产品");
     private static final Pattern EXPIRY_DATE_PATTERN = Pattern.compile(
             "(?:有效期至|有效期)\\s*[:：]?\\s*([0-9]{4})\\s*[./\\-/年]\\s*([0-9]{1,2})\\s*[./\\-/月]\\s*([0-9]{1,2})\\s*(?:日)?");
@@ -48,11 +58,56 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private DccProductCatalogMapper productCatalogMapper;
 
     @Resource
+    private DccProjectCodeMapper projectCodeMapper;
+
+    @Resource
     private DccRegistrationExpiryExternalPageClient externalPageClient;
 
     @Override
     public PageResult<DccProductCatalogRespVO> getProductCatalogPage(DccProductCatalogPageReqVO reqVO) {
-        return BeanUtils.toBean(productCatalogMapper.selectPage(reqVO), DccProductCatalogRespVO.class);
+        PageResult<DccProductCatalogRespVO> page =
+                BeanUtils.toBean(productCatalogMapper.selectPage(reqVO), DccProductCatalogRespVO.class);
+        enrichBatchRecordTotalRecognitionJson(page.getList());
+        return page;
+    }
+
+    @Override
+    public List<DccProductCatalogTreeNodeRespVO> getProductCatalogTree(DccProductCatalogTreeReqVO reqVO) {
+        List<DccProductCatalogDO> rows = productCatalogMapper.selectTreeRows(reqVO);
+        Map<String, DccProductCatalogTreeNodeRespVO> categoryLevel1Nodes = new LinkedHashMap<>();
+        for (DccProductCatalogDO row : rows) {
+            String dataSource = StrUtil.blankToDefault(row.getDataSource(), "");
+            String categoryLevel1 = StrUtil.blankToDefault(row.getCategoryLevel1(), "未分类");
+            String categoryLevel2 = StrUtil.blankToDefault(row.getCategoryLevel2(), "未分类");
+            String product = StrUtil.blankToDefault(row.getProduct(), "未命名产品");
+
+            String categoryLevel1Key = dataSource + "|" + categoryLevel1;
+            DccProductCatalogTreeNodeRespVO categoryLevel1Node = categoryLevel1Nodes.computeIfAbsent(
+                    categoryLevel1Key,
+                    key -> branchNode(key, NODE_TYPE_CATEGORY_LEVEL1, 1, categoryLevel1,
+                            dataSource, categoryLevel1, null, null));
+
+            String categoryLevel2Key = categoryLevel1Key + "|" + categoryLevel2;
+            DccProductCatalogTreeNodeRespVO categoryLevel2Node =
+                    childById(categoryLevel1Node, NODE_TYPE_CATEGORY_LEVEL2, categoryLevel2Key);
+            if (categoryLevel2Node == null) {
+                categoryLevel2Node = branchNode(categoryLevel2Key, NODE_TYPE_CATEGORY_LEVEL2, 2, categoryLevel2,
+                        dataSource, categoryLevel1, categoryLevel2, null);
+                categoryLevel1Node.getChildren().add(categoryLevel2Node);
+            }
+
+            String productKey = categoryLevel2Key + "|" + product;
+            DccProductCatalogTreeNodeRespVO productNode =
+                    childById(categoryLevel2Node, NODE_TYPE_PRODUCT, productKey);
+            if (productNode == null) {
+                productNode = branchNode(productKey, NODE_TYPE_PRODUCT, 3, product,
+                        dataSource, categoryLevel1, categoryLevel2, product);
+                productNode.setProductSequence(row.getProductSequence());
+                categoryLevel2Node.getChildren().add(productNode);
+            }
+            productNode.getChildren().add(detailNode(row, productKey + "|" + row.getOriginalRowNo()));
+        }
+        return new ArrayList<>(categoryLevel1Nodes.values());
     }
 
     @Override
@@ -116,6 +171,59 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
         DccProductCatalogDO row = BeanUtils.toBean(reqVO, DccProductCatalogDO.class);
         row.setDataSource(StrUtil.trim(reqVO.getDataSource()));
         return row;
+    }
+
+    private void enrichBatchRecordTotalRecognitionJson(List<DccProductCatalogRespVO> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        Map<String, String> recognitionJsonByProjectCode = new HashMap<>();
+        for (DccProjectCodeDO projectCode : projectCodeMapper.selectEnabledList()) {
+            String code = StrUtil.trimToNull(projectCode.getProjectCode());
+            if (code == null || StrUtil.isBlank(projectCode.getBatchRecordTotalRecognitionJson())) {
+                continue;
+            }
+            recognitionJsonByProjectCode.putIfAbsent(code, projectCode.getBatchRecordTotalRecognitionJson());
+        }
+        for (DccProductCatalogRespVO row : rows) {
+            String projectCode = StrUtil.trimToNull(row.getProjectCode());
+            if (projectCode != null) {
+                row.setBatchRecordTotalRecognitionJson(recognitionJsonByProjectCode.get(projectCode));
+            }
+        }
+    }
+
+    private DccProductCatalogTreeNodeRespVO branchNode(String treeNodeId, String nodeType, int treeLevel,
+            String treeLabel, String dataSource, String categoryLevel1, String categoryLevel2, String product) {
+        DccProductCatalogTreeNodeRespVO node = new DccProductCatalogTreeNodeRespVO();
+        node.setTreeNodeId(nodeType + ":" + treeNodeId);
+        node.setNodeType(nodeType);
+        node.setTreeLevel(treeLevel);
+        node.setTreeLabel(treeLabel);
+        node.setDataSource(dataSource);
+        node.setCategoryLevel1(categoryLevel1);
+        node.setCategoryLevel2(categoryLevel2);
+        node.setProduct(product);
+        return node;
+    }
+
+    private DccProductCatalogTreeNodeRespVO childById(DccProductCatalogTreeNodeRespVO parent, String nodeType,
+            String treeNodeId) {
+        String normalizedTreeNodeId = nodeType + ":" + treeNodeId;
+        return parent.getChildren().stream()
+                .filter(child -> normalizedTreeNodeId.equals(child.getTreeNodeId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private DccProductCatalogTreeNodeRespVO detailNode(DccProductCatalogDO row, String treeNodeId) {
+        DccProductCatalogTreeNodeRespVO node = BeanUtils.toBean(row, DccProductCatalogTreeNodeRespVO.class);
+        node.setTreeNodeId(NODE_TYPE_DETAIL + ":" + treeNodeId);
+        node.setNodeType(NODE_TYPE_DETAIL);
+        node.setTreeLevel(4);
+        node.setTreeLabel(StrUtil.blankToDefault(row.getRegistrationCertificateName(), row.getProductCode()));
+        node.setChildren(new ArrayList<>());
+        return node;
     }
 
     private DccProductCatalogRegistrationExpiryCompareRespVO compareRow(

@@ -40,26 +40,26 @@ const quickFilterDefinitions = productCatalogPanelSource.slice(quickFilterStart,
 
 assert.match(
   quickFilterDefinitions,
-  /key:\s*'projectCodeNotBlank'[\s\S]*label:\s*'项目代码'[\s\S]*type:\s*'select'[\s\S]*queryParamKey:\s*'projectCodeNotBlank'[\s\S]*label:\s*'不为空'[\s\S]*value:\s*true/,
-  '产品目录快速过滤必须提供“项目代码 / 不为空”正式筛选项。'
+  /key:\s*'projectCode'[\s\S]*label:\s*'项目代码'[\s\S]*type:\s*'text'[\s\S]*queryParamKey:\s*'projectCode'/,
+  '产品目录快速过滤必须提供“项目代码”文本筛选项。'
 )
 assert.match(
   productCatalogPanelSource,
-  /const queryParams = reactive<DccProductCatalogPageQuery>\(\{[\s\S]*projectCodeNotBlank:\s*undefined[\s\S]*sortField:\s*undefined/,
-  '产品目录查询参数必须声明 projectCodeNotBlank，并由标准快速过滤负责写入和重置。'
+  /const queryParams = reactive<DccProductCatalogPageQuery>\(\{[\s\S]*projectCode:\s*undefined[\s\S]*sortField:\s*undefined/,
+  '产品目录查询参数必须声明 projectCode，并由标准快速过滤负责写入和重置。'
 )
 assert.ok(
-  productCatalogApiSource.includes('projectCodeNotBlank?: boolean'),
-  '前端产品目录分页请求类型必须声明 projectCodeNotBlank 布尔参数。'
+  productCatalogApiSource.includes('projectCode?: string'),
+  '前端产品目录分页请求类型必须声明 projectCode 文本参数。'
 )
 assert.ok(
-  pageReqSource.includes('private Boolean projectCodeNotBlank;'),
-  '后端产品目录分页 Request VO 必须声明 projectCodeNotBlank 布尔参数。'
+  pageReqSource.includes('private String projectCode;'),
+  '后端产品目录分页 Request VO 必须声明 projectCode 文本参数。'
 )
 assert.match(
   mapperSource,
-  /applyProjectCodeNotBlankFilter\(wrapper,\s*reqVO\);[\s\S]*private void applyProjectCodeNotBlankFilter\(QueryWrapperX<DccProductCatalogDO> wrapper,\s*DccProductCatalogPageReqVO reqVO\)[\s\S]*Boolean\.TRUE\.equals\(reqVO\.getProjectCodeNotBlank\(\)\)[\s\S]*wrapper\.isNotNull\(PROJECT_CODE_COLUMN\)[\s\S]*TRIM\([\s\S]*PROJECT_CODE_COLUMN[\s\S]*\)\s*<>\s*''/,
-  '后端 Mapper 必须在 projectCodeNotBlank=true 时排除 null、空字符串和空白字符串项目代码。'
+  /likeIfPresent\(PROJECT_CODE_COLUMN,\s*reqVO\.getProjectCode\(\)\)/,
+  '后端 Mapper 必须按项目代码文本包含过滤。'
 )
 
 console.log('PASS: DCC product catalog project-code not-blank filter static contract')

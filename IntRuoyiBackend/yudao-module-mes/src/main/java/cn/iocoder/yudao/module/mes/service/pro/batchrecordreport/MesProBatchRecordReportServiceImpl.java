@@ -173,10 +173,13 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID,
                     parsedTables.size());
         }
-        return saveGeneratedReports(parsedTables, sourceFileName, sourceHash,
+        MesProBatchRecordImportResult result = saveGeneratedReports(parsedTables, sourceFileName, sourceHash,
                 scopeSampleKeyByTenant(MesProBatchRecordReportConstants.SAMPLE_KEY_PREFIX + sourceHash.substring(0, 16)),
                 MesProBatchRecordRecognitionRouteKeys.LEGACY, DEFAULT_BATCH_RECORD_NAME,
                 GeneratedReportSource.IMPORTED_DOC, false);
+        String totalRecognitionJson = JSON.toJSONString(
+                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
+        return result.withTotalRecognitionJson(totalRecognitionJson);
     }
 
     @Override
@@ -840,6 +843,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<MesProBatchRecordParsedTable> parsedTables = recognizer.recognize(null, bytes, sourceFileName);
         attachDocumentFrame(parsedTables, extractDocumentFrameByFileName(bytes, sourceFileName));
         routeGenerationService.validateUploadedWordRoute(parsedTables);
+        String totalRecognitionJson = JSON.toJSONString(
+                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
 
         MesProBatchRecordVersionDO targetVersion = rebuildRecord ? createPrecheckVersion(
                 definition, upgradeImport ? targetSourceVersion : null, sourceFileName, sha256, targetVersionNo)
@@ -910,7 +915,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         }
         RouteDisplay routeDisplay = routeResult == null && targetVersion != null
                 ? loadRouteDisplay(targetVersion.getRouteId()) : RouteDisplay.empty();
-        return MesProBatchRecordImportResult.builder()
+        MesProBatchRecordImportResult result = MesProBatchRecordImportResult.builder()
                 .importedCount(importResult.importedCount())
                 .createdCount(importResult.createdCount())
                 .updatedCount(importResult.updatedCount())
@@ -932,6 +937,15 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .skippedProductNames(routeResult == null ? List.of() : routeResult.skippedProductNames())
                 .reports(importResult.reports())
                 .build();
+        saveProjectCodeBatchRecordTotalRecognitionJson(selectedDccProjectCode.getId(), totalRecognitionJson);
+        return result.withTotalRecognitionJson(totalRecognitionJson);
+    }
+
+    private void saveProjectCodeBatchRecordTotalRecognitionJson(Long dccProjectCodeId, String totalRecognitionJson) {
+        dccProjectCodeMapper.updateById(DccProjectCodeDO.builder()
+                .id(dccProjectCodeId)
+                .batchRecordTotalRecognitionJson(totalRecognitionJson)
+                .build());
     }
 
     private void activateInitialVersionWithoutApproval(MesProBatchRecordVersionDO version) {

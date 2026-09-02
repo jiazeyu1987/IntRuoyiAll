@@ -16,6 +16,8 @@ export type RouteProcessSettingColumnKey =
   | 'shiftCapacity'
   | 'formSlots'
   | 'batchRecordFormNames'
+  | 'inputMaterialIds'
+  | 'outputMaterialIds'
   | 'resourceStatus'
   | 'predecessor'
   | 'successors'
@@ -36,6 +38,8 @@ export const routeProcessSettingsDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'shiftCapacity', label: '排产策略', width: 320 },
   { key: 'formSlots', label: '表单槽位', minWidth: 220 },
   { key: 'batchRecordFormNames', label: '批记录表单', minWidth: 180 },
+  { key: 'inputMaterialIds', label: '输入物料', minWidth: 180 },
+  { key: 'outputMaterialIds', label: '输出物料', minWidth: 180 },
   { key: 'resourceStatus', label: '资源状态', width: 110 },
   { key: 'predecessor', label: '前置工序', minWidth: 140 },
   { key: 'successors', label: '后续工序', minWidth: 180 },

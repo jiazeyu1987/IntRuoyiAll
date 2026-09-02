@@ -4295,7 +4295,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                     saveReq.reportCode(), saveReq.reportName());
         });
         seedWorkOrderProduct("幂等批记录", "BRP-001");
-        seedDccProjectCode("幂等批记录", "BRP-001");
+        Long dccProjectCodeId = seedDccProjectCode("幂等批记录", "BRP-001");
         MockMultipartFile firstFile = new MockMultipartFile(
                 "file", "same-hash.doc", "application/msword", uploadedBytes);
         MockMultipartFile secondFile = new MockMultipartFile(
@@ -4303,11 +4303,14 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
         MesProBatchRecordImportResult first = reportService.recognizeUploadedRoute(
                 firstFile, MesProBatchRecordRecognitionRouteKeys.B, "幂等批记录", "UPGRADE",
-                currentVersion.getId(), List.of("幂等批记录"), true, List.of(), List.of("幂等批记录"));
+                currentVersion.getId(), null, List.of("幂等批记录"), true, List.of(), List.of("幂等批记录"),
+                false, null, null, null, dccProjectCodeId, null);
+        jdbcTemplate().update("UPDATE dcc_project_code SET batch_record_total_recognition_json = NULL WHERE id = ?",
+                dccProjectCodeId);
         MesProBatchRecordImportResult second = reportService.recognizeUploadedRoute(
                 secondFile, MesProBatchRecordRecognitionRouteKeys.B, "幂等批记录", "UPGRADE",
                 currentVersion.getId(), null, List.of("幂等批记录"), true, List.of(), List.of("幂等批记录"),
-                true, first.routeId(), first.routeVersionId(), null);
+                true, first.routeId(), first.routeVersionId(), null, dccProjectCodeId, null);
 
         assertEquals(first.batchRecordDefinitionId(), second.batchRecordDefinitionId());
         assertEquals(first.batchRecordVersionId(), second.batchRecordVersionId());
@@ -4318,6 +4321,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_version"));
         assertEquals(4, rawCount("SELECT COUNT(*) FROM mes_pro_batch_record_report"));
         assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route"));
+        String persistedJson = jdbcTemplate().queryForObject(
+                "SELECT batch_record_total_recognition_json FROM dcc_project_code WHERE id = ?",
+                String.class, dccProjectCodeId);
+        assertNotNull(persistedJson);
+        assertEquals(second.totalRecognitionJson(), persistedJson);
         verify(jimuReportGateway, times(2)).saveOrUpdateReport(any());
     }
 
