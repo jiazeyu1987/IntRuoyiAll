@@ -1,7 +1,7 @@
 {
   "taskId": "20260902-active-order-latest-version-upgrade-restart-code",
   "verificationMode": "FRONTEND_DOM_ONLY",
-  "frontendUrl": "http://127.0.0.1:8093",
+  "frontendUrl": "http://127.0.0.1:8081",
   "tenant": "芋道源码",
   "username": "admin",
   "sourceActiveOrderId": 45,
@@ -12,27 +12,22 @@
   "expectedProcessInstanceId": "7f9ca694-a6da-11f1-a6b9-00155d07b6dd",
   "requests": [
     {
-      "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/list",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/process-pool/team-leader/active-order/list",
       "method": "GET",
       "status": 200
     },
     {
-      "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/list",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/process-pool/team-leader/active-order/list",
       "method": "GET",
       "status": 200
     },
     {
-      "url": "http://127.0.0.1:8093/admin-api/mes/pro/process-pool/team-leader/active-order/detail?activeOrderId=1009200001",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/process-pool/team-leader/active-order/detail?activeOrderId=1009200001",
       "method": "GET",
       "status": 200
     }
   ],
-  "consoleErrors": [
-    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
-    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
-    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24",
-    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8093/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8093/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8093/node_modules/.vite-env-local-8093/deps/axios.js?v=460676a6:2126:14)\n    at async Object.get (http://127.0.0.1:8093/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8093/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8093/src/store/modules/approvalTodoBadge.ts:51:24"
-  ],
+  "consoleErrors": [],
   "pageErrors": [],
   "login": "PASS",
   "visibleActiveOrderIds": [
@@ -52,6 +47,6 @@
     "rowText": "1009200001\n\t\nCODX-PQC-20260807-SP-WO-05\n\t\n按压式球囊扩充压力泵\n\t\nV12\n\t\n正式订单\n\t\n10.000\n\t\n0%\n\t\n0%\n\t\n未申请\n\t\n2026-09-02 23:17:25\n\t\n详情\n移除\n异常\n完工\n重建\n升级\n复制测试单\nStage1模拟\n模拟完工",
     "detailDialogText": "订单 CODX-PQC-20260807-SP-WO-05 · 工序提交详情\n生产订单\nCODX-PQC-20260807-SP-WO-05\n工艺路线\n按压式球囊扩充压力泵\n工序数\n15\n粗洗工序\nER0C9BD936FFAE\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n精洗工序\nER284B8846D94A\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n清洗工序\nER1A05996F5AA2\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n清洁工序\nER17E560988E1B\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n组装Ⅰ工序\nER5AF76D3CB1D7\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n硅化Ⅰ工序\nER20D9C7E95CDF\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n组装Ⅱ工序\nERF5BC503C2329\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n光固工序\nERDF7050D5DAFB\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n硅化Ⅱ工序\nER5990B0582D78\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n硅化Ⅲ工序\nER3C43BA74E2B2\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n组装Ⅲ工序\nERDF4CCA7FCF49\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n检测工序\nER4BCD077D1BDC\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n单包装工序\nER1D37B35F4A0B\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n中包装工序\nERFA728D24D523\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录\n\n大包装工序\nER1561D10C0138\n应提数量\n10.000\n已提交\n0.000\n提交记录\n0\n\n暂无提交记录"
   },
-  "screenshot": "D:\\IntRuoyiWorktree\\20260902-active-order-latest-version-upgrade-restart-docs\\doc\\tasks\\20260902-active-order-latest-version-upgrade-restart-code\\e2e-artifacts\\active-order-version-upgrade-final-state-real.png",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260902-active-order-latest-version-upgrade-restart-code\\e2e-artifacts\\active-order-version-upgrade-final-state-real.png",
   "status": "PASS"
 }

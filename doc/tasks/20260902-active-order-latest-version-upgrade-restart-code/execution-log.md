@@ -162,3 +162,14 @@ WARNING: final-state E2E 期间页面后台审批待办角标加载出现 `系�
 - 只读数据库核对显示 `1009200000` 是旧路线 `633 / V3`，但其 `active_order.work_order_id=1009200000`，而进度快照/PQC 任务绑定 `work_order_id=980032`，因此不满足活跃订单列表读取所需的一致进度合同；本轮未进行数据库写入修复，也未修改共享路线/QA 基础版本来制造差异。
 
 BLOCKED: fresh continuous submit -> approve -> final rerun requires a new or repaired task-owned visible old-version active-order fixture. Existing approved chain terminal state remains PASS, but this rerun did not create a fresh approval instance because the only old-version candidate is not visible through the real active-order page.
+
+## Work Log Update 2026-09-03 / int_main Merge and E2E
+
+- 2026-09-03: worktree commit `fd9e4d4fc` submitted stronger real E2E pagination coverage and updated evidence artifacts.
+- 2026-09-03: `int_main` had two unrelated DCC relation dirty lines; preserved them in baseline commit `7dcf7611e` before merging active-order work.
+- 2026-09-03: merged `codex/20260902-active-order-latest-version-upgrade-restart-docs` into `int_main`; merge commit `1792dca97`.
+- 2026-09-03: `int_main` runtime precheck confirmed frontend `8081` HTTP 200 and backend `48081` health `UP`; frontend PID `32436` belongs to `E:\IntRuoyi\IntRuoyiFronted` Vite `env.local`, backend PID `61656` belongs to `E:\IntRuoyi\output\runtime\int_main`.
+
+GREEN: node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final-state-real.e2e.cjs -> PASS on `int_main` frontend `http://127.0.0.1:8081`. Playwright verified old active order `45` is absent from all visible active-order pool pages, replacement active order `1009200001` is visible with work order `CODX-PQC-20260807-SP-WO-05` and route version `V12`, and the replacement detail dialog opens from the real page.
+
+GREEN: int_main readonly DB verification -> PASS. Upgrade request `1` is `APPLIED/APPROVED/APPLIED`, old active order `45` is `REMOVED/VERSION_UPGRADED`, replacement active order `1009200001` is `ACTIVE/ACTIVE` with route version `742 / V12`, and Flowable historic process `7f9ca694-a6da-11f1-a6b9-00155d07b6dd` has ended.

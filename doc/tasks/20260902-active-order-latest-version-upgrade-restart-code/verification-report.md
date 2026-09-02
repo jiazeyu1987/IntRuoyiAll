@@ -315,3 +315,37 @@ node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-submit-real.e2e.cjs
 Result: BLOCKED by current test data, not by a successful business assertion. The task-owned old-version candidate 1009200000 / CODX-AOUP-20260902205106 has route 633 / V3, but it is not visible in the real active-order pool DOM. The page rendered only active orders 150, 348, 396, and 1009200001. Read-only DB inspection found the candidate's active-order row has work_order_id=1009200000, while its process snapshots and PQC tasks are bound to work_order_id=980032; this inconsistent fixture prevents list readability. No direct DB write, route publication, QA publication, or shared master-data mutation was performed to manufacture a fresh upgradable source order.
 
 Conclusion: the previously approved chain plus today's final-state rerun proves the post-approval terminal outcome. A brand-new submit -> approve -> final E2E instance still needs an approved setup path for a visible old-version task-owned fixture.
+
+### 2026-09-03 int_main Merge and E2E
+
+Integration evidence:
+
+- Worktree E2E strengthening commit: `fd9e4d4fc`.
+- `int_main` unrelated dirty baseline commit before merge: `7dcf7611e`.
+- `int_main` active-order upgrade E2E merge commit: `1792dca97`.
+- `int_main` frontend/backend runtime: `8081/48081`.
+- Runtime health: frontend HTTP 200, backend actuator health `UP`.
+- Runtime ownership: frontend PID `32436` runs `E:\IntRuoyi\IntRuoyiFronted` Vite `env.local`; backend PID `61656` runs from `E:\IntRuoyi\output\runtime\int_main`.
+
+Real frontend E2E on `int_main`:
+
+```powershell
+node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final-state-real.e2e.cjs
+```
+
+Result: PASS.
+
+Verified from real frontend DOM:
+
+- Old active order `45` is absent from all visible active-order pool pages.
+- Replacement active order `1009200001` is visible in the active-order pool.
+- Replacement row contains work order `CODX-PQC-20260807-SP-WO-05`, route version `V12`, and formal-order status.
+- Replacement detail dialog opens from the real `详情` button and shows `15` processes.
+- Evidence artifact was refreshed under `doc/tasks/20260902-active-order-latest-version-upgrade-restart-code/e2e-artifacts/active-order-version-upgrade-final-state-real-result.json` with `frontendUrl=http://127.0.0.1:8081` and `status=PASS`.
+
+Read-only database corroboration:
+
+- Upgrade request `1`: `request_status=APPLIED`, `approval_status=APPROVED`, `freeze_status=APPLIED`, `source_active_order_id=45`, `target_active_order_id=1009200001`.
+- Old active order `45`: `REMOVED / VERSION_UPGRADED`, route `633 / V3`.
+- Replacement active order `1009200001`: `ACTIVE / ACTIVE`, route `742 / V12`, QA regulation version `65`.
+- Flowable historic process `7f9ca694-a6da-11f1-a6b9-00155d07b6dd`: `END_TIME_ = 2026-09-02 23:17:25.261`.

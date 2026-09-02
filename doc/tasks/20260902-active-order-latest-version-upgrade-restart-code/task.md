@@ -6,7 +6,7 @@
 
 ## Design Constraints Check
 
-- 只在 `D:\IntRuoyiWorktree\20260902-active-order-latest-version-upgrade-restart-docs` worktree 内开发，不修改 `E:\IntRuoyi` 主工作区。
+- 开发在 `D:\IntRuoyiWorktree\20260902-active-order-latest-version-upgrade-restart-docs` worktree 内完成；用户明确授权后已合入 `E:\IntRuoyi` 的 `int_main` 并在主工作区运行真实 E2E。
 - 遵守无 fallback：不使用当前 ACTIVE 配置补旧历史，不吞异常，不模拟审批成功。
 - 活跃订单升级入口固定为活跃订单内“升级”按钮；不提供逐项版本选择。
 - 本轮先实现可静态验证的前后端契约、入口、状态文案和测试；若缺少审批/表结构前置条件，记录 blocker，不假装完整应用重启已完成。
@@ -20,7 +20,8 @@
 - M4 Verification: completed - 静态测试、SQL 迁移合同、后端编译和前端 ts:check 均已通过。
 - M5 Approval Effect Chain: completed - 已实现审批通过后可调用的生效服务：作废旧批次、取消旧批次待办、移除旧活跃订单、强制按全部最新版本创建新活跃订单并回写申请为 APPLIED。
 - M6 BPM Approval Callback Chain: completed - 已接入统一业务审批编排器，提交后发起 BPM，新增升级重启 EffectExecutor，审批通过触发重开，驳回/取消会释放旧订单冻结；审批待办中心补充“活跃订单升级重启”标题与摘要。
-- M7 Full E2E Verification: completed - 已在 worktree 运行态 `8093/48093` 使用 Playwright 真实页面验证审批通过后的完整终态：旧活跃订单 45 已移出活跃池并标记 `REMOVED/VERSION_UPGRADED`，新活跃订单 1009200001 以路线版本 742 / V12 进入活跃池并可打开详情；审批流程实例已结束。
+- M7 Full E2E Verification: completed - 已在 worktree 运行态 `8093/48093` 和 `int_main` 运行态 `8081/48081` 使用 Playwright 真实页面验证审批通过后的完整终态：旧活跃订单 45 已移出活跃池并标记 `REMOVED/VERSION_UPGRADED`，新活跃订单 1009200001 以路线版本 742 / V12 进入活跃池并可打开详情；审批流程实例已结束。
+- M8 int_main Integration: completed - worktree 最新 E2E 补强提交已合入 `int_main`，并在 `int_main` 前后端真实运行态完成终态 E2E 与只读 DB 佐证。
 
 ## Expected Verification
 
@@ -32,7 +33,7 @@
 
 ## Current Status
 
-ready_for_closeout - 已完成活跃订单升级入口、提交发起 BPM、旧订单冻结、审批通过重开、驳回/取消解冻、定向静态/编译验证和真实页面终态 E2E。当前保留完整 E2E 证据，尚未执行 Git 提交、合并或删除 worktree。
+ready_for_closeout - 已完成活跃订单升级入口、提交发起 BPM、旧订单冻结、审批通过重开、驳回/取消解冻、定向静态/编译验证、worktree 真实页面终态 E2E、`int_main` 合入和 `int_main` 真实页面终态 E2E。当前保留完整 E2E 证据，等待最终收尾提交、推送和 worktree 清理。
 
 ## Cleanup Keep
 
