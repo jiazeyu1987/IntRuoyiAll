@@ -116,6 +116,7 @@
 - Keywords: AI 自动识别按钮不可点击, 只读版本识别候选, 可点击读取与应用保存拆分, readonlyMode 禁用误伤, 自动生成草稿版本, 表单模板填写配置, 动态组件 Dialog 字符串, 原生 dialog 隐藏, 弹窗 DOM 存在但不可见, 已发布版本填写配置点击无响应, 点击填写配置不得自动规则识别, fill-rule-auto-detect 只允许显式按钮触发, 批记录建立链接按钮不可点击, 报工数据汇总方式空, aggregationStrategy 为空禁用, 左右单元格已选按钮禁用, 设备参数默认最后一笔, 数量字段默认求和, 本次报工总量默认求和, totalQuantity 默认 SUM -> `docs/frontend-development.md#前端按钮文案与行为一致性门禁`
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
 - Keywords: table-quick-filter, 多条件筛选, quick filter, 输入框 value 正确但 URL 未带参数, 生产工单分页未带 code, 目标样本误判缺失, waitForResponse URL 参数, 前 10 个 code, 列表筛选状态同步, 筛选框不可见, 真实分页查找目标行, pageNo pageSize, 表单中心项目代码列 -> `docs/e2e-rules.md#列表筛选输入与请求参数同步门禁`
+- Keywords: 活跃订单池分页, 旧订单缺席不能只看第一页, 新活跃订单详情入口, 多阶段升级重启终态, submit approve final, 可见旧版夹具, 快照 work_order_id 不一致, fresh continuous-chain blocked -> `docs/e2e-rules.md#多阶段状态流转完整链路门禁`
 - Keywords: TableMultiFilter, table-multi-filter, 新增筛选条件, 旧 E2E table-quick-filter 失效, Element Plus 多个 input, placeholder 精确定位 -> `docs/e2e-rules.md#列表筛选输入与请求参数同步门禁`
 - Keywords: E2E worktree 端口写死, worktree-ports.json, active runtime registration, profile slot 成对端口, int_main slot -> `docs/e2e-rules.md#e2e-运行态代码来源门禁`
 - Keywords: 不合格冻结, 金手指绕过, admin 不显示冻结提示, 权威冻结高权限例外, nonconformanceFrozenActionLocked -> `docs/backend-development.md#业务冻结不得被高权限操作绕过`

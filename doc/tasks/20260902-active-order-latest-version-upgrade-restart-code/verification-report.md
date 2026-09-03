@@ -322,7 +322,7 @@ Integration evidence:
 
 - Worktree E2E strengthening commit: `fd9e4d4fc`.
 - `int_main` unrelated dirty baseline commit before merge: `7dcf7611e`.
-- `int_main` active-order upgrade E2E merge commit: `1792dca97`.
+- `int_main` active-order upgrade E2E merge commit: `25af9ec98`.
 - `int_main` frontend/backend runtime: `8081/48081`.
 - Runtime health: frontend HTTP 200, backend actuator health `UP`.
 - Runtime ownership: frontend PID `32436` runs `E:\IntRuoyi\IntRuoyiFronted` Vite `env.local`; backend PID `61656` runs from `E:\IntRuoyi\output\runtime\int_main`.

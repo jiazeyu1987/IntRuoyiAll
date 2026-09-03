@@ -33,7 +33,7 @@
 
 ## Current Status
 
-ready_for_closeout - 已完成活跃订单升级入口、提交发起 BPM、旧订单冻结、审批通过重开、驳回/取消解冻、定向静态/编译验证、worktree 真实页面终态 E2E、`int_main` 合入和 `int_main` 真实页面终态 E2E。当前保留完整 E2E 证据，等待最终收尾提交、推送和 worktree 清理。
+completed - 已完成活跃订单升级入口、提交发起 BPM、旧订单冻结、审批通过重开、驳回/取消解冻、定向静态/编译验证、worktree 真实页面终态 E2E、`int_main` 合入、`int_main` 真实页面终态 E2E、任务清理预览/应用、最终收尾提交和推送。
 
 ## Cleanup Keep
 

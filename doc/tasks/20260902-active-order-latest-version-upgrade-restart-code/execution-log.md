@@ -167,7 +167,7 @@ BLOCKED: fresh continuous submit -> approve -> final rerun requires a new or rep
 
 - 2026-09-03: worktree commit `fd9e4d4fc` submitted stronger real E2E pagination coverage and updated evidence artifacts.
 - 2026-09-03: `int_main` had two unrelated DCC relation dirty lines; preserved them in baseline commit `7dcf7611e` before merging active-order work.
-- 2026-09-03: merged `codex/20260902-active-order-latest-version-upgrade-restart-docs` into `int_main`; merge commit `1792dca97`.
+- 2026-09-03: merged `codex/20260902-active-order-latest-version-upgrade-restart-docs` into `int_main`; merge commit `25af9ec98`.
 - 2026-09-03: `int_main` runtime precheck confirmed frontend `8081` HTTP 200 and backend `48081` health `UP`; frontend PID `32436` belongs to `E:\IntRuoyi\IntRuoyiFronted` Vite `env.local`, backend PID `61656` belongs to `E:\IntRuoyi\output\runtime\int_main`.
 
 GREEN: node IntRuoyiFronted\tests\e2e\active-order-version-upgrade-final-state-real.e2e.cjs -> PASS on `int_main` frontend `http://127.0.0.1:8081`. Playwright verified old active order `45` is absent from all visible active-order pool pages, replacement active order `1009200001` is visible with work order `CODX-PQC-20260807-SP-WO-05` and route version `V12`, and the replacement detail dialog opens from the real page.
