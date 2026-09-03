@@ -2,20 +2,24 @@ package cn.iocoder.yudao.module.mes.productionrelease.core;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceLinkType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
@@ -45,6 +49,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
     @Mock MesProEdhrBatchExecutionOriginMapper originMapper;
     @Mock MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
+    @Mock MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     @Mock MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
     @Mock ObjectProvider<MesReleaseMaterialGateReceiptPort> materialGateReceiptPort;
     @Mock MesReleaseMaterialGateReceiptPort materialGatePort;
@@ -98,7 +103,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
 
         MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
                 releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
-                activeOrderMapper, backfillMapper, completionReceiptPort, materialGateReceiptPort,
+                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort, materialGateReceiptPort,
                 traceabilityService, independentReceiptService).require(command);
 
         assertSame(gate, evidence.getMaterialGateReceipt());
@@ -143,6 +148,10 @@ class MesReleaseAuthoritativeContextPortImplTest {
         when(backfillMapper.selectListByActiveOrderIdForUpdate(70L)).thenReturn(List.of(
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD),
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION)));
+        when(pickListBindingMapper.selectListByActiveOrderId(70L))
+                .thenReturn(List.of(binding(70L, 40L, 55L, 66L, "pick-source")));
+        when(traceabilityService.getTraceability(20L)).thenReturn(traceability(20L, 60L,
+                binding(70L, 40L, 55L, 66L, "pick-source")));
 
         MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
@@ -150,7 +159,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
 
         MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
                 releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
-                activeOrderMapper, backfillMapper, completionReceiptPort, materialGateReceiptPort,
+                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort, materialGateReceiptPort,
                 traceabilityService, independentReceiptService).require(command);
 
         assertSame(gate, evidence.getMaterialGateReceipt());
@@ -158,10 +167,11 @@ class MesReleaseAuthoritativeContextPortImplTest {
         assertEquals("ACTIVE_ORDER_COMPLETION", command.getEntryType());
         assertEquals("900", evidence.getCompletionBackfillReceipt().getReceiptId());
         assertEquals(70L, command.getActiveOrderId());
+        assertEquals(1, command.getPickListSources().size());
     }
 
     @Test
-    void activeOrderEntryBlocksWhenCompletionReceiptCarriesMultipleSourceIds() {
+    void activeOrderEntryUsesMaterializedBackfillIdsWhenReceiptCarriesMultipleSourceIds() {
         TenantContextHolder.setTenantId(1L);
         MesProEdhrReleaseTransactionDO transaction = new MesProEdhrReleaseTransactionDO()
                 .setId(10L).setBatchExecutionId(20L).setReleaseStatus("PENDING_APPROVAL").setVersion(3);
@@ -182,7 +192,9 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setSourceSnapshotHash("source-snapshot").setRelationStatus("CAPTURED");
         MesReleaseMaterialGateReceipt gate = completeGate("active-gate", 20L, "source-snapshot");
         MesFlow6CompletionBackfillReceipt completionReceipt = activeCompletionReceipt()
-                .setBatchRecordSourceIdsJson("[40,41]")
+                .setBatchRecordId(140L)
+                .setProcessInspectionId(150L)
+                .setBatchRecordSourceIdsJson("[40,41,55,56,57,58]")
                 .setProcessInspectionSourceIdsJson("[50,51]");
 
         when(releaseTransactionMapper.selectById(10L)).thenReturn(transaction);
@@ -197,18 +209,26 @@ class MesReleaseAuthoritativeContextPortImplTest {
         when(backfillMapper.selectListByActiveOrderIdForUpdate(70L)).thenReturn(List.of(
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD),
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION)));
+        when(pickListBindingMapper.selectListByActiveOrderId(70L))
+                .thenReturn(List.of(binding(70L, 40L, 55L, 66L, "pick-source")));
+        when(traceabilityService.getTraceability(20L)).thenReturn(traceability(20L, 60L,
+                binding(70L, 40L, 55L, 66L, "pick-source")));
 
         MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
                 .setWorkTaskId(50L).setOrigin(MesReleaseOrigin.ACTIVE_ORDER);
 
-        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class, () ->
-                new MesReleaseAuthoritativeContextPortImpl(releaseTransactionMapper, batchExecutionMapper,
-                        applicationMapper, originMapper, activeOrderMapper, backfillMapper, completionReceiptPort,
-                        materialGateReceiptPort, traceabilityService, independentReceiptService).require(command));
+        MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
+                releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
+                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort,
+                materialGateReceiptPort, traceabilityService, independentReceiptService).require(command);
 
-        assertEquals(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED,
-                failure.getFailure().getBlockers().get(0).getBlockerType());
+        assertEquals(140L, evidence.getCompletionBackfillReceipt().getBatchRecordId());
+        assertEquals(150L, evidence.getCompletionBackfillReceipt().getProcessInspectionId());
+        assertEquals(List.of(40L, 41L, 55L, 56L, 57L, 58L),
+                evidence.getCompletionBackfillReceipt().getBatchRecordSourceIds());
+        assertEquals(List.of(50L, 51L),
+                evidence.getCompletionBackfillReceipt().getProcessInspectionSourceIds());
     }
 
     @Test
@@ -240,7 +260,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
 
         MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class, () ->
                 new MesReleaseAuthoritativeContextPortImpl(releaseTransactionMapper, batchExecutionMapper,
-                        applicationMapper, originMapper, activeOrderMapper, backfillMapper, completionReceiptPort,
+                        applicationMapper, originMapper, activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort,
                         materialGateReceiptPort, traceabilityService, independentReceiptService).require(command));
 
         assertEquals(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED,
@@ -272,12 +292,50 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
                 .setBatchRecordStatus("SUCCESS")
                 .setProcessInspectionStatus("SUCCESS")
+                .setBatchRecordId(40L)
+                .setProcessInspectionId(50L)
                 .setBatchRecordSourceIdsJson("[40]")
                 .setProcessInspectionSourceIdsJson("[50]")
                 .setHasActualLoss(false)
                 .setLossReportStatus("NOT_REQUIRED")
                 .setReceiptHash("completion-receipt")
                 .setPayloadHash("completion-payload");
+    }
+
+    private MesProcessPoolActiveOrderPickListBindingDO binding(Long activeOrderId, Long workOrderId,
+                                                               Long bindingId, Long pickListId,
+                                                               String sourceSnapshotHash) {
+        MesProcessPoolActiveOrderPickListBindingDO binding = new MesProcessPoolActiveOrderPickListBindingDO()
+                .setId(bindingId).setActiveOrderId(activeOrderId).setWorkOrderId(workOrderId)
+                .setPickListId(pickListId).setBindingVersion(1)
+                .setBindingStatus("BOUND").setSourceSnapshotHash(sourceSnapshotHash);
+        binding.setTenantId(1L);
+        return binding;
+    }
+
+    private MesProEdhrBatchTraceabilityRespVO traceability(
+            Long batchExecutionId, Long originId, MesProcessPoolActiveOrderPickListBindingDO... bindings) {
+        List<MesProEdhrBatchTraceabilityRespVO.TraceLink> links = java.util.Arrays.stream(bindings)
+                .flatMap(binding -> Stream.of(
+                        traceLink(batchExecutionId, originId, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE,
+                                binding.getPickListId(), binding.getSourceSnapshotHash()),
+                        traceLink(batchExecutionId, originId, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE,
+                                binding.getId(), binding.getSourceSnapshotHash())))
+                .toList();
+        return new MesProEdhrBatchTraceabilityRespVO()
+                .setBatchExecutionId(batchExecutionId)
+                .setTraceLinks(links);
+    }
+
+    private MesProEdhrBatchTraceabilityRespVO.TraceLink traceLink(
+            Long batchExecutionId, Long originId, String linkType, Long sourceObjectId, String snapshotHash) {
+        return new MesProEdhrBatchTraceabilityRespVO.TraceLink()
+                .setBatchExecutionId(batchExecutionId)
+                .setOriginId(originId)
+                .setLinkType(linkType)
+                .setSourceObjectId(sourceObjectId)
+                .setSnapshotHash(snapshotHash)
+                .setRelationStatus("CAPTURED");
     }
 
     private MesProcessPoolActiveOrderCompletionBackfillDO backfill(String type) {

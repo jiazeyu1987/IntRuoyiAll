@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.util.Map;
+import java.util.List;
 
 @Data
 @Accessors(chain = true)
@@ -14,6 +15,7 @@ public class MesStage1ActiveOrderCompleteSimulationResult {
     private Long activeOrderId;
     private Long workOrderId;
     private Long pickListId;
+    private List<Long> pickListIds;
     private Integer productionSubmitCount;
     private Integer productionReviewCount;
     private Integer pqcSubmitCount;

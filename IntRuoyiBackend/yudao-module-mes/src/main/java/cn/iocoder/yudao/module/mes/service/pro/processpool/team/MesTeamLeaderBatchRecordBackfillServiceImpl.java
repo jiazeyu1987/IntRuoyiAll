@@ -385,26 +385,30 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
 
     private boolean matchesSelectedDeviceScope(JsonNode payload, DeviceScopedSourceField scopedSourceField,
                                                Long eventId, String resolvedSourceFieldCode) {
-        JsonNode selectedDevice = payload.path("selectedDevice");
+        JsonNode selectedDevices = payload.path("selectedDevices");
+        if (!selectedDevices.isArray()) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                    eventId, resolvedSourceFieldCode);
+        }
         if (scopedSourceField.deviceId() != null) {
-            Long selectedDeviceId = longValue(selectedDevice.get("deviceId"));
-            if (selectedDeviceId == null) {
-                throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
-                        eventId, resolvedSourceFieldCode);
+            for (JsonNode selectedDevice : selectedDevices) {
+                if (Objects.equals(longValue(selectedDevice.get("deviceId")), scopedSourceField.deviceId())) {
+                    return true;
+                }
             }
-            return Objects.equals(selectedDeviceId, scopedSourceField.deviceId());
+            return false;
         }
         String expectedDeviceGroupName = StrUtil.trim(scopedSourceField.deviceGroupName());
         if (StrUtil.isBlank(expectedDeviceGroupName)) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
                     eventId, resolvedSourceFieldCode);
         }
-        String selectedDeviceName = StrUtil.trim(text(selectedDevice, "deviceName"));
-        if (StrUtil.isBlank(selectedDeviceName)) {
-            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
-                    eventId, resolvedSourceFieldCode);
+        for (JsonNode selectedDevice : selectedDevices) {
+            if (Objects.equals(StrUtil.trim(text(selectedDevice, "deviceName")), expectedDeviceGroupName)) {
+                return true;
+            }
         }
-        return Objects.equals(selectedDeviceName, expectedDeviceGroupName);
+        return false;
     }
 
     private BigDecimal reportTotalQuantity(MesProProcessPoolEventDO sourceEvent, JsonNode payload) {
@@ -544,7 +548,9 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     private JsonNode payloadSourceValue(JsonNode payload, String sourceFieldCode,
                                         DeviceScopedSourceField scopedSourceField) {
         if (sourceFieldCode.startsWith("selectedDevice.")) {
-            return payload.path("selectedDevice").get(sourceFieldCode.substring("selectedDevice.".length()));
+            JsonNode selectedDevice = selectedDevice(payload, scopedSourceField);
+            return selectedDevice == null ? null
+                    : selectedDevice.get(sourceFieldCode.substring("selectedDevice.".length()));
         }
         if (sourceFieldCode.startsWith("deviceParameterReadings.")) {
             return nestedParameterArrayValue(payload.path("deviceParameterReadings"),
@@ -559,7 +565,8 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                     sourceFieldCode.substring("clearanceConfirmations.".length()), "key");
         }
         if (sourceFieldCode.startsWith("deviceMeteringValidity.")) {
-            return deviceMeteringValidityValue(payload, sourceFieldCode.substring("deviceMeteringValidity.".length()));
+            return deviceMeteringValidityValue(payload, sourceFieldCode.substring("deviceMeteringValidity.".length()),
+                    scopedSourceField);
         }
         return payload.get(sourceFieldCode);
     }
@@ -658,12 +665,27 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         return null;
     }
 
-    private JsonNode deviceMeteringValidityValue(JsonNode payload, String property) {
+    private JsonNode selectedDevice(JsonNode payload, DeviceScopedSourceField scopedSourceField) {
+        JsonNode selectedDevices = payload.path("selectedDevices");
+        if (!selectedDevices.isArray()) return null;
+        for (JsonNode item : selectedDevices) {
+            if (scopedSourceField != null && scopedSourceField.deviceId() != null
+                    && Objects.equals(scopedSourceField.deviceId(), longValue(item.get("deviceId")))) return item;
+            if (scopedSourceField != null && scopedSourceField.deviceId() == null
+                    && Objects.equals(StrUtil.trim(scopedSourceField.deviceGroupName()),
+                    StrUtil.trim(text(item, "deviceName")))) return item;
+        }
+        return selectedDevices.size() == 1 ? selectedDevices.get(0) : null;
+    }
+
+    private JsonNode deviceMeteringValidityValue(JsonNode payload, String property,
+                                                  DeviceScopedSourceField scopedSourceField) {
         JsonNode arrayNode = payload.path("deviceMeteringValidity");
         if (!arrayNode.isArray()) {
             return null;
         }
-        Long selectedDeviceId = longValue(payload.path("selectedDevice").get("deviceId"));
+        JsonNode selectedDevice = selectedDevice(payload, scopedSourceField);
+        Long selectedDeviceId = selectedDevice == null ? null : longValue(selectedDevice.get("deviceId"));
         JsonNode single = null;
         int count = 0;
         for (JsonNode item : arrayNode) {

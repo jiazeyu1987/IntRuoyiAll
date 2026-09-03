@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.productionrelease.core;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -26,6 +27,7 @@ public class CompletionBackfillReceipt {
     private Long routeVersionId;
     private String pickListBindingId;
     private Long pickListId;
+    private List<MesBatchExecutionPickListSource> pickListSources;
     private String sourceSnapshotHash;
     private Integer bindingVersion;
     private Integer completionVersion;
@@ -33,6 +35,8 @@ public class CompletionBackfillReceipt {
     private String completionEventId;
     private Long batchRecordId;
     private Long processInspectionId;
+    private List<Long> batchRecordSourceIds;
+    private List<Long> processInspectionSourceIds;
     private Boolean hasActualLoss;
     private String lossDecision;
     private String lossReportStatus;
@@ -51,16 +55,21 @@ public class CompletionBackfillReceipt {
                 && activeOrderId != null
                 && activeOrderId.equals(expectedActiveOrderId)
                 && workOrderId != null
-                && pickListBindingId != null && !pickListBindingId.isBlank()
-                && pickListId != null
+                && pickListSources != null && !pickListSources.isEmpty()
+                && pickListSources.stream().allMatch(source -> source != null
+                && source.getPickListBindingId() != null
+                && source.getPickListId() != null
+                && source.getBindingVersion() != null && source.getBindingVersion() > 0
+                && source.getSourceSnapshotHash() != null && !source.getSourceSnapshotHash().isBlank())
                 && sourceSnapshotHash != null && !sourceSnapshotHash.isBlank()
                 && sourceSnapshotHash.equals(expectedSourceSnapshotHash)
-                && bindingVersion != null && bindingVersion > 0
                 && completionVersion != null && completionVersion > 0
                 && completionTransactionId != null && !completionTransactionId.isBlank()
                 && completionEventId != null && !completionEventId.isBlank()
                 && batchRecordId != null
                 && processInspectionId != null
+                && batchRecordSourceIds != null && !batchRecordSourceIds.isEmpty()
+                && processInspectionSourceIds != null && !processInspectionSourceIds.isEmpty()
                 && hasActualLoss != null
                 && lossDecision != null && !lossDecision.isBlank()
                 && lossReportStatus != null && !lossReportStatus.isBlank()

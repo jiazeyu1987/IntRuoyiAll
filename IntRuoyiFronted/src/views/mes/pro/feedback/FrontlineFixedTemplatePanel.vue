@@ -800,7 +800,7 @@
               v-if="configuredProductionMaterials.length > 0"
               class="frontline-production-material-tabs"
               data-frontline-production-material-tabs
-              role="tablist"
+              role="group"
               aria-label="物料切换"
             >
               <button
@@ -860,16 +860,19 @@
                 v-for="device in visibleDeviceCards"
                 :key="device.key"
                 class="frontline-production-device-card device-tab-card"
-                :class="{ active: device.key === selectedProductionDeviceKey }"
+                :class="{ active: selectedProductionDeviceKeys.includes(device.key) }"
               >
                 <button
                   class="device-tab"
                   type="button"
-                  role="tab"
-                  :aria-selected="device.key === selectedProductionDeviceKey"
+                  role="checkbox"
+                  :aria-checked="selectedProductionDeviceKeys.includes(device.key)"
                   :disabled="payloadLoading"
-                  @click="selectedProductionDeviceKey = device.key"
+                  @click="toggleProductionDeviceSelection(device)"
                 >
+                  <span class="device-tab-selection" aria-hidden="true">
+                    {{ selectedProductionDeviceKeys.includes(device.key) ? '✓' : '' }}
+                  </span>
                   <span class="device-tab-code">{{ device.label }}</span>
                 </button>
                 <label class="frontline-production-device-metering-validity">
@@ -959,25 +962,27 @@
                 >
                   -
                 </button>
-                <select
+                <el-select
                   v-else-if="isSelectParameter(parameter)"
                   class="device-value device-select"
                   :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
-                  :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
+                  :model-value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
                   :aria-label="parameter.parameterName || parameter.parameterCode"
                   :disabled="payloadLoading"
+                  filterable
+                  allow-create
+                  default-first-option
                   data-frontline-select-parameter
-                  @change="updateProductionDeviceSelectParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
+                  @update:model-value="updateProductionDeviceSelectParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
                 >
-                  <option value="">请选择</option>
-                  <option
+                  <el-option label="请选择" value="" />
+                  <el-option
                     v-for="option in parameter.optionValues || []"
                     :key="option"
                     :value="option"
-                  >
-                    {{ option }}
-                  </option>
-                </select>
+                    :label="option"
+                  />
+                </el-select>
                 <label
                   v-else-if="isBooleanParameter(parameter)"
                   class="frontline-production-device-boolean"
@@ -1389,6 +1394,7 @@ type ProductionMaterialDraftState = {
   outputQuantity?: number
   defectQuantities: Record<ProductionDefectKey, number>
   selectedDeviceKey?: string
+  selectedDeviceKeys: string[]
   deviceParameters: Record<string, ProductionDeviceParameterDraft>
   deviceMeteringValidity: ProductionDeviceMeteringValidityDraft
 }
@@ -1461,6 +1467,8 @@ interface ProductionDeviceCard {
   deviceCode?: string
   deviceName?: string
   label: string
+  deviceGroupKey: string
+  selectionMode: 'SINGLE' | 'MULTIPLE'
   parameters: FrontlineRuntimeDeviceParameterVO[]
 }
 
@@ -1678,6 +1686,7 @@ const productionDefectDraft = reactive<Record<ProductionDefectKey, number>>({})
 const productionMaterialDrafts = reactive<Record<string, ProductionMaterialDraftState>>({})
 const selectedProductionMaterialKey = ref<string>()
 const selectedProductionDeviceKey = ref<string>()
+const selectedProductionDeviceKeys = ref<string[]>([])
 const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDraft>>({})
 const deviceMeteringValidityDraft = reactive<ProductionDeviceMeteringValidityDraft>({})
 const productionClearanceConfirmationDraft = reactive<Record<ProductionClearanceConfirmationKey, boolean>>(
@@ -2156,10 +2165,19 @@ const resolveProductionDeviceTabLabel = (
   return deviceCode
 }
 
+const resolveProductionDeviceSelectionConfig = (device: FrontlineRuntimeDeviceVO) => {
+  const deviceGroupKey = device.deviceGroupKey.trim()
+  if (!deviceGroupKey || !['SINGLE', 'MULTIPLE'].includes(device.selectionMode)) {
+    throw new Error(`设备选择配置不完整：${device.deviceCode || device.deviceId}`)
+  }
+  return { deviceGroupKey, selectionMode: device.selectionMode }
+}
+
 const configuredDeviceCards = computed<ProductionDeviceCard[]>(() =>
   (deviceState.runtimeConfig?.devices || [])
     .filter((device) => Number(device.deviceId || 0) > 0)
     .map((device) => ({
+      ...resolveProductionDeviceSelectionConfig(device),
       key: String(device.deviceId),
       deviceId: device.deviceId,
       deviceCode: device.deviceCode,
@@ -2319,7 +2337,8 @@ const createProductionMaterialDraftState = (): ProductionMaterialDraftState => (
   defectQuantities: Object.fromEntries(
     configuredDefectReasons.value.map((defect) => [defect.key, 0])
   ),
-  selectedDeviceKey: visibleDeviceCards.value[0]?.key,
+  selectedDeviceKey: undefined,
+  selectedDeviceKeys: [],
   deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
   deviceMeteringValidity: { ...deviceMeteringValidityDraft }
 })
@@ -2333,6 +2352,7 @@ const persistActiveProductionMaterialDraft = () => {
     outputQuantity: productionDraft.outputQuantity,
     defectQuantities: { ...productionDefectDraft },
     selectedDeviceKey: selectedProductionDeviceKey.value,
+    selectedDeviceKeys: [...selectedProductionDeviceKeys.value],
     deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
     deviceMeteringValidity: { ...deviceMeteringValidityDraft }
   }
@@ -2361,7 +2381,10 @@ const restoreProductionMaterialDraft = (materialKey: string) => {
     (device) => device.key === materialDraft.selectedDeviceKey
   )
     ? materialDraft.selectedDeviceKey
-    : visibleDeviceCards.value[0]?.key
+    : undefined
+  selectedProductionDeviceKeys.value = (materialDraft.selectedDeviceKeys || []).filter((key) =>
+    visibleDeviceCards.value.some((device) => device.key === key)
+  )
 }
 
 const clearProductionMaterialDrafts = () => {
@@ -2369,6 +2392,8 @@ const clearProductionMaterialDrafts = () => {
     delete productionMaterialDrafts[materialKey]
   }
   selectedProductionMaterialKey.value = undefined
+  selectedProductionDeviceKey.value = undefined
+  selectedProductionDeviceKeys.value = []
   productionDraft.outputQuantity = undefined
   replaceReactiveRecord(productionDefectDraft, {})
   resetProductionDeviceParameterDraft()
@@ -2437,9 +2462,36 @@ const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) =>
 }
 
 const activeProductionDevice = computed(() =>
-  visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value) ||
-  visibleDeviceCards.value[0]
+  selectedProductionDeviceKeys.value.includes(selectedProductionDeviceKey.value || '')
+    ? visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value)
+    : undefined
 )
+
+const toggleProductionDeviceSelection = (device: ProductionDeviceCard) => {
+  const selected = new Set(selectedProductionDeviceKeys.value)
+  if (selected.has(device.key)) {
+    selected.delete(device.key)
+    delete deviceParameterDraft[device.key]
+    delete deviceMeteringValidityDraft[device.key]
+    selectedProductionDeviceKeys.value = [...selected]
+    if (selectedProductionDeviceKey.value === device.key) {
+      selectedProductionDeviceKey.value = selectedProductionDeviceKeys.value[0]
+    }
+    return
+  }
+  if (device.selectionMode === 'SINGLE') {
+    for (const groupDevice of visibleDeviceCards.value) {
+      if (groupDevice.deviceGroupKey === device.deviceGroupKey) {
+        selected.delete(groupDevice.key)
+      }
+    }
+  }
+  selected.add(device.key)
+  selectedProductionDeviceKeys.value = [...selected]
+  selectedProductionDeviceKey.value = device.key
+  syncProductionDeviceParameterDraft(visibleDeviceCards.value)
+  syncProductionDeviceMeteringValidityDraft(visibleDeviceCards.value)
+}
 
 const isProductionSelfCheckNarrativeDevice = (device?: ProductionDeviceCard) =>
   Boolean(
@@ -2612,10 +2664,13 @@ watch(
     syncProductionDeviceMeteringValidityDraft(devices)
     if (!devices.length) {
       selectedProductionDeviceKey.value = undefined
+      selectedProductionDeviceKeys.value = []
       return
     }
-    if (!devices.some((device) => device.key === selectedProductionDeviceKey.value)) {
-      selectedProductionDeviceKey.value = devices[0].key
+    const visibleKeys = new Set(devices.map((device) => device.key))
+    selectedProductionDeviceKeys.value = selectedProductionDeviceKeys.value.filter((key) => visibleKeys.has(key))
+    if (!selectedProductionDeviceKeys.value.includes(selectedProductionDeviceKey.value || '')) {
+      selectedProductionDeviceKey.value = selectedProductionDeviceKeys.value[0]
     }
   },
   { immediate: true }
@@ -2646,7 +2701,8 @@ watch(
 )
 
 watch(
-  [productionDraft, configuredDeviceCards, deviceParameterDraft, productionDefectDraft],
+  [productionDraft, configuredDeviceCards, selectedProductionDeviceKeys,
+    deviceParameterDraft, deviceMeteringValidityDraft, productionDefectDraft],
   () => {
     if (!isPqcMode.value) {
       Object.assign(draft.fieldValues, buildProductionFieldValues())
@@ -2814,10 +2870,10 @@ const updateProductionDeviceParameter = (
 const updateProductionDeviceSelectParameter = (
   deviceKey: string,
   parameterKey: ProductionDeviceParameterKey,
-  event: Event
+  value: string
 ) => {
-  const value = (event.target as HTMLSelectElement).value.trim()
-  ensureProductionDeviceParameters(deviceKey)[parameterKey] = value || undefined
+  const normalized = value.trim()
+  ensureProductionDeviceParameters(deviceKey)[parameterKey] = normalized || undefined
 }
 
 const updateProductionDeviceBooleanParameter = (
@@ -2877,7 +2933,9 @@ const buildProductionClearanceConfirmationPayload = () =>
   }))
 
 const buildProductionDeviceMeteringValidityPayload = () =>
-  visibleDeviceCards.value.map((device) => ({
+  visibleDeviceCards.value
+    .filter((device) => selectedProductionDeviceKeys.value.includes(device.key))
+    .map((device) => ({
     deviceId: device.deviceId,
     deviceCode: device.deviceCode,
     deviceName: device.deviceName,
@@ -4235,13 +4293,13 @@ watch(currentLoginUserId, async () => {
 const assertProductionSubmissionReady = () => {
   persistActiveProductionMaterialDraft()
   if (configuredProductionMaterials.value.length > 0) {
-    const missingMaterials = configuredProductionMaterials.value.filter(
-      (material) => productionMaterialDrafts[material.key]?.outputQuantity === undefined
+    const filledMaterials = configuredProductionMaterials.value.filter(
+      (material) => productionMaterialDrafts[material.key]?.outputQuantity !== undefined
     )
-    if (missingMaterials.length) {
-      throw new Error(`请填写完成数量：${missingMaterials.map((material) => material.materialName).join('、')}`)
+    if (filledMaterials.length === 0) {
+      throw new Error('请至少填写一个输出物料的完成数量')
     }
-    const invalidLossMaterials = configuredProductionMaterials.value.filter((material) => {
+    const invalidLossMaterials = filledMaterials.filter((material) => {
       const materialDraft = productionMaterialDrafts[material.key]
       const lossQuantity = Object.values(materialDraft.defectQuantities)
         .reduce((total, quantity) => total + quantity, 0)
@@ -4258,23 +4316,23 @@ const assertProductionSubmissionReady = () => {
       throw new Error('损耗数量不能大于完成数量')
     }
   }
-  const device = activeProductionDevice.value
-  if (!device) {
+  const selectedDevices = selectedProductionDeviceKeys.value
+    .map((key) => visibleDeviceCards.value.find((device) => device.key === key))
+    .filter((device): device is ProductionDeviceCard => Boolean(device))
+  if (!selectedDevices.length) {
     return
   }
-  const missingParameters = getProductionSubmittableParameters(device)
-    .filter((parameter) => !isTextStandardParameter(parameter))
-    .filter((parameter) => {
-      const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
-      if (isBooleanParameter(parameter)) {
-        return typeof value !== 'boolean'
-      }
-      if (isSelectParameter(parameter)) {
-        return typeof value !== 'string' || !value.trim()
-      }
-      return toFiniteProductionParameterNumber(value) === undefined
-    })
-    .map((parameter) => parameter.parameterName || parameter.parameterCode)
+  const missingParameters = selectedDevices.flatMap((device) =>
+    getProductionSubmittableParameters(device)
+      .filter((parameter) => !isTextStandardParameter(parameter))
+      .filter((parameter) => {
+        const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+        if (isBooleanParameter(parameter)) return typeof value !== 'boolean'
+        if (isSelectParameter(parameter)) return typeof value !== 'string' || !value.trim()
+        return toFiniteProductionParameterNumber(value) === undefined
+      })
+      .map((parameter) => `${device.label}：${parameter.parameterName || parameter.parameterCode}`)
+  )
   if (missingParameters.length) {
     throw new Error(`请填写设备参数：${missingParameters.join('、')}`)
   }
@@ -4294,8 +4352,11 @@ const buildProductionFormalSubmitConfirmation = () => {
   const materialDetails = buildProductionMaterialDetailsPayload()
   const progressQuantity = resolveProductionProgressQuantity(materialDetails)
   const materialSummary = configuredProductionMaterials.value
-    .map((material, index) => {
-      const detail = materialDetails[index]
+    .flatMap((material) => {
+      const detail = materialDetails.find((item) => item.materialId === material.materialId)
+      if (!detail) {
+        return []
+      }
       return `${material.materialName}=完成${detail.outputQuantity}件、损耗${detail.lossQuantity}件`
     })
     .join('；') || '无批记录物料'
@@ -4773,13 +4834,15 @@ const buildFrontlineFormalSubmitPayload = (
   if (!signaturePassword) {
     throw new Error('请输入所选员工的电子签名密码。')
   }
-    const selectedDevice = activeProductionDevice.value
     const materialDetails = buildProductionMaterialDetailsPayload()
     const progressQuantity = resolveProductionProgressQuantity(materialDetails)
     const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
-  const equipmentParameters = selectedDevice
-    ? { [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key) }
-    : {}
+  const equipmentParameters = Object.fromEntries(
+    selectedProductionDeviceKeys.value.flatMap((key) => {
+      const device = visibleDeviceCards.value.find((item) => item.key === key)
+      return device ? [[device.label, buildProductionDeviceParameterPayload(device.key)]] : []
+    })
+  )
   const submitIdempotencyKey = buildFrontlineProductionSubmitIdempotencyKey()
   const recordbookPayload = formalContext.recordbookId
     ? {
@@ -4820,7 +4883,7 @@ const buildFrontlineFormalSubmitPayload = (
       outputQuantity: progressQuantity,
       lossQuantity: totalLossQuantity,
       lossDetails: buildProductionLossDetailsPayload(),
-      selectedDevice: buildProductionSelectedDevicePayload(),
+      selectedDevices: buildProductionSelectedDevicesPayload(),
       deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
       laborScrapQuantity: totalLossQuantity,
       materialScrapQuantity: 0,
@@ -4896,8 +4959,15 @@ const buildProductionSelectedDeviceFromDevice = (
   }
 }
 
-const buildProductionSelectedDevicePayload = (): ProFrontlineSelectedDeviceReqVO | undefined =>
-  buildProductionSelectedDeviceFromDevice(activeProductionDevice.value)
+const buildProductionSelectedDevicesFromKeys = (deviceKeys: string[]) =>
+  deviceKeys
+    .map((key) => visibleDeviceCards.value.find((device) => device.key === key))
+    .filter((device): device is ProductionDeviceCard => Boolean(device))
+    .map(buildProductionSelectedDeviceFromDevice)
+    .filter((device): device is ProFrontlineSelectedDeviceReqVO => Boolean(device))
+
+const buildProductionSelectedDevicesPayload = () =>
+  buildProductionSelectedDevicesFromKeys(selectedProductionDeviceKeys.value)
 
 const buildProductionDeviceParameterReadingsFromDraft = (
   device: ProductionDeviceCard | undefined,
@@ -4982,41 +5052,44 @@ const buildProductionDeviceParameterReadingsFromDraft = (
 
 const buildProductionDeviceParameterReadingsPayload =
   (): ProFrontlineDeviceParameterReadingReqVO[] =>
-    buildProductionDeviceParameterReadingsFromDraft(
-      activeProductionDevice.value,
-      deviceParameterDraft
+    selectedProductionDeviceKeys.value.flatMap((key) =>
+      buildProductionDeviceParameterReadingsFromDraft(
+        visibleDeviceCards.value.find((device) => device.key === key),
+        deviceParameterDraft
+      )
     )
 
 const buildProductionMaterialDetailsPayload = (): ProFrontlineFeedbackMaterialReqVO[] => {
   persistActiveProductionMaterialDraft()
-  return configuredProductionMaterials.value.map((material) => {
+  return configuredProductionMaterials.value.flatMap((material) => {
     const materialDraft = productionMaterialDrafts[material.key]
     if (!materialDraft || materialDraft.outputQuantity === undefined) {
-      throw new Error(`请填写完成数量：${material.materialName}`)
+      return []
     }
     const lossDetails = buildProductionLossDetailsFromDraft(materialDraft.defectQuantities)
-    const selectedDevice = visibleDeviceCards.value.find(
-      (device) => device.key === materialDraft.selectedDeviceKey
-    )
-    return {
+    const selectedDevices = buildProductionSelectedDevicesFromKeys(materialDraft.selectedDeviceKeys || [])
+    return [{
       materialId: material.materialId,
       outputQuantity: materialDraft.outputQuantity,
       lossQuantity: lossDetails.reduce((total, detail) => total + detail.quantity, 0),
       lossDetails,
-      selectedDevice: buildProductionSelectedDeviceFromDevice(selectedDevice),
-      deviceParameterReadings: buildProductionDeviceParameterReadingsFromDraft(
-        selectedDevice,
-        materialDraft.deviceParameters
+      selectedDevices,
+      deviceParameterReadings: (materialDraft.selectedDeviceKeys || []).flatMap((key) =>
+        buildProductionDeviceParameterReadingsFromDraft(
+          visibleDeviceCards.value.find((device) => device.key === key),
+          materialDraft.deviceParameters
+        )
       )
-    }
+    }]
   })
 }
 
 const buildProductionEquipmentParameterRulesPayload = () =>
-  activeProductionDevice.value
-    ? Object.fromEntries([[
-      activeProductionDevice.value.label,
-      getProductionSubmittableParameters(activeProductionDevice.value).map((parameter) => ({
+  Object.fromEntries(selectedProductionDeviceKeys.value.flatMap((key) => {
+    const device = visibleDeviceCards.value.find((item) => item.key === key)
+    return device ? [[
+      device.label,
+      getProductionSubmittableParameters(device).map((parameter) => ({
         parameterCode: parameter.parameterCode,
         parameterName: parameter.parameterName,
         unit: parameter.unit,
@@ -5028,8 +5101,8 @@ const buildProductionEquipmentParameterRulesPayload = () =>
         defaultText: parameter.defaultText,
         decimalScale: parameter.decimalScale
       }))
-    ]])
-    : {}
+    ]] : []
+  }))
 
 const buildProductionStructuredRawPayload = (
   rawPayload: FrontlineTemplatePayloadReqVO,
@@ -5048,7 +5121,7 @@ const buildProductionStructuredRawPayload = (
   materialDetails,
   lossDetails: buildProductionLossDetailsPayload(),
   lossReasonDetails: buildProductionLossDetailsPayload(),
-  selectedDevice: buildProductionSelectedDevicePayload(),
+  selectedDevices: buildProductionSelectedDevicesPayload(),
   deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
   deviceMeteringValidity: buildProductionDeviceMeteringValidityPayload(),
   clearanceConfirmations: buildProductionClearanceConfirmationPayload(),
@@ -5056,14 +5129,17 @@ const buildProductionStructuredRawPayload = (
 })
 
 const buildProductionFieldValues = () => {
-  const selectedDevice = activeProductionDevice.value
+  const selectedDevices = buildProductionSelectedDevicesPayload()
   return {
-    [FRONTLINE_FIELD_CODES.DEVICE]: selectedDevice ? selectedDevice.label : '无设备',
-    [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: selectedDevice
-      ? {
-          [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key)
-        }
-      : {},
+    [FRONTLINE_FIELD_CODES.DEVICE]: selectedDevices.length
+      ? selectedDevices.map((device) => device.deviceCode || device.deviceName).join('、')
+      : '无设备',
+    [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: Object.fromEntries(
+      selectedProductionDeviceKeys.value.flatMap((key) => {
+        const device = visibleDeviceCards.value.find((item) => item.key === key)
+        return device ? [[device.label, buildProductionDeviceParameterPayload(device.key)]] : []
+      })
+    ),
     [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
     [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
   }
@@ -6298,9 +6374,10 @@ onUnmounted(() => {
 }
 
 .frontline-production-device-card .device-tab {
+  position: relative;
   min-width: 0;
   min-height: 0;
-  padding: 0;
+  padding: 0 38px;
   border: 0;
   background: var(--frontline-dark);
   color: #ffffff;
@@ -7677,6 +7754,26 @@ onUnmounted(() => {
   font-size: 50px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.device-tab-selection {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ffffff;
+  border-radius: 5px;
+  color: #ffffff;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.frontline-production-device-card.active .device-tab-selection {
+  border-color: #9ce0c1;
+  background: #15815f;
 }
 
 .frontline-pqc-reset-button {

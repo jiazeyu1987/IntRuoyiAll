@@ -234,15 +234,36 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
         when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity"), pickRule(2L, "material.3201.lotNumber")));
-        when(productionPickListSourceService.resolveValue(any()))
+        when(productionPickListSourceService.resolveValueFromAll(any()))
                 .thenReturn(new MesProductionPickListSourceService.ResolvedValue(
                         9001L, 9101L, "LOT-FIRST", "pick-evidence"));
 
-        MesTeamLeaderActiveOrderReleaseBatchRecordPlan plan = writer.plan(command());
+        MesTeamLeaderActiveOrderReleaseBatchRecordPlan plan = writer.plan(
+                command().setPickListBindingIds(List.of(8801L, 8802L)));
 
         assertTrue(plan.getBlockers().isEmpty());
         assertTrue(plan.getSourceObjectIds().containsAll(List.of(9001L, 9101L)));
         assertTrue(plan.getSourceValueHashes().contains("pick-evidence"));
+        ArgumentCaptor<MesProductionPickListSourceService.ResolveAllCommand> sourceCaptor =
+                ArgumentCaptor.forClass(MesProductionPickListSourceService.ResolveAllCommand.class);
+        verify(productionPickListSourceService).resolveValueFromAll(sourceCaptor.capture());
+        assertEquals(List.of(8801L, 8802L), sourceCaptor.getValue().pickListBindingIds());
+        verify(backfillService, never()).backfillCompletedProcess(any());
+    }
+
+    @Test
+    void shouldBlockWhenProductionPickListResolverViolatesContractBeforeAnyWrite() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "outputQuantity"), pickRule(2L, "material.3201.lotNumber")));
+        when(productionPickListSourceService.resolveValueFromAll(any())).thenReturn(null);
+
+        MesTeamLeaderActiveOrderReleaseBatchRecordPlan plan = writer.plan(
+                command().setPickListBindingIds(List.of(8801L, 8802L)));
+
+        assertFalse(plan.getBlockers().isEmpty());
         verify(backfillService, never()).backfillCompletedProcess(any());
     }
 
@@ -258,7 +279,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
         return new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand()
                 .setTenantId(1L)
                 .setActiveOrderId(ACTIVE_ORDER_ID)
-                .setPickListBindingId(8801L)
+                .setPickListBindingIds(List.of(8801L))
                 .setWorkOrderId(WORK_ORDER_ID)
                 .setRouteId(ROUTE_ID)
                 .setRouteVersionId(ROUTE_VERSION_ID)

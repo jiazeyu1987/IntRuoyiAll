@@ -57,7 +57,6 @@ public class DccRegistrationCertificateSupportingDocumentService {
             return replay(command, existing, EVENT_EFFECTIVE);
         }
         CertificateRef certificate = requireCertificate(command);
-        companyScopeApi.validateUserCompanyAccess(command.actorId(), certificate.ownerCompanyId());
         requireStagedBusinessFile(command);
         Long supportId = insertEffectiveDocument(command, certificate);
         bindBusinessFile(command, supportId);

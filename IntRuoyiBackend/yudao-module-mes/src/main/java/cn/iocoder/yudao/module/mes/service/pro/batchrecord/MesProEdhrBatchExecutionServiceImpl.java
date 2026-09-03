@@ -938,6 +938,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRouteId(reqVO.getRouteId() != null ? reqVO.getRouteId() : receiptRouteId(reqVO))
                 .setPickListBindingId(reqVO.getPickListBindingId())
                 .setPickListId(reqVO.getPickListId())
+                .setPickListSources(reqVO.getPickListSources())
                 .setBindingVersion(reqVO.getBindingVersion())
                 .setBatchPickListRelationId(reqVO.getBatchPickListRelationId())
                 .setSourceSnapshotHash(reqVO.getSourceSnapshotHash())
@@ -976,6 +977,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
                 .setCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
                 .setPickListBindingId(command.getPickListBindingId()).setPickListId(command.getPickListId())
+                .setPickListSources(command.getPickListSources())
                 .setBindingVersion(command.getBindingVersion()).setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setPickListHeaderSnapshotHash(command.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
@@ -996,6 +998,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
                 .setCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
                 .setPickListBindingId(command.getPickListBindingId()).setPickListId(command.getPickListId())
+                .setPickListSources(command.getPickListSources())
                 .setBindingVersion(command.getBindingVersion()).setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setCompletionTransactionId(command.getCompletionTransactionId())
                 .setExpectedActiveOrderVersion(command.getExpectedActiveOrderVersion())
@@ -1015,6 +1018,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
                 .setCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
                 .setPickListBindingId(command.getPickListBindingId()).setPickListId(command.getPickListId())
+                .setPickListSources(command.getPickListSources())
                 .setBindingVersion(command.getBindingVersion()).setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setCompletionTransactionId(command.getCompletionTransactionId())
                 .setExpectedActiveOrderVersion(command.getExpectedActiveOrderVersion())
@@ -1036,6 +1040,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
                 .setCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
                 .setPickListBindingId(command.getPickListBindingId()).setPickListId(command.getPickListId())
+                .setPickListSources(command.getPickListSources())
                 .setBindingVersion(command.getBindingVersion()).setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setCompletionTransactionId(command.getCompletionTransactionId())
                 .setExpectedActiveOrderVersion(command.getExpectedActiveOrderVersion())
@@ -1061,6 +1066,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRouteId(source.getRouteId())
                 .setPickListBindingId(reqVO.getPickListBindingId())
                 .setPickListId(reqVO.getPickListId())
+                .setPickListSources(reqVO.getPickListSources())
                 .setBindingVersion(reqVO.getBindingVersion())
                 .setBatchPickListRelationId(reqVO.getBatchPickListRelationId())
                 .setSourceSnapshotHash(reqVO.getSourceSnapshotHash())
@@ -1501,6 +1507,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setActiveOrderId(command.getActiveOrderId())
                 .setPickListBindingId(command.getPickListBindingId())
                 .setPickListId(command.getPickListId())
+                .setPickListSources(command.getPickListSources())
                 .setBindingVersion(command.getBindingVersion())
                 .setBatchPickListRelationId(command.getBatchPickListRelationId())
                 .setSourceSnapshotHash(command.getSourceSnapshotHash())
@@ -1540,6 +1547,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRouteId(command == null ? null : command.getRouteId())
                 .setPickListBindingId(command == null ? null : command.getPickListBindingId())
                 .setPickListId(command == null ? null : command.getPickListId())
+                .setPickListSources(command == null ? null : command.getPickListSources())
                 .setBindingVersion(command == null ? null : command.getBindingVersion())
                 .setBatchPickListRelationId(command == null ? null : command.getBatchPickListRelationId())
                 .setSourceSnapshotHash(command == null ? null : command.getSourceSnapshotHash())
@@ -1576,6 +1584,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         ? command.getRouteId() : scheduleReceiptRouteId(command))
                 .setPickListBindingId(command == null ? null : command.getPickListBindingId())
                 .setPickListId(command == null ? null : command.getPickListId())
+                .setPickListSources(command == null ? null : command.getPickListSources())
                 .setBindingVersion(command == null ? null : command.getBindingVersion())
                 .setBatchPickListRelationId(command == null ? null : command.getBatchPickListRelationId())
                 .setSourceSnapshotHash(command == null ? null : command.getSourceSnapshotHash())
@@ -8972,6 +8981,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         metadata.put("completionVersion", command.getCompletionVersion());
         metadata.put("pickListBindingId", command.getPickListBindingId());
         metadata.put("pickListId", command.getPickListId());
+        metadata.put("pickListSources", JSON.parseArray(JSON.toJSONString(
+                command.getPickListSources() == null ? List.of() : command.getPickListSources())));
+        metadata.put("activeOrderPickListBindingCount", command.getPickListSources() == null
+                ? 0 : command.getPickListSources().size());
         metadata.put("hasActualLoss", command.getCompletionBackfillReceipt() == null
                 ? null : command.getCompletionBackfillReceipt().getHasActualLoss());
         metadata.put("batchProvisionReceiptId", provisioningReceiptId);

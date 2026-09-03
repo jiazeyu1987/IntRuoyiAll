@@ -32,6 +32,15 @@ public class MesProcessPoolProductionReportCorrectionCommand {
         private Long materialId;
         private BigDecimal outputQuantity;
         private BigDecimal lossQuantity;
+        private List<LossDetailCommand> lossDetails;
+        private SelectedDeviceCommand selectedDevice;
+        private List<DeviceParameterReadingCommand> deviceParameterReadings;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SelectedDeviceCommand {
+        private Long deviceId;
     }
 
     @Data

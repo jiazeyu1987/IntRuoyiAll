@@ -157,8 +157,30 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
     @Resource
     private MesProBatchRecordVersionBusinessApprovalEffectExecutor batchRecordVersionApprovalEffectExecutor;
+    @Resource
+    private MesProBatchRecordRecognitionDeviceSyncService recognitionDeviceSyncService;
     @Autowired(required = false)
     private List<MesProBatchRecordRouteRecognizer> routeRecognizers = List.of();
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void importTotalRecognitionJson(Long dccProjectCodeId, MultipartFile file) {
+        if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
+            throw new IllegalArgumentException("dccProjectCodeId is required");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("recognition JSON file is required");
+        }
+        String totalRecognitionJson;
+        try {
+            totalRecognitionJson = new String(file.getBytes(), StandardCharsets.UTF_8);
+            JSON.parseObject(totalRecognitionJson);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("批记录总识别 JSON 无法解析", ex);
+        }
+        saveProjectCodeBatchRecordTotalRecognitionJson(dccProjectCodeId, totalRecognitionJson);
+        recognitionDeviceSyncService.sync(dccProjectCodeId, totalRecognitionJson);
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)

@@ -7,5 +7,6 @@ public record DccRegistrationCertificateReminderConfig(
         String dailyRunTime,
         String timezone,
         String thresholdDaysJson,
+        String thresholdRecipientUserIdsJson,
         Integer rowVersion) {
 }

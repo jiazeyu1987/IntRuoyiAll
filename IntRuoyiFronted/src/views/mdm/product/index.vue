@@ -347,7 +347,7 @@ defineOptions({ name: 'MdmProduct' })
 
 const route = useRoute()
 const router = useRouter()
-const PRODUCT_ROUTE_PATH = '/mdm/product'
+const PRODUCT_ROUTE_PATH = '/mes/md/showroom-product'
 
 const isProductRoute = () => route.path === PRODUCT_ROUTE_PATH
 
@@ -663,7 +663,7 @@ const handleReferences = async (row: MdmProductRespVO) => {
 
 const openLinkedProjectCodeManagement = (row: MdmProductRespVO) => {
   router.push({
-    path: '/mdm/project-code',
+    path: '/mes/md/dcc-project-code',
     query: { productMasterId: String(row.id) }
   })
 }

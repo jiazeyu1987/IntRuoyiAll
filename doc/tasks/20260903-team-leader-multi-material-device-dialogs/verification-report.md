@@ -14,6 +14,13 @@
 - 格式检查：`git diff --check` -> PASS，仅 CRLF 工作区提示。
 - worktree 运行态：后端 `48092` 启动成功且健康检查 `UP`；前端 `8092` 启动成功。
 - evidence 门禁：frontend/backend evidence 校验均通过。
+- 物料数量布局回归：静态合同先因原三列布局失败，改为完成数量/损耗数量两列后通过。
+- 2026-09-03 `int_main` 真实 Playwright 截图：事件 `8474` 的两个物料卡均完整显示完成数量和损耗数量（`3333.000/0.000`、`222.000/3.000`），无写请求、页面错误或控制台错误。
+- 物料真实名称回归：弹框按 `materialId` 调用物料主数据详情接口，真实显示“弹簧”“杠杆”；物料区域按一物料一列表纵向排列。
+- 物料级上下文修复：`materialDetails` 增加每条物料自己的 `lossDetails`、`selectedDevice`、`deviceParameterReadings`；修改弹框移除全局损耗/设备/参数区，提交请求按 `materialId` 携带并回写这些字段。
+- 前端类型检查：`NODE_OPTIONS=--max-old-space-size=8192 pnpm exec vue-tsc --noEmit --pretty false` -> PASS。
+- 后端定向测试：9 tests -> PASS。
+- 注意：后端代码已编译验证，但当前 `int_main` 运行进程尚未重启，手动验证前需重启后端。
 
 ## Blocked
 - 全量前端类型检查：`pnpm exec vue-tsc --noEmit --pretty false` 在加大 Node heap 后仍失败于既有无关页面类型错误，本任务修改文件未出现在错误列表中。
@@ -23,5 +30,6 @@
 
 ## Screenshot Evidence
 - `doc\tasks\20260903-team-leader-multi-material-device-dialogs\artifacts\production-report-correction-dialog.png`
+- `doc\tasks\20260903-team-leader-multi-material-device-dialogs\artifacts\production-report-correction-materials.png`
 - `doc\tasks\20260903-team-leader-multi-material-device-dialogs\artifacts\production-report-allocation-dialog.png`
 - `doc\tasks\20260903-team-leader-multi-material-device-dialogs\artifacts\team-leader-multi-dialogs-real-result.json`

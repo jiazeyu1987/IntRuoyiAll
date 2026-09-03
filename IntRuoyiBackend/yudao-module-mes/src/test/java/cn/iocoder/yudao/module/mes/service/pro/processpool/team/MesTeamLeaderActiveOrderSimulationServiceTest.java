@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -9,6 +11,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
@@ -17,11 +22,17 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchQueryService;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialCreateCommand;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialService;
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +74,18 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     @Mock
     private MesProFeedbackMapper feedbackMapper;
     @Mock
+    private MesMdItemMapper itemMapper;
+    @Mock
+    private MesProFeedbackMaterialBatchQueryService materialBatchQueryService;
+    @Mock
+    private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
+    @Mock
+    private MesProcessPoolTeamDeviceMapper deviceMapper;
+    @Mock
+    private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private MesProFeedbackMaterialService feedbackMaterialService;
+    @Mock
     private MesProcessPoolEventService processPoolEventService;
     @Mock
     private MesReportAllocationCommandService reportAllocationCommandService;
@@ -77,7 +100,9 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderSimulationService(activeOrderMapper, processSnapshotMapper,
                 routeVersionMapper, reportAllocationMapper, submissionReviewMapper, pqcInspectionTaskMapper,
-                inspectionRegulationItemMapper, pqcPieceDetailMapper, feedbackMapper, processPoolEventService,
+                inspectionRegulationItemMapper, pqcPieceDetailMapper, feedbackMapper, itemMapper,
+                materialBatchQueryService, processDeviceMapper, deviceMapper, routeProcessMapper,
+                feedbackMaterialService, processPoolEventService,
                 reportAllocationCommandService, pqcProcessInspectionAggregationService,
                 orderProcessCompletionService);
     }
@@ -103,7 +128,22 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .id(448L)
                 .routeId(922119L)
                 .versionNo("V1")
+                .routeSnapshotJson("{\"routeId\":922119,\"configSnapshots\":{"
+                        + "\"flowGraph\":{\"nodes\":[{\"routeProcessId\":5001,\"processId\":6001},"
+                        + "{\"routeProcessId\":5002,\"processId\":6002}]},\"batchUseConfigs\":["
+                        + "{\"routeProcessId\":5001,\"inputMaterialIds\":[1001],\"outputMaterialIds\":[1002]},"
+                        + "{\"routeProcessId\":5002,\"inputMaterialIds\":[1002],\"outputMaterialIds\":[1003]}]}}")
                 .build());
+        when(itemMapper.selectById(1001L)).thenReturn(material(1001L, "INPUT-001", "输入物料"));
+        when(itemMapper.selectById(1002L)).thenReturn(material(1002L, "OUTPUT-001", "中间产物"));
+        when(itemMapper.selectById(1003L)).thenReturn(material(1003L, "OUTPUT-002", "输出物料"));
+        when(materialBatchQueryService.listBatchCodes(9001L, "INPUT-001")).thenReturn(List.of("IN-LOT-001"));
+        when(materialBatchQueryService.listBatchCodes(9001L, "OUTPUT-001")).thenReturn(List.of("IN-LOT-002"));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                processDevice(12L, 702L), processDevice(11L, 701L)));
+        when(deviceMapper.selectById(701L)).thenReturn(device(701L, "DEVICE-001", "第一台设备"));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess(5001L, 6001L, 801L));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5002L)).thenReturn(routeProcess(5002L, 6002L, 802L));
         when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(snapshots);
         when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(pendingPqcTask));
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L)))
@@ -158,6 +198,28 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .map(MesProcessPoolCreateEventReqDTO::getFeedbackSourceId).toList());
         assertTrue(productionCaptor.getAllValues().stream()
                 .allMatch(req -> req.getRawPayload().contains("\"lossDetails\":[]")));
+        assertTrue(productionCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"inputMaterialDetails\"")));
+        assertTrue(productionCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"direction\":\"INPUT\"")));
+        assertTrue(productionCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"direction\":\"OUTPUT\"")));
+        assertTrue(productionCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"outputQuantity\":200.000000")));
+        assertTrue(productionCaptor.getAllValues().stream()
+                .anyMatch(req -> req.getRawPayload().contains("IN-LOT-001")));
+        assertEquals(List.of(701L, 701L), productionCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreateEventReqDTO::getDeviceId).toList());
+        assertEquals(List.of(801L, 802L), productionCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreateEventReqDTO::getWorkstationId).toList());
+        assertTrue(productionCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"deviceCode\":\"DEVICE-001\"")));
+        ArgumentCaptor<MesProFeedbackMaterialCreateCommand> materialCaptor =
+                ArgumentCaptor.forClass(MesProFeedbackMaterialCreateCommand.class);
+        org.mockito.Mockito.verify(feedbackMaterialService, org.mockito.Mockito.times(2))
+                .createMaterials(materialCaptor.capture());
+        assertEquals(List.of(1002L, 1003L), materialCaptor.getAllValues().stream()
+                .map(command -> command.entries().get(0).materialId()).toList());
 
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
@@ -197,6 +259,25 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .build();
         activeOrder.setTenantId(1L);
         return activeOrder;
+    }
+
+    private static MesMdItemDO material(Long id, String code, String name) {
+        return MesMdItemDO.builder().id(id).code(code).name(name).specification("规格").build();
+    }
+
+    private static MesProcessPoolTeamProcessDeviceDO processDevice(Long id, Long deviceId) {
+        return MesProcessPoolTeamProcessDeviceDO.builder().id(id).leaderUserId(3001L)
+                .processId(6001L).deviceId(deviceId).enabled(Boolean.TRUE).build();
+    }
+
+    private static MesProcessPoolTeamDeviceDO device(Long id, String code, String name) {
+        return MesProcessPoolTeamDeviceDO.builder().id(id).leaderUserId(3001L).deviceCode(code)
+                .deviceName(name).deviceStatus("ENABLED").enabled(Boolean.TRUE).build();
+    }
+
+    private static MesProRouteProcessDO routeProcess(Long id, Long processId, Long workstationId) {
+        return MesProRouteProcessDO.builder().id(id).routeId(922119L).processId(processId)
+                .workstationId(workstationId).build();
     }
 
     private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot(Long routeProcessId, Long processId) {

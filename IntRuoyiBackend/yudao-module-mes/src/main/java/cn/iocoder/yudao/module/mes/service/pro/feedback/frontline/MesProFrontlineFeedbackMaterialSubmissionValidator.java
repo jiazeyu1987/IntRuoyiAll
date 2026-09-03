@@ -32,15 +32,15 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
             List<MesProFrontlineFeedbackMaterialReqVO> requestedMaterials) {
         Map<Long, MesFrontlineProcessMaterial> frozenById = indexFrozenMaterials(frozenMaterials);
         Map<Long, MesProFrontlineFeedbackMaterialReqVO> requestedById = indexRequestedMaterials(requestedMaterials);
-        if (!frozenById.keySet().equals(requestedById.keySet())) {
-            throw invalid("物料集合与冻结工序不一致：expected=" + frozenById.keySet()
+        if (requestedById.isEmpty() || !frozenById.keySet().containsAll(requestedById.keySet())) {
+            throw invalid("提交物料必须是冻结工序物料的非空子集：expected=" + frozenById.keySet()
                     + ", actual=" + requestedById.keySet());
         }
         List<MesProFrontlineFeedbackMaterialSubmission.Material> validated = new ArrayList<>();
         BigDecimal progressQuantity = null;
         BigDecimal totalLossQuantity = BigDecimal.ZERO;
-        for (MesFrontlineProcessMaterial frozen : frozenMaterials) {
-            MesProFrontlineFeedbackMaterialReqVO requested = requestedById.get(frozen.materialId());
+        for (MesProFrontlineFeedbackMaterialReqVO requested : requestedById.values()) {
+            MesFrontlineProcessMaterial frozen = frozenById.get(requested.getMaterialId());
             validateQuantities(frozen.materialId(), requested.getOutputQuantity(), requested.getLossQuantity());
             List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> normalizedLossDetails =
                     normalizeLossDetails(frozenLossReasons, requested.getLossDetails(), requested.getLossQuantity());
@@ -50,7 +50,8 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
             validated.add(new MesProFrontlineFeedbackMaterialSubmission.Material(
                     frozen.materialId(), frozen.materialCode(), frozen.materialName(),
                     frozen.materialSpecification(), frozen.bomQuantity(), outputQuantity,
-                    requested.getLossQuantity(), normalizedLossDetails, requested.getSelectedDevice(),
+                    requested.getLossQuantity(), normalizedLossDetails,
+                    requested.getSelectedDevices() == null ? List.of() : List.copyOf(requested.getSelectedDevices()),
                     requested.getDeviceParameterReadings() == null
                             ? List.of() : List.copyOf(requested.getDeviceParameterReadings())));
         }

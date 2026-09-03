@@ -24,6 +24,7 @@ public class MesBatchExecutionProvisionCommand {
     private Long routeId;
     private Long pickListBindingId;
     private Long pickListId;
+    private List<MesBatchExecutionPickListSource> pickListSources;
     private Long bindingVersion;
     private Long batchPickListRelationId;
     private String sourceSnapshotHash;

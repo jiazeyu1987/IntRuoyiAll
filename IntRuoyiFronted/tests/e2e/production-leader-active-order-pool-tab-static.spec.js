@@ -7,6 +7,9 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 const source = read('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 const apiSource = read('src/api/mes/pro/processpool/teamLeader.ts')
+const controllerSource = read(
+  '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java'
+)
 
 const sliceContentWrapByMarker = (marker) => {
   const markerIndex = source.indexOf(marker)
@@ -154,12 +157,12 @@ assert.match(
 assert.doesNotMatch(
   activeOrderAddDialog,
   /data-team-leader-active-order-route-id|data-team-leader-active-order-route-version-id|data-team-leader-active-order-transfer-ids|label="生产订单ID"|label="路线ID"|label="路线版本ID"|label="调拨单ID列表"/,
-  'The add dialog must remove old route/version/transfer inputs and only ask for 订单号/产品 plus a formal pick list.'
+  'The add dialog must remove old route/version/transfer inputs and only ask for 订单号/产品.'
 )
-assert.match(
+assert.doesNotMatch(
   activeOrderAddDialog,
-  /<el-form-item\s+label="正式领料单"[\s\S]*data-team-leader-active-order-pick-list[\s\S]*v-model="activeOrderForm\.pickListId"[\s\S]*v-for="option in activeOrderPickListOptions"[\s\S]*:disabled="!option\.selectable"/,
-  'The add dialog must require a selectable formal pick list before joining the active-order pool.'
+  /正式领料单|data-team-leader-active-order-pick-list|activeOrderForm\.pickListId|activeOrderPickListOptions/,
+  'The add dialog must not expose pick-list selection or pre-binding state.'
 )
 assert.match(
   source,
@@ -178,8 +181,8 @@ assert.match(
 )
 assert.match(
   source,
-  /const\s+workOrderId\s*=\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)[\s\S]*const\s+receipt\s*=\s*await\s+addTeamLeaderActiveOrder\(\{[\s\S]*workOrderId,[\s\S]*pickListId,[\s\S]*pickListCandidateSnapshotHash/,
-  'The dialog submit action must call the add API with a candidate-verified workOrderId and the selected formal pick-list proof.'
+  /const\s+workOrderId\s*=\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)[\s\S]*const\s+receipt\s*=\s*await\s+addTeamLeaderActiveOrder\(\{\s*workOrderId\s*\}\)/,
+  'The dialog submit action must call the add API with only the candidate-verified workOrderId.'
 )
 assert.doesNotMatch(
   source.match(/await\s+addTeamLeaderActiveOrder\(\{[\s\S]*?\}\)/)?.[0] || '',
@@ -234,13 +237,18 @@ assert.match(
 )
 assert.match(
   activeOrderAddReqBlock,
-  /export interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*pickListId:\s*string\s*pickListCandidateSnapshotHash:\s*string\s*idempotencyKey:\s*string\s*\}/,
-  'The active-order add request type must include workOrderId plus the formal pick-list receipt fields.'
+  /export interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
+  'The active-order add request type must contain only workOrderId.'
 )
 assert.doesNotMatch(
   activeOrderAddReqBlock,
-  /(routeId|routeVersionId|transferIds):/,
-  'The active-order add request type must not expose route/version/transfer fields.'
+  /(pickListId|pickListCandidateSnapshotHash|idempotencyKey|routeId|routeVersionId|transferIds):/,
+  'The active-order add request type must not expose pick-list, idempotency, route/version, or transfer fields.'
+)
+assert.match(
+  controllerSource,
+  /\.idempotencyKey\("ACTIVE_ORDER_ADD:"\s*\+\s*SecurityFrameworkUtils\.getLoginUserId\(\)\s*\+\s*":"\s*\+\s*reqVO\.getWorkOrderId\(\)\)/,
+  'The backend must derive the order-level idempotency key from leader and workOrderId.'
 )
 
 console.log('PASS: production leader active-order pool tab static contract')

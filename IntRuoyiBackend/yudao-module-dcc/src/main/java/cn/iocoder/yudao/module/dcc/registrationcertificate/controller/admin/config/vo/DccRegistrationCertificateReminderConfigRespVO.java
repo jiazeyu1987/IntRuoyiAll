@@ -1,8 +1,12 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.config.vo;
 
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateReminderConfig;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateConfigService;
 import lombok.Builder;
 import lombok.Data;
+
+import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -13,6 +17,7 @@ public class DccRegistrationCertificateReminderConfigRespVO {
     private String dailyRunTime;
     private String timezone;
     private String thresholdDaysJson;
+    private Map<String, List<Long>> thresholdRecipientUserIds;
     private Integer rowVersion;
 
     public static DccRegistrationCertificateReminderConfigRespVO of(
@@ -23,6 +28,8 @@ public class DccRegistrationCertificateReminderConfigRespVO {
                 .dailyRunTime(config.dailyRunTime())
                 .timezone(config.timezone())
                 .thresholdDaysJson(config.thresholdDaysJson())
+                .thresholdRecipientUserIds(DccRegistrationCertificateConfigService.parseThresholdRecipientUserIds(
+                        config.thresholdRecipientUserIdsJson()))
                 .rowVersion(config.rowVersion())
                 .build();
     }

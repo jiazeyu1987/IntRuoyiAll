@@ -21,6 +21,7 @@ public class MesCompletionBackfillReceipt {
     private String sourceVersion;
     private Long pickListBindingId;
     private Long pickListId;
+    private java.util.List<MesBatchExecutionPickListSource> pickListSources;
     private Long batchPickListRelationId;
     private String sourceContextHash;
     private String sourceSnapshotHash;

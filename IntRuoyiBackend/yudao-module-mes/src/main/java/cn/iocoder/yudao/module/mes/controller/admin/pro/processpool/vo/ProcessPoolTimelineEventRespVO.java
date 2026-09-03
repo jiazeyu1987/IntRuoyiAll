@@ -166,6 +166,7 @@ public class ProcessPoolTimelineEventRespVO {
 
     @Schema(description = "选用设备快照")
     private SelectedDeviceRespVO selectedDevice;
+    private List<SelectedDeviceRespVO> selectedDevices;
 
     @Schema(description = "选用设备参数读数")
     private List<DeviceParameterReadingRespVO> deviceParameterReadings;
@@ -238,6 +239,10 @@ public class ProcessPoolTimelineEventRespVO {
         private String materialName;
         private BigDecimal outputQuantity;
         private BigDecimal lossQuantity;
+        private List<LossDetailRespVO> lossDetails;
+        private SelectedDeviceRespVO selectedDevice;
+        private List<SelectedDeviceRespVO> selectedDevices;
+        private List<DeviceParameterReadingRespVO> deviceParameterReadings;
     }
 
     @Data

@@ -1,8 +1,11 @@
 package cn.iocoder.yudao.module.mes.productionrelease.core;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.experimental.Accessors;
+
+import java.util.List;
 
 @Data
 @Accessors(chain = true)
@@ -19,6 +22,7 @@ public class MesReleaseFinalizationCommand {
     private Long activeOrderId;
     private Integer activeOrderExpectedVersion;
     private String pickListBindingId;
+    private List<MesBatchExecutionPickListSource> pickListSources;
     private String completionEventId;
     private String completionBackfillReceiptId;
     private String independentPrerequisiteReceiptId;

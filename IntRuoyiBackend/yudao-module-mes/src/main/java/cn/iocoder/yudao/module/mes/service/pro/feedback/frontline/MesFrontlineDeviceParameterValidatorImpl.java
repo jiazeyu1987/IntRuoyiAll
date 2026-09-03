@@ -150,8 +150,7 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
                 throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
             }
         } else if (selectParameter) {
-            if (StrUtil.isBlank(reading.getTextValue()) || parameter.optionValues() == null
-                    || !parameter.optionValues().contains(reading.getTextValue())) {
+            if (StrUtil.isBlank(reading.getTextValue())) {
                 throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
             }
         } else if (reading.getValue() == null) {
@@ -227,7 +226,12 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
         }
         boolean textStandardParameter = MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(
                 rule.getValueType());
+        boolean selectParameter = MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(rule.getValueType());
         if (textStandardParameter) {
+            if (StrUtil.isBlank(reading.getTextValue())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+            }
+        } else if (selectParameter) {
             if (StrUtil.isBlank(reading.getTextValue())) {
                 throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
             }
@@ -245,7 +249,7 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
                 .setUnit(rule.getUnit())
                 .setLowerLimit(rule.getLowerLimit())
                 .setUpperLimit(rule.getUpperLimit())
-                .setParameterStatus(textStandardParameter ? PARAMETER_STATUS_NORMAL : resolveParameterStatus(reading.getValue(),
+                .setParameterStatus(textStandardParameter || selectParameter ? PARAMETER_STATUS_NORMAL : resolveParameterStatus(reading.getValue(),
                         rule.getLowerLimit(), rule.getUpperLimit()));
     }
 

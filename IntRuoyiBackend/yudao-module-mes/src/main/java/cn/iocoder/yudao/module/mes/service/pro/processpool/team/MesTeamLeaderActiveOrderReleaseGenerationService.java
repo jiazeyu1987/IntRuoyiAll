@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWork
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskM
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
@@ -65,6 +67,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private final MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService;
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
 
     public MesTeamLeaderActiveOrderReleaseGenerationService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -78,7 +81,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService,
             MesProductionReleaseRequiredCandidateResolver candidateResolver,
-            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher) {
+            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher,
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
@@ -91,6 +95,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         this.persistenceService = persistenceService;
         this.candidateResolver = candidateResolver;
         this.sourceSnapshotHasher = sourceSnapshotHasher;
+        this.pickListBindingMapper = pickListBindingMapper;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -106,9 +111,19 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         List<MesProcessPoolOrderProcessCompletionDO> completions =
                 requireFormalProductionCompletions(activeOrder, snapshots);
         InspectionEvidence inspectionEvidence = requireFormalInspectionCompletions(activeOrder, snapshots);
+        List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings =
+                pickListBindingMapper.selectListByActiveOrderId(activeOrder.getId());
+        if (pickListBindings == null || pickListBindings.isEmpty()
+                || pickListBindings.stream().anyMatch(binding -> binding == null || binding.getId() == null
+                || binding.getPickListId() == null || StrUtil.isBlank(binding.getSourceSnapshotHash()))) {
+            throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, null,
+                    "RELEASE_APPLICATION", String.valueOf(activeOrder.getId()), null,
+                    "active order lacks the complete formal pick-list binding set",
+                    "retry completion after all formal production pick lists are available");
+        }
         String sourceSnapshotHash = sourceSnapshotHasher.hash(
                 new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input(
-                        tenantId, activeOrder, workOrder, snapshots, completions,
+                        tenantId, activeOrder, workOrder, pickListBindings, snapshots, completions,
                         inspectionEvidence.tasks(), inspectionEvidence.details()));
         String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
 

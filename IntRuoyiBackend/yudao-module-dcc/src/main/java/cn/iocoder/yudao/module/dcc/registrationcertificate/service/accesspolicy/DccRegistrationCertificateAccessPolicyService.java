@@ -209,11 +209,6 @@ public class DccRegistrationCertificateAccessPolicyService {
         if (ownerCompanyId == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
-        try {
-            companyScopeApi.validateUserCompanyAccess(actorId, ownerCompanyId);
-        } catch (ServiceException ex) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
-        }
     }
 
     private static <T> T require(T value, String name) {

@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,7 +42,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     void activeEntryUsesFlow4AuthoritativeReceiptAndBlocksTamperedClientContext() {
         MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(77L, 10L, 20L, "B-77", "source-77");
         when(completionPort.getByReceiptId(77L, 1L)).thenReturn(receipt);
-        when(pickListBindingMapper.selectByActiveOrderId(10L)).thenReturn(binding(10L, 20L));
+        when(pickListBindingMapper.selectListByActiveOrderId(10L)).thenReturn(List.of(binding(10L, 20L)));
         MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
                 .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("completion-1")
                 .setSourceCredentialId("77").setSourceCredentialType("CompletionBackfillReceipt")
@@ -58,7 +59,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
         MesProcessPoolActiveOrderPickListBindingDO binding = binding(11L, 21L)
                 .setId(8802L).setPickListId(9902L).setSourceSnapshotHash("pick-source-78");
         when(completionPort.getByReceiptId(78L, 1L)).thenReturn(receipt);
-        when(pickListBindingMapper.selectByActiveOrderId(11L)).thenReturn(binding);
+        when(pickListBindingMapper.selectListByActiveOrderId(11L)).thenReturn(List.of(binding));
 
         MesBatchExecutionAuthoritativeContext resolved = resolver.resolve(new MesBatchExecutionProvisionCommand()
                 .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("completion-78")
@@ -68,14 +69,14 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
         assertEquals(8802L, resolved.getProvisionCommand().getPickListBindingId());
         assertEquals(9902L, resolved.getProvisionCommand().getPickListId());
         assertEquals(1L, resolved.getProvisionCommand().getBindingVersion());
-        assertEquals("pick-source-78", resolved.getPickListBinding().getSourceSnapshotHash());
+        assertEquals("pick-source-78", resolved.getPickListBindings().get(0).getSourceSnapshotHash());
     }
 
     @Test
     void activeEntryWithoutFormalFlow1BindingIsBlocked() {
         MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(79L, 12L, 22L, "B-79", "source-79");
         when(completionPort.getByReceiptId(79L, 1L)).thenReturn(receipt);
-        when(pickListBindingMapper.selectByActiveOrderId(12L)).thenReturn(null);
+        when(pickListBindingMapper.selectListByActiveOrderId(12L)).thenReturn(List.of());
 
         ServiceException error = assertThrows(ServiceException.class, () -> resolver.resolve(
                 new MesBatchExecutionProvisionCommand().setEntryType("ACTIVE_ORDER_COMPLETION")
@@ -89,7 +90,8 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     void everyActiveEntryTypeUsesFlow4ReceiptPort() {
         MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(77L, 10L, 20L, "B-77", "source-77");
         when(completionPort.getByReceiptId(77L, 1L)).thenReturn(receipt);
-        when(pickListBindingMapper.selectByActiveOrderId(10L)).thenReturn(binding(10L, 20L));
+        when(pickListBindingMapper.selectListByActiveOrderId(10L)).thenReturn(List.of(binding(10L, 20L)));
+
         for (String entryType : java.util.List.of("ACTIVE_ORDER_COMPLETION", "ACTIVE_ORDER_SCHEDULED",
                 "ACTIVE_ORDER_PQC", "MANUAL_CONTROLLED_RETRY")) {
             resolver.resolve(new MesBatchExecutionProvisionCommand()
@@ -98,6 +100,23 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
                     .setSourceSnapshotHash("source-77"), 1L);
         }
         verify(completionPort, times(4)).getByReceiptId(77L, 1L);
+    }
+
+    @Test
+    void activeEntryTracesEveryBoundPickListSnapshot() {
+        MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(80L, 13L, 23L, "B-80", "source-80");
+        MesProcessPoolActiveOrderPickListBindingDO first = binding(13L, 23L).setId(8803L).setPickListId(9903L);
+        MesProcessPoolActiveOrderPickListBindingDO second = binding(13L, 23L).setId(8804L).setPickListId(9904L);
+        when(completionPort.getByReceiptId(80L, 1L)).thenReturn(receipt);
+        when(pickListBindingMapper.selectListByActiveOrderId(13L)).thenReturn(List.of(first, second));
+
+        MesBatchExecutionAuthoritativeContext resolved = resolver.resolve(new MesBatchExecutionProvisionCommand()
+                .setEntryType("ACTIVE_ORDER_COMPLETION").setEntryBusinessId("completion-80")
+                .setSourceCredentialType("CompletionBackfillReceipt").setSourceCredentialId("80")
+                .setSourceSnapshotHash("source-80"), 1L);
+
+        assertEquals(2, resolved.getProvisionCommand().getCompletionBackfillReceipt().getSourceEvidence().stream()
+                .filter(item -> "MATERIAL_ISSUE".equals(item.getSourceType())).count());
     }
 
     @Test

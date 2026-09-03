@@ -7,6 +7,9 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+import java.util.Map;
+
 @Data
 public class DccRegistrationCertificateReminderConfigUpdateReqVO {
 
@@ -16,11 +19,14 @@ public class DccRegistrationCertificateReminderConfigUpdateReqVO {
     @Size(min = 5, max = 5)
     private String dailyRunTime;
     @NotNull
+    @Size(min = 4, max = 4)
+    private Map<String, List<Long>> thresholdRecipientUserIds;
+    @NotNull
     @Positive
     private Integer expectedRowVersion;
 
     public DccRegistrationCertificateReminderConfigUpdateCommand toCommand() {
         return new DccRegistrationCertificateReminderConfigUpdateCommand(
-                enabled, dailyRunTime, expectedRowVersion);
+                enabled, dailyRunTime, thresholdRecipientUserIds, expectedRowVersion);
     }
 }

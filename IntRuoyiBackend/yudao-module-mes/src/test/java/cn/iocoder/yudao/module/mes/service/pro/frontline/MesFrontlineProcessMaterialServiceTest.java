@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchQueryService;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchEvidence;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -24,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -71,7 +75,7 @@ class MesFrontlineProcessMaterialServiceTest {
     }
 
     @Test
-    void listFrozenMaterials_returnsOnlyCurrentProcessBatchRecordMaterialsFromLockedVersion() {
+    void listFrozenMaterials_separatesInputBatchEvidenceFromOutputCompletionMaterials() {
         when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion("""
                 {
                   "routeId": 101,
@@ -87,23 +91,29 @@ class MesFrontlineProcessMaterialServiceTest {
                 }
                 """));
         when(itemMapper.selectListByIds(anyCollection())).thenReturn(List.of(
+                item(503L, "A003", "输入原料"),
                 item(502L, "A002", "杠杆"),
                 item(501L, "A001", "弹簧")));
-        when(batchQueryService.listBatchCodes(WORK_ORDER_ID, "A001")).thenReturn(List.of("S-001"));
-        when(batchQueryService.listBatchCodes(WORK_ORDER_ID, "A002")).thenReturn(List.of());
+        when(batchQueryService.resolveEvidence(WORK_ORDER_ID, "A003"))
+                .thenReturn(evidence("A003", List.of("LOT-001", "LOT-002")));
 
         List<MesFrontlineProcessMaterial> materials = service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);
 
-        assertEquals(2, materials.size());
-        assertEquals(501L, materials.get(0).materialId());
-        assertEquals("弹簧", materials.get(0).materialName());
+        assertEquals(3, materials.size());
+        assertEquals(503L, materials.get(0).materialId());
+        assertEquals("INPUT", materials.get(0).materialRole());
+        assertEquals(List.of("LOT-001", "LOT-002"), materials.get(0).batchCodes());
+        assertEquals(501L, materials.get(1).materialId());
+        assertEquals("OUTPUT", materials.get(1).materialRole());
+        assertEquals("弹簧", materials.get(1).materialName());
+        assertTrue(materials.get(1).batchCodes().isEmpty());
         assertNull(materials.get(0).bomQuantity());
-        assertEquals(List.of("S-001"), materials.get(0).batchCodes());
-        assertEquals(502L, materials.get(1).materialId());
-        assertEquals("杠杆", materials.get(1).materialName());
-        assertNull(materials.get(1).bomQuantity());
-        assertEquals(List.of(), materials.get(1).batchCodes());
+        assertEquals(502L, materials.get(2).materialId());
+        assertEquals("OUTPUT", materials.get(2).materialRole());
+        verify(batchQueryService).resolveEvidence(WORK_ORDER_ID, "A003");
+        verify(batchQueryService, never()).resolveEvidence(WORK_ORDER_ID, "A001");
+        verify(batchQueryService, never()).resolveEvidence(WORK_ORDER_ID, "A002");
     }
 
     @Test
@@ -121,12 +131,15 @@ class MesFrontlineProcessMaterialServiceTest {
                   }
                 }
                 """));
+        when(itemMapper.selectListByIds(anyCollection())).thenReturn(List.of(item(503L, "A003", "输入原料")));
+        when(batchQueryService.resolveEvidence(WORK_ORDER_ID, "A003"))
+                .thenReturn(evidence("A003", List.of("LOT-001")));
 
         List<MesFrontlineProcessMaterial> materials = service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);
 
-        assertTrue(materials.isEmpty());
-        verifyNoInteractions(itemMapper, batchQueryService);
+        assertEquals(1, materials.size());
+        assertEquals("INPUT", materials.get(0).materialRole());
     }
 
     @Test
@@ -145,7 +158,27 @@ class MesFrontlineProcessMaterialServiceTest {
         ServiceException error = assertThrows(ServiceException.class,
                 () -> service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID));
 
-        assertTrue(error.getMessage().contains("报工物料重复"));
+        assertTrue(error.getMessage().contains("输出物料重复"));
+    }
+
+    @Test
+    void listFrozenMaterials_rejectsInputOutputRoleOverlap() {
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion("""
+                {
+                  "routeId": 101,
+                  "configSnapshots": {
+                    "batchUseConfigs": [
+                      {"routeProcessId": 1001, "inputMaterialIds": [501], "outputMaterialIds": [501]}
+                    ]
+                  }
+                }
+                """));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.listFrozenMaterials(ACTIVE_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID));
+
+        assertTrue(error.getMessage().contains("输入输出物料重复"));
+        verifyNoInteractions(itemMapper, batchQueryService);
     }
 
     private static MesProRouteVersionDO routeVersion(String snapshotJson) {
@@ -158,5 +191,10 @@ class MesFrontlineProcessMaterialServiceTest {
 
     private static MesMdItemDO item(Long id, String code, String name) {
         return MesMdItemDO.builder().id(id).code(code).name(name).specification("规格-" + code).build();
+    }
+
+    private static MesProFeedbackMaterialBatchEvidence evidence(String code, List<String> lots) {
+        return new MesProFeedbackMaterialBatchEvidence(code, lots, BigDecimal.TEN, BigDecimal.TEN,
+                BigDecimal.TEN, List.of(101L, 102L), List.of(1001L, 1002L), "source-hash");
     }
 }

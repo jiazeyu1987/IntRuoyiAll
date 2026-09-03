@@ -40,6 +40,8 @@ public class MesProcessPoolActiveOrderProcessSnapshotDO extends TenantBaseDO {
     private BigDecimal productionQuantityFactorSnapshot;
     private BigDecimal plannedQuantitySnapshot;
     private String parameterSnapshotJson;
+    private String deviceSelectionSnapshotJson;
+    private String deviceSelectionSnapshotSha256;
     private String parameterSnapshotSha256;
     private String parameterSnapshotState;
     private Boolean simulated;

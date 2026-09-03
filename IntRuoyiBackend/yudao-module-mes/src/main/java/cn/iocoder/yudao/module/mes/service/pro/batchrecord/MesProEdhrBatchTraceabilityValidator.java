@@ -79,8 +79,7 @@ public class MesProEdhrBatchTraceabilityValidator {
                     || command.getCompletionVersion() == null || command.getCompletionVersion() <= 0
                     || command.getCompletionBackfillReceiptId() == null
                     || isBlank(command.getCompletionBackfillReceiptHash())
-                    || command.getPickListBindingId() == null || command.getPickListId() == null
-                    || command.getPickListBindingVersion() == null || command.getPickListBindingVersion() <= 0
+                    || !hasValidPickListSources(command.getPickListSources())
                     || command.getHasActualLoss() == null || isBlank(command.getSourceSnapshotHash())) {
                 return MesProEdhrBatchTraceValidationResult.blocked(ACTIVE_ORDER_SOURCE_REQUIRED, "active-order");
             }
@@ -124,12 +123,17 @@ public class MesProEdhrBatchTraceabilityValidator {
         if (!isActiveOrderEntryType(command.getEntryType())) {
             return MesProEdhrBatchTraceValidationResult.ok();
         }
-        List<MesProEdhrBatchTraceSource> pickListSources = command.getSources().stream()
+        List<MesProEdhrBatchTraceSource> materialSources = command.getSources().stream()
                 .filter(source -> MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE.equals(source.getLinkType())
                         || MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE.equals(source.getLinkType()))
                 .toList();
-        if (pickListSources.isEmpty() || pickListSources.stream()
-                .anyMatch(source -> !command.getSourceSnapshotHash().equalsIgnoreCase(source.getSnapshotHash()))) {
+        if (materialSources.size() != command.getPickListSources().size() * 2
+                || command.getPickListSources().stream().anyMatch(source ->
+                !hasOneMatchingSourceIdAndHash(materialSources, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE,
+                        source.getPickListId(), source.getSourceSnapshotHash())
+                        || !hasOneMatchingSourceIdAndHash(materialSources,
+                        MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE,
+                        source.getPickListBindingId(), source.getSourceSnapshotHash()))) {
             return MesProEdhrBatchTraceValidationResult.blocked(TRACE_SOURCE_CONFLICT,
                     "pick-list-source-snapshot-hash");
         }
@@ -143,8 +147,7 @@ public class MesProEdhrBatchTraceabilityValidator {
                     command.getActiveOrderId())
                     || !hasExactlyOneSourceId(command.getSources(), MesProEdhrBatchTraceLinkType.WORK_ORDER,
                     command.getWorkOrderId())
-                    || !hasExactlyOneSourceId(command.getSources(), MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE,
-                    command.getPickListId())
+                    || !hasEveryPickListSource(command)
                     || !hasExactlyOneSourceIdAndHash(command.getSources(),
                     MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT,
                     command.getCompletionBackfillReceiptId(), command.getCompletionBackfillReceiptHash())
@@ -168,6 +171,45 @@ public class MesProEdhrBatchTraceabilityValidator {
                     "work-order-source-command-identity");
         }
         return MesProEdhrBatchTraceValidationResult.ok();
+    }
+
+    private boolean hasValidPickListSources(List<MesBatchExecutionPickListSource> sources) {
+        if (sources == null || sources.isEmpty()) {
+            return false;
+        }
+        Set<Long> bindingIds = new HashSet<>();
+        for (MesBatchExecutionPickListSource source : sources) {
+            if (source == null || source.getPickListBindingId() == null || source.getPickListId() == null
+                    || source.getBindingVersion() == null || source.getBindingVersion() <= 0
+                    || isBlank(source.getSourceSnapshotHash()) || !bindingIds.add(source.getPickListBindingId())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasEveryPickListSource(MesProEdhrBatchTraceCaptureCommand command) {
+        return command.getPickListSources().stream().allMatch(source ->
+                hasOneMatchingSourceId(command.getSources(), MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE,
+                        source.getPickListId())
+                        && hasOneMatchingSourceId(command.getSources(),
+                        MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE, source.getPickListBindingId()));
+    }
+
+    private boolean hasOneMatchingSourceId(List<MesProEdhrBatchTraceSource> sources, String linkType, Long sourceId) {
+        return sources.stream()
+                .filter(source -> linkType.equals(source.getLinkType()))
+                .filter(source -> Objects.equals(source.getSourceObjectId(), sourceId))
+                .count() == 1;
+    }
+
+    private boolean hasOneMatchingSourceIdAndHash(List<MesProEdhrBatchTraceSource> sources, String linkType,
+                                                  Long sourceId, String snapshotHash) {
+        return sources.stream()
+                .filter(source -> linkType.equals(source.getLinkType()))
+                .filter(source -> Objects.equals(source.getSourceObjectId(), sourceId))
+                .filter(source -> snapshotHash != null && snapshotHash.equalsIgnoreCase(source.getSnapshotHash()))
+                .count() == 1;
     }
 
     private boolean hasExactlyOneSourceId(List<MesProEdhrBatchTraceSource> sources, String linkType, Long sourceId) {

@@ -1615,6 +1615,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 String.valueOf(command.getOrigin()),
                 command.getEntryType(),
                 String.valueOf(command.getActiveOrderId()),
+                JSON.toJSONString(command.getPickListSources()),
                 command.getPickListBindingId(),
                 command.getCompletionEventId(),
                 command.getCompletionBackfillReceiptId(),
@@ -1647,6 +1648,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 String.valueOf(command.getOrigin()),
                 command.getEntryType(),
                 String.valueOf(command.getActiveOrderId()),
+                JSON.toJSONString(command.getPickListSources()),
                 String.valueOf(command.getPickListId()),
                 command.getPickListBindingId(),
                 command.getCompletionEventId(),
@@ -1731,6 +1733,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("workOrderId", transaction.getWorkOrderId());
         snapshot.put("activeOrderId", command.getActiveOrderId());
         snapshot.put("pickListBindingId", command.getPickListBindingId());
+        snapshot.put("pickListSources", command.getPickListSources());
         snapshot.put("completionEventId", command.getCompletionEventId());
         snapshot.put("completionBackfillReceiptId", command.getCompletionBackfillReceiptId());
         snapshot.put("origin", command.getOrigin());

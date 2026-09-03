@@ -185,6 +185,7 @@ class MesBatchExecutionEntryContractTest {
                 .setRouteId(7L)
                 .setPickListBindingId(33L)
                 .setPickListId(44L)
+                .setPickListSources(List.of(pickListSource()))
                 .setBindingVersion(2L)
                 .setBatchPickListRelationId(66L)
                 .setRouteVersionId(55L)
@@ -240,6 +241,7 @@ class MesBatchExecutionEntryContractTest {
                 .setSourceBundleHash("bundle-hash")
                 .setPickListBindingId(33L)
                 .setPickListId(44L)
+                .setPickListSources(List.of(pickListSource()))
                 .setBindingVersion(2L)
                 .setBatchPickListRelationId(66L)
                 .setSourceContextHash("source-hash")
@@ -308,5 +310,13 @@ class MesBatchExecutionEntryContractTest {
                 .setSourceVersion("v1").setSourceSnapshotHash(type + "-snapshot")
                 .setPayloadHash(type + "-payload").setSignature(type + "-signature")
                 .setRelationStatus("BOUND");
+    }
+
+    private MesBatchExecutionPickListSource pickListSource() {
+        return new MesBatchExecutionPickListSource()
+                .setPickListBindingId(33L)
+                .setPickListId(44L)
+                .setBindingVersion(2L)
+                .setSourceSnapshotHash("source-hash");
     }
 }

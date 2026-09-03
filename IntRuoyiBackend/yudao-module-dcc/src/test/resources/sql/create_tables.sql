@@ -2119,6 +2119,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_config` (
   `daily_run_time` VARCHAR(5) NOT NULL DEFAULT '09:00',
   `timezone` VARCHAR(64) NOT NULL DEFAULT 'Asia/Shanghai',
   `threshold_days_json` VARCHAR(8000) NOT NULL,
+  `threshold_recipient_user_ids_json` VARCHAR(8000) NOT NULL DEFAULT '{}',
   `row_version` INT NOT NULL DEFAULT 1,
   `creator` VARCHAR(64) DEFAULT '',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

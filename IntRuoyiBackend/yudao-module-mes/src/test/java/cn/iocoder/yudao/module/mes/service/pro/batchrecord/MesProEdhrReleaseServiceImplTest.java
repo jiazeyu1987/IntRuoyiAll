@@ -180,6 +180,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                             .setCompletionEventId(command.getCompletionEventId())
                             .setBatchRecordId(1L)
                             .setProcessInspectionId(2L)
+                            .setBatchRecordSourceIds(List.of(1L))
+                            .setProcessInspectionSourceIds(List.of(2L))
                             .setHasActualLoss(false)
                             .setLossDecision("NO_LOSS")
                             .setLossReportStatus("NOT_REQUIRED")

@@ -6,19 +6,26 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.conf
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateConfigService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateReminderConfig;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.config.DccRegistrationCertificateReminderConfigUpdateCommand;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementSyncReqDTO;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_CONFIG_TIME_INVALID;
@@ -26,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 
 @Import({
         DccRegistrationCertificateConfigService.class,
@@ -37,6 +45,15 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateConfigService service;
     @Resource
     private JdbcTemplate jdbcTemplate;
+    @MockitoBean
+    private AdminUserApi adminUserApi;
+    @MockitoBean
+    private PermissionApi permissionApi;
+
+    private static Map<String, List<Long>> recipients() {
+        return Map.of("T_30", List.of(101L, 102L), "T_8", List.of(102L),
+                "T_2", List.of(103L), "T_1", List.of(104L));
+    }
 
     @Test
     void getOrCreateCreatesTenantDefaultOnce() {
@@ -48,6 +65,7 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
         assertEquals("09:00", config.dailyRunTime());
         assertEquals("Asia/Shanghai", config.timezone());
         assertEquals("[30,8,2,1]", config.thresholdDaysJson());
+        assertEquals("{}", config.thresholdRecipientUserIdsJson());
         assertEquals(1, config.rowVersion());
         assertEquals(1, countConfigs(1L));
 
@@ -63,15 +81,25 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
 
         DccRegistrationCertificateReminderConfig updated = assertDoesNotThrow(() -> service.update(
                 1L, 99L, new DccRegistrationCertificateReminderConfigUpdateCommand(
-                        false, "10:30", tenantOne.rowVersion())));
+                        false, "10:30", recipients(), tenantOne.rowVersion())));
 
         assertEquals(tenantOne.id(), updated.id());
         assertEquals(Boolean.FALSE, updated.enabled());
         assertEquals("10:30", updated.dailyRunTime());
         assertEquals("Asia/Shanghai", updated.timezone());
         assertEquals(tenantOne.rowVersion() + 1, updated.rowVersion());
+        assertEquals(recipients(), DccRegistrationCertificateConfigService.parseThresholdRecipientUserIds(
+                updated.thresholdRecipientUserIdsJson()));
         assertEquals("09:00", service.getOrCreate(2L).dailyRunTime());
         assertEquals(tenantTwo.rowVersion(), service.getOrCreate(2L).rowVersion());
+
+        ArgumentCaptor<SystemEntitlementSyncReqDTO> entitlementCaptor =
+                ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
+        verify(permissionApi).syncEntitlementClaims(entitlementCaptor.capture());
+        assertEquals("DCC_REGISTRATION_CERTIFICATE_REMINDER_VIEW",
+                entitlementCaptor.getValue().getPolicyCode());
+        assertEquals(java.util.Set.of(101L, 102L, 103L, 104L),
+                entitlementCaptor.getValue().getResolvedUserIds());
     }
 
     @Test
@@ -80,14 +108,14 @@ class DccRegistrationCertificateConfigServiceTest extends BaseDbUnitTest {
 
         ServiceException stale = assertThrows(ServiceException.class, () -> service.update(
                 1L, 99L, new DccRegistrationCertificateReminderConfigUpdateCommand(
-                        false, "10:30", config.rowVersion() + 1)));
+                        false, "10:30", recipients(), config.rowVersion() + 1)));
         assertEquals(REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT.getCode(), stale.getCode());
         assertEquals("09:00", service.getOrCreate(1L).dailyRunTime());
         assertEquals(config.rowVersion(), service.getOrCreate(1L).rowVersion());
 
         ServiceException invalidTime = assertThrows(ServiceException.class, () -> service.update(
                 1L, 99L, new DccRegistrationCertificateReminderConfigUpdateCommand(
-                        false, "9:00", config.rowVersion())));
+                        false, "9:00", recipients(), config.rowVersion())));
         assertEquals(REGISTRATION_CERTIFICATE_REMINDER_CONFIG_TIME_INVALID.getCode(), invalidTime.getCode());
         assertEquals("09:00", service.getOrCreate(1L).dailyRunTime());
     }

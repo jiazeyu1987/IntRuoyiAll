@@ -100,7 +100,8 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setLossReasonCodeSnapshot(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonCode())
                 .setLossReasonNameSnapshot(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonName())
                 .setLossDetails(feedback.getLossDetails())
-                .setSelectedDevice(feedback.getSelectedDevice())
+                .setSelectedDevice(null)
+                .setSelectedDevices(feedback.getSelectedDevices())
                 .setDeviceParameterReadings(feedback.getDeviceParameterReadings())
                 .setEquipmentParameters(equipmentParameters)
                 .setRawPayload(processPoolRawPayload)
@@ -138,7 +139,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         payload.put("lossDecision", hasActualLoss ? "REQUIRED" : "NO_LOSS");
         payload.put("lossDetails", feedback.getLossDetails());
         payload.put("materialDetails", reqVO.getMaterialDetails());
-        payload.put("selectedDevice", feedback.getSelectedDevice());
+        payload.put("selectedDevices", feedback.getSelectedDevices());
         payload.put("deviceParameterReadings", feedback.getDeviceParameterReadings());
         if (lossReasonSnapshot != null) {
             payload.put("lossReasonId", lossReasonSnapshot.reasonId());

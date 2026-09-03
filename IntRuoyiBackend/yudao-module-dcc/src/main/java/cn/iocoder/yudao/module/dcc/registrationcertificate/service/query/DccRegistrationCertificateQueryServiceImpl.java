@@ -163,11 +163,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     }
 
     private List<Long> scopedCompanyIds(Long actorId) {
-        Set<Long> ids = companyScopeApi.getEnabledCompanyIdsForUser(actorId);
-        if (ids == null || ids.isEmpty()) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
-        }
-        return ids.stream().sorted().toList();
+        return List.of();
     }
 
     private Map<Long, String> companyNames(Long tenantId, List<DccRegistrationCertificateQueryRecord> rows) {

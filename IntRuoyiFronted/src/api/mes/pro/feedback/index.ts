@@ -141,7 +141,7 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   otherScrapQuantity?: number
   lossReasonId?: number
   lossDetails?: ProFrontlineLossDetailReqVO[]
-  selectedDevice?: ProFrontlineSelectedDeviceReqVO
+  selectedDevices?: ProFrontlineSelectedDeviceReqVO[]
   deviceParameterReadings?: ProFrontlineDeviceParameterReadingReqVO[]
   approveUserId: number
   remark?: string
@@ -152,7 +152,7 @@ export interface ProFrontlineFeedbackMaterialReqVO {
   outputQuantity: number
   lossQuantity: number
   lossDetails?: ProFrontlineLossDetailReqVO[]
-  selectedDevice?: ProFrontlineSelectedDeviceReqVO
+  selectedDevices?: ProFrontlineSelectedDeviceReqVO[]
   deviceParameterReadings?: ProFrontlineDeviceParameterReadingReqVO[]
 }
 
@@ -492,6 +492,8 @@ export interface FrontlineRuntimeDeviceVO {
   deviceCode?: string
   deviceName?: string
   deviceStatus?: string
+  deviceGroupKey: string
+  selectionMode: 'SINGLE' | 'MULTIPLE'
   parameters: FrontlineRuntimeDeviceParameterVO[]
 }
 
@@ -509,6 +511,13 @@ export interface FrontlineRuntimeMaterialVO {
   materialSpecification?: string
   bomQuantity?: number | null
   batchCodes: string[]
+  materialRole: 'INPUT' | 'OUTPUT'
+  requestedQuantity?: number | null
+  actualQuantity?: number | null
+  baseActualQuantity?: number | null
+  sourcePickListIds?: number[]
+  sourcePickListItemIds?: number[]
+  sourceSnapshotHash?: string
 }
 
 export interface FrontlineProductionSubmitContextVO {
@@ -540,6 +549,7 @@ export interface FrontlineRuntimeConfigVO {
   devices: FrontlineRuntimeDeviceVO[]
   defectReasons: FrontlineRuntimeDefectReasonVO[]
   materials: FrontlineRuntimeMaterialVO[]
+  inputMaterials: FrontlineRuntimeMaterialVO[]
   productionSubmitContext: FrontlineProductionSubmitContextVO
   employeeSwitchSnapshots: FrontlineSwitchActualEmployeeRespVO[]
   frontlineSessionSnapshotId: string

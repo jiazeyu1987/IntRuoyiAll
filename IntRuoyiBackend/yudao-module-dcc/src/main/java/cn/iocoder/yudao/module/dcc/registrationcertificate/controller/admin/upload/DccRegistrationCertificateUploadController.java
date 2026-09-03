@@ -1,8 +1,11 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.upload;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeRespVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.upload.vo.DccRegistrationCertificateUploadCompanyRespVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.upload.vo.DccRegistrationCertificateUploadEntrustedEnterpriseRespVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.upload.vo.DccRegistrationCertificateUploadSubmitReqVO;
@@ -11,6 +14,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadSubmitResult;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
+import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,12 +43,15 @@ public class DccRegistrationCertificateUploadController {
 
     private final DccRegistrationCertificateUploadService uploadService;
     private final DccRegistrationCertificateApprovalService approvalService;
+    private final DccProjectCodeService projectCodeService;
 
     public DccRegistrationCertificateUploadController(
             DccRegistrationCertificateUploadService uploadService,
-            DccRegistrationCertificateApprovalService approvalService) {
+            DccRegistrationCertificateApprovalService approvalService,
+            DccProjectCodeService projectCodeService) {
         this.uploadService = uploadService;
         this.approvalService = approvalService;
+        this.projectCodeService = projectCodeService;
     }
 
     @GetMapping("/entrusted-enterprises")
@@ -68,6 +75,20 @@ public class DccRegistrationCertificateUploadController {
         return success(uploadService.listOwnerCompanies(tenantId, actorId, keyword).stream()
                 .map(DccRegistrationCertificateUploadCompanyRespVO::from)
                 .toList());
+    }
+
+    @GetMapping("/project-codes")
+    @Operation(summary = "获得注册证上传实际项目代码候选")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:upload:create')")
+    public CommonResult<List<DccProjectCodeRespVO>> listProjectCodes(
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        DccProjectCodePageReqVO query = new DccProjectCodePageReqVO();
+        query.setPageNo(1);
+        query.setPageSize(20);
+        query.setKeyword(keyword == null || keyword.isBlank() ? null : keyword.trim());
+        query.setStatus("ENABLE");
+        return success(BeanUtils.toBean(projectCodeService.getProjectCodePage(query).getList(),
+                DccProjectCodeRespVO.class));
     }
 
     @PostMapping

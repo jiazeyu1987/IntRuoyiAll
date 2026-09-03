@@ -793,9 +793,9 @@
 ## 动态菜单真实可见性缓存门禁
 
 - Trigger: 新增或调整动态菜单、隐藏静态路由、角色菜单绑定、租户套餐菜单、菜单排序、外部工具 iframe 入口，或用户反馈“admin 看不到新页签/菜单”。
-- Preflight check: 先确认本机后端 health 可用，再用目标租户/账号真实登录态读取 `get-permission-info`，核对目标菜单的 `id/name/path/component/componentName/visible/parentId` 和父级路径；若菜单承载外部助手，还要核对目标路由使用正式 iframe 承载页、助手地址来自约定环境配置、助手服务未占用主系统前端端口，并且前端先申请 ERP 短期票据后再通过助手 `/auth/callback` 进入，不能直接把 iframe 指向助手首页；随后用 fresh Playwright 登录验证侧边栏实际菜单文本、目标页面锚点和 iframe 地址。
+- Preflight check: 先确认本机后端 health 可用，再用目标租户/账号真实登录态读取 `get-permission-info`，核对目标菜单的 `id/name/path/component/componentName/visible/parentId` 和父级路径；列表通过动态隐藏路由进入详情、历史或编辑页时，角色菜单必须同时绑定每个目标隐藏路由，不能只绑定可见主页并假设相同 permission 会自动生成其它路由；若菜单承载外部助手，还要核对目标路由使用正式 iframe 承载页、助手地址来自约定环境配置、助手服务未占用主系统前端端口，并且前端先申请 ERP 短期票据后再通过助手 `/auth/callback` 进入，不能直接把 iframe 指向助手首页；随后用 fresh Playwright 登录验证侧边栏实际菜单文本、目标页面锚点和 iframe 地址。
 - 外部助手离线状态扩展：真实页面还必须覆盖助手已运行直接进入、助手未运行显示启动按钮、点击启动后进入以及启动配置缺失的明确错误；未运行时不得把浏览器的 `127.0.0.1` 连接拒绝内容当作页面业务状态。
-- Blocker: 后端端口不可达、权限响应不含目标菜单、侧边栏缺目标菜单、目标页面只能直达但侧边栏无入口、目标 route/component/componentName 指向旧业务页、外部助手服务占用主系统前端端口、iframe 直接指向助手首页、助手未配置 ERP 校验地址、助手直连仍展示业务功能，或现有浏览器会话仍使用旧 `roleRouters` 却被误判为代码缺失时必须停止并分层归因。
+- Blocker: 后端端口不可达、权限响应不含目标菜单、侧边栏缺目标菜单、主页可见但点击详情因隐藏路由未绑定而进入 404、目标页面只能直达但侧边栏无入口、目标 route/component/componentName 指向旧业务页、外部助手服务占用主系统前端端口、iframe 直接指向助手首页、助手未配置 ERP 校验地址、助手直连仍展示业务功能，或现有浏览器会话仍使用旧 `roleRouters` 却被误判为代码缺失时必须停止并分层归因。
 - Verification: 证据必须同时包含后端 health、权限响应目标菜单链、fresh 登录侧边栏菜单列表、目标页 URL/DOM 锚点、`consoleErrors=[]` 和 `pageErrors=[]`；外部工具入口还必须记录票据请求、iframe 实际 URL/加载结果、助手直连 403 和伪造票据 403，且断言页面不包含旧业务文案。若仅旧会话不可见，说明需要刷新页面或退出后重新登录以重建前端菜单缓存。
 - Forbidden action: 禁止只用 API-only、SQL 查询、隐藏路由存在、直接 URL 可打开或静态合同 PASS 代替侧边栏真实可见；禁止复用相邻业务页面、旧组件、旧权限码或旧文案冒充新入口；禁止让外部助手占用主系统前端端口；禁止只隐藏菜单但不拦截助手直连；禁止清空全库 Redis、硬编码前端入口、切换账号/租户或把旧会话缓存问题写成生产代码未实现。
 - Evidence: 任务 `doc/tasks/20260808-edhr-batch-record-test-tab/verification-report.md`，`批记录测试` 菜单后端权限响应已包含 `900440`，fresh Playwright 登录后侧边栏可见并打开目标页；旧会话仍不可见需刷新或重新登录。任务 `doc/tasks/20260829-erp-invoice-print-role-permission/verification-report.md`，`发票凭证打印` 入口必须位于 `ERP 系统 / 财务管理 / 发票凭证打印`，fresh Playwright 证明 admin 可见并打开打印助手 iframe，未授权账号不可见，且页面不再指向“分贝通凭证”。任务 `doc/tasks/20260829-invoice-voucher-print-assistant-auth-gate/verification-report.md`，打印助手入口新增 ERP 短期票据，真实 E2E 证明直连助手 HTTP 403、admin 菜单签票进入、无权限账号不可见。

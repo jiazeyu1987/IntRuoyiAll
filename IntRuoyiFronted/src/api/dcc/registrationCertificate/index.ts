@@ -272,6 +272,12 @@ export interface DccRegistrationCertificateUploadCompanyRespVO {
   name: string
 }
 
+export interface DccRegistrationCertificateUploadProjectCodeRespVO {
+  id: number | string
+  projectCode?: string
+  projectName?: string
+}
+
 export interface DccRegistrationCertificateAccessRequestSubmitReqVO {
   certificateId: number | string
   requestType: 'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'
@@ -462,6 +468,13 @@ export const getUploadEntrustedEnterprises = async (params?: {
 export const getUploadOwnerCompanies = async (params?: { keyword?: string }) => {
   return await request.get<DccRegistrationCertificateUploadCompanyRespVO[]>({
     url: '/dcc/registration-certificates/uploads/owner-companies',
+    params
+  })
+}
+
+export const getUploadProjectCodes = async (params?: { keyword?: string }) => {
+  return await request.get<DccRegistrationCertificateUploadProjectCodeRespVO[]>({
+    url: '/dcc/registration-certificates/uploads/project-codes',
     params
   })
 }

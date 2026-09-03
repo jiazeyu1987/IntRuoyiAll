@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6Completi
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.util.List;
+
 /** Server-resolved source facts used by every Flow-6 batch entry. */
 @Data
 @Accessors(chain = true)
@@ -13,6 +15,6 @@ public class MesBatchExecutionAuthoritativeContext {
     private MesBatchExecutionProvisionCommand provisionCommand;
     private MesFlow6CompletionBackfillReceipt completionReceipt;
     private MesIndependentBatchPrerequisiteReceipt independentReceipt;
-    /** Immutable Flow-1 snapshot read by Flow 6; never populated from the request. */
-    private MesProcessPoolActiveOrderPickListBindingDO pickListBinding;
+    /** Immutable Flow-1 snapshots read by Flow 6; never populated from the request. */
+    private List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings;
 }

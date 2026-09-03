@@ -294,6 +294,18 @@ public class MesProcessPoolProductionReportCorrectionService {
                         beforeLoss, change.getLossQuantity(), false, null,
                         MesProcessPoolFragmentOriginalField.LOSS_QUANTITY));
             }
+            if (change.getLossDetails() != null) {
+                material.set("lossDetails", JsonUtils.getObjectMapper().valueToTree(change.getLossDetails()));
+            }
+            if (change.getSelectedDevice() == null) {
+                material.putNull("selectedDevice");
+            } else {
+                material.set("selectedDevice", JsonUtils.getObjectMapper().valueToTree(change.getSelectedDevice()));
+            }
+            if (change.getDeviceParameterReadings() != null) {
+                material.set("deviceParameterReadings",
+                        JsonUtils.getObjectMapper().valueToTree(change.getDeviceParameterReadings()));
+            }
         }
         if (!byMaterialId.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.materialId");

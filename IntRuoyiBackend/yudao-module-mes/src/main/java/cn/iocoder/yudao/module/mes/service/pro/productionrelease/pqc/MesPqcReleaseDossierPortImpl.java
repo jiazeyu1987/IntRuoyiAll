@@ -125,9 +125,9 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             boolean lockSnapshots) {
         Long tenantId = TenantContextHolder.getTenantId();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(application.getActiveOrderId());
-        MesProcessPoolActiveOrderPickListBindingDO pickListBinding =
-                pickListBindingMapper.selectByActiveOrderId(application.getActiveOrderId());
-        if (pickListBinding == null || pickListBinding.getId() == null) {
+        List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings = list(
+                pickListBindingMapper.selectListByActiveOrderId(application.getActiveOrderId()));
+        if (pickListBindings.isEmpty() || pickListBindings.stream().anyMatch(binding -> binding.getId() == null)) {
             throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application, null,
                     "active order lacks formal pick-list binding");
         }
@@ -144,7 +144,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         requireApplicationSources(application, tenantId, activeOrder, workOrder, snapshots);
         String currentSourceHash = sourceSnapshotHasher.hash(
                 new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input(
-                        tenantId, activeOrder, workOrder, snapshots, completions,
+                        tenantId, activeOrder, workOrder, pickListBindings, snapshots, completions,
                         inspectionTasks, inspectionDetails));
         if (!Objects.equals(application.getSourceSnapshotHash(), currentSourceHash)) {
             throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application, null,
@@ -155,7 +155,8 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand()
                         .setTenantId(tenantId)
                         .setActiveOrderId(application.getActiveOrderId())
-                        .setPickListBindingId(pickListBinding.getId())
+                        .setPickListBindingIds(pickListBindings.stream()
+                                .map(MesProcessPoolActiveOrderPickListBindingDO::getId).toList())
                         .setWorkOrderId(application.getWorkOrderId())
                         .setRouteId(application.getRouteId())
                         .setRouteVersionId(application.getRouteVersionId())
@@ -200,9 +201,10 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         Long tenantId = TenantContextHolder.getTenantId();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderId == null ? null
                 : activeOrderMapper.selectById(activeOrderId);
-        MesProcessPoolActiveOrderPickListBindingDO pickListBinding = activeOrderId == null ? null
-                : pickListBindingMapper.selectByActiveOrderId(activeOrderId);
-        if (activeOrder == null || pickListBinding == null || pickListBinding.getId() == null) {
+        List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings = activeOrderId == null ? List.of()
+                : list(pickListBindingMapper.selectListByActiveOrderId(activeOrderId));
+        if (activeOrder == null || pickListBindings.isEmpty()
+                || pickListBindings.stream().anyMatch(binding -> binding.getId() == null)) {
             throw new IllegalStateException("STAGE2_5_FIXTURE_INVALID");
         }
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(activeOrder.getWorkOrderId());
@@ -216,7 +218,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 aggregateDetailMapper.selectListByActiveOrderId(activeOrderId));
         String currentSourceHash = sourceSnapshotHasher.hash(
                 new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input(
-                        tenantId, activeOrder, workOrder, snapshots, completions,
+                        tenantId, activeOrder, workOrder, pickListBindings, snapshots, completions,
                         inspectionTasks, inspectionDetails));
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 new MesProcessPoolActiveOrderReleaseApplicationDO()
@@ -233,7 +235,8 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand()
                         .setTenantId(tenantId)
                         .setActiveOrderId(activeOrderId)
-                        .setPickListBindingId(pickListBinding.getId())
+                        .setPickListBindingIds(pickListBindings.stream()
+                                .map(MesProcessPoolActiveOrderPickListBindingDO::getId).toList())
                         .setWorkOrderId(activeOrder.getWorkOrderId())
                         .setRouteId(activeOrder.getRouteId())
                         .setRouteVersionId(activeOrder.getRouteVersionId())

@@ -41,6 +41,9 @@ public class MesQaInspectionRegulationWordParser {
     private static final Pattern PROCESS_NAME_SEPARATOR_PATTERN = Pattern.compile("[/／]+|\\s+");
     private static final Pattern ADJACENT_ROMAN_NUMBERED_PROCESS_PATTERN = Pattern.compile(
             "[\\p{IsHan}A-Za-z0-9（）()\\-]+?(?:[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+|[IVX]+)(?=\\p{IsHan}|$)");
+    private static final Pattern EXPLICIT_STANDARD_ITEM_PREFIX_PATTERN = Pattern.compile(
+            "^([^，。；：:\\r\\n]{1,24}(?:检测|检验))\\s*[：:]");
+    private static final String CELL_PARAGRAPH_SEPARATOR = "\uE000";
     private static final int EXPECTED_INSPECTION_COLUMNS = 8;
 
     public ParsedRegulation parse(byte[] content, String fileName) {
@@ -188,7 +191,9 @@ public class MesQaInspectionRegulationWordParser {
              rowIndex < inspectionTable.grid().size(); rowIndex++) {
             List<String> row = inspectionTable.grid().get(rowIndex);
             String serial = valueAt(row, inspectionTable.columns().serialColumn());
-            if (serial.isEmpty() && row.stream().allMatch(String::isEmpty)) {
+            if (serial.isEmpty() && row.stream()
+                    .map(MesQaInspectionRegulationWordParser::displayCellText)
+                    .allMatch(String::isEmpty)) {
                 continue;
             }
             if (serial.startsWith("备注")) {
@@ -203,7 +208,7 @@ public class MesQaInspectionRegulationWordParser {
             String rowIdentity = serial.isEmpty() ? String.valueOf(items.size() + 1) : serial;
 
             InspectionColumns columns = inspectionTable.columns();
-            String processName = valueAt(row, columns.processColumn());
+            String processName = processValueAt(row, columns.processColumn());
             List<String> processNames = splitProcessNames(processName);
             List<String> itemPath = new ArrayList<>();
             for (int itemColumn = columns.processColumn() + 1;
@@ -233,7 +238,46 @@ public class MesQaInspectionRegulationWordParser {
         if (items.isEmpty()) {
             throw invalid("检验内容表格没有有效检验项目");
         }
-        return List.copyOf(items);
+        return disambiguateRepeatedItems(items);
+    }
+
+    private static List<ParsedItem> disambiguateRepeatedItems(List<ParsedItem> items) {
+        Map<String, List<Integer>> indexesByItem = new HashMap<>();
+        for (int index = 0; index < items.size(); index++) {
+            ParsedItem item = items.get(index);
+            String key = normalizeText(item.processName()) + "\u0000" + normalizeText(item.itemName());
+            indexesByItem.computeIfAbsent(key, ignored -> new ArrayList<>()).add(index);
+        }
+
+        List<ParsedItem> resolvedItems = new ArrayList<>(items);
+        for (List<Integer> indexes : indexesByItem.values()) {
+            if (indexes.size() < 2) {
+                continue;
+            }
+            List<String> explicitChildNames = indexes.stream()
+                    .map(index -> explicitStandardItemPrefix(items.get(index).standardText()))
+                    .toList();
+            if (explicitChildNames.stream().anyMatch(String::isEmpty)
+                    || new LinkedHashSet<>(explicitChildNames).size() != indexes.size()) {
+                continue;
+            }
+            for (int offset = 0; offset < indexes.size(); offset++) {
+                int index = indexes.get(offset);
+                ParsedItem source = items.get(index);
+                String childName = explicitChildNames.get(offset);
+                resolvedItems.set(index, new ParsedItem(
+                        source.processName(), source.itemName() + " / " + childName,
+                        source.standardText(), source.inspectionMethod(), source.inspectionTool(),
+                        source.samplingPlanText(), source.firstInspectionQuantity(),
+                        source.patrolInspectionRatio()));
+            }
+        }
+        return List.copyOf(resolvedItems);
+    }
+
+    private static String explicitStandardItemPrefix(String standardText) {
+        Matcher matcher = EXPLICIT_STANDARD_ITEM_PREFIX_PATTERN.matcher(normalizeText(standardText));
+        return matcher.find() ? normalizeText(matcher.group(1)) : "";
     }
 
     private static List<String> splitProcessNames(String processName) {
@@ -381,18 +425,28 @@ public class MesQaInspectionRegulationWordParser {
     }
 
     private List<String> physicalRowTexts(XWPFTableRow row) {
-        return row.getTableCells().stream().map(this::cellText).toList();
+        return row.getTableCells().stream()
+                .map(this::cellText)
+                .map(MesQaInspectionRegulationWordParser::displayCellText)
+                .toList();
     }
 
     private String cellText(XWPFTableCell cell) {
         if (cell == null) {
             return "";
         }
-        return normalizeText(cell.getParagraphs().stream()
-                .map(XWPFParagraph::getText)
-                .filter(Objects::nonNull)
-                .reduce((left, right) -> left + " " + right)
-                .orElse(""));
+        StringBuilder text = new StringBuilder();
+        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+            String paragraphText = normalizeText(paragraph.getText());
+            if (paragraphText.isEmpty()) {
+                continue;
+            }
+            if (!text.isEmpty()) {
+                text.append(CELL_PARAGRAPH_SEPARATOR);
+            }
+            text.append(paragraphText);
+        }
+        return text.toString();
     }
 
     private static int gridSpan(XWPFTableCell cell) {
@@ -423,7 +477,7 @@ public class MesQaInspectionRegulationWordParser {
 
     private static int findExactColumn(List<String> row, String expected) {
         for (int index = 0; index < row.size(); index++) {
-            if (Objects.equals(row.get(index), expected)) {
+            if (Objects.equals(displayCellText(row.get(index)), expected)) {
                 return index;
             }
         }
@@ -431,7 +485,19 @@ public class MesQaInspectionRegulationWordParser {
     }
 
     private static String valueAt(List<String> row, int index) {
+        return displayCellText(rawValueAt(row, index));
+    }
+
+    private static String processValueAt(List<String> row, int index) {
+        return normalizeText(rawValueAt(row, index).replace(CELL_PARAGRAPH_SEPARATOR, ""));
+    }
+
+    private static String rawValueAt(List<String> row, int index) {
         return index >= 0 && index < row.size() ? row.get(index) : "";
+    }
+
+    private static String displayCellText(String text) {
+        return normalizeText(Objects.toString(text, "").replace(CELL_PARAGRAPH_SEPARATOR, " "));
     }
 
     private static String requireUnique(Set<String> values, String label) {

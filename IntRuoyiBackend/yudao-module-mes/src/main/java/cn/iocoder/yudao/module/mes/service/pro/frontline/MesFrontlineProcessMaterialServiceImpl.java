@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchQueryService;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchEvidence;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -31,6 +32,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProcessMaterialService {
 
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
+    private static final String INPUT_MATERIAL_IDS_KEY = "inputMaterialIds";
     private static final String OUTPUT_MATERIAL_IDS_KEY = "outputMaterialIds";
 
     private final ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
@@ -63,8 +65,16 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         requireIdentity(activeOrder, routeId, routeProcessId, processId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         MesProRouteVersionDO routeVersion = requireRouteVersion(activeOrder);
-        List<Long> materialIds = parseFrozenMaterialIds(activeOrder, routeVersion, routeProcessId);
-        return attachMaterialMasterData(materialIds, workOrder.getId());
+        FrozenMaterialIds materialIds = parseFrozenMaterialIds(activeOrder, routeVersion, routeProcessId);
+        List<Long> allIds = new ArrayList<>(materialIds.inputIds());
+        allIds.addAll(materialIds.outputIds());
+        Map<Long, MesMdItemDO> items = requireMaterialMasters(allIds);
+        List<MesFrontlineProcessMaterial> result = new ArrayList<>();
+        result.addAll(toMaterials(materialIds.inputIds(), items, workOrder.getId(),
+                MesFrontlineProcessMaterial.ROLE_INPUT));
+        result.addAll(toMaterials(materialIds.outputIds(), items, workOrder.getId(),
+                MesFrontlineProcessMaterial.ROLE_OUTPUT));
+        return List.copyOf(result);
     }
 
     private void requireIdentity(ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder, Long routeId,
@@ -103,7 +113,7 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         return routeVersion;
     }
 
-    private List<Long> parseFrozenMaterialIds(
+    private FrozenMaterialIds parseFrozenMaterialIds(
             ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrder,
             MesProRouteVersionDO routeVersion,
             Long routeProcessId) {
@@ -129,12 +139,25 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
             }
             matched = row;
         }
-        if (matched == null || matched.get(OUTPUT_MATERIAL_IDS_KEY) == null) {
+        if (matched == null) {
+            return new FrozenMaterialIds(List.of(), List.of());
+        }
+        List<Long> inputIds = parseRoleMaterialIds(matched.get(INPUT_MATERIAL_IDS_KEY), "输入");
+        List<Long> outputIds = parseRoleMaterialIds(matched.get(OUTPUT_MATERIAL_IDS_KEY), "输出");
+        Set<Long> overlap = new LinkedHashSet<>(inputIds);
+        overlap.retainAll(outputIds);
+        if (!overlap.isEmpty()) {
+            throw invalid("冻结工序输入输出物料重复：" + overlap);
+        }
+        return new FrozenMaterialIds(inputIds, outputIds);
+    }
+
+    private List<Long> parseRoleMaterialIds(Object rawMaterialIds, String roleName) {
+        if (rawMaterialIds == null) {
             return List.of();
         }
-        Object rawMaterialIds = matched.get(OUTPUT_MATERIAL_IDS_KEY);
         if (!(rawMaterialIds instanceof JSONArray materialIds)) {
-            throw invalid("冻结工序批记录物料配置结构无效");
+            throw invalid("冻结工序" + roleName + "物料配置结构无效");
         }
         Set<Long> normalized = new LinkedHashSet<>();
         for (Object rawMaterialId : materialIds) {
@@ -143,7 +166,7 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
             }
             Long materialId = number.longValue();
             if (!normalized.add(materialId)) {
-                throw invalid("冻结工序报工物料重复：" + materialId);
+                throw invalid("冻结工序" + roleName + "物料重复：" + materialId);
             }
         }
         return List.copyOf(normalized);
@@ -180,10 +203,9 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
         }
     }
 
-    private List<MesFrontlineProcessMaterial> attachMaterialMasterData(List<Long> materialIds,
-                                                                       Long workOrderId) {
+    private Map<Long, MesMdItemDO> requireMaterialMasters(List<Long> materialIds) {
         if (materialIds.isEmpty()) {
-            return List.of();
+            return Map.of();
         }
         Set<Long> expectedMaterialIds = new LinkedHashSet<>(materialIds);
         List<MesMdItemDO> items = itemMapper.selectListByIds(materialIds);
@@ -196,8 +218,15 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
             missing.removeAll(itemsById.keySet());
             throw invalid("冻结工序报工物料主档缺失：" + missing);
         }
-        return itemsById.values().stream()
-                .map(item -> toMaterial(item, workOrderId))
+        return itemsById;
+    }
+
+    private List<MesFrontlineProcessMaterial> toMaterials(List<Long> materialIds,
+                                                           Map<Long, MesMdItemDO> itemsById,
+                                                           Long workOrderId,
+                                                           String materialRole) {
+        return materialIds.stream().map(itemsById::get)
+                .map(item -> toMaterial(item, workOrderId, materialRole))
                 .sorted(Comparator
                         .comparing(MesFrontlineProcessMaterial::materialCode,
                                 Comparator.nullsLast(String::compareTo))
@@ -205,15 +234,27 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
                 .toList();
     }
 
-    private MesFrontlineProcessMaterial toMaterial(MesMdItemDO item, Long workOrderId) {
+    private MesFrontlineProcessMaterial toMaterial(MesMdItemDO item, Long workOrderId, String materialRole) {
         String code = normalize(item.getCode());
         String name = normalize(item.getName());
         if (code == null || name == null) {
             throw invalid("冻结工序报工物料缺少编码或名称：" + item.getId());
         }
+        MesProFeedbackMaterialBatchEvidence evidence = MesFrontlineProcessMaterial.ROLE_INPUT.equals(materialRole)
+                ? batchQueryService.resolveEvidence(workOrderId, code) : null;
+        if (MesFrontlineProcessMaterial.ROLE_INPUT.equals(materialRole)
+                && (evidence == null || evidence.batchCodes().isEmpty())) {
+            throw invalid("输入物料正式领料批号缺失：" + code);
+        }
         return new MesFrontlineProcessMaterial(item.getId(), code, name,
-                normalize(item.getSpecification()), null,
-                batchQueryService.listBatchCodes(workOrderId, code));
+                normalize(item.getSpecification()), materialRole, null,
+                evidence == null ? List.of() : evidence.batchCodes(),
+                evidence == null ? null : evidence.requestedQuantity(),
+                evidence == null ? null : evidence.actualQuantity(),
+                evidence == null ? null : evidence.baseActualQuantity(),
+                evidence == null ? List.of() : evidence.pickListIds(),
+                evidence == null ? List.of() : evidence.pickListItemIds(),
+                evidence == null ? null : evidence.sourceSnapshotHash());
     }
 
     private static String normalize(String value) {
@@ -226,5 +267,8 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
 
     private static ServiceException invalid(String detail) {
         return exception(PRO_FRONTLINE_PROCESS_MATERIAL_INVALID, detail);
+    }
+
+    private record FrozenMaterialIds(List<Long> inputIds, List<Long> outputIds) {
     }
 }

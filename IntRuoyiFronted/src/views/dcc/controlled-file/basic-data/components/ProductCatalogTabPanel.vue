@@ -172,6 +172,14 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isProductCatalogColumnVisible('classification')"
+                label="分类"
+                prop="classification"
+                :width="getProductCatalogColumnWidthString('classification')"
+                :min-width="getProductCatalogColumnMinWidthString('classification', 120)"
+                v-bind="sortColumnAttrs('classification')"
+              />
+              <el-table-column
                 v-if="isProductCatalogColumnVisible('registrationCertificateName')"
                 label="注册证名称"
                 prop="registrationCertificateName"
@@ -220,14 +228,6 @@
                 prop="expiryDate"
                 :width="getProductCatalogColumnWidthString('expiryDate', 120)"
                 v-bind="sortColumnAttrs('expiryDate')"
-              />
-              <el-table-column
-                v-if="isProductCatalogColumnVisible('classification')"
-                label="分类"
-                prop="classification"
-                :width="getProductCatalogColumnWidthString('classification')"
-                :min-width="getProductCatalogColumnMinWidthString('classification', 120)"
-                v-bind="sortColumnAttrs('classification')"
               />
               <el-table-column
                 v-if="isProductCatalogColumnVisible('productStatus')"
@@ -590,13 +590,13 @@ const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectName', label: '项目名称', minWidth: 180, sortable: 'custom' },
   { key: 'projectCode', label: '项目代码', minWidth: 120, sortable: 'custom' },
   { key: 'batchRecordTotalRecognitionJson', label: '批记录识别JSON', width: 140 },
+  { key: 'classification', label: '分类', minWidth: 120 },
   { key: 'registrationCertificateName', label: '注册证名称', minWidth: 220 },
   { key: 'registrationCertificateNumber', label: '注册证号', minWidth: 180 },
   { key: 'certificateHolder', label: '持证人', minWidth: 160 },
   { key: 'registrationPlace', label: '注册地', minWidth: 120 },
   { key: 'effectiveDate', label: '生效日期', width: 120 },
   { key: 'expiryDate', label: '有效期至', width: 120 },
-  { key: 'classification', label: '分类', minWidth: 120 },
   { key: 'productStatus', label: '产品状态', width: 120 },
   { key: 'registrationInfoLink', label: '注册证信息链接', minWidth: 150 },
   { key: 'remark', label: '备注', minWidth: 220 },

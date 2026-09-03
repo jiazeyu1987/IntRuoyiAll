@@ -257,11 +257,6 @@ public class DccRegistrationCertificateAccessRequestService {
         if (ownerCompanyId == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        try {
-            companyScopeApi.validateUserCompanyAccess(actorId, ownerCompanyId);
-        } catch (ServiceException ex) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
-        }
     }
 
     private void validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {

@@ -31,13 +31,15 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     private MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort;
     @Mock
     private MesTeamLeaderActiveOrderCompletionProgressPort progressPort;
+    @Mock
+    private MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
 
     private MesTeamLeaderActiveOrderCompletionServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
-                progressPort, backfillPort);
+                progressPort, backfillPort, pickListCompletionSourceService);
     }
 
     @Test

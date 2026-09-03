@@ -32,6 +32,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setDeviceId(501L)
                         .setDeviceCode("PT-A-03")
                         .setDeviceName("压力泵");
+        List<MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO> selectedDevices = List.of(selectedDevice);
         List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> deviceParameterReadings = List.of(
                 new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
                         .setDeviceId(501L)
@@ -52,7 +53,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
         rawPayload.put("templateType", "PRODUCTION_SIMPLE");
         rawPayload.put("equipmentParameters", equipmentParameters);
         rawPayload.put("lossDetails", lossDetails);
-        rawPayload.put("selectedDevice", selectedDevice);
+        rawPayload.put("selectedDevices", selectedDevices);
         rawPayload.put("deviceParameterReadings", deviceParameterReadings);
         rawPayload.put("routePredecessorStatuses", Map.of("P10", "WAITING"));
 
@@ -69,14 +70,14 @@ final class MesProFrontlineFeedbackSubmitTestData {
                                 .setOutputQuantity(new BigDecimal("100.500"))
                                 .setLossQuantity(new BigDecimal("2.500"))
                                 .setLossDetails(lossDetails)
-                                .setSelectedDevice(selectedDevice)
+                                .setSelectedDevices(selectedDevices)
                                 .setDeviceParameterReadings(deviceParameterReadings),
                         new MesProFrontlineFeedbackMaterialReqVO()
                                 .setMaterialId(502L)
                                 .setOutputQuantity(new BigDecimal("100.500"))
                                 .setLossQuantity(BigDecimal.ZERO)
                                 .setLossDetails(List.of())
-                                .setSelectedDevice(selectedDevice)
+                                .setSelectedDevices(selectedDevices)
                                 .setDeviceParameterReadings(deviceParameterReadings)))
                 .setFeedbackPayload(new MesProFrontlineFeedbackPayloadReqVO()
                         .setCode("FB-F2-001")
@@ -96,7 +97,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setLossQuantity(new BigDecimal("2.500"))
                         .setLossReasonId(8301L)
                         .setLossDetails(lossDetails)
-                        .setSelectedDevice(selectedDevice)
+                        .setSelectedDevices(selectedDevices)
                         .setDeviceParameterReadings(deviceParameterReadings)
                         .setLaborScrapQuantity(new BigDecimal("1.000"))
                         .setMaterialScrapQuantity(new BigDecimal("1.500"))

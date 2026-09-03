@@ -33,16 +33,19 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private final MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
     private final MesTeamLeaderActiveOrderCompletionProgressPort progressPort;
     private final MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort;
+    private final MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper,
             MesTeamLeaderActiveOrderCompletionProgressPort progressPort,
-            MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort) {
+            MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort,
+            MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService) {
         this.activeOrderMapper = activeOrderMapper;
         this.receiptMapper = receiptMapper;
         this.progressPort = progressPort;
         this.backfillPort = backfillPort;
+        this.pickListCompletionSourceService = pickListCompletionSourceService;
     }
 
     @Override
@@ -91,6 +94,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         if (!java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED, activeOrder.getId());
         }
+        pickListCompletionSourceService.freezeAll(activeOrder, leaderUserId, command.getIdempotencyKey());
         String requestPayloadHash = sha256(activeOrder.getId() + "|" + command.getExpectedVersion()
                 + "|" + command.getIdempotencyKey());
         MesProcessPoolActiveOrderCompletionReceiptDO existingByOrder =

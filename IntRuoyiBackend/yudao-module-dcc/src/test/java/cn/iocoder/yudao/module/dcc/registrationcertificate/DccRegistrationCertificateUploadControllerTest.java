@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadSubmitResult;
+import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,8 @@ class DccRegistrationCertificateUploadControllerTest {
         DccRegistrationCertificateUploadService uploadService = mock(DccRegistrationCertificateUploadService.class);
         DccRegistrationCertificateApprovalService approvalService = mock(DccRegistrationCertificateApprovalService.class);
         DccRegistrationCertificateUploadController controller =
-                new DccRegistrationCertificateUploadController(uploadService, approvalService);
+                new DccRegistrationCertificateUploadController(
+                        uploadService, approvalService, mock(DccProjectCodeService.class));
         DccRegistrationCertificateUploadSubmitReqVO reqVO = uploadRequest();
         when(uploadService.submitUploadForApproval(
                 eq(11L), eq(22L), eq("UPLOAD-IDEMPOTENCY-1"), any(String.class),
@@ -87,12 +89,12 @@ class DccRegistrationCertificateUploadControllerTest {
     }
 
     @Test
-    void submitRequestTreatsProjectCodeAsOptionalAndProductNameAsRequired() throws Exception {
+    void submitRequestRequiresProjectCodeCompanyAndProductName() throws Exception {
         Field projectCodeId = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("projectCodeId");
         Field companyId = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("companyId");
         Field productName = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("productName");
 
-        assertFalse(hasAnnotation(projectCodeId, "jakarta.validation.constraints.NotNull"));
+        assertTrue(hasAnnotation(projectCodeId, "jakarta.validation.constraints.NotNull"));
         assertTrue(hasAnnotation(projectCodeId, "jakarta.validation.constraints.Positive"));
         assertTrue(hasAnnotation(companyId, "jakarta.validation.constraints.NotNull"));
         assertTrue(hasAnnotation(companyId, "jakarta.validation.constraints.Positive"));
@@ -106,7 +108,8 @@ class DccRegistrationCertificateUploadControllerTest {
         DccRegistrationCertificateUploadService uploadService = mock(DccRegistrationCertificateUploadService.class);
         DccRegistrationCertificateApprovalService approvalService = mock(DccRegistrationCertificateApprovalService.class);
         DccRegistrationCertificateUploadController controller =
-                new DccRegistrationCertificateUploadController(uploadService, approvalService);
+                new DccRegistrationCertificateUploadController(
+                        uploadService, approvalService, mock(DccProjectCodeService.class));
         MdmEnterpriseRespDTO candidate = MdmEnterpriseRespDTO.builder()
                 .id(301L)
                 .enterpriseCode("TRUST-301")
@@ -130,7 +133,8 @@ class DccRegistrationCertificateUploadControllerTest {
         DccRegistrationCertificateUploadService uploadService = mock(DccRegistrationCertificateUploadService.class);
         DccRegistrationCertificateApprovalService approvalService = mock(DccRegistrationCertificateApprovalService.class);
         DccRegistrationCertificateUploadController controller =
-                new DccRegistrationCertificateUploadController(uploadService, approvalService);
+                new DccRegistrationCertificateUploadController(
+                        uploadService, approvalService, mock(DccProjectCodeService.class));
         MdmEnterpriseRespDTO candidate = MdmEnterpriseRespDTO.builder()
                 .id(501L)
                 .enterpriseCode("COMP-501")

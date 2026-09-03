@@ -1,11 +1,13 @@
 # 项目经验索引
+- Keywords: 动态菜单隐藏详情路由, 主页可见详情404, 角色菜单绑定, get-permission-info, 详情路由, 历史路由, 相同permission不自动生成路由 -> `docs/frontend-development.md#动态菜单真实可见性缓存门禁`
+- Keywords: 标准后端重启, 构建失败后48081离线, restart-int-ruoyi-local, testCompile失败, 完整Reactor, BUILD SUCCESS, 旧后端已停止 -> `docs/local-runtime.md#标准后端重启构建失败离线门禁`
 - Keywords: 登录页默认 admin, 无浏览记录默认用户名, 默认管理员账号, 默认登录密码, VITE_APP_DEFAULT_LOGIN_USERNAME, VITE_APP_DEFAULT_LOGIN_PASSWORD, login-default-credentials-static -> `docs/login-access.md#登录页默认凭据禁止门禁`
 - Keywords: 后台用户密码复杂度, 密码强度, 改密规则, 注册密码, 忘记密码, 个人中心改密, 管理员重置密码, 缺特殊字符探针, 运行态旧 Jar, AdminUserPasswordPolicy, systemPasswordPolicy, USER_PASSWORD_STRENGTH_INVALID, 登录页只做必填 -> `docs/login-access.md#后台用户密码复杂度变更门禁`
 - Keywords: 备用服运行承载对齐, 备份服改成正式服一致, /dev/vdb missing, DEV_VDB_MISSING, /var/lib/docker 容量不足, runtime-data 迁移, MinIO 容器名不匹配 -> `docs/release-backup-restore.md#备用服运行承载对齐门禁`
 - Keywords: rollback-migration、回滚专用 SQL、release manifest、migration policy gate、rollback-only migrations -> docs/release-build-preflight-lessons.md#2026-08-26-rollback-migration-不得进入正常-release-manifest
 - Keywords: 5 次锁定账号, 第5次错误返回账号已锁定, login_failure_count, login_locked, resetUserLoginFailure, unlockUser, 15 分钟自动退出, useIdleLogout, lockStore.resetLockInfo -> `docs/login-access.md#账号锁定解锁与空闲退出门禁`
 - Keywords: 离职账号停用, 转岗账号停用, 账号生命周期, lifecycle_document_type, lifecycle_document_no, lifecycle_effective_time, lifecycle_deactivated_time, userLifecycleDeactivateJob, HR/BPM 单据, 任务参数缺失, explicit limit -> `docs/login-access.md#离职转岗账号联动停用门禁`
-- Keywords: 发票凭证打印助手, 外部助手直连, 短期票据, /auth/callback, assistantSession, x-invoice-voucher-print-session, INVOICE_VOUCHER_PRINT_TICKET_VALIDATE_URL, invoice-voucher-print-assistant/status, invoice-voucher-print-assistant/start, 启动助手, 助手未启动显示按钮, 直接访问助手403, 固定18733, 外部助手端口, 跨服务器复用端口, ERP 配置快照, kingdeeConfig, KINGDEE_RUNTIME_DIR, 禁止 KINGDEE_ENV_PATH 全局回退, ERP配置文件不存在, runtime/.env.kingdee, /opt/invoice-voucher-print-assistant/runtime/.env.kingdee -> `docs/login-access.md#erp-外部助手短期票据授权门禁` and `docs/frontend-development.md#动态菜单真实可见性缓存门禁`
+- Keywords: 发票凭证打印助手, 外部助手直连, 短期票据, /auth/callback, assistantSession, x-invoice-voucher-print-session, INVOICE_VOUCHER_PRINT_TICKET_VALIDATE_URL, invoice-voucher-print-assistant/status, invoice-voucher-print-assistant/start, 启动助手, 助手未启动显示按钮, 直接访问助手403, 固定18733, 外部助手端口, 跨服务器复用端口, ERP 配置快照, kingdeeConfig, KINGDEE_RUNTIME_DIR, 禁止 KINGDEE_ENV_PATH 全局回退, ERP配置文件不存在, runtime/.env.kingdee, /opt/invoice-voucher-print-assistant/runtime/.env.kingdee, erp-invoice-voucher-print-assistant.service, systemd ExecStart, 助手镜像标签 -> `docs/login-access.md#erp-外部助手短期票据授权门禁` and `docs/frontend-development.md#动态菜单真实可见性缓存门禁`
 - Keywords: 普通用户不能分配管理员角色, 日志权限, user-role assignment, RoleCodeEnum, PermissionServiceImpl, USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN -> `docs/backend-development.md#系统用户角色分配高权限拦截门禁`
 - Keywords: 审批中心入口, approval_center_entry, 压力泵全工序切换, 智能排产误显示, 报工父级菜单, 子按钮带出父菜单, 审批入口角色污染 -> `docs/login-access.md#审批中心入口角色菜单隔离门禁`
 - Keywords: 审批模型新建, 新建审批模型, 新建审批流, 手工输入流程名字, 审批模型修改, 修改审批模型, 当前审批情况, 回显审批情况, 审核人必填, 批准人可选, 审批对象, 审批人员配置, CandidateStrategy.MIXED, BpmTaskCandidateMixedStrategy, 和关系, 或关系, 发起对象直属主管 -> `docs/frontend-development.md#流程模型人员配置入口门禁` and `docs/backend-development.md#bpm-审批模型人员配置候选人门禁`
@@ -25,6 +27,7 @@
 - Keywords: 数据库 Long ID, Number route params, Number route query, parsePositiveRouteQueryId, MesRouteId, 超过安全整数, 路由身份精度丢失 -> `docs/frontend-development.md#前端数据库-long-id-路由解析门禁`
 - Keywords: 一线生产最大化, 首次切换工序短暂加载, 首次切换员工短暂加载, 再次切换无加载, 全部员工模板快照, employeeSwitchSnapshots, runtime-config GET 预热, switch-employee POST 禁止批量预调用 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线生产默认首单, 活跃订单冻结工序, activeOrderId 工序接口, routeVersionId, 旧订单旧工序, 新订单新工序, 冻结节点缺少 processCode processName, 冻结工序标签只读订单逐工序快照与锁定路线快照, 禁止读取当前工序主数据补历史, PQC任务必须属于订单冻结routeProcessId和processId, 禁止按 routeId 过滤当前路线, 运行配置活跃订单身份, 切换订单清理旧工序员工模板配置, 旧下游不得拒绝切换上游, 迟到响应令牌 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁` and `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
+- Keywords: 一线设备多选, selectedDevices, selectionMode, deviceGroupKey, device selection snapshot, SINGLE, MULTIPLE, 未选设备, 设备组快照哈希, 历史设备组禁止推断 -> `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: 工序多物料报工, 批记录物料配置, frontlineReportMaterialIds, 非产品BOM, 空配置允许报工, 工序级报工, materialDetails空数组, materialDetails, 物料页签灰绿, 完成数量最小值, 5/3取3, 主报工数量守恒, 多物料损耗负合格数量, 系统同步批号, production_order_no material_number lot_number -> `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: Vue SFC 泛型箭头, const fn = <T>, Parsing error Unexpected token, vue-tsc通过但Vite失败, vite-plugin-eslint overlay -> `docs/frontend-development.md#vue-sfc-泛型箭头函数解析门禁`
 - Keywords: infra_job 固定 ID, 定时任务 ID 冲突, handler_name, Quartz job does not exist, 迁移覆盖无关任务, 自增任务主键, 运行态重载 Quartz -> `docs/database-rules.md#定时任务迁移业务键与运行态注册门禁`
@@ -36,6 +39,7 @@
 - Keywords: 排产员工作台产能覆盖, 班次产能编辑, 手工调整产能, process-wip-settings, MANUAL_OVERRIDE, 小时产量覆盖值, 班次小时重算, refreshScheduleOrderProcessesFromRouteConfig, 重排刷新路线配置覆盖工作台产能 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台产能覆盖门禁`
 - Keywords: 排产员工作台最近一次排产口径, process-wip-statistics, 最近只排5个订单但显示9个订单在做, AUTO_APPLY, REPLAN_APPLY, afterSnapshotJson.scheduleOrderIds, operation_log.schedule_order_id 不补范围, 历史排产工单混入, process-wip-settings, 班次小时刷新不更新历史工单 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台最近一次排产口径门禁`
 - Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#重复任务记录收口门禁`
+- Keywords: 活跃订单多张领料单, 完工时查询领料单, 一对多领料来源, 部分绑定补齐, pick-list binding, pickListSources, sourceFid, sourceLineKey, ERP来源唯一键, 复制来源身份, 第二张领料单唯一键冲突, 来源证据ID, 物化回填ID, 全量来源清理 -> `docs/backend-development.md#关联从一对一扩展为一对多门禁`
 
 任务启动顺序固定为：先创建或识别 `doc/tasks/<task-id>/` 并写入最小 `task.md`（目标、里程碑、预期验证、当前状态），再读本文件并只打开命中的经验文档，随后把适用门禁补入任务文档；不要全量阅读所有经验。唯一例外：PowerShell / Windows shell 任务可先执行只读 UTF-8 bootstrap 读取适用规则，bootstrap 完成后必须立即创建或更新任务文档。
 
@@ -127,7 +131,7 @@
 - Keywords: 延续注册证提交, 延续注册证审批, 注册证延续审批, 注册证上传审批误显示, requestOperation, requestOperation缺失不500, 注册证审批通用标题, RENEWAL_CERTIFICATE, renewal pending conflict, Registration certificate renewal pending conflict, 同一注册证并发提交, 两条待审批延续, 待生效仍显示延续, PENDING_EFFECTIVE 延续入口, 到期延续立即激活, effectiveDate <= businessDate, 已延续继续延续, selectByIdForUpdate, renewal base conflict, Registration certificate renewal base conflict, 延续批准日期, 未来批准日期, 批准日期不能晚于当前日期, 延续日期顺序, 日期错误隔离, 当前有效版本冲突 -> `docs/backend-development.md#注册证上传审批入口与入库门禁`
 - Keywords: 注册证详情上传人, 上传时间, 上传审批人, 上传审批时间, 延续操作人, 延续操作时间, 延续审批人, 延续审批时间, requester_user_id, requested_at, formalized_by, formalized_at, targetVersionId逐版本关联, 下载审批不得污染上传人 -> `docs/backend-development.md#注册证上传审批入口与入库门禁` and `docs/frontend-development.md#用户可见描述与内部编码隔离门禁`
 - Keywords: 注册测试, 注册证业务时间模拟, simulatedBusinessDate, 模拟业务日期, 执行续证生效扫描, 执行完整九点任务, 九点任务手工触发, 旧证归档幂等, 日期回退不可逆, 真实审计时间 -> `docs/backend-development.md#注册证上传审批入口与入库门禁`
-- Keywords: 注册证所有提示中文, 注册证英文错误, Registration certificate error, REGISTRATION_CERTIFICATE 错误码中文化, 注册证审批状态中文, BPM Native 提示, T-30 提醒中文, 国内注册证站内信, NEW_CERTIFICATE_FORMALIZED, 站内信事件码, 业务键, 产品注册证已入库, 生效日期, 有效期至, 来源哈希改来源校验值, resolveRegistrationCertificateUserMessage, test_registration_certificate_chinese_messages -> `docs/backend-development.md#注册证上传审批入口与入库门禁`
+- Keywords: 注册证所有提示中文, 注册证英文错误, Registration certificate error, REGISTRATION_CERTIFICATE 错误码中文化, 注册证审批状态中文, BPM Native 提示, T-30 提醒中文, 国内注册证站内信, 通知接收人配置, 阈值接收人, 多选通知, 动态权益, handler_param 固定角色, NEW_CERTIFICATE_FORMALIZED, 站内信事件码, 业务键, 产品注册证已入库, 生效日期, 有效期至, 来源哈希改来源校验值, resolveRegistrationCertificateUserMessage, test_registration_certificate_chinese_messages -> `docs/backend-development.md#多租户每日任务失败传播与跨日补扫门禁`
 - Keywords: 老证查看按钮, 旧证直接查看, 注册部经理直接查看, 申请查看不变, dcc_registration_certificate_approver, assertOldViewAllowed, REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID, oldViewAllowsRegistrationManagerRoleWithoutGrant, oldViewRegistrationManagerRoleStillRequiresCompanyScope -> `docs/backend-development.md#注册证旧证直接查看权限门禁`
 - Keywords: DCC 受控浏览, 当前有效版, 预览当前有效版, 无权限或无匹配当前有效文件, 受控浏览权限隔离, 目录路径, 项目代码定位, 分类定位, publishedFileId, stampedFileId, targetLinkErrorCount, targetDccMutationRequestCount, 低权限账号看不到, 草稿历史版隔离, 会话失效, 筛选标签表格不同步, 陈旧数据, jumper Enter, preview popup, 运行态未复现 -> `docs/e2e-rules.md#dcc-受控浏览当前有效版与权限隔离门禁`
 - Keywords: DCC 菜单恢复, 跨环境角色同步, 文控中心, 电子签名, 基础数据, wenkong_no_download, 无下载角色, directory:manage 下载旁路, access-rule:manage 下载旁路, 用户角色缓存, user_role_ids -> `docs/database-rules.md#dcc-菜单恢复与无下载角色隔离门禁`
@@ -445,6 +449,7 @@
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点, 批记录测试页签业务描述, 不出现程序细节, 业务环节, 业务说明, 测试项名称加载旧说明, 固定列表内部词扫描, 历史按钮状态颜色, 测试成功绿色, 测试失败红色, ready 统一变绿禁止 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复字符串比较, 存储过程局部字符串变量, collation_connection, BINARY 精确比较, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
+- Keywords: utf8mb4_unicode_ci, 中英文括号判等, 物料名称字面修正, BINARY 精确比较, HEX 文本验收, 生产领料单物料名 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
 - Keywords: ERROR 1059, Identifier name is too long, MySQL 标识符, 存储过程名称, CREATE PROCEDURE, CALL PROCEDURE, DROP PROCEDURE, 64 字符, 过程名长度, seed migration -> `docs/database-rules.md#mysql-存储过程标识符长度门禁`
 - Keywords: 20260726_system_codex_smart_scheduling_test_items, tmp_codex_smart_scheduling_case_seed, tmp_codex_smart_scheduling_checkpoint_seed, ensure_system_codex_smart_scheduling_test_items, utf8mb4_general_ci vs utf8mb4_0900_ai_ci -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
 - Keywords: ERROR 1137, Can't reopen table, 临时表重复读取, SELECT COUNT INTO, 数据修复事务, 工作站资源同步 -> `docs/database-rules.md#数据修复字符串比较排序规则门禁`
@@ -587,3 +592,6 @@
 - Keywords: 已选物料回显丢失, 远程搜索候选替换, selectedFrontlineReportMaterialOptions, 已选详情独立状态, options 不得作为唯一回显来源, 批记录物料标签稳定显示 -> `docs/frontend-development.md#已选项回显状态必须与搜索候选状态隔离`
 - Keywords: 批记录物料发布丢失, frontlineReportMaterialIds, batchUseConfigs, 发布刷新快照, 路线候选版本, routeProcessId, 旧BATCH工序配置表, 精确保留候选字段, 正式批记录表单绑定重建, 不得用BOM或formBindings补齐 -> `docs/backend-development.md#当前配置与发布快照边界`
 - Keywords: GeneratedKeyHolder, RETURN_GENERATED_KEYS, JDBC 自增主键, GENERATED_KEY, H2 多列 generated keys, 注册证变更历史冲突 -> `docs/backend-development.md#2026-09-02-jdbc-generatedkeyholder-自增主键读取门禁`
+- Keywords: Maven 目标单测, 同模块编译失败, 未跟踪 Java 文件, 无关源文件阻塞, LambdaUpdateWrapperX, 缺失符号, git status 归属确认, 不用 Maven excludes, 外部编译阻塞解除后复跑 -> `docs/backend-development.md#2026-09-03-maven-目标单测外部源文件编译阻塞门禁`
+
+- 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。

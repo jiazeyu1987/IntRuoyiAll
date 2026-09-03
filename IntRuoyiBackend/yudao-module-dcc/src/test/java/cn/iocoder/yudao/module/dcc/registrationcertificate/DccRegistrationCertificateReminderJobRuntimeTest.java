@@ -16,6 +16,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import javax.sql.DataSource;
 import java.time.Clock;
@@ -33,6 +36,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED;
@@ -79,6 +84,10 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
     private DccRegistrationCertificateActivationService activationService;
     @Resource
     private JdbcTemplate jdbcTemplate;
+    @MockitoBean
+    private AdminUserApi adminUserApi;
+    @MockitoBean
+    private PermissionApi permissionApi;
 
     @BeforeEach
     void resetMocks() {
@@ -99,6 +108,8 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
     void oneTenantFailureFailsTopLevelAndRetryDoesNotDuplicateSuccessfulTenant() {
         insertTenantOneDueCandidate();
         insertActiveCertificate(2L, 2001L, 2201L, null, 520L, LocalDate.of(2026, 8, 26));
+        insertReminderConfig(1L, 7001L);
+        insertReminderConfigWithoutRecipients(2L);
         when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1L, 2L));
         when(companyScopeApi.resolveRecipientUserIds(eq(501L), eq(List.of(1001L)), eq(PERMISSION)))
                 .thenReturn(new LinkedHashSet<>(List.of(7001L)));
@@ -132,6 +143,7 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
         assertEquals(0, deliveryCount(2L));
         verify(activationService, times(1)).activateDueCandidate(any());
 
+        updateReminderConfigRecipients(2L, 7002L);
         String retrySummary = assertDoesNotThrow(() -> job.execute(PARAM));
 
         assertTrue(retrySummary.contains("成功=1"));
@@ -151,6 +163,7 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
     @Test
     void retryWithFailedDeliveryKeepsTenantFailedAndDoesNotClaimSuccess() {
         insertActiveCertificate(1L, 3001L, 3301L, null, 530L, LocalDate.of(2026, 8, 26));
+        insertReminderConfig(1L, 7301L);
         when(tenantFrameworkService.getTenantIds()).thenReturn(List.of(1L));
         when(companyScopeApi.resolveRecipientUserIds(eq(530L), eq(List.of(1001L)), eq(PERMISSION)))
                 .thenReturn(new LinkedHashSet<>(List.of(7301L)));
@@ -177,10 +190,11 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
     void manualTenantRunUsesSelectedBusinessDateAndNineOClockBusinessTime() {
         LocalDate simulatedDate = LocalDate.of(2026, 9, 1);
         insertTenantOneDueCandidate();
+        insertReminderConfig(1L, 7001L, 7002L);
         when(companyScopeApi.resolveRecipientUserIds(eq(501L), eq(List.of(1001L)), eq(PERMISSION)))
                 .thenReturn(new LinkedHashSet<>(List.of(7001L)));
         when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any()))
-                .thenReturn(99001L);
+                .thenReturn(99001L, 99002L);
         when(activationService.activateDueCandidate(any())).thenAnswer(invocation -> {
             DccRegistrationCertificateActivationCommand command = invocation.getArgument(0);
             assertEquals(1L, command.tenantId());
@@ -198,6 +212,7 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
         assertTrue(summary.contains("successes=1"));
         assertEquals("SUCCESS", dailyStatus(1L));
         assertEquals(LocalDateTime.of(2026, 9, 1, 9, 0), dailyStartedAt(1L));
+        assertEquals(2, sentDeliveryCount(1L));
         verify(activationService, times(1)).activateDueCandidate(any());
     }
 
@@ -206,6 +221,7 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
         LocalDate simulatedDate = LocalDate.of(2026, 9, 1);
         insertHistoricalFailedPendingOccurrence(1L);
         insertTenantOneDueCandidate();
+        insertReminderConfig(1L, 7001L);
         when(companyScopeApi.resolveRecipientUserIds(eq(501L), eq(List.of(1001L)), eq(PERMISSION)))
                 .thenReturn(new LinkedHashSet<>(List.of(7001L)));
         when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any()))
@@ -309,6 +325,38 @@ class DccRegistrationCertificateReminderJobRuntimeTest extends BaseDbUnitTest {
                    SET status = 'CURRENT', current_unique_flag = 1, pending_unique_flag = NULL
                  WHERE tenant_id = ? AND id = ?
                 """, command.tenantId(), command.pendingVersionId());
+    }
+
+    private void insertReminderConfig(Long tenantId, Long... recipientUserIds) {
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_reminder_config
+                  (tenant_id, enabled, daily_run_time, timezone, threshold_days_json,
+                   threshold_recipient_user_ids_json, row_version)
+                VALUES (?, TRUE, '09:00', 'Asia/Shanghai', '[30,8,2,1]', ?, 1)
+                """, tenantId, recipientJson(recipientUserIds));
+    }
+
+    private void insertReminderConfigWithoutRecipients(Long tenantId) {
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_reminder_config
+                  (tenant_id, enabled, daily_run_time, timezone, threshold_days_json,
+                   threshold_recipient_user_ids_json, row_version)
+                VALUES (?, TRUE, '09:00', 'Asia/Shanghai', '[30,8,2,1]', '{}', 1)
+                """, tenantId);
+    }
+
+    private void updateReminderConfigRecipients(Long tenantId, Long recipientUserId) {
+        jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_reminder_config
+                   SET threshold_recipient_user_ids_json = ?
+                 WHERE tenant_id = ?
+                """, recipientJson(recipientUserId), tenantId);
+    }
+
+    private static String recipientJson(Long... recipientUserIds) {
+        String ids = Arrays.stream(recipientUserIds).map(String::valueOf).collect(Collectors.joining(","));
+        return "{\"T_30\":[%s],\"T_8\":[%s],\"T_2\":[%s],\"T_1\":[%s]}"
+                .formatted(ids, ids, ids, ids);
     }
 
     private int countDailyRuns() {

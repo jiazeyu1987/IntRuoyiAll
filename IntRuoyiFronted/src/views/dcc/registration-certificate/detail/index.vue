@@ -298,6 +298,38 @@
               <Icon icon="lucide:file-text" />
               <span>变更批件文件</span>
               <span class="change-history__file-name">{{ displayText(item.originalFileName) }}</span>
+              <span
+                v-if="item.fileStatus === 'BOUND' && item.businessFileId && item.originalFileName"
+                class="change-history__file-actions"
+              >
+                <el-button
+                  link
+                  type="primary"
+                  data-testid="registration-certificate-change-attachment-preview"
+                  @click="openAttachmentPreview(item.businessFileId, item.originalFileName)"
+                >
+                  <Icon icon="lucide:eye" />在线查看
+                </el-button>
+                <el-button
+                  v-if="canDirectDownload"
+                  link
+                  type="primary"
+                  data-testid="registration-certificate-change-attachment-download"
+                  :loading="isAttachmentDownloading(item.businessFileId)"
+                  @click="downloadAttachment(item.businessFileId)"
+                >
+                  <Icon icon="lucide:download" />下载
+                </el-button>
+                <el-button
+                  v-else
+                  v-hasPermi="['dcc:registration-certificate:access-request:create']"
+                  link
+                  data-testid="registration-certificate-change-attachment-request-download"
+                  @click="openDownloadRequest(item.businessFileId)"
+                >
+                  <Icon icon="lucide:file-key-2" />申请下载
+                </el-button>
+              </span>
             </div>
           </section>
         </div>
@@ -635,7 +667,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
     if (!item.businessFileId) {
       return
     }
-    if (item.fileKind === 'CHANGE_APPROVAL') {
+    if (item.fileKind === 'CHANGE_APPROVAL' && item.fileStatus === 'BOUND') {
       changeApprovalFileIndex += 1
       files.push({
         businessFileId: item.businessFileId,
@@ -920,6 +952,7 @@ onBeforeUnmount(() => {
 .change-history__file {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-height: 36px;
   padding: 10px 12px;
@@ -929,9 +962,12 @@ onBeforeUnmount(() => {
 }
 
 .change-history__file-name {
+  flex: 1 1 320px;
+  min-width: 0;
   color: var(--el-text-color-primary);
 }
 
+.change-history__file-actions,
 .renewal-history__file-actions,
 .detail-attachment__actions {
   display: inline-flex;
@@ -940,6 +976,7 @@ onBeforeUnmount(() => {
   margin-left: auto;
 }
 
+.change-history__file-actions :deep(.el-button),
 .renewal-history__file-actions :deep(.el-button),
 .detail-attachment__actions :deep(.el-button) {
   gap: 4px;

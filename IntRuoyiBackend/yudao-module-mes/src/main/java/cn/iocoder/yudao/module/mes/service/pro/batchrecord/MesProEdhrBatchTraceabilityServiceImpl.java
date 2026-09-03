@@ -78,8 +78,10 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
                 .completionTransactionId(command.getCompletionTransactionId()).completionVersion(command.getCompletionVersion())
                 .completionBackfillReceiptId(command.getCompletionBackfillReceiptId())
                 .completionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
-                .pickListBindingId(command.getPickListBindingId()).pickListId(command.getPickListId())
-                .pickListBindingVersion(command.getPickListBindingVersion()).hasActualLoss(command.getHasActualLoss())
+                .pickListBindingId(singlePickListBindingId(command.getPickListSources()))
+                .pickListId(singlePickListId(command.getPickListSources()))
+                .pickListBindingVersion(singlePickListBindingVersion(command.getPickListSources()))
+                .hasActualLoss(command.getHasActualLoss())
                 .sourceSnapshotHash(command.getSourceSnapshotHash())
                 .batchProvisionReceiptId(command.getBatchProvisionReceiptId()).batchProvisionStatus(command.getBatchProvisionStatus())
                 .sourceCredentialId(command.getSourceCredentialId()).sourceCredentialHash(command.getSourceCredentialHash())
@@ -95,6 +97,21 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
         }
         appendManifest(batchExecutionId, command.getCapturedBy(), "TRACE_CAPTURED");
         return getTraceability(batchExecutionId);
+    }
+
+    private Long singlePickListBindingId(List<MesBatchExecutionPickListSource> sources) {
+        return sources != null && sources.size() == 1 ? sources.get(0).getPickListBindingId() : null;
+    }
+
+    private Long singlePickListId(List<MesBatchExecutionPickListSource> sources) {
+        return sources != null && sources.size() == 1 ? sources.get(0).getPickListId() : null;
+    }
+
+    private Integer singlePickListBindingVersion(List<MesBatchExecutionPickListSource> sources) {
+        if (sources == null || sources.size() != 1 || sources.get(0).getBindingVersion() == null) {
+            return null;
+        }
+        return sources.get(0).getBindingVersion().intValue();
     }
 
     @Override

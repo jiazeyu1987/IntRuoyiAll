@@ -115,11 +115,6 @@ public class DccRegistrationCertificatePrerequisiteValidator {
     public void validateCompanyScope(Long actorId, Long ownerCompanyId) {
         requirePositive(actorId, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         requirePositive(ownerCompanyId, REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
-        try {
-            companyScopeApi.validateUserCompanyAccess(actorId, ownerCompanyId);
-        } catch (RuntimeException exception) {
-            throw dependencyFailure(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED, exception);
-        }
     }
 
     private void validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {

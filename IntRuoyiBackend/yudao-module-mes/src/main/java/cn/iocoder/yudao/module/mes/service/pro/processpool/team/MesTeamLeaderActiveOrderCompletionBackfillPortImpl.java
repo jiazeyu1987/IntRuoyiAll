@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
@@ -16,6 +18,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIs
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -56,6 +60,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     private final MesWmProductIssueMapper productIssueMapper;
     private final MesWmProductIssueDetailMapper productIssueDetailMapper;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
 
     public MesTeamLeaderActiveOrderCompletionBackfillPortImpl(
             MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper,
@@ -67,7 +73,9 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             MesTeamLeaderActiveOrderReleaseLossSourceReader lossSourceReader,
             MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper,
             MesWmProductIssueMapper productIssueMapper,
-            MesWmProductIssueDetailMapper productIssueDetailMapper) {
+            MesWmProductIssueDetailMapper productIssueDetailMapper,
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
+            MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper) {
         this.snapshotMapper = snapshotMapper;
         this.allocationMapper = allocationMapper;
         this.completionMapper = completionMapper;
@@ -78,6 +86,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         this.backfillMapper = backfillMapper;
         this.productIssueMapper = productIssueMapper;
         this.productIssueDetailMapper = productIssueDetailMapper;
+        this.pickListBindingMapper = pickListBindingMapper;
+        this.pickListBindingItemMapper = pickListBindingItemMapper;
     }
 
     @Override
@@ -114,10 +124,28 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             throw sourceMissing(activeOrder, "WORK_ORDER_BATCH_ROUTE");
         }
         FormalProductIssue formalProductIssue = lockedFormalProductIssue(activeOrder);
+        List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings = pickListBindingMapper
+                .selectListByActiveOrderId(activeOrder.getId());
+        if (pickListBindings == null || pickListBindings.isEmpty()) {
+            throw sourceMissing(activeOrder, "FORMAL_PICK_LIST_BINDINGS_REQUIRED");
+        }
+        Map<Long, List<MesProcessPoolActiveOrderPickListBindingItemDO>> pickListItems = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : pickListBindings) {
+            List<MesProcessPoolActiveOrderPickListBindingItemDO> items =
+                    pickListBindingItemMapper.selectListByBindingId(binding.getId());
+            if (items == null || items.isEmpty()) {
+                throw sourceMissing(activeOrder, "FORMAL_PICK_LIST_BINDING_ITEMS_REQUIRED:" + binding.getId());
+            }
+            pickListItems.put(binding.getId(), items);
+            batchSourceIds.add(binding.getId());
+            items.stream().map(MesProcessPoolActiveOrderPickListBindingItemDO::getId)
+                    .filter(Objects::nonNull).forEach(batchSourceIds::add);
+        }
         batchSourceIds.add(formalProductIssue.issue().getId());
         formalProductIssue.details().stream().map(MesWmProductIssueDetailDO::getId)
                 .filter(Objects::nonNull).forEach(batchSourceIds::add);
-        String sourceSeed = canonicalSourceSeed(activeOrder, workOrder, formalProductIssue,
+        String sourceSeed = canonicalSourceSeed(activeOrder, workOrder, formalProductIssue, pickListBindings,
+                pickListItems,
                 snapshots, allocations, completions, tasks, details);
         String sourceSeedHash = sha256(sourceSeed);
         MesTeamLeaderActiveOrderReleaseLossReportPlanCommand lossCommand =
@@ -474,6 +502,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     private static String canonicalSourceSeed(MesProcessPoolActiveOrderDO order,
                                                MesProWorkOrderDO workOrder,
                                                FormalProductIssue formalProductIssue,
+                                               List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings,
+                                               Map<Long, List<MesProcessPoolActiveOrderPickListBindingItemDO>> pickListItems,
                                                List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
                                                List<MesProcessPoolReportAllocationDO> allocations,
                                                List<MesProcessPoolOrderProcessCompletionDO> completions,
@@ -495,6 +525,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         seed.put("workOrderBinding", workOrderBinding);
         seed.put("formalProductIssue", formalProductIssue.issue());
         seed.put("formalProductIssueDetails", formalProductIssue.details());
+        seed.put("pickListBindings", pickListBindings);
+        seed.put("pickListBindingItems", pickListItems);
         seed.put("snapshots", snapshots);
         seed.put("allocations", allocations);
         seed.put("completions", completions);

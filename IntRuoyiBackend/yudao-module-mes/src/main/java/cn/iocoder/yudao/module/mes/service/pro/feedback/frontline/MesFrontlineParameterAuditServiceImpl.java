@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParameterAuditService {
@@ -52,8 +54,12 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
             return MesFrontlineParameterAuditResult.empty();
         }
         ParameterSource source = resolveSource(reqVO);
-        Long selectedDeviceId = payload.getSelectedDevice() == null
-                ? null : payload.getSelectedDevice().getDeviceId();
+        Set<Long> selectedDeviceIds = payload.getSelectedDevices() == null ? Set.of()
+                : payload.getSelectedDevices().stream()
+                .filter(Objects::nonNull)
+                .map(MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO::getDeviceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         Map<String, Integer> readingKeyCounts = countReadingKeys(readings);
         Map<String, List<MesDeviceParameterSnapshotRule>> rulesByKey = indexRules(source.rules());
 
@@ -64,7 +70,7 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
             String normalizedCode = reading == null ? null
                     : MesDeviceParameterSnapshotCodec.normalizeCode(reading.getParameterCode());
             if (reasonCode == null) {
-                reasonCode = resolveReadingReason(reading, normalizedCode, selectedDeviceId,
+                reasonCode = resolveReadingReason(reading, normalizedCode, selectedDeviceIds,
                         readingKeyCounts, rulesByKey);
             }
             MesDeviceParameterSnapshotRule rule = reasonCode == null
@@ -151,7 +157,7 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
 
     private static String resolveReadingReason(
             MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading,
-            String normalizedCode, Long selectedDeviceId, Map<String, Integer> readingKeyCounts,
+            String normalizedCode, Set<Long> selectedDeviceIds, Map<String, Integer> readingKeyCounts,
             Map<String, List<MesDeviceParameterSnapshotRule>> rulesByKey) {
         if (reading == null || reading.getDeviceId() == null) {
             return REASON_DEVICE_ID_MISSING;
@@ -159,10 +165,10 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
         if (normalizedCode == null) {
             return REASON_PARAMETER_CODE_MISSING;
         }
-        if (selectedDeviceId == null) {
+        if (selectedDeviceIds == null || selectedDeviceIds.isEmpty()) {
             return REASON_SELECTED_DEVICE_ID_MISSING;
         }
-        if (!Objects.equals(selectedDeviceId, reading.getDeviceId())) {
+        if (!selectedDeviceIds.contains(reading.getDeviceId())) {
             return REASON_DEVICE_MISMATCH;
         }
         String key = readingKey(reading.getDeviceId(), normalizedCode);

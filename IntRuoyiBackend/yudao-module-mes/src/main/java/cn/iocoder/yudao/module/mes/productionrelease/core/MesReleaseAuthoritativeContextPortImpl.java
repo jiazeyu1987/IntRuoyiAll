@@ -7,16 +7,21 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceSourcePrecheckCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceLinkType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
@@ -42,6 +47,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
     private final MesProEdhrBatchExecutionOriginMapper originMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
     private final ObjectProvider<MesReleaseMaterialGateReceiptPort> materialGateReceiptPort;
     private final MesProEdhrBatchTraceabilityService traceabilityService;
@@ -54,6 +60,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             MesProEdhrBatchExecutionOriginMapper originMapper,
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper,
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
             MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort,
             ObjectProvider<MesReleaseMaterialGateReceiptPort> materialGateReceiptPort,
             MesProEdhrBatchTraceabilityService traceabilityService,
@@ -64,6 +71,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         this.originMapper = originMapper;
         this.activeOrderMapper = activeOrderMapper;
         this.backfillMapper = backfillMapper;
+        this.pickListBindingMapper = pickListBindingMapper;
         this.completionReceiptPort = completionReceiptPort;
         this.materialGateReceiptPort = materialGateReceiptPort;
         this.traceabilityService = traceabilityService;
@@ -149,15 +157,16 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         if ("ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)) {
             MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(origin.getActiveOrderId());
             if (activeOrder == null || origin.getCompletionBackfillReceiptId() == null
-                    || origin.getCompletionVersion() == null || origin.getPickListBindingId() == null
-                    || origin.getPickListId() == null || isBlank(origin.getSourceSnapshotHash())) {
+                    || origin.getCompletionVersion() == null || isBlank(origin.getSourceSnapshotHash())) {
                 throw blocker(application, "formal active-order completion source is incomplete");
             }
             MesFlow6CompletionBackfillReceipt flow6Receipt = completionReceiptPort.getByReceiptId(
                     origin.getCompletionBackfillReceiptId(), tenantId);
             requireFlow6Receipt(origin, flow6Receipt, application);
             requireBackfills(origin, application);
-            CompletionBackfillReceipt completion = toCompletionReceipt(origin, flow6Receipt);
+            List<MesBatchExecutionPickListSource> pickListSources = resolvePickListSources(
+                    origin, flow6Receipt, traceabilityService.getTraceability(batchExecutionId), application, tenantId);
+            CompletionBackfillReceipt completion = toCompletionReceipt(origin, flow6Receipt, pickListSources);
             evidence.setCompletionBackfillReceipt(completion);
             hydrate(command, application, transaction, origin, activeOrder, flow6Receipt, completion, gateReceipt);
         } else {
@@ -234,10 +243,12 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 value -> command.setActiveOrderId(value), "activeOrderId");
         setOrRequire(command.getActiveOrderExpectedVersion(), activeOrder.getVersion(), application,
                 value -> command.setActiveOrderExpectedVersion(value), "activeOrderExpectedVersion");
-        setOrRequire(command.getPickListBindingId(), String.valueOf(origin.getPickListBindingId()), application,
+        setOrRequire(command.getPickListBindingId(), completion.getPickListBindingId(), application,
                 value -> command.setPickListBindingId(value), "pickListBindingId");
-        setOrRequire(command.getPickListId(), origin.getPickListId(), application,
+        setOrRequire(command.getPickListId(), completion.getPickListId(), application,
                 value -> command.setPickListId(value), "pickListId");
+        setOrRequire(command.getPickListSources(), completion.getPickListSources(), application,
+                value -> command.setPickListSources(value), "pickListSources");
         setOrRequire(command.getCompletionEventId(), flow6Receipt.getRequestIdempotencyKey(), application,
                 value -> command.setCompletionEventId(value), "completionEventId");
         setOrRequire(command.getCompletionBackfillReceiptId(), completion.getReceiptId(), application,
@@ -333,11 +344,13 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
 
     private CompletionBackfillReceipt toCompletionReceipt(
             MesProEdhrBatchExecutionOriginDO origin,
-            MesFlow6CompletionBackfillReceipt receipt) {
+            MesFlow6CompletionBackfillReceipt receipt,
+            List<MesBatchExecutionPickListSource> pickListSources) {
         List<Long> batchRecordIds = parseIds(receipt.getBatchRecordSourceIdsJson());
         List<Long> inspectionIds = parseIds(receipt.getProcessInspectionSourceIdsJson());
-        if (batchRecordIds.size() != 1 || inspectionIds.size() != 1) {
-            throw blocker(null, "formal completion receipt does not identify batch record and process inspection sources");
+        if (batchRecordIds.isEmpty() || inspectionIds.isEmpty()
+                || receipt.getBatchRecordId() == null || receipt.getProcessInspectionId() == null) {
+            throw blocker(null, "formal completion receipt lacks materialized backfill ids or source evidence ids");
         }
         boolean actualLoss = Boolean.TRUE.equals(receipt.getHasActualLoss());
         return new CompletionBackfillReceipt()
@@ -348,15 +361,20 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 .setBatchCode(receipt.getBatchCode())
                 .setRouteId(receipt.getRouteId())
                 .setRouteVersionId(receipt.getRouteVersionId())
-                .setPickListBindingId(String.valueOf(origin.getPickListBindingId()))
-                .setPickListId(origin.getPickListId())
+                .setPickListBindingId(pickListSources.size() == 1
+                        ? String.valueOf(pickListSources.get(0).getPickListBindingId()) : null)
+                .setPickListId(pickListSources.size() == 1 ? pickListSources.get(0).getPickListId() : null)
+                .setPickListSources(pickListSources)
                 .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
-                .setBindingVersion(origin.getPickListBindingVersion())
+                .setBindingVersion(pickListSources.size() == 1
+                        ? pickListSources.get(0).getBindingVersion().intValue() : null)
                 .setCompletionVersion(receipt.getCompletionVersion())
                 .setCompletionTransactionId(String.valueOf(origin.getCompletionTransactionId()))
                 .setCompletionEventId(receipt.getRequestIdempotencyKey())
-                .setBatchRecordId(batchRecordIds.get(0))
-                .setProcessInspectionId(inspectionIds.get(0))
+                .setBatchRecordId(receipt.getBatchRecordId())
+                .setProcessInspectionId(receipt.getProcessInspectionId())
+                .setBatchRecordSourceIds(batchRecordIds)
+                .setProcessInspectionSourceIds(inspectionIds)
                 .setHasActualLoss(receipt.getHasActualLoss())
                 .setLossDecision(actualLoss ? "HAS_LOSS" : "NO_LOSS")
                 .setLossReportStatus(receipt.getLossReportStatus())
@@ -368,6 +386,57 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 .setAuditEventId("FLOW4-COMPLETION-RECEIPT-AUDIT:" + receipt.getReceiptId())
                 .setStatus(CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
                 .setIssuedAt(receipt.getCreatedAt());
+    }
+
+    private List<MesBatchExecutionPickListSource> resolvePickListSources(
+            MesProEdhrBatchExecutionOriginDO origin,
+            MesFlow6CompletionBackfillReceipt receipt,
+            MesProEdhrBatchTraceabilityRespVO traceability,
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long tenantId) {
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings =
+                pickListBindingMapper.selectListByActiveOrderId(origin.getActiveOrderId());
+        if (bindings == null || bindings.isEmpty()) {
+            throw blocker(application, "formal active-order completion has no Flow-1 pick-list bindings");
+        }
+        List<MesBatchExecutionPickListSource> sources = bindings.stream().map(binding -> {
+            if (binding == null || binding.getId() == null || binding.getPickListId() == null
+                    || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
+                    || isBlank(binding.getSourceSnapshotHash())
+                    || !Objects.equals(binding.getTenantId(), tenantId)
+                    || !Objects.equals(binding.getActiveOrderId(), origin.getActiveOrderId())
+                    || !Objects.equals(binding.getWorkOrderId(), origin.getWorkOrderId())
+                    || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())) {
+                throw blocker(application, "formal Flow-1 pick-list binding is incomplete or stale");
+            }
+            return new MesBatchExecutionPickListSource()
+                    .setPickListBindingId(binding.getId())
+                    .setPickListId(binding.getPickListId())
+                    .setBindingVersion(binding.getBindingVersion().longValue())
+                    .setSourceSnapshotHash(binding.getSourceSnapshotHash());
+        }).toList();
+        if (sources.stream().anyMatch(source -> !traceHasPickListSource(traceability, source))) {
+            throw blocker(application, "Flow 7 trace links do not cover every formal pick-list binding");
+        }
+        return List.copyOf(sources);
+    }
+
+    private boolean traceHasPickListSource(MesProEdhrBatchTraceabilityRespVO traceability,
+                                           MesBatchExecutionPickListSource source) {
+        if (traceability == null || traceability.getTraceLinks() == null) {
+            return false;
+        }
+        boolean hasPickList = traceability.getTraceLinks().stream().anyMatch(link ->
+                MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE.equals(link.getLinkType())
+                        && Objects.equals(link.getSourceObjectId(), source.getPickListId())
+                        && Objects.equals(link.getSnapshotHash(), source.getSourceSnapshotHash())
+                        && !"NOT_APPLICABLE".equalsIgnoreCase(link.getRelationStatus()));
+        boolean hasBinding = traceability.getTraceLinks().stream().anyMatch(link ->
+                MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE.equals(link.getLinkType())
+                        && Objects.equals(link.getSourceObjectId(), source.getPickListBindingId())
+                        && Objects.equals(link.getSnapshotHash(), source.getSourceSnapshotHash())
+                        && !"NOT_APPLICABLE".equalsIgnoreCase(link.getRelationStatus()));
+        return hasPickList && hasBinding;
     }
 
     private void requireFlow6Receipt(MesProEdhrBatchExecutionOriginDO origin,

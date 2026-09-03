@@ -188,7 +188,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         requireText(metadata, "sourceSnapshotHash");
         requireText(metadata, "sourceVersion");
         JSONArray evidence = metadata.getJSONArray("sourceEvidence");
-        MesProcessPoolActiveOrderPickListBindingDO binding = null;
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = List.of();
         List<MesProcessPoolActiveOrderPickListBindingItemDO> items = List.of();
         if (MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)) {
             Long credentialId = requireLong(metadata, "sourceCredentialId");
@@ -199,24 +199,37 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
             requireText(metadata, "completionTransactionId");
             requireLong(metadata, "completionVersion");
             requireLong(metadata, "completionBackfillReceiptId");
-            Long bindingId = requireLong(metadata, "pickListBindingId");
-            requireLong(metadata, "pickListId");
-            requireLong(metadata, "bindingVersion");
-            binding = bindingMapper.selectById(bindingId);
-            if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)) {
-                throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding is missing or crosses tenant boundary");
+            List<MesBatchExecutionPickListSource> pickListSources = parsePickListSources(metadata);
+            List<MesProcessPoolActiveOrderPickListBindingDO> loadedBindings = new ArrayList<>();
+            List<MesProcessPoolActiveOrderPickListBindingItemDO> loadedItems = new ArrayList<>();
+            for (MesBatchExecutionPickListSource source : pickListSources) {
+                MesProcessPoolActiveOrderPickListBindingDO binding =
+                        bindingMapper.selectById(source.getPickListBindingId());
+                if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)) {
+                    throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding is missing or crosses tenant boundary");
+                }
+                if (!BOUND_STATUS.equalsIgnoreCase(binding.getBindingStatus())
+                        || !Objects.equals(binding.getActiveOrderId(), metadata.getLong("activeOrderId"))
+                        || !Objects.equals(binding.getWorkOrderId(), metadata.getLong("workOrderId"))
+                        || !Objects.equals(binding.getPickListId(), source.getPickListId())
+                        || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
+                        || !Objects.equals(Long.valueOf(binding.getBindingVersion()), source.getBindingVersion())
+                        || !Objects.equals(binding.getSourceSnapshotHash(), source.getSourceSnapshotHash())) {
+                    throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH",
+                            "binding snapshot/version does not match provision witness");
+                }
+                List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems =
+                        bindingItemMapper.selectListByBindingId(source.getPickListBindingId());
+                if (bindingItems == null || bindingItems.isEmpty()) {
+                    throw blocked("FLOW1_BINDING_REQUIRED",
+                            "formal pick-list binding has no immutable line snapshots");
+                }
+                loadedBindings.add(binding);
+                loadedItems.addAll(bindingItems);
             }
-            if (!BOUND_STATUS.equalsIgnoreCase(binding.getBindingStatus())
-                    || !Objects.equals(binding.getActiveOrderId(), metadata.getLong("activeOrderId"))
-                    || !Objects.equals(binding.getWorkOrderId(), metadata.getLong("workOrderId"))
-                    || !Objects.equals(binding.getPickListId(), metadata.getLong("pickListId"))
-                    || !Objects.equals(binding.getBindingVersion(), metadata.getInteger("bindingVersion"))) {
-                throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "binding snapshot/version does not match provision witness");
-            }
-            items = bindingItemMapper.selectListByBindingId(bindingId);
-            if (items == null || items.isEmpty()) {
-                throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding has no immutable line snapshots");
-            }
+            requirePickListEvidence(evidence, pickListSources);
+            bindings = List.copyOf(loadedBindings);
+            items = List.copyOf(loadedItems);
         } else {
             String credentialId = requireText(metadata, "sourceCredentialId");
             MesIndependentBatchPrerequisiteReceipt receipt = independentReceiptPort.getVerifiedByReceiptId(
@@ -227,15 +240,15 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         Map<String, Object> fingerprintPayload = new LinkedHashMap<>();
         fingerprintPayload.put("auditHash", audit.getAuditHash());
         fingerprintPayload.put("metadata", metadata);
-        fingerprintPayload.put("bindingId", binding == null ? null : binding.getId());
-        fingerprintPayload.put("bindingVersion", binding == null ? null : binding.getBindingVersion());
-        fingerprintPayload.put("bindingHash", binding == null ? null : binding.getSourceSnapshotHash());
+        fingerprintPayload.put("bindingIds", bindings.stream().map(MesProcessPoolActiveOrderPickListBindingDO::getId).toList());
+        fingerprintPayload.put("bindingVersions", bindings.stream().map(MesProcessPoolActiveOrderPickListBindingDO::getBindingVersion).toList());
+        fingerprintPayload.put("bindingHashes", bindings.stream().map(MesProcessPoolActiveOrderPickListBindingDO::getSourceSnapshotHash).toList());
         fingerprintPayload.put("itemHashes", items.stream().map(MesProcessPoolActiveOrderPickListBindingItemDO::getItemSnapshotHash).toList());
         fingerprintPayload.put("evidence", evidence);
         String fingerprint = DigestUtil.sha256Hex(
                 MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(
                         JSON.toJSONString(fingerprintPayload)));
-        return new FormalInput(metadata, evidence, binding, items, fingerprint);
+        return new FormalInput(metadata, evidence, bindings, items, fingerprint);
     }
 
     private JSONObject parseMetadata(String metadataJson) {
@@ -313,9 +326,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                     .setCompletionVersion(requiredInteger(metadata, "completionVersion"))
                     .setCompletionBackfillReceiptId(requiredLong(metadata, "completionBackfillReceiptId"))
                     .setCompletionBackfillReceiptHash(requiredText(metadata, "completionBackfillReceiptHash"))
-                    .setPickListBindingId(requiredLong(metadata, "pickListBindingId"))
-                    .setPickListId(requiredLong(metadata, "pickListId"))
-                    .setPickListBindingVersion(requiredInteger(metadata, "bindingVersion"))
+                    .setPickListSources(parsePickListSources(metadata))
                     .setBatchProvisionReceiptId(requiredLong(metadata, "batchProvisionReceiptId"))
                     .setBatchProvisionStatus(requiredText(metadata, "batchProvisionStatus"))
                     .setHasActualLoss(metadata.getBoolean("hasActualLoss"));
@@ -501,6 +512,57 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         return normalized;
     }
 
+    private List<MesBatchExecutionPickListSource> parsePickListSources(JSONObject metadata) {
+        JSONArray rawSources = metadata.getJSONArray("pickListSources");
+        if (rawSources == null || rawSources.isEmpty()) {
+            throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list source set is missing");
+        }
+        List<MesBatchExecutionPickListSource> sources = new ArrayList<>();
+        Set<Long> bindingIds = new java.util.LinkedHashSet<>();
+        for (Object raw : rawSources) {
+            if (!(raw instanceof JSONObject source)) {
+                throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list source item is invalid");
+            }
+            Long bindingId = requireLong(source, "pickListBindingId");
+            Long pickListId = requireLong(source, "pickListId");
+            Long bindingVersion = requireLong(source, "bindingVersion");
+            String sourceSnapshotHash = requireText(source, "sourceSnapshotHash");
+            if (bindingVersion <= 0 || !bindingIds.add(bindingId)) {
+                throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list source set has duplicate or invalid binding");
+            }
+            sources.add(new MesBatchExecutionPickListSource()
+                    .setPickListBindingId(bindingId)
+                    .setPickListId(pickListId)
+                    .setBindingVersion(bindingVersion)
+                    .setSourceSnapshotHash(sourceSnapshotHash));
+        }
+        return List.copyOf(sources);
+    }
+
+    private void requirePickListEvidence(JSONArray evidence, List<MesBatchExecutionPickListSource> sources) {
+        for (MesBatchExecutionPickListSource source : sources) {
+            if (!hasEvidence(evidence, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE, source.getPickListId(),
+                    source.getSourceSnapshotHash())
+                    || !hasEvidence(evidence, MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE,
+                    source.getPickListBindingId(), source.getSourceSnapshotHash())) {
+                throw blocked("FORMAL_SOURCE_EVIDENCE_REQUIRED",
+                        "sourceEvidence must include every formal pick-list binding and pick list");
+            }
+        }
+    }
+
+    private boolean hasEvidence(JSONArray evidence, String sourceType, Long sourceObjectId, String sourceSnapshotHash) {
+        for (Object raw : evidence) {
+            if (raw instanceof JSONObject item
+                    && sourceType.equals(item.getString("sourceType"))
+                    && Objects.equals(sourceObjectId, item.getLong("sourceObjectId"))
+                    && Objects.equals(sourceSnapshotHash, item.getString("sourceSnapshotHash"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private String requireText(JSONObject object, String key) {
         return requiredText(object, key);
     }
@@ -565,17 +627,17 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
     private static final class FormalInput {
         private final JSONObject metadata;
         private final JSONArray evidence;
-        private final MesProcessPoolActiveOrderPickListBindingDO binding;
+        private final List<MesProcessPoolActiveOrderPickListBindingDO> bindings;
         private final List<MesProcessPoolActiveOrderPickListBindingItemDO> items;
         private final String fingerprint;
 
         private FormalInput(JSONObject metadata, JSONArray evidence,
-                            MesProcessPoolActiveOrderPickListBindingDO binding,
+                            List<MesProcessPoolActiveOrderPickListBindingDO> bindings,
                             List<MesProcessPoolActiveOrderPickListBindingItemDO> items,
                             String fingerprint) {
             this.metadata = metadata;
             this.evidence = evidence;
-            this.binding = binding;
+            this.bindings = bindings;
             this.items = items;
             this.fingerprint = fingerprint;
         }

@@ -18,7 +18,7 @@
     >
       <el-row :gutter="24">
         <el-col :span="12">
-          <el-form-item label="DCC 项目代码" prop="projectCodeId">
+          <el-form-item label="实际项目代码" prop="projectCodeId">
             <el-select
               v-model="form.projectCodeId"
               clearable
@@ -27,7 +27,7 @@
               reserve-keyword
               :remote-method="searchProjectCodes"
               :loading="projectCodeLoading"
-              placeholder="请选择 DCC 项目代码"
+              placeholder="请选择实际项目代码"
             >
               <el-option
                 v-for="item in projectCodeOptions"
@@ -228,16 +228,13 @@
 import {
   getUploadEntrustedEnterprises,
   getUploadOwnerCompanies,
+  getUploadProjectCodes,
   submitRegistrationCertificateUpload,
   type DccRegistrationCertificateUploadCompanyRespVO,
   type DccRegistrationCertificateUploadEntrustedEnterpriseRespVO,
+  type DccRegistrationCertificateUploadProjectCodeRespVO,
   type DccRegistrationCertificateUploadSubmitReqVO
 } from '@/api/dcc/registrationCertificate'
-import {
-  DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCodePage,
-  type DccProjectCodeRespVO
-} from '@/api/dcc/controlledFile/projectCodes'
 import { generateUUID } from '@/utils'
 import { computed, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
@@ -257,7 +254,7 @@ const message = useMessage()
 const formRef = ref<FormInstance>()
 const saving = ref(false)
 const projectCodeLoading = ref(false)
-const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const projectCodeOptions = ref<DccRegistrationCertificateUploadProjectCodeRespVO[]>([])
 const ownerCompanyLoading = ref(false)
 const ownerCompanyOptions = ref<DccRegistrationCertificateUploadCompanyRespVO[]>([])
 const entrustedEnterpriseLoading = ref(false)
@@ -347,6 +344,7 @@ function validateDateOrder(
 }
 
 const rules = reactive<FormRules>({
+  projectCodeId: [{ required: true, message: '请选择实际项目代码', trigger: 'change' }],
   companyId: [{ required: true, message: '请选择公司名称', trigger: 'change' }],
   productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
   certificateNo: [{ required: true, message: '请输入注册证号', trigger: 'blur' }],
@@ -387,6 +385,7 @@ const resetForm = () => {
   form.selfProduction = undefined
   form.entrustedEnterpriseIds = []
   form.remark = ''
+  projectCodeOptions.value = []
   ownerCompanyOptions.value = []
   entrustedEnterpriseOptions.value = []
   fileList.value = []
@@ -401,13 +400,9 @@ const handleClosed = () => {
 const loadProjectCodes = async (keyword = '') => {
   projectCodeLoading.value = true
   try {
-    const page = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: 20,
-      keyword: keyword.trim() || undefined,
-      status: DCC_PROJECT_CODE_STATUS_ENABLE
+    projectCodeOptions.value = await getUploadProjectCodes({
+      keyword: keyword.trim() || undefined
     })
-    projectCodeOptions.value = page.list || []
   } finally {
     projectCodeLoading.value = false
   }
@@ -432,6 +427,11 @@ const searchOwnerCompanies = async (keyword: string) => {
   await loadOwnerCompanies(keyword)
 }
 
+const formatProjectCodeOption = (item: DccRegistrationCertificateUploadProjectCodeRespVO) => {
+  const parts = [item.projectCode, item.projectName].filter(Boolean)
+  return parts.join(' - ')
+}
+
 const loadEntrustedEnterprises = async (keyword = '') => {
   entrustedEnterpriseLoading.value = true
   try {
@@ -445,11 +445,6 @@ const loadEntrustedEnterprises = async (keyword = '') => {
 
 const searchEntrustedEnterprises = async (keyword: string) => {
   await loadEntrustedEnterprises(keyword)
-}
-
-const formatProjectCodeOption = (item: DccProjectCodeRespVO) => {
-  const parts = [item.projectCode, item.projectName].filter(Boolean)
-  return parts.join(' - ')
 }
 
 const formatEntrustedEnterpriseOption = (
@@ -513,9 +508,7 @@ const submit = async () => {
   const payload = new FormData()
   payload.append('companyId', String(form.companyId))
   payload.append('productName', form.productName.trim())
-  if (form.projectCodeId) {
-    payload.append('projectCodeId', String(form.projectCodeId))
-  }
+  payload.append('projectCodeId', String(form.projectCodeId))
   payload.append('certificateNo', form.certificateNo.trim())
   payload.append('firstObtainedDate', form.firstObtainedDate)
   payload.append('effectiveDate', form.effectiveDate)

@@ -17,7 +17,6 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.dailyrun.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.threshold.DccRegistrationCertificateThresholdDeliveryResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.threshold.DccRegistrationCertificateThresholdNotificationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateRecipient;
-import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateRecipientResolver;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderRunResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderService;
 import org.springframework.dao.DuplicateKeyException;
@@ -45,7 +44,6 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
     private final DccRegistrationCertificateDailyRunService dailyRunService;
     private final DccRegistrationCertificateActivationService activationService;
     private final DccRegistrationCertificateReminderService reminderService;
-    private final DccRegistrationCertificateRecipientResolver recipientResolver;
     private final DccRegistrationCertificateThresholdNotificationService notificationService;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final JdbcTemplate jdbcTemplate;
@@ -56,7 +54,6 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             DccRegistrationCertificateDailyRunService dailyRunService,
             DccRegistrationCertificateActivationService activationService,
             DccRegistrationCertificateReminderService reminderService,
-            DccRegistrationCertificateRecipientResolver recipientResolver,
             DccRegistrationCertificateThresholdNotificationService notificationService,
             DccRegistrationCertificateBusinessClock businessClock,
             JdbcTemplate jdbcTemplate) {
@@ -65,7 +62,6 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         this.dailyRunService = require(dailyRunService, "dailyRunService");
         this.activationService = require(activationService, "activationService");
         this.reminderService = require(reminderService, "reminderService");
-        this.recipientResolver = require(recipientResolver, "recipientResolver");
         this.notificationService = require(notificationService, "notificationService");
         this.businessClock = require(businessClock, "businessClock");
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
@@ -143,7 +139,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
             int activated = activateDueCandidates(tenantId, businessDate, jobParam.actorId());
             DccRegistrationCertificateReminderRunResult occurrences =
                     reminderService.generateOccurrences(tenantId, run.id(), businessDate);
-            int createdDeliveries = createDeliveries(tenantId, run.id(), jobParam);
+            int createdDeliveries = createDeliveries(tenantId, run.id(), config);
             int sentDeliveries = sendPendingDeliveries(tenantId, run.id());
             int deliveredOccurrences = markDeliveredOccurrences(tenantId, run.id());
             ensureNoPendingOccurrences(tenantId, run.id());
@@ -219,21 +215,25 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         return activated;
     }
 
-    private int createDeliveries(Long tenantId, Long runId, JobParam jobParam) {
+    private int createDeliveries(Long tenantId, Long runId,
+                                 DccRegistrationCertificateReminderConfig config) {
         List<OccurrenceRow> occurrences = jdbcTemplate.query("""
-                SELECT id, owner_company_id
+                SELECT id, owner_company_id, threshold_level
                   FROM dcc_registration_certificate_reminder_occurrence
                  WHERE tenant_id = ?
                    AND run_id = ?
                    AND status = 'PENDING_DELIVERY'
                  ORDER BY id
-                """, (rs, rowNum) -> new OccurrenceRow(
+        """, (rs, rowNum) -> new OccurrenceRow(
                 rs.getLong("id"),
-                rs.getLong("owner_company_id")), tenantId, runId);
+                rs.getLong("owner_company_id"),
+                rs.getString("threshold_level")), tenantId, runId);
         int created = 0;
         for (OccurrenceRow occurrence : occurrences) {
-            List<DccRegistrationCertificateRecipient> recipients = recipientResolver.resolve(
-                    occurrence.ownerCompanyId(), jobParam.roleIds(), jobParam.permission());
+            List<DccRegistrationCertificateRecipient> recipients = configService.getRecipientUserIds(
+                    config, occurrence.thresholdLevel()).stream()
+                    .map(userId -> new DccRegistrationCertificateRecipient(userId, occurrence.ownerCompanyId()))
+                    .toList();
             for (DccRegistrationCertificateRecipient recipient : recipients) {
                 if (insertDeliveryIfAbsent(tenantId, occurrence.id(), recipient)) {
                     created++;
@@ -346,17 +346,10 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         } catch (RuntimeException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED);
         }
-        if (jobParam == null || jobParam.actorId() == null || jobParam.actorId() <= 0
-                || jobParam.roleIds() == null || jobParam.roleIds().isEmpty()
-                || isBlank(jobParam.permission())) {
+        if (jobParam == null || jobParam.actorId() == null || jobParam.actorId() <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED);
         }
-        for (Long roleId : jobParam.roleIds()) {
-            if (roleId == null || roleId <= 0) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED);
-            }
-        }
-        return new JobParam(jobParam.actorId(), List.copyOf(jobParam.roleIds()), jobParam.permission().trim());
+        return new JobParam(jobParam.actorId());
     }
 
     private static String safeReason(Throwable exception) {
@@ -382,7 +375,7 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
         return value;
     }
 
-    private record JobParam(Long actorId, List<Long> roleIds, String permission) {
+    private record JobParam(Long actorId) {
     }
 
     private record TenantOutcome(Long tenantId, boolean success, boolean skipped) {
@@ -402,6 +395,6 @@ public class DccRegistrationCertificateReminderDailyJob implements JobHandler {
                                 Integer rowVersion, LocalDate effectiveDate) {
     }
 
-    private record OccurrenceRow(Long id, Long ownerCompanyId) {
+    private record OccurrenceRow(Long id, Long ownerCompanyId, String thresholdLevel) {
     }
 }

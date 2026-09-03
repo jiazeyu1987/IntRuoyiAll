@@ -46,6 +46,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -148,6 +149,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock
+    private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
+    @Mock
     private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock
     private MesProcessPoolReportAllocationStateMapper reportAllocationStateMapper;
@@ -219,6 +222,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
+                processDeviceMapper,
                 reportAllocationMapper, reportAllocationStateMapper, reportAllocationAdjustmentAuditMapper,
                 orderProcessCompletionMapper, processPoolEventMapper, feedbackMapper, pqcRecordMapper,
                 submissionReviewMapper,
@@ -227,7 +231,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 inspectionRegulationMapper, inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService,
-                pickListMapper, pickListItemMapper, pickListBindingMapper, pickListBindingItemMapper,
+                pickListBindingMapper, pickListBindingItemMapper,
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(pickListMapper.selectById(9001L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
@@ -808,6 +812,73 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldBindSecondPickListWhenActiveOrderAlreadyExists() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L))
+                .thenReturn(existingActiveOrder(8101L, "ACTIVE", 7));
+        when(pickListMapper.selectById(9002L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
+                .id(9002L).sourceFormId("PRD_PickMtrl").sourceFid("9002").sourceBillNo("PICK-9002")
+                .documentStatus("C").build());
+        when(pickListItemMapper.selectListByPickListIds(List.of(9002L))).thenReturn(List.of(
+                ErpKingdeeProductionPickListItemDO.builder().id(9201L).productionPickListId(9002L)
+                        .sourceEntryId("10").sourceLineKey("9002:10").materialNumber("MAT-002")
+                        .materialName("弹簧").unitName("个").actualQuantity(new BigDecimal("7"))
+                        .requestedQuantity(new BigDecimal("8")).productionOrderNo("WO-9001")
+                        .build()));
+        when(pickListBindingMapper.selectByActiveOrderIdAndPickListId(8101L, 9002L)).thenReturn(null);
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .idempotencyKey("IDEMP-9002")
+                .build());
+
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_REUSE, result.getAction());
+        assertEquals(9002L, result.getPickListId());
+        verify(activeOrderMapper, never()).insert(argThat((MesProcessPoolActiveOrderDO ignored) -> true));
+        verify(pickListBindingMapper).insert(argThat((MesProcessPoolActiveOrderPickListBindingDO binding) ->
+                Objects.equals(8101L, binding.getActiveOrderId())
+                        && Objects.equals(9002L, binding.getPickListId())
+                        && Objects.equals("PICK-9002", binding.getSourceBillNo())));
+    }
+
+    @Test
+    void shouldReturnExistingBindingWhenConcurrentSecondPickListInsertConflicts() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L))
+                .thenReturn(existingActiveOrder(8101L, "ACTIVE", 7));
+        when(pickListMapper.selectById(9002L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
+                .id(9002L).sourceFormId("PRD_PickMtrl").sourceFid("9002").sourceBillNo("PICK-9002")
+                .documentStatus("C").build());
+        when(pickListItemMapper.selectListByPickListIds(List.of(9002L))).thenReturn(List.of(
+                ErpKingdeeProductionPickListItemDO.builder().id(9201L).productionPickListId(9002L)
+                        .sourceEntryId("10").sourceLineKey("9002:10").materialNumber("MAT-002")
+                        .materialName("弹簧").unitName("个").actualQuantity(new BigDecimal("7"))
+                        .requestedQuantity(new BigDecimal("8")).productionOrderNo("WO-9001")
+                        .build()));
+        MesProcessPoolActiveOrderPickListBindingDO persisted = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .id(8802L).activeOrderId(8101L).workOrderId(9001L).pickListId(9002L)
+                .sourceSnapshotHash("1e337dd8c89a0b4d21e1416af19bc0a8396884e2055731687355acab91581893")
+                .bindingStatus("BOUND").bindingVersion(1).build();
+        when(pickListBindingMapper.selectByActiveOrderIdAndPickListId(8101L, 9002L))
+                .thenReturn(null, persisted);
+        when(pickListBindingMapper.insert(any(MesProcessPoolActiveOrderPickListBindingDO.class)))
+                .thenThrow(new DuplicateKeyException("uk_active_order_pick_binding_pick_list"));
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L).workOrderId(9001L).idempotencyKey("IDEMP-9002").build());
+
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(8802L, result.getPickListBindingId());
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_REUSE, result.getAction());
+    }
+
+    @Test
     void shouldFreezeCanonicalDeviceParametersForExactRouteProcess() {
         stubWorkOrderExists(confirmedWorkOrder());
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
@@ -1268,7 +1339,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                         cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO>>any()))
                 .thenReturn(List.of());
         when(productIssueMapper.selectCountByWorkOrderId(9101L)).thenReturn(0L);
-        when(pickListBindingMapper.selectByActiveOrderId(8201L)).thenReturn(null);
+        when(pickListBindingMapper.selectListByActiveOrderId(8201L)).thenReturn(List.of());
 
         service.cleanupLatestSimulationActiveOrder(3001L, 8201L);
 
@@ -1979,7 +2050,6 @@ class MesTeamLeaderActiveOrderServiceTest {
         return MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
-                .pickListId(9001L)
                 .idempotencyKey("IDEMP-9001")
                 .build();
     }
@@ -2682,6 +2752,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals("[]", snapshot.getParameterSnapshotJson());
         assertEquals(MesDeviceParameterSnapshotCodec.sha256("[]"), snapshot.getParameterSnapshotSha256());
         assertEquals(MesDeviceParameterSnapshotCodec.STATE_FROZEN, snapshot.getParameterSnapshotState());
+        assertEquals("[]", snapshot.getDeviceSelectionSnapshotJson());
+        assertEquals(MesDeviceSelectionSnapshotCodec.sha256("[]"),
+                snapshot.getDeviceSelectionSnapshotSha256());
     }
 
     private static void assertAmount(String expected, BigDecimal actual) {

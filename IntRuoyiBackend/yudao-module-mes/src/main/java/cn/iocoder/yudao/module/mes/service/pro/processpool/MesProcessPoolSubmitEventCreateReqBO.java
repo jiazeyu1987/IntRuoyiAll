@@ -36,6 +36,7 @@ public class MesProcessPoolSubmitEventCreateReqBO {
     private String lossReasonNameSnapshot;
     private List<?> lossDetails;
     private Object selectedDevice;
+    private List<?> selectedDevices;
     private List<?> deviceParameterReadings;
     private Map<String, Object> equipmentParameters;
     private Map<String, Object> rawPayload;

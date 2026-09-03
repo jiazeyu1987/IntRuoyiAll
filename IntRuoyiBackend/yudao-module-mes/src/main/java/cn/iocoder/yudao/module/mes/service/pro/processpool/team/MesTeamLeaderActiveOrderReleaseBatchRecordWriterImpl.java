@@ -177,7 +177,8 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                             .setAggregateHash(completion.getAggregateHash())
                             .setIdempotencyKey(completion.getBackfillIdempotencyKey())
                             .setWorkOrder(plan.getCommand().getWorkOrder())
-                            .setPickListBindingId(plan.getCommand().getPickListBindingId())
+                            .setPickListBindingId(plan.getCommand().getPickListBindingIds().size() == 1
+                                    ? plan.getCommand().getPickListBindingIds().get(0) : null)
                             .setDccProjectCodeId(plan.getCommand().getDccProjectCodeId())
                             .setBatchExecutionId(batchExecutionId)
                             .setBatchExecutionTaskId(task.getId()));
@@ -205,7 +206,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
 
     private void validateCommand(MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command) {
         if (command == null || command.getTenantId() == null || command.getActiveOrderId() == null
-                || command.getPickListBindingId() == null
+                || command.getPickListBindingIds() == null || command.getPickListBindingIds().isEmpty()
                 || command.getWorkOrderId() == null
                 || command.getRouteId() == null || command.getRouteVersionId() == null
                 || command.getDccProjectCodeId() == null
@@ -447,17 +448,24 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers,
             Set<Long> sourceObjectIds,
             Set<String> sourceValueHashes) {
-        sourceObjectIds.add(command.getPickListBindingId());
+        sourceObjectIds.addAll(command.getPickListBindingIds());
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
             if (!SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType()))) {
                 continue;
             }
             try {
-                MesProductionPickListSourceService.ResolvedValue resolved = productionPickListSourceService.resolveValue(
-                        new MesProductionPickListSourceService.ResolveCommand(command.getRouteId(),
+                MesProductionPickListSourceService.ResolvedValue resolved = productionPickListSourceService.resolveValueFromAll(
+                        new MesProductionPickListSourceService.ResolveAllCommand(command.getRouteId(),
                                 snapshot.getRouteProcessId(), command.getProductId(), command.getDccProjectCodeId(),
-                                command.getPickListBindingId(),
+                                command.getPickListBindingIds(),
                                 command.getWorkOrder().getCode(), rule.getSourceFieldCode()));
+                if (resolved == null || resolved.pickListId() == null || resolved.pickListItemId() == null
+                        || resolved.evidenceHash() == null || resolved.evidenceHash().isBlank()) {
+                    blockers.add(blocker("PRODUCTION_PICK_LIST_REQUIRED", "ROUTE_PROCESS",
+                            snapshot.getRouteProcessId(), "领料单来源解析器未返回完整正式来源证据",
+                            "请核对完整领料单绑定集合和正式物料分录后重新申请"));
+                    return false;
+                }
                 sourceObjectIds.add(resolved.pickListId());
                 sourceObjectIds.add(resolved.pickListItemId());
                 sourceValueHashes.add(resolved.evidenceHash());

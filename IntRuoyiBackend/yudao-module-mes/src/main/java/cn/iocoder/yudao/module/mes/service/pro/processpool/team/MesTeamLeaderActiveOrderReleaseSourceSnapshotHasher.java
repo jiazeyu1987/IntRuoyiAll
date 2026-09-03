@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -31,6 +32,7 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
         root.put("tenantId", input.tenantId());
         root.put("activeOrder", activeOrder(input.activeOrder()));
         root.put("workOrder", workOrder(input.workOrder()));
+        root.put("pickListBindings", pickListBindings(input.pickListBindings()));
         root.put("processSnapshots", processSnapshots(input.processSnapshots()));
         root.put("productionCompletions", productionCompletions(input.productionCompletions()));
         root.put("inspectionTasks", inspectionTasks(input.inspectionTasks()));
@@ -61,6 +63,26 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
         value.put("batchCode", workOrder.getBatchCode());
         value.put("quantity", decimal(workOrder.getQuantity()));
         return value;
+    }
+
+    private List<Map<String, Object>> pickListBindings(List<MesProcessPoolActiveOrderPickListBindingDO> bindings) {
+        return List.copyOf(bindings).stream()
+                .sorted(Comparator.comparing(MesProcessPoolActiveOrderPickListBindingDO::getPickListId)
+                        .thenComparing(MesProcessPoolActiveOrderPickListBindingDO::getId))
+                .map(binding -> {
+                    Map<String, Object> value = map();
+                    value.put("id", binding.getId());
+                    value.put("activeOrderId", binding.getActiveOrderId());
+                    value.put("workOrderId", binding.getWorkOrderId());
+                    value.put("pickListId", binding.getPickListId());
+                    value.put("sourceFid", binding.getSourceFid());
+                    value.put("sourceBillNo", binding.getSourceBillNo());
+                    value.put("sourceDocumentStatus", binding.getSourceDocumentStatus());
+                    value.put("sourceModifyTime", time(binding.getSourceModifyTime()));
+                    value.put("sourceSnapshotHash", binding.getSourceSnapshotHash());
+                    value.put("bindingVersion", binding.getBindingVersion());
+                    return value;
+                }).toList();
     }
 
     private List<Map<String, Object>> processSnapshots(
@@ -165,6 +187,7 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
             Long tenantId,
             MesProcessPoolActiveOrderDO activeOrder,
             MesProWorkOrderDO workOrder,
+            List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshots,
             List<MesProcessPoolOrderProcessCompletionDO> productionCompletions,
             List<MesPqcInspectionTaskDO> inspectionTasks,
@@ -174,6 +197,7 @@ public class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher {
             Objects.requireNonNull(tenantId, "tenantId is required");
             Objects.requireNonNull(activeOrder, "activeOrder is required");
             Objects.requireNonNull(workOrder, "workOrder is required");
+            pickListBindings = List.copyOf(pickListBindings);
             processSnapshots = List.copyOf(processSnapshots);
             productionCompletions = List.copyOf(productionCompletions);
             inspectionTasks = List.copyOf(inspectionTasks);

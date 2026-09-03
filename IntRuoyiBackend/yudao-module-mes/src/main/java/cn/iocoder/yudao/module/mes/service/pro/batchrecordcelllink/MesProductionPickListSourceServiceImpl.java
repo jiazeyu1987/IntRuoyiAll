@@ -186,44 +186,102 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         if (!StrUtil.equals("BOUND", StrUtil.trim(binding.getBindingStatus()))) {
             throw sourceRequired("领料绑定不是已绑定状态，pickListBindingId=" + binding.getId());
         }
-        List<MesProcessPoolActiveOrderPickListBindingItemDO> snapshotItems =
-                pickListBindingItemMapper.selectListByBindingId(binding.getId());
-        if (snapshotItems == null || snapshotItems.isEmpty()) {
-            throw sourceRequired("领料绑定缺少完整明细快照，pickListBindingId=" + binding.getId());
-        }
-        String materialCode = resolveFormalMaterialCode(command, routeProcess, parsedField, snapshotItems);
-        List<MesProcessPoolActiveOrderPickListBindingItemDO> materialItems = snapshotItems.stream()
-                .filter(Objects::nonNull)
-                .filter(item -> StrUtil.equalsIgnoreCase(StrUtil.trim(item.getMaterialNumber()), materialCode))
-                .toList();
-        if (materialItems.isEmpty()) {
-            throw sourceRequired("绑定领料单没有物料 " + materialCode + ", pickListBindingId=" + binding.getId());
-        }
-        List<OrderedItem> orderedItems = new ArrayList<>();
-        Set<Long> entryIds = new LinkedHashSet<>();
-        for (MesProcessPoolActiveOrderPickListBindingItemDO item : snapshotItems) {
-            Long entryId = parsePositiveEntryId(item.getSourceEntryId());
-            if (item.getPickListItemId() == null || StrUtil.isBlank(item.getSourceLineKey()) || !entryIds.add(entryId)) {
-                throw sourceRequired("领料绑定的正式分录顺序缺失或重复，pickListBindingId=" + binding.getId());
-            }
-            orderedItems.add(new OrderedItem(entryId, item));
-        }
-        if (orderedItems.isEmpty()) {
-            throw sourceRequired("领料绑定没有可用的正式物料分录，pickListBindingId=" + binding.getId());
-        }
-        orderedItems.sort(Comparator.comparing(OrderedItem::entryId));
-        MesProcessPoolActiveOrderPickListBindingItemDO first = orderedItems.stream()
-                .map(OrderedItem::item)
-                .filter(item -> materialItems.contains(item))
-                .findFirst()
-                .orElseThrow(() -> sourceRequired("绑定领料单没有可解析的物料分录"));
-        Object value = extract(first, parsedField.property(), binding.getSourceBillNo());
+        List<BindingSnapshot> bindingSnapshots = loadBoundPickListSnapshots(binding);
+        String materialCode = resolveFormalMaterialCode(command, routeProcess, parsedField,
+                bindingSnapshots.stream().flatMap(snapshot -> snapshot.items().stream()).toList());
+        BindingMatch match = findFirstMaterialEntry(bindingSnapshots, materialCode, binding.getId());
+        Object value = extract(match.item(), parsedField.property(), match.binding().getSourceBillNo());
         if (!hasValue(value)) {
             throw sourceRequired("绑定领料单的第一条物料分录缺少字段 "
                     + parsedField.property().name());
         }
-        return new ResolvedValue(binding.getPickListId(), first.getPickListItemId(), value,
-                evidenceHash(binding, snapshotItems));
+        return new ResolvedValue(match.binding().getPickListId(), match.item().getPickListItemId(), value,
+                evidenceHash(match.binding(), match.items()));
+    }
+
+    @Override
+    public ResolvedValue resolveValueFromAll(ResolveAllCommand command) {
+        if (command == null || command.pickListBindingIds() == null || command.pickListBindingIds().isEmpty()
+                || command.pickListBindingIds().stream().anyMatch(Objects::isNull)) {
+            throw contextRequired("申请放行缺少完整领料绑定集合");
+        }
+        List<MesProcessPoolActiveOrderPickListBindingDO> requested = command.pickListBindingIds().stream()
+                .map(pickListBindingMapper::selectById).toList();
+        if (requested.stream().anyMatch(Objects::isNull)) {
+            throw sourceRequired("领料绑定集合包含不存在的绑定");
+        }
+        Long activeOrderId = requested.get(0).getActiveOrderId();
+        List<Long> persistedIds = pickListBindingMapper.selectListByActiveOrderId(activeOrderId).stream()
+                .map(MesProcessPoolActiveOrderPickListBindingDO::getId).sorted().toList();
+        List<Long> requestedIds = command.pickListBindingIds().stream().sorted().toList();
+        if (!persistedIds.equals(requestedIds)) {
+            throw sourceRequired("领料绑定集合与活跃订单冻结来源不一致");
+        }
+        return resolveValue(new ResolveCommand(command.routeId(), command.routeProcessId(), command.productId(),
+                command.dccProjectCodeId(), requestedIds.get(0), command.productionOrderNo(),
+                command.sourceFieldCode()));
+    }
+
+    private List<BindingSnapshot> loadBoundPickListSnapshots(MesProcessPoolActiveOrderPickListBindingDO requested) {
+        if (requested.getActiveOrderId() == null) {
+            throw sourceRequired("领料绑定缺少活跃订单上下文，pickListBindingId=" + requested.getId());
+        }
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings =
+                pickListBindingMapper.selectListByActiveOrderId(requested.getActiveOrderId());
+        if (bindings == null || bindings.isEmpty()) {
+            throw sourceRequired("活跃订单缺少领料绑定，activeOrderId=" + requested.getActiveOrderId());
+        }
+        List<BindingSnapshot> snapshots = new ArrayList<>();
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : bindings) {
+            if (binding == null || binding.getId() == null || binding.getPickListId() == null
+                    || StrUtil.isBlank(binding.getSourceSnapshotHash())) {
+                throw sourceRequired("领料绑定不存在或缺少来源快照，activeOrderId=" + requested.getActiveOrderId());
+            }
+            if (!StrUtil.equals("BOUND", StrUtil.trim(binding.getBindingStatus()))) {
+                throw sourceRequired("领料绑定不是已绑定状态，pickListBindingId=" + binding.getId());
+            }
+            List<MesProcessPoolActiveOrderPickListBindingItemDO> items =
+                    pickListBindingItemMapper.selectListByBindingId(binding.getId());
+            if (items == null || items.isEmpty()) {
+                throw sourceRequired("领料绑定缺少完整明细快照，pickListBindingId=" + binding.getId());
+            }
+            snapshots.add(new BindingSnapshot(binding, items));
+        }
+        return snapshots;
+    }
+
+    private BindingMatch findFirstMaterialEntry(List<BindingSnapshot> snapshots, String materialCode,
+                                                Long requestedBindingId) {
+        List<BindingSnapshot> orderedSnapshots = snapshots.stream()
+                .sorted(Comparator
+                        .comparing((BindingSnapshot snapshot) -> !Objects.equals(snapshot.binding().getId(),
+                                requestedBindingId))
+                        .thenComparing(snapshot -> snapshot.binding().getBoundAt(),
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(snapshot -> snapshot.binding().getId()))
+                .toList();
+        for (BindingSnapshot snapshot : orderedSnapshots) {
+            List<OrderedItem> orderedItems = new ArrayList<>();
+            Set<Long> entryIds = new LinkedHashSet<>();
+            for (MesProcessPoolActiveOrderPickListBindingItemDO item : snapshot.items()) {
+                Long entryId = parsePositiveEntryId(item.getSourceEntryId());
+                if (item.getPickListItemId() == null || StrUtil.isBlank(item.getSourceLineKey())
+                        || !entryIds.add(entryId)) {
+                    throw sourceRequired("领料绑定的正式分录顺序缺失或重复，pickListBindingId="
+                            + snapshot.binding().getId());
+                }
+                orderedItems.add(new OrderedItem(entryId, item));
+            }
+            orderedItems.sort(Comparator.comparing(OrderedItem::entryId));
+            for (OrderedItem orderedItem : orderedItems) {
+                MesProcessPoolActiveOrderPickListBindingItemDO item = orderedItem.item();
+                if (StrUtil.equalsIgnoreCase(StrUtil.trim(item.getMaterialNumber()), materialCode)) {
+                    return new BindingMatch(snapshot.binding(), snapshot.items(), item);
+                }
+            }
+        }
+        throw sourceRequired("绑定领料单没有物料 " + materialCode + ", activeOrderPickListBindingCount="
+                + snapshots.size());
     }
 
     private MesRouteDccProjectBindingDO requireRouteDccBinding(Long routeId, Long expectedDccProjectCodeId) {
@@ -473,5 +531,14 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
     }
 
     private record OrderedItem(Long entryId, MesProcessPoolActiveOrderPickListBindingItemDO item) {
+    }
+
+    private record BindingSnapshot(MesProcessPoolActiveOrderPickListBindingDO binding,
+                                   List<MesProcessPoolActiveOrderPickListBindingItemDO> items) {
+    }
+
+    private record BindingMatch(MesProcessPoolActiveOrderPickListBindingDO binding,
+                                List<MesProcessPoolActiveOrderPickListBindingItemDO> items,
+                                MesProcessPoolActiveOrderPickListBindingItemDO item) {
     }
 }

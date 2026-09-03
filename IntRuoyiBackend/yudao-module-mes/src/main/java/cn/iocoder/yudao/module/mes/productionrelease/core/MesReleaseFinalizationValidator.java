@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.productionrelease.core;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
+
 import java.time.Clock;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -40,12 +43,11 @@ public final class MesReleaseFinalizationValidator {
                     MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
                     CompletionBackfillReceipt.CANONICAL_NAME
                             + " must be authoritative, immutable and BACKFILL_SUCCEEDED");
-            require(command.getPickListId() != null
-                            && command.getWorkOrderId() != null
-                            && Objects.equals(command.getPickListBindingId(), receipt.getPickListBindingId())
+            validatePickListSources(command, receipt);
+            require(command.getWorkOrderId() != null
                             && Objects.equals(command.getCompletionEventId(), receipt.getCompletionEventId()),
                     MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
-                    "active-order finalization must match flow 1 binding and flow 4 completion event");
+                    "active-order finalization must match flow 1 bindings and flow 4 completion event");
             require(Boolean.TRUE.equals(command.getDualProgressCompleted()),
                     MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED,
                     "active-order dual progress must be 100% before finalization");
@@ -151,6 +153,47 @@ public final class MesReleaseFinalizationValidator {
         require(command.getSignoffEvidenceHash() != null && !command.getSignoffEvidenceHash().isBlank(),
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 "verified signoff evidence hash is required");
+    }
+
+    private static void validatePickListSources(
+            MesReleaseFinalizationCommand command,
+            CompletionBackfillReceipt receipt) {
+        require(samePickListSources(command.getPickListSources(), receipt.getPickListSources()),
+                MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
+                "active-order finalization must match every flow 1 pick-list binding");
+        if (receipt.getPickListSources().size() == 1) {
+            MesBatchExecutionPickListSource source = receipt.getPickListSources().get(0);
+            require(Objects.equals(command.getPickListBindingId(), String.valueOf(source.getPickListBindingId()))
+                            && Objects.equals(command.getPickListId(), source.getPickListId()),
+                    MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
+                    "single pick-list compatibility fields must match the authoritative source");
+        } else {
+            require(command.getPickListBindingId() == null && command.getPickListId() == null,
+                    MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED,
+                    "multi pick-list finalization must use pickListSources instead of a representative binding");
+        }
+    }
+
+    private static boolean samePickListSources(List<MesBatchExecutionPickListSource> left,
+                                               List<MesBatchExecutionPickListSource> right) {
+        if (left == null || right == null || left.isEmpty() || left.size() != right.size()) {
+            return false;
+        }
+        return normalizePickListSources(left).equals(normalizePickListSources(right));
+    }
+
+    private static List<String> normalizePickListSources(List<MesBatchExecutionPickListSource> sources) {
+        return sources.stream().map(source -> {
+                    if (source == null || source.getPickListBindingId() == null || source.getPickListId() == null
+                            || source.getBindingVersion() == null || source.getBindingVersion() <= 0
+                            || source.getSourceSnapshotHash() == null || source.getSourceSnapshotHash().isBlank()) {
+                        return "__INVALID__";
+                    }
+                    return source.getPickListBindingId() + "|" + source.getPickListId() + "|"
+                            + source.getBindingVersion() + "|" + source.getSourceSnapshotHash();
+                })
+                .sorted(Comparator.naturalOrder())
+                .toList();
     }
 
     private static boolean entryTypeMatchesOrigin(MesReleaseFinalizationCommand command) {

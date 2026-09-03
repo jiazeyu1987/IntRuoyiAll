@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskS
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
@@ -83,6 +84,7 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
+    @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
 
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
 
@@ -95,9 +97,14 @@ class MesProductionReleaseApplySp1Test {
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
                 activeOrderMapper, workOrderMapper, processSnapshotMapper, completionMapper,
                 pqcTaskMapper, aggregateDetailMapper, allocationMapper, applicationMapper, workTaskMapper,
-                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher());
+                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher(),
+                pickListBindingMapper);
 
         lenient().when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        lenient().when(pickListBindingMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO
+                        .builder().id(8801L).activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
+                        .pickListId(8901L).sourceSnapshotHash("pick-hash").build()));
         lenient().when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(workOrder());
         lenient().when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(ACTIVE_ORDER_ID))
                 .thenReturn(List.of(snapshot()));

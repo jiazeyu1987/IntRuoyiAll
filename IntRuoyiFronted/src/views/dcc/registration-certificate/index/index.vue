@@ -32,6 +32,12 @@
             @sort-change="handleCurrentSortChange"
           >
             <template #actions>
+              <el-button
+                v-hasPermi="['dcc:registration-certificate:config:query']"
+                @click="openReminderConfig"
+              >
+                <Icon icon="ep:bell" class="mr-5px" />通知设置
+              </el-button>
               <el-button v-hasPermi="['dcc:registration-certificate:upload:create']" type="success" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
@@ -361,31 +367,6 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane name="test" label="注册测试">
-        <div class="registration-certificate-test-tab" data-testid="registration-certificate-test-tab">
-          <div class="registration-certificate-business-time-controls">
-            <el-date-picker
-              v-model="simulationDate"
-              data-testid="registration-certificate-business-date"
-              type="date"
-              value-format="YYYY-MM-DD"
-              placeholder="选择模拟日期"
-            />
-            <el-button
-              type="primary"
-              data-testid="registration-certificate-simulate-daily-run"
-              :loading="simulationLoading"
-              :disabled="!simulationDate"
-              @click="handleSimulateDailyRun"
-            >
-              <Icon icon="ep:video-play" class="mr-5px" />模拟
-            </el-button>
-          </div>
-          <div v-if="simulationResult" class="registration-certificate-business-time-result">
-            已按 {{ formatRegistrationCertificateDate(simulationResult.businessDate) }} 09:00 触发注册证每日任务
-          </div>
-        </div>
-      </el-tab-pane>
     </el-tabs>
   </ContentWrap>
 
@@ -404,6 +385,7 @@
     :certificate="selectedChangeCertificate"
     @saved="handleChangeSaved"
   />
+  <RegistrationCertificateReminderConfigDialog ref="reminderConfigDialogRef" />
 </template>
 
 <script setup lang="ts">
@@ -413,8 +395,6 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   getRegistrationCertificateOldIndexPage,
   getRegistrationCertificatePage,
-  simulateRegistrationCertificateBusinessTimeDailyRun,
-  type DccRegistrationCertificateBusinessTimeSimulationRespVO,
   type DccRegistrationCertificateOldIndexItemVO,
   type DccRegistrationCertificatePageItemVO,
   type DccRegistrationCertificatePageReqVO,
@@ -432,6 +412,7 @@ import {
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import RegistrationCertificateChangeDialog from '../change/ChangeDialog.vue'
+import RegistrationCertificateReminderConfigDialog from '../config/ReminderConfigDialog.vue'
 import {
   REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS,
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
@@ -452,7 +433,7 @@ const REGISTRATION_CERTIFICATE_ROUTE_PATH = '/mdm/registration-certificate'
 
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
-const activeTab = ref<'current' | 'old' | 'test'>('current')
+const activeTab = ref<'current' | 'old'>('current')
 const loading = ref(false)
 const oldLoading = ref(false)
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
@@ -464,9 +445,7 @@ const showRenewalDialog = ref(false)
 const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
 const showChangeDialog = ref(false)
 const selectedChangeCertificate = ref<DccRegistrationCertificatePageItemVO>()
-const simulationDate = ref('')
-const simulationLoading = ref(false)
-const simulationResult = ref<DccRegistrationCertificateBusinessTimeSimulationRespVO>()
+const reminderConfigDialogRef = ref<InstanceType<typeof RegistrationCertificateReminderConfigDialog>>()
 const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsDoubleWidthV1'
 const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.unifiedViewActionV1'
 
@@ -885,10 +864,7 @@ const oldQuickFilter = useTableQuickFilter(
 )
 
 const handleTabChange = (tabName: string | number) => {
-  activeTab.value = tabName === 'old' ? 'old' : tabName === 'test' ? 'test' : 'current'
-  if (activeTab.value === 'test') {
-    return
-  }
+  activeTab.value = tabName === 'old' ? 'old' : 'current'
   if (activeTab.value === 'old') {
     void loadOldIndexPage()
     return
@@ -916,6 +892,10 @@ const openUploadDialog = () => {
   showUploadDialog.value = true
 }
 
+const openReminderConfig = () => {
+  reminderConfigDialogRef.value?.open()
+}
+
 const openRenewalDialog = (row: DccRegistrationCertificatePageItemVO) => {
   if (row.hasPendingRenewal) {
     ElMessage.warning('该注册证已有待审批或待生效的延续，请勿重复提交')
@@ -940,18 +920,6 @@ const handleChangeSaved = async () => {
   await loadPage()
 }
 
-const handleSimulateDailyRun = async () => {
-  if (!simulationDate.value) throw new Error('请选择模拟日期')
-  simulationLoading.value = true
-  try {
-    simulationResult.value = await simulateRegistrationCertificateBusinessTimeDailyRun({ businessDate: simulationDate.value })
-    ElMessage.success('注册证业务时间模拟完成')
-    await Promise.all([loadPage(), loadOldIndexPage()])
-  } finally {
-    simulationLoading.value = false
-  }
-}
-
 onMounted(() => {
   syncRegistrationCertificateQueryFromRoute()
   void loadPage()
@@ -968,9 +936,6 @@ onActivated(async () => {
     return
   }
   syncRegistrationCertificateQueryFromRoute()
-  if (activeTab.value === 'test') {
-    return
-  }
   if (activeTab.value === 'old') {
     await loadOldIndexPage()
     return

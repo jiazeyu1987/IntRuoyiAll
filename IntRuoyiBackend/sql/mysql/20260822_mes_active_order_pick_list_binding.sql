@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS mes_pro_process_pool_active_order_pick_list_binding (
   update_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_active_order_pick_binding_active (tenant_id,active_order_id,deleted),
+  UNIQUE KEY uk_active_order_pick_binding_pick_list (tenant_id,active_order_id,pick_list_id,deleted),
   UNIQUE KEY uk_active_order_pick_binding_idempotency (tenant_id,idempotency_key,deleted),
   KEY idx_active_order_pick_binding_pick_list (tenant_id,pick_list_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='活跃订单领料单绑定头快照';

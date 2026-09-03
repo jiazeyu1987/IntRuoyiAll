@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -60,7 +62,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         if (processes.isEmpty()) {
             throw new IllegalStateException("no process production record table was recognized");
         }
-        return new RecognitionResult(product, 1, processes);
+        return new RecognitionResult(product, 2, processes);
     }
 
     private String extractProductName(List<MesProBatchRecordParsedTable> tables) {
@@ -113,7 +115,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         LinkedHashMap<String, List<String>> parameters = extractParameters(table);
         if (parameters.isEmpty()) {
             return equipment.stream()
-                    .map(option -> new EquipmentGroup(List.of(option), List.of()))
+                    .map(option -> new EquipmentGroup(List.of(option), List.of(), selectionMode(processName)))
                     .toList();
         }
 
@@ -121,7 +123,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         if (valueGroupCount > 1) {
             return groupByParameterValueVectors(processName, equipment, parameters, valueGroupCount);
         }
-        return groupByEquipmentParameterDomain(equipment, parameters);
+        return groupByEquipmentParameterDomain(processName, equipment, parameters);
     }
 
     private List<EquipmentOption> extractEquipment(MesProBatchRecordParsedTable table) {
@@ -255,14 +257,15 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                     throw new IllegalStateException("parameter values cannot be uniquely aligned: " + entry.getKey());
                 }
                 String referenceValue = values.size() == 1 ? values.get(0) : values.get(groupIndex);
-                groupParameters.add(new Parameter(entry.getKey(), referenceValue, ACTUAL_VALUE_PLACEHOLDER));
+                groupParameters.add(toParameter(processName, entry.getKey(), referenceValue));
             }
-            result.add(new EquipmentGroup(equipmentGroups.get(groupIndex), groupParameters));
+            result.add(new EquipmentGroup(equipmentGroups.get(groupIndex), groupParameters,
+                    selectionMode(processName)));
         }
         return List.copyOf(result);
     }
 
-    private List<EquipmentGroup> groupByEquipmentParameterDomain(List<EquipmentOption> equipment,
+    private List<EquipmentGroup> groupByEquipmentParameterDomain(String processName, List<EquipmentOption> equipment,
                                                                   LinkedHashMap<String, List<String>> parameters) {
         LinkedHashMap<String, List<EquipmentOption>> equipmentByDomain = new LinkedHashMap<>();
         for (EquipmentOption option : equipment) {
@@ -272,17 +275,17 @@ public class MesProBatchRecordTotalRecognitionExtractor {
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             String domain = parameterDomain(entry.getKey());
             parametersByDomain.computeIfAbsent(domain, ignored -> new ArrayList<>())
-                    .add(new Parameter(entry.getKey(), entry.getValue().get(0), ACTUAL_VALUE_PLACEHOLDER));
+                    .add(toParameter(processName, entry.getKey(), entry.getValue().get(0)));
         }
 
         if (equipmentByDomain.size() == 1) {
             List<Parameter> allParameters = parametersByDomain.values().stream().flatMap(List::stream).toList();
-            return List.of(new EquipmentGroup(equipment, allParameters));
+            return List.of(new EquipmentGroup(equipment, allParameters, selectionMode(processName)));
         }
         List<EquipmentGroup> groups = new ArrayList<>();
         for (Map.Entry<String, List<EquipmentOption>> entry : equipmentByDomain.entrySet()) {
             List<Parameter> groupParameters = parametersByDomain.getOrDefault(entry.getKey(), List.of());
-            groups.add(new EquipmentGroup(entry.getValue(), groupParameters));
+            groups.add(new EquipmentGroup(entry.getValue(), groupParameters, selectionMode(processName)));
         }
         Set<String> unmatchedDomains = new LinkedHashSet<>(parametersByDomain.keySet());
         unmatchedDomains.removeAll(equipmentByDomain.keySet());
@@ -327,6 +330,10 @@ public class MesProBatchRecordTotalRecognitionExtractor {
             return "硅油";
         }
         return parameterName;
+    }
+
+    private String selectionMode(String processName) {
+        return "清洗工序".equals(processName) ? "MULTIPLE" : "SINGLE";
     }
 
     private boolean isPotentialParameterName(String text) {
@@ -453,7 +460,8 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                            @JsonInclude(JsonInclude.Include.NON_NULL) String sourceCodeLabel) {
     }
 
-    public record EquipmentGroup(List<EquipmentOption> equipmentOptions, List<Parameter> parameters) {
+    public record EquipmentGroup(List<EquipmentOption> equipmentOptions, List<Parameter> parameters,
+                                 String selectionMode) {
         public EquipmentGroup {
             equipmentOptions = List.copyOf(equipmentOptions);
             parameters = List.copyOf(parameters);
@@ -463,6 +471,79 @@ public class MesProBatchRecordTotalRecognitionExtractor {
     public record EquipmentOption(String code, String name) {
     }
 
-    public record Parameter(String name, String referenceValue, String actualValue) {
+    private Parameter toParameter(String processName, String name, String referenceValue) {
+        String effectiveReference = referenceValue;
+        if ("粗洗工序".equals(processName) && "清洗介质".equals(name)) {
+            effectiveReference = "自来水";
+        }
+        if ("清洗温度".equals(name) && "室温".equals(referenceValue)) {
+            effectiveReference = "20-30℃";
+        }
+        Ui ui = resolveUi(processName, name, effectiveReference);
+        return new Parameter(name, effectiveReference, ACTUAL_VALUE_PLACEHOLDER, ui);
+    }
+
+    private Ui resolveUi(String processName, String name, String referenceValue) {
+        if ("清洗介质".equals(name)) {
+            return new Ui("select", referenceValue, null, null, null, null, null,
+                    "自来水".equals(referenceValue) ? List.of("自来水", "纯化水") : List.of(referenceValue));
+        }
+        if ("清洗温度".equals(name) && "20-30℃".equals(referenceValue)) {
+            return new Ui("number", BigDecimal.valueOf(26), BigDecimal.ONE, BigDecimal.valueOf(20), BigDecimal.valueOf(30), "℃", null, null);
+        }
+        String unit = unit(name, referenceValue);
+        Matcher plusMinus = Pattern.compile("(-?\\d+(?:\\.\\d+)?)±(\\d+(?:\\.\\d+)?)").matcher(referenceValue);
+        if (plusMinus.matches()) {
+            BigDecimal center = new BigDecimal(plusMinus.group(1));
+            BigDecimal delta = new BigDecimal(plusMinus.group(2));
+            return numeric(center, center.subtract(delta), center.add(delta), unit);
+        }
+        Matcher range = Pattern.compile("(-?\\d+(?:\\.\\d+)?)-(-?\\d+(?:\\.\\d+)?)(?:[%℃])?").matcher(referenceValue);
+        if (range.matches()) {
+            BigDecimal min = new BigDecimal(range.group(1));
+            BigDecimal max = new BigDecimal(range.group(2));
+            return numeric(min.add(max).divide(BigDecimal.valueOf(2)), min, max, unit);
+        }
+        Matcher exact = Pattern.compile("(-?\\d+(?:\\.\\d+)?)(?:[A-Za-z%℃]+)?").matcher(referenceValue);
+        if (exact.matches()) {
+            BigDecimal value = new BigDecimal(exact.group(1));
+            return numeric(value, name.contains("次数") || name.endsWith("数量") ? BigDecimal.ONE : null, null, unit);
+        }
+        return new Ui("text", referenceValue, null, null, null, null, null, null);
+    }
+
+    private Ui numeric(BigDecimal value, BigDecimal min, BigDecimal max, String unit) {
+        int scale = Math.max(value.scale(), Math.max(min == null ? 0 : min.scale(), max == null ? 0 : max.scale()));
+        BigDecimal step = "h".equals(unit) || "s".equals(unit) ? BigDecimal.valueOf(0.1)
+                : scale <= 0 ? BigDecimal.ONE : BigDecimal.ONE.movePointLeft(scale);
+        return new Ui("number", plain(value), step, plain(min), plain(max), unit, null, null);
+    }
+
+    private BigDecimal plain(BigDecimal value) {
+        if (value == null) return null;
+        return new BigDecimal(value.setScale(Math.max(0, value.scale()), RoundingMode.UNNECESSARY).toPlainString());
+    }
+
+    private String unit(String name, String referenceValue) {
+        if (name.contains("℃") || referenceValue.endsWith("℃")) return "℃";
+        if (name.contains("kPa")) return "kPa";
+        if (name.contains("MPa")) return "MPa";
+        if (name.contains("ms")) return "ms";
+        if (name.endsWith("s")) return "s";
+        if (referenceValue.endsWith("min")) return "min";
+        if (referenceValue.endsWith("h")) return "h";
+        if (referenceValue.endsWith("%")) return "%";
+        if (name.contains("次数")) return "次";
+        if (name.contains("数量")) return "个";
+        if (name.contains("mJ/cm2")) return "mJ/cm2";
+        return null;
+    }
+
+    public record Parameter(String name, String referenceValue, String actualValue, Ui ui) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Ui(String control, Object defaultValue, BigDecimal step, BigDecimal min, BigDecimal max,
+                     String unit, String displayName, List<String> options) {
     }
 }

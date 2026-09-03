@@ -260,6 +260,16 @@ export interface BatchRecordReportCellRulesReqVO {
 }
 
 export const BatchRecordReportApi = {
+  importTotalRecognitionJson: async (dccProjectCodeId: number, file: File) => {
+    const data = new FormData()
+    data.append('dccProjectCodeId', String(dccProjectCodeId))
+    data.append('file', file)
+    return await request.upload<boolean>({
+      url: '/mes/pro/batch-record-report/import-total-recognition-json',
+      data
+    })
+  },
+
   importPilotDoc: async (data: FormData) => {
     const result = await request.upload<{ data: BatchRecordReportImportResultVO }>({
       url: '/mes/pro/batch-record-report/import',

@@ -314,7 +314,7 @@ async function main() {
       ),
       clickVisibleButton(page.locator('[data-testid="registration-certificate-current-tab"] .el-table'), '产品', 'registration product button')
     ])
-    await page.waitForURL((url) => url.pathname === '/mdm/product' && getSearchValue(url.href, 'productMasterId') === productMasterId)
+    await page.waitForURL((url) => url.pathname === '/mes/md/showroom-product' && getSearchValue(url.href, 'productMasterId') === productMasterId)
     assertContainsProduct(productData, productMasterId, 'registration -> product')
     summary.steps.push('registration -> product query refreshed')
 
@@ -377,7 +377,7 @@ async function main() {
       ),
       clickVisibleButton(page.locator('[data-testid="registration-certificate-current-tab"] .el-table'), '项目代码', 'registration project-code button')
     ])
-    await page.waitForURL((url) => url.pathname === '/mdm/project-code' && getSearchValue(url.href, 'projectCodeId') === projectCodeId)
+    await page.waitForURL((url) => url.pathname === '/mes/md/dcc-project-code' && getSearchValue(url.href, 'projectCodeId') === projectCodeId)
     assert.ok(sameTextId(projectDetail?.id, projectCodeId), `project detail drawer must load project-code ${projectCodeId}`)
     await page.locator('[data-testid="dcc-project-code-detail-drawer"]').filter({ hasText: candidate.projectCode || projectCodeId }).first()
       .waitFor({ state: 'visible', timeout: 30000 })

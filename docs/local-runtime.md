@@ -277,6 +277,14 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 验证方式：必须看到 chkdsk 报 no further action、坏扇区为 0、Get-Volume 为 Healthy/OK、fsutil dirty 报 NOT Dirty，且关键项目路径可读。Git fsck 必须单独核对；本地 Git 对象错误不等于 NTFS 修复失败，远端 Git 提交也不覆盖非 Git E: 数据。
 - 证据：doc/tasks/20260821-e-drive-minimal-repair/execution-log.md。
 
+## 标准后端重启构建失败离线门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component backend` 在完整 Maven 打包前已停止 48081 旧进程，随后 `testCompile` 或任一下游模块编译失败。
+- Preflight check: 执行标准重启前先记录 48081 PID、运行 Jar 和 health；主工作区有并行改动时，先运行能覆盖全部模块和测试编译的构建门禁，不能只证明目标模块 `compile` 通过。
+- Blocker: 标准脚本已停止旧后端且构建失败时，必须明确报告 48081 离线，并修复真实编译阻断后重跑同一标准脚本；不得声称旧后端仍在运行。
+- Verification: 最终必须同时看到完整 Reactor `BUILD SUCCESS`、脚本退出码 0、新运行 Jar/PID 归属和 `/actuator/health` 返回 `UP`。
+- Forbidden action: 禁止用旧 Jar、跳过测试编译、手工启动不等价参数或随机端口恢复来冒充标准重启成功。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

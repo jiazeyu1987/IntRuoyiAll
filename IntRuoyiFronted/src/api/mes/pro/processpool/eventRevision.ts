@@ -36,6 +36,13 @@ export interface ProcessPoolProductionReportCorrectionMaterialDetailReqVO {
   materialId: number
   outputQuantity: number
   lossQuantity: number
+  lossDetails: ProcessPoolProductionReportCorrectionLossDetailReqVO[]
+  selectedDevice?: ProcessPoolProductionReportCorrectionSelectedDeviceReqVO
+  deviceParameterReadings: ProcessPoolProductionReportCorrectionParameterReqVO[]
+}
+
+export interface ProcessPoolProductionReportCorrectionSelectedDeviceReqVO {
+  deviceId: number
 }
 
 export interface ProcessPoolProductionReportCorrectionParameterReqVO {

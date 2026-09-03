@@ -31,6 +31,8 @@ public class MesProcessPoolTeamProcessDeviceDO extends TenantBaseDO {
     private Long leaderUserId;
     private Long processId;
     private Long deviceId;
+    private String deviceGroupKey;
+    private String selectionMode;
     private Boolean enabled;
     private LocalDateTime disabledAt;
 }

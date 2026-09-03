@@ -21,7 +21,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderPickListOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderMoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildPreviewRespVO;
@@ -382,39 +381,13 @@ public class MesProcessPoolTeamLeaderController {
                 MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .workOrderId(reqVO.getWorkOrderId())
-                .pickListId(reqVO.getPickListId())
-                .pickListCandidateSnapshotHash(reqVO.getPickListCandidateSnapshotHash())
-                .idempotencyKey(reqVO.getIdempotencyKey())
+                .idempotencyKey("ACTIVE_ORDER_ADD:" + SecurityFrameworkUtils.getLoginUserId()
+                        + ":" + reqVO.getWorkOrderId())
                 .build());
         return success(new MesTeamLeaderActiveOrderAddRespVO()
                 .setActiveOrderId(String.valueOf(result.getActiveOrderId()))
                 .setAction(result.getAction())
-                .setWorkOrderId(String.valueOf(result.getWorkOrderId()))
-                .setPickListBindingId(result.getPickListBindingId() == null ? null
-                        : String.valueOf(result.getPickListBindingId()))
-                .setPickListId(result.getPickListId() == null ? null : String.valueOf(result.getPickListId()))
-                .setSourceSnapshotHash(result.getSourceSnapshotHash())
-                .setBindingVersion(result.getBindingVersion()));
-    }
-
-    @GetMapping("/active-order/pick-list-options")
-    @Operation(summary = "查询活跃订单正式领料单候选")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
-    public CommonResult<List<MesTeamLeaderPickListOptionRespVO>> listPickListOptions(
-            @RequestParam("workOrderId") Long workOrderId) {
-        return success(activeOrderService.listPickListOptions(workOrderId).stream().map(option ->
-                new MesTeamLeaderPickListOptionRespVO()
-                        .setPickListId(String.valueOf(option.getPickListId()))
-                        .setSourceFid(option.getSourceFid())
-                        .setSourceBillNo(option.getSourceBillNo())
-                        .setDocumentStatus(option.getDocumentStatus())
-                        .setSourceModifyTime(option.getSourceModifyTime())
-                        .setProductionOrderNo(option.getProductionOrderNo())
-                        .setDetailCount(option.getDetailCount())
-                        .setDetailIds(option.getDetailIds().stream().map(String::valueOf).toList())
-                        .setCandidateSnapshotHash(option.getCandidateSnapshotHash())
-                        .setSelectable(option.isSelectable())
-                        .setBlockerCode(option.getBlockerCode())).toList());
+                .setWorkOrderId(String.valueOf(result.getWorkOrderId())));
     }
 
     @PutMapping("/active-order/remove")

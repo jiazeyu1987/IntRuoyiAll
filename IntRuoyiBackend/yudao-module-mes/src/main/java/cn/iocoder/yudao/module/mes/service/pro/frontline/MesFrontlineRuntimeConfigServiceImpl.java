@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotRule;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -99,9 +100,13 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         List<MesFrontlineTeamDeviceOption> devices = toDeviceOptions(processDeviceBindings, process, leaderUserIds,
                 parameterSnapshot);
         List<MesFrontlineDefectReasonOption> defectReasons = toDefectReasonOptions(process, leaderUserIds);
-        List<MesFrontlineProcessMaterial> materials = activeOrderId == null ? List.of()
+        List<MesFrontlineProcessMaterial> frozenMaterials = activeOrderId == null ? List.of()
                 : processMaterialService.listFrozenMaterials(activeOrderId, process.routeId(),
                 process.routeProcessId(), process.processId());
+        List<MesFrontlineProcessMaterial> inputMaterials = frozenMaterials.stream()
+                .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole())).toList();
+        List<MesFrontlineProcessMaterial> materials = frozenMaterials.stream()
+                .filter(material -> MesFrontlineProcessMaterial.ROLE_OUTPUT.equals(material.materialRole())).toList();
         MesFrontlineProductionSubmitContext productionSubmitContext =
                 resolveProductionSubmitContext(process, responsibleLeaderUserId, parameterSnapshot);
         List<MesFrontlineEmployeeSwitchResult> employeeSwitchSnapshots =
@@ -109,10 +114,10 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         MesFrontlineSessionSnapshotReference snapshotReference = sessionSnapshotService.issue(
                 new MesFrontlineSessionSnapshotContent(TenantContextHolder.getTenantId(), loginUserId,
                         process.routeId(), process.routeProcessId(), process.processId(), process.workstationId(),
-                        employeeSwitchSnapshots, devices, defectReasons, materials, productionSubmitContext));
+                        employeeSwitchSnapshots, devices, defectReasons, frozenMaterials, productionSubmitContext));
         return new MesFrontlineRuntimeConfig(process.routeId(), process.routeProcessId(), process.processId(),
                 employees, devices, defectReasons, materials, productionSubmitContext, employeeSwitchSnapshots,
-                snapshotReference.snapshotId(), snapshotReference.snapshotHash());
+                snapshotReference.snapshotId(), snapshotReference.snapshotHash(), inputMaterials);
     }
 
     private List<MesFrontlineEmployeeSwitchResult> resolveEmployeeSwitchSnapshots(
@@ -162,7 +167,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             MesFrontlineRouteProcessCandidate process, Long activeOrderId) {
         if (activeOrderId == null) {
             return new ParameterRuntimeSnapshot(null, null,
-                    MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT, null);
+                    MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT, null, null);
         }
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshotMapper.selectByActiveOrderAndProcess(
                 activeOrderId, process.routeProcessId(), process.processId());
@@ -174,19 +179,28 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         if (state == null || state.isBlank()
                 || MesDeviceParameterSnapshotCodec.STATE_MISSING_LEGACY.equals(state)) {
             return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(),
-                    MesDeviceParameterSnapshotCodec.STATE_MISSING_LEGACY, List.of());
+                    MesDeviceParameterSnapshotCodec.STATE_MISSING_LEGACY, List.of(), List.of());
         }
         if (!MesDeviceParameterSnapshotCodec.STATE_FROZEN.equals(state)) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
                     PRODUCTION_CONTEXT_PREFIX + "parameterSnapshotState=" + state);
         }
         List<MesDeviceParameterSnapshotRule> rules;
+        List<MesFrontlineDeviceSelectionGroup> selectionGroups;
         try {
             rules = MesDeviceParameterSnapshotCodec.parse(snapshot.getParameterSnapshotJson());
+            String selectionJson = snapshot.getDeviceSelectionSnapshotJson();
+            if (selectionJson == null || !Objects.equals(snapshot.getDeviceSelectionSnapshotSha256(),
+                    MesDeviceSelectionSnapshotCodec.sha256(selectionJson))) {
+                throw new IllegalArgumentException("device selection snapshot hash mismatch");
+            }
+            selectionGroups = MesDeviceSelectionSnapshotCodec.parse(selectionJson);
         } catch (RuntimeException ex) {
-            rules = List.of();
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
+                    PRODUCTION_CONTEXT_PREFIX + "deviceSelectionSnapshot");
         }
-        return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(), state, rules);
+        return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(), state, rules,
+                selectionGroups);
     }
 
     private static void requirePositive(Long value, String field) {
@@ -296,6 +310,17 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                         (left, ignored) -> left, LinkedHashMap::new));
         Map<Long, List<MesFrontlineDeviceParameterOption>> parametersByDevice =
                 listParameterOptions(process, deviceIds, leaderUserIds, parameterSnapshot);
+        Map<Long, MesFrontlineDeviceSelectionGroup> frozenGroupsByDevice = new LinkedHashMap<>();
+        if (parameterSnapshot.selectionGroups() != null) {
+            for (MesFrontlineDeviceSelectionGroup group : parameterSnapshot.selectionGroups()) {
+                for (Long deviceId : group.deviceIds()) {
+                    if (frozenGroupsByDevice.put(deviceId, group) != null) {
+                        throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
+                                PRODUCTION_CONTEXT_PREFIX + "duplicateDeviceSelection=" + deviceId);
+                    }
+                }
+            }
+        }
         List<MesFrontlineTeamDeviceOption> options = new ArrayList<>();
         Set<Long> emittedDeviceIds = new LinkedHashSet<>();
         for (MesProcessPoolTeamProcessDeviceDO binding : processDeviceBindings) {
@@ -304,8 +329,14 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                     || !emittedDeviceIds.add(device.getId())) {
                 continue;
             }
+            MesFrontlineDeviceSelectionGroup frozenGroup = frozenGroupsByDevice.get(device.getId());
+            if (parameterSnapshot.selectionGroups() != null && frozenGroup == null) {
+                continue;
+            }
             options.add(new MesFrontlineTeamDeviceOption(device.getId(), device.getDeviceCode(),
                     device.getDeviceName(), device.getDeviceStatus(),
+                    frozenGroup == null ? binding.getDeviceGroupKey() : frozenGroup.deviceGroupKey(),
+                    frozenGroup == null ? binding.getSelectionMode() : frozenGroup.selectionMode(),
                     parametersByDevice.getOrDefault(device.getId(), List.of())));
         }
         options.sort(Comparator
@@ -440,7 +471,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     }
 
     private record ParameterRuntimeSnapshot(Long snapshotId, String sha256, String state,
-                                            List<MesDeviceParameterSnapshotRule> rules) {
+                                            List<MesDeviceParameterSnapshotRule> rules,
+                                            List<MesFrontlineDeviceSelectionGroup> selectionGroups) {
     }
 
 }

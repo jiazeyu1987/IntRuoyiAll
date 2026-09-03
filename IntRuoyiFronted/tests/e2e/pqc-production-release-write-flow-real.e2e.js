@@ -233,49 +233,11 @@ const createTemplateActiveOrder = async (page) => {
       .filter({ hasText: candidate.workOrderCode })
       .first()
     await option.waitFor({ state: 'visible', timeout: 30000 })
-    const pickListResponse = page.waitForResponse(
-      (response) => {
-        const url = new URL(response.url())
-        return (
-          url.pathname.endsWith(
-            '/mes/pro/process-pool/team-leader/active-order/pick-list-options'
-          ) && url.searchParams.get('workOrderId') === String(candidate.workOrderId)
-        )
-      },
-      { timeout: 60000 }
-    )
     await option.click()
-    const pickListBody = await (await pickListResponse).json()
-    assert.equal(pickListBody.code, 0, pickListBody.msg || '领料单候选查询失败')
-    evidence.pickListDiagnostics = (pickListBody.data || []).map((item) => ({
-      pickListId: item.pickListId,
-      sourceBillNo: item.sourceBillNo || null,
-      sourceFid: item.sourceFid || null,
-      selectable: item.selectable,
-      documentStatus: item.documentStatus
-    }))
-    persist()
-    const pickList = (pickListBody.data || []).find((item) => item.selectable)
-    if (!pickList) {
-      await orderInput.clear()
-      await orderInput.fill(selectedKeyword)
-      await page.waitForTimeout(300)
-      continue
-    }
-    const pickListInput = dialog
-      .locator('[data-team-leader-active-order-pick-list] input[role="combobox"]')
-      .first()
-    await pickListInput.waitFor({ state: 'visible', timeout: 30000 })
-    await page.waitForFunction((input) => !input.disabled, await pickListInput.elementHandle(), {
-      timeout: 30000
-    })
-    await pickListInput.click()
-    await pickListInput.press('ArrowDown')
-    await pickListInput.press('Enter')
-    selected = { candidate, pickList }
+    selected = { candidate }
     break
   }
-  assert.ok(selected, 'ADDABLE工单均缺少可绑定的已审核领料单')
+  assert.ok(selected, '未能从合格候选中选择生产工单')
 
   const receipt = await waitBusinessWrite(
     page,

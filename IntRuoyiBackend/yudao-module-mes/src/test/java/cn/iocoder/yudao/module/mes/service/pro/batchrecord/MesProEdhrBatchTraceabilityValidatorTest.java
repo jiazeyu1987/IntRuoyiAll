@@ -190,7 +190,7 @@ class MesProEdhrBatchTraceabilityValidatorTest {
     @Test
     void sourceSnapshotHashMustMatchPickListSource() {
         MesProEdhrBatchTraceCaptureCommand command = activeCommand()
-                .setSourceSnapshotHash("not-the-pick-list-snapshot");
+                .setPickListSources(List.of(pickListSource("not-the-pick-list-snapshot")));
 
         MesProEdhrBatchTraceValidationResult result = validator.validate(command);
 
@@ -338,6 +338,7 @@ class MesProEdhrBatchTraceabilityValidatorTest {
                 .setCompletionBackfillReceiptHash(completionReceiptHash)
                 .setPickListBindingId(12L)
                 .setPickListId(20L)
+                .setPickListSources(List.of(pickListSource(pickListSnapshotHash)))
                 .setPickListBindingVersion(1)
                 .setHasActualLoss(false)
                 .setSourceSnapshotHash(pickListSnapshotHash)
@@ -357,5 +358,13 @@ class MesProEdhrBatchTraceabilityValidatorTest {
                 .setSnapshotJson(snapshot)
                 .setSnapshotHash(DigestUtil.sha256Hex(
                         MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(snapshot)));
+    }
+
+    private MesBatchExecutionPickListSource pickListSource(String snapshotHash) {
+        return new MesBatchExecutionPickListSource()
+                .setPickListBindingId(21L)
+                .setPickListId(20L)
+                .setBindingVersion(1L)
+                .setSourceSnapshotHash(snapshotHash);
     }
 }

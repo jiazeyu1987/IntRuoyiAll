@@ -96,7 +96,10 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         if (request.getTenantId() != null && !Objects.equals(request.getTenantId(), tenantId)) {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
         }
-        MesProcessPoolActiveOrderPickListBindingDO pickListBinding = resolvePickListBinding(receipt, tenantId);
+        List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings = resolvePickListBindings(receipt, tenantId);
+        List<MesBatchExecutionPickListSource> pickListSources = toPickListSources(pickListBindings);
+        MesProcessPoolActiveOrderPickListBindingDO singlePickListBinding =
+                pickListBindings.size() == 1 ? pickListBindings.iterator().next() : null;
         MesCompletionBackfillReceipt canonicalReceipt = new MesCompletionBackfillReceipt()
                 .setReceiptId(String.valueOf(receipt.getReceiptId())).setTenantId(receipt.getTenantId())
                 .setActiveOrderId(receipt.getActiveOrderId()).setWorkOrderId(receipt.getWorkOrderId())
@@ -121,14 +124,18 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setLossRecordId(receipt.getLossRecordId()).setLossReportStatus(receipt.getLossReportStatus())
                 .setLossDecision(Boolean.TRUE.equals(receipt.getHasActualLoss()) ? "ACTUAL_LOSS" : "NO_LOSS")
                 .setSourceVersion(String.valueOf(receipt.getCompletionVersion()))
-                .setSourceBundleHash(traceSourceBundleHash(traceEvidence(receipt, pickListBinding)))
-                .setPickListBindingId(pickListBinding.getId()).setPickListId(pickListBinding.getPickListId())
-                .setBatchPickListRelationId(pickListBinding.getId())
-                .setBindingVersion(pickListBinding.getBindingVersion() == null ? null
-                        : pickListBinding.getBindingVersion().longValue())
-                .setPickListHeaderSnapshotHash(pickListBinding.getSourceSnapshotHash())
-                .setPickListLineSnapshotHash(pickListBinding.getSourceSnapshotHash())
-                .setSourceEvidence(traceEvidence(receipt, pickListBinding));
+                .setSourceBundleHash(traceSourceBundleHash(traceEvidence(receipt, pickListBindings)))
+                .setPickListBindingId(singlePickListBinding == null ? null : singlePickListBinding.getId())
+                .setPickListId(singlePickListBinding == null ? null : singlePickListBinding.getPickListId())
+                .setPickListSources(pickListSources)
+                .setBatchPickListRelationId(singlePickListBinding == null ? null : singlePickListBinding.getId())
+                .setBindingVersion(singlePickListBinding == null || singlePickListBinding.getBindingVersion() == null
+                        ? null : singlePickListBinding.getBindingVersion().longValue())
+                .setPickListHeaderSnapshotHash(singlePickListBinding == null ? null
+                        : singlePickListBinding.getSourceSnapshotHash())
+                .setPickListLineSnapshotHash(singlePickListBinding == null ? null
+                        : singlePickListBinding.getSourceSnapshotHash())
+                .setSourceEvidence(traceEvidence(receipt, pickListBindings));
         MesBatchExecutionProvisionCommand canonical = new MesBatchExecutionProvisionCommand()
                 .setEntryType(request.getEntryType()).setEntryBusinessId(request.getEntryBusinessId())
                 .setSourceCredentialType(ACTIVE_RECEIPT_TYPE).setSourceCredentialId(String.valueOf(receipt.getReceiptId()))
@@ -143,9 +150,11 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setCompletionBackfillReceiptId(String.valueOf(receipt.getReceiptId()))
                 .setCompletionBackfillReceiptHash(receipt.getReceiptHash())
                 .setSourceVersion(canonicalReceipt.getSourceVersion()).setSourceBundleHash(canonicalReceipt.getSourceBundleHash())
-                .setPickListBindingId(pickListBinding.getId()).setPickListId(pickListBinding.getPickListId())
+                .setPickListBindingId(canonicalReceipt.getPickListBindingId())
+                .setPickListId(canonicalReceipt.getPickListId())
+                .setPickListSources(toPickListSources(pickListBindings))
                 .setBindingVersion(canonicalReceipt.getBindingVersion())
-                .setBatchPickListRelationId(pickListBinding.getId())
+                .setBatchPickListRelationId(canonicalReceipt.getBatchPickListRelationId())
                 .setPickListHeaderSnapshotHash(canonicalReceipt.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(canonicalReceipt.getPickListLineSnapshotHash())
                 .setSourceEvidence(canonicalReceipt.getSourceEvidence())
@@ -153,7 +162,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setPayloadHash(canonicalReceipt.getPayloadHash())
                 .setCompletionBackfillReceipt(canonicalReceipt);
         return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical)
-                .setCompletionReceipt(receipt).setPickListBinding(pickListBinding);
+                .setCompletionReceipt(receipt).setPickListBindings(pickListBindings);
     }
 
     private MesBatchExecutionAuthoritativeContext resolveIndependent(
@@ -210,23 +219,43 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         }
     }
 
-    private MesProcessPoolActiveOrderPickListBindingDO resolvePickListBinding(
+    private List<MesProcessPoolActiveOrderPickListBindingDO> resolvePickListBindings(
             MesFlow6CompletionBackfillReceipt receipt, Long tenantId) {
         if (receipt.getActiveOrderId() == null || pickListBindingMapper == null) {
             throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
         }
-        MesProcessPoolActiveOrderPickListBindingDO binding =
-                pickListBindingMapper.selectByActiveOrderId(receipt.getActiveOrderId());
-        if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)
-                || !Objects.equals(binding.getActiveOrderId(), receipt.getActiveOrderId())
-                || !Objects.equals(binding.getWorkOrderId(), receipt.getWorkOrderId())
-                || binding.getId() == null || binding.getPickListId() == null
-                || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
-                || StrUtil.isBlank(binding.getSourceSnapshotHash())
-                || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())) {
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings =
+                pickListBindingMapper.selectListByActiveOrderId(receipt.getActiveOrderId());
+        if (bindings == null || bindings.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
         }
-        return binding;
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : bindings) {
+            if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)
+                    || !Objects.equals(binding.getActiveOrderId(), receipt.getActiveOrderId())
+                    || !Objects.equals(binding.getWorkOrderId(), receipt.getWorkOrderId())
+                    || binding.getId() == null || binding.getPickListId() == null
+                    || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
+                    || StrUtil.isBlank(binding.getSourceSnapshotHash())
+                    || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())) {
+                throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+            }
+        }
+        return List.copyOf(bindings);
+    }
+
+    private List<MesBatchExecutionPickListSource> toPickListSources(
+            List<MesProcessPoolActiveOrderPickListBindingDO> bindings) {
+        if (bindings == null || bindings.isEmpty()) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+        }
+        return bindings.stream()
+                .map(binding -> new MesBatchExecutionPickListSource()
+                        .setPickListBindingId(binding.getId())
+                        .setPickListId(binding.getPickListId())
+                        .setBindingVersion(binding.getBindingVersion() == null ? null
+                                : binding.getBindingVersion().longValue())
+                        .setSourceSnapshotHash(binding.getSourceSnapshotHash()))
+                .toList();
     }
 
     private boolean isCompleteSuccessfulReceipt(MesFlow6CompletionBackfillReceipt receipt) {
@@ -250,12 +279,17 @@ public class MesBatchExecutionAuthoritativeContextResolver {
     }
 
     private List<MesBatchExecutionSourceEvidence> traceEvidence(
-            MesFlow6CompletionBackfillReceipt receipt, MesProcessPoolActiveOrderPickListBindingDO binding) {
+            MesFlow6CompletionBackfillReceipt receipt,
+            List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings) {
         List<MesBatchExecutionSourceEvidence> evidence = new ArrayList<>();
         evidence.add(simpleEvidence("ACTIVE_ORDER", receipt.getActiveOrderId(), receipt.getSourceSnapshotHash(), "BOUND"));
         evidence.add(simpleEvidence("WORK_ORDER", receipt.getWorkOrderId(), receipt.getSourceSnapshotHash(), "BOUND"));
-        evidence.add(simpleEvidence("MATERIAL_ISSUE", binding.getPickListId(), receipt.getSourceSnapshotHash(), "BOUND"));
-        evidence.add(simpleEvidence("MATERIAL_ISSUE_LINE", binding.getId(), receipt.getSourceSnapshotHash(), "BOUND"));
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : pickListBindings) {
+            evidence.add(simpleEvidence("MATERIAL_ISSUE", binding.getPickListId(),
+                    binding.getSourceSnapshotHash(), "BOUND"));
+            evidence.add(simpleEvidence("MATERIAL_ISSUE_LINE", binding.getId(),
+                    binding.getSourceSnapshotHash(), "BOUND"));
+        }
         for (String type : List.of("PRODUCTION_SUBMIT", "PRODUCTION_SIGNATURE", "PRODUCTION_LEADER_REVIEW")) {
             evidence.add(simpleEvidence(type, receipt.getBatchRecordId(), receipt.getReceiptHash(), "BOUND"));
         }

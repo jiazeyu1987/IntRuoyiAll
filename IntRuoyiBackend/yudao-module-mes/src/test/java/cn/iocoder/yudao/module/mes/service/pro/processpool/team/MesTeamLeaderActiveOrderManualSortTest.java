@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolRevie
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -78,6 +79,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
+    @Mock private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     @Mock private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock private MesProcessPoolReportAllocationStateMapper reportAllocationStateMapper;
     @Mock private MesProcessPoolReportAllocationAdjustmentAuditMapper reportAllocationAdjustmentAuditMapper;
@@ -118,6 +120,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
+                processDeviceMapper,
                 reportAllocationMapper, reportAllocationStateMapper, reportAllocationAdjustmentAuditMapper,
                 orderProcessCompletionMapper, processPoolEventMapper, feedbackMapper, pqcRecordMapper,
                 submissionReviewMapper,
@@ -127,7 +130,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
-                reportAllocationOrderChangeService, pickListMapper, pickListItemMapper,
+                reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
     }

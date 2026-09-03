@@ -58,6 +58,16 @@ public class MesProBatchRecordReportController {
         return success(toImportRespVO(batchRecordReportService.importPilotDoc(file)));
     }
 
+    @PostMapping("/import-total-recognition-json")
+    @Operation(summary = "导入批记录总识别 JSON 并同步一线设备参数")
+    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-template:update')")
+    public CommonResult<Boolean> importTotalRecognitionJson(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
+            @RequestParam("file") MultipartFile file) {
+        batchRecordReportService.importTotalRecognitionJson(dccProjectCodeId, file);
+        return success(true);
+    }
+
     @PostMapping("/import-image")
     @Operation(summary = "导入电子批记录图片并生成报表")
     public CommonResult<BatchRecordReportImportRespVO> importImage(@RequestParam("file") MultipartFile file) {

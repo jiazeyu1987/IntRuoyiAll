@@ -19,8 +19,9 @@ import static org.springframework.format.annotation.DateTimeFormat.ISO.DATE;
 @Data
 public class DccRegistrationCertificateUploadSubmitReqVO {
 
-    @Schema(description = "DCC项目代码编号，选填", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    @Positive(message = "DCC项目代码不合法")
+    @Schema(description = "实际项目代码编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "请选择实际项目代码")
+    @Positive(message = "请选择实际项目代码")
     private Long projectCodeId;
 
     @Schema(description = "授权公司编号", requiredMode = Schema.RequiredMode.REQUIRED)

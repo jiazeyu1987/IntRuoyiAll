@@ -95,6 +95,30 @@ class MesQaInspectionRegulationWordParserTest {
     }
 
     @Test
+    void parse_disambiguatesRepeatedMergedParentItemsFromExplicitStandardPrefixes()
+            throws Exception {
+        MesQaInspectionRegulationWordParser.ParsedRegulation parsed = parser.parse(
+                buildQaTemplateWithRepeatedMergedParentItems(), "层级检验项目QA模板.docx");
+
+        assertEquals(List.of(
+                        "气密性 / 负压检测",
+                        "气密性 / 高压检测",
+                        "气密性 / 低压检测",
+                        "外观"),
+                parsed.items().stream()
+                        .map(MesQaInspectionRegulationWordParser.ParsedItem::itemName)
+                        .toList());
+        assertEquals(List.of(5, 5, 5, 13),
+                parsed.items().stream()
+                        .map(MesQaInspectionRegulationWordParser.ParsedItem::firstInspectionQuantity)
+                        .toList());
+        assertTrue(parsed.items().stream()
+                .allMatch(item -> item.processName().equals("整体粘结")));
+        assertEquals("外观检测：表面应无黑点、杂质和划痕。",
+                parsed.items().get(3).standardText());
+    }
+
+    @Test
     void parse_rejectsMissingEffectiveDateForHeaderVersion() throws Exception {
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> parser.parse(buildQaTemplate(false), "测试QA模板.docx"));
@@ -289,9 +313,102 @@ class MesQaInspectionRegulationWordParserTest {
         }
     }
 
+    private static byte[] buildQaTemplateWithRepeatedMergedParentItems() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            XWPFHeader header = document.createHeader(HeaderFooterType.DEFAULT);
+            XWPFTable headerTable = header.createTable(3, 3);
+            setRow(headerTable.getRow(0), "过程检验规程", "文件编号", "PQC-TEST-001");
+            setRow(headerTable.getRow(1), "测试产品组装过程检验规程", "版本", "B/1");
+            setRow(headerTable.getRow(2), "", "页码", "1 of 3");
+
+            XWPFTable revision = document.createTable(2, 5);
+            setRow(revision.getRow(0), "版本", "修订内容", "修订编号", "修订日期", "生效日期");
+            setRow(revision.getRow(1), "B/1", "升版", "REV-002", "2026.08.12", "2026.08.17");
+
+            XWPFTable inspection = document.createTable(6, 8);
+            XWPFTableRow heading = inspection.getRow(0);
+            heading.getCell(0).setText("序号");
+            heading.getCell(1).setText("检验项目");
+            setGridSpan(heading.getCell(1), 3);
+            heading.removeCell(3);
+            heading.removeCell(2);
+            heading.getCell(2).setText("接受标准");
+            heading.getCell(3).setText("检验方法");
+            heading.getCell(4).setText("检验器具及设备");
+            heading.getCell(5).setText("抽样方案");
+
+            setMergedInspectionRow(inspection.getRow(1), "1", "整体粘结", STMerge.RESTART,
+                    "气密性", STMerge.RESTART,
+                    "负压检测：抽负压-80±5kPa，不应有泄漏。", "连接工装检测",
+                    "气密性检测工装", STMerge.RESTART, 5);
+            setCellParagraphs(inspection.getRow(1).getCell(1), "整体", "粘结");
+            setMergedInspectionRow(inspection.getRow(2), "2", "", STMerge.CONTINUE,
+                    "", STMerge.CONTINUE,
+                    "高压检测：压力表应匀速上升到指定压力。", "连接工装检测",
+                    "", STMerge.CONTINUE, 5);
+            setMergedInspectionRow(inspection.getRow(3), "3", "", STMerge.CONTINUE,
+                    "", STMerge.CONTINUE,
+                    "低压检测：压力表不应直接跳到8atm。", "连接工装检测",
+                    "", STMerge.CONTINUE, 5);
+            setMergedInspectionRow(inspection.getRow(4), "4", "", STMerge.CONTINUE,
+                    "外观", null,
+                    "外观检测：表面应无黑点、杂质和划痕。", "目视检查",
+                    "目测", null, 13);
+
+            XWPFTableRow remark = inspection.getRow(5);
+            remark.getCell(0).setText("备注");
+            setGridSpan(remark.getCell(0), 8);
+            for (int cellIndex = 7; cellIndex >= 1; cellIndex--) {
+                remark.removeCell(cellIndex);
+            }
+
+            document.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private static void setMergedInspectionRow(XWPFTableRow row,
+                                               String serial,
+                                               String processName,
+                                               STMerge.Enum processMerge,
+                                               String itemName,
+                                               STMerge.Enum itemMerge,
+                                               String standard,
+                                               String method,
+                                               String tool,
+                                               STMerge.Enum toolMerge,
+                                               int firstInspectionQuantity) {
+        row.getCell(0).setText(serial);
+        row.getCell(1).setText(processName);
+        setVerticalMerge(row.getCell(1), processMerge);
+        row.getCell(2).setText(itemName);
+        setGridSpan(row.getCell(2), 2);
+        if (itemMerge != null) {
+            setVerticalMerge(row.getCell(2), itemMerge);
+        }
+        row.removeCell(3);
+        row.getCell(3).setText(standard);
+        row.getCell(4).setText(method);
+        row.getCell(5).setText(tool);
+        if (toolMerge != null) {
+            setVerticalMerge(row.getCell(5), toolMerge);
+        }
+        row.getCell(6).setText("首件：" + firstInspectionQuantity + "件；GB/T 2828.1，S-3，AQL=0.4");
+    }
+
     private static void setRow(XWPFTableRow row, String... values) {
         for (int index = 0; index < values.length; index++) {
             row.getCell(index).setText(values[index]);
+        }
+    }
+
+    private static void setCellParagraphs(XWPFTableCell cell, String... values) {
+        while (!cell.getParagraphs().isEmpty()) {
+            cell.removeParagraph(0);
+        }
+        for (String value : values) {
+            cell.addParagraph().createRun().setText(value);
         }
     }
 

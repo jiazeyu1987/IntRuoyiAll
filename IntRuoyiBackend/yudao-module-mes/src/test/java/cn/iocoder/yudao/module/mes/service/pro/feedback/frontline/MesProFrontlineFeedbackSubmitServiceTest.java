@@ -201,6 +201,39 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
+    void shouldPersistServerManagedInputMaterialEvidenceWithoutRequiringInputQuantity() {
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorizationWithInputEvidence(
+                submitAuthorizationService);
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(9001L, "sign-123", "一线生产报工提交"))
+                .thenReturn(4001L);
+        stubValidLossReason();
+        MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+        }
+
+        assertEquals(List.of(501L, 502L), request.getMaterialDetails().stream()
+                .map(item -> item.getMaterialId()).toList());
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
+            Object raw = payload.getRawPayload().get("inputMaterialDetails");
+            assertNotNull(raw);
+            List<?> inputs = (List<?>) raw;
+            assertEquals(1, inputs.size());
+            java.util.Map<?, ?> input = (java.util.Map<?, ?>) inputs.get(0);
+            assertEquals(503L, input.get("materialId"));
+            assertEquals(List.of("LOT-001", "LOT-002"), input.get("batchCodes"));
+            assertEquals(List.of(101L, 102L), input.get("sourcePickListIds"));
+            assertEquals("input-source-hash", input.get("sourceSnapshotHash"));
+            return true;
+        }));
+    }
+
+    @Test
     void shouldSubmitWithoutMaterialFactsWhenFrozenBatchRecordMaterialsAreEmpty() {
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(
                 submitAuthorizationService, List.of());

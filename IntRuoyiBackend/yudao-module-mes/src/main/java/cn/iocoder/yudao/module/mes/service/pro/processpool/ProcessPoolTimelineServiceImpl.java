@@ -182,6 +182,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setMaterialDetails(convertValue(payload.get("materialDetails"), MATERIAL_DETAIL_TYPE))
                 .setSelectedDevice(convertValue(payload.get("selectedDevice"),
                         ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class))
+                .setSelectedDevices(convertValue(payload.get("selectedDevices"),
+                        new com.fasterxml.jackson.core.type.TypeReference<List<
+                                ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO>>() {}))
                 .setDeviceParameterReadings(convertValue(payload.get("deviceParameterReadings"),
                         DEVICE_PARAMETER_READING_TYPE));
     }

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,6 +36,7 @@ public class EdhrBatchExecutionOpenOrCreateReqVO {
     private Long activeOrderId;
     private Long pickListBindingId;
     private Long pickListId;
+    private List<MesBatchExecutionPickListSource> pickListSources;
     private Long bindingVersion;
     private Long batchPickListRelationId;
     private String sourceSnapshotHash;

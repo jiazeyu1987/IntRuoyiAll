@@ -12,6 +12,7 @@ const { chromium } = requireFromFrontend('playwright')
 const OUTPUT_DIR = path.join(TASK_ROOT, 'artifacts')
 const RESULT_PATH = path.join(OUTPUT_DIR, 'team-leader-multi-dialogs-real-result.json')
 const CORRECTION_SCREENSHOT = path.join(OUTPUT_DIR, 'production-report-correction-dialog.png')
+const CORRECTION_MATERIALS_SCREENSHOT = path.join(OUTPUT_DIR, 'production-report-correction-materials.png')
 const CORRECTION_PARAMETERS_SCREENSHOT = path.join(OUTPUT_DIR, 'production-report-correction-parameters.png')
 const ALLOCATION_SCREENSHOT = path.join(OUTPUT_DIR, 'production-report-allocation-dialog.png')
 const FAILURE_SCREENSHOT = path.join(OUTPUT_DIR, 'team-leader-multi-dialogs-real-failure.png')
@@ -96,6 +97,7 @@ async function login(page, config) {
 }
 
 async function firstVisible(locator, label) {
+  await locator.first().waitFor({ state: 'visible', timeout: 30000 })
   const count = await locator.count()
   for (let index = 0; index < count; index += 1) {
     const candidate = locator.nth(index)
@@ -194,6 +196,9 @@ async function run() {
       correctionDialog.locator('[data-production-report-correction-devices]'),
       'correction device section'
     )
+    await correctionDialog.locator('[data-production-report-correction-materials]').screenshot({
+      path: CORRECTION_MATERIALS_SCREENSHOT
+    })
     const correctionParameterSection = correctionDialog
       .locator('.team-leader-workbench__correction-section')
       .filter({ hasText: '设备参数' })
@@ -210,6 +215,7 @@ async function run() {
       parameterText: correctionParameterText
     }
     result.screenshots.correction = CORRECTION_SCREENSHOT
+    result.screenshots.correctionMaterials = CORRECTION_MATERIALS_SCREENSHOT
     result.screenshots.correctionParameters = CORRECTION_PARAMETERS_SCREENSHOT
     await correctionDialog.getByRole('button', { name: '取消' }).click()
     await correctionDialog.waitFor({ state: 'hidden', timeout: 30000 })

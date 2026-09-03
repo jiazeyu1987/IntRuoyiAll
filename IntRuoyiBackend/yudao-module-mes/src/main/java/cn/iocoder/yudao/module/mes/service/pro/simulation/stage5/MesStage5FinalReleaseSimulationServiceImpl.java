@@ -440,7 +440,8 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         MesProEdhrBatchExecutionOriginDO origin = origins.get(0);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(origin.getWorkOrderId());
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(origin.getActiveOrderId());
-        MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper.selectByActiveOrderId(origin.getActiveOrderId());
+        MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper
+                .selectByActiveOrderIdAndPickListId(origin.getActiveOrderId(), origin.getPickListId());
         ErpKingdeeProductionPickListDO pickList = pickListMapper.selectById(origin.getPickListId());
         List<ErpKingdeeProductionPickListItemDO> items = pickList == null ? List.of()
                 : pickListItemMapper.selectListByPickListIds(List.of(pickList.getId()));
@@ -771,10 +772,6 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
                 .setCompletedBy(actorUserId);
         receipt.setTenantId(TenantContextHolder.getRequiredTenantId());
         receipt.setCreateTime(completedAt);
-        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
-        if (completionReceiptMapper.insert(receipt) != 1 || receipt.getId() == null) {
-            throw new IllegalStateException("STAGE5_COMPLETION_RECEIPT_FIXTURE_CREATE_FAILED");
-        }
         MesProcessPoolActiveOrderCompletionBackfillDO batchRecordBackfill = createBackfill(activeOrder, workOrder,
                 MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD,
                 batchSourceIds, sourceSnapshotHash, JSON.toJSONString(Map.of("simulationRunId", runId,
@@ -786,6 +783,12 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         MesProcessPoolActiveOrderCompletionBackfillDO lossReportBackfill = createBackfill(activeOrder, workOrder,
                 MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT,
                 "[]", hash(lossFacts), lossFacts, actorUserId);
+        receipt.setBatchRecordId(batchRecordBackfill.getId())
+                .setProcessInspectionId(processInspectionBackfill.getId());
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        if (completionReceiptMapper.insert(receipt) != 1 || receipt.getId() == null) {
+            throw new IllegalStateException("STAGE5_COMPLETION_RECEIPT_FIXTURE_CREATE_FAILED");
+        }
 
         List<MesProEdhrBatchTraceSource> sources = new ArrayList<>();
         sources.add(traceSource(MesProEdhrBatchTraceLinkType.ACTIVE_ORDER, "ACTIVE_ORDER", activeOrder.getId(),
@@ -1252,7 +1255,13 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
                 .equals(requiredBackfillTypes)) {
             throw new IllegalStateException("STAGE5_SIMULATION_CLEANUP_SCOPE_INVALID");
         }
-        MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper.selectByActiveOrderId(activeOrder.getId());
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = bindingMapper
+                .selectListByActiveOrderId(activeOrder.getId());
+        MesProcessPoolActiveOrderPickListBindingDO binding = bindings.stream()
+                .filter(item -> Objects.equals(item.getWorkOrderId(), previous.getWorkOrderId()))
+                .filter(item -> Objects.equals(item.getSourceFid(), pickListSourceFid(runId)))
+                .filter(item -> Objects.equals(item.getIdempotencyKey(), "STAGE5-PICK-BINDING-" + runId))
+                .findFirst().orElse(null);
         if (binding == null || !Objects.equals(binding.getWorkOrderId(), previous.getWorkOrderId())
                 || !Objects.equals(binding.getSourceFid(), pickListSourceFid(runId))
                 || !Objects.equals(binding.getIdempotencyKey(), "STAGE5-PICK-BINDING-" + runId)) {
@@ -1282,9 +1291,11 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         // Trace origin, links and manifests are immutable audit evidence; retain them during simulation cleanup.
         backfills.forEach(item -> completionBackfillMapper.deleteById(item.getId()));
         completionReceiptMapper.deleteById(completionReceipt.getId());
-        bindingItemMapper.delete(new LambdaQueryWrapper<MesProcessPoolActiveOrderPickListBindingItemDO>()
-                .eq(MesProcessPoolActiveOrderPickListBindingItemDO::getBindingId, binding.getId()));
-        bindingMapper.deleteById(binding.getId());
+        for (MesProcessPoolActiveOrderPickListBindingDO activeOrderBinding : bindings) {
+            bindingItemMapper.delete(new LambdaQueryWrapper<MesProcessPoolActiveOrderPickListBindingItemDO>()
+                    .eq(MesProcessPoolActiveOrderPickListBindingItemDO::getBindingId, activeOrderBinding.getId()));
+            bindingMapper.deleteById(activeOrderBinding.getId());
+        }
         pickListItemMapper.delete(new LambdaQueryWrapper<ErpKingdeeProductionPickListItemDO>()
                 .eq(ErpKingdeeProductionPickListItemDO::getProductionPickListId, pickList.getId()));
         if (pickListMapper.hardDeleteById(pickList.getId()) != 1) {

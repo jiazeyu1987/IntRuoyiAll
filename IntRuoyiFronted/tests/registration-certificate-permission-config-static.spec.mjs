@@ -157,7 +157,8 @@ for (const token of [
   'expectedRowVersion',
   'canUpdate',
   '接收规则',
-  '注册证文控'
+  '注册部经理',
+  'thresholdRecipientUserIds'
 ]) {
   assert.match(configComponent, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `config component must contain ${token}`)
 }

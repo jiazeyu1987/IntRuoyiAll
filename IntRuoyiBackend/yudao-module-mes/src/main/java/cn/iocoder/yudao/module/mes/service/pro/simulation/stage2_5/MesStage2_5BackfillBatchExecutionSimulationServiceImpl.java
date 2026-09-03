@@ -437,9 +437,8 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                     .selectHistoryByWorkOrderIdForUpdate(workOrder.getId());
             for (MesProcessPoolActiveOrderDO activeOrder : activeOrders) {
                 cleanupRuntime(activeOrder);
-                MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper
-                        .selectByActiveOrderId(activeOrder.getId());
-                if (binding != null) {
+                for (MesProcessPoolActiveOrderPickListBindingDO binding : bindingMapper
+                        .selectListByActiveOrderId(activeOrder.getId())) {
                     bindingItemMapper.delete(new LambdaQueryWrapper<MesProcessPoolActiveOrderPickListBindingItemDO>()
                             .eq(MesProcessPoolActiveOrderPickListBindingItemDO::getBindingId, binding.getId()));
                     bindingMapper.deleteById(binding.getId());
@@ -578,8 +577,12 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
 
     private MesProcessPoolActiveOrderPickListBindingDO requireBinding(
             MesProcessPoolActiveOrderDO activeOrder) {
-        MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper
-                .selectByActiveOrderId(activeOrder.getId());
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = bindingMapper
+                .selectListByActiveOrderId(activeOrder.getId());
+        MesProcessPoolActiveOrderPickListBindingDO binding = bindings.stream()
+                .filter(item -> Objects.equals(item.getSimulationStage(), activeOrder.getSimulationStage()))
+                .filter(item -> Objects.equals(item.getSimulationRunId(), activeOrder.getSimulationRunId()))
+                .findFirst().orElse(null);
         if (binding == null || binding.getId() == null || binding.getPickListId() == null
                 || binding.getBindingVersion() == null || blank(binding.getSourceSnapshotHash())) {
             throw new IllegalStateException("STAGE2_5_FIXTURE_INVALID");

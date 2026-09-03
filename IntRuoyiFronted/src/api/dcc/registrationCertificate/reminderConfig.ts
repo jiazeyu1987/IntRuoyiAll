@@ -6,12 +6,21 @@ export interface DccRegistrationCertificateReminderConfigRespVO {
   dailyRunTime: string
   timezone: string
   thresholdDaysJson: string
+  thresholdRecipientUserIds: RegistrationCertificateThresholdRecipientUserIds
   rowVersion: number
+}
+
+export interface RegistrationCertificateThresholdRecipientUserIds {
+  T_30: number[]
+  T_8: number[]
+  T_2: number[]
+  T_1: number[]
 }
 
 export interface DccRegistrationCertificateReminderConfigUpdateReqVO {
   enabled: boolean
   dailyRunTime: string
+  thresholdRecipientUserIds: RegistrationCertificateThresholdRecipientUserIds
   expectedRowVersion: number
 }
 

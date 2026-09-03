@@ -46,6 +46,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Mock private MesProcessPoolActiveOrderCompletionBackfillMapper backfillMapper;
     @Mock private MesWmProductIssueMapper productIssueMapper;
     @Mock private MesWmProductIssueDetailMapper productIssueDetailMapper;
+    @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    @Mock private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
 
     private MesTeamLeaderActiveOrderCompletionBackfillPortImpl port;
 
@@ -53,7 +55,13 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     void setUp() {
         port = new MesTeamLeaderActiveOrderCompletionBackfillPortImpl(snapshotMapper, allocationMapper,
                 completionMapper, taskMapper, detailMapper, workOrderMapper, lossSourceReader, backfillMapper,
-                productIssueMapper, productIssueDetailMapper);
+                productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper);
+        org.mockito.Mockito.lenient().when(pickListBindingMapper.selectListByActiveOrderId(10L))
+                .thenReturn(List.of(MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L)
+                        .activeOrderId(10L).workOrderId(30L).pickListId(9901L).sourceSnapshotHash("pick-hash").build()));
+        org.mockito.Mockito.lenient().when(pickListBindingItemMapper.selectListByBindingId(8801L))
+                .thenReturn(List.of(MesProcessPoolActiveOrderPickListBindingItemDO.builder().id(8811L)
+                        .bindingId(8801L).pickListItemId(9911L).build()));
         when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(snapshot()));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(allocation()));
         when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L))).thenReturn(List.of(completion()));

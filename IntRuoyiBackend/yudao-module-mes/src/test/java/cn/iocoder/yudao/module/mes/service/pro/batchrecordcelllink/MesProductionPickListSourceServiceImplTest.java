@@ -133,6 +133,7 @@ class MesProductionPickListSourceServiceImplTest {
     void resolveValue_usesFirstFormalEntryOfUniqueApprovedPickList() {
         mockReleaseIdentity();
         when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
+        when(pickListBindingMapper.selectListByActiveOrderId(7701L)).thenReturn(List.of(binding()));
         when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
                 bindingItem(9102L, "20", "LOT-SECOND"), bindingItem(9101L, "10", "LOT-FIRST")));
 
@@ -149,6 +150,7 @@ class MesProductionPickListSourceServiceImplTest {
     void resolveValue_rejectsDuplicateSnapshotEntryBeforeChoosingMaterial() {
         mockReleaseIdentity();
         when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
+        when(pickListBindingMapper.selectListByActiveOrderId(7701L)).thenReturn(List.of(binding()));
         when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
                 bindingItem(9101L, "10", "LOT-A"), bindingItem(9201L, "10", "LOT-B")));
 
@@ -169,6 +171,7 @@ class MesProductionPickListSourceServiceImplTest {
         when(itemMapper.selectById(3101L))
                 .thenReturn(MesMdItemDO.builder().id(3101L).code("AW.107.02.01.2010").name("压力泵").build());
         when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
+        when(pickListBindingMapper.selectListByActiveOrderId(7701L)).thenReturn(List.of(binding()));
         when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
                 bindingItem(9102L, "20", "LOT-SECOND"), bindingItem(9101L, "10", "LOT-FIRST")));
 
@@ -177,6 +180,36 @@ class MesProductionPickListSourceServiceImplTest {
                         "MO-9001", "materialCode.TUFULTAwMQ.lotNumber"));
 
         assertEquals("LOT-FIRST", result.value());
+    }
+
+    @Test
+    void resolveValue_usesSiblingBindingWhenRequestedBindingDoesNotContainMaterialCode() {
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(7001L))
+                .thenReturn(MesRouteDccProjectBindingDO.builder().routeId(7001L).dccProjectCodeId(8001L).build());
+        when(routeProductMapper.selectByRouteIdAndItemId(7001L, 3101L))
+                .thenReturn(MesProRouteProductDO.builder().routeId(7001L).itemId(3101L).build());
+        when(routeProcessMapper.selectById(5001L))
+                .thenReturn(MesProRouteProcessDO.builder().id(5001L).routeId(7001L).processId(6001L).build());
+        when(routeProductBomMapper.selectListByRouteIdAndProductId(7001L, 3101L)).thenReturn(List.of());
+        when(itemMapper.selectById(3101L))
+                .thenReturn(MesMdItemDO.builder().id(3101L).code("AW.107.02.01.2010").name("压力泵").build());
+        MesProcessPoolActiveOrderPickListBindingDO requested = binding(8801L, 9001L, 7701L, "PICK-9001");
+        MesProcessPoolActiveOrderPickListBindingDO sibling = binding(8802L, 9002L, 7701L, "PICK-9002");
+        when(pickListBindingMapper.selectById(8801L)).thenReturn(requested);
+        when(pickListBindingMapper.selectListByActiveOrderId(7701L)).thenReturn(List.of(requested, sibling));
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
+                bindingItem(9101L, 8801L, "10", "OTHER-001", "LOT-OTHER")));
+        when(pickListBindingItemMapper.selectListByBindingId(8802L)).thenReturn(List.of(
+                bindingItem(9202L, 8802L, "20", "MAT-001", "LOT-SECOND"),
+                bindingItem(9201L, 8802L, "10", "MAT-001", "LOT-FIRST")));
+
+        MesProductionPickListSourceService.ResolvedValue result = service.resolveValue(
+                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L, 8801L,
+                        "MO-9001", "materialCode.TUFULTAwMQ.lotNumber"));
+
+        assertEquals("LOT-FIRST", result.value());
+        assertEquals(9002L, result.pickListId());
+        assertEquals(9201L, result.pickListItemId());
     }
 
     private void mockReleaseIdentity() {
@@ -194,15 +227,26 @@ class MesProductionPickListSourceServiceImplTest {
     }
 
     private MesProcessPoolActiveOrderPickListBindingDO binding() {
-        return MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L).pickListId(9001L)
+        return binding(8801L, 9001L, 7701L, "PICK-9001");
+    }
+
+    private MesProcessPoolActiveOrderPickListBindingDO binding(Long bindingId, Long pickListId, Long activeOrderId,
+                                                               String sourceBillNo) {
+        return MesProcessPoolActiveOrderPickListBindingDO.builder().id(bindingId).activeOrderId(activeOrderId)
+                .pickListId(pickListId)
                 .bindingStatus("BOUND")
-                .sourceBillNo("PICK-9001").sourceSnapshotHash("snapshot-hash").build();
+                .sourceBillNo(sourceBillNo).sourceSnapshotHash("snapshot-hash-" + bindingId).build();
     }
 
     private MesProcessPoolActiveOrderPickListBindingItemDO bindingItem(Long id, String entryId, String lotNumber) {
-        return MesProcessPoolActiveOrderPickListBindingItemDO.builder().id(id).bindingId(8801L)
+        return bindingItem(id, 8801L, entryId, "MAT-001", lotNumber);
+    }
+
+    private MesProcessPoolActiveOrderPickListBindingItemDO bindingItem(Long id, Long bindingId, String entryId,
+                                                                       String materialNumber, String lotNumber) {
+        return MesProcessPoolActiveOrderPickListBindingItemDO.builder().id(id).bindingId(bindingId)
                 .pickListItemId(id).sourceEntryId(entryId).sourceLineKey("9001:" + entryId)
-                .materialNumber("MAT-001").materialName("手柄").unitName("个")
+                .materialNumber(materialNumber).materialName("手柄").unitName("个")
                 .actualQuantity(new BigDecimal("5")).requestedQuantity(new BigDecimal("6"))
                 .lotNumber(lotNumber).productionOrderNo("MO-9001").build();
     }

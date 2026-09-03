@@ -17,7 +17,7 @@ public record MesProFrontlineFeedbackMaterialSubmission(BigDecimal progressQuant
                            BigDecimal outputQuantity,
                            BigDecimal lossQuantity,
                            List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails,
-                           MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice,
+                           List<MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO> selectedDevices,
                            List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO>
                                    deviceParameterReadings) {
     }

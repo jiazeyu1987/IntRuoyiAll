@@ -6,7 +6,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Set;
+
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -181,7 +184,8 @@ class MesReleaseFinalizationValidatorTest {
                 .setEntryType("ACTIVE_ORDER_COMPLETION")
                 .setActiveOrderId(10L)
                 .setWorkOrderId(20L)
-                .setPickListBindingId("pick-binding-1")
+                .setPickListBindingId("1")
+                .setPickListSources(List.of(pickListSource()))
                 .setPickListId(30L)
                 .setCompletionEventId("completion-1")
                 .setCompletionBackfillReceiptId("backfill-1")
@@ -196,8 +200,9 @@ class MesReleaseFinalizationValidatorTest {
                         .setTenantId(1L)
                         .setActiveOrderId(10L)
                         .setWorkOrderId(20L)
-                        .setPickListBindingId("pick-binding-1")
+                        .setPickListBindingId("1")
                         .setPickListId(30L)
+                        .setPickListSources(List.of(pickListSource()))
                         .setSourceSnapshotHash("source-hash")
                         .setBindingVersion(1)
                         .setCompletionVersion(1)
@@ -205,6 +210,8 @@ class MesReleaseFinalizationValidatorTest {
                         .setCompletionEventId("completion-1")
                         .setBatchRecordId(40L)
                         .setProcessInspectionId(50L)
+                        .setBatchRecordSourceIds(List.of(40L))
+                        .setProcessInspectionSourceIds(List.of(50L))
                         .setHasActualLoss(false)
                         .setLossDecision("NO_LOSS")
                         .setLossReportStatus("NOT_REQUIRED")
@@ -232,5 +239,13 @@ class MesReleaseFinalizationValidatorTest {
                 .setIssuedAt(LocalDateTime.of(2026, 8, 21, 0, 0))
                 .setExpiresAt(LocalDateTime.of(2026, 8, 23, 0, 0))
                 .setVersion(1);
+    }
+
+    private MesBatchExecutionPickListSource pickListSource() {
+        return new MesBatchExecutionPickListSource()
+                .setPickListBindingId(1L)
+                .setPickListId(30L)
+                .setBindingVersion(1L)
+                .setSourceSnapshotHash("pick-source-hash");
     }
 }

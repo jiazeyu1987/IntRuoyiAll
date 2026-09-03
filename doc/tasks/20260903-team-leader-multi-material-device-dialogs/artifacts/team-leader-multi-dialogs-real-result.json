@@ -1,17 +1,17 @@
 {
   "status": "PASS",
-  "frontendUrl": "http://127.0.0.1:8092",
+  "frontendUrl": "http://127.0.0.1:8081",
   "targetPath": "/mes/pro/process-pool/production-leader",
   "tenant": "芋道源码",
   "username": "admin",
-  "workspaceRoot": "D:\\IntRuoyiWorktree\\20260902-route-process-input-output-materials",
+  "workspaceRoot": "E:\\IntRuoyi",
   "event": {
     "rowIndex": 0,
     "correctionEventId": "8474",
     "allocationEventId": "8474"
   },
   "correction": {
-    "materialText": "物料明细 物料 1 完成数量 损耗数量 物料 2 完成数量 损耗数量",
+    "materialText": "物料明细 弹簧 完成数量 损耗数量 杠杆 完成数量 损耗数量",
     "deviceText": "超声波清洗机 / #980009",
     "parameterText": "设备参数 本次报工没有设备参数"
   },
@@ -21,14 +21,12 @@
     "parameterText": "设备参数 参数：--"
   },
   "screenshots": {
-    "correction": "D:\\IntRuoyiWorktree\\20260902-route-process-input-output-materials\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-correction-dialog.png",
-    "correctionParameters": "D:\\IntRuoyiWorktree\\20260902-route-process-input-output-materials\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-correction-parameters.png",
-    "allocation": "D:\\IntRuoyiWorktree\\20260902-route-process-input-output-materials\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-allocation-dialog.png"
+    "correction": "E:\\IntRuoyi\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-correction-dialog.png",
+    "correctionMaterials": "E:\\IntRuoyi\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-correction-materials.png",
+    "correctionParameters": "E:\\IntRuoyi\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-correction-parameters.png",
+    "allocation": "E:\\IntRuoyi\\doc\\tasks\\20260903-team-leader-multi-material-device-dialogs\\artifacts\\production-report-allocation-dialog.png"
   },
   "mesWriteRequests": [],
   "pageErrors": [],
-  "consoleErrors": [
-    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8092/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8092/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8092/node_modules/.vite-env-local-8092/deps/axios.js?v=2764206c:2126:14)\n    at async Object.get (http://127.0.0.1:8092/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8092/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8092/src/store/modules/approvalTodoBadge.ts:51:24",
-    "审批待办数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8092/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8092/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8092/node_modules/.vite-env-local-8092/deps/axios.js?v=2764206c:2126:14)\n    at async Object.get (http://127.0.0.1:8092/src/config/axios/index.ts:16:17)\n    at async getApprovalTaskPage (http://127.0.0.1:8092/src/api/approval-center/index.ts:8:10)\n    at async http://127.0.0.1:8092/src/store/modules/approvalTodoBadge.ts:51:24"
-  ]
+  "consoleErrors": []
 }

@@ -432,6 +432,8 @@ public class MesFrontlineDeviceAccountController {
             item.setDeviceCode(device.deviceCode());
             item.setDeviceName(device.deviceName());
             item.setDeviceStatus(device.deviceStatus());
+            item.setDeviceGroupKey(device.deviceGroupKey());
+            item.setSelectionMode(device.selectionMode());
             item.setParameters(device.parameters().stream().map(parameter -> {
                 MesFrontlineRuntimeConfigRespVO.DeviceParameter parameterItem =
                         new MesFrontlineRuntimeConfigRespVO.DeviceParameter();
@@ -466,6 +468,30 @@ public class MesFrontlineDeviceAccountController {
             item.setMaterialSpecification(material.materialSpecification());
             item.setBomQuantity(material.bomQuantity());
             item.setBatchCodes(material.batchCodes());
+            item.setMaterialRole(material.materialRole());
+            item.setRequestedQuantity(material.requestedQuantity());
+            item.setActualQuantity(material.actualQuantity());
+            item.setBaseActualQuantity(material.baseActualQuantity());
+            item.setSourcePickListIds(material.sourcePickListIds());
+            item.setSourcePickListItemIds(material.sourcePickListItemIds());
+            item.setSourceSnapshotHash(material.sourceSnapshotHash());
+            return item;
+        }).toList());
+        respVO.setInputMaterials(config.inputMaterials().stream().map(material -> {
+            MesFrontlineRuntimeConfigRespVO.Material item = new MesFrontlineRuntimeConfigRespVO.Material();
+            item.setMaterialId(material.materialId());
+            item.setMaterialCode(material.materialCode());
+            item.setMaterialName(material.materialName());
+            item.setMaterialSpecification(material.materialSpecification());
+            item.setBomQuantity(material.bomQuantity());
+            item.setBatchCodes(material.batchCodes());
+            item.setMaterialRole(material.materialRole());
+            item.setRequestedQuantity(material.requestedQuantity());
+            item.setActualQuantity(material.actualQuantity());
+            item.setBaseActualQuantity(material.baseActualQuantity());
+            item.setSourcePickListIds(material.sourcePickListIds());
+            item.setSourcePickListItemIds(material.sourcePickListItemIds());
+            item.setSourceSnapshotHash(material.sourceSnapshotHash());
             return item;
         }).toList());
         respVO.setProductionSubmitContext(toProductionSubmitContextRespVO(config.productionSubmitContext()));

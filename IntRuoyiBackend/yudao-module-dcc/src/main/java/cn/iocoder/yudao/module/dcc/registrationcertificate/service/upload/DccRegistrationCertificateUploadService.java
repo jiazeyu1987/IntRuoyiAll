@@ -153,11 +153,8 @@ public class DccRegistrationCertificateUploadService {
         if (tenantId == null || tenantId <= 0 || actorId == null || actorId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        Set<Long> companyIds = companyScopeApi.getEnabledCompanyIdsForUser(actorId);
-        if (companyIds == null || companyIds.isEmpty()) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
-        }
-        List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.getEnabledEnterprises(companyIds, OWNED_COMPANY);
+        List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.listEnabledEnterprises(
+                OWNED_COMPANY, normalizeText(keyword), OWNER_COMPANY_CANDIDATE_LIMIT);
         if (enterprises == null || enterprises.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
@@ -169,11 +166,8 @@ public class DccRegistrationCertificateUploadService {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
             }
         }
-        String normalizedKeyword = normalizeText(keyword);
         return enterprises.stream()
-                .filter(item -> matchesOwnerCompanyKeyword(item, normalizedKeyword))
                 .sorted(Comparator.comparing(MdmEnterpriseRespDTO::getId))
-                .limit(OWNER_COMPANY_CANDIDATE_LIMIT)
                 .toList();
     }
 
@@ -364,11 +358,6 @@ public class DccRegistrationCertificateUploadService {
 
     private MdmEnterpriseRespDTO resolveOwnerCompany(Long tenantId, Long actorId, Long companyId) {
         if (companyId == null || companyId <= 0) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
-        }
-        try {
-            companyScopeApi.validateUserCompanyAccess(actorId, companyId);
-        } catch (ServiceException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
         List<MdmEnterpriseRespDTO> enterprises;

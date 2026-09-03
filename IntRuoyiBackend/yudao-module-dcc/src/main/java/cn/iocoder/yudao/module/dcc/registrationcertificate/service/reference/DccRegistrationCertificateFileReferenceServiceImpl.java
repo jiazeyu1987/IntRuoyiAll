@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,7 +25,9 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
         implements DccRegistrationCertificateFileReferenceService {
 
     private static final String OWNER_TYPE_VERSION = "VERSION";
+    private static final String OWNER_TYPE_CHANGE = "CHANGE";
     private static final String FILE_KIND_REGISTRATION_CERTIFICATE = "REGISTRATION_CERTIFICATE";
+    private static final String FILE_KIND_CHANGE_APPROVAL = "CHANGE_APPROVAL";
     private static final String FILE_STATUS_BOUND = "BOUND";
     private static final String MASTER_STATUS_ACTIVE = "ACTIVE";
     private static final String VERSION_STATUS_CURRENT = "CURRENT";
@@ -32,14 +35,17 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
     private final DccRegistrationCertificateFileMapper fileMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateMapper certificateMapper;
+    private final JdbcTemplate jdbcTemplate;
 
     public DccRegistrationCertificateFileReferenceServiceImpl(
             DccRegistrationCertificateFileMapper fileMapper,
             DccRegistrationCertificateVersionMapper versionMapper,
-            DccRegistrationCertificateMapper certificateMapper) {
+            DccRegistrationCertificateMapper certificateMapper,
+            JdbcTemplate jdbcTemplate) {
         this.fileMapper = require(fileMapper, "fileMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.certificateMapper = require(certificateMapper, "certificateMapper");
+        this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
     }
 
     @Override
@@ -50,9 +56,9 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
         return executeTenantNeutral(() -> {
             List<DccRegistrationCertificateFileDO> files = fileMapper.selectList(
                     new LambdaQueryWrapperX<DccRegistrationCertificateFileDO>()
-                            .eq(DccRegistrationCertificateFileDO::getInfraFileId, infraFileId)
-                            .eq(DccRegistrationCertificateFileDO::getOwnerType, OWNER_TYPE_VERSION)
-                            .eq(DccRegistrationCertificateFileDO::getFileKind, FILE_KIND_REGISTRATION_CERTIFICATE));
+                            .eq(DccRegistrationCertificateFileDO::getInfraFileId, infraFileId)).stream()
+                    .filter(this::isSupportedFile)
+                    .toList();
             if (files.isEmpty()) {
                 return Optional.empty();
             }
@@ -158,11 +164,11 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
                                                                Long expectedInfraFileId) {
         if (file.getId() == null || file.getTenantId() == null || file.getOwnerId() == null
                 || file.getInfraFileId() == null || !Objects.equals(file.getInfraFileId(), expectedInfraFileId)
-                || !OWNER_TYPE_VERSION.equals(file.getOwnerType())
-                || !FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())) {
+                || !isSupportedFile(file)) {
             throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        DccRegistrationCertificateVersionDO version = versionMapper.selectById(file.getOwnerId());
+        Long versionId = resolveVersionId(file);
+        DccRegistrationCertificateVersionDO version = versionId == null ? null : versionMapper.selectById(versionId);
         if (version == null || !Objects.equals(version.getTenantId(), file.getTenantId())) {
             throw new ServiceException(CONTROLLED_FILE_ACCESS_DENIED);
         }
@@ -174,6 +180,23 @@ public class DccRegistrationCertificateFileReferenceServiceImpl
         return new DccRegistrationCertificateFileReference(file.getTenantId(), certificate.getOwnerCompanyId(),
                 certificate.getId(), version.getId(), version.getVersionNo(), file.getId(), file.getInfraFileId(),
                 version.getStatus(), file.getOriginalName(), file.getMimeType());
+    }
+
+    private boolean isSupportedFile(DccRegistrationCertificateFileDO file) {
+        return OWNER_TYPE_VERSION.equals(file.getOwnerType())
+                && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())
+                || OWNER_TYPE_CHANGE.equals(file.getOwnerType())
+                && FILE_KIND_CHANGE_APPROVAL.equals(file.getFileKind());
+    }
+
+    private Long resolveVersionId(DccRegistrationCertificateFileDO file) {
+        if (OWNER_TYPE_VERSION.equals(file.getOwnerType())) {
+            return file.getOwnerId();
+        }
+        return jdbcTemplate.query("""
+                SELECT source_version_id FROM dcc_registration_certificate_change
+                 WHERE tenant_id = ? AND id = ? AND status = 'APPLIED' AND deleted = 0
+                """, rs -> rs.next() ? rs.getLong(1) : null, file.getTenantId(), file.getOwnerId());
     }
 
     private <T> T executeTenantNeutral(Supplier<T> action) {

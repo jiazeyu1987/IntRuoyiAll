@@ -55,7 +55,7 @@
       </el-form-item>
       <el-form-item label="接收规则">
         <el-alert
-          title="提醒收件人按所属公司注册证文控角色/权限用户解析；禁用、跨租户或空收件人由后端明确失败，不默认发送给任何兜底账号。"
+          title="提醒收件人由注册部经理在注册证页面的“通知设置”中维护。"
           type="info"
           :closable="false"
           show-icon
@@ -106,6 +106,7 @@ const form = reactive({
   dailyRunTime: '09:00',
   timezone: 'Asia/Shanghai',
   thresholdDaysJson: '',
+  thresholdRecipientUserIds: { T_30: [], T_8: [], T_2: [], T_1: [] },
   rowVersion: 0
 })
 
@@ -142,6 +143,12 @@ const applyConfig = (data: DccRegistrationCertificateReminderConfigRespVO) => {
   form.dailyRunTime = data.dailyRunTime
   form.timezone = data.timezone
   form.thresholdDaysJson = data.thresholdDaysJson
+  form.thresholdRecipientUserIds = {
+    T_30: [...data.thresholdRecipientUserIds.T_30],
+    T_8: [...data.thresholdRecipientUserIds.T_8],
+    T_2: [...data.thresholdRecipientUserIds.T_2],
+    T_1: [...data.thresholdRecipientUserIds.T_1]
+  }
   form.rowVersion = data.rowVersion
   loaded.value = true
 }
@@ -170,6 +177,7 @@ const handleSave = async () => {
     const updated = await updateRegistrationCertificateReminderConfig({
       enabled: form.enabled,
       dailyRunTime: form.dailyRunTime,
+      thresholdRecipientUserIds: form.thresholdRecipientUserIds,
       expectedRowVersion: form.rowVersion
     })
     applyConfig(updated)

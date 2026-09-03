@@ -8,13 +8,13 @@ const repoRoot = path.resolve(frontRoot, '..')
 const readFront = (relativePath) => {
   const absolutePath = path.join(frontRoot, relativePath)
   assert.equal(fs.existsSync(absolutePath), true, `missing frontend file: ${relativePath}`)
-  return fs.readFileSync(absolutePath, 'utf8')
+  return fs.readFileSync(absolutePath, 'utf8').replace(/\r\n/g, '\n')
 }
 
 const readRepo = (relativePath) => {
   const absolutePath = path.join(repoRoot, relativePath)
   assert.equal(fs.existsSync(absolutePath), true, `missing repo file: ${relativePath}`)
-  return fs.readFileSync(absolutePath, 'utf8')
+  return fs.readFileSync(absolutePath, 'utf8').replace(/\r\n/g, '\n')
 }
 
 const extractBetween = (source, startToken, endToken) => {
@@ -64,7 +64,7 @@ assert.match(projectCodePage, /const\s+syncDetailFromRoute\s*=\s*async\s*\(\)\s*
   'project-code page must open the linked project-code detail drawer from projectCodeId')
 assert.match(projectCodePage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.projectCodeId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*await\s+syncDetailFromRoute\(\)/,
   'project-code page must resync the detail drawer only when linked projectCodeId changes on the project-code route')
-assert.match(projectCodePage, /const\s+PROJECT_CODE_ROUTE_PATH\s*=\s*['"]\/mdm\/project-code['"]/,
+assert.match(projectCodePage, /const\s+PROJECT_CODE_ROUTE_PATH\s*=\s*['"]\/mes\/md\/dcc-project-code['"]/,
   'project-code route path must be explicit')
 assert.match(projectCodePage, /const\s+isProjectCodeRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*PROJECT_CODE_ROUTE_PATH/,
   'project-code query sync must be scoped to the active project-code route')
@@ -76,7 +76,7 @@ assert.match(projectCodePage, /@click="openLinkedProductManagement\(row\)"/,
   'project-code rows must expose a product-management jump')
 assert.match(projectCodePage, /@click="openLinkedRegistrationCertificateManagement\(row\)"/,
   'project-code rows must expose a registration-certificate jump')
-assertNavigationBlock(projectCodePage, 'openLinkedProductManagement', '/mdm/product', 'productMasterId', 'row\\.productMasterId')
+assertNavigationBlock(projectCodePage, 'openLinkedProductManagement', '/mes/md/showroom-product', 'productMasterId', 'row\\.productMasterId')
 assertNavigationBlock(projectCodePage, 'openLinkedRegistrationCertificateManagement', '/mdm/registration-certificate', 'projectCodeId', 'row\\.id')
 
 assert.match(mdmProductApi, /productMasterId\?:\s*number\s*\|\s*string/, 'product page request must accept productMasterId query')
@@ -86,7 +86,7 @@ assert.match(mdmProductMapper, /eqIfPresent\(MdmProductDO::getId,\s*reqVO\.getPr
 assert.match(mdmProductPage, /useRoute\(\)/, 'product management page must read route query for linked entry')
 assert.match(mdmProductPage, /queryParams\.productMasterId\s*=\s*resolveRouteQueryText\(route\.query\.productMasterId\)/,
   'product management page must sync productMasterId route query into the formal page request')
-assert.match(mdmProductPage, /const\s+PRODUCT_ROUTE_PATH\s*=\s*['"]\/mdm\/product['"]/,
+assert.match(mdmProductPage, /const\s+PRODUCT_ROUTE_PATH\s*=\s*['"]\/mes\/md\/showroom-product['"]/,
   'product route path must be explicit')
 assert.match(mdmProductPage, /const\s+isProductRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*PRODUCT_ROUTE_PATH/,
   'product query sync must be scoped to the active product route')
@@ -98,7 +98,7 @@ assert.match(mdmProductPage, /@click="openLinkedProjectCodeManagement\(row\)"/,
   'product rows must expose a project-code jump')
 assert.match(mdmProductPage, /@click="openLinkedRegistrationCertificateManagement\(row\)"/,
   'product rows must expose a registration-certificate jump')
-assertNavigationBlock(mdmProductPage, 'openLinkedProjectCodeManagement', '/mdm/project-code', 'productMasterId', 'row\\.id')
+assertNavigationBlock(mdmProductPage, 'openLinkedProjectCodeManagement', '/mes/md/dcc-project-code', 'productMasterId', 'row\\.id')
 assertNavigationBlock(mdmProductPage, 'openLinkedRegistrationCertificateManagement', '/mdm/registration-certificate', 'productMasterId', 'row\\.id')
 
 assert.match(registrationApi, /projectCodeId\?:\s*number\s*\|\s*string/, 'registration page request must accept projectCodeId query')
@@ -129,8 +129,8 @@ assert.match(registrationPage, /@click="openLinkedProductManagement\(row\.produc
   'registration rows must expose a product-management jump')
 assert.match(registrationPage, /@click="openLinkedProjectCodeManagement\(row\.projectCodeId\)"/,
   'registration rows must expose a project-code jump')
-assertNavigationBlock(registrationPage, 'openLinkedProductManagement', '/mdm/product', 'productMasterId', 'productMasterId')
-assertNavigationBlock(registrationPage, 'openLinkedProjectCodeManagement', '/mdm/project-code', 'projectCodeId', 'projectCodeId')
+assertNavigationBlock(registrationPage, 'openLinkedProductManagement', '/mes/md/showroom-product', 'productMasterId', 'productMasterId')
+assertNavigationBlock(registrationPage, 'openLinkedProjectCodeManagement', '/mes/md/dcc-project-code', 'projectCodeId', 'projectCodeId')
 
 for (const source of [projectCodePage, mdmProductPage, registrationPage]) {
   assert.doesNotMatch(source, /mock|defaultSuccess|fallback|降级|吞异常/,

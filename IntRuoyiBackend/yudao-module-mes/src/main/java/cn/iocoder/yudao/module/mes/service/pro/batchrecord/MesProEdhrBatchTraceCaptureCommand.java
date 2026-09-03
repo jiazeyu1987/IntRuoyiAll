@@ -20,6 +20,7 @@ public class MesProEdhrBatchTraceCaptureCommand {
     private String completionBackfillReceiptHash;
     private Long pickListBindingId;
     private Long pickListId;
+    private List<MesBatchExecutionPickListSource> pickListSources;
     private Integer pickListBindingVersion;
     private String sourceSnapshotHash;
     private Long batchProvisionReceiptId;

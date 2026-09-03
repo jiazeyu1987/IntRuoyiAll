@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
@@ -9,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderVersionUpgradeRequestDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -18,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderVersionUpgradeRequestMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -83,6 +86,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderVersionUpgradeRequestMapper versionUpgradeRequestMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
     private final MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrWorkTaskService workTaskService;
@@ -99,6 +103,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderVersionUpgradeRequestMapper versionUpgradeRequestMapper,
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
+            MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper,
             MesProcessPoolTeamMaintenanceAuditMapper auditMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrWorkTaskService workTaskService,
@@ -113,6 +118,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
         this.activeOrderMapper = activeOrderMapper;
         this.versionUpgradeRequestMapper = versionUpgradeRequestMapper;
         this.pickListBindingMapper = pickListBindingMapper;
+        this.pickListBindingItemMapper = pickListBindingItemMapper;
         this.auditMapper = auditMapper;
         this.batchExecutionMapper = batchExecutionMapper;
         this.workTaskService = workTaskService;
@@ -331,20 +337,21 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT,
                     request.getId(), sourceActiveOrder.getId());
         }
-        MesProcessPoolActiveOrderPickListBindingDO oldPickListBinding =
-                pickListBindingMapper.selectByActiveOrderId(sourceActiveOrder.getId());
+        List<MesProcessPoolActiveOrderPickListBindingDO> oldPickListBindings =
+                pickListBindingMapper.selectListByActiveOrderId(sourceActiveOrder.getId());
         MesTeamLeaderActiveOrderAddResult addResult = activeOrderService.addActiveOrder(
                 MesTeamLeaderActiveOrderAddReqBO.builder()
                         .leaderUserId(sourceActiveOrder.getLeaderUserId())
                         .workOrderId(sourceActiveOrder.getWorkOrderId())
-                        .pickListId(oldPickListBinding == null ? null : oldPickListBinding.getPickListId())
-                        .pickListCandidateSnapshotHash(oldPickListBinding == null
-                                ? null : oldPickListBinding.getSourceSnapshotHash())
                         .idempotencyKey("VERSION-UPGRADE-" + request.getId())
                         .forceNewVersionUpgradeOrder(Boolean.TRUE)
                         .targetRouteVersionId(targetRouteVersionId)
                         .targetQaRegulationVersionId(targetQaRegulationVersionId)
                         .build());
+        for (int index = 0; index < oldPickListBindings.size(); index++) {
+            copyPickListBinding(oldPickListBindings.get(index), addResult.getActiveOrderId(), actorUserId,
+                    request.getId(), now);
+        }
         int applied = versionUpgradeRequestMapper.markApplied(request.getId(), addResult.getActiveOrderId(),
                 null, actorUserId, now, "审批通过后已作废旧订单并按全部最新正式版本重新加入活跃订单");
         if (applied != 1) {
@@ -364,6 +371,75 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
                 "targetActiveOrderId=" + addResult.getActiveOrderId()
                         + ",voidedBatchExecutionId=" + (oldBatch == null ? null : oldBatch.getId()));
         return toApplyResult(request, oldBatch == null ? null : oldBatch.getId());
+    }
+
+    private void copyPickListBinding(MesProcessPoolActiveOrderPickListBindingDO source, Long targetActiveOrderId,
+                                     Long actorUserId, Long requestId, LocalDateTime boundAt) {
+        if (source == null || source.getId() == null || source.getPickListId() == null
+                || StrUtil.isBlank(source.getSourceSnapshotHash())
+                || !"BOUND".equalsIgnoreCase(StrUtil.trim(source.getBindingStatus()))
+                || source.getBindingVersion() == null || source.getBindingVersion() <= 0) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT, requestId,
+                    targetActiveOrderId);
+        }
+        MesProcessPoolActiveOrderPickListBindingDO target = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .id(IdUtil.getSnowflake().nextId())
+                .activeOrderId(targetActiveOrderId)
+                .workOrderId(source.getWorkOrderId())
+                .pickListId(source.getPickListId())
+                .sourceFid(source.getSourceFid())
+                .sourceBillNo(source.getSourceBillNo())
+                .sourceDocumentStatus(source.getSourceDocumentStatus())
+                .sourceModifyTime(source.getSourceModifyTime())
+                .sourceSnapshotHash(source.getSourceSnapshotHash())
+                .bindingStatus(source.getBindingStatus())
+                .boundBy(actorUserId)
+                .boundAt(boundAt)
+                .idempotencyKey("VERSION-UPGRADE-PICK-BINDING-" + requestId + "-" + source.getId())
+                .requestPayloadHash(source.getRequestPayloadHash())
+                .bindingVersion(source.getBindingVersion())
+                .build();
+        if (pickListBindingMapper.insert(target) != 1) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT, requestId,
+                    targetActiveOrderId);
+        }
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> sourceItems =
+                pickListBindingItemMapper.selectListByBindingId(source.getId());
+        if (sourceItems == null || sourceItems.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT, requestId,
+                    targetActiveOrderId);
+        }
+        for (MesProcessPoolActiveOrderPickListBindingItemDO sourceItem : sourceItems) {
+            if (sourceItem == null || sourceItem.getId() == null || sourceItem.getPickListItemId() == null
+                    || StrUtil.isBlank(sourceItem.getItemSnapshotHash())) {
+                throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT, requestId,
+                        targetActiveOrderId);
+            }
+            MesProcessPoolActiveOrderPickListBindingItemDO targetItem = MesProcessPoolActiveOrderPickListBindingItemDO
+                    .builder()
+                    .id(IdUtil.getSnowflake().nextId())
+                    .bindingId(target.getId())
+                    .pickListItemId(sourceItem.getPickListItemId())
+                    .sourceEntryId(sourceItem.getSourceEntryId())
+                    .sourceLineKey(sourceItem.getSourceLineKey())
+                    .materialNumber(sourceItem.getMaterialNumber())
+                    .materialName(sourceItem.getMaterialName())
+                    .materialSpecification(sourceItem.getMaterialSpecification())
+                    .unitName(sourceItem.getUnitName())
+                    .requestedQuantity(sourceItem.getRequestedQuantity())
+                    .actualQuantity(sourceItem.getActualQuantity())
+                    .baseActualQuantity(sourceItem.getBaseActualQuantity())
+                    .lotNumber(sourceItem.getLotNumber())
+                    .productionOrderNo(sourceItem.getProductionOrderNo())
+                    .productionOrderLineNo(sourceItem.getProductionOrderLineNo())
+                    .sourceModifyTime(sourceItem.getSourceModifyTime())
+                    .itemSnapshotHash(sourceItem.getItemSnapshotHash())
+                    .build();
+            if (pickListBindingItemMapper.insert(targetItem) != 1) {
+                throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT, requestId,
+                        targetActiveOrderId);
+            }
+        }
     }
 
     @Override

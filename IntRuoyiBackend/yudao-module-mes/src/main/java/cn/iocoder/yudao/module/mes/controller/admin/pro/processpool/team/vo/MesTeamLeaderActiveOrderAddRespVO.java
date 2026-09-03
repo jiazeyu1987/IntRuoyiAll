@@ -16,8 +16,4 @@ public class MesTeamLeaderActiveOrderAddRespVO {
             allowableValues = {"ADD", "REUSE", "RECOVER"}, example = "RECOVER")
     private String action;
     private String workOrderId;
-    private String pickListBindingId;
-    private String pickListId;
-    private String sourceSnapshotHash;
-    private Integer bindingVersion;
 }

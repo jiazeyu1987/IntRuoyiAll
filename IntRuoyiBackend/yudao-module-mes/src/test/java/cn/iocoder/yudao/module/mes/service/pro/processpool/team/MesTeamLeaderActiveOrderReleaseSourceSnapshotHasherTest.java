@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -59,6 +60,24 @@ class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasherTest {
         assertNotEquals(baseline, inspectionChanged);
     }
 
+    @Test
+    void secondPickListSourceChangesHash() {
+        MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input baseline = input(
+                List.of(snapshot(1L, 10L)), List.of(completion(1L, 10L, "hash-1")),
+                List.of(task(1L, 10L)), List.of(detail(1L, 10L)));
+        MesProcessPoolActiveOrderPickListBindingDO second = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .id(8002L).activeOrderId(2001L).workOrderId(3001L).pickListId(8102L)
+                .sourceFid("FID-2").sourceBillNo("PL-2").sourceDocumentStatus("C")
+                .sourceSnapshotHash("pick-hash-2").bindingVersion(1).build();
+        MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input withSecond =
+                new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input(
+                        baseline.tenantId(), baseline.activeOrder(), baseline.workOrder(),
+                        List.of(baseline.pickListBindings().get(0), second), baseline.processSnapshots(),
+                        baseline.productionCompletions(), baseline.inspectionTasks(), baseline.inspectionDetails());
+
+        assertNotEquals(hasher.hash(baseline), hasher.hash(withSecond));
+    }
+
     private static MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input input(
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
             List<MesProcessPoolOrderProcessCompletionDO> completions,
@@ -71,6 +90,9 @@ class MesTeamLeaderActiveOrderReleaseSourceSnapshotHasherTest {
                         .businessStatus("PRODUCING").erpFixedQuantitySnapshot(BigDecimal.TEN).build(),
                 MesProWorkOrderDO.builder().id(3001L).code("WO-001").batchCode("BATCH-001")
                         .productId(3101L).quantity(BigDecimal.TEN).build(),
+                List.of(MesProcessPoolActiveOrderPickListBindingDO.builder().id(8001L).activeOrderId(2001L)
+                        .workOrderId(3001L).pickListId(8101L).sourceFid("FID-1").sourceBillNo("PL-1")
+                        .sourceDocumentStatus("C").sourceSnapshotHash("pick-hash-1").bindingVersion(1).build()),
                 snapshots, completions, tasks, details);
     }
 

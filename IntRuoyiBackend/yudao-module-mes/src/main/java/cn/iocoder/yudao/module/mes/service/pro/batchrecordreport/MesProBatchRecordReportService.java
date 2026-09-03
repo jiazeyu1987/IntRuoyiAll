@@ -13,6 +13,11 @@ import java.util.List;
 
 public interface MesProBatchRecordReportService {
 
+    /**
+     * 导入项目的批记录总识别 JSON，并同步正式一线设备参数配置。
+     */
+    void importTotalRecognitionJson(Long dccProjectCodeId, MultipartFile file);
+
     MesProBatchRecordImportResult importPilotDoc(MultipartFile file);
 
     MesProBatchRecordImportResult importImage(MultipartFile file);

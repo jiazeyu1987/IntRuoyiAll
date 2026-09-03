@@ -8,6 +8,13 @@ const read = (relativePath) => fs.readFileSync(path.resolve(workspaceRoot, relat
 
 const page = read('IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 const api = read('IntRuoyiFronted/src/api/mes/pro/processpool/index.ts')
+const itemApi = read('IntRuoyiFronted/src/api/mes/md/item/index.ts')
+
+assert.match(
+  page,
+  /import \{ MdItemApi \} from '@\/api\/mes\/md\/item'/,
+  '修改报工弹框必须使用物料主数据接口解析真实物料名称。'
+)
 
 assert.match(
   api,
@@ -47,8 +54,8 @@ assert.match(
 
 assert.match(
   page,
-  /data-production-report-correction-devices[\s\S]*v-for="item in correctionDeviceItems"/,
-  '修改弹框必须显示多设备上下文。'
+  /data-production-report-correction-devices[\s\S]*materialRow\.selectedDevice/,
+  '修改弹框必须在物料列表内显示设备上下文。'
 )
 
 assert.match(
@@ -65,8 +72,8 @@ assert.match(
 
 assert.match(
   page,
-  /data-production-report-correction-parameters[\s\S]*v-for="parameterRow in correctionForm\.deviceParameterReadings"/,
-  '修改弹框必须为真实 E2E 暴露设备参数区域，并逐设备参数展示。'
+  /data-production-report-correction-parameters[\s\S]*v-for="parameterRow in materialRow\.deviceParameterReadings"/,
+  '修改弹框必须在物料列表内逐物料展示设备参数。'
 )
 
 assert.match(
@@ -80,5 +87,49 @@ assert.match(
   /deviceId: requirePositiveNumber\(item\.deviceId, '设备参数所属设备不能为空'\)[\s\S]*parameterCode: item\.parameterCode/,
   '设备参数提交必须继续携带设备 ID 与参数编码，不能因展示多设备而丢失身份。'
 )
+
+assert.match(
+  page,
+  /\.team-leader-workbench__correction-material-card\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+  '物料卡必须为完成数量和损耗数量各保留完整的一列，避免输入框被压缩。'
+)
+
+assert.match(
+  page,
+  /resolveCorrectionMaterialNames[\s\S]*MdItemApi\.getItem\(item\.materialId\)[\s\S]*material\?\.name/,
+  '修改报工弹框必须按物料编号读取真实物料名称，不能展示“物料 1”等占位名称。'
+)
+
+assert.match(
+  page,
+  /\.team-leader-workbench__correction-material-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+  '物料明细必须按每个物料独立纵向列表展示。'
+)
+
+assert.match(
+  page,
+  /materialRow\.lossDetails[\s\S]*materialRow\.selectedDevice[\s\S]*materialRow\.deviceParameterReadings/,
+  '每个物料列表必须展示并绑定自己的损耗原因、设备和设备参数。'
+)
+
+assert.match(
+  page,
+  /lossDetails: item\.lossDetails[\s\S]*selectedDevice: item\.selectedDevice[\s\S]*deviceParameterReadings: item\.deviceParameterReadings/,
+  '修改提交载荷必须按物料携带损耗原因、设备和设备参数。'
+)
+
+assert.match(
+  page,
+  /const materialLossDetails = hasMaterialLossDetails[\s\S]*correctionForm\.materialDetails\.flatMap\(\(item\) => item\.lossDetails\)/,
+  '修改提交必须从物料级损耗明细生成总损耗原因字段。'
+)
+
+assert.match(
+  page,
+  /const materialParameterReadings = hasMaterialParameters[\s\S]*correctionForm\.materialDetails\.flatMap\(\(item\) => item\.deviceParameterReadings\)/,
+  '修改提交必须从物料级设备参数生成总设备参数字段。'
+)
+
+assert.match(itemApi, /getItem: async \(id: number\)/)
 
 console.log('PASS: team-leader-multi-material-device-dialogs-static')

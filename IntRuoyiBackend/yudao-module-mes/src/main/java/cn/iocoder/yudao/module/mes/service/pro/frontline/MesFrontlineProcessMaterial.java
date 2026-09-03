@@ -7,11 +7,29 @@ public record MesFrontlineProcessMaterial(Long materialId,
                                           String materialCode,
                                           String materialName,
                                           String materialSpecification,
+                                          String materialRole,
                                           BigDecimal bomQuantity,
-                                          List<String> batchCodes) {
+                                          List<String> batchCodes,
+                                          BigDecimal requestedQuantity,
+                                          BigDecimal actualQuantity,
+                                          BigDecimal baseActualQuantity,
+                                          List<Long> sourcePickListIds,
+                                          List<Long> sourcePickListItemIds,
+                                          String sourceSnapshotHash) {
+
+    public static final String ROLE_INPUT = "INPUT";
+    public static final String ROLE_OUTPUT = "OUTPUT";
+
+    public MesFrontlineProcessMaterial(Long materialId, String materialCode, String materialName,
+                                       String materialSpecification, BigDecimal bomQuantity,
+                                       List<String> batchCodes) {
+        this(materialId, materialCode, materialName, materialSpecification, ROLE_OUTPUT,
+                bomQuantity, batchCodes, null, null, null, List.of(), List.of(), null);
+    }
 
     public MesFrontlineProcessMaterial(Long materialId, String materialCode, String materialName,
                                        String materialSpecification, BigDecimal bomQuantity) {
-        this(materialId, materialCode, materialName, materialSpecification, bomQuantity, List.of());
+        this(materialId, materialCode, materialName, materialSpecification, ROLE_OUTPUT,
+                bomQuantity, List.of(), null, null, null, List.of(), List.of(), null);
     }
 }

@@ -38,6 +38,10 @@ export interface ProcessPoolTimelineMaterialDetailVO {
   materialName?: string
   outputQuantity?: number | string
   lossQuantity?: number | string
+  lossDetails?: ProcessPoolTimelineLossDetailVO[]
+  selectedDevice?: ProcessPoolTimelineSelectedDeviceVO
+  selectedDevices?: ProcessPoolTimelineSelectedDeviceVO[]
+  deviceParameterReadings?: ProcessPoolTimelineDeviceParameterReadingVO[]
 }
 
 export interface ProcessPoolTimelineSelectedDeviceVO {
@@ -122,6 +126,7 @@ export interface ProcessPoolTimelineEventVO {
   lossDetails?: ProcessPoolTimelineLossDetailVO[]
   materialDetails?: ProcessPoolTimelineMaterialDetailVO[]
   selectedDevice?: ProcessPoolTimelineSelectedDeviceVO
+  selectedDevices?: ProcessPoolTimelineSelectedDeviceVO[]
   deviceParameterReadings?: ProcessPoolTimelineDeviceParameterReadingVO[]
   submittedSummary?: string
   originalPayloadJson?: string

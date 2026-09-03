@@ -62,11 +62,11 @@
 ### 数据修复字符串比较排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量、用户变量或存储过程局部字符串变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
-- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写和字节完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较。
+- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写、字节、中英文标点完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较，避免 `utf8mb4_unicode_ci` 将中英文括号等字符判等导致 UPDATE 被跳过。
 - Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
-- Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
+- Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；涉及物料名、菜单名、表单名等字面修正时，最终验收必须使用 `BINARY` 比较或 `HEX()` 证明目标文本字面一致；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过；`doc/tasks/20260903-align-pick-list-input-materials/verification-report.md`，领料单物料名修正时 `utf8mb4_unicode_ci` 将中英文括号判等，改用 `BINARY` 后完成字面修正与验收。
 
 ### MySQL 存储过程标识符长度门禁
 

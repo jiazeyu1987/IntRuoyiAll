@@ -5,4 +5,6 @@ import java.util.List;
 public interface MesProFeedbackMaterialBatchQueryService {
 
     List<String> listBatchCodes(Long workOrderId, String materialCode);
+
+    MesProFeedbackMaterialBatchEvidence resolveEvidence(Long workOrderId, String materialCode);
 }

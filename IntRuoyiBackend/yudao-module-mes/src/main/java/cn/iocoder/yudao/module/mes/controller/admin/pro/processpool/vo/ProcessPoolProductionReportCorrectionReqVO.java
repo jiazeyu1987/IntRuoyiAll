@@ -71,11 +71,38 @@ public class ProcessPoolProductionReportCorrectionReqVO {
         @DecimalMin(value = "0", message = "物料损耗数量不能小于 0")
         private BigDecimal lossQuantity;
 
+        @Valid
+        private List<LossDetailReqVO> lossDetails;
+
+        @Valid
+        private SelectedDeviceReqVO selectedDevice;
+
+        @Valid
+        private List<DeviceParameterReadingReqVO> deviceParameterReadings;
+
         private MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand toCommand() {
             return new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
                     .setMaterialId(materialId)
                     .setOutputQuantity(outputQuantity)
-                    .setLossQuantity(lossQuantity);
+                    .setLossQuantity(lossQuantity)
+                    .setLossDetails((lossDetails == null ? List.<LossDetailReqVO>of() : lossDetails).stream()
+                            .map(LossDetailReqVO::toCommand).toList())
+                    .setSelectedDevice(selectedDevice == null ? null : selectedDevice.toCommand())
+                    .setDeviceParameterReadings((deviceParameterReadings == null
+                            ? List.<DeviceParameterReadingReqVO>of() : deviceParameterReadings).stream()
+                            .map(DeviceParameterReadingReqVO::toCommand).toList());
+        }
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SelectedDeviceReqVO {
+        @NotNull(message = "物料使用设备不能为空")
+        private Long deviceId;
+
+        private MesProcessPoolProductionReportCorrectionCommand.SelectedDeviceCommand toCommand() {
+            return new MesProcessPoolProductionReportCorrectionCommand.SelectedDeviceCommand()
+                    .setDeviceId(deviceId);
         }
     }
 

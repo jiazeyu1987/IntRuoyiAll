@@ -19,7 +19,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand {
 
     private Long activeOrderId;
 
-    private Long pickListBindingId;
+    private List<Long> pickListBindingIds;
 
     private Long workOrderId;
 

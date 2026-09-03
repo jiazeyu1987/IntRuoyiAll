@@ -86,6 +86,10 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     private SelectedDeviceReqVO selectedDevice;
 
     @Valid
+    @Schema(description = "选用设备快照列表；支持多选设备")
+    private List<SelectedDeviceReqVO> selectedDevices;
+
+    @Valid
     @Schema(description = "选用设备参数读数")
     private List<DeviceParameterReadingReqVO> deviceParameterReadings;
 

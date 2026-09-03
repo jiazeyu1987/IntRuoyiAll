@@ -24,6 +24,8 @@ public class MesFrontlineRuntimeConfigRespVO {
     private List<DefectReason> defectReasons;
     @Schema(description = "活跃订单冻结路线版本中的本工序报工物料")
     private List<Material> materials;
+    @Schema(description = "系统管理的冻结工序输入物料领料证据")
+    private List<Material> inputMaterials;
     @Schema(description = "服务端解析的一线生产正式提交上下文")
     private ProductionSubmitContext productionSubmitContext;
     @Schema(description = "服务端全部可选实际填写员工切换快照")
@@ -49,6 +51,8 @@ public class MesFrontlineRuntimeConfigRespVO {
         private String deviceCode;
         private String deviceName;
         private String deviceStatus;
+        private String deviceGroupKey;
+        private String selectionMode;
         private List<DeviceParameter> parameters;
     }
 
@@ -83,6 +87,13 @@ public class MesFrontlineRuntimeConfigRespVO {
         private String materialSpecification;
         private BigDecimal bomQuantity;
         private List<String> batchCodes;
+        private String materialRole;
+        private BigDecimal requestedQuantity;
+        private BigDecimal actualQuantity;
+        private BigDecimal baseActualQuantity;
+        private List<Long> sourcePickListIds;
+        private List<Long> sourcePickListItemIds;
+        private String sourceSnapshotHash;
     }
 
     @Data

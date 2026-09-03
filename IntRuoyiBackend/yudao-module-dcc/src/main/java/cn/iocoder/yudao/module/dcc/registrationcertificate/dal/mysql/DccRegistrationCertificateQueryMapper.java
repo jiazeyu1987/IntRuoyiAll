@@ -391,10 +391,6 @@ public interface DccRegistrationCertificateQueryMapper {
             return """
                      WHERE c.tenant_id = #{tenantId}
                        AND c.deleted = 0
-                       AND c.owner_company_id IN
-                       <foreach collection="companyIds" item="companyId" open="(" separator="," close=")">
-                         #{companyId}
-                       </foreach>
                     """;
         }
 

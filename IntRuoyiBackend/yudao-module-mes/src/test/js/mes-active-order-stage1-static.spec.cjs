@@ -28,16 +28,34 @@ assert.match(stage1Service, /cleanupOwnedRuns\([^)]*validated\.getActorUserId\(\
   'Stage1 must clean previous owned runs after the new fixture is verified, excluding the current run');
 assert.match(stage1Service, /createFixture/,
   'Stage1 must create an independent active-order fixture');
-assert.match(stage1Service, /createSimulationPickList/,
-  'Stage1 must create its own pick-list fixture instead of requiring a template binding');
+assert.match(stage1Service, /createSimulationPickLists/,
+  'Stage1 must resolve all formal pick-list sources instead of requiring a template binding');
 assert.match(stage1Service, /selectListByProductionOrderNo\(\s*workOrder\.getCode\(\)\s*\)/,
   'Stage1 must resolve the formal pick-list source with the work-order code, matching the active-order add flow.');
 assert.doesNotMatch(stage1Service, /selectPickListIdsByProductionOrderNo\(workOrder\.getOrderSourceCode\(\)\)/,
   'Stage1 must not resolve pick lists from orderSourceCode because real pick-list lines are bound to workOrder.code.');
-assert.match(stage1Service, /resolveTemplateBinding[\s\S]*Boolean\.TRUE\.equals\(activeOrder\.getSimulated\(\)\)/,
+assert.match(stage1Service, /resolveTemplateBindings[\s\S]*Boolean\.TRUE\.equals\(activeOrder\.getSimulated\(\)\)/,
   'Stage1 rerun must accept a prior simulated order and read its persisted pick-list binding');
-assert.match(stage1Service, /bindingMapper\.selectByActiveOrderId\(activeOrder\.getId\(\)\)/,
-  'Stage1 rerun must read the prior simulated order pick-list binding before cleanup');
+assert.match(stage1Service, /bindingMapper\s*\.\s*selectListByActiveOrderId\(activeOrder\.getId\(\)\)/,
+  'Stage1 rerun must read all persisted pick-list bindings before cleanup');
+assert.doesNotMatch(stage1Service, /createSyntheticPickList|SYNTHETIC_PICK_LIST_SOURCE_PREFIX/,
+  'Stage1 must not fabricate a pick-list source when formal production pick lists are absent');
+assert.doesNotMatch(stage1Service, /headers\.get\(0\)|模拟汇集全部生产领料单/,
+  'Stage1 must not merge multiple formal pick lists into the first header');
+assert.doesNotMatch(stage1Service, /bindingMapper\.selectByActiveOrderId\(/,
+  'Stage1 multi-source facts must not be reduced to the first active-order binding');
+assert.match(stage1Service, /for \(MesProcessPoolActiveOrderPickListBindingDO templateBinding : templateBindings\)/,
+  'Stage1 must clone and bind every resolved formal pick list independently');
+assert.match(stage1Service, /"STAGE1-" \+ safe \+ "-PL-" \+ source\.getPickListId\(\)/,
+  'each copied pick-list source identity must include its formal pick-list ID');
+assert.match(stage1Service, /cleanupCopiedPickLists\(runId\)/,
+  'Stage1 cleanup must remove every copied pick list for an owned simulation run');
+assert.match(stage1Service, /likeRight\(ErpKingdeeProductionPickListDO::getSourceFid,\s*"STAGE1-" \+ shortRunId\(runId\) \+ "-PL-"\)/,
+  'Stage1 cleanup must scope copied pick-list deletion to the exact run identity prefix');
+assert.match(stage1Service, /selectByActiveOrderIdAndPickListId\(target\.getId\(\), header\.getId\(\)\)/,
+  'Stage1 must use the active-order and copied-pick-list identity when checking a binding source');
+assert.match(stage1Service, /pickListSources/,
+  'Stage1 snapshots must carry every pick-list source, not one source field');
 assert.match(stage1Service, /bindingId|IdUtil\.getSnowflake\(\)\.nextId\(\)/,
   'Stage1 binding persistence must use an explicit primary key for the non-auto-increment binding tables');
 assert.match(stage1Service, /simulateActiveOrderCompletion[\s\S]*?STAGE/,
@@ -58,6 +76,26 @@ assert.match(activeOrderSimulationService, /createZeroLossProductionFeedback/,
   'Stage1 must create a formal zero-loss production feedback row for each simulated production submit');
 assert.match(activeOrderSimulationService, /payload\.put\("lossDetails",\s*List\.of\(\)\)/,
   'Stage1 formal production submit payload must carry an explicit empty lossDetails array for zero-loss evidence');
+assert.match(activeOrderSimulationService, /routeSnapshotJson/,
+  'Stage1 production simulation must read materials from the active order frozen route snapshot.');
+assert.match(activeOrderSimulationService, /inputMaterialIds/,
+  'Stage1 must carry frozen input materials as system-managed balance evidence.');
+assert.match(activeOrderSimulationService, /outputMaterialIds/,
+  'Stage1 must create production material facts only from frozen output materials.');
+assert.match(activeOrderSimulationService, /inputMaterialDetails/,
+  'Stage1 must persist input material batch trace details separately from output quantities.');
+assert.match(activeOrderSimulationService, /listBatchCodes/,
+  'Stage1 input material evidence must obtain batch codes from the formal synchronized source.');
+assert.match(activeOrderSimulationService, /resolveDefaultSimulationDevice/,
+  'Stage1 must resolve a formal default device for simulated output material facts.');
+assert.match(activeOrderSimulationService, /orderByAsc\(MesProcessPoolTeamProcessDeviceDO::getId\)/,
+  'Stage1 must use the stable formal binding order when selecting its default device.');
+assert.match(activeOrderSimulationService, /selectedDevice/,
+  'Stage1 output material facts must persist the selected formal device.');
+assert.match(activeOrderSimulationService, /getDeviceStatus\(\)/,
+  'Stage1 must exclude inactive formal devices before selecting a default.');
+assert.doesNotMatch(activeOrderSimulationService, /frontlineReportMaterialIds|workOrderBomMapper/,
+  'Stage1 must not infer simulation materials from the retired batch-record field or product BOM.');
 assert.doesNotMatch(activeOrderSimulationService, /\.feedbackSourceType\(SIMULATION_SOURCE_TYPE\)/,
   'Stage1 production submit events must not use a simulation-only feedback source');
 assert.match(stage1Service, /STAGE1_FORMAL_PRODUCTION_FEEDBACK_REQUIRED/,

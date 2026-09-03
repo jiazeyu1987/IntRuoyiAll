@@ -4579,13 +4579,13 @@ const handleRecognizeProjectCode = async () => {
 const openDccProjectCode = (projectCodeId: number) => {
   if (!fileDetail.value?.id) {
     router.push({
-      path: '/mdm/project-code',
+      path: '/mes/md/dcc-project-code',
       query: { projectCodeId: String(projectCodeId) }
     })
     return
   }
   router.push({
-    path: '/mdm/project-code',
+    path: '/mes/md/dcc-project-code',
     query: {
       projectCodeId: String(projectCodeId),
       associatedFocus: '1',

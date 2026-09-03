@@ -1,9 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
-import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceException;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceResolver;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,18 +14,20 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 @Service
 public class MesProFeedbackMaterialBatchQueryServiceImpl implements MesProFeedbackMaterialBatchQueryService {
 
-    private final MesProWorkOrderMapper workOrderMapper;
-    private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    private final MesFormalProductionPickListSourceResolver sourceResolver;
 
     public MesProFeedbackMaterialBatchQueryServiceImpl(
-            MesProWorkOrderMapper workOrderMapper,
-            ErpKingdeeProductionPickListItemMapper pickListItemMapper) {
-        this.workOrderMapper = workOrderMapper;
-        this.pickListItemMapper = pickListItemMapper;
+            MesFormalProductionPickListSourceResolver sourceResolver) {
+        this.sourceResolver = sourceResolver;
     }
 
     @Override
     public List<String> listBatchCodes(Long workOrderId, String materialCode) {
+        return resolveEvidence(workOrderId, materialCode).batchCodes();
+    }
+
+    @Override
+    public MesProFeedbackMaterialBatchEvidence resolveEvidence(Long workOrderId, String materialCode) {
         if (workOrderId == null || workOrderId <= 0) {
             throw invalid("生产工单编号不能为空");
         }
@@ -34,26 +35,40 @@ public class MesProFeedbackMaterialBatchQueryServiceImpl implements MesProFeedba
         if (normalizedMaterialCode == null) {
             throw invalid("物料编码不能为空");
         }
-        MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
-        String productionOrderNo = workOrder == null ? null : normalize(workOrder.getCode());
-        if (productionOrderNo == null) {
-            throw invalid("生产工单不存在或缺少正式订单编号：" + workOrderId);
+        final MesFormalProductionPickListSourceResolver.Resolution resolution;
+        try {
+            resolution = sourceResolver.resolve(workOrderId);
+        } catch (MesFormalProductionPickListSourceException sourceException) {
+            throw invalid("生产工单或正式领料单来源无效：" + sourceException.getMessage());
         }
-        List<ErpKingdeeProductionPickListItemDO> rows =
-                pickListItemMapper.selectListByProductionOrderNo(productionOrderNo);
-        if (rows == null || rows.isEmpty()) {
-            return List.of();
-        }
-        return rows.stream()
-                .filter(Objects::nonNull)
-                .filter(row -> Objects.equals(productionOrderNo, normalize(row.getProductionOrderNo())))
+        List<ErpKingdeeProductionPickListItemDO> matchedItems = resolution.sources().stream()
+                .flatMap(source -> source.items().stream())
                 .filter(row -> Objects.equals(normalizedMaterialCode, normalize(row.getMaterialNumber())))
+                .toList();
+        List<String> batchCodes = matchedItems.stream()
                 .map(ErpKingdeeProductionPickListItemDO::getLotNumber)
                 .map(MesProFeedbackMaterialBatchQueryServiceImpl::normalize)
                 .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
                 .toList();
+        if (batchCodes.isEmpty()) {
+            throw invalid("正式领料单未包含物料或批号：" + normalizedMaterialCode);
+        }
+        return new MesProFeedbackMaterialBatchEvidence(normalizedMaterialCode, batchCodes,
+                sum(matchedItems, ErpKingdeeProductionPickListItemDO::getRequestedQuantity),
+                sum(matchedItems, ErpKingdeeProductionPickListItemDO::getActualQuantity),
+                sum(matchedItems, ErpKingdeeProductionPickListItemDO::getBaseActualQuantity),
+                resolution.sources().stream().map(source -> source.header().getId()).toList(),
+                matchedItems.stream().map(ErpKingdeeProductionPickListItemDO::getId).toList(),
+                resolution.hash());
+    }
+
+    private static java.math.BigDecimal sum(List<ErpKingdeeProductionPickListItemDO> items,
+                                            java.util.function.Function<ErpKingdeeProductionPickListItemDO,
+                                                    java.math.BigDecimal> getter) {
+        return items.stream().map(getter).filter(Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
     }
 
     private static String normalize(String value) {

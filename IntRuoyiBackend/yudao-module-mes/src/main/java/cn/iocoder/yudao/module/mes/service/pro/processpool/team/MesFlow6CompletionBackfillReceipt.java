@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionPickListSource;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -35,6 +36,7 @@ public class MesFlow6CompletionBackfillReceipt {
     private String sourceBundleHash;
     private Long pickListBindingId;
     private Long pickListId;
+    private java.util.List<MesBatchExecutionPickListSource> pickListSources;
     private Long batchPickListRelationId;
     private Long bindingVersion;
     private String pickListHeaderSnapshotHash;

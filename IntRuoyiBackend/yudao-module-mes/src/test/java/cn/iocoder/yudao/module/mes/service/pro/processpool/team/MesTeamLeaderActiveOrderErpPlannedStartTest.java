@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -110,6 +111,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock
     private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock
+    private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
+    @Mock
     private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock
     private MesProcessPoolReportAllocationStateMapper reportAllocationStateMapper;
@@ -177,6 +180,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
+                processDeviceMapper,
                 reportAllocationMapper, reportAllocationStateMapper, reportAllocationAdjustmentAuditMapper,
                 orderProcessCompletionMapper, processPoolEventMapper, feedbackMapper, pqcRecordMapper,
                 submissionReviewMapper,
@@ -186,7 +190,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
-                reportAllocationOrderChangeService, pickListMapper, pickListItemMapper,
+                reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,
                 batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
@@ -284,7 +288,6 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
-                .pickListId(901L)
                 .idempotencyKey("erp-planned-start-test-1")
                 .build());
 
@@ -318,7 +321,6 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
-                .pickListId(901L)
                 .idempotencyKey("erp-planned-start-test-2")
                 .build());
 

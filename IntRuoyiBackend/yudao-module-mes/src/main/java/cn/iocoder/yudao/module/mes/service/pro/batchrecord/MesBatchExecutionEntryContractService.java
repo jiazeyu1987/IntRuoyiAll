@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6Completi
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -99,26 +100,18 @@ public class MesBatchExecutionEntryContractService {
     private void validateActiveContext(MesBatchExecutionAuthoritativeContext context, Long tenantId) {
         MesBatchExecutionProvisionCommand command = context.getProvisionCommand();
         MesFlow6CompletionBackfillReceipt receipt = context.getCompletionReceipt();
-        MesProcessPoolActiveOrderPickListBindingDO binding = context.getPickListBinding();
-        if (receipt == null || binding == null || !Objects.equals(receipt.getTenantId(), tenantId)
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = context.getPickListBindings();
+        if (receipt == null || !Objects.equals(receipt.getTenantId(), tenantId)
                 || !Objects.equals(receipt.getReceiptId(), parseLong(command.getSourceCredentialId()))
                 || !MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED.equals(receipt.getStatus())
                 || receipt.getWorkOrderId() == null || receipt.getRouteId() == null
                 || receipt.getRouteVersionId() == null || blank(receipt.getBatchCode())
                 || blank(receipt.getSourceSnapshotHash()) || blank(receipt.getReceiptHash())
                 || receipt.getBatchRecordId() == null || receipt.getProcessInspectionId() == null
-                || receipt.getHasActualLoss() == null || receipt.getLossQuantity() == null
-                || binding.getId() == null || binding.getPickListId() == null
-                || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
-                || !Objects.equals(binding.getTenantId(), tenantId)
-                || !Objects.equals(binding.getActiveOrderId(), receipt.getActiveOrderId())
-                || !Objects.equals(binding.getWorkOrderId(), receipt.getWorkOrderId())
-                || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())
-                || !Objects.equals(command.getPickListBindingId(), binding.getId())
-                || !Objects.equals(command.getPickListId(), binding.getPickListId())
-                || !Objects.equals(command.getBindingVersion(), Long.valueOf(binding.getBindingVersion()))) {
+                || receipt.getHasActualLoss() == null || receipt.getLossQuantity() == null) {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
         }
+        validatePickListSources(command, receipt, bindings, tenantId);
         if (Boolean.TRUE.equals(receipt.getHasActualLoss())
                 && (receipt.getLossRecordId() == null || receipt.getLossQuantity().signum() <= 0
                 || blank(receipt.getLossReportStatus()))) {
@@ -128,6 +121,33 @@ public class MesBatchExecutionEntryContractService {
                 && (receipt.getLossRecordId() != null || receipt.getLossQuantity().signum() != 0
                 || blank(receipt.getZeroLossConfirmationSnapshot()))) {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
+    }
+
+    private void validatePickListSources(MesBatchExecutionProvisionCommand command,
+                                         MesFlow6CompletionBackfillReceipt receipt,
+                                         List<MesProcessPoolActiveOrderPickListBindingDO> bindings,
+                                         Long tenantId) {
+        if (bindings == null || bindings.isEmpty()
+                || command.getPickListSources() == null || command.getPickListSources().isEmpty()
+                || command.getPickListSources().size() != bindings.size()) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : bindings) {
+            if (binding == null || binding.getId() == null || binding.getPickListId() == null
+                    || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
+                    || blank(binding.getSourceSnapshotHash())
+                    || !Objects.equals(binding.getTenantId(), tenantId)
+                    || !Objects.equals(binding.getActiveOrderId(), receipt.getActiveOrderId())
+                    || !Objects.equals(binding.getWorkOrderId(), receipt.getWorkOrderId())
+                    || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())
+                    || command.getPickListSources().stream().noneMatch(source ->
+                    Objects.equals(source.getPickListBindingId(), binding.getId())
+                            && Objects.equals(source.getPickListId(), binding.getPickListId())
+                            && Objects.equals(source.getBindingVersion(), Long.valueOf(binding.getBindingVersion()))
+                            && Objects.equals(source.getSourceSnapshotHash(), binding.getSourceSnapshotHash()))) {
+                throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+            }
         }
     }
 
@@ -172,7 +192,8 @@ public class MesBatchExecutionEntryContractService {
         }
         if (blank(receipt.getReceiptId()) || !Objects.equals(receipt.getReceiptId(), command.getSourceCredentialId())
                 || command.getActiveOrderId() == null || command.getWorkOrderId() == null
-                || command.getPickListBindingId() == null || command.getPickListId() == null
+                || !samePickListSources(command.getPickListSources(), receipt.getPickListSources())
+                || !sameLegacyPickListFields(command, receipt)
                 || command.getRouteVersionId() == null || receipt.getActiveOrderId() == null
                 || command.getBatchCode() == null || command.getRouteId() == null
                 || receipt.getTenantId() == null
@@ -187,13 +208,6 @@ public class MesBatchExecutionEntryContractService {
                 || !command.getWorkOrderCode().equals(receipt.getWorkOrderCode())
                 || !command.getBatchCode().equals(receipt.getBatchCode())
                 || !command.getRouteId().equals(receipt.getRouteId())
-                || !command.getPickListBindingId().equals(receipt.getPickListBindingId())
-                || !command.getPickListId().equals(receipt.getPickListId())
-                || command.getBindingVersion() == null
-                || !Objects.equals(command.getBindingVersion(), receipt.getBindingVersion())
-                || receipt.getBatchPickListRelationId() == null
-                || command.getBatchPickListRelationId() == null
-                || !command.getBatchPickListRelationId().equals(receipt.getBatchPickListRelationId())
                 || !Objects.equals(command.getRouteVersionId(), receipt.getRouteVersionId())
                 || blank(receipt.getSourceContextHash())
                 || !command.getSourceContextHash().equals(receipt.getSourceContextHash())
@@ -210,12 +224,6 @@ public class MesBatchExecutionEntryContractService {
                 || blank(receipt.getSourceBundleHash())
                 || blank(command.getSourceBundleHash())
                 || !Objects.equals(command.getSourceBundleHash(), receipt.getSourceBundleHash())
-                || blank(receipt.getPickListHeaderSnapshotHash())
-                || blank(receipt.getPickListLineSnapshotHash())
-                || blank(command.getPickListHeaderSnapshotHash())
-                || !Objects.equals(command.getPickListHeaderSnapshotHash(), receipt.getPickListHeaderSnapshotHash())
-                || blank(command.getPickListLineSnapshotHash())
-                || !Objects.equals(command.getPickListLineSnapshotHash(), receipt.getPickListLineSnapshotHash())
                 || blank(receipt.getReceiptHash())
                 || blank(command.getCompletionBackfillReceiptId())
                 || !Objects.equals(command.getCompletionBackfillReceiptId(), receipt.getReceiptId())
@@ -230,7 +238,7 @@ public class MesBatchExecutionEntryContractService {
                 || !"BACKFILL_SUCCEEDED".equals(receipt.getInspectionBackfillStatus())
                 || !("BACKFILL_SUCCEEDED".equals(receipt.getLossBackfillStatus())
                 || "NO_LOSS".equals(receipt.getLossBackfillStatus()))
-                || receipt.getBindingVersion() == null || receipt.getCompletionVersion() == null
+                || receipt.getCompletionVersion() == null
                 || command.getCompletionVersion() == null
                 || !Objects.equals(command.getCompletionVersion(), receipt.getCompletionVersion())
                 || blank(receipt.getCompletionEventId()) || blank(receipt.getReceiptVersion())
@@ -334,6 +342,51 @@ public class MesBatchExecutionEntryContractService {
 
     private boolean blank(String value) {
         return StrUtil.isBlank(value);
+    }
+
+    private boolean samePickListSources(List<MesBatchExecutionPickListSource> commandSources,
+                                        List<MesBatchExecutionPickListSource> receiptSources) {
+        if (commandSources == null || receiptSources == null || commandSources.isEmpty()
+                || commandSources.size() != receiptSources.size()) {
+            return false;
+        }
+        for (int i = 0; i < commandSources.size(); i++) {
+            MesBatchExecutionPickListSource commandSource = commandSources.get(i);
+            MesBatchExecutionPickListSource receiptSource = receiptSources.get(i);
+            if (commandSource == null || receiptSource == null
+                    || commandSource.getPickListBindingId() == null
+                    || commandSource.getPickListId() == null
+                    || commandSource.getBindingVersion() == null || commandSource.getBindingVersion() <= 0
+                    || blank(commandSource.getSourceSnapshotHash())
+                    || !Objects.equals(commandSource.getPickListBindingId(), receiptSource.getPickListBindingId())
+                    || !Objects.equals(commandSource.getPickListId(), receiptSource.getPickListId())
+                    || !Objects.equals(commandSource.getBindingVersion(), receiptSource.getBindingVersion())
+                    || !Objects.equals(commandSource.getSourceSnapshotHash(), receiptSource.getSourceSnapshotHash())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean sameLegacyPickListFields(MesBatchExecutionProvisionCommand command,
+                                             MesCompletionBackfillReceipt receipt) {
+        List<MesBatchExecutionPickListSource> sources = command.getPickListSources();
+        if (sources == null || sources.size() != 1) {
+            return command.getPickListBindingId() == null
+                    && command.getPickListId() == null
+                    && command.getBindingVersion() == null
+                    && command.getPickListHeaderSnapshotHash() == null
+                    && command.getPickListLineSnapshotHash() == null;
+        }
+        MesBatchExecutionPickListSource source = sources.get(0);
+        return Objects.equals(command.getPickListBindingId(), source.getPickListBindingId())
+                && Objects.equals(receipt.getPickListBindingId(), source.getPickListBindingId())
+                && Objects.equals(command.getPickListId(), source.getPickListId())
+                && Objects.equals(receipt.getPickListId(), source.getPickListId())
+                && Objects.equals(command.getBindingVersion(), source.getBindingVersion())
+                && Objects.equals(receipt.getBindingVersion(), source.getBindingVersion())
+                && Objects.equals(command.getPickListHeaderSnapshotHash(), receipt.getPickListHeaderSnapshotHash())
+                && Objects.equals(command.getPickListLineSnapshotHash(), receipt.getPickListLineSnapshotHash());
     }
 
     private boolean sameEvidence(java.util.List<MesBatchExecutionSourceEvidence> commandEvidence,

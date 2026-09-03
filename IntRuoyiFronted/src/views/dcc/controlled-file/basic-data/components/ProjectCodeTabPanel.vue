@@ -302,7 +302,16 @@
               >
                 复制JSON
               </el-button>
-              <span v-else>-</span>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                data-testid="dcc-project-code-import-recognition-json"
+                @click="openRecognitionJsonImport(row)"
+                v-hasPermi="['mes:pro-batch-record-template:update']"
+              >
+                导入JSON
+              </el-button>
             </template>
           </el-table-column>
           <el-table-column
@@ -458,6 +467,36 @@
       </template>
     </UnifiedListTemplate>
   </ContentWrap>
+
+  <el-dialog
+    v-model="recognitionJsonImportVisible"
+    class="scheme-d-form-control"
+    title="导入批记录识别 JSON"
+    width="520px"
+    destroy-on-close
+  >
+    <el-upload
+      accept="application/json,.json"
+      :auto-upload="false"
+      :limit="1"
+      :on-change="handleRecognitionJsonFileChange"
+      :on-remove="handleRecognitionJsonFileRemove"
+    >
+      <el-button class="scheme-d-btn scheme-d-btn--neutral">
+        <Icon icon="ep:folder-opened" class="mr-5px" />选择 JSON 文件
+      </el-button>
+    </el-upload>
+    <template #footer>
+      <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="recognitionJsonImportVisible = false">取消</el-button>
+      <el-button
+        class="scheme-d-btn scheme-d-btn--primary"
+        type="primary"
+        :disabled="!recognitionJsonImportFile"
+        :loading="recognitionJsonImporting"
+        @click="submitRecognitionJsonImport"
+      >导入并同步</el-button>
+    </template>
+  </el-dialog>
 
   <el-dialog
     v-model="importVisible"
@@ -1183,6 +1222,7 @@ import {
   type QaInspectionRegulationProjectStatusVO
 } from '@/api/mes/qc/template'
 import { formatControlledFileDateTime } from '../../detail/presentation'
+import { BatchRecordReportApi } from '@/api/mes/pro/batchrecordreport'
 import { openControlledFileViewer } from '../../shared/viewer-navigation'
 import {
   DCC_TECHNICAL_DOCUMENT_ROOT_NAME,
@@ -1350,6 +1390,10 @@ const confirmLoading = ref(false)
 const detailLoading = ref(false)
 const associatedFilesLoading = ref(false)
 const importVisible = ref(false)
+const recognitionJsonImportVisible = ref(false)
+const recognitionJsonImporting = ref(false)
+const recognitionJsonImportProject = ref<DccProjectCodeRespVO | null>(null)
+const recognitionJsonImportFile = ref<File | null>(null)
 const detailDrawerVisible = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
@@ -1962,7 +2006,7 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 })
 
 const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
-const PROJECT_CODE_ROUTE_PATH = '/mdm/project-code'
+const PROJECT_CODE_ROUTE_PATH = '/mes/md/dcc-project-code'
 
 const isProjectCodeRoute = () => route.path === PROJECT_CODE_ROUTE_PATH
 
@@ -2146,7 +2190,7 @@ const openLinkedProductManagement = (row: DccProjectCodeRespVO) => {
     return
   }
   router.push({
-    path: '/mdm/product',
+    path: '/mes/md/showroom-product',
     query: { productMasterId: String(row.productMasterId) }
   })
 }
@@ -2234,6 +2278,37 @@ const copyBatchRecordTotalRecognitionJson = async (row: DccProjectCodeRespVO) =>
   await copy()
   if (unref(copied)) {
     message.success('批记录识别 JSON 已复制')
+  }
+}
+
+const openRecognitionJsonImport = (row: DccProjectCodeRespVO) => {
+  recognitionJsonImportProject.value = row
+  recognitionJsonImportFile.value = null
+  recognitionJsonImportVisible.value = true
+}
+
+const handleRecognitionJsonFileChange = (uploadFile: any) => {
+  recognitionJsonImportFile.value = uploadFile.raw || null
+}
+
+const handleRecognitionJsonFileRemove = () => {
+  recognitionJsonImportFile.value = null
+}
+
+const submitRecognitionJsonImport = async () => {
+  const project = recognitionJsonImportProject.value
+  const file = recognitionJsonImportFile.value
+  if (!project?.id || !file) {
+    return
+  }
+  recognitionJsonImporting.value = true
+  try {
+    await BatchRecordReportApi.importTotalRecognitionJson(project.id, file)
+    message.success('批记录识别 JSON 已导入，设备参数已同步')
+    recognitionJsonImportVisible.value = false
+    await getList()
+  } finally {
+    recognitionJsonImporting.value = false
   }
 }
 
@@ -3133,7 +3208,7 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
   }
   detailDrawerVisible.value = true
   await router.replace({
-    path: '/mdm/project-code',
+    path: '/mes/md/dcc-project-code',
     query: { ...route.query, projectCodeId: id }
   })
 }
