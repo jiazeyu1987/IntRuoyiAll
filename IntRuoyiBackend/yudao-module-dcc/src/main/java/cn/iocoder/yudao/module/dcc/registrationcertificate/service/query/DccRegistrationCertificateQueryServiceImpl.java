@@ -255,6 +255,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .hasPendingChange(Boolean.TRUE.equals(row.getHasPendingChange()))
                 .hasProjectCode(row.getProjectCodeId() != null)
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
+                .hasPendingRenewal(Boolean.TRUE.equals(row.getHasPendingRenewal()))
                 .reminderColor(reminder.colorCode())
                 .visualState(reminder.thresholdLevel())
                 .firstObtainedDate(row.getFirstObtainedDate())

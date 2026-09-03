@@ -85,6 +85,15 @@
 - Forbidden action: 禁止凭历史命令猜环境变量名，禁止把 API 字节数直接冒充归档文件有效性，禁止用旧批次或旧下载产物补当前批次的文件证据。
 - Evidence: `doc/tasks/20260901-edhr-pdfa-full-e2e/execution-log.md`，最终归档 E2E 首次因使用旧目标键名缺参失败，核对当前脚本键名后以 `EDHR_ARCHIVE_TASK_E2E_WORK_TASK_ID`、`EDHR_ARCHIVE_TASK_E2E_BATCH_EXECUTION_ID` 和 `EDHR_ARCHIVE_TASK_E2E_BATCH_CODE` 复跑通过，并保存最新 PDF/A 产物做元数据与渲染检查。
 
+### 审批型写入 E2E 角色与可见数据预检门禁
+
+- Trigger: 注册证上传、注册证延续、DCC、BPM 或其它需要“申请人提交 + 审批人处理”的真实写入型 E2E，或需要按已有业务编号验证审批中心摘要。
+- Preflight check: 在创建业务数据前，必须用真实前端登录目标租户和申请账号，零写入核对申请账号所需页面/按钮权限、精确审批角色 code、审批候选用户数量；若验证已有审批记录，还必须通过真实审批中心页签和关键词筛选确认目标业务编号在当前账号的待办、已办、我发起或抄送列表中可见。
+- Blocker: 精确审批角色不存在、审批候选用户为空、目标业务编号在当前账号可见列表中 total 为 0、目标账号无法登录、或角色/用户/菜单/租户基线缺失时，必须记录 E2E BLOCKED；不得把静态合同、只读 API、其它租户账号或空结果写成真实页面通过。
+- Verification: 证据记录前端入口、租户/用户标签、审批角色 code、候选用户计数、目标页签 total、真实 Playwright 命令和停止位置；不得记录密码、token、cookie 或连接密钥。
+- Forbidden action: 禁止在 E2E 脚本中未经当前任务明确授权就创建角色、分配角色、扩大菜单权限、重置审批人密码、静默切换租户账号或用 API-only 伪造审批处理。
+- Evidence: `doc/tasks/20260901-registration-certificate-dcc-category-binding/execution-log.md`。
+
 ### 前端 API 路径同源门禁
 
 - Trigger: Playwright 已通过真实页面完成提交或导入，但后续用 `fetch` 做最终状态核验时返回模块禁用兜底、请求地址不存在、401/403 或与页面网络请求不一致；尤其是 Form Center、DCC、MES 等前端 API wrapper 自带业务前缀时。

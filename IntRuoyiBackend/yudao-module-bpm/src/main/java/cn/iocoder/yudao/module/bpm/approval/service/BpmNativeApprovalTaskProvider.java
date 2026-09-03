@@ -308,7 +308,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", task.getProcessInstanceId());
         detailQuery.put("taskId", task.getId());
-        Map<String, Object> variables = task.getProcessVariables();
+        Map<String, Object> variables = resolveTodoProcessVariables(task, processInstance);
         Map<String, String> decisionDetailQuery = buildDecisionDetailQuery(variables, task.getProcessInstanceId());
         RoleRespDTO assigneeRole = resolveRegistrationCertificateAssigneeRole(variables);
         return ApprovalTaskSummary.builder()
@@ -339,6 +339,19 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .availableActions(TODO_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
+    }
+
+    private static Map<String, Object> resolveTodoProcessVariables(Task task, ProcessInstance processInstance) {
+        Map<String, Object> variables = new LinkedHashMap<>();
+        Map<String, Object> processVariables = processInstance.getProcessVariables();
+        if (processVariables != null && !processVariables.isEmpty()) {
+            variables.putAll(processVariables);
+        }
+        Map<String, Object> taskVariables = task.getProcessVariables();
+        if (taskVariables != null && !taskVariables.isEmpty()) {
+            variables.putAll(taskVariables);
+        }
+        return variables.isEmpty() ? null : variables;
     }
 
     private ApprovalTaskSummary toDoneSummary(HistoricTaskInstance task, HistoricProcessInstance instance) {
@@ -739,7 +752,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 || !REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType")))) {
             return false;
         }
-        String operation = firstText(variables.get("requestOperation"));
+        String operation = resolveRegistrationCertificateOperation(variables);
         if (!hasText(operation)) {
             return true;
         }
@@ -749,11 +762,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return true;
         }
         throw new IllegalArgumentException(
-                "APPROVAL_BUSINESS_SUMMARY_VARIABLE_INVALID: registration certificate requestOperation");
+                "APPROVAL_BUSINESS_SUMMARY_VARIABLE_INVALID: registration certificate operation");
     }
 
     private static boolean hasKnownRegistrationCertificateOperation(Map<String, Object> variables) {
-        String operation = variables == null ? null : firstText(variables.get("requestOperation"));
+        String operation = resolveRegistrationCertificateOperation(variables);
         if (!hasText(operation)) {
             return false;
         }
@@ -761,9 +774,16 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 && !REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)
                 && !REGISTRATION_CERTIFICATE_CHANGE_OPERATION.equals(operation)) {
             throw new IllegalArgumentException(
-                    "APPROVAL_BUSINESS_SUMMARY_VARIABLE_INVALID: registration certificate requestOperation");
+                    "APPROVAL_BUSINESS_SUMMARY_VARIABLE_INVALID: registration certificate operation");
         }
         return true;
+    }
+
+    private static String resolveRegistrationCertificateOperation(Map<String, Object> variables) {
+        if (variables == null) {
+            return null;
+        }
+        return firstText(variables.get("requestOperation"), variables.get("operation"));
     }
 
     private static boolean isRegistrationCertificateUploadApproval(Map<String, Object> variables) {
@@ -800,7 +820,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 if (!hasKnownRegistrationCertificateOperation(variables)) {
                     yield "注册证审批";
                 }
-                String operation = firstText(variables.get("requestOperation"));
+                String operation = resolveRegistrationCertificateOperation(variables);
                 if (REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(operation)) {
                     yield "注册证延续审批";
                 }

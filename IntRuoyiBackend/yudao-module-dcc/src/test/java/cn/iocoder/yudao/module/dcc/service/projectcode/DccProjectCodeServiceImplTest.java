@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.projectcode;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
@@ -10,6 +11,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeImportRowRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeControlledFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
 import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
 import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
@@ -30,6 +32,7 @@ import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryLifecycleStageEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportActionConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeImportStatusConstants;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
@@ -44,6 +47,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
@@ -109,6 +113,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private DccControlledFileQueryService controlledFileQueryService;
     @MockitoBean
+    private DccRegistrationCertificateProjectCodeFileAssociationService registrationCertificateFileAssociationService;
+    @MockitoBean
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @MockitoBean
     private PermissionApi permissionApi;
@@ -116,6 +122,14 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
     @MockitoBean
     private MdmProductApi productApi;
+
+    @BeforeEach
+    void setUpRegistrationCertificateAssociationDefaults() {
+        when(registrationCertificateFileAssociationService.countAssociatedFilesByProjectCodeIds(any()))
+                .thenReturn(Map.of());
+        when(registrationCertificateFileAssociationService.listAssociatedRows(any(), any(), any()))
+                .thenReturn(List.of());
+    }
 
     @Test
     void createUpdateDeleteShouldPersistNormalizedFieldsAndAllowBlankProjectCode() {
@@ -396,6 +410,44 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 descPageResult.getList().stream().map(DccProjectCodeDO::getId).toList());
         assertEquals(List.of(2L, 1L, 0L),
                 descPageResult.getList().stream().map(DccProjectCodeDO::getAssociatedFileCount).toList());
+    }
+
+    @Test
+    void controlledFilePageShouldMergeRegistrationCertificateSourceRows() {
+        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
+        DccControlledFileRespVO controlledFile = new DccControlledFileRespVO();
+        controlledFile.setId(7001L);
+        controlledFile.setFileName("controlled-file.pdf");
+        DccControlledFileRespVO registrationFile = new DccControlledFileRespVO();
+        registrationFile.setId(8001L);
+        registrationFile.setFileName("registration-certificate.pdf");
+        registrationFile.setBusinessSourceType(
+                DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE);
+        registrationFile.setRegistrationCertificateId(9001L);
+        registrationFile.setRegistrationCertificateBusinessFileId(8001L);
+        when(controlledFileQueryService.getControlledFilePage(eq(99L), any()))
+                .thenReturn(new PageResult<>(List.of(controlledFile), 1L));
+        when(registrationCertificateFileAssociationService.listAssociatedRows(
+                projectCode.getId(), "注册证", "BOUND")).thenReturn(List.of(registrationFile));
+
+        DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        reqVO.setKeyword("注册证");
+        reqVO.setStatus("BOUND");
+        PageResult<DccControlledFileRespVO> page = projectCodeService.getControlledFilePage(
+                99L, projectCode.getId(), reqVO);
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(List.of(7001L, 8001L), page.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        assertEquals("DCC_CONTROLLED_FILE", page.getList().get(0).getBusinessSourceType());
+        assertEquals(DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE,
+                page.getList().get(1).getBusinessSourceType());
+        assertEquals(9001L, page.getList().get(1).getRegistrationCertificateId());
+        assertEquals(8001L, page.getList().get(1).getRegistrationCertificateBusinessFileId());
+        ArgumentCaptor<DccControlledFilePageReqVO> reqCaptor = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
+        verify(controlledFileQueryService).getControlledFilePage(eq(99L), reqCaptor.capture());
+        assertEquals(projectCode.getId(), reqCaptor.getValue().getDccProjectCodeId());
     }
 
     @Test

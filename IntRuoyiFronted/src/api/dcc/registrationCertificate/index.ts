@@ -91,6 +91,7 @@ export interface DccRegistrationCertificatePageItemVO {
   hasPendingChange: boolean
   hasProjectCode: boolean
   hasRegistrationFile: boolean
+  hasPendingRenewal: boolean
   reminderColor: string
   visualState: DccRegistrationCertificateReminderVisualState
   firstObtainedDate?: DccRegistrationCertificateLocalDateValue

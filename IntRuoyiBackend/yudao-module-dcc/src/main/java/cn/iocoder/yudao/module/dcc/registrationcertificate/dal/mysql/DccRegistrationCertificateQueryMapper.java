@@ -302,6 +302,19 @@ public interface DccRegistrationCertificateQueryMapper {
                            c.product_master_id,
                            c.project_code_id,
                            pc.project_code,
+                           CASE
+                             WHEN c.pending_version_id IS NOT NULL
+                               OR EXISTS (
+                                 SELECT 1
+                                   FROM dcc_registration_certificate_access_request r
+                                  WHERE r.tenant_id = c.tenant_id
+                                    AND r.certificate_id = c.id
+                                    AND r.request_type = 'UPLOAD_CERTIFICATE'
+                                    AND r.status IN ('SUBMITTED', 'BPM_BOUND')
+                                    AND r.deleted = 0
+                               )
+                             THEN TRUE ELSE FALSE
+                           END AS has_pending_renewal,
                            c.first_obtained_date,
                            s.product_name,
                            v.certificate_no,

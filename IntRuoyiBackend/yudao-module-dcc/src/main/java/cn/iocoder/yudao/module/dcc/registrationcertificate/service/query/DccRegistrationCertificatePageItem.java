@@ -31,6 +31,7 @@ public class DccRegistrationCertificatePageItem {
     private Boolean hasPendingChange;
     private Boolean hasProjectCode;
     private Boolean hasRegistrationFile;
+    private Boolean hasPendingRenewal;
     private String reminderColor;
     private String visualState;
     private LocalDate firstObtainedDate;
