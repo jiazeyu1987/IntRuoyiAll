@@ -4296,8 +4296,11 @@ const assertProductionSubmissionReady = () => {
     const filledMaterials = configuredProductionMaterials.value.filter(
       (material) => productionMaterialDrafts[material.key]?.outputQuantity !== undefined
     )
-    if (filledMaterials.length === 0) {
-      throw new Error('请至少填写一个输出物料的完成数量')
+    if (filledMaterials.length !== configuredProductionMaterials.value.length) {
+      const missing = configuredProductionMaterials.value
+        .filter((material) => productionMaterialDrafts[material.key]?.outputQuantity === undefined)
+        .map((material) => material.materialName)
+      throw new Error(`请填写全部输出物料的完成数量：${missing.join('、')}`)
     }
     const invalidLossMaterials = filledMaterials.filter((material) => {
       const materialDraft = productionMaterialDrafts[material.key]
