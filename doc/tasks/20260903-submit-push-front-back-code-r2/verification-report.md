@@ -17,3 +17,12 @@ ode IntRuoyiBackend\\yudao-module-mes\\src\\test\\js\\mes-active-order-completio
 ## Scope Notes
 - 本轮未执行发布、远程服务器操作、服务重启或数据库写入。
 - 本轮仅处理提交推送前发现的静态合同阻塞与当前脏工作区提交。
+
+## Push Evidence
+- git commit -m "任务: 提交前后端补充改动" -> PASS；commit 317ae486cc17be5d911fb65ec63260c37e9da97c。
+- git push origin int_main -> PASS；远端 origin/int_main 更新到 317ae486cc17be5d911fb65ec63260c37e9da97c。
+- git status --short --branch -> PASS；当前 ## int_main...origin/int_main，工作区干净。
+
+## Closeout
+- task-closeout-cleanup preview -> PASS；delete none，blocked none，warnings none。
+- task-closeout-cleanup apply -> PASS；linked worktree false，deleted_paths none。
