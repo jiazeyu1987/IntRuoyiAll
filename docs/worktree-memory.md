@@ -1,5 +1,13 @@
 # Worktree Memory
 
+## Worktree 补丁路径归属门禁
+
+- Trigger: 用户明确要求在某个附加 worktree（如 `TR2`）继续修复、验证或收尾，但当前 Codex/补丁工具默认工作区可能仍是主工作区。
+- Preflight check: 写入前用目标 worktree 的 `git status --short --branch` 和 `Test-Path` 确认目标文件只存在于指定 worktree；使用补丁工具时优先写绝对路径，或在写后立刻复扫主工作区同路径是否误落新文件。
+- Blocker: 目标路径不是用户指定 worktree、补丁误落主工作区且无法安全撤销、或主工作区同路径已有并行未跟踪/脏文件无法区分归属时必须停止。
+- Verification: 写入后分别检查指定 worktree 与主工作区的同路径存在性和 `git status --short --branch`；若发生误落，先用精确补丁删除误落文件，再重新写入指定 worktree，并在任务日志记录无残留。
+- Forbidden action: 禁止在用户指定 worktree 的任务中把主工作区误落文件继续当作任务产物；禁止用 `git add -A` 或整目录复制掩盖路径归属错误。
+
 ## 运行时 smoke 进程归属与日志时间窗门禁
 
 - 触发场景：验证需要启动后端端口，但目标端口已经被长期 runtime-control 服务监听，或共享日志包含多次启动记录。

@@ -924,6 +924,10 @@ const openUploadDialog = () => {
 }
 
 const openRenewalDialog = (row: DccRegistrationCertificatePageItemVO) => {
+  if (row.hasPendingRenewal) {
+    ElMessage.warning('该注册证已有待审批或待生效的延续，请勿重复提交')
+    return
+  }
   selectedRenewalCertificate.value = row
   showRenewalDialog.value = true
 }

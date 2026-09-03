@@ -15,6 +15,7 @@ public class DccRegistrationCertificateQueryRecord {
     private Long productMasterId;
     private Long projectCodeId;
     private String projectCode;
+    private Boolean hasPendingRenewal;
     private String reminderColor;
     private String visualState;
     private LocalDate firstObtainedDate;

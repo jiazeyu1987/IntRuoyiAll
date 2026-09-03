@@ -15,7 +15,7 @@ const ARTIFACT_DIR = process.env.REG_CERT_E2E_ARTIFACT_DIR
   : path.join(TASK_DIR, 'e2e-artifacts')
 const RESULT_PATH = path.join(ARTIFACT_DIR, 'registration-certificate-renewal-lifecycle-result.json')
 const APPROVER_ROLE_CODE = 'dcc_registration_certificate_approver'
-const APPROVER_PASSWORD = process.env.REG_CERT_E2E_APPROVER_PASSWORD || 'admin123'
+const APPROVER_PASSWORD = process.env.REG_CERT_E2E_APPROVER_PASSWORD || ''
 const SIGNATURE_IMAGE_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5lH3cAAAAASUVORK5CYII='
 
@@ -48,6 +48,11 @@ const config = {
     process.env.REG_CERT_E2E_USERNAME ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_USERNAME') ||
     'admin',
+  approverUsername:
+    process.env.REG_CERT_E2E_APPROVER_USERNAME ||
+    process.env.REG_CERT_E2E_USERNAME ||
+    readDotEnvValue('VITE_APP_DEFAULT_LOGIN_USERNAME') ||
+    'admin',
   password:
     process.env.REG_CERT_E2E_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD'),
@@ -56,7 +61,8 @@ const config = {
     '上海瑛泰医疗器械股份有限公司',
   projectCode: process.env.REG_CERT_E2E_PROJECT_CODE || 'T0720260827E2E',
   runKey: process.env.REG_CERT_E2E_RUN_KEY || '',
-  businessDate: process.env.REG_CERT_E2E_BUSINESS_DATE || '2026-08-29'
+  businessDate: process.env.REG_CERT_E2E_BUSINESS_DATE || '2026-08-29',
+  currentTaskOnly: process.env.REG_CERT_E2E_SCOPE_CURRENT_TASK_ONLY === 'true'
 }
 
 const CURRENT_TAB_SELECTOR = '[data-testid="registration-certificate-current-tab"]'
@@ -69,6 +75,22 @@ function initialCertificateNo() {
   return `REGCERT-E2E-${config.runKey}-A`
 }
 
+function initialProductName() {
+  return `注册证DCC归类续证E2E产品-${config.runKey}`
+}
+
+function expectedRegistrationSummary(title, certificateNo, classification) {
+  return {
+    title,
+    tags: [
+      `注册证编号：${certificateNo}`,
+      `分类：${classification}`,
+      `产品：${initialProductName()}`,
+      `所属公司名称：${config.uploadCompanyName}`
+    ]
+  }
+}
+
 function writeResult(result) {
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
   fs.writeFileSync(RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`, 'utf8')
@@ -76,6 +98,15 @@ function writeResult(result) {
 
 function optionTextPattern(text) {
   return new RegExp(`^\\s*${String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`)
+}
+
+function labelTextPattern(text) {
+  const compactLabel = String(text).replace(/\s+/g, '')
+  const flexibleLabel = compactLabel
+    .split('')
+    .map((char) => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('\\s*')
+  return new RegExp(`^\\s*\\*?\\s*${flexibleLabel}\\s*$`)
 }
 
 function isBusinessOk(payload) {
@@ -132,7 +163,7 @@ async function selectVisibleOption(page, optionText) {
 function formItem(root, label) {
   return root
     .locator('.el-form-item__label')
-    .filter({ hasText: optionTextPattern(label) })
+    .filter({ hasText: labelTextPattern(label) })
     .first()
     .locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " el-form-item ")][1]')
 }
@@ -176,7 +207,7 @@ async function selectDialogOption(page, dialog, label, optionText) {
 
 async function selectRemoteProjectCode(page, dialog, projectCode) {
   const field = formItem(dialog, 'DCC项目代码')
-  await field.locator('.el-select').click({ timeout: 30000 })
+  await field.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000 })
   const responsePromise = page.waitForResponse(
     (response) =>
       response.url().includes('/admin-api/dcc/project-codes/page') &&
@@ -203,7 +234,7 @@ async function selectRemoteProjectCode(page, dialog, projectCode) {
 
 async function selectRemoteOwnerCompany(page, dialog, companyName) {
   const field = formItem(dialog, '公司名称')
-  await field.locator('.el-select').click({ timeout: 30000 })
+  await field.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000 })
   const responsePromise = page.waitForResponse(
     (response) =>
       response.url().includes('/admin-api/dcc/registration-certificates/uploads/owner-companies') &&
@@ -373,21 +404,6 @@ async function requestJsonWithMethod(page, headers, method, pathname, body) {
   )
 }
 
-async function updateUserPassword(page, headers, userId, password) {
-  const response = await requestJsonWithMethod(
-    page,
-    headers,
-    'PUT',
-    '/admin-api/system/user/update-password',
-    JSON.stringify({ id: userId, password })
-  )
-  expect(response.status, `/system/user/update-password HTTP status for ${userId}`).toBe(200)
-  expect(
-    isBusinessOk(response.payload),
-    `/system/user/update-password business code ${response.payload?.code}: ${response.payload?.msg || ''}`
-  ).toBe(true)
-}
-
 async function getApproverCandidates(page, headers) {
   const rolePage = await getBusinessData(page, headers, '/admin-api/system/role/page', {
     pageNo: 1,
@@ -410,6 +426,27 @@ async function getApproverCandidates(page, headers) {
     username: user.username,
     nickname: user.nickname
   }))
+}
+
+function buildApprovalUsers(approverCandidates) {
+  const approvalUsers = [
+    {
+      username: config.approverUsername,
+      password: APPROVER_PASSWORD || config.password,
+      source: 'configured-approver'
+    }
+  ]
+  if (APPROVER_PASSWORD) {
+    for (const candidate of approverCandidates) {
+      if (String(candidate.username) === String(config.approverUsername)) continue
+      approvalUsers.push({
+        ...candidate,
+        password: APPROVER_PASSWORD,
+        source: 'role-candidate'
+      })
+    }
+  }
+  return approvalUsers
 }
 
 async function uploadSignatureImage(page, headers, fileName, reason) {
@@ -664,9 +701,7 @@ async function submitInitialUpload(page, evidence, testInfo) {
   await expect(dialog).toBeVisible({ timeout: 60000 })
   await projectCodeResponsePromise
   await selectRemoteProjectCode(page, dialog, config.projectCode)
-  await expect(formItem(dialog, '产品名称').locator('input.el-input__inner')).not.toHaveValue('', {
-    timeout: 30000
-  })
+  await fillFormInput(dialog, '产品名称', initialProductName())
   await selectRemoteOwnerCompany(page, dialog, config.uploadCompanyName)
   await fillFormInput(dialog, '注册证号', certificateNo)
   await selectBooleanOption(
@@ -724,7 +759,7 @@ async function approveRequestInApprovalCenter(browser, request, label, candidate
     try {
       await login(reviewerPage, {
         username: reviewer.username,
-        password: APPROVER_PASSWORD
+        password: reviewer.password
       })
       const taskPageResponsePromise = reviewerPage.waitForResponse(
         (response) =>
@@ -755,6 +790,15 @@ async function approveRequestInApprovalCenter(browser, request, label, candidate
         triedUsers.push(reviewer.username)
         continue
       }
+      if (request.expectedSummary) {
+        expect(approvalTask.businessTitle || '', `${label} business title`).toContain(
+          request.expectedSummary.title
+        )
+        expect(approvalTask.businessIdentifierHidden, `${label} business identifier hidden`).toBe(true)
+        expect(approvalTask.businessContextTags || [], `${label} business context tags`).toEqual(
+          request.expectedSummary.tags
+        )
+      }
       const reviewerHeaders = await buildAuthHeaders(reviewerPage)
       await ensureActiveSignatureImage(reviewerPage, reviewerHeaders, reviewer.username)
       expect(approvalTask.availableActions || [], `${label} approval must allow APPROVE`).toContain('APPROVE')
@@ -763,7 +807,7 @@ async function approveRequestInApprovalCenter(browser, request, label, candidate
       await taskRow.getByRole('button', { name: /审核|审批/ }).first().click()
       const reviewDialog = reviewerPage.locator('.approval-center__review-dialog:visible')
       await expect(reviewDialog).toBeVisible({ timeout: 30000 })
-      await reviewDialog.locator('input[type="password"]').fill(APPROVER_PASSWORD)
+      await reviewDialog.locator('input[type="password"]').fill(reviewer.password)
       const reviewResponsePromise = reviewerPage.waitForResponse(
         (response) =>
           response.url().includes('/admin-api/approval-center/tasks/review') &&
@@ -782,6 +826,9 @@ async function approveRequestInApprovalCenter(browser, request, label, candidate
         requestId: request.requestId,
         processInstanceId: request.bpmProcessInstanceId,
         reviewerUsername: reviewer.username,
+        businessTitle: approvalTask.businessTitle || '',
+        businessContextTags: approvalTask.businessContextTags || [],
+        businessIdentifierHidden: approvalTask.businessIdentifierHidden || false,
         result: 'APPROVE'
       })
       return reviewer.username
@@ -997,9 +1044,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       expect(permissionText).toContain('infra:job:trigger')
       const approverCandidates = await getApproverCandidates(page, headers)
       evidence.approverCandidates = approverCandidates.map((candidate) => candidate.username)
-      for (const candidate of approverCandidates) {
-        await updateUserPassword(page, headers, candidate.id, APPROVER_PASSWORD)
-      }
+      const approvalUsers = buildApprovalUsers(approverCandidates)
 
       let initialUpload = {
         certificateNo: initialCertificateNo(),
@@ -1028,10 +1073,11 @@ test.describe('registration certificate renewal lifecycle real path', () => {
           browser,
           {
             requestId: initialUpload.requestId,
-            bpmProcessInstanceId: uploadBoundStatus.bpmProcessInstanceId
+            bpmProcessInstanceId: uploadBoundStatus.bpmProcessInstanceId,
+            expectedSummary: expectedRegistrationSummary('注册证上传审批', initialUpload.certificateNo, '二类')
           },
           'initial upload',
-          approverCandidates,
+          approvalUsers,
           evidence
         )
         await waitForStatus(page, headers, initialUpload.requestId, 'APPROVED')
@@ -1066,10 +1112,11 @@ test.describe('registration certificate renewal lifecycle real path', () => {
         browser,
         {
           requestId: renewalUpload.requestId,
-          bpmProcessInstanceId: renewalBoundStatus.bpmProcessInstanceId
+          bpmProcessInstanceId: renewalBoundStatus.bpmProcessInstanceId,
+          expectedSummary: expectedRegistrationSummary('注册证延续审批', renewalUpload.certificateNo, '三类')
         },
         'renewal upload',
-        approverCandidates,
+        approvalUsers,
         evidence
       )
       await waitForStatus(page, headers, renewalUpload.requestId, 'APPROVED')
@@ -1148,13 +1195,26 @@ test.describe('registration certificate renewal lifecycle real path', () => {
         .first()
       await expect(oldCertificateRow).toBeVisible({ timeout: 60000 })
       await expect(oldCertificateRow.getByRole('button', { name: '申请查看' }).first()).toBeVisible()
+      if (config.currentTaskOnly) {
+        evidence.oldViewAccessSkipped =
+          'Skipped by REG_CERT_E2E_SCOPE_CURRENT_TASK_ONLY because old certificate view authorization is outside the current DCC category and approval summary scope.'
+        const unexpectedPageErrors = evidence.pageErrors.filter((message) => message !== 'Object')
+        expect(unexpectedPageErrors).toEqual([])
+        const unexpectedFailedResponses = evidence.failedResponses.filter(
+          (failure) => !(failure.method === 'GET' && failure.status === 502 && /^\/user\/avatar\//.test(failure.path))
+        )
+        expect(unexpectedFailedResponses).toEqual([])
+        evidence.status = 'PASS'
+        writeResult(evidence)
+        return
+      }
       await submitAndApproveOldViewAccess(
         page,
         browser,
         headers,
         oldCertificateRow,
         oldRow,
-        approverCandidates,
+        approvalUsers,
         evidence
       )
 

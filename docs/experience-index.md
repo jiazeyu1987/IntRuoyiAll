@@ -137,6 +137,7 @@
 - Keywords: Maven 同模块 target/classes 陈旧, Nothing to compile all classes are up to date, testCompile 旧构造器, 刚新增 mapper 方法找不到, ClassNotFoundException 缺少新增 mapper class, target/classes 缺 class, 旧签名仍被测试编译看到, 当前模块 clean test -> `docs/powershell-memory.md#maven-同模块-targetclasses-陈旧门禁`
 - Keywords: javac 参数文件, dependency:build-classpath, surefire:test, 只编译目标测试类, 标准 Maven lifecycle blocked, JUnit 补充证据, eDHR PDF 签名验证 -> `docs/powershell-memory.md#maven-javaclombok-class-写入长时间运行门禁`
 - Keywords: Surefire user.dir, JUnit 静态源码合同, Files.readString, Path.of src main java, readSource, NoSuchFileException, 重复模块路径, yudao-module-mes yudao-module-mes src, validator 实现类断言 -> `docs/powershell-memory.md#maven-静态源码合同工作目录门禁`
+- Keywords: 指定 worktree 修复, TR2 修复验证, apply_patch 误落主工作区, 补丁绝对路径, 主工作区同路径误落, worktree 路径归属复扫 -> `docs/worktree-memory.md#worktree-补丁路径归属门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
 - Keywords: target classes NoSuchFileException, Maven target cleanup stuck, WinNTFileSystem.delete0, getBooleanAttributes0, 同模块类大量缺失, DCC target 损坏, 不叠加 Maven 命令 -> `docs/powershell-memory.md#maven-目标目录文件系统异常门禁`
 - Keywords: detached verification worktree, isolated Maven target, git worktree add --detach, 主工作区 Maven target 冲突, 共享 target 并发 Maven, DCC target 隔离验证, 不启动服务不登记端口 -> `docs/worktree-memory.md#主工作区-maven-target-冲突时的隔离验证-worktree-门禁`

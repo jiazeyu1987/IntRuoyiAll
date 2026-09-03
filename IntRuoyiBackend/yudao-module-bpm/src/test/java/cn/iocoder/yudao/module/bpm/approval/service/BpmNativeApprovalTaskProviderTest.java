@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
@@ -276,6 +277,122 @@ class BpmNativeApprovalTaskProviderTest {
         assertEquals("/mdm/registration-certificate/detail/7702", summary.getDecisionDetailRoute());
         assertEquals("8802", summary.getDecisionDetailQuery().get("requestId"));
         assertEquals("pi-regcert-renewal-summary", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoUsesRegistrationCertificateDetailOperationForUploadAndRenewalSummary() {
+        Task uploadTask = mock(Task.class);
+        when(uploadTask.getId()).thenReturn("task-regcert-upload-detail-operation");
+        when(uploadTask.getName()).thenReturn("Registration certificate access approval");
+        when(uploadTask.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(uploadTask.getProcessInstanceId()).thenReturn("pi-regcert-upload-detail-operation");
+        when(uploadTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(uploadTask.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8810L),
+                Map.entry("requestId", 8810L),
+                Map.entry("certificateId", 7710L),
+                Map.entry("ownerCompanyId", 6610L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("operation", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-UPLOAD-REAL-001"),
+                Map.entry("certificateNo", "国械注准20263000010"),
+                Map.entry("classification", "二类"),
+                Map.entry("productName", "按压式球囊扩充压力泵"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司")));
+
+        Task renewalTask = mock(Task.class);
+        when(renewalTask.getId()).thenReturn("task-regcert-renewal-detail-operation");
+        when(renewalTask.getName()).thenReturn("Registration certificate access approval");
+        when(renewalTask.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(renewalTask.getProcessInstanceId()).thenReturn("pi-regcert-renewal-detail-operation");
+        when(renewalTask.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(renewalTask.getProcessVariables()).thenReturn(Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8811L),
+                Map.entry("requestId", 8811L),
+                Map.entry("certificateId", 7711L),
+                Map.entry("ownerCompanyId", 6610L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("operation", "RENEWAL_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-RENEWAL-REAL-001"),
+                Map.entry("certificateNo", "国械注准20263000011"),
+                Map.entry("classification", "三类"),
+                Map.entry("productName", "按压式球囊扩充压力泵"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司")));
+
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(uploadTask, renewalTask), 2L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REAL", 1, 10));
+
+        assertEquals(2L, page.getTotal());
+        ApprovalTaskSummary uploadSummary = page.getList().get(0);
+        assertEquals("注册证上传审批", uploadSummary.getBusinessTitle());
+        assertNull(uploadSummary.getBusinessCode());
+        assertEquals(Boolean.TRUE, uploadSummary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000010", "分类：二类", "产品：按压式球囊扩充压力泵",
+                        "所属公司名称：上海七木医疗器械有限公司"),
+                uploadSummary.getBusinessContextTags());
+
+        ApprovalTaskSummary renewalSummary = page.getList().get(1);
+        assertEquals("注册证延续审批", renewalSummary.getBusinessTitle());
+        assertNull(renewalSummary.getBusinessCode());
+        assertEquals(Boolean.TRUE, renewalSummary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000011", "分类：三类", "产品：按压式球囊扩充压力泵",
+                        "所属公司名称：上海七木医疗器械有限公司"),
+                renewalSummary.getBusinessContextTags());
+    }
+
+    @Test
+    void pageTodoUsesProcessVariablesWhenRegistrationCertificateTaskHasNoLocalVariables() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-runtime-vars");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-runtime-vars");
+        when(task.getAssignee()).thenReturn("100");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+
+        Map<String, Object> processVariables = Map.ofEntries(
+                Map.entry("registrationCertificateAccessRequestId", 8820L),
+                Map.entry("requestId", 8820L),
+                Map.entry("certificateId", 7720L),
+                Map.entry("ownerCompanyId", 6620L),
+                Map.entry("requestType", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestOperation", "UPLOAD_CERTIFICATE"),
+                Map.entry("requestKey", "DCC-REG-CERT-UPLOAD-RUNTIME-001"),
+                Map.entry("certificateNo", "国械注准20263000020"),
+                Map.entry("classification", "二类"),
+                Map.entry("productName", "按压式球囊扩充压力泵"),
+                Map.entry("ownerCompanyName", "上海七木医疗器械有限公司"));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getStartUserId()).thenReturn("100");
+        when(processInstance.getProcessVariables()).thenReturn(processVariables);
+
+        org.mockito.Mockito.doReturn(Map.of("pi-regcert-runtime-vars", processInstance))
+                .when(processInstanceService)
+                .getProcessInstanceMap(anySet());
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RUNTIME", 1, 10)).getList().get(0);
+
+        assertEquals("注册证上传审批", summary.getBusinessTitle());
+        assertNull(summary.getBusinessCode());
+        assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
+        assertEquals(List.of("注册证编号：国械注准20263000020", "分类：二类", "产品：按压式球囊扩充压力泵",
+                        "所属公司名称：上海七木医疗器械有限公司"),
+                summary.getBusinessContextTags());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertEquals("注册部经理", summary.getAssigneeRoleName());
+        assertEquals("/mdm/registration-certificate/detail/7720", summary.getDecisionDetailRoute());
+        assertEquals("8820", summary.getDecisionDetailQuery().get("requestId"));
+        assertEquals("pi-regcert-runtime-vars", summary.getDecisionDetailQuery().get("processInstanceId"));
     }
 
     @Test

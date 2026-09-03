@@ -25,6 +25,8 @@ for (const file of [apiPath, listPath, renewalDialogPath, queryMapperPath, renew
 
 const api = read(apiPath)
 assert.match(api, /rowVersion:\s*number/, 'current list item must expose rowVersion for renewal concurrency checks')
+assert.match(api, /hasPendingRenewal:\s*boolean/,
+  'current list item must expose the formal pending-renewal guard for the row action')
 assert.match(api, /export\s+const\s+submitRegistrationCertificateRenewal\b/,
   'renewal API must be a dedicated row-level upload submission')
 assert.match(api, /url:\s*`\/dcc\/registration-certificates\/\$\{certificateId\}\/renewals`/,
@@ -50,6 +52,18 @@ assert.match(renewalButton, /v-if="row\.status === 'CURRENT'"/,
   'only the current effective version may expose the renewal action')
 assert.match(list, />\s*延续\s*<\/el-button>/, 'row actions must show a visible 延续 button')
 assert.match(list, /@saved="handleRenewalSaved"/, 'renewal success must refresh the current list')
+const renewalPendingMessage = '该注册证已有待审批或待生效的延续，请勿重复提交'
+const openRenewalDialogBlock = /const\s+openRenewalDialog\s*=\s*\(row:[\s\S]*?\n\}/.exec(list)?.[0] ?? ''
+assert.match(openRenewalDialogBlock, /if\s*\(row\.hasPendingRenewal\)/,
+  'clicking renewal must consult the server-provided pending-renewal guard before opening the form')
+assert.match(openRenewalDialogBlock, new RegExp(`ElMessage\\.warning\\('${renewalPendingMessage}'\\)`),
+  'clicking renewal with an open request or pending-effective candidate must show the formal duplicate message')
+const renewalPendingGuardIndex = openRenewalDialogBlock.indexOf('if (row.hasPendingRenewal)')
+const renewalDialogOpenIndex = openRenewalDialogBlock.indexOf('showRenewalDialog.value = true')
+assert.ok(renewalPendingGuardIndex >= 0 && renewalDialogOpenIndex > renewalPendingGuardIndex,
+  'the pending-renewal guard must run before the dialog can open')
+assert.match(openRenewalDialogBlock.slice(renewalPendingGuardIndex, renewalDialogOpenIndex), /return/,
+  'the pending-renewal guard must stop the click handler instead of opening a duplicate submission form')
 
 const dialog = read(renewalDialogPath)
 const dateOrderMessage = '注册证日期顺序不正确：批准日期不能晚于生效日期，生效日期必须早于有效期至'
@@ -169,6 +183,10 @@ assert.match(queryMapper, /v\.id\s*=\s*COALESCE\(c\.pending_version_id,\s*c\.cur
   'current list must prefer the approved pending renewal version over the old current version')
 assert.match(queryMapper, /v\.status\s+IN\s+\('CURRENT',\s*'PENDING_EFFECTIVE'\)/,
   'current list must expose only the single active display version')
+assert.match(queryMapper, /AS\s+has_pending_renewal/,
+  'current list query must return the formal pending-renewal guard to the frontend')
+assert.match(queryMapper, /c\.pending_version_id\s+IS\s+NOT\s+NULL[\s\S]*dcc_registration_certificate_access_request[\s\S]*status\s+IN\s+\('SUBMITTED',\s*'BPM_BOUND'\)/,
+  'pending-renewal guard must cover both pending-effective candidates and BPM-bound approval requests')
 const currentWhereBlock = /private static String currentWhere\(\)[\s\S]*?private static String filters\(\)/.exec(queryMapper)?.[0] ?? ''
 assert.doesNotMatch(currentWhereBlock, /v\.status\s*!=\s*'OLD'/,
   'current list must not join every non-old version and duplicate certificates')

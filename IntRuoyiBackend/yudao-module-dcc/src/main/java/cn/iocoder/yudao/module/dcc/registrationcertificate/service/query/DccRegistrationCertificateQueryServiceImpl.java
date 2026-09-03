@@ -254,6 +254,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .remark(row.getRemark())
                 .hasProjectCode(row.getProjectCodeId() != null)
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
+                .hasPendingRenewal(Boolean.TRUE.equals(row.getHasPendingRenewal()))
                 .reminderColor(reminder.colorCode())
                 .visualState(reminder.thresholdLevel())
                 .firstObtainedDate(row.getFirstObtainedDate())

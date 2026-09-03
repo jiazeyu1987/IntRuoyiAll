@@ -150,6 +150,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "current page response must expose the registration reminder color");
         assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("visualState"),
                 "current page response must expose the registration reminder state");
+        assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("hasPendingRenewal"),
+                "current page response must expose whether renewal submission is currently blocked");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("reminderColor"),
                 "detail response must expose the registration reminder color");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("visualState"),
@@ -206,6 +208,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals("DCC-PROJ-20", page.getList().get(0).getProjectCode());
         assertEquals("II", page.getList().get(0).getClassification());
         assertEquals("Remark CERT-VISIBLE", page.getList().get(0).getRemark());
+        assertFalse(page.getList().get(0).getHasPendingRenewal(),
+                "a current certificate without an open renewal must remain available for renewal submission");
         assertEquals(1, auditMapper.selectListByCertificateId(visible.certificateId()).size());
         assertEquals(0, auditMapper.selectListByCertificateId(hidden.certificateId()).size());
         assertEquals(1L, queryMapper.countPage(1L, List.of(10L),
@@ -616,6 +620,29 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(LocalDate.of(2026, 8, 1), item.getApprovalDate());
         assertEquals(LocalDate.of(2026, 10, 1), item.getEffectiveDate());
         assertEquals(LocalDate.of(2031, 10, 1), item.getExpiryDate());
+        assertTrue(item.getHasPendingRenewal(),
+                "an approved renewal that is pending effective date must block duplicate renewal submission");
+    }
+
+    @Test
+    void currentPageMarksBpmBoundRenewalApprovalAsPending() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-BPM-BOUND-RENEWAL", true, 20L);
+        seedBpmBoundRenewalApproval(current);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10).build(),
+                context("REQ-CURRENT-PAGE-BPM-BOUND-RENEWAL"));
+
+        assertEquals(1L, page.getTotal());
+        DccRegistrationCertificatePageItem item = page.getList().get(0);
+        assertEquals(current.certificateId(), item.getCertificateId());
+        assertEquals(current.versionId(), item.getVersionId(),
+                "a pending approval must not replace the current effective version in the list");
+        assertTrue(item.getHasPendingRenewal(),
+                "a BPM-bound renewal approval must block duplicate renewal submission from the row action");
     }
 
     @Test
@@ -1034,6 +1061,17 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 VALUES (8101, 1, 8001, ?, 'REGISTRATION_CERTIFICATE',
                         FALSE, 'APPROVED', '{}', 'junit', 0)
                 """, fixture.registrationFileId()));
+    }
+
+    private void seedBpmBoundRenewalApproval(FormalFixture fixture) {
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_access_request
+                    (id, tenant_id, owner_company_id, certificate_id, requester_user_id,
+                     request_type, request_key, bpm_process_instance_id, purpose, status, requested_at,
+                     detail_json, creator, deleted)
+                VALUES (8002, 1, 10, ?, 99, 'UPLOAD_CERTIFICATE', 'renewal-bpm-bound-8002', 'BPM-8002',
+                        '上传延续注册证，待注册部经理审批', 'BPM_BOUND', ?, '{}', 'junit', 0)
+                """, fixture.certificateId(), LocalDateTime.of(2026, 9, 3, 9, 0)));
     }
 
     private static MdmEnterpriseRespDTO owner(Long id, String name) {
