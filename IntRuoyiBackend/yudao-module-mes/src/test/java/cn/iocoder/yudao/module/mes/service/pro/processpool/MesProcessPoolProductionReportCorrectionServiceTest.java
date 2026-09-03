@@ -276,6 +276,43 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 .noneMatch(item -> item.getBeforeValue().startsWith("[") || item.getAfterValue().startsWith("[")));
     }
 
+    @Test
+    void correctsMaterialDetailsWithoutLosingMaterialIdentity() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithBusinessDetails());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(707L);
+        MesProcessPoolProductionReportCorrectionCommand command = command()
+                .setOutputQuantity(new BigDecimal("4"))
+                .setMaterialDetails(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
+                                .setMaterialId(3401L)
+                                .setOutputQuantity(new BigDecimal("3"))
+                                .setLossQuantity(new BigDecimal("1")),
+                        new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
+                                .setMaterialId(4801L)
+                                .setOutputQuantity(new BigDecimal("1"))
+                                .setLossQuantity(BigDecimal.ZERO)));
+
+        assertEquals(707L, service.correct(command));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
+        MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload()
+                .contains("\"materialId\":3401,\"materialCode\":\"A001.02.034.202\",\"materialName\":\"弹簧\",\"outputQuantity\":3,\"lossQuantity\":1"));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload()
+                .contains("\"materialId\":4801,\"materialCode\":\"A001.02.048.102\",\"materialName\":\"杠杆\",\"outputQuantity\":1,\"lossQuantity\":0"));
+        assertEquals("3", revision.getChangedFields().stream()
+                .filter(field -> "MATERIAL_OUTPUT.3401".equals(field.getFieldCode()))
+                .findFirst().orElseThrow().getAfterValue());
+        assertEquals("1", revision.getChangedFields().stream()
+                .filter(field -> "MATERIAL_LOSS.3401".equals(field.getFieldCode()))
+                .findFirst().orElseThrow().getAfterValue());
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
     private static MesProcessPoolProductionReportCorrectionCommand command() {
         return new MesProcessPoolProductionReportCorrectionCommand()
                 .setEventId(176L)
@@ -310,6 +347,10 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":2,"
                 + "\"DEVICE_PARAMETERS\":{\"球囊成型机\":{\"pressure\":20}}},"
                 + "\"outputQuantity\":4,\"lossQuantity\":2,"
+                + "\"materialDetails\":[{\"materialId\":3401,\"materialCode\":\"A001.02.034.202\","
+                + "\"materialName\":\"弹簧\",\"outputQuantity\":2,\"lossQuantity\":0},"
+                + "{\"materialId\":4801,\"materialCode\":\"A001.02.048.102\","
+                + "\"materialName\":\"杠杆\",\"outputQuantity\":2,\"lossQuantity\":0}],"
                 + "\"lossDetails\":[{\"reasonId\":8301,\"reasonCode\":\"LOSS-01\","
                 + "\"reasonName\":\"正常损耗\",\"quantity\":2}],"
                 + "\"lossReasonDetails\":[{\"reasonId\":8301,\"reasonCode\":\"LOSS-01\","

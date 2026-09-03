@@ -13,6 +13,7 @@ public class MesProcessPoolProductionReportCorrectionCommand {
     private Long eventId;
     private Long actorUserId;
     private BigDecimal outputQuantity;
+    private List<MaterialDetailCommand> materialDetails;
     private List<LossDetailCommand> lossDetails;
     private List<DeviceParameterReadingCommand> deviceParameterReadings;
     private String changeReason;
@@ -23,6 +24,14 @@ public class MesProcessPoolProductionReportCorrectionCommand {
     public static class LossDetailCommand {
         private Long reasonId;
         private BigDecimal quantity;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class MaterialDetailCommand {
+        private Long materialId;
+        private BigDecimal outputQuantity;
+        private BigDecimal lossQuantity;
     }
 
     @Data

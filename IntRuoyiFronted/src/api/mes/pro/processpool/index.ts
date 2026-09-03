@@ -32,6 +32,14 @@ export interface ProcessPoolTimelineLossDetailVO {
   quantity?: number
 }
 
+export interface ProcessPoolTimelineMaterialDetailVO {
+  materialId?: number
+  materialCode?: string
+  materialName?: string
+  outputQuantity?: number | string
+  lossQuantity?: number | string
+}
+
 export interface ProcessPoolTimelineSelectedDeviceVO {
   deviceId?: number
   deviceCode?: string
@@ -112,6 +120,7 @@ export interface ProcessPoolTimelineEventVO {
   reportAllocatedQuantity?: number
   reportUnallocatedQuantity?: number
   lossDetails?: ProcessPoolTimelineLossDetailVO[]
+  materialDetails?: ProcessPoolTimelineMaterialDetailVO[]
   selectedDevice?: ProcessPoolTimelineSelectedDeviceVO
   deviceParameterReadings?: ProcessPoolTimelineDeviceParameterReadingVO[]
   submittedSummary?: string

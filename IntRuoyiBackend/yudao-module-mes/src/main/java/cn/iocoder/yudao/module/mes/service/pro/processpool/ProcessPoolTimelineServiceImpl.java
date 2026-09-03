@@ -32,6 +32,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
     private static final TypeReference<List<ProcessPoolTimelineEventRespVO.LossDetailRespVO>> LOSS_DETAIL_TYPE =
             new TypeReference<>() {
             };
+    private static final TypeReference<List<ProcessPoolTimelineEventRespVO.MaterialDetailRespVO>> MATERIAL_DETAIL_TYPE =
+            new TypeReference<>() {
+            };
     private static final TypeReference<List<ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO>>
             DEVICE_PARAMETER_READING_TYPE = new TypeReference<>() {
             };
@@ -176,6 +179,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         }
         respVO.setLossQuantity(toBigDecimal(payload.get("lossQuantity")))
                 .setLossDetails(convertValue(payload.get("lossDetails"), LOSS_DETAIL_TYPE))
+                .setMaterialDetails(convertValue(payload.get("materialDetails"), MATERIAL_DETAIL_TYPE))
                 .setSelectedDevice(convertValue(payload.get("selectedDevice"),
                         ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class))
                 .setDeviceParameterReadings(convertValue(payload.get("deviceParameterReadings"),

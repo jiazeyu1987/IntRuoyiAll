@@ -26,6 +26,9 @@ public class ProcessPoolProductionReportCorrectionReqVO {
     private BigDecimal outputQuantity;
 
     @Valid
+    private List<MaterialDetailReqVO> materialDetails;
+
+    @Valid
     @NotNull(message = "损耗明细不能为空")
     private List<LossDetailReqVO> lossDetails;
 
@@ -43,12 +46,37 @@ public class ProcessPoolProductionReportCorrectionReqVO {
         return new MesProcessPoolProductionReportCorrectionCommand()
                 .setEventId(eventId)
                 .setOutputQuantity(outputQuantity)
+                .setMaterialDetails((materialDetails == null ? List.<MaterialDetailReqVO>of()
+                        : materialDetails).stream()
+                        .map(MaterialDetailReqVO::toCommand).toList())
                 .setLossDetails(lossDetails.stream().map(LossDetailReqVO::toCommand).toList())
                 .setDeviceParameterReadings((deviceParameterReadings == null ? List.<DeviceParameterReadingReqVO>of()
                         : deviceParameterReadings).stream()
                         .map(DeviceParameterReadingReqVO::toCommand).toList())
                 .setChangeReason(changeReason)
                 .setSignaturePassword(signaturePassword);
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class MaterialDetailReqVO {
+        @NotNull(message = "物料不能为空")
+        private Long materialId;
+
+        @NotNull(message = "物料完成数量不能为空")
+        @DecimalMin(value = "0", message = "物料完成数量不能小于 0")
+        private BigDecimal outputQuantity;
+
+        @NotNull(message = "物料损耗数量不能为空")
+        @DecimalMin(value = "0", message = "物料损耗数量不能小于 0")
+        private BigDecimal lossQuantity;
+
+        private MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand toCommand() {
+            return new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
+                    .setMaterialId(materialId)
+                    .setOutputQuantity(outputQuantity)
+                    .setLossQuantity(lossQuantity);
+        }
     }
 
     @Data

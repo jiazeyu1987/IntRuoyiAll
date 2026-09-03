@@ -13,6 +13,7 @@ class MesProcessPoolProductionReportCorrectionContractTest {
     void requestAcceptsBusinessDataButNotClientOwnedAuditIdentity() throws Exception {
         assertField("eventId");
         assertField("outputQuantity");
+        assertField("materialDetails");
         assertField("lossDetails");
         assertField("deviceParameterReadings");
         assertField("changeReason");

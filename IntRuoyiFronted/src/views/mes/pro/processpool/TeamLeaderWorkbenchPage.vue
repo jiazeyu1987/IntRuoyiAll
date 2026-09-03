@@ -3359,6 +3359,55 @@
           <el-button @click="startBlankAllocation">从空白开始</el-button>
         </div>
       </div>
+      <div
+        v-if="reviewMaterialRows.length || reviewDeviceItems.length || reviewParameterItems.length"
+        class="team-leader-workbench__allocation-context"
+      >
+        <div
+          v-if="reviewMaterialRows.length"
+          class="team-leader-workbench__context-block"
+          data-team-leader-allocation-material-context
+        >
+          <strong>物料</strong>
+          <span
+            v-for="materialRow in reviewMaterialRows"
+            :key="materialRow.materialId"
+            class="team-leader-workbench__structured-pill"
+          >
+            {{ materialRow.materialName || materialRow.materialCode }}（{{
+              correctionValueText(materialRow.outputQuantity)
+            }}/{{ correctionValueText(materialRow.lossQuantity) }}）
+          </span>
+        </div>
+        <div
+          v-if="reviewDeviceItems.length"
+          class="team-leader-workbench__context-block"
+          data-team-leader-allocation-devices
+        >
+          <strong>设备</strong>
+          <span
+            v-for="item in reviewDeviceItems"
+            :key="item.key"
+            class="team-leader-workbench__structured-pill"
+          >
+            {{ item.valueText }}
+          </span>
+        </div>
+        <div
+          v-if="reviewParameterItems.length"
+          class="team-leader-workbench__context-block"
+          data-team-leader-allocation-parameters
+        >
+          <strong>设备参数</strong>
+          <span
+            v-for="item in reviewParameterItems"
+            :key="item.key"
+            class="team-leader-workbench__structured-pill"
+          >
+            {{ item.label }}：{{ item.valueText }}
+          </span>
+        </div>
+      </div>
       <el-table
         data-team-leader-allocation-table
         :data="allocationRows"
@@ -3580,6 +3629,43 @@
       </section>
 
       <section
+        v-if="correctionForm.correctionMode === 'PRODUCTION' && correctionForm.materialDetails.length"
+        class="team-leader-workbench__correction-section"
+        data-production-report-correction-materials
+      >
+        <h3 class="team-leader-workbench__correction-title">物料明细</h3>
+        <div class="team-leader-workbench__correction-material-grid">
+          <div
+            v-for="materialRow in correctionForm.materialDetails"
+            :key="materialRow.materialId"
+            class="team-leader-workbench__correction-material-card"
+          >
+            <strong>{{ materialRow.materialName || materialRow.materialCode }}</strong>
+            <small v-if="materialRow.materialCode">{{ materialRow.materialCode }}</small>
+            <el-form-item label="完成数量">
+              <el-input-number
+                v-model="materialRow.outputQuantity"
+                :min="0"
+                :precision="3"
+                :controls="false"
+                class="team-leader-workbench__full-control"
+                @change="syncCorrectionOutputFromMaterials"
+              />
+            </el-form-item>
+            <el-form-item label="损耗数量">
+              <el-input-number
+                v-model="materialRow.lossQuantity"
+                :min="0"
+                :precision="3"
+                :controls="false"
+                class="team-leader-workbench__full-control"
+              />
+            </el-form-item>
+          </div>
+        </div>
+      </section>
+
+      <section
         v-if="correctionForm.correctionMode === 'PRODUCTION'"
         class="team-leader-workbench__correction-section"
       >
@@ -3610,10 +3696,32 @@
         v-if="correctionForm.correctionMode === 'PRODUCTION'"
         class="team-leader-workbench__correction-section"
       >
+        <h3 class="team-leader-workbench__correction-title">设备</h3>
+        <div
+          v-if="correctionDeviceItems.length"
+          class="team-leader-workbench__structured-list"
+          data-production-report-correction-devices
+        >
+          <span
+            v-for="item in correctionDeviceItems"
+            :key="item.key"
+            class="team-leader-workbench__structured-pill"
+          >
+            {{ item.valueText }}
+          </span>
+        </div>
+        <div v-else class="team-leader-workbench__correction-empty">本次报工没有设备快照</div>
+      </section>
+
+      <section
+        v-if="correctionForm.correctionMode === 'PRODUCTION'"
+        class="team-leader-workbench__correction-section"
+      >
         <h3 class="team-leader-workbench__correction-title">设备参数</h3>
         <div
           v-if="correctionForm.deviceParameterReadings.length"
           class="team-leader-workbench__correction-rows"
+          data-production-report-correction-parameters
         >
           <div
             v-for="parameterRow in correctionForm.deviceParameterReadings"
@@ -3621,6 +3729,9 @@
             class="team-leader-workbench__correction-row"
           >
             <span>
+              <em v-if="parameterRow.deviceName || parameterRow.deviceCode">
+                {{ parameterRow.deviceName || parameterRow.deviceCode }} ·
+              </em>
               {{ parameterRow.parameterName || parameterRow.parameterCode }}
               <small v-if="parameterRow.unit">{{ parameterRow.unit }}</small>
             </span>
@@ -4085,8 +4196,18 @@ interface ProductionReportCorrectionLossDetailRow {
   quantity: number
 }
 
+interface ProductionReportCorrectionMaterialRow {
+  materialId: number
+  materialCode?: string
+  materialName?: string
+  outputQuantity: number
+  lossQuantity: number
+}
+
 interface ProductionReportCorrectionParameterRow {
   deviceId: number
+  deviceCode?: string
+  deviceName?: string
   parameterCode: string
   parameterName?: string
   unit?: string
@@ -4817,6 +4938,7 @@ const correctionForm = reactive({
   correctionMode: 'PRODUCTION' as 'PRODUCTION' | 'PQC',
   eventId: undefined as number | undefined,
   outputQuantity: undefined as number | undefined,
+  materialDetails: [] as ProductionReportCorrectionMaterialRow[],
   lossDetails: [] as ProductionReportCorrectionLossDetailRow[],
   deviceParameterReadings: [] as ProductionReportCorrectionParameterRow[],
   pqcActualInspectionQuantity: undefined as number | undefined,
@@ -4835,6 +4957,15 @@ const correctionFormRules = {
 const correctionLossQuantity = computed(() =>
   correctionForm.lossDetails.reduce((total, item) => total + Number(item.quantity || 0), 0)
 )
+
+const syncCorrectionOutputFromMaterials = () => {
+  if (!correctionForm.materialDetails.length) return
+  const total = correctionForm.materialDetails.reduce((sum, item) => {
+    const outputQuantity = Number(item.outputQuantity)
+    return Number.isFinite(outputQuantity) ? sum + outputQuantity : sum
+  }, 0)
+  correctionForm.outputQuantity = Number(total.toFixed(3))
+}
 
 const correctionValueText = (value: unknown, unit?: string) => {
   const number = Number(value)
@@ -4939,6 +5070,30 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
         label: item.reasonName,
         beforeValue: correctionValueText(before),
         afterValue: correctionValueText(after)
+      })
+    }
+  })
+
+  const originalMaterialMap = new Map(
+    resolveProductionMaterialRows(event).map((item) => [item.materialId, item])
+  )
+  correctionForm.materialDetails.forEach((item) => {
+    const before = originalMaterialMap.get(item.materialId)
+    if (!before) return
+    if (before.outputQuantity !== item.outputQuantity) {
+      changes.push({
+        key: `MATERIAL_OUTPUT:${item.materialId}`,
+        label: `${item.materialName || item.materialCode || item.materialId} 完成数量`,
+        beforeValue: correctionValueText(before.outputQuantity),
+        afterValue: correctionValueText(item.outputQuantity)
+      })
+    }
+    if (before.lossQuantity !== item.lossQuantity) {
+      changes.push({
+        key: `MATERIAL_LOSS:${item.materialId}`,
+        label: `${item.materialName || item.materialCode || item.materialId} 损耗数量`,
+        beforeValue: correctionValueText(before.lossQuantity),
+        afterValue: correctionValueText(item.lossQuantity)
       })
     }
   })
@@ -6932,6 +7087,48 @@ const resolvePqcPayloadPair = (row: ProcessPoolTimelineEventVO) => {
   return { payload, rootPayload }
 }
 
+const toProductionMaterialRow = (
+  value: unknown,
+  index: number
+): ProductionReportCorrectionMaterialRow | undefined => {
+  if (!isRecord(value)) {
+    return undefined
+  }
+  const materialId = Number(value.materialId)
+  const outputQuantity = optionalCorrectionNumber(value.outputQuantity)
+  const lossQuantity = optionalCorrectionNumber(value.lossQuantity) ?? 0
+  if (!Number.isFinite(materialId) || materialId <= 0 || outputQuantity === undefined) {
+    return undefined
+  }
+  return {
+    materialId,
+    materialCode: String(value.materialCode ?? '').trim() || undefined,
+    materialName:
+      String(value.materialName ?? value.itemName ?? '').trim() || `物料 ${index + 1}`,
+    outputQuantity,
+    lossQuantity
+  }
+}
+
+const resolveProductionMaterialRows = (row: ProcessPoolTimelineEventVO) => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const source =
+    row.materialDetails?.length
+      ? row.materialDetails
+      : normalizeSubmissionArray(rootPayload?.materialDetails)
+  const materialRows: ProductionReportCorrectionMaterialRow[] = source
+    .map(toProductionMaterialRow)
+    .filter((item): item is ProductionReportCorrectionMaterialRow => Boolean(item))
+    .map((item) => ({
+      materialId: item.materialId,
+      materialCode: item.materialCode,
+      materialName: item.materialName,
+      outputQuantity: item.outputQuantity,
+      lossQuantity: item.lossQuantity
+    }))
+  return materialRows
+}
+
 const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
   const { payload, rootPayload } = resolvePqcPayloadPair(row)
   const sources = [
@@ -7100,6 +7297,31 @@ const resolveSubmissionEquipmentItems = (
       .filter((item): item is SubmissionStructuredItem => Boolean(item))
     return items.length ? items : [{ key: 'empty-equipment', label: '设备', valueText: '--' }]
   }
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const parameterDeviceMap = new Map<string, SubmissionStructuredItem>()
+  const parameterReadings = row.deviceParameterReadings?.length
+    ? row.deviceParameterReadings
+    : normalizeSubmissionArray(rootPayload?.deviceParameterReadings)
+  parameterReadings.forEach((reading, index) => {
+    if (!isRecord(reading)) {
+      return
+    }
+    const deviceText = formatSubmissionText(reading.deviceName || reading.deviceCode, '')
+    if (!deviceText) {
+      return
+    }
+    const key = String(reading.deviceId || reading.deviceCode || `${deviceText}-${index}`)
+    if (!parameterDeviceMap.has(key)) {
+      parameterDeviceMap.set(key, {
+        key,
+        label: '设备',
+        valueText: deviceText
+      })
+    }
+  })
+  if (parameterDeviceMap.size) {
+    return [...parameterDeviceMap.values()]
+  }
   if (row.selectedDevice) {
     const deviceText = [
       row.selectedDevice.deviceName || row.selectedDevice.deviceCode,
@@ -7117,7 +7339,6 @@ const resolveSubmissionEquipmentItems = (
       }
     ]
   }
-  const { rootPayload } = resolvePqcPayloadPair(row)
   const rawSelectedDevice = isRecord(rootPayload?.selectedDevice)
     ? rootPayload.selectedDevice
     : undefined
@@ -7368,6 +7589,19 @@ const resolveSubmissionParameterItems = (
           : normalizeSubmissionArray(rootPayload?.deviceParameterReadings)
       )
 }
+
+const reviewMaterialRows = computed(() =>
+  reviewEvent.value ? resolveProductionMaterialRows(reviewEvent.value) : []
+)
+const reviewDeviceItems = computed(() =>
+  reviewEvent.value ? resolveSubmissionEquipmentItems(reviewEvent.value) : []
+)
+const reviewParameterItems = computed(() =>
+  reviewEvent.value ? resolveSubmissionParameterItems(reviewEvent.value) : []
+)
+const correctionDeviceItems = computed(() =>
+  correctionEvent.value ? resolveSubmissionEquipmentItems(correctionEvent.value) : []
+)
 
 const formatPqcSnapshotSampleValues = (detail: PqcItemSnapshotDetail) =>
   detail.sampleValues?.length ? detail.sampleValues.join('、') : '未填写'
@@ -7843,6 +8077,7 @@ const resetCorrectionFormForEvent = (
   correctionForm.correctionMode = correctionMode
   correctionForm.eventId = eventId
   correctionForm.outputQuantity = undefined
+  correctionForm.materialDetails = []
   correctionForm.lossDetails = []
   correctionForm.deviceParameterReadings = []
   correctionForm.pqcActualInspectionQuantity = undefined
@@ -7897,6 +8132,8 @@ const openProductionCorrection = (event: ProcessPoolTimelineEventVO, eventId: nu
     const value = optionalCorrectionNumber(item.value)
     return {
       deviceId,
+      deviceCode: item.deviceCode,
+      deviceName: item.deviceName,
       parameterCode,
       parameterName: item.parameterName,
       unit: item.unit,
@@ -7906,6 +8143,7 @@ const openProductionCorrection = (event: ProcessPoolTimelineEventVO, eventId: nu
 
   resetCorrectionFormForEvent(event, eventId, 'PRODUCTION')
   correctionForm.outputQuantity = outputQuantity
+  correctionForm.materialDetails = resolveProductionMaterialRows(event)
   correctionForm.lossDetails = [...lossRowMap.values()]
   correctionForm.deviceParameterReadings = parameterRows
   correctionVisible.value = true
@@ -8003,6 +8241,21 @@ const buildProductionCorrectionRequest = () => {
   return {
     eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
     outputQuantity,
+    materialDetails: correctionForm.materialDetails.map((item) => {
+      const materialOutputQuantity = optionalCorrectionNumber(item.outputQuantity)
+      const materialLossQuantity = optionalCorrectionNumber(item.lossQuantity)
+      if (materialOutputQuantity === undefined || materialOutputQuantity < 0) {
+        throw new Error('物料完成数量不能小于 0')
+      }
+      if (materialLossQuantity === undefined || materialLossQuantity < 0) {
+        throw new Error('物料损耗数量不能小于 0')
+      }
+      return {
+        materialId: requirePositiveNumber(item.materialId, '物料不能为空'),
+        outputQuantity: materialOutputQuantity,
+        lossQuantity: materialLossQuantity
+      }
+    }),
     lossDetails: correctionForm.lossDetails
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => ({
@@ -10145,6 +10398,44 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
+.team-leader-workbench__correction-material-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.team-leader-workbench__correction-material-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, minmax(120px, 0.7fr));
+  gap: 8px 12px;
+  align-items: end;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dfe7e2;
+  border-radius: 6px;
+  background: #f8fbf9;
+}
+
+.team-leader-workbench__correction-material-card > strong,
+.team-leader-workbench__correction-material-card > small {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__correction-material-card > strong {
+  color: #18212f;
+  font-size: 14px;
+}
+
+.team-leader-workbench__correction-material-card > small {
+  color: #667085;
+}
+
+.team-leader-workbench__correction-material-card :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
 .team-leader-workbench__correction-rows {
   display: grid;
   gap: 8px;
@@ -10240,7 +10531,9 @@ onMounted(() => {
   }
 
   .team-leader-workbench__correction-context,
-  .team-leader-workbench__correction-quantity-grid {
+  .team-leader-workbench__correction-quantity-grid,
+  .team-leader-workbench__correction-material-grid,
+  .team-leader-workbench__correction-material-card {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -10259,6 +10552,16 @@ onMounted(() => {
 
 .team-leader-workbench__number {
   width: 100%;
+}
+
+.team-leader-workbench__allocation-context {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #dfe7e2;
+  border-radius: 6px;
+  background: #f8fbf9;
 }
 
 .team-leader-workbench__pqc-content {
@@ -10323,6 +10626,20 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.team-leader-workbench__context-block {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.team-leader-workbench__context-block > strong {
+  flex: 0 0 64px;
+  color: #18212f;
+  font-size: 13px;
 }
 
 .team-leader-workbench__submission-actions {

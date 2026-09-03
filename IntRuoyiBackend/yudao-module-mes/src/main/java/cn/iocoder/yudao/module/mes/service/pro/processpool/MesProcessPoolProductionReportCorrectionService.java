@@ -92,6 +92,7 @@ public class MesProcessPoolProductionReportCorrectionService {
                 outputFragment, changes);
         applyLossDetails(command.getLossDetails(), beforeLoss, event.getRouteProcessId(),
                 afterPayload, fieldValues, changes);
+        applyMaterialDetails(command.getMaterialDetails(), afterPayload, changes);
         applyDeviceParameterReadings(command.getDeviceParameterReadings(), afterPayload, fieldValues, changes);
 
         if (changes.isEmpty()) {
@@ -152,6 +153,13 @@ public class MesProcessPoolProductionReportCorrectionService {
                 || item.getReasonId() == null || item.getReasonId() <= 0
                 || item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails");
+        }
+        if (command.getMaterialDetails() != null
+                && command.getMaterialDetails().stream().anyMatch(item -> item == null
+                || item.getMaterialId() == null || item.getMaterialId() <= 0
+                || item.getOutputQuantity() == null || item.getOutputQuantity().compareTo(BigDecimal.ZERO) < 0
+                || item.getLossQuantity() == null || item.getLossQuantity().compareTo(BigDecimal.ZERO) < 0)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails");
         }
         if (StrUtil.isBlank(command.getChangeReason())) {
             throw exception(PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED);
@@ -237,6 +245,68 @@ public class MesProcessPoolProductionReportCorrectionService {
                     false, null, MesProcessPoolFragmentOriginalField.LOSS_QUANTITY));
         }
         addLossReasonChanges(originalReasons, canonicalReasons, changes);
+    }
+
+    private void applyMaterialDetails(
+            List<MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand> requested,
+        ObjectNode payload,
+        List<MesProcessPoolEventRevisionFieldChangeBO> changes) {
+        ArrayNode original = optionalArray(payload.get("materialDetails"));
+        if (requested == null || requested.isEmpty()) {
+            return;
+        }
+        if (original == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails");
+        }
+        Map<Long, MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand> byMaterialId =
+                requested.stream().collect(Collectors.toMap(
+                        MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand::getMaterialId,
+                        item -> item,
+                        (left, right) -> right,
+                        LinkedHashMap::new));
+        ArrayNode updated = original.deepCopy();
+        for (JsonNode node : updated) {
+            if (!(node instanceof ObjectNode material)) {
+                continue;
+            }
+            Long materialId = longOrNull(material.get("materialId"));
+            if (materialId == null || materialId <= 0) {
+                continue;
+            }
+            MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand change =
+                    byMaterialId.remove(materialId);
+            if (change == null) {
+                continue;
+            }
+            BigDecimal beforeOutput = decimalOrNull(material.get("outputQuantity"));
+            BigDecimal beforeLoss = decimalOrNull(material.get("lossQuantity"));
+            if (beforeOutput != null && beforeOutput.compareTo(change.getOutputQuantity()) != 0) {
+                material.put("outputQuantity", change.getOutputQuantity());
+                changes.add(fieldChange("MATERIAL_OUTPUT." + materialId,
+                        materialFieldName(material, "完成数量"),
+                        beforeOutput, change.getOutputQuantity(), false, null,
+                        MesProcessPoolFragmentOriginalField.OUTPUT_QUANTITY));
+            }
+            if (beforeLoss != null && beforeLoss.compareTo(change.getLossQuantity()) != 0) {
+                material.put("lossQuantity", change.getLossQuantity());
+                changes.add(fieldChange("MATERIAL_LOSS." + materialId,
+                        materialFieldName(material, "损耗数量"),
+                        beforeLoss, change.getLossQuantity(), false, null,
+                        MesProcessPoolFragmentOriginalField.LOSS_QUANTITY));
+            }
+        }
+        if (!byMaterialId.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.materialId");
+        }
+        payload.set("materialDetails", updated);
+    }
+
+    private String materialFieldName(ObjectNode material, String suffix) {
+        String materialName = StrUtil.blankToDefault(text(material, "materialName"), text(material, "materialCode"));
+        if (StrUtil.isBlank(materialName)) {
+            materialName = String.valueOf(requireLong(material.get("materialId"), "materialDetails.materialId"));
+        }
+        return "物料：" + materialName + " " + suffix;
     }
 
     private void applyDeviceParameterReadings(

@@ -161,6 +161,9 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "损耗原因明细")
     private List<LossDetailRespVO> lossDetails;
 
+    @Schema(description = "逐物料报工明细")
+    private List<MaterialDetailRespVO> materialDetails;
+
     @Schema(description = "选用设备快照")
     private SelectedDeviceRespVO selectedDevice;
 
@@ -225,6 +228,16 @@ public class ProcessPoolTimelineEventRespVO {
         private String reasonCode;
         private String reasonName;
         private BigDecimal quantity;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class MaterialDetailRespVO {
+        private Long materialId;
+        private String materialCode;
+        private String materialName;
+        private BigDecimal outputQuantity;
+        private BigDecimal lossQuantity;
     }
 
     @Data
