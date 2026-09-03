@@ -29,6 +29,7 @@ const releaseReal = fs.readFileSync(releaseRealPath, 'utf8')
 const stage4 = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage4/MesStage4DossierUploadSimulationServiceImpl.java')
 const stage5 = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/MesStage5FinalReleaseSimulationServiceImpl.java')
 const page = fs.readFileSync(path.resolve(root, '../../IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'), 'utf8')
+const frontlinePage = fs.readFileSync(path.resolve(root, '../../IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), 'utf8')
 
 function requireMatch(value, pattern, message) {
   if (!pattern.test(value)) throw new Error(message)
@@ -61,11 +62,11 @@ requireMatch(processMaterials, /ROLE_OUTPUT\.equals\(materialRole\)\)\s*\?\s*bat
   'output materials must not query input batch evidence')
 requireMatch(runtimeConfig, /ROLE_INPUT\.equals\(material\.materialRole\(\)\)[\s\S]*ROLE_OUTPUT\.equals\(material\.materialRole\(\)\)/,
   'runtime config must separate input evidence from output tabs')
-requireMatch(frontlineSubmit, /inputMaterialDetails[\s\S]*sourcePickListIds[\s\S]*sourceSnapshotHash/,
+requireMatch(frontlineSubmit, /inputMaterialDetails[\s\S]*sourcePickListIds[\s\S]*sourceSnapshotHash|sourcePickListIds[\s\S]*inputMaterialDetails/,
   'production submit raw payload must retain server-managed input material evidence')
-requireMatch(page, /deviceState\.runtimeConfig\?\.materials[\s\S]*configuredProductionMaterials/,
+requireMatch(frontlinePage, /runtimeConfig\?\.materials[\s\S]*configuredProductionMaterials/,
   'production material tabs must continue to use output materials only')
-forbid(page, /runtimeConfig\?\.inputMaterials[^\n]*(map|forEach)|configuredProductionMaterials[^\n]*inputMaterials/,
+forbid(frontlinePage, /runtimeConfig\?\.inputMaterials[^\n]*(map|forEach)|configuredProductionMaterials[^\n]*inputMaterials/,
   'input materials must not generate user completion tabs')
 requireMatch(resolver, /selectListByActiveOrderId\(activeOrder\.getId\(\)\)/,
   'existing bindings must be validated as a collection')

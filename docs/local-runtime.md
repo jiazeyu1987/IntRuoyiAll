@@ -236,6 +236,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 - Trigger: `restart-int-ruoyi-local.ps1 -Component full` 或 `-Component backend` 在 `mvn -pl yudao-server -am -DskipTests package` 阶段失败，日志出现 `testCompile`、`COMPILATION ERROR`、测试类引用当前生产代码不存在的常量、方法、字段或 VO setter。
 - Preflight check: 本地重启前若当前工作区存在未完成的测试/生产代码不一致风险，先用标准脚本实际打包结果作为门禁；`-DskipTests` 仍会编译测试代码，不能把它理解成完全跳过测试编译。
+- Recovery check: 若失败信息是 `testCompile` 读取 `target/classes` 中当前源码确实存在的类时报 `NoSuchFileException`，先全仓确认源码存在、无同目录并发 Maven/重启，再运行对应模块的 `mvn -pl <module> -am -DskipTests test-compile` 重建编译产物；该命令通过后仍必须重跑标准 `full/backend` 脚本，不能把定向 test-compile 当作后端已启动。
 - Blocker: 标准脚本退出码非 `0`、Maven 测试编译失败、`yudao-server-exec.jar` 未重新生成，或当前运行进程来源不是本次标准脚本成功启动时，必须停止完整重启结论；只能记录当前端口是否已有可访问运行态，不能宣称标准 full 重启完成。
 - Verification: 记录 Maven 失败模块、失败测试文件、缺失符号、脚本退出码；同时复核 `8081` HTTP 状态、`48081` health 状态、监听 PID、命令行归属和运行 Jar 路径，明确区分“当前可访问”和“本次标准重启成功”。
 - Forbidden action: 禁止改用 `-Dmaven.test.skip=true`、旧 Jar、手工 Java 启动、API-only health、随机端口或跳过后端打包来冒充标准 full 重启成功；禁止为重启任务擅自修改无关测试或生产代码。
