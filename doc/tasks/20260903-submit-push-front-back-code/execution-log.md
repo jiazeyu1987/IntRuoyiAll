@@ -16,3 +16,7 @@ STATUS: ready_for_closeout - Verification report written; cleanup pending.
 CLOSEOUT: task-closeout-cleanup preview -> PASS, keep task.md/execution-log.md/verification-report.md, delete none, blocked none, warnings none.
 CLOSEOUT: task-closeout-cleanup apply -> PASS, linked worktree false, deleted_paths none.
 STATUS: completed - Base commit 167d8576091bfc7ec0df631a413e53e1a9a0fb95 pushed to origin/int_main; final closeout record ready for commit.
+FINAL_SYNC: git diff --check on remaining frontend/task records -> PASS.
+FINAL_SYNC: git commit -m "任务: 补提交前端校验与提交记录" -> PASS, commit 042a3bbcdb67de28e2590788c20b53c72e88a272.
+FINAL_SYNC: git push origin int_main -> PASS, remote and local HEAD matched 042a3bbcdb67de28e2590788c20b53c72e88a272 before this final verification-report correction.
+FINAL_SYNC: corrected verification-report stale status line to clean working tree evidence.
