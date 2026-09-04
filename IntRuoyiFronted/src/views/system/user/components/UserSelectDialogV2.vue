@@ -7,6 +7,7 @@
   Props:
     multiple — true 多选（checkbox），false 单选（radio）；默认 true
     deptId   — 部门 ID
+    userOptions — 业务页预加载用户，传入后在本地筛选分页
   Events:
     selected(rows: UserVO[]) — 确认选择后触发，单选时数组长度为 1
   Expose:

@@ -13,6 +13,7 @@
     clearable   — 是否允许清空（鼠标悬停时显示清除图标）
     placeholder — 占位文字
     deptId      — 部门 ID
+    userOptions — 业务页已加载的可选用户，传入后弹窗在本地筛选，不再调用通用用户分页接口
     hideSelectedLabel — 是否隐藏输入框内的已选名称，仅保留外部展示
   Events:
     update:modelValue — v-model 更新

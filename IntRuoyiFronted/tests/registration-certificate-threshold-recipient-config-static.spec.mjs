@@ -29,6 +29,7 @@ test('registration certificate page configures all fixed expiry thresholds with 
   assert.match(dialog, /<UserSelectV2/)
   assert.match(dialog, /:multiple="true"/)
   assert.match(dialog, /:hide-selected-label="true"/)
+  assert.match(dialog, /:user-options="userOptions"/)
   assert.match(dialog, /normalizeUserId\(candidate\.id\) === normalizeUserId\(userId\)/)
   assert.doesNotMatch(dialog, /recipient-candidate-dialog/)
   assert.match(api, /thresholdRecipientUserIds/)
@@ -36,13 +37,23 @@ test('registration certificate page configures all fixed expiry thresholds with 
 
 test('user selector can hide selected names from input and resolve string long ids', async () => {
   const userSelectV2Path = resolve('src/views/system/user/components/UserSelectV2.vue')
-  const selector = await readFile(userSelectV2Path, 'utf8')
+  const userSelectDialogV2Path = resolve('src/views/system/user/components/UserSelectDialogV2.vue')
+  const [selector, dialog] = await Promise.all([
+    readFile(userSelectV2Path, 'utf8'),
+    readFile(userSelectDialogV2Path, 'utf8')
+  ])
 
   assert.match(selector, /hideSelectedLabel\?: boolean/)
   assert.match(selector, /if \(props\.hideSelectedLabel\)/)
+  assert.match(selector, /userOptions\?: UserApi\.UserVO\[\]/)
+  assert.match(selector, /:user-options="(?:props\.)?userOptions"/)
+  assert.match(selector, /props\.userOptions\s*\?\?\s*\(?await UserApi\.getSimpleUserList\(\)\)?/)
   assert.match(selector, /const normalizeUserId = \(id: number \| string\) => Number\(id\)/)
   assert.match(selector, /normalizeUserId\(item\.id\) === currentId/)
   assert.match(selector, /rows\.map\(\(item\) => normalizeUserId\(item\.id\)\)/)
+  assert.match(dialog, /userOptions\?: UserApi\.UserVO\[\]/)
+  assert.match(dialog, /props\.userOptions/)
+  assert.match(dialog, /filtered(?:List)?\.slice\(start, start \+ queryParams\.pageSize\)/)
 })
 
 test('notification recipient selector uses preloaded enabled users without system user query permission', async () => {
