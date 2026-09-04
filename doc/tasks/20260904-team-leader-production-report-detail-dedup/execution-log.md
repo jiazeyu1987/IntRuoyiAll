@@ -15,3 +15,4 @@ GREEN: rg -n "报工列表黄框字段|submissionMaterialSummary隐藏|参数分
 CLOSEOUT: cleanup preview -> PASS, deleted only frontend-feature-evidence.md.
 CLOSEOUT: cleanup apply -> PASS, kept task.md, execution-log.md, verification-report.md.
 COMMIT: d97ce10cc feat: 优化生产报工多物料设备展示 -> implementation and verification records committed.
+BLOCKED: git push origin int_main -> FAIL twice, TLS connect error unexpected eof while reading. Branch remains ahead of origin; project rule forbids completed status until push succeeds.

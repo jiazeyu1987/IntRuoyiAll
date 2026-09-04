@@ -27,3 +27,7 @@ None.
 - PASS: task-closeout-cleanup preview kept task.md, execution-log.md, verification-report.md and deleted only frontend-feature-evidence.md.
 - PASS: task-closeout-cleanup apply completed with no blockers or warnings.
 - Commit: d97ce10cc feat: 优化生产报工多物料设备展示.
+
+## Push Blocker
+- FAIL: git push origin int_main failed twice with TLS connect error `unexpected eof while reading`.
+- Impact: local implementation and closeout commits exist, but branch remains ahead of origin; task cannot be marked completed until push succeeds.
