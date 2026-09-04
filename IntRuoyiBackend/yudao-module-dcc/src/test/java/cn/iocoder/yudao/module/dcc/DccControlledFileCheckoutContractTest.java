@@ -56,7 +56,8 @@ class DccControlledFileCheckoutContractTest {
         assertTrue(service.contains("listControlledFileBrowserCandidates(userId, reqVO, blacklistedExtensionPatterns,"));
         assertTrue(service.contains("activeAssignedControlledFileIds);"));
         assertTrue(service.contains("selectBrowserSummaryList(candidateReqVO)"));
-        assertTrue(service.contains("isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)\n                        || canAccessQuery"));
+        assertTrue(service.contains("isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)"));
+        assertTrue(service.contains("|| canAccessQuery(userId, file, reqVO, hasDirectoryManagementPermission,"));
     }
 
     @Test
