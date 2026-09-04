@@ -10,8 +10,8 @@
 - [x] 盘点当前分支、remote 和工作区改动。
 - [x] 暂存前后端代码及必要项目文档，复核 staged 清单。
 - [x] 运行提交前校验和大文件/敏感输出边界检查。
-- [ ] 创建 Git 提交并推送到 `origin/int_main`。
-- [ ] 记录推送后状态和收尾证据。
+- [x] 创建 Git 提交并推送到 `origin/int_main`。
+- [x] 记录推送后状态和收尾证据。
 
 ## Expected Verification
 
@@ -22,7 +22,9 @@
 
 ## Current Status
 
-in_progress
+completed
+
+前后端代码提交与推送已完成；cleanup preview/apply 已通过且无删除项。仍保留未提交残留：`AGENTS.md`、`e2e_test/registration/reminder/registration-certificate-reminder-config-e2e-acceptance.md`、`e2e_binding_snapshot.txt`、`e2e_project_options.txt`、`e2e_snapshot.txt`；这些未纳入本次提交推送范围。
 
 ## Design Constraint Check
 

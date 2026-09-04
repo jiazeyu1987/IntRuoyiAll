@@ -15,3 +15,11 @@
 - Sensitive pattern scan: hits were reviewed as code field names, token plumbing, or redacted test placeholders; no staged `.env`, runtime log, PID, Jar, archive, `target`, `dist`, `node_modules`, `runtime`, or `output` path was present.
 - Staged file count before commit: `87`.
 - Experience consolidation: reviewed `project-experience-consolidation`; no new durable lesson was added because this task only applied existing Git/runtime gates.
+- Commit: `fcfd718d5` (`提交前后端代码`) -> created and pushed to `origin/int_main`.
+- Post-push residual check found a new frontend source diff in `IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue` changing two page size values from `500` to `200`; staged separately after `git diff --cached --check` PASS.
+- Commit: `05537f25e` (`补提交产品目录绑定分页限制`) -> created and pushed to `origin/int_main`.
+- Push evidence: `origin/int_main` advanced from `c818229ee` to `fcfd718d5`, then from `fcfd718d5` to `05537f25e`.
+- Remaining uncommitted paths intentionally not staged: `AGENTS.md`, `e2e_test/registration/reminder/registration-certificate-reminder-config-e2e-acceptance.md`, `e2e_binding_snapshot.txt`, `e2e_project_options.txt`, `e2e_snapshot.txt`. The E2E document residual contains account/password text and the snapshot files are generated local artifacts, so they were not mixed into the frontend/backend code push.
+- Cleanup preview: `task_closeout.py --task-id 20260904-commit-frontend-backend-code --mode preview` -> PASS, delete `<none>`, blocked `<none>`.
+- Cleanup apply: `task_closeout.py --task-id 20260904-commit-frontend-backend-code --mode apply` -> PASS, deleted `<none>`.
+- Final closeout record prepared for a docs-only commit and push; residual non-task paths remain intentionally unstaged.
