@@ -33,6 +33,10 @@ class DccControlledFileCheckoutContractTest {
         assertTrue(service.contains("requireCheckoutAccessibleControlledFile(userId, id)"));
         assertTrue(service.contains("private DccControlledFileDO requireCheckoutAccessibleControlledFile"));
         assertTrue(service.contains("canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)"));
+        assertTrue(service.contains("file.setCheckedOutBy(userId);"));
+        assertTrue(service.contains("file.setCheckedOutTime(LocalDateTime.now());"));
+        assertTrue(service.contains("file.setCheckedOutBy(null);"));
+        assertTrue(service.contains("return toBrowserRespVO(userId, file);"));
         assertTrue(service.contains("setCheckedOutByName"));
         assertTrue(mapper.contains("checked_out_by IS NULL"));
         assertTrue(mapper.contains("checked_out_by = #{actorId}"));
@@ -44,6 +48,15 @@ class DccControlledFileCheckoutContractTest {
         assertTrue(service.contains("fillCheckoutProjection(respVO, history)"));
         assertTrue(dataObject.contains("private Long checkedOutBy"));
         assertTrue(dataObject.contains("private LocalDateTime checkedOutTime"));
+    }
+
+    @Test
+    void browserKeepsViewMatrixVisibleWhenAssignmentScopeIsEmpty() throws Exception {
+        String service = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java");
+        assertTrue(service.contains("listControlledFileBrowserCandidates(userId, reqVO, blacklistedExtensionPatterns,"));
+        assertTrue(service.contains("activeAssignedControlledFileIds);"));
+        assertTrue(service.contains("selectBrowserSummaryList(candidateReqVO)"));
+        assertTrue(service.contains("isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)\n                        || canAccessQuery"));
     }
 
     @Test

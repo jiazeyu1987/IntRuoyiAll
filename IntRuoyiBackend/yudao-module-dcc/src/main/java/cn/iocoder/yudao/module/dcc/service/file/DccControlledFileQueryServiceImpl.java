@@ -329,9 +329,6 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                                            boolean browserSummaryQuery,
                                                                            Map<Long, Boolean> currentViewMatrixAccessByCategory,
                                                                            Set<Long> activeAssignedControlledFileIds) {
-        if (activeAssignedControlledFileIds != null && activeAssignedControlledFileIds.isEmpty()) {
-            return List.of();
-        }
         Set<Long> requestedDirectoryIds = resolveRequestedDirectoryIds(reqVO);
         DccControlledFilePageReqVO candidateReqVO = buildCandidateReqForWorkflowSearch(reqVO);
         List<DccControlledFileDO> candidates;
@@ -340,27 +337,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 return List.of();
             }
             DccControlledFilePageReqVO directoryReqVO = buildPageReqWithoutDirectory(candidateReqVO);
-            if (activeAssignedControlledFileIds == null) {
-                candidates = browserSummaryQuery
-                        ? controlledFileMapper.selectBrowserSummaryList(directoryReqVO, requestedDirectoryIds)
-                        : controlledFileMapper.selectWorkflowList(directoryReqVO, requestedDirectoryIds);
-            } else {
-                candidates = browserSummaryQuery
-                        ? controlledFileMapper.selectBrowserSummaryList(directoryReqVO, requestedDirectoryIds,
-                        activeAssignedControlledFileIds)
-                        : controlledFileMapper.selectWorkflowList(directoryReqVO, requestedDirectoryIds,
-                        activeAssignedControlledFileIds);
-            }
+            candidates = browserSummaryQuery
+                    ? controlledFileMapper.selectBrowserSummaryList(directoryReqVO, requestedDirectoryIds)
+                    : controlledFileMapper.selectWorkflowList(directoryReqVO, requestedDirectoryIds);
         } else {
-            if (activeAssignedControlledFileIds == null) {
-                candidates = browserSummaryQuery
-                        ? controlledFileMapper.selectBrowserSummaryList(candidateReqVO)
-                        : controlledFileMapper.selectWorkflowList(candidateReqVO);
-            } else {
-                candidates = browserSummaryQuery
-                        ? controlledFileMapper.selectBrowserSummaryList(candidateReqVO, null, activeAssignedControlledFileIds)
-                        : controlledFileMapper.selectWorkflowList(candidateReqVO, null, activeAssignedControlledFileIds);
-            }
+            candidates = browserSummaryQuery
+                    ? controlledFileMapper.selectBrowserSummaryList(candidateReqVO)
+                    : controlledFileMapper.selectWorkflowList(candidateReqVO);
         }
         List<DccControlledFileDO> visibleFiles = candidates.stream()
                 .filter(file -> isActiveAssignedControlledFile(file, activeAssignedControlledFileIds)
@@ -420,7 +403,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             }
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        return getControlledFile(userId, file.getId());
+        file.setCheckedOutBy(userId);
+        file.setCheckedOutTime(LocalDateTime.now());
+        return toBrowserRespVO(userId, file);
     }
 
     @Override
@@ -437,7 +422,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             }
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_OWNER, current.getCheckedOutBy());
         }
-        return getControlledFile(userId, file.getId());
+        file.setCheckedOutBy(null);
+        file.setCheckedOutTime(null);
+        return toBrowserRespVO(userId, file);
     }
 
     private DccControlledFileDO requireAccessibleControlledFile(Long userId, Long id) {

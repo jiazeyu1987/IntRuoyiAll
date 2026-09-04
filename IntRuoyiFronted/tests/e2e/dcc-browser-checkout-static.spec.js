@@ -16,5 +16,8 @@ assert.match(page, /data-testid="dcc-controlled-browser-checkin"/)
 assert.match(page, /data-testid="dcc-controlled-browser-checked-out-by"/)
 assert.match(page, /!getSelectedVersion\(row\)\.checkedOutBy/)
 assert.match(page, /isCheckedOutByCurrentUser/)
+assert.match(page, /const currentActiveVersionNo = String\(row\.currentActiveVersionNo \|\| ''\)\.trim\(\)/)
+assert.match(page, /item\.status === 'ACTIVE'/)
+assert.match(page, /String\(item\.versionNo \|\| ''\)\.trim\(\) === currentActiveVersionNo/)
 
 console.log('PASS: dcc browser checkout static contract')

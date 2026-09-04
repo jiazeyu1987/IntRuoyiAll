@@ -1100,7 +1100,7 @@ const browserListErrorMessage = ref<string>('')
 const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
-const checkoutLoadingId = ref<number>()
+const checkoutLoadingId = ref<number | string>()
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1132,8 +1132,10 @@ const extensionBlacklistLoading = ref(false)
 const extensionBlacklistSaving = ref(false)
 const extensionBlacklistText = ref('')
 
+type ControlledFileBrowserOptionId = number | string
+
 type ControlledFileBrowserRow = ControlledFileVO & {
-  selectedVersionId?: number
+  selectedVersionId?: ControlledFileBrowserOptionId
 }
 
 type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
@@ -1218,12 +1220,13 @@ const directoryTreeProps = {
   label: 'name',
   isLeaf: 'leaf'
 }
-const isValidBrowserOptionId = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value)
+const isValidBrowserOptionId = (value: unknown): value is ControlledFileBrowserOptionId =>
+  (typeof value === 'number' && Number.isFinite(value)) ||
+  (typeof value === 'string' && /^\d+$/.test(value))
 const categoryOptions = computed(() =>
   categories.value.filter(
     (item): item is ControlledFileCategoryVO & { id: number } =>
-      item.active && isValidBrowserOptionId(item.id)
+      item.active && typeof item.id === 'number' && Number.isFinite(item.id)
   )
 )
 const categoryNameMap = computed(
@@ -1436,12 +1439,32 @@ const getVersionOptions = (row: ControlledFileBrowserRow): ControlledFileBrowser
   return isValidBrowserOptionId(row.id) ? [buildCurrentVersionOption(row)] : []
 }
 
-const resolveInitialSelectedVersionId = (row: ControlledFileVO): number | undefined => {
-  return getVersionOptions(row as ControlledFileBrowserRow)[0]?.id
+const resolveInitialSelectedVersionId = (row: ControlledFileVO): ControlledFileBrowserOptionId | undefined => {
+  const options = getVersionOptions(row as ControlledFileBrowserRow)
+  const currentActiveVersionNo = String(row.currentActiveVersionNo || '').trim()
+  const currentActiveOption = options.find(
+    (item) =>
+      item.status === 'ACTIVE' &&
+      (!currentActiveVersionNo || String(item.versionNo || '').trim() === currentActiveVersionNo)
+  )
+  return currentActiveOption?.id || options.find((item) => item.status === 'ACTIVE')?.id || options[0]?.id
+}
+
+const resolveSelectedVersionId = (
+  row: ControlledFileBrowserRow,
+  previousSelectedVersionId?: ControlledFileBrowserOptionId
+): ControlledFileBrowserOptionId | undefined => {
+  if (
+    isValidBrowserOptionId(previousSelectedVersionId) &&
+    getVersionOptions(row).some((item) => String(item.id) === String(previousSelectedVersionId))
+  ) {
+    return previousSelectedVersionId
+  }
+  return resolveInitialSelectedVersionId(row)
 }
 
 const getSelectedVersion = (row: ControlledFileBrowserRow): ControlledFileBrowserVersion => {
-  return getVersionOptions(row).find((item) => item.id === row.selectedVersionId) || getVersionOptions(row)[0] || buildCurrentVersionOption(row)
+  return getVersionOptions(row).find((item) => String(item.id) === String(row.selectedVersionId)) || getVersionOptions(row)[0] || buildCurrentVersionOption(row)
 }
 
 const handleVersionChange = (row: ControlledFileBrowserRow) => {
@@ -1515,14 +1538,53 @@ const isCheckedOutByCurrentUser = (file: ControlledFileVO | ControlledFileBrowse
 const getCheckoutDisplayName = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   file.checkedOutByName || (file.checkedOutBy ? `用户 ${file.checkedOutBy}` : '')
 
+const mergeCheckoutProjection = (
+  target: ControlledFileBrowserRow | ControlledFileBrowserVersion,
+  source: ControlledFileVO
+) => {
+  target.checkedOut = source.checkedOut
+  target.checkedOutBy = source.checkedOutBy
+  target.checkedOutByName = source.checkedOutByName
+  target.checkedOutTime = source.checkedOutTime
+}
+
+const applyCheckoutProjection = (updatedFile: ControlledFileVO) => {
+  if (!isValidBrowserOptionId(updatedFile.id)) {
+    throw new Error('检入检出接口未返回受控文件编号，页面无法确认当前文件状态。')
+  }
+  const updatedFileId = String(updatedFile.id)
+  const targetRow = list.value.find(
+    (row) =>
+      String(row.id) === updatedFileId ||
+      (row.versionHistory || []).some((version) => String(version.id) === updatedFileId)
+  )
+  if (!targetRow) {
+    throw new Error('检入检出接口返回的文件不在当前受控浏览列表中，页面无法确认当前文件状态。')
+  }
+  if (String(targetRow.id) === updatedFileId) {
+    mergeCheckoutProjection(targetRow, updatedFile)
+  }
+  targetRow.versionHistory = (targetRow.versionHistory || []).map((version) => {
+    if (String(version.id) !== updatedFileId) {
+      return version
+    }
+    const mergedVersion = { ...version } as ControlledFileBrowserVersion
+    mergeCheckoutProjection(mergedVersion, updatedFile)
+    return mergedVersion
+  })
+  targetRow.selectedVersionId = resolveSelectedVersionId(targetRow, updatedFile.id)
+}
+
 const handleCheckout = async (file: ControlledFileBrowserVersion) => {
-  const id = Number(file.id)
-  if (!Number.isFinite(id) || file.checkedOutBy) return
+  const id = file.id
+  if (!isValidBrowserOptionId(id) || file.checkedOutBy) return
   checkoutLoadingId.value = id
   try {
-    await checkoutControlledFile(id)
+    const updatedFile = await checkoutControlledFile(id)
+    applyCheckoutProjection(updatedFile)
     message.success('文件已检出')
     await getList()
+    applyCheckoutProjection(updatedFile)
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '文件检出失败，请稍后重试。'))
   } finally {
@@ -1531,13 +1593,15 @@ const handleCheckout = async (file: ControlledFileBrowserVersion) => {
 }
 
 const handleCheckin = async (file: ControlledFileBrowserVersion) => {
-  const id = Number(file.id)
-  if (!Number.isFinite(id) || !isCheckedOutByCurrentUser(file)) return
+  const id = file.id
+  if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   checkoutLoadingId.value = id
   try {
-    await checkinControlledFile(id)
+    const updatedFile = await checkinControlledFile(id)
+    applyCheckoutProjection(updatedFile)
     message.success('文件已检入')
     await getList()
+    applyCheckoutProjection(updatedFile)
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '文件检入失败，请稍后重试。'))
   } finally {
