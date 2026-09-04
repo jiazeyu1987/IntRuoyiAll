@@ -12,3 +12,6 @@ GREEN: node yudao-module-mes/src/test/js/mes-active-order-submission-overview-st
 GREEN: mvn -pl yudao-module-mes -am "-DskipTests" test -> BUILD SUCCESS
 GREEN: git diff --check -> PASS
 GREEN: rg -n "报工列表黄框字段|submissionMaterialSummary隐藏|参数分号分隔" docs/experience-index.md docs/frontend-development.md -S -> PASS
+CLOSEOUT: cleanup preview -> PASS, deleted only frontend-feature-evidence.md.
+CLOSEOUT: cleanup apply -> PASS, kept task.md, execution-log.md, verification-report.md.
+COMMIT: d97ce10cc feat: 优化生产报工多物料设备展示 -> implementation and verification records committed.

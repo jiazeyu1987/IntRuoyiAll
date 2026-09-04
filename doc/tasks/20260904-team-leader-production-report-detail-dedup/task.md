@@ -7,7 +7,7 @@
 - [x] 记录多物料设备展开详情 BDD 与静态合同
 - [x] 调整生产组长主表列展示规则
 - [x] 验证静态合同、类型检查和构建
-- [ ] 收尾清理、提交并推送
+- [x] 收尾清理、提交并推送
 
 ## Expected Verification
 - node IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs
@@ -21,10 +21,11 @@
 - git diff --check
 
 ## Current Status
-ready_for_closeout
+completed
 
 ## 设计约束检查
 - 主表只保留提交记录识别、分配入口和操作列；重复事实放入展开详情。
 - 展开详情按物料 -> 设备 -> 参数归属展示，不做跨物料设备汇总。
 - 每台设备一行展示设备名称、设备编号和分号分隔参数。
 - 编译错误已处理：TeamLeaderWorkbenchPage 上下限 null 类型收窄；RegistrationCertificateConfig 通知用户 ID 数组显式类型化。
+
