@@ -73,8 +73,13 @@ assert.match(
 )
 assert.doesNotMatch(
   detail,
-  /if \(!detail\.value\.projectCodeId\)[\s\S]{0,180}缺少项目代码/,
-  'download request must not be blocked when the registration certificate has no project code'
+  /缺少项目代码，无法提交文件下载申请。/,
+  'download request click must not block certificates that have no project code'
+)
+assert.match(
+  detail,
+  /checkPermi\(\['dcc:registration-certificate:access-request:approve'\]\)[\s\S]*checkRole\(\['dcc_registration_certificate_approver'\]\)/,
+  'registration managers must get the direct download button through the approval permission or the manager role'
 )
 assert.match(
   detail,

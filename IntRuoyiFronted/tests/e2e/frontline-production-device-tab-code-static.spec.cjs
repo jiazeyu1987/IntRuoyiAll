@@ -2,8 +2,11 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const root = process.cwd()
-const panelPath = path.join(root, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
+const repoRoot = path.resolve(__dirname, '../..')
+const panelPath = path.join(
+  repoRoot,
+  'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'
+)
 const panel = fs.readFileSync(panelPath, 'utf8').replace(/\r\n/g, '\n')
 
 function extractComputedBlock(source, marker) {

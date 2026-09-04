@@ -49,6 +49,7 @@ export interface ProcessPoolProductionReportCorrectionParameterReqVO {
   deviceId: number
   parameterCode: string
   value?: number
+  textValue?: string
 }
 
 export interface ProcessPoolProductionReportCorrectionReqVO {

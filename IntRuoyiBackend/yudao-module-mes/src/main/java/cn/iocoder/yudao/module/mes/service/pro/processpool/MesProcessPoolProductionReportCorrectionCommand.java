@@ -49,5 +49,6 @@ public class MesProcessPoolProductionReportCorrectionCommand {
         private Long deviceId;
         private String parameterCode;
         private BigDecimal value;
+        private String textValue;
     }
 }

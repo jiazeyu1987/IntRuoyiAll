@@ -65,6 +65,7 @@ public class DccRegistrationCertificateApprovalService {
     private static final String OPERATION_RENEWAL_CERTIFICATE = "RENEWAL_CERTIFICATE";
     private static final String OPERATION_UPLOAD_CERTIFICATE = "UPLOAD_CERTIFICATE";
     private static final String OPERATION_CHANGE_CERTIFICATE = "CHANGE_CERTIFICATE";
+    private static final String SUPER_ADMIN_ROLE_CODE = "super_admin";
     private final DccRegistrationCertificateAccessRequestMapper requestMapper;
     private final DccRegistrationCertificateBpmBindingMapper bindingMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
@@ -425,6 +426,7 @@ public class DccRegistrationCertificateApprovalService {
         }
         LinkedHashSet<Long> unique = new LinkedHashSet<>();
         rawCandidates.stream().filter(Objects::nonNull).filter(candidate -> !Objects.equals(candidate, actorId))
+                .filter(candidate -> !permissionApi.hasAnyRoles(candidate, SUPER_ADMIN_ROLE_CODE))
                 .forEach(unique::add);
         List<Long> candidates = new ArrayList<>(unique);
         candidates.sort(Comparator.naturalOrder());
@@ -433,8 +435,10 @@ public class DccRegistrationCertificateApprovalService {
 
     private List<Long> resolveScopedApprovalCandidates(
             DccRegistrationCertificateAccessRequestDO request, Long roleId, Long actorId) {
-        Set<Long> rawCandidates = companyScopeApi.resolveRecipientUserIds(
-                request.getOwnerCompanyId(), List.of(roleId), APPROVAL_PERMISSION);
+        if (!permissionApi.hasAnyPermissionsInRoles(List.of(roleId), APPROVAL_PERMISSION)) {
+            return List.of();
+        }
+        Set<Long> rawCandidates = permissionApi.getUserRoleIdListByRoleIds(List.of(roleId));
         return normalizeCandidates(rawCandidates, actorId);
     }
 
@@ -461,9 +465,12 @@ public class DccRegistrationCertificateApprovalService {
                 || !CommonStatusEnum.isEnable(approverRole.getStatus())) {
             return false;
         }
-        Set<Long> candidates = companyScopeApi.resolveRecipientUserIds(
-                ownerCompanyId, List.of(approverRole.getId()), APPROVAL_PERMISSION);
-        return candidates != null && candidates.contains(actorId);
+        if (!permissionApi.hasAnyPermissionsInRoles(List.of(approverRole.getId()), APPROVAL_PERMISSION)) {
+            return false;
+        }
+        Set<Long> candidates = permissionApi.getUserRoleIdListByRoleIds(List.of(approverRole.getId()));
+        return candidates != null && candidates.contains(actorId)
+                && !permissionApi.hasAnyRoles(actorId, SUPER_ADMIN_ROLE_CODE);
     }
 
     private void cancelCreatedProcess(Long actorId, String processInstanceId, String reason, RuntimeException original) {

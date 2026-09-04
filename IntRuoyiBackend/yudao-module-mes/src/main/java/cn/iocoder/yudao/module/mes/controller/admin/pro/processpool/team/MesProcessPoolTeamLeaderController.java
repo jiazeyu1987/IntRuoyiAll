@@ -1253,7 +1253,9 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission) {
         return new MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionDetail()
                 .setPqcTaskId(submission.getPqcTaskId())
+                .setPqcTaskIds(submission.getPqcTaskIds())
                 .setSubmittedEventId(submission.getSubmittedEventId())
+                .setSubmittedEventIds(submission.getSubmittedEventIds())
                 .setInspectionType(submission.getInspectionType())
                 .setBusinessDate(submission.getBusinessDate())
                 .setShiftCode(submission.getShiftCode())

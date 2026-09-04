@@ -29,6 +29,8 @@ import java.util.Map;
 public class BpmMessageServiceImpl implements BpmMessageService {
 
     static final String DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY = "dcc-controlled-file-approval";
+    static final String DCC_REGISTRATION_CERTIFICATE_ACCESS_PROCESS_DEFINITION_KEY =
+            "dcc-registration-certificate-access";
     static final String EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY = "mes-edhr-approval-v1";
     static final String ROUTE_VERSION_PROCESS_DEFINITION_KEY = "mes-route-version-approval-v1";
     static final String DCC_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE = "dcc_task_assigned";
@@ -121,7 +123,7 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     }
 
     private String resolveProcessApproveNotifyTemplateCode(String processDefinitionKey) {
-        if (DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
+        if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_PROCESS_INSTANCE_APPROVE_NOTIFY_TEMPLATE_CODE;
         }
         if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
@@ -134,7 +136,7 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     }
 
     private String resolveProcessRejectNotifyTemplateCode(String processDefinitionKey) {
-        if (DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
+        if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_PROCESS_INSTANCE_REJECT_NOTIFY_TEMPLATE_CODE;
         }
         if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
@@ -147,7 +149,7 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     }
 
     private String resolveTaskAssignedNotifyTemplateCode(String processDefinitionKey) {
-        if (DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
+        if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_TASK_ASSIGNED_NOTIFY_TEMPLATE_CODE;
         }
         if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
@@ -160,7 +162,7 @@ public class BpmMessageServiceImpl implements BpmMessageService {
     }
 
     private String resolveTaskTimeoutNotifyTemplateCode(String processDefinitionKey) {
-        if (DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
+        if (isDccNotifyInboxProcess(processDefinitionKey)) {
             return DCC_TASK_TIMEOUT_NOTIFY_TEMPLATE_CODE;
         }
         if (EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)) {
@@ -174,6 +176,11 @@ public class BpmMessageServiceImpl implements BpmMessageService {
 
     private String getProcessInstanceDetailUrl(String taskId) {
         return webProperties.getAdminUi().getUrl() + "/bpm/process-instance/detail?id=" + taskId;
+    }
+
+    private boolean isDccNotifyInboxProcess(String processDefinitionKey) {
+        return DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY.equals(processDefinitionKey)
+                || DCC_REGISTRATION_CERTIFICATE_ACCESS_PROCESS_DEFINITION_KEY.equals(processDefinitionKey);
     }
 
 }

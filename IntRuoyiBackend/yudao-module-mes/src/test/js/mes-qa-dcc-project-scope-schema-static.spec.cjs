@@ -6,6 +6,8 @@ const backendRoot = path.resolve(__dirname, '../../../..')
 const read = (relativePath) => fs.readFileSync(path.join(backendRoot, relativePath), 'utf8')
 
 const migration = read('sql/mysql/20260811_mes_qa_dcc_project_scope.sql').replace(/\r\n/g, '\n')
+const processItemIdentityMigration = read('sql/mysql/20260904_mes_pqc_task_process_item_identity.sql')
+  .replace(/\r\n/g, '\n')
 const regulationDo = read(
   'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/qa/regulation/MesQaInspectionRegulationDO.java'
 )
@@ -86,7 +88,13 @@ assert.doesNotMatch(
   /route_process_id|(?<!qa_)process_id/
 )
 
-assert.match(taskMapper, /selectByQaIdentity\(Long activeOrderId, Long regulationVersionId,\s+Long qaProcessId,/)
+assert.match(processItemIdentityMigration, /UNIQUE KEY `uk_mes_pqc_task_process_item_rule_identity`/)
+assert.match(
+  processItemIdentityMigration,
+  /`tenant_id`, `active_order_id`, `route_process_id`, `process_id`,[\s\S]*`regulation_version_id`, `qa_process_id`, `qa_item_code`,[\s\S]*`inspection_rule_key`, `business_date`, `deleted`/
+)
+assert.match(processItemIdentityMigration, /DROP INDEX `uk_mes_pqc_task_item_rule_identity`/)
+assert.match(taskMapper, /selectByQaIdentity\(Long activeOrderId,\s+Long routeProcessId,\s+Long processId,/)
 assert.match(taskMapper, /MesPqcInspectionTaskDO::getQaProcessId/)
 
-console.log('PASS: DCC-owned QA schema and QA-process PQC identity contract')
+console.log('PASS: DCC-owned QA schema and process-owned PQC identity contract')

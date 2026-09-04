@@ -16,6 +16,10 @@ class MesProcessPoolTimelineSubmissionPayloadDisplayTest {
         assertField(ProcessPoolTimelineEventRespVO.class, "lossDetails");
         assertField(ProcessPoolTimelineEventRespVO.class, "selectedDevice");
         assertField(ProcessPoolTimelineEventRespVO.class, "deviceParameterReadings");
+        assertField(ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO.class, "value");
+        assertField(ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO.class, "textValue");
+        assertField(ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO.class, "valueType");
+        assertField(ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO.class, "optionValues");
     }
 
     private static Field assertField(Class<?> targetClass, String fieldName) throws Exception {

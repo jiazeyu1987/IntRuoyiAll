@@ -303,9 +303,6 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request` (
     ('SUBMITTED', 'BPM_BOUND', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'REVOKED')),
   CONSTRAINT `chk_dcc_reg_cert_access_request_key` CHECK (TRIM(`request_key`) <> ''),
   CONSTRAINT `chk_dcc_reg_cert_access_request_purpose` CHECK (TRIM(`purpose`) <> ''),
-  CONSTRAINT `chk_dcc_reg_cert_access_request_project` CHECK (
-    `request_type` <> 'DOWNLOAD_FILE' OR `project_code_id` IS NOT NULL
-  ),
   CONSTRAINT `chk_dcc_reg_cert_access_request_reject` CHECK (
     `status` <> 'REJECTED' OR (`reject_reason` IS NOT NULL AND TRIM(`reject_reason`) <> '')
   ),

@@ -120,7 +120,9 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             DccRegistrationCertificateSnapshotDO snapshot = requireSnapshot(version.getId());
             if (accessPolicyService.authorizeRegistrationManagerDownloadIfRole(tenantId, userId,
                     certificate.getId())) {
-                String fileName = buildFileName(null, certificate, version, snapshot, businessFile);
+                DccProjectCodeDO projectCode = resolveLiveProjectCode(certificate.getProjectCodeId(),
+                        certificate.getProductMasterId());
+                String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
                 FileDO infraFile = requireInfraFile(businessFile);
                 byte[] content;
                 try {
@@ -140,9 +142,9 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                         businessFileId);
             }
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
-        DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
-            DccProjectCodeDO projectCode = request.getProjectCodeId() == null ? null
-                    : requireLiveProjectCode(request.getProjectCodeId(), certificate.getProductMasterId());
+            DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
+            DccProjectCodeDO projectCode = resolveLiveProjectCode(request.getProjectCodeId(),
+                    certificate.getProductMasterId());
             String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
             String lockKey = tenantId + ":" + grant.getId() + ":" + businessFileId;
             Object lock = downloadLocks.computeIfAbsent(lockKey, ignored -> new Object());
@@ -241,7 +243,10 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         return request;
     }
 
-    private DccProjectCodeDO requireLiveProjectCode(Long projectCodeId, Long productMasterId) {
+    private DccProjectCodeDO resolveLiveProjectCode(Long projectCodeId, Long productMasterId) {
+        if (projectCodeId == null) {
+            return null;
+        }
         DccProjectCodeDO projectCode = projectCodeService.getProjectCode(projectCodeId);
         if (projectCode == null || !DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())
                 || hasConflictingProductBinding(productMasterId, projectCode.getProductMasterId())
@@ -344,8 +349,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         String extension = extensionOf(businessFile.getOriginalName());
         String changeSuffix = "CHANGE".equals(businessFile.getOwnerType()) ? "_变更文件" : "";
         String expiredSuffix = "OLD".equals(version.getStatus()) ? "_已失效" : "";
-        String projectPrefix = projectCode == null ? "" : safeSegment(projectCode.getProjectCode()) + "_";
-        return projectPrefix
+        String projectSegment = projectCode == null ? "" : safeSegment(projectCode.getProjectCode());
+        return projectSegment + "_"
                 + resolveFileNameDate(certificate, version).format(APPROVAL_DATE_FORMAT) + "_"
                 + safeSegment(snapshot.getProductName()) + changeSuffix + "_"
                 + safeSegment(version.getCertificateNo()) + expiredSuffix + extension;

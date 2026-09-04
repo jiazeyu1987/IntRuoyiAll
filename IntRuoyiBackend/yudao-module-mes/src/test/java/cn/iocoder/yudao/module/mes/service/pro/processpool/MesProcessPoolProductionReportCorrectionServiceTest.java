@@ -240,6 +240,37 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     @Test
+    void correctsSelectDeviceParameterTextValue() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithSelectDeviceParameterValue());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(707L);
+        MesProcessPoolProductionReportCorrectionCommand command = command()
+                .setOutputQuantity(new BigDecimal("4"))
+                .setDeviceParameterReadings(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                                .setDeviceId(41L)
+                                .setParameterCode("medium")
+                                .setTextValue("纯化水")));
+
+        assertEquals(707L, service.correct(command));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
+        MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
+        assertEquals(1, revision.getChangedFields().size());
+        assertEquals("DEVICE_PARAMETERS.medium", revision.getChangedFields().get(0).getFieldCode());
+        assertEquals("自来水", revision.getChangedFields().get(0).getBeforeValue());
+        assertEquals("纯化水", revision.getChangedFields().get(0).getAfterValue());
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"textValue\":\"纯化水\""));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"value\":\"纯化水\""));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                revision.getAfterPayload().contains("\"equipmentParameters\":{\"球囊成型机\":{\"medium\":\"纯化水\"}}"));
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
+    @Test
     void recordsLossReasonChangesAsReadableRowsInsteadOfJson() {
         when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithBusinessDetails());
         when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
@@ -377,6 +408,18 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
                 + "\"parameterCode\":\"pressure\",\"parameterName\":\"压力\",\"unit\":\"kPa\","
                 + "\"value\":null,\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":null}]}");
+    }
+
+    private static MesProProcessPoolEventDO eventWithSelectDeviceParameterValue() {
+        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0,"
+                + "\"DEVICE_PARAMETERS\":{\"球囊成型机\":{\"medium\":\"自来水\"}}},"
+                + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
+                + "\"lossReasonDetails\":[],"
+                + "\"equipmentParameters\":{\"球囊成型机\":{\"medium\":\"自来水\"}},"
+                + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
+                + "\"parameterCode\":\"medium\",\"parameterName\":\"清洗介质\",\"unit\":\"\","
+                + "\"value\":\"自来水\",\"textValue\":\"自来水\",\"valueType\":\"SELECT\","
+                + "\"optionValues\":[\"自来水\",\"纯化水\"],\"parameterStatus\":\"NORMAL\"}]}");
     }
 
     private static MesProProcessPoolQuantityFragmentDO fragment() {

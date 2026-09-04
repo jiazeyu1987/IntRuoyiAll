@@ -2,7 +2,7 @@
 
 ## 目的与边界
 
-本文定义现有 DCC 数据进入 Revision/Iteration 模型前的只读盘点、人工决策输入、迁移阶段、验证和回滚边界。本文不是运行结果，也不宣称当前数据库已经满足迁移条件。
+本文定义测试环境现有 DCC 数据进入 Revision/Iteration 模型前的只读盘点、确定性自动映射、人工决策输入、迁移阶段、验证和回滚边界。本文不是运行结果，也不宣称当前测试数据库已经满足迁移条件。
 
 本方案禁止：默认项目、默认分类叶子、按文件名猜身份、把 `V1.0` 直接假定为 `A/1`、自动合并主档、自动删除重复版本或用最新记录覆盖历史。
 
@@ -80,6 +80,17 @@ tenant + dccProjectCodeId + taxonomyLeafId + normalizedFileNumber
 - 同一版本号存在不同文件哈希；
 - 当前正式版本不是可解释的最高正式版本；
 - 历史记录不足以判断哪些旧版本属于同一大版本的小版本。
+
+旧系统没有 Windchill 小版本语义，因此确定性自动映射只采用“大版本 `/1`”策略，不把旧 `V1.1` 猜成 A/2。满足以下全部条件时允许自动形成候选映射：
+
+- Master 目标身份唯一且所有版本一致；
+- 每个旧 `version_no` 唯一并能被现有数字段解析器排序；
+- 没有运行中、待审批、待发布、发布失败、驳回或撤回记录；
+- 多版本链除最后一条外均为 SUPERSEDED，最后一条为 ACTIVE；或者单版本作废链为 OBSOLETE；
+- Master 当前正式指针与最后 ACTIVE 一致；
+- 文件、哈希、签名和平台生命周期检查通过。
+
+映射规则：按旧业务版本数字顺序，依次映射为 A/1、B/1、C/1；第 27 个旧业务版本映射为 AA/1。任一条件不满足时整条 Master 阻塞，不能只迁移其中“看起来正常”的部分。
 
 ### I-06 检出状态
 
@@ -256,7 +267,7 @@ WHERE m.deleted = 0
 - targetFileNumber
 - normalizedFileNumber
 - targetMasterGroupKey
-- decisionAction：KEEP、MERGE_INTO、SPLIT_TO、BLOCK
+- decisionAction：AUTO_MAP、KEEP、MERGE_INTO、SPLIT_TO、BLOCK
 - decisionOwner
 - decisionReason
 - approvalReference
@@ -276,7 +287,7 @@ WHERE m.deleted = 0
 - decisionOwner
 - decisionReason
 
-映射包必须有 schema 版本、生成时间、批准人、批准时间和 SHA-256。回填迁移只接受 APPROVED 且哈希一致的映射包。
+映射包必须有 schema 版本、生成时间、确认人、确认时间和 SHA-256。AUTO_MAP 行由确定性规则产生并携带规则版本；人工行必须明确确认。回填只接受状态 CONFIRMED 且哈希一致的映射包。
 
 ## 迁移阶段
 
@@ -288,8 +299,10 @@ WHERE m.deleted = 0
 
 ### Phase M1：人工决策
 
-- 文控、业务负责人和数据负责人处理每个 blocker。
-- 形成并批准映射包。
+- 系统生成 AUTO_MAP 候选和 blocker 列表。
+- 测试环境负责人确认 AUTO_MAP 总数、样本和规则版本。
+- 文控和业务负责人只处理 blocker。
+- 形成并确认映射包。
 - 未解决项必须保持 BLOCK，不得跳过。
 
 ### Phase M2：Additive Schema
@@ -300,7 +313,7 @@ WHERE m.deleted = 0
 ### Phase M3：维护窗口回填
 
 - 冻结 DCC 写入口。
-- 校验映射包 hash 和冻结边界。
+- 校验映射包 hash、规则版本和冻结边界。
 - 按 Master ID 有序分批回填，记录每批计数和摘要。
 - 任一批失败立即停止，不继续后续批次。
 
@@ -347,7 +360,6 @@ WHERE m.deleted = 0
 ## 当前阻塞与所需输入
 
 - 尚未连接运行库执行只读盘点，因此所有数据问题数量未知。
-- 尚未确认项目访问权权威来源。
-- 尚未批准超过 Z 的 Revision 序列。
 - 尚未形成旧 `version_no` 到 Revision/Iteration 的逐主档人工映射。
-- 尚未确认迁移维护窗口、数据库恢复点和文件存储恢复点责任人。
+- 尚未配置用于第一阶段验收的项目 OWNER、EDIT、VIEW 测试规则。
+- 尚未确定测试环境迁移维护时间和测试快照保存位置。

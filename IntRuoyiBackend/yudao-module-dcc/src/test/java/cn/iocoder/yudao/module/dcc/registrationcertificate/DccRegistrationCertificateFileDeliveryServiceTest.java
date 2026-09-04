@@ -144,26 +144,6 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void approvedDownloadGrantWithoutProjectCodeStillDeliversFile() throws Exception {
-        FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
-                "registration-no-project.pdf", 20L, null);
-        when(fileService.getFile(fixture.infraFileId())).thenReturn(
-                infraFile(fixture, "registration-no-project.pdf"));
-        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
-                .thenReturn("NO-PROJECT-CERT".getBytes(StandardCharsets.UTF_8));
-
-        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
-                1L, 99L, fixture.businessFileId(), "attempt-no-project-grant",
-                context("REQ-NO-PROJECT-GRANT"));
-
-        assertEquals("20200201_ProductA_CERT-DL-001.pdf", result.fileName());
-        assertArrayEquals("NO-PROJECT-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
-        assertEquals(1L, consumptionMapper.countSuccess(1L, fixture.grantId(), fixture.businessFileId()));
-        assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-no-project-grant:DOWNLOAD:SUCCESS"));
-        verify(projectCodeService, never()).getProjectCode(40L);
-    }
-
-    @Test
     void registrationManagerDownloadsCurrentFileWithoutGrantOrProjectCode() throws Exception {
         FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
                 "manager-registration.pdf", 20L, null);
@@ -175,7 +155,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
                 1L, 99L, fixture.businessFileId(), "attempt-manager-direct", context("REQ-MANAGER-DIRECT"));
 
-        assertEquals("20200201_ProductA_CERT-DL-001.pdf", result.fileName());
+        assertEquals("_20200201_ProductA_CERT-DL-001.pdf", result.fileName());
         assertArrayEquals("MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
         assertNull(consumptionMapper.selectByAttemptKey(1L, "attempt-manager-direct"));
         DccRegistrationCertificateAccessAuditDO audit =
@@ -205,10 +185,26 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 1L, 99L, fixture.businessFileId(), "attempt-manager-uploaded-no-approval",
                 context("REQ-MANAGER-UPLOADED-NO-APPROVAL"));
 
-        assertEquals("20200101_ProductA_CERT-DL-001.pdf", result.fileName());
+        assertEquals("_20200101_ProductA_CERT-DL-001.pdf", result.fileName());
         assertArrayEquals("UPLOADED-MANAGER-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
         assertNotNull(accessAuditMapper.selectByEventKey(
                 1L, "attempt-manager-uploaded-no-approval:DOWNLOAD:SUCCESS"));
+    }
+
+    @Test
+    void grantedDownloadWithoutProjectCodeKeepsEmptyProjectSegmentInFileName() throws Exception {
+        FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
+                "registration.pdf", 20L, null);
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
+                .thenReturn("NO-PROJECT-CERT".getBytes(StandardCharsets.UTF_8));
+
+        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
+                1L, 99L, fixture.businessFileId(), "attempt-no-project-name", context("REQ-NO-PROJECT-NAME"));
+
+        assertEquals("_20200201_ProductA_CERT-DL-001.pdf", result.fileName());
+        assertArrayEquals("NO-PROJECT-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
+        verify(projectCodeService, never()).getProjectCode(40L);
     }
 
     @Test

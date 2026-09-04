@@ -152,6 +152,79 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void shouldMergeSameProcessFinalInspectionTasksIntoOnePqcSubmissionBlock() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(9201L)
+                .activeStatus("ACTIVE")
+                .build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100.000000", 7001L, "100", "张三", "生产组长甲",
+                        "2026-08-13T08:10:00")));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder()
+                        .id(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .inspectionType("FINAL")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
+                        .actualInspectionQuantity(3)
+                        .submittedEventId(8869L)
+                        .build(),
+                MesPqcInspectionTaskDO.builder()
+                        .id(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .inspectionType("FINAL")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
+                        .actualInspectionQuantity(3)
+                        .submittedEventId(8872L)
+                        .build()));
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4201L)
+                        .pqcTaskId(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("APPEARANCE")
+                        .itemName("外观")
+                        .judgement("PASS")
+                        .build(),
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4202L)
+                        .pqcTaskId(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("CLEAN")
+                        .itemName("清洁度")
+                        .judgement("PASS")
+                        .build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
+        assertEquals(1, process.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail finalInspection = process.getPqcSubmissions().get(0);
+        assertEquals("FINAL", finalInspection.getInspectionType());
+        assertEquals(1, finalInspection.getRoundNo());
+        assertEquals(3, finalInspection.getActualInspectionQuantity());
+        assertEquals(2, finalInspection.getItems().size());
+        assertEquals("APPEARANCE", finalInspection.getItems().get(0).getItemCode());
+        assertEquals("CLEAN", finalInspection.getItems().get(1).getItemCode());
+    }
+
+    @Test
     void shouldMarkAllSubmissionsOfOverrunProcessAsQuantityConflict() throws Exception {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)

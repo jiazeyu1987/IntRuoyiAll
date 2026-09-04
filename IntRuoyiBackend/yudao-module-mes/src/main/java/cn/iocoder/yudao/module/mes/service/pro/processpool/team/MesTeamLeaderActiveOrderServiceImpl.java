@@ -1184,7 +1184,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         insertProcessSnapshots(activeOrder, snapshotSource.erpFixedQuantity(),
                 snapshotSource.routeSource().routeProcesses());
         List<PlannedPqcTask> pqcTaskPlan = preparePqcTaskPlan(activeOrder, snapshotSource.qaSource());
-        insertPqcInspectionTasks(activeOrder, snapshotSource.qaSource(), pqcTaskPlan,
+        int rebuiltPqcTaskCount = insertPqcInspectionTasks(activeOrder, snapshotSource.qaSource(), pqcTaskPlan,
                 snapshotSource.routeSource().routeProcesses());
         MesTeamLeaderActiveOrderRebuildResult result = MesTeamLeaderActiveOrderRebuildResult.builder()
                 .activeOrderId(activeOrder.getId())
@@ -1195,7 +1195,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .deletedProcessSnapshotCount(cleanupSummary.deletedProcessSnapshotCount())
                 .deletedPqcTaskCount(cleanupSummary.deletedPqcTaskCount())
                 .rebuiltProcessSnapshotCount(snapshotSource.routeSource().routeProcesses().size())
-                .rebuiltPqcTaskCount(pqcTaskPlan.size())
+                .rebuiltPqcTaskCount(rebuiltPqcTaskCount)
                 .build();
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REBUILD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), preview.toString(), result.toString());
@@ -2393,19 +2393,24 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return plans;
     }
 
-    private void insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder,
+    private int insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder,
                                           ActiveOrderQaSource qaSource,
                                           List<PlannedPqcTask> plans,
                                           List<MesProScheduleOrderProcessDO> routeProcesses) {
         LocalDate businessDate = resolvePqcBusinessDate(activeOrder);
-        ProcessIdentity productionIdentity = requireFrozenRouteProcessIdentity(activeOrder, routeProcesses);
-        for (PlannedPqcTask plan : plans) {
-            MesPqcInspectionTaskDO task = buildPqcTask(activeOrder, plan.qaProcess(), qaSource.version(),
-                    productionIdentity,
-                    plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(), businessDate,
-                    plan.rule().shiftCode(), plan.plannedQuantity());
-            insertPqcInspectionTask(task);
+        List<ProcessIdentity> productionIdentities = requireFrozenRouteProcessIdentities(activeOrder, routeProcesses);
+        int insertedCount = 0;
+        for (ProcessIdentity productionIdentity : productionIdentities) {
+            for (PlannedPqcTask plan : plans) {
+                MesPqcInspectionTaskDO task = buildPqcTask(activeOrder, plan.qaProcess(), qaSource.version(),
+                        productionIdentity,
+                        plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(), businessDate,
+                        plan.rule().shiftCode(), plan.plannedQuantity());
+                insertPqcInspectionTask(task);
+                insertedCount++;
+            }
         }
+        return insertedCount;
     }
 
     private LocalDate resolvePqcBusinessDate(MesProcessPoolActiveOrderDO activeOrder) {
@@ -2450,9 +2455,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .build();
     }
 
-    private static ProcessIdentity requireFrozenRouteProcessIdentity(MesProcessPoolActiveOrderDO activeOrder,
-                                                                      List<MesProScheduleOrderProcessDO>
-                                                                              routeProcesses) {
+    private static List<ProcessIdentity> requireFrozenRouteProcessIdentities(MesProcessPoolActiveOrderDO activeOrder,
+                                                                             List<MesProScheduleOrderProcessDO>
+                                                                                     routeProcesses) {
         if (activeOrder == null || routeProcesses == null || routeProcesses.isEmpty()) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "活跃订单冻结路线缺少可用于PQC任务的生产工序身份，activeOrderId="
@@ -2477,11 +2482,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             }
             identities.add(identity);
         }
-        return identities.get(0);
+        return List.copyOf(identities);
     }
 
     private void insertPqcInspectionTask(MesPqcInspectionTaskDO task) {
         MesPqcInspectionTaskDO existing = pqcInspectionTaskMapper.selectByQaIdentity(task.getActiveOrderId(),
+                task.getRouteProcessId(), task.getProcessId(),
                 task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode(), task.getInspectionRuleKey(),
                 task.getBusinessDate());
         if (existing != null) {

@@ -132,11 +132,14 @@ public class ProcessPoolProductionReportCorrectionReqVO {
 
         private BigDecimal value;
 
+        private String textValue;
+
         private MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand toCommand() {
             return new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
                     .setDeviceId(deviceId)
                     .setParameterCode(parameterCode)
-                    .setValue(value);
+                    .setValue(value)
+                    .setTextValue(textValue);
         }
     }
 }

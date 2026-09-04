@@ -15,3 +15,9 @@
 - Branch runtime port matrix: `docs\branch-runtime-ports.md`.
 - `int_main_d=8101/48101`.
 - Additional worktree slot in `1..100`; reserve it with `reserve-worktree-slot.ps1` before starting services.
+
+# E2E测试环境(禁止删除)
+E2E验证租户 芋道源码 
+用户名 admin 
+密码 admin123
+只能通过前端操作，不能直接调用接口,比如不能使用 fetch/apiGet 等方式

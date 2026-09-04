@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed。业务版本规则已经由用户批准；本 ADR 的表结构、切换迁移和平台生命周期衔接仍需在实现前完成技术评审。
+Accepted。用户已批准 Revision/Iteration 业务规则，并授权剩余第一阶段口径按推荐方案收口。当前接受范围仅为测试环境；生产部署需要独立评审。
 
 ## Context
 
@@ -64,6 +64,11 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 9. 用户选定的内容来源保存在 Revision；平台候选 source ref 仍指向提交时当前 ACTIVE 正式版本，两条来源链分别审计。
 10. 迁移前签名中的旧版本标签和证据哈希保持不变；Iteration 单独保存 `legacy_version_no` 和迁移后版本身份。
 11. 正式 Iteration 继续使用现有 DCC 的 `ACTIVE/SUPERSEDED` 状态，并保留培训中、待手工下发和发布失败状态；Revision/Iteration 拆分不重新命名成熟业务状态。
+12. Revision code 使用确定性 Excel 式字母进位：1=A、26=Z、27=AA、28=AB、52=AZ、53=BA，不依赖运行配置。
+13. 新增 `dcc_project_access_rule` 作为项目访问权威来源，访问级别为 OWNER、EDIT、VIEW。
+14. 检入允许 CONTENT、METADATA 或 BOTH；metadata-only 必须有允许字段差异并复制独立源文件记录，空操作拒绝。
+15. 只有项目 OWNER 可以从当前大版本选择历史小版本创建下一 Revision；选择非当前正式来源必须填写理由，不增加独立预审批。
+16. 旧测试链只有在身份、版本、状态、正式指针和证据全部确定时，才按每个旧业务版本一个 Revision `/1` 自动映射；其他数据失败关闭。
 
 ## Consequences
 
@@ -74,6 +79,9 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 - 任意历史小版本作为下一大版本来源可以永久追溯。
 - 普通用户正式版本与编制人员工作版本可以同时存在而不混淆。
 - 数据库可以直接阻止重复身份、重复小版本、多个开放大版本和多个检出锁。
+- Z、AA、AZ、BA 等边界版本不依赖人工配置，所有节点使用同一确定性算法。
+- 项目权限有独立事实源，菜单和项目负责人文本不再承担业务授权。
+- 元数据-only 修改既能形成历史，又不会伪造内容变化。
 
 负面影响和成本：
 
@@ -81,6 +89,8 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 - 当前按 `version_no` 字符串比较和按文件编号全局查找的代码必须移除。
 - `controlled_content_version_ref` 需要按新的 submitted/released Iteration 重新对账。
 - 迁移后不能直接回退到旧代码处理新 Revision/Iteration 数据。
+- 需要新增项目访问规则配置页面和测试数据，旧项目负责人文本不会自动获得 OWNER。
+- metadata-only 检入需要复制源文件记录，增加少量存储和哈希核验成本。
 
 ## Rejected Options
 
@@ -90,10 +100,10 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 
 ## Migration Path
 
-1. 完成运行库只读盘点并批准逐主档映射。
+1. 完成测试库只读盘点，生成确定性 AUTO_MAP 候选和人工 blocker。
 2. 部署仅增加表和列的 schema 迁移，不启用新写路径。
 3. 在维护窗口冻结 DCC 受控文件写操作。
-4. 按批准映射回填 Master、Revision、Iteration、Checkout 和平台生命周期引用。
+4. 按已确认映射回填 Project Access、Master、Revision、Iteration、Checkout 和平台生命周期引用。
 5. 建立新唯一索引并移除旧身份索引、旧检出字段。
 6. 部署只支持新模型的后端和前端。
 7. 执行 postflight、定向回归和经授权的真实前端 E2E 后恢复写入口。
@@ -101,7 +111,7 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 ## Rollback and Revisit Conditions
 
 - 新代码首次业务写入前，可以回退应用版本并保留未启用的新表。
-- 新模型发生业务写入后，不允许直接回退到旧代码；只能向前修复，或在批准的停机窗口从切换前完整备份恢复数据库和文件存储。
+- 新模型发生测试写入后，不允许直接回退到旧代码；只能向前修复，或从切换前测试数据库和任务文件快照恢复。
 - 只读预检出现无法解释的多主档身份、多个正式版本、源文件缺失或平台生命周期漂移时，必须停止迁移并重新评审映射。
 - 若后续证明确需同时开放多个大版本分支，应重新审议单开放 Revision 约束，不能直接删除唯一索引。
 
@@ -109,6 +119,10 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 
 - 数据库合同测试覆盖五个唯一性不变量和事务锁顺序。
 - 服务测试覆盖 A/1 创建、A/2 检入、撤销不增版、A/x 到 B/1、非最新来源理由、最新小版本送审、驳回后新迭代和发布原子切换。
+- 版本序列测试覆盖 Z -> AA、AA -> AB、AZ -> BA 以及双向解析。
+- 权限测试覆盖 OWNER、EDIT、VIEW 与全局/类别权限交集。
+- 检入测试覆盖 CONTENT、METADATA、BOTH 和无变化拒绝。
+- 迁移测试覆盖确定性 AUTO_MAP 与整条 Master 失败关闭。
 - 迁移 preflight/postflight 对同一快照执行，所有阻塞计数必须为零。
 - 平台生命周期对账必须证明每个 Master 最多一个 ACTIVE、最多一个送审候选，并与 DCC 指针一致。
 - 前端真实验收必须通过页面完成检出、检入、修订、送审和版本历史查看；API/数据库只做只读核验。
@@ -118,4 +132,5 @@ Master 表示稳定逻辑文件，新增 Revision 表表示大版本，现有 `d
 - 产品合同：`docs/product/dcc-windchill-version-phase1-prd.md`。
 - 数据设计：`docs/system/dcc-windchill-version-phase1-data-model.md`。
 - 决策批准来源：当前会话中的用户业务口径确认。
-- 技术评审责任：DCC 后端、前端、数据库和文控业务负责人。
+- 接受范围：第一阶段测试环境设计。
+- 生产技术评审责任：DCC 后端、前端、数据库和文控业务负责人；当前不进入生产。

@@ -39,6 +39,11 @@ assert(
   'detail model must expose per-process frontline PQC submissions'
 )
 assert(
+  detailModel.includes('List<Long> pqcTaskIds') &&
+    detailModel.includes('List<Long> submittedEventIds'),
+  'detail model must expose merged PQC task and event id lists when one process has multiple task rows for one inspection'
+)
+assert(
   detailService.includes('MesFrontlineProcessMaterialService') &&
     detailService.includes('listFrozenMaterials(activeOrderId, activeOrder.getRouteId()'),
   'detail service must resolve input material batches from active order formal pick-list sources'
@@ -46,25 +51,33 @@ assert(
 assert(
   detailService.includes('MesPqcInspectionTaskMapper') &&
     detailService.includes('MesPqcProcessInspectionAggregateDetailMapper') &&
-    detailService.includes('selectListByActiveOrderId(activeOrderId)'),
-  'detail service must aggregate PQC submitted task details by active order'
+    detailService.includes('selectListByActiveOrderId(activeOrderId)') &&
+    detailService.includes('PqcSubmissionIdentity') &&
+    detailService.includes('PqcSubmissionAccumulator'),
+  'detail service must aggregate PQC submitted task details by active order and merge same-process inspection blocks'
 )
 assert(
   detailVo.includes('List<InputMaterialDetail> inputMaterials') &&
     detailVo.includes('List<PqcSubmissionDetail> pqcSubmissions') &&
-    detailVo.includes('List<String> sourcePickListNos'),
-  'response VO must preserve input material and PQC submission sections'
+    detailVo.includes('List<String> sourcePickListNos') &&
+    detailVo.includes('List<Long> pqcTaskIds') &&
+    detailVo.includes('List<Long> submittedEventIds'),
+  'response VO must preserve input material and merged PQC submission sections'
 )
 assert(
   controller.includes('toActiveOrderInputMaterialDetailRespVO') &&
     controller.includes('toActiveOrderPqcSubmissionDetailRespVO') &&
-    controller.includes('.setSourcePickListNos(material.getSourcePickListNos())'),
+    controller.includes('.setSourcePickListNos(material.getSourcePickListNos())') &&
+    controller.includes('.setPqcTaskIds(submission.getPqcTaskIds())') &&
+    controller.includes('.setSubmittedEventIds(submission.getSubmittedEventIds())'),
   'controller must map all new detail sections to the frontend contract'
 )
 assert(
   frontendApi.includes('inputMaterials: TeamLeaderActiveOrderInputMaterialDetailRespVO[]') &&
     frontendApi.includes('pqcSubmissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]') &&
-    frontendApi.includes('sourcePickListNos: string[]'),
+    frontendApi.includes('sourcePickListNos: string[]') &&
+    frontendApi.includes('pqcTaskIds?: number[]') &&
+    frontendApi.includes('submittedEventIds?: number[]'),
   'frontend API contract must include input materials and PQC submissions'
 )
 assert(
@@ -90,6 +103,19 @@ assert(
     frontend.includes('label="生产提交"') &&
     frontend.includes('label="PQC提交"'),
   'each process tab must contain production and PQC inner tabs'
+)
+const activeOrderPqcTabStart = frontend.indexOf('<el-tab-pane label="PQC提交" name="pqc">')
+const activeOrderPqcResultColumn = frontend.indexOf('<el-table-column label="结果"', activeOrderPqcTabStart)
+assert(
+  activeOrderPqcTabStart >= 0 &&
+    activeOrderPqcResultColumn > activeOrderPqcTabStart &&
+    !frontend.slice(activeOrderPqcTabStart, activeOrderPqcResultColumn).includes('label="标准"'),
+  'active order detail PQC tab must not show the standard column'
+)
+assert(
+  frontend.includes('formatActiveOrderPqcEventIds(pqcSubmission)') &&
+    frontend.includes('pqcSubmission.submittedEventIds?.length'),
+  'active order detail PQC tab must show merged submitted event id lists'
 )
 assert(
   frontend.includes('label="领料单"') &&

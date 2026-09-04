@@ -1400,6 +1400,36 @@ const formatQaRegulationVersionOption = (version: QaInspectionRegulationVersionO
   return `${version.versionNo} / ${resolveQaRegulationLifecycleStatusText(version.lifecycleStatus)}${suffix}`
 }
 
+const incrementQaRegulationVersionNo = (versionNo: string) => {
+  const normalizedVersionNo = versionNo.trim()
+  const match = normalizedVersionNo.match(/^(.*?)(\d+)$/)
+  if (!match) {
+    throw new Error('已发布版本不能原地保存，请先使用带数字结尾的新版本号')
+  }
+  const prefix = match[1]
+  const numericPart = match[2]
+  const usedVersionNos = new Set(
+    qaRegulationVersionOptions.value.map((version) => version.versionNo.trim()).filter(Boolean)
+  )
+  let nextNumber = Number(numericPart)
+  let nextVersionNo = normalizedVersionNo
+  do {
+    nextNumber += 1
+    if (!Number.isSafeInteger(nextNumber)) {
+      throw new Error('无法生成下一个 QA 规程版本号')
+    }
+    nextVersionNo = prefix + String(nextNumber).padStart(numericPart.length, '0')
+  } while (usedVersionNos.has(nextVersionNo))
+  return nextVersionNo
+}
+
+const resolveQaRegulationDraftVersionNoForSave = () => {
+  if (selectedQaRegulationVersionOption.value?.lifecycleStatus !== 'PUBLISHED') {
+    return qaRegulationDraft.versionNo
+  }
+  return incrementQaRegulationVersionNo(qaRegulationDraft.versionNo)
+}
+
 const shouldLoadQaEquipmentBindingsForSelectedVersion = (
   configuration: QaInspectionRegulationPublishedVersionVO
 ) => {
@@ -2326,7 +2356,7 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
     dccProjectCodeId: resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID'),
     regulationCode: resolveRequiredText(qaRegulationDraft.regulationCode, '规程编号'),
     regulationName: resolveRequiredText(qaRegulationDraft.regulationName, '规程名称'),
-    versionNo: resolveRequiredText(qaRegulationDraft.versionNo, '规程版本'),
+    versionNo: resolveRequiredText(resolveQaRegulationDraftVersionNoForSave(), '规程版本'),
     effectiveDate: qaRegulationDraft.effectiveDate || undefined,
     finalInspectionApplicable,
     finalInspectionNotApplicableReason,
@@ -2465,6 +2495,7 @@ const previewQaRegulationDraft = async () => {
   try {
     const result = await QcTemplateApi.saveQaRegulationDraft(payload)
     qaRegulationDraft.regulationId = result.regulationId
+    qaRegulationDraft.versionNo = result.versionNo
     qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
     qaConfigurationExists.value = true
     selectedQaRegulationVersionId.value = result.draftVersionId

@@ -15,7 +15,9 @@ import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -114,6 +116,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
         }
+        Map<PqcSubmissionIdentity, PqcSubmissionAccumulator> pqcSubmissionAccumulators = new LinkedHashMap<>();
         for (MesPqcInspectionTaskDO task : tasks) {
             if (task == null || task.getId() == null || task.getRouteProcessId() == null
                     || task.getProcessId() == null) {
@@ -129,7 +132,19 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             if (accumulator == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
-            accumulator.addPqcSubmission(toPqcSubmissionDetail(task, taskDetails));
+            PqcSubmissionIdentity submissionIdentity = new PqcSubmissionIdentity(
+                    new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()),
+                    task.getInspectionType(), task.getRoundNo());
+            pqcSubmissionAccumulators.computeIfAbsent(submissionIdentity,
+                            ignored -> new PqcSubmissionAccumulator(task))
+                    .add(task, taskDetails);
+        }
+        for (Map.Entry<PqcSubmissionIdentity, PqcSubmissionAccumulator> entry : pqcSubmissionAccumulators.entrySet()) {
+            ProcessAccumulator accumulator = accumulators.get(entry.getKey().processIdentity());
+            if (accumulator == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            accumulator.addPqcSubmission(entry.getValue().toDetail());
         }
     }
 
@@ -197,6 +212,60 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     }
 
     private record ProcessIdentity(Long routeProcessId, Long processId) {
+    }
+
+    private record PqcSubmissionIdentity(ProcessIdentity processIdentity, String inspectionType, Integer roundNo) {
+    }
+
+    private static final class PqcSubmissionAccumulator {
+        private final MesPqcInspectionTaskDO firstTask;
+        private final LinkedHashSet<Long> pqcTaskIds = new LinkedHashSet<>();
+        private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
+        private final List<MesTeamLeaderActiveOrderDetail.PqcSubmissionItemDetail> items = new ArrayList<>();
+        private Integer actualInspectionQuantity;
+
+        private PqcSubmissionAccumulator(MesPqcInspectionTaskDO firstTask) {
+            this.firstTask = firstTask;
+        }
+
+        private void add(MesPqcInspectionTaskDO task, List<MesPqcProcessInspectionAggregateDetailDO> details) {
+            pqcTaskIds.add(task.getId());
+            if (task.getSubmittedEventId() != null) {
+                submittedEventIds.add(task.getSubmittedEventId());
+            }
+            if (actualInspectionQuantity == null
+                    || (task.getActualInspectionQuantity() != null
+                    && task.getActualInspectionQuantity() > actualInspectionQuantity)) {
+                actualInspectionQuantity = task.getActualInspectionQuantity();
+            }
+            details.stream()
+                    .sorted(Comparator
+                            .comparing(MesPqcProcessInspectionAggregateDetailDO::getSampleNo,
+                                    Comparator.nullsLast(Integer::compareTo))
+                            .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getItemCode,
+                                    Comparator.nullsLast(String::compareTo))
+                            .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getId,
+                                    Comparator.nullsLast(Long::compareTo)))
+                    .map(MesTeamLeaderActiveOrderDetailServiceImpl::toPqcSubmissionItemDetail)
+                    .forEach(items::add);
+        }
+
+        private MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail toDetail() {
+            List<Long> taskIds = List.copyOf(pqcTaskIds);
+            List<Long> eventIds = List.copyOf(submittedEventIds);
+            return new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail()
+                    .setPqcTaskId(taskIds.isEmpty() ? null : taskIds.get(0))
+                    .setPqcTaskIds(taskIds)
+                    .setSubmittedEventId(eventIds.isEmpty() ? null : eventIds.get(0))
+                    .setSubmittedEventIds(eventIds)
+                    .setInspectionType(firstTask.getInspectionType())
+                    .setBusinessDate(firstTask.getBusinessDate())
+                    .setShiftCode(firstTask.getShiftCode())
+                    .setRoundNo(firstTask.getRoundNo())
+                    .setActualInspectionQuantity(actualInspectionQuantity)
+                    .setTaskStatus(firstTask.getTaskStatus())
+                    .setItems(List.copyOf(items));
+        }
     }
 
     private static final class ProcessAccumulator {

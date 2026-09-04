@@ -613,6 +613,92 @@
           :show-overflow-tooltip="true"
           @header-dragend="handleSubmissionHeaderDragend"
         >
+          <el-table-column v-if="isProductionLeader" type="expand" width="52">
+            <template #default="{ row }">
+              <div
+                class="team-leader-workbench__submission-detail"
+                data-team-leader-submission-expand-detail
+              >
+                <section
+                  class="team-leader-workbench__submission-detail-section"
+                  data-team-leader-submission-material-detail
+                >
+                  <div class="team-leader-workbench__submission-detail-title">物料明细</div>
+                  <div
+                    class="team-leader-workbench__submission-material-cards"
+                    data-team-leader-submission-material-card
+                  >
+                    <div
+                      v-for="material in resolveSubmissionMaterialDetailRows(row)"
+                      :key="material.key"
+                      class="team-leader-workbench__submission-material-card"
+                    >
+                      <div class="team-leader-workbench__submission-material-head">
+                        <strong>{{ material.materialText }}</strong>
+                        <span>完成 {{ material.outputQuantityText }}</span>
+                        <span>损耗 {{ material.lossQuantityText }}</span>
+                        <span>{{ material.lossDetailText }}</span>
+                      </div>
+                      <el-table
+                        :data="material.devices"
+                        border
+                        size="small"
+                        class="team-leader-workbench__submission-detail-table"
+                        data-team-leader-submission-material-device-row
+                      >
+                        <el-table-column label="选用设备" prop="deviceText" min-width="180" />
+                        <el-table-column label="设备参数" min-width="360">
+                          <template #default="{ row: device }">
+                            <div
+                              v-if="device.parameterItems.length"
+                              class="team-leader-workbench__parameter-list"
+                              data-team-leader-submission-device-parameter-detail
+                            >
+                              <div
+                                v-for="item in device.parameterItems"
+                                :key="item.key"
+                                class="team-leader-workbench__parameter-item"
+                              >
+                                <span class="team-leader-workbench__parameter-label">
+                                  {{ item.label }}
+                                </span>
+                                <span
+                                  class="team-leader-workbench__parameter-value"
+                                  :class="{
+                                    'is-parameter-out-of-range': item.outOfRange,
+                                    'is-out-of-range': item.outOfRange
+                                  }"
+                                  :data-parameter-status="
+                                    item.parameterStatus ||
+                                    (item.outOfRange ? 'ABNORMAL' : 'NORMAL')
+                                  "
+                                >
+                                  {{ item.valueText }}
+                                </span>
+                                <span
+                                  v-if="item.metaText"
+                                  class="team-leader-workbench__parameter-meta"
+                                >
+                                  {{ item.metaText }}
+                                </span>
+                              </div>
+                            </div>
+                            <span v-else>无参数</span>
+                          </template>
+                        </el-table-column>
+                      </el-table>
+                      <div
+                        v-if="!material.devices.length"
+                        class="team-leader-workbench__submission-material-empty"
+                      >
+                        当前物料没有设备快照
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="isSubmissionColumnVisible('submittedAt')"
             label="提交时间"
@@ -728,7 +814,73 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isSubmissionColumnVisible('lossBreakdown')"
+            v-if="isProductionLeader && isSubmissionColumnVisible('submissionMaterialSummary')"
+            label="物料明细"
+            prop="submissionMaterialSummary"
+            :width="getSubmissionColumnWidthString('submissionMaterialSummary')"
+            :min-width="getSubmissionColumnMinWidthString('submissionMaterialSummary', 180)"
+          >
+            <template #default="{ row }">
+              <div
+                class="team-leader-workbench__structured-list"
+                data-team-leader-submission-material-summary
+              >
+                <span
+                  v-for="item in resolveSubmissionMaterialSummaryItems(row)"
+                  :key="item.key"
+                  class="team-leader-workbench__structured-pill"
+                >
+                  {{ item.valueText }}
+                </span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductionLeader && isSubmissionColumnVisible('submissionDeviceSummary')"
+            label="选用设备"
+            prop="submissionDeviceSummary"
+            :width="getSubmissionColumnWidthString('submissionDeviceSummary')"
+            :min-width="getSubmissionColumnMinWidthString('submissionDeviceSummary', 180)"
+          >
+            <template #default="{ row }">
+              <div
+                class="team-leader-workbench__structured-list"
+                data-team-leader-submission-device-summary
+              >
+                <span
+                  v-for="item in resolveSubmissionDeviceSummaryItems(row)"
+                  :key="item.key"
+                  class="team-leader-workbench__structured-pill"
+                >
+                  {{ item.valueText }}
+                </span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductionLeader && isSubmissionColumnVisible('submissionParameterSummary')"
+            label="设备参数"
+            prop="submissionParameterSummary"
+            :width="getSubmissionColumnWidthString('submissionParameterSummary')"
+            :min-width="getSubmissionColumnMinWidthString('submissionParameterSummary', 180)"
+          >
+            <template #default="{ row }">
+              <div
+                class="team-leader-workbench__structured-list"
+                data-team-leader-submission-parameter-summary
+              >
+                <span
+                  v-for="item in resolveSubmissionParameterSummaryItems(row)"
+                  :key="item.key"
+                  class="team-leader-workbench__structured-pill"
+                >
+                  {{ item.valueText }}
+                </span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible('lossBreakdown')"
             label="损耗明细"
             prop="lossBreakdown"
             :width="getSubmissionColumnWidthString('lossBreakdown')"
@@ -815,7 +967,7 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isSubmissionColumnVisible('selectedDevice')"
+            v-if="activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible('selectedDevice')"
             label="选用设备"
             prop="selectedDevice"
             :width="getSubmissionColumnWidthString('selectedDevice')"
@@ -916,7 +1068,7 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isSubmissionColumnVisible('parameterSnapshot')"
+            v-if="activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible('parameterSnapshot')"
             label="参数明细"
             prop="parameterSnapshot"
             :width="getSubmissionColumnWidthString('parameterSnapshot')"
@@ -957,7 +1109,10 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isSubmissionColumnVisible('deviceParameterReadings')"
+            v-if="
+              activeLeaderTab !== 'PRODUCTION' &&
+              isSubmissionColumnVisible('deviceParameterReadings')
+            "
             label="设备参数"
             prop="deviceParameterReadings"
             :width="getSubmissionColumnWidthString('deviceParameterReadings')"
@@ -1912,8 +2067,8 @@
                             <template v-if="pqcSubmission.roundNo"> / 第 {{ pqcSubmission.roundNo }} 轮</template>
                           </strong>
                           <span>实检 {{ pqcSubmission.actualInspectionQuantity ?? '-' }} 件</span>
-                          <span v-if="pqcSubmission.submittedEventId">
-                            事件 {{ pqcSubmission.submittedEventId }}
+                          <span v-if="formatActiveOrderPqcEventIds(pqcSubmission) !== '-'">
+                            事件 {{ formatActiveOrderPqcEventIds(pqcSubmission) }}
                           </span>
                         </div>
                         <el-table
@@ -1931,11 +2086,6 @@
                           <el-table-column label="检验项" min-width="180">
                             <template #default="{ row: item }">
                               {{ item.itemName || item.itemCode || '-' }}
-                            </template>
-                          </el-table-column>
-                          <el-table-column label="标准" min-width="180">
-                            <template #default="{ row: item }">
-                              {{ item.standardText || '-' }}
                             </template>
                           </el-table-column>
                           <el-table-column label="结果" min-width="140">
@@ -3700,7 +3850,10 @@
       label-position="top"
     >
       <section
-        v-if="correctionForm.correctionMode === 'PRODUCTION'"
+        v-if="
+          correctionForm.correctionMode === 'PRODUCTION' &&
+          !correctionForm.materialDetails.length
+        "
         class="team-leader-workbench__correction-section"
       >
         <h3 class="team-leader-workbench__correction-title">生产数量</h3>
@@ -3733,95 +3886,154 @@
         data-production-report-correction-materials
       >
         <h3 class="team-leader-workbench__correction-title">物料明细</h3>
-        <div class="team-leader-workbench__correction-material-grid">
-          <div
+        <el-tabs
+          v-model="correctionActiveMaterialKey"
+          class="team-leader-workbench__correction-material-tabs"
+          data-production-report-correction-material-tabs
+        >
+          <el-tab-pane
             v-for="materialRow in correctionForm.materialDetails"
-            :key="materialRow.materialId"
-            class="team-leader-workbench__correction-material-card"
+            :key="resolveCorrectionMaterialKey(materialRow)"
+            :label="formatCorrectionMaterialTabLabel(materialRow)"
+            :name="resolveCorrectionMaterialKey(materialRow)"
           >
-            <strong>{{ materialRow.materialName || materialRow.materialCode }}</strong>
-            <small v-if="materialRow.materialCode">{{ materialRow.materialCode }}</small>
-            <el-form-item label="完成数量">
-              <el-input-number
-                v-model="materialRow.outputQuantity"
-                :min="0"
-                :precision="3"
-                :controls="false"
-                class="team-leader-workbench__full-control"
-                @change="syncCorrectionOutputFromMaterials"
-              />
-            </el-form-item>
-            <el-form-item label="损耗数量">
-              <el-input-number
-                v-model="materialRow.lossQuantity"
-                :min="0"
-                :precision="3"
-                :controls="false"
-                class="team-leader-workbench__full-control"
-              />
-            </el-form-item>
-            <div
-              class="team-leader-workbench__material-detail-list"
-              data-production-report-correction-devices
-            >
-              <strong>损耗原因</strong>
-              <div
-                v-for="detailRow in materialRow.lossDetails"
-                :key="`${materialRow.materialId}:${detailRow.reasonId}`"
-                class="team-leader-workbench__material-detail-row"
-              >
-                <span>{{ detailRow.reasonName }}</span>
-                <el-input-number
-                  v-model="detailRow.quantity"
-                  :min="0"
-                  :precision="3"
-                  :controls="false"
-                  aria-label="物料损耗数量"
-                />
+            <div class="team-leader-workbench__correction-material-card">
+              <div class="team-leader-workbench__correction-material-title">
+                <strong>{{ materialRow.materialName || materialRow.materialCode }}</strong>
+                <small v-if="materialRow.materialCode">{{ materialRow.materialCode }}</small>
               </div>
-              <span v-if="!materialRow.lossDetails.length" class="team-leader-workbench__correction-empty">
-                当前物料未配置损耗原因
-              </span>
-            </div>
-            <div
-              class="team-leader-workbench__material-detail-list"
-              data-production-report-correction-parameters
-            >
-              <strong>使用的设备</strong>
-              <span v-if="materialRow.selectedDevice" class="team-leader-workbench__structured-pill">
-                {{ materialRow.selectedDevice.deviceName || materialRow.selectedDevice.deviceCode }}
-              </span>
-              <span v-else class="team-leader-workbench__correction-empty">当前物料没有设备快照</span>
-            </div>
-            <div class="team-leader-workbench__material-detail-list">
-              <strong>设备参数</strong>
-              <div
-                v-for="parameterRow in materialRow.deviceParameterReadings"
-                :key="`${materialRow.materialId}:${parameterRow.deviceId}:${parameterRow.parameterCode}`"
-                class="team-leader-workbench__material-detail-row"
-              >
-                <span>{{ parameterRow.parameterName || parameterRow.parameterCode }}<small v-if="parameterRow.unit">（{{ parameterRow.unit }}）</small></span>
-                <el-input-number
-                  v-model="parameterRow.value"
-                  :precision="3"
-                  :controls="false"
-                  aria-label="物料设备参数"
-                />
+              <div class="team-leader-workbench__correction-material-summary">
+                <div class="team-leader-workbench__correction-field-row">
+                  <span class="team-leader-workbench__correction-field-label">完成数量</span>
+                  <div class="team-leader-workbench__correction-field-control">
+                    <el-input-number
+                      v-model="materialRow.outputQuantity"
+                      :min="0"
+                      :precision="3"
+                      :controls="false"
+                      class="team-leader-workbench__full-control"
+                      @change="syncCorrectionOutputFromMaterials"
+                    />
+                  </div>
+                </div>
+                <div class="team-leader-workbench__correction-field-row">
+                  <span class="team-leader-workbench__correction-field-label">损耗合计</span>
+                  <div class="team-leader-workbench__correction-field-control">
+                    <el-input-number
+                      :model-value="resolveCorrectionMaterialLossTotal(materialRow)"
+                      :precision="3"
+                      :controls="false"
+                      disabled
+                      class="team-leader-workbench__full-control"
+                    />
+                  </div>
+                </div>
+                <div class="team-leader-workbench__correction-field-row">
+                  <span class="team-leader-workbench__correction-field-label">总数量</span>
+                  <div class="team-leader-workbench__correction-field-control">
+                    <el-input-number
+                      :model-value="resolveCorrectionMaterialTotalQuantity(materialRow)"
+                      :precision="3"
+                      :controls="false"
+                      disabled
+                      class="team-leader-workbench__full-control"
+                    />
+                  </div>
+                </div>
               </div>
-              <span v-if="!materialRow.deviceParameterReadings.length" class="team-leader-workbench__correction-empty">
-                当前物料没有设备参数
-              </span>
+              <div class="team-leader-workbench__material-detail-list">
+                <strong>损耗原因</strong>
+                <div
+                  v-for="detailRow in materialRow.lossDetails"
+                  :key="`${materialRow.materialId}:${detailRow.reasonId}`"
+                  class="team-leader-workbench__correction-field-row"
+                >
+                  <span class="team-leader-workbench__correction-field-label">{{ detailRow.reasonName }}</span>
+                  <div class="team-leader-workbench__correction-field-control">
+                    <el-input-number
+                      v-model="detailRow.quantity"
+                      :min="0"
+                      :precision="3"
+                      :controls="false"
+                      aria-label="物料损耗数量"
+                      class="team-leader-workbench__full-control"
+                      @change="syncCorrectionMaterialLossQuantity(materialRow)"
+                    />
+                  </div>
+                </div>
+                <span v-if="!materialRow.lossDetails.length" class="team-leader-workbench__correction-empty">
+                  当前物料未配置损耗原因
+                </span>
+              </div>
+              <div
+                class="team-leader-workbench__material-detail-list"
+                data-production-report-correction-devices
+              >
+                <strong>使用的设备</strong>
+                <el-tabs
+                  v-if="resolveCorrectionMaterialDevices(materialRow).length"
+                  v-model="correctionActiveDeviceKeys[resolveCorrectionMaterialKey(materialRow)]"
+                  class="team-leader-workbench__correction-device-tabs"
+                >
+                  <el-tab-pane
+                    v-for="deviceRow in resolveCorrectionMaterialDevices(materialRow)"
+                    :key="resolveCorrectionDeviceKey(deviceRow)"
+                    :label="formatCorrectionDeviceTabLabel(deviceRow)"
+                    :name="resolveCorrectionDeviceKey(deviceRow)"
+                  >
+                    <div
+                      class="team-leader-workbench__material-detail-list"
+                      data-production-report-correction-parameters
+                    >
+                      <strong>设备参数</strong>
+                      <div
+                        v-for="parameterRow in resolveCorrectionDeviceParameters(materialRow, deviceRow)"
+                        :key="`${materialRow.materialId}:${parameterRow.deviceId}:${parameterRow.parameterCode}`"
+                        class="team-leader-workbench__correction-field-row"
+                      >
+                        <span class="team-leader-workbench__correction-field-label">{{ parameterRow.parameterName || parameterRow.parameterCode }}<small v-if="parameterRow.unit">（{{ parameterRow.unit }}）</small></span>
+                        <div class="team-leader-workbench__correction-field-control">
+                          <el-select
+                            v-if="isCorrectionSelectParameter(parameterRow)"
+                            v-model="parameterRow.value"
+                            filterable
+                            allow-create
+                            default-first-option
+                            class="team-leader-workbench__full-control"
+                            aria-label="物料设备选择参数"
+                          >
+                            <el-option label="请选择" value="" />
+                            <el-option
+                              v-for="option in resolveCorrectionParameterOptions(parameterRow)"
+                              :key="option"
+                              :label="option"
+                              :value="option"
+                            />
+                          </el-select>
+                          <el-input-number
+                            v-else
+                            v-model="parameterRow.value"
+                            :precision="3"
+                            :controls="false"
+                            aria-label="物料设备参数"
+                            class="team-leader-workbench__full-control"
+                          />
+                        </div>
+                      </div>
+                      <span
+                        v-if="!resolveCorrectionDeviceParameters(materialRow, deviceRow).length"
+                        class="team-leader-workbench__correction-empty"
+                      >
+                        当前设备没有参数快照
+                      </span>
+                    </div>
+                  </el-tab-pane>
+                </el-tabs>
+                <span v-else class="team-leader-workbench__correction-empty">当前物料没有设备快照</span>
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        v-if="correctionForm.correctionMode === 'PRODUCTION'"
-        class="team-leader-workbench__correction-section"
-      >
-        <h3 class="team-leader-workbench__correction-title">校验信息</h3>
-        <div class="team-leader-workbench__correction-empty">损耗原因、设备和设备参数已按物料显示</div>
+          </el-tab-pane>
+        </el-tabs>
       </section>
 
       <section
@@ -3875,25 +4087,6 @@
             />
           </div>
         </div>
-      </section>
-
-      <section class="team-leader-workbench__correction-section">
-        <h3 class="team-leader-workbench__correction-title">变更预览</h3>
-        <div
-          v-if="correctionChangePreview.length"
-          class="team-leader-workbench__correction-preview"
-          data-production-report-correction-change-preview
-        >
-          <div v-for="item in correctionChangePreview" :key="item.key">
-            <span>{{ item.label }}</span>
-            <span class="team-leader-workbench__correction-before">{{ item.beforeValue }}</span>
-            <Icon icon="ep:right" />
-            <strong>{{ item.afterValue }}</strong>
-          </div>
-        </div>
-        <div v-else class="team-leader-workbench__correction-empty"
-          >修改业务字段后将在这里显示变化</div
-        >
       </section>
 
       <section
@@ -4064,6 +4257,7 @@ import {
   type TeamLeaderActiveOrderCommitAction,
   type TeamLeaderActiveOrderDetailRespVO,
   type TeamLeaderActiveOrderInputMaterialDetailRespVO,
+  type TeamLeaderActiveOrderPqcSubmissionDetailRespVO,
   type TeamLeaderActiveOrderProcessDetailRespVO,
   type TeamLeaderActiveOrderReleaseApplyRespVO,
   type TeamLeaderActiveOrderReleaseApplicationStatus,
@@ -4284,6 +4478,7 @@ interface ProductionReportCorrectionMaterialRow {
   lossQuantity: number
   lossDetails: ProductionReportCorrectionLossDetailRow[]
   selectedDevice?: ProcessPoolTimelineSelectedDeviceVO
+  selectedDevices: ProcessPoolTimelineSelectedDeviceVO[]
   deviceParameterReadings: ProductionReportCorrectionParameterRow[]
 }
 
@@ -4294,7 +4489,12 @@ interface ProductionReportCorrectionParameterRow {
   parameterCode: string
   parameterName?: string
   unit?: string
-  value?: number
+  value?: number | string | boolean
+  valueType?: string
+  optionValues?: string[]
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  parameterStatus?: 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
 }
 
 interface PqcInspectionCorrectionItemRow {
@@ -4562,9 +4762,9 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'reportAllocations', label: '分配订单', minWidth: 240 },
   { key: 'reportUnallocatedQuantity', label: '未分配数量', minWidth: 130 },
   { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
-  { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
-  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
-  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
+  { key: 'submissionMaterialSummary', label: '物料明细', minWidth: 180 },
+  { key: 'submissionDeviceSummary', label: '选用设备', minWidth: 180 },
+  { key: 'submissionParameterSummary', label: '设备参数', minWidth: 180 },
   { key: 'operation', label: '操作', width: 135, hideable: false, business: false }
 ]
 const productionReportHistoryDefaultColumns: UserTableColumnDefinition[] = [
@@ -5034,6 +5234,8 @@ const correctionForm = reactive({
 })
 
 const correctionFormRef = ref()
+const correctionActiveMaterialKey = ref('')
+const correctionActiveDeviceKeys = reactive<Record<string, string>>({})
 const correctionFormRules = {
   changeReason: [{ required: true, message: '请输入修改原因', trigger: 'blur' }],
   signaturePassword: [{ required: true, message: '请输入签名密码', trigger: 'blur' }]
@@ -5050,6 +5252,145 @@ const syncCorrectionOutputFromMaterials = () => {
     return Number.isFinite(outputQuantity) ? sum + outputQuantity : sum
   }, 0)
   correctionForm.outputQuantity = Number(total.toFixed(3))
+}
+
+const resolveCorrectionMaterialKey = (materialRow: ProductionReportCorrectionMaterialRow) =>
+  String(materialRow.materialId)
+
+const formatCorrectionMaterialTabLabel = (materialRow: ProductionReportCorrectionMaterialRow) =>
+  materialRow.materialName || materialRow.materialCode || `物料 ${materialRow.materialId}`
+
+const resolveCorrectionMaterialLossTotal = (
+  materialRow: ProductionReportCorrectionMaterialRow
+) => {
+  const detailTotal = materialRow.lossDetails.reduce((sum, item) => {
+    const quantity = Number(item.quantity)
+    return Number.isFinite(quantity) ? sum + quantity : sum
+  }, 0)
+  const lossQuantity = materialRow.lossDetails.length ? detailTotal : Number(materialRow.lossQuantity)
+  return Number((Number.isFinite(lossQuantity) ? lossQuantity : 0).toFixed(3))
+}
+
+const resolveCorrectionMaterialTotalQuantity = (
+  materialRow: ProductionReportCorrectionMaterialRow
+) => {
+  const outputQuantity = Number(materialRow.outputQuantity)
+  const total =
+    (Number.isFinite(outputQuantity) ? outputQuantity : 0) +
+    resolveCorrectionMaterialLossTotal(materialRow)
+  return Number(total.toFixed(3))
+}
+
+const syncCorrectionMaterialLossQuantity = (
+  materialRow: ProductionReportCorrectionMaterialRow
+) => {
+  materialRow.lossQuantity = resolveCorrectionMaterialLossTotal(materialRow)
+}
+
+const resolveCorrectionDeviceKey = (deviceRow: ProcessPoolTimelineSelectedDeviceVO) =>
+  String(deviceRow.deviceId || deviceRow.deviceCode || deviceRow.deviceName || 'device')
+
+const formatCorrectionDeviceTabLabel = (deviceRow: ProcessPoolTimelineSelectedDeviceVO) =>
+  deviceRow.deviceCode || deviceRow.deviceName || `设备 ${deviceRow.deviceId || '--'}`
+
+const normalizeCorrectionOptionValues = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+    if (trimmed.startsWith('[')) {
+      const parsed = JSON.parse(trimmed)
+      if (!Array.isArray(parsed)) {
+        throw new Error('设备参数选项快照必须是数组')
+      }
+      return parsed.map((item) => String(item).trim()).filter(Boolean)
+    }
+    return trimmed
+      .split(/[,\n，、]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+const isCorrectionSelectParameter = (parameterRow: ProductionReportCorrectionParameterRow) =>
+  parameterRow.valueType === 'SELECT'
+
+const resolveCorrectionParameterOptions = (
+  parameterRow: ProductionReportCorrectionParameterRow
+) => {
+  const options = normalizeCorrectionOptionValues(parameterRow.optionValues)
+  const currentValue = String(parameterRow.value ?? '').trim()
+  if (currentValue && !options.includes(currentValue)) {
+    return [...options, currentValue]
+  }
+  return options
+}
+
+const normalizeCorrectionParameterSubmitValue = (
+  parameterRow: ProductionReportCorrectionParameterRow
+) => {
+  if (isCorrectionSelectParameter(parameterRow)) {
+    const value = String(parameterRow.value ?? '').trim()
+    return value ? { textValue: value } : undefined
+  }
+  const value = optionalCorrectionNumber(parameterRow.value)
+  return value === undefined ? undefined : { value }
+}
+
+const resolveCorrectionMaterialDevices = (
+  materialRow: ProductionReportCorrectionMaterialRow
+) => {
+  const devices = materialRow.selectedDevices.length
+    ? materialRow.selectedDevices
+    : materialRow.selectedDevice
+      ? [materialRow.selectedDevice]
+      : materialRow.deviceParameterReadings.map((item) => ({
+          deviceId: item.deviceId,
+          deviceCode: item.deviceCode,
+          deviceName: item.deviceName
+        }))
+  const seen = new Set<string>()
+  return devices.filter((item) => {
+    const key = resolveCorrectionDeviceKey(item)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+const resolveCorrectionDeviceParameters = (
+  materialRow: ProductionReportCorrectionMaterialRow,
+  deviceRow: ProcessPoolTimelineSelectedDeviceVO
+) => {
+  const deviceId = Number(deviceRow.deviceId)
+  const deviceCode = String(deviceRow.deviceCode || '').trim()
+  return materialRow.deviceParameterReadings.filter((item) => {
+    if (Number.isFinite(deviceId) && deviceId > 0) {
+      return Number(item.deviceId) === deviceId
+    }
+    return deviceCode ? String(item.deviceCode || '').trim() === deviceCode : false
+  })
+}
+
+const initializeCorrectionMaterialDeviceTabs = (
+  materialRows: ProductionReportCorrectionMaterialRow[]
+) => {
+  correctionActiveMaterialKey.value = materialRows.length
+    ? resolveCorrectionMaterialKey(materialRows[0])
+    : ''
+  Object.keys(correctionActiveDeviceKeys).forEach((key) => {
+    delete correctionActiveDeviceKeys[key]
+  })
+  materialRows.forEach((materialRow) => {
+    const devices = resolveCorrectionMaterialDevices(materialRow)
+    if (devices.length) {
+      correctionActiveDeviceKeys[resolveCorrectionMaterialKey(materialRow)] =
+        resolveCorrectionDeviceKey(devices[0])
+    }
+  })
 }
 
 const correctionValueText = (value: unknown, unit?: string) => {
@@ -5495,6 +5836,22 @@ const formatActiveOrderBatchCodes = (batchCodes?: string[]) => {
 const formatActiveOrderPickListNos = (sourceNos?: string[]) => {
   const normalized = (sourceNos ?? []).map((sourceNo) => String(sourceNo).trim()).filter(Boolean)
   return normalized.length ? normalized.join('、') : '-'
+}
+
+const formatActiveOrderPqcEventIds = (
+  pqcSubmission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+) => {
+  const ids = (pqcSubmission.submittedEventIds?.length
+    ? pqcSubmission.submittedEventIds
+    : pqcSubmission.submittedEventId
+      ? [pqcSubmission.submittedEventId]
+      : []
+  )
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+    .sort((left, right) => left - right)
+  const uniqueIds = Array.from(new Set(ids))
+  return uniqueIds.length ? uniqueIds.join('、') : '-'
 }
 
 const activeOrderDetailProcessTabName = (
@@ -7155,6 +7512,21 @@ interface SubmissionStructuredItem {
   parameterStatus?: string
 }
 
+interface SubmissionMaterialDetailRow {
+  key: string
+  materialText: string
+  outputQuantityText: string
+  lossQuantityText: string
+  lossDetailText: string
+  devices: SubmissionMaterialDeviceRow[]
+}
+
+interface SubmissionMaterialDeviceRow {
+  key: string
+  deviceText: string
+  parameterItems: SubmissionStructuredItem[]
+}
+
 interface ProductionParameterRuleSnapshot {
   parameterCode?: string
   parameterName?: string
@@ -7243,6 +7615,12 @@ const resolvePqcPayloadPair = (row: ProcessPoolTimelineEventVO) => {
   return { payload, rootPayload }
 }
 
+const normalizeProductionParameterStatus = (
+  value: unknown
+): ProductionReportCorrectionParameterRow['parameterStatus'] => {
+  return value === 'BELOW_LOWER' || value === 'ABOVE_UPPER' ? value : 'NORMAL'
+}
+
 const toProductionMaterialRow = (
   value: unknown,
   index: number
@@ -7281,16 +7659,34 @@ const toProductionMaterialRow = (
           deviceName: String(value.selectedDevice.deviceName ?? '').trim() || undefined
         }
       : undefined,
+    selectedDevices: normalizeSubmissionArray(value.selectedDevices)
+      .filter((device): device is Record<string, unknown> => isRecord(device))
+      .map((device) => ({
+        deviceId: Number(device.deviceId),
+        deviceCode: String(device.deviceCode ?? '').trim() || undefined,
+        deviceName: String(device.deviceName ?? '').trim() || undefined
+      }))
+      .filter((device) => Number.isFinite(device.deviceId) && device.deviceId > 0),
     deviceParameterReadings: normalizeSubmissionArray(value.deviceParameterReadings)
       .filter((reading): reading is Record<string, unknown> => isRecord(reading))
-      .map((reading) => ({
+      .map((reading): ProductionReportCorrectionParameterRow => ({
         deviceId: Number(reading.deviceId),
         deviceCode: String(reading.deviceCode ?? '').trim() || undefined,
         deviceName: String(reading.deviceName ?? '').trim() || undefined,
         parameterCode: String(reading.parameterCode ?? '').trim(),
         parameterName: String(reading.parameterName ?? '').trim() || undefined,
         unit: String(reading.unit ?? '').trim() || undefined,
-        value: optionalCorrectionNumber(reading.value)
+        value:
+          String(reading.valueType ?? '').trim() === 'SELECT'
+            ? String(reading.value ?? '').trim()
+            : optionalCorrectionNumber(reading.value),
+        valueType: String(reading.valueType ?? '').trim() || undefined,
+        optionValues: normalizeCorrectionOptionValues(
+          reading.optionValues ?? reading.optionValuesJson
+        ),
+        lowerLimit: reading.lowerLimit as number | string | undefined,
+        upperLimit: reading.upperLimit as number | string | undefined,
+        parameterStatus: normalizeProductionParameterStatus(reading.parameterStatus)
       }))
       .filter((reading) => reading.deviceId > 0 && reading.parameterCode)
   }
@@ -7313,6 +7709,7 @@ const resolveProductionMaterialRows = (row: ProcessPoolTimelineEventVO) => {
       lossQuantity: item.lossQuantity,
       lossDetails: item.lossDetails,
       selectedDevice: item.selectedDevice,
+      selectedDevices: item.selectedDevices,
       deviceParameterReadings: item.deviceParameterReadings
     }))
   return materialRows
@@ -7796,6 +8193,163 @@ const resolveSubmissionParameterItems = (
           ? row.deviceParameterReadings
           : normalizeSubmissionArray(rootPayload?.deviceParameterReadings)
       )
+}
+
+const isMeaningfulSubmissionText = (value?: string) => {
+  const text = String(value ?? '').trim()
+  return Boolean(text) && text !== '--'
+}
+
+const resolveSubmissionMaterialDeviceRows = (
+  materialRow: ProductionReportCorrectionMaterialRow,
+  materialIndex: number
+): SubmissionMaterialDeviceRow[] => {
+  const deviceMap = new Map<string, SubmissionMaterialDeviceRow>()
+  const ensureDeviceRow = (
+    device: ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow,
+    deviceIndex: number
+  ) => {
+    const deviceText = formatSubmissionText(
+      device.deviceName || device.deviceCode,
+      device.deviceId ? `设备 #${device.deviceId}` : '设备'
+    )
+    const key = String(device.deviceId || device.deviceCode || `${materialIndex}-${deviceIndex}`)
+    if (!deviceMap.has(key)) {
+      deviceMap.set(key, {
+        key,
+        deviceText,
+        parameterItems: []
+      })
+    }
+    return deviceMap.get(key)!
+  }
+  const selectedDevices = [
+    ...(materialRow.selectedDevices || []),
+    ...(materialRow.selectedDevice ? [materialRow.selectedDevice] : [])
+  ]
+  selectedDevices
+    .filter((device) => device.deviceId || device.deviceCode || device.deviceName)
+    .forEach((device, deviceIndex) => ensureDeviceRow(device, deviceIndex))
+  materialRow.deviceParameterReadings.forEach((reading, parameterIndex) => {
+    const deviceRow = ensureDeviceRow(reading, parameterIndex)
+    const parameterItem = resolveProductionParameterItems(undefined, [reading])[0]
+    if (!parameterItem || !isMeaningfulSubmissionText(parameterItem.valueText)) {
+      return
+    }
+    deviceRow.parameterItems.push({
+      ...parameterItem,
+      key: `${deviceRow.key}-${parameterItem.key}-${parameterIndex}`,
+      label: formatSubmissionText(reading.parameterName || reading.parameterCode, '参数')
+    })
+  })
+  return [...deviceMap.values()]
+}
+
+const resolveSubmissionMaterialDetailRows = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionMaterialDetailRow[] => {
+  const materialRows = resolveProductionMaterialRows(row)
+  if (!materialRows.length) {
+    const parameterItems = resolveSubmissionParameterItems(row).filter((item) =>
+      isMeaningfulSubmissionText(item.valueText)
+    )
+    return [
+      {
+        key: `submission-${row.id}`,
+        materialText: formatSubmissionText(row.productName || row.productCode, '提交物料'),
+        outputQuantityText: resolveSubmissionCompletionQuantity(row),
+        lossQuantityText: resolveSubmissionLossQuantity(row),
+        lossDetailText: resolveSubmissionLossBreakdownItems(row)
+          .map((item) => `${item.label}：${item.valueText}`)
+          .join('；'),
+        devices: resolveSubmissionEquipmentItems(row)
+          .filter((item) => isMeaningfulSubmissionText(item.valueText))
+          .map((item) => ({
+            key: item.key,
+            deviceText: item.valueText,
+            parameterItems
+          }))
+      }
+    ]
+  }
+  return materialRows.map((item, index) => {
+    return {
+      key: String(item.materialId || index),
+      materialText: [item.materialName, item.materialCode].filter(Boolean).join(' / '),
+      outputQuantityText: formatSubmissionQuantity(item.outputQuantity),
+      lossQuantityText: formatSubmissionQuantity(item.lossQuantity),
+      lossDetailText:
+        item.lossDetails
+          .map((detail) => `${detail.reasonName}：${formatSubmissionQuantity(detail.quantity)}`)
+          .join('；') || '--',
+      devices: resolveSubmissionMaterialDeviceRows(item, index)
+    }
+  })
+}
+
+const resolveSubmissionMaterialSummaryItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  const materialRows = resolveProductionMaterialRows(row)
+  const materialCount = materialRows.length || 1
+  const lossReasonCount = resolveSubmissionLossBreakdownItems(row).filter((item) =>
+    isMeaningfulSubmissionText(item.valueText)
+  ).length
+  return [
+    {
+      key: 'material-count',
+      label: '物料',
+      valueText: `${materialCount} 个物料`
+    },
+    {
+      key: 'loss-summary',
+      label: '损耗',
+      valueText: `损耗 ${resolveSubmissionLossQuantity(row)}${lossReasonCount ? ` / ${lossReasonCount} 类` : ''}`
+    }
+  ]
+}
+
+const resolveSubmissionDeviceSummaryItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  const devices = resolveSubmissionEquipmentItems(row)
+    .map((item) => item.valueText)
+    .filter(isMeaningfulSubmissionText)
+  if (!devices.length) {
+    return [{ key: 'empty-device-summary', label: '设备', valueText: '--' }]
+  }
+  const uniqueDevices = [...new Set(devices)]
+  return [
+    {
+      key: 'device-summary',
+      label: '设备',
+      valueText:
+        uniqueDevices.length === 1
+          ? uniqueDevices[0]
+          : `${uniqueDevices.length} 台：${uniqueDevices.slice(0, 2).join('、')}${
+              uniqueDevices.length > 2 ? '等' : ''
+            }`
+    }
+  ]
+}
+
+const resolveSubmissionParameterSummaryItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  const parameters = resolveSubmissionParameterItems(row).filter((item) =>
+    isMeaningfulSubmissionText(item.valueText)
+  )
+  if (!parameters.length) {
+    return [{ key: 'empty-parameter-summary', label: '参数', valueText: '--' }]
+  }
+  const abnormalCount = parameters.filter((item) => item.outOfRange).length
+  return [
+    {
+      key: 'parameter-summary',
+      label: '参数',
+      valueText: `${parameters.length} 项${abnormalCount ? ` / 异常 ${abnormalCount} 项` : ''}`
+    }
+  ]
 }
 
 const reviewMaterialRows = computed(() =>
@@ -8290,6 +8844,7 @@ const resetCorrectionFormForEvent = (
   correctionForm.pqcItemResults = []
   correctionForm.changeReason = ''
   correctionForm.signaturePassword = ''
+  initializeCorrectionMaterialDeviceTabs([])
   correctionEvent.value = event
 }
 
@@ -8334,7 +8889,10 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
     if (!Number.isFinite(deviceId) || deviceId <= 0 || !parameterCode) {
       return []
     }
-    const value = optionalCorrectionNumber(item.value)
+    const value =
+      String(item.valueType ?? '').trim() === 'SELECT'
+        ? String(item.value ?? '').trim()
+        : optionalCorrectionNumber(item.value)
     return {
       deviceId,
       deviceCode: item.deviceCode,
@@ -8342,7 +8900,12 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
       parameterCode,
       parameterName: item.parameterName,
       unit: item.unit,
-      value
+      value,
+      valueType: item.valueType,
+      optionValues: normalizeCorrectionOptionValues(item.optionValues),
+      lowerLimit: item.lowerLimit,
+      upperLimit: item.upperLimit,
+      parameterStatus: normalizeProductionParameterStatus(item.parameterStatus)
     }
   })
 
@@ -8351,6 +8914,7 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
   correctionForm.materialDetails = await resolveCorrectionMaterialNames(
     resolveProductionMaterialRows(event)
   )
+  initializeCorrectionMaterialDeviceTabs(correctionForm.materialDetails)
   correctionForm.lossDetails = [...lossRowMap.values()]
   correctionForm.deviceParameterReadings = parameterRows
   correctionVisible.value = true
@@ -8482,13 +9046,16 @@ const buildProductionCorrectionRequest = () => {
         selectedDevice: item.selectedDevice
           ? { deviceId: requirePositiveNumber(item.selectedDevice.deviceId, '物料使用设备不能为空') }
           : undefined,
+        selectedDevices: resolveCorrectionMaterialDevices(item).map((device) => ({
+          deviceId: requirePositiveNumber(device.deviceId, '物料使用设备不能为空')
+        })),
         deviceParameterReadings: item.deviceParameterReadings.flatMap((parameter) => {
-          const value = optionalCorrectionNumber(parameter.value)
-          if (value === undefined) return []
+          const submittedValue = normalizeCorrectionParameterSubmitValue(parameter)
+          if (submittedValue === undefined) return []
           return {
             deviceId: requirePositiveNumber(parameter.deviceId, '物料设备参数所属设备不能为空'),
             parameterCode: parameter.parameterCode,
-            value
+            ...submittedValue
           }
         })
       }
@@ -8500,12 +9067,12 @@ const buildProductionCorrectionRequest = () => {
         quantity: Number(item.quantity)
       })),
     deviceParameterReadings: materialParameterReadings.flatMap((item) => {
-      const value = optionalCorrectionNumber(item.value)
-      if (value === undefined) return []
+      const submittedValue = normalizeCorrectionParameterSubmitValue(item)
+      if (submittedValue === undefined) return []
       return {
         deviceId: requirePositiveNumber(item.deviceId, '设备参数所属设备不能为空'),
         parameterCode: item.parameterCode,
-        value
+        ...submittedValue
       }
     }),
     ...auditFields
@@ -10614,42 +11181,92 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
-.team-leader-workbench__correction-material-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+.team-leader-workbench__correction-material-tabs,
+.team-leader-workbench__correction-device-tabs {
+  min-width: 0;
 }
 
 .team-leader-workbench__correction-material-card {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  align-items: end;
+  gap: 14px;
   min-width: 0;
-  padding: 10px;
-  border: 1px solid #dfe7e2;
-  border-radius: 6px;
-  background: #f8fbf9;
 }
 
-.team-leader-workbench__correction-material-card > strong,
-.team-leader-workbench__correction-material-card > small {
-  grid-column: 1 / -1;
+.team-leader-workbench__correction-material-title {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.team-leader-workbench__correction-material-title > strong,
+.team-leader-workbench__correction-material-title > small {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.team-leader-workbench__correction-material-card > strong {
+.team-leader-workbench__correction-material-title > strong {
   color: #18212f;
   font-size: 14px;
 }
 
-.team-leader-workbench__correction-material-card > small {
+.team-leader-workbench__correction-material-title > small {
   color: #667085;
 }
 
-.team-leader-workbench__correction-material-card :deep(.el-form-item) {
+.team-leader-workbench__correction-material-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.team-leader-workbench__correction-material-card :deep(.el-form-item),
+.team-leader-workbench__correction-device-tabs :deep(.el-form-item) {
   margin-bottom: 0;
+}
+
+.team-leader-workbench__material-detail-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.team-leader-workbench__material-detail-list > strong {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__correction-field-row {
+  display: grid;
+  grid-template-columns: 128px minmax(180px, 220px);
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.team-leader-workbench__correction-field-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.team-leader-workbench__correction-field-label small {
+  margin-left: 4px;
+  color: #7b8494;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.team-leader-workbench__correction-field-control {
+  min-width: 0;
+}
+
+.team-leader-workbench__correction-field-control :deep(.el-input-number),
+.team-leader-workbench__correction-field-control :deep(.el-select),
+.team-leader-workbench__correction-field-control :deep(.el-input) {
+  width: 100%;
 }
 
 .team-leader-workbench__correction-rows {
@@ -10748,8 +11365,7 @@ onMounted(() => {
 
   .team-leader-workbench__correction-context,
   .team-leader-workbench__correction-quantity-grid,
-  .team-leader-workbench__correction-material-grid,
-  .team-leader-workbench__correction-material-card {
+  .team-leader-workbench__correction-material-summary {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -10807,6 +11423,61 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.team-leader-workbench__submission-detail {
+  display: grid;
+  gap: 12px;
+  padding: 10px 12px 12px;
+  background: #fbfcfd;
+}
+
+.team-leader-workbench__submission-detail-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.team-leader-workbench__submission-detail-title {
+  color: #172033;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__submission-material-cards {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.team-leader-workbench__submission-material-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.team-leader-workbench__submission-material-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  min-width: 0;
+  color: #475467;
+  font-size: 12px;
+}
+
+.team-leader-workbench__submission-material-head > strong {
+  color: #18212f;
+  font-size: 13px;
+}
+
+.team-leader-workbench__submission-detail-table :deep(.el-table__cell) {
+  vertical-align: top;
+}
+
+.team-leader-workbench__submission-material-empty {
+  color: #64748b;
+  font-size: 12px;
 }
 
 .team-leader-workbench__submission-table--single-line:deep(.el-table__body .el-table__cell .cell) {

@@ -35,7 +35,7 @@
 - Keywords: 源码已有迁移, 本机迁移漏执行, 运行态 schema 漂移, Java 进程实际数据源, application-local 与运行库不一致, doesn't have a default value, work_order_id NOT NULL, 生成列索引, GENERATED ALWAYS, selected_item_count, The value specified for generated column is not allowed, H2 普通列掩盖 MySQL 生成列, 字段过短, 数据截断, migration RED GREEN, 页面系统异常, 一线生产系统异常, 公共布局接口, approval-center tasks page, checked_out_by, 排产工单系统异常, 个人中心系统异常, 注册证变更系统异常, 批记录建立链接系统异常, 聚合页子请求 500 -> `docs/database-rules.md#运行态迁移漂移系统异常门禁`
 - Keywords: 确认分配, 确认提交, leaderType null, 请求参数不正确, 不能为空null, queryParams.leaderType, activeLeaderTab, 当前页签上下文漂移 -> `docs/frontend-development.md#前端确认提交上下文来源门禁`
 - Keywords: 一线生产提交快照校验, 最大化快照切换, runtime-config 快照, 服务端快照编号, 快照校验值, 快照过期, 快照篡改, 所选工序与运行配置不一致, 所选员工与提交签名不一致, 提交时实时刷新快照禁止, 后端实时工序员工模板读取禁止, 设备参数损耗原因按快照 -> `docs/frontend-development.md#前端提交结构字段严格校验门禁`
-- Keywords: PQC 任务生成, QA工序 + QA项目 + 规则键, 同工序多个 FINAL 项目, FINAL 任务按项目拆分, inspectionRuleKey, qaItemCode, 活跃订单加入生成任务 -> `docs/backend-development.md#qa-首检数量和巡检比例按检验项目配置末检适用性项目级统一`
+- Keywords: PQC 任务生成, 生产工序 + QA工序 + QA项目 + 规则键, routeProcessId + processId, 遍历全部冻结工序, 禁止只取第一道工序, 同工序多个 FINAL 项目, FINAL 任务按项目拆分, inspectionRuleKey, qaItemCode, 活跃订单加入生成任务 -> `docs/backend-development.md#qa-首检数量和巡检比例按检验项目配置末检适用性项目级统一`
 - Keywords: 排产员工作台产能覆盖, 班次产能编辑, 手工调整产能, process-wip-settings, MANUAL_OVERRIDE, 小时产量覆盖值, 班次小时重算, refreshScheduleOrderProcessesFromRouteConfig, 重排刷新路线配置覆盖工作台产能 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台产能覆盖门禁`
 - Keywords: 排产员工作台最近一次排产口径, process-wip-statistics, 最近只排5个订单但显示9个订单在做, AUTO_APPLY, REPLAN_APPLY, afterSnapshotJson.scheduleOrderIds, operation_log.schedule_order_id 不补范围, 历史排产工单混入, process-wip-settings, 班次小时刷新不更新历史工单 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台最近一次排产口径门禁`
 - Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#重复任务记录收口门禁`
@@ -183,6 +183,7 @@
 - Keywords: DCC upload size policy is missing or invalid, DCC 上传大小策略, dcc_controlled_file_upload_policy, upload-preview, SOURCE 上传大小策略缺失, DRAWING_PDF, TRAINING_RECORD, EXTERNAL_REVIEW_OUTPUT, DCC_UPLOAD_DEFAULT_SOURCE_V1, 上传大小策略 seed -> `docs/database-rules.md#dcc-上传大小策略默认种子门禁`
 - Keywords: DCC 产品立项, 产品建档申请, DCC 项目代码 MDM 产品绑定, dcc_product_onboarding_request, dcc_project_code.product_master_id, productMasterId, MDM 产品主数据, 受控文件提交按项目代码带出产品主数据 -> `docs/database-rules.md#dcc-项目代码-mdm-产品建档绑定门禁`
 - Keywords: DCC 升版发布 UX, 版本历史, 版本信息, 升版原因, 变更说明, 发布完成结果, V1 已失效, V2 已生效, master 已切换, 受控浏览已落位, publishedFileId, stampedFileId, BPM markers pageerror, 只读复验目标写请求为 0 -> `docs/e2e-rules.md#dcc-升版发布-ux-闭环门禁`
+- Keywords: DCC Windchill 历史迁移, AUTO_MAP, 版本文本可解析, 稳定业务身份唯一, source_file_id, ownership/hash, 正式指针一致, 检出歧义, 平台生命周期 ACTIVE 对齐, 整条 Master blocker -> `docs/backend-development.md#跨模块版本对象生命周期引用登记门禁`
 - 测试服远端 MySQL 查询 / ruoyi-vue-pro 业务库 / 容器内 MYSQL_ROOT_PASSWORD / SSH 多层引号：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - runtime-control.local.yaml / repo-root / frontend-root / 临时发布 worktree / 控制台健康检查：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - 发布 / 备份 / 恢复 / 服务器容量：`E:\IntRuoyi\docs\release-backup-restore.md`

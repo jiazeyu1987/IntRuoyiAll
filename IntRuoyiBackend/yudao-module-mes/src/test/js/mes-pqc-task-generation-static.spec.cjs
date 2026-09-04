@@ -82,8 +82,14 @@ assert.match(service, /resolveInspectionQuantity\([\s\S]*INSPECTION_TYPE_PATROL[
   '巡检任务数量必须继续走巡检比例计算。')
 assert.match(service, /divide\(BigDecimal\.valueOf\(100\),\s*0,\s*RoundingMode\.CEILING\)/,
   '巡检比例数量必须向上取整，例如 301×5% = 16。')
-assert.match(insertPqcInspectionTask, /selectByQaIdentity\(task\.getActiveOrderId\(\),[\s\S]*task\.getRegulationVersionId\(\),[\s\S]*task\.getQaProcessId\(\),[\s\S]*task\.getQaItemCode\(\),[\s\S]*task\.getInspectionRuleKey\(\),[\s\S]*task\.getBusinessDate\(\)\)/,
-  '写任务前必须按 QA 项目级完整身份检查重复任务。')
+assert.match(service, /requireFrozenRouteProcessIdentities\(activeOrder,\s*routeProcesses\)/,
+  'PQC 任务生成必须读取全部冻结生产工序身份。')
+assert.doesNotMatch(service, /requireFrozenRouteProcessIdentity\(activeOrder,\s*routeProcesses\)/,
+  'PQC 任务生成不得只取第一道冻结工序。')
+assert.match(service, /for\s*\(ProcessIdentity productionIdentity : productionIdentities\)[\s\S]*for\s*\(PlannedPqcTask plan : plans\)/,
+  '每个冻结生产工序都必须生成完整 PQC 任务计划。')
+assert.match(insertPqcInspectionTask, /selectByQaIdentity\(task\.getActiveOrderId\(\),[\s\S]*task\.getRouteProcessId\(\),[\s\S]*task\.getProcessId\(\),[\s\S]*task\.getRegulationVersionId\(\),[\s\S]*task\.getQaProcessId\(\),[\s\S]*task\.getQaItemCode\(\),[\s\S]*task\.getInspectionRuleKey\(\),[\s\S]*task\.getBusinessDate\(\)\)/,
+  '写任务前必须按生产工序 + QA 项目级完整身份检查重复任务。')
 assert.match(insertPqcInspectionTask, /catch\s*\(DuplicateKeyException ex\)[\s\S]*PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT/,
   '数据库唯一键冲突必须转为明确重复任务错误。')
 assert.doesNotMatch(insertPqcInspectionTask, /catch\s*\(DuplicateKeyException ex\)[\s\S]*return\s*;/,
@@ -131,28 +137,36 @@ assert.match(releaseCompletenessService, /isFinalInspectionApplicableForSnapshot
   '放行完整性必须按工序快照和发布版本判断是否需要 FINAL。')
 assert.match(releaseCompletenessService, /Boolean\.FALSE\.equals\(version\.getFinalInspectionApplicable\(\)\)[\s\S]*getFinalInspectionNotApplicableReason/,
   '放行完整性只允许有明确不适用依据时跳过 FINAL。')
-assert.match(releaseCompletenessService, /if\s*\(isFinalInspectionApplicableForSnapshot\(tasks,\s*snapshot,\s*missing\)\)\s*\{[\s\S]*requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
+assert.match(releaseCompletenessService, /if\s*\(isFinalInspectionApplicableForSnapshot\(tasks,\s*snapshot,\s*missing\)\)\s*\{[\s\S]*requireUniquePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
   '末检适用时放行完整性必须继续要求 FINAL 任务。')
 
 assert.match(test, /shouldSnapshotAllRouteProcessesAndCreateQaOwnedPqcTasks/,
   'JUnit 必须覆盖发布规程生成正式任务。')
-assert.match(test, /assertPqcTask\(tasks\.get\(1\),\s*"PATROL",\s*"PATROL_AM",\s*"AM",\s*16,\s*expectedBusinessDate\)/,
+assert.match(test, /verify\(pqcInspectionTaskMapper,\s*times\(40\)\)\.insert/,
+  'JUnit 必须证明 PQC 任务数量为冻结工序数 × 检验规则数。')
+assert.match(test, /assertPqcTask\(tasks\.get\(1\),\s*928601L,\s*6001L,\s*"PATROL",\s*"PATROL_AM",\s*"AM",\s*1,\s*expectedBusinessDate\)/,
+  'JUnit 必须证明首道冻结工序生成上午巡检。')
+assert.match(test, /assertPqcTask\(tasks\.get\(36\),\s*928610L,\s*6010L,\s*"FIRST",\s*"FIRST",\s*"FIRST",\s*5,\s*expectedBusinessDate\)/,
+  'JUnit 必须证明最后一道冻结工序也生成 PQC 任务。')
+assert.match(test, /assertPqcTask\(tasks\.get\(1\),\s*928601L,\s*6001L,\s*"PATROL",\s*"PATROL_AM",\s*"AM",\s*16,\s*expectedBusinessDate\)/,
   'JUnit 必须证明 301×5% 上午巡检向上取整为 16。')
-assert.match(test, /assertPqcTask\(tasks\.get\(2\),\s*"PATROL",\s*"PATROL_PM",\s*"PM",\s*16,\s*expectedBusinessDate\)/,
+assert.match(test, /assertPqcTask\(tasks\.get\(2\),\s*928601L,\s*6001L,\s*"PATROL",\s*"PATROL_PM",\s*"PM",\s*16,\s*expectedBusinessDate\)/,
   'JUnit 必须证明下午巡检与上午任务身份分离。')
+assert.match(test, /assertPqcTask\(tasks\.get\(5\),\s*928602L,\s*6002L,\s*"PATROL",\s*"PATROL_AM",\s*"AM",\s*16,\s*expectedBusinessDate\)/,
+  'JUnit 必须证明后续冻结工序也应用相同巡检比例。')
 assert.match(test, /shouldRejectNewActiveOrderWhenPublishedQaIsMissingWithoutAnyWrite/,
   'JUnit 必须覆盖缺少已发布规程时阻塞。')
 assert.match(test, /shouldRejectActiveOrderWhenPqcTaskIdentityAlreadyExists/,
   'JUnit 必须覆盖重复任务身份时阻塞。')
 assert.match(releaseCompletenessService, /processSnapshotMapper\.selectListByActiveOrderId\(activeOrder\.getId\(\)\)/,
   '放行检查必须按活跃订单工序快照计算预期 PQC 任务集合。')
-assert.match(releaseCompletenessService, /requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"FIRST",\s*"FIRST"/,
+assert.match(releaseCompletenessService, /requireUniquePqcTaskIdentity\(tasks,\s*snapshot,\s*"FIRST",\s*"FIRST"/,
   '放行检查必须要求首检任务身份。')
-assert.match(releaseCompletenessService, /requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"PATROL",\s*"AM"/,
+assert.match(releaseCompletenessService, /requireUniquePqcTaskIdentity\(tasks,\s*snapshot,\s*"PATROL",\s*"AM"/,
   '放行检查必须要求上午巡检任务身份。')
-assert.match(releaseCompletenessService, /requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"PATROL",\s*"PM"/,
+assert.match(releaseCompletenessService, /requireUniquePqcTaskIdentity\(tasks,\s*snapshot,\s*"PATROL",\s*"PM"/,
   '放行检查必须要求下午巡检任务身份。')
-assert.match(releaseCompletenessService, /requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
+assert.match(releaseCompletenessService, /requireUniquePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
   '放行检查必须要求末检任务身份。')
 assert.match(releaseCompletenessService, /缺少预期 PQC 检验任务身份/,
   '放行检查缺少预期 PQC 任务时必须阻塞。')

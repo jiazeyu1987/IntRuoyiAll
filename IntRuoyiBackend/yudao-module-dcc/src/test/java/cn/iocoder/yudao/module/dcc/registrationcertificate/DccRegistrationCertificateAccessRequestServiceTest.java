@@ -230,14 +230,15 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
-    void downloadRequestAllowsMissingProjectCodeButValidatesExistingProjectCodeBeforeInsert() {
+    void downloadProjectCodeMayBeMissingButExplicitProjectMustStayEnabledSameTenantAndSameProductBeforeInsert() {
         FormalFixture missingProjectFixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND", null);
         DccRegistrationCertificateAccessRequestResult missingProjectResult = service.submit(1L, 99L,
                 "missing-project", download(missingProjectFixture.certificateId(), null,
                         List.of(missingProjectFixture.fileId())));
-        assertEquals(missingProjectFixture.certificateId(), missingProjectResult.certificateId());
+        assertEquals(List.of(missingProjectFixture.fileId()), missingProjectResult.businessFileIds());
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
-                + "WHERE id = ? AND project_code_id IS NULL", missingProjectResult.requestId()));
+                + "WHERE tenant_id = 1 AND id = ? AND project_code_id IS NULL", missingProjectResult.requestId()));
+        verify(projectCodeService, never()).getProjectCode(40L);
 
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
         when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
@@ -252,8 +253,10 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
 
         assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED.getCode(), disabled.getCode());
         assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode(), mismatch.getCode());
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request"));
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
+                + "WHERE request_key IN ('disabled-project', 'product-mismatch')"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
+                + "WHERE request_id NOT IN (?)", missingProjectResult.requestId()));
     }
 
     @Test

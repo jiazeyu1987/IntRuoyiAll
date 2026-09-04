@@ -276,7 +276,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(defaultPqcItems());
         lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderId(8101L))
                 .thenReturn(frozenPqcTasks());
-        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any()))
+        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
@@ -950,13 +950,15 @@ class MesTeamLeaderActiveOrderServiceTest {
                 "10", "1.000000", "10.000000");
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(40)).insert(taskCaptor.capture());
         List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
         LocalDate expectedBusinessDate = LocalDate.now();
-        assertPqcTask(tasks.get(0), "FIRST", "FIRST", "FIRST", 5, expectedBusinessDate);
-        assertPqcTask(tasks.get(1), "PATROL", "PATROL_AM", "AM", 1, expectedBusinessDate);
-        assertPqcTask(tasks.get(2), "PATROL", "PATROL_PM", "PM", 1, expectedBusinessDate);
-        assertPqcTask(tasks.get(3), "FINAL", "FINAL", "FINAL", 3, expectedBusinessDate);
+        assertPqcTask(tasks.get(0), 928601L, 6001L, "FIRST", "FIRST", "FIRST", 5, expectedBusinessDate);
+        assertPqcTask(tasks.get(1), 928601L, 6001L, "PATROL", "PATROL_AM", "AM", 1, expectedBusinessDate);
+        assertPqcTask(tasks.get(2), 928601L, 6001L, "PATROL", "PATROL_PM", "PM", 1, expectedBusinessDate);
+        assertPqcTask(tasks.get(3), 928601L, 6001L, "FINAL", "FINAL", "FINAL", 3, expectedBusinessDate);
+        assertPqcTask(tasks.get(36), 928610L, 6010L, "FIRST", "FIRST", "FIRST", 5, expectedBusinessDate);
+        assertPqcTask(tasks.get(39), 928610L, 6010L, "FINAL", "FINAL", "FINAL", 3, expectedBusinessDate);
     }
 
     @Test
@@ -970,11 +972,13 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(8)).insert(taskCaptor.capture());
         List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
         LocalDate expectedBusinessDate = LocalDate.now();
-        assertPqcTask(tasks.get(1), "PATROL", "PATROL_AM", "AM", 16, expectedBusinessDate);
-        assertPqcTask(tasks.get(2), "PATROL", "PATROL_PM", "PM", 16, expectedBusinessDate);
+        assertPqcTask(tasks.get(1), 928601L, 6001L, "PATROL", "PATROL_AM", "AM", 16, expectedBusinessDate);
+        assertPqcTask(tasks.get(2), 928601L, 6001L, "PATROL", "PATROL_PM", "PM", 16, expectedBusinessDate);
+        assertPqcTask(tasks.get(5), 928602L, 6002L, "PATROL", "PATROL_AM", "AM", 16, expectedBusinessDate);
+        assertPqcTask(tasks.get(6), 928602L, 6002L, "PATROL", "PATROL_PM", "PM", 16, expectedBusinessDate);
     }
 
     @Test
@@ -1416,7 +1420,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
         stubSuccessfulActiveOrderInsert();
-        when(pqcInspectionTaskMapper.selectByQaIdentity(eq(8101L), eq(9902L), eq(19902L),
+        when(pqcInspectionTaskMapper.selectByQaIdentity(eq(8101L), eq(928601L), eq(6001L),
+                eq(9902L), eq(19902L),
                 eq("FIRST-001"), eq("FIRST"), any(LocalDate.class)))
                 .thenReturn(MesPqcInspectionTaskDO.builder().id(990001L).build());
 
@@ -2715,14 +2720,15 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build();
     }
 
-    private static void assertPqcTask(MesPqcInspectionTaskDO task, String inspectionType, String inspectionRuleKey,
-                                      String shiftCode, Integer plannedInspectionQuantity, LocalDate businessDate) {
+    private static void assertPqcTask(MesPqcInspectionTaskDO task, Long routeProcessId, Long processId,
+                                      String inspectionType, String inspectionRuleKey, String shiftCode,
+                                      Integer plannedInspectionQuantity, LocalDate businessDate) {
         assertEquals(8101L, task.getActiveOrderId());
         assertEquals(9001L, task.getWorkOrderId());
         assertEquals(922119L, task.getRouteId());
         assertEquals(448L, task.getRouteVersionId());
-        assertEquals(928601L, task.getRouteProcessId());
-        assertEquals(6001L, task.getProcessId());
+        assertEquals(routeProcessId, task.getRouteProcessId());
+        assertEquals(processId, task.getProcessId());
         assertEquals(19902L, task.getQaProcessId());
         assertEquals(9902L, task.getRegulationVersionId());
         assertEquals(inspectionType, task.getInspectionType());

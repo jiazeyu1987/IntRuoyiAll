@@ -501,7 +501,9 @@ export interface TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO {
 
 export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   pqcTaskId: number
+  pqcTaskIds?: number[]
   submittedEventId?: number
+  submittedEventIds?: number[]
   inspectionType?: string
   businessDate?: string
   shiftCode?: string

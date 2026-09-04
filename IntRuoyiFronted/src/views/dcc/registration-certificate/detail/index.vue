@@ -395,7 +395,7 @@ import {
 } from '@/api/common/filePreview'
 import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
-import { checkRole } from '@/utils/permission'
+import { checkPermi, checkRole } from '@/utils/permission'
 import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
@@ -450,7 +450,8 @@ const requestingDownloadFileId = ref('')
 const downloadAuthorizedFileIds = ref<Set<string>>(new Set())
 const requestPendingFileIds = ref<Set<string>>(new Set())
 const canDirectDownload = (businessFileId: number | string) =>
-  checkRole(['dcc_registration_certificate_approver'])
+  checkPermi(['dcc:registration-certificate:access-request:approve'])
+  || checkRole(['dcc_registration_certificate_approver'])
   || downloadAuthorizedFileIds.value.has(String(businessFileId))
 const isDownloadRequestPending = (businessFileId: number | string) =>
   requestPendingFileIds.value.has(String(businessFileId))
@@ -664,7 +665,7 @@ const openDownloadRequest = async (businessFileId: number | string) => {
         certificateId: detail.value.certificateId,
         requestType: 'DOWNLOAD_FILE',
         purpose: '页面提交的注册证文件下载申请',
-        projectCodeId: detail.value.projectCodeId,
+        projectCodeId: detail.value.projectCodeId || undefined,
         businessFileIds: [businessFileId]
       },
       `DCC-REG-CERT-ACCESS-SUBMIT-${generateUUID()}`

@@ -69,7 +69,9 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     @Accessors(chain = true)
     public static class PqcSubmissionDetail {
         private Long pqcTaskId;
+        private List<Long> pqcTaskIds;
         private Long submittedEventId;
+        private List<Long> submittedEventIds;
         private String inspectionType;
         private LocalDate businessDate;
         private String shiftCode;

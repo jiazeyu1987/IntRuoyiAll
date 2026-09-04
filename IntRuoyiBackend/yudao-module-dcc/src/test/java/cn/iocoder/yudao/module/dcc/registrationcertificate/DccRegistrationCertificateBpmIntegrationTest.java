@@ -120,8 +120,11 @@ class DccRegistrationCertificateBpmIntegrationTest {
         DccRegistrationCertificateAccessRequestDO request = submittedRequest();
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(APPROVAL_PERMISSION)))
-                .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 120L, 110L)));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
+                .thenReturn(new LinkedHashSet<>(List.of(1L, ACTOR_ID, 120L, 110L)));
+        when(permissionApi.hasAnyRoles(1L, "super_admin")).thenReturn(true);
         when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-1001");
         doAnswer(invocation -> {
@@ -146,6 +149,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
         assertEquals("DCC_REG_CERT_ACCESS:1001", bpmRequest.getBusinessKey());
         assertEquals(List.of(110L, 120L), bpmRequest.getStartUserSelectAssignees().get(APPROVAL_TASK_DEFINITION_KEY));
         assertEquals(REQUEST_ID, bpmRequest.getVariables().get("requestId"));
+        verify(permissionApi).hasAnyRoles(1L, "super_admin");
     }
 
     @Test
@@ -213,7 +217,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
         DccRegistrationCertificateAccessRequestDO request = submittedRequest();
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), any()))
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
                 .thenReturn(Set.of(120L));
         when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-fixed-contract");
@@ -230,10 +236,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
         assertEquals(List.of(120L), bpmCaptor.getValue().getStartUserSelectAssignees()
                 .get(APPROVAL_TASK_DEFINITION_KEY));
 
-        ArgumentCaptor<Collection<Long>> roleIdsCaptor = ArgumentCaptor.forClass(Collection.class);
-        verify(companyScopeApi).resolveRecipientUserIds(eq(10L), roleIdsCaptor.capture(),
-                eq(APPROVAL_PERMISSION));
-        assertEquals(List.of(8L), List.copyOf(roleIdsCaptor.getValue()));
+        verify(permissionApi).hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION);
+        verify(permissionApi).getUserRoleIdListByRoleIds(List.of(8L));
+        verify(companyScopeApi, never()).resolveRecipientUserIds(any(), any(), any());
     }
 
     @Test
@@ -279,8 +284,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
     void emptyCandidatesFailClosedBeforeBpmCreate() {
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(submittedRequest());
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(APPROVAL_PERMISSION)))
-                .thenReturn(Set.of(ACTOR_ID));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(Set.of(ACTOR_ID));
 
         ServiceException error = assertThrows(ServiceException.class, () -> service.startNativeApproval(
                 TENANT_ID, ACTOR_ID,
@@ -295,8 +301,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
     void nativeCreateFailureReturnsBusinessErrorAndDoesNotPersistBinding() {
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(submittedRequest());
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(APPROVAL_PERMISSION)))
-                .thenReturn(Set.of(120L));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(Set.of(120L));
         IllegalStateException outage = new IllegalStateException("BPM unavailable");
         doThrow(outage).when(bpmProcessInstanceApi)
                 .createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class));
@@ -320,8 +327,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
         winner.setBpmProcessInstanceId("proc-winner");
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request, winnerRequest);
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null, winner);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(APPROVAL_PERMISSION)))
-                .thenReturn(Set.of(120L));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(Set.of(120L));
         when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-loser");
         doThrow(new DuplicateKeyException("winner committed"))
@@ -340,8 +348,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
     void persistenceFailureAfterNativeStartCancelsProcessAndPropagatesOriginalFailure() {
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(submittedRequest());
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(APPROVAL_PERMISSION)))
-                .thenReturn(Set.of(120L));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(Set.of(120L));
         when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-rollback");
         when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);

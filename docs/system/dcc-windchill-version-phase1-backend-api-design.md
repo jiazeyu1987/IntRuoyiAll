@@ -256,7 +256,21 @@
 - 发布成功时更新 Revision、Iteration、Master、平台生命周期和发布快照。
 - 新建文件的首个 Revision 与后续 Revision 都必须批准后独立发布，不允许首版审批完成自动 ACTIVE。
 
-### 10. 迁移只读预检
+### 10. 项目访问规则管理
+
+`GET /admin-api/dcc/project-codes/{projectCodeId}/access-rules`
+
+权限：`dcc:project-code:query`；返回当前生效和计划生效的 USER、DEPT、ROLE、POSITION 项目规则。
+
+`PUT /admin-api/dcc/project-codes/{projectCodeId}/access-rules`
+
+权限：`dcc:project-code:update` 且文控角色。
+
+请求为完整规则集合，每项包含 `subjectType`、`subjectId`、`accessLevel`、`validFrom`、`expireTime`、`changeReason`。后端校验主体存在、时间区间有效、同一主体不重复，并要求启用项目至少保留一个当前已生效的 OWNER；仅有未来计划 OWNER 时拒绝保存。
+
+保存采用完整集合替换事务；历史规则转为失效并保留，不物理删除。响应返回后端正式规则，前端不得以提交数组作为成功后的权威状态。
+
+### 11. 迁移只读预检
 
 `GET /admin-api/dcc/controlled-file-version-migration/preflight-summary`
 
@@ -285,6 +299,8 @@
 | `DCC_LOGICAL_FILE_IDENTITY_CONFLICT` | 复合身份已经存在 |
 | `DCC_PROJECT_NOT_ACTIVE` | DCC 项目不存在或停用 |
 | `DCC_PROJECT_ACCESS_DENIED` | 当前用户缺少所需项目访问级别 |
+| `DCC_PROJECT_ACCESS_RULE_INVALID` | 项目访问主体、级别或有效期非法 |
+| `DCC_PROJECT_OWNER_REQUIRED` | 启用项目缺少有效 OWNER |
 | `DCC_FILE_TYPE_NOT_LEAF` | 文件类型不是有效分类叶子 |
 | `DCC_REVISION_SEQUENCE_OVERFLOW` | 大版本序列数值超出服务端整数容量 |
 | `DCC_OPEN_REVISION_ALREADY_EXISTS` | 已有开放大版本 |
@@ -324,6 +340,12 @@ Master FOR UPDATE
 - 在一个事务中创建 Master、Revision A、Iteration A/1、源文件所有权和版本事件。
 - 上传凭证必须在同一事务中标记为已绑定。
 - 数据库唯一键冲突转换为身份冲突，不重试成其他身份。
+
+### 项目访问规则
+
+- 锁定 DCC 项目和该项目当前规则集合。
+- 校验替换后至少一个 OWNER 当前生效。
+- 原子失效旧规则、插入新规则并记录调整原因；失败时保留旧规则集合。
 
 ### 检出
 

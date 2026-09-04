@@ -119,12 +119,15 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getRoundNo, roundNo));
     }
 
-    default MesPqcInspectionTaskDO selectByQaIdentity(Long activeOrderId, Long regulationVersionId,
+    default MesPqcInspectionTaskDO selectByQaIdentity(Long activeOrderId, Long routeProcessId, Long processId,
+                                                      Long regulationVersionId,
                                                       Long qaProcessId, String qaItemCode,
                                                       String inspectionRuleKey,
                                                       LocalDate businessDate) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
                 .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
+                .eq(MesPqcInspectionTaskDO::getRouteProcessId, routeProcessId)
+                .eq(MesPqcInspectionTaskDO::getProcessId, processId)
                 .eq(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionId)
                 .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
                 .eq(MesPqcInspectionTaskDO::getQaItemCode, qaItemCode)

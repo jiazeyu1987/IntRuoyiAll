@@ -230,8 +230,8 @@ class DccRegistrationCertificateApprovalRuntimeTest {
         role.setCode(APPROVER_ROLE_CODE);
         role.setStatus(CommonStatusEnum.ENABLE.getStatus());
         when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(role);
-        when(companyScopeApi.resolveRecipientUserIds(10L, List.of(8L), APPROVAL_PERMISSION))
-                .thenReturn(java.util.Set.of(200L));
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION)).thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(java.util.Set.of(200L));
         service.revokeGrant(TENANT_ID, 200L, 7001L, "范围失效");
         assertEquals("REVOKED", grant.getStatus());
         assertEquals(200L, grant.getRevokedBy());

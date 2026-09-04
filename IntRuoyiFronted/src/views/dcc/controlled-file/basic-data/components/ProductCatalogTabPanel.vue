@@ -682,7 +682,7 @@ const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
-const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 540
+const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 188
 
 const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'categoryLevel1', label: '产品类别 I', minWidth: 180 },
@@ -725,13 +725,7 @@ const {
 } = useUserTableColumns('dcc.productCatalog.main', productCatalogDefaultColumns)
 
 const getProductCatalogActionColumnWidthString = () => {
-  const configuredWidth = Number(
-    getProductCatalogColumnWidthString('actions', PRODUCT_CATALOG_ACTION_PANEL_WIDTH)
-  )
-  const width = Number.isFinite(configuredWidth)
-    ? Math.max(configuredWidth, PRODUCT_CATALOG_ACTION_PANEL_WIDTH)
-    : PRODUCT_CATALOG_ACTION_PANEL_WIDTH
-  return String(width)
+  return String(PRODUCT_CATALOG_ACTION_PANEL_WIDTH)
 }
 
 type DccProductCatalogPageQuery = DccProductCatalogPageReqVO & {

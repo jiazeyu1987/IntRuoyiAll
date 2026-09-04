@@ -88,6 +88,16 @@ assert.match(
 )
 assert.match(
   page,
+  /const\s+resolveQaRegulationDraftVersionNoForSave\s*=\s*\(\s*\)[\s\S]*selectedQaRegulationVersionOption\.value\?\.lifecycleStatus\s*!==\s*'PUBLISHED'[\s\S]*return\s+qaRegulationDraft\.versionNo[\s\S]*return\s+incrementQaRegulationVersionNo\(qaRegulationDraft\.versionNo\)/,
+  'Saving a selected published QA version must create a new draft version number instead of mutating the immutable version.'
+)
+assert.match(
+  page,
+  /versionNo:\s*resolveRequiredText\(resolveQaRegulationDraftVersionNoForSave\(\),\s*'规程版本'\)/,
+  'QA regulation save payload must use the resolved draft version number.'
+)
+assert.match(
+  page,
   /qaRegulationVersionOptionsLoadError\.value\s*=\s*'QA 规程版本列表加载失败：'/,
   'Version-list failures must be visible and must not silently fall back.'
 )

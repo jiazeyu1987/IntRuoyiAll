@@ -250,7 +250,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .thenReturn(List.of(qaProcess()));
         lenient().when(inspectionRegulationProcessMapper.selectListByVersionId(9902L))
                 .thenReturn(List.of(qaProcess()));
-        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any()))
+        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());

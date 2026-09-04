@@ -333,7 +333,7 @@ public class MesProcessPoolProductionReportCorrectionService {
                         .filter(item -> item != null
                                 && item.getDeviceId() != null && item.getDeviceId() > 0
                                 && StrUtil.isNotBlank(item.getParameterCode())
-                                && item.getValue() != null)
+                                && (item.getValue() != null || StrUtil.isNotBlank(item.getTextValue())))
                         .collect(Collectors.toMap(
                         item -> parameterKey(item.getDeviceId(), item.getParameterCode()),
                         item -> item,
@@ -358,27 +358,45 @@ public class MesProcessPoolProductionReportCorrectionService {
             if (change == null) {
                 continue;
             }
-            BigDecimal before = decimalOrNull(reading.get("value"));
-            if (before != null && before.compareTo(change.getValue()) == 0) {
-                continue;
+            if (StrUtil.isNotBlank(change.getTextValue())) {
+                String before = StrUtil.blankToDefault(text(reading, "textValue"), text(reading, "value"));
+                String after = change.getTextValue().trim();
+                if (Objects.equals(before, after)) {
+                    continue;
+                }
+                reading.put("textValue", after);
+                reading.put("value", after);
+                reading.put("parameterStatus", "NORMAL");
+                updateParameterCopies(payload, fieldValues, reading, parameterCode, after);
+                String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
+                String unit = text(reading, "unit");
+                String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
+                changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
+                        before, after, false, null,
+                        MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
+            } else {
+                BigDecimal before = decimalOrNull(reading.get("value"));
+                if (before != null && before.compareTo(change.getValue()) == 0) {
+                    continue;
+                }
+                reading.put("value", change.getValue());
+                reading.put("parameterStatus", resolveParameterStatus(
+                        change.getValue(), decimalOrNull(reading.get("lowerLimit")),
+                        decimalOrNull(reading.get("upperLimit"))));
+                updateParameterCopies(payload, fieldValues, reading, parameterCode, change.getValue());
+                String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
+                String unit = text(reading, "unit");
+                String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
+                changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
+                        before, change.getValue(), false, null,
+                        MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
             }
-            reading.put("value", change.getValue());
-            reading.put("parameterStatus", resolveParameterStatus(
-                    change.getValue(), decimalOrNull(reading.get("lowerLimit")),
-                    decimalOrNull(reading.get("upperLimit"))));
-            updateParameterCopies(payload, fieldValues, reading, parameterCode, change.getValue());
-            String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
-            String unit = text(reading, "unit");
-            String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
-            changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
-                    before, change.getValue(), false, null,
-                    MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
         }
         payload.set("deviceParameterReadings", updated);
     }
 
     private void updateParameterCopies(ObjectNode payload, ObjectNode fieldValues, ObjectNode reading,
-                                       String parameterCode, BigDecimal value) {
+                                       String parameterCode, Object value) {
         String deviceName = text(reading, "deviceName");
         if (StrUtil.isBlank(deviceName)) {
             return;
@@ -387,16 +405,24 @@ public class MesProcessPoolProductionReportCorrectionService {
         if (equipmentParameters != null) {
             ObjectNode deviceParameters = objectChildWhenMissing(equipmentParameters, deviceName);
             if (deviceParameters != null) {
-                deviceParameters.put(parameterCode, value);
+                putParameterCopyValue(deviceParameters, parameterCode, value);
             }
         }
         ObjectNode fieldDeviceParameters = objectChildWhenMissing(fieldValues, "DEVICE_PARAMETERS");
         if (fieldDeviceParameters != null) {
             ObjectNode fieldDevice = objectChildWhenMissing(fieldDeviceParameters, deviceName);
             if (fieldDevice != null) {
-                fieldDevice.put(parameterCode, value);
+                putParameterCopyValue(fieldDevice, parameterCode, value);
             }
         }
+    }
+
+    private void putParameterCopyValue(ObjectNode target, String parameterCode, Object value) {
+        if (value instanceof BigDecimal number) {
+            target.put(parameterCode, number);
+            return;
+        }
+        target.put(parameterCode, String.valueOf(value));
     }
 
     private ObjectNode objectChildWhenMissing(ObjectNode parent, String fieldName) {
