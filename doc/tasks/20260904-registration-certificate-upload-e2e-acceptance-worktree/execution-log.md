@@ -20,7 +20,7 @@
 | E2E-6 | BLOCKED | 自行生产上传已提交，但审批未完成；委托生产组未执行。 | 生产方式入库展示依赖审批后详情。 |
 | E2E-7 | BLOCKED | 依赖 E2E-3/E2E-4。 | 注册经理无法登录，无法在详情中直接下载。 |
 | E2E-8 | BLOCKED | 依赖 E2E-4；且普通用户 C 没有可确认的可登录账号。 | 验收文档要求普通用户能看详情且无直下载权限，当前上下文不能通过前端确认候选。 |
-| E2E-9 | BLOCKED | 依赖 E2E-8，且需要超过 24 小时授权状态。 | 未完成首次授权；不能直接改库/API 推进时间。 |
+| E2E-9 | BLOCKED | 依赖 E2E-8，且需要超过 3 天授权状态。 | 未完成首次授权；不能直接改库/API 推进时间。 |
 
 ## Additional Test Asset Finding
 
@@ -76,7 +76,7 @@
 | E2E-6 | BLOCKED | Depends on E2E-3/E2E-4 for both self-production and entrusted-production detail checks. | Production mode persistence cannot be verified until approval入库 succeeds. |
 | E2E-7 | BLOCKED | Depends on E2E-4 approved certificate detail. | Manager direct download cannot be verified without an approved current certificate. |
 | E2E-8 | BLOCKED | Depends on E2E-4 and a confirmed ordinary user C. | Download authorization flow cannot start without an approved certificate and ordinary user candidate evidence. |
-| E2E-9 | BLOCKED | Depends on E2E-8 and an over-24-hour authorized state. | Expiration behavior cannot be validated before first authorization exists; no API/DB time manipulation was used. |
+| E2E-9 | BLOCKED | Depends on E2E-8 and an over-3-day authorized state. | Expiration behavior cannot be validated before first authorization exists; no API/DB time manipulation was used. |
 
 ## 2026-09-04 Fix loop: registration manager cannot see upload approval todo
 
@@ -136,8 +136,8 @@
   - E2E-6 production-mode display: PASS for both self-production `E2E-UPLOAD-20260904084729-SELF` and entrusted-production `E2E-UPLOAD-20260904084729-ENTR`.
   - E2E-7 manager direct download: PASS; natural frontend download request returned HTTP 200.
   - E2E-1/E2E-2/E2E-3/E2E-4 entrusted-production chain: PASS, `E2E-UPLOAD-20260904084729-ENTR`.
-  - E2E-8 ordinary-user download application and 24-hour download: BLOCKED; no confirmed ordinary user C credentials available through frontend-only constraints.
-  - E2E-9 post-24-hour reapplication: BLOCKED; depends on E2E-8 and a natural or product-approved time advancement path.
+  - E2E-8 ordinary-user download application and 3-day download: BLOCKED; no confirmed ordinary user C credentials available through frontend-only constraints.
+  - E2E-9 post-3-day reapplication: BLOCKED; depends on E2E-8 and a natural or product-approved time advancement path.
 - Log observation: latest backend log no longer contains `User has no enabled company scope` or `未配置注册证提醒任务` for the final path. It still logs `BpmTaskServiceImpl.processTaskAssigned ... 没有找到流程实例` after approval completion; this did not block E2E and should be tracked separately if BPM assignment event cleanup is in scope.
 
 ## 2026-09-04 Final rerun after table/action locator hardening
@@ -156,5 +156,14 @@
   - E2E-6 production-mode display: PASS for both self-production `E2E-UPLOAD-20260904101823-SELF` and entrusted-production `E2E-UPLOAD-20260904101823-ENTR`.
   - E2E-7 manager direct download: PASS; natural frontend download request returned HTTP 200.
   - E2E-1/E2E-2/E2E-3/E2E-4 entrusted-production chain: PASS, `E2E-UPLOAD-20260904101823-ENTR`.
-  - E2E-8 ordinary-user download application and 24-hour download: BLOCKED; no confirmed ordinary user C credentials available through frontend-only constraints.
-  - E2E-9 post-24-hour reapplication: BLOCKED; depends on E2E-8 and a natural or product-approved time advancement path.
+  - E2E-8 ordinary-user download application and 3-day download: BLOCKED; no confirmed ordinary user C credentials available through frontend-only constraints.
+  - E2E-9 post-3-day reapplication: BLOCKED; depends on E2E-8 and a natural or product-approved time advancement path.
+
+## 2026-09-04 Merge to int_main
+
+- Source worktree commit: `4329a4b39` (`codex/20260904-dcc-upload-related-files-e2e-worktree`).
+- Main-workspace baseline commit before merge: `8f1fcad5f`, preserving pre-existing dirty `int_main` changes.
+- int_main merge commit: `1f2c9cd79` (`修复注册证上传前端E2E阻断`).
+- Follow-up documentation correction: registration upload acceptance keeps the user-confirmed 3-day download authorization wording.
+- Post-merge targeted regression on `E:\IntRuoyi`: `mvn.cmd -pl yudao-module-dcc '-Dtest=DccRegistrationCertificateBusinessEventNotificationConfigServiceTest,DccRegistrationCertificateBusinessEventNotificationTest,DccRegistrationCertificateUploadServiceTest#listOwnerCompaniesReturnsTenantOwnedCandidatesWithoutCompanyScope,DccRegistrationCertificateQueryServiceTest#pageListsTenantCurrentCertificatesWithoutCompanyScopeAndAuditsReturnedObjects' test` -> PASS, 12 tests.
+- Remaining worktree closeout blocker: E2E-8/E2E-9 still require an ordinary user C credential and natural/product-approved 3-day time advancement path; worktree cleanup is intentionally not run while task status remains blocked.
