@@ -1225,7 +1225,9 @@
             v-if="isSubmissionColumnVisible('operation')"
             label="操作"
             prop="operation"
-            :width="getSubmissionColumnWidthString('operation')"
+            :width="
+              activeLeaderTab === 'PRODUCTION' ? '190' : getSubmissionColumnWidthString('operation')
+            "
             :align="showProductionReportModule ? 'center' : undefined"
             :header-align="showProductionReportModule ? 'center' : undefined"
             fixed="right"
@@ -4753,7 +4755,7 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'process', label: '工序', minWidth: 150 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'reportAllocations', label: '分配订单', minWidth: 240 },
-  { key: 'operation', label: '操作', width: 135, hideable: false, business: false }
+  { key: 'operation', label: '操作', width: 190, hideable: false, business: false }
 ]
 const productionReportHistoryDefaultColumns: UserTableColumnDefinition[] = [
   ...productionSubmissionDefaultColumns.filter((column) => column.key !== 'operation'),

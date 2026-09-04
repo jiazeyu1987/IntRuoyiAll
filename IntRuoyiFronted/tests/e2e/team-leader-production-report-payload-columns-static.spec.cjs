@@ -32,6 +32,7 @@ const submissionColumnConfigBlock = page.slice(
 assert.doesNotMatch(productionDefaultColumns, /key:\s*'workOrderCode'/, 'production report default columns must not expose the deprecated workOrderCode column key')
 assert.doesNotMatch(productionDefaultColumns, /key:\s*'pqcResult'|label:\s*'PQC'/, 'production report default columns must remove the red-box PQC column')
 assert.doesNotMatch(productionDefaultColumns, /key:\s*'submissionContent'|label:\s*'提交内容'/, 'production report default columns must remove the red-box 提交内容 column')
+assert.match(productionDefaultColumns, /key:\s*'operation'[\s\S]*width:\s*190/, 'production operation panel must keep a fixed 190px width')
 for (const pqcOnlyColumn of [
   'product',
   'inspectionTask',
@@ -82,6 +83,7 @@ assert.match(
 )
 
 assert.match(page, /type="expand"[\s\S]*data-team-leader-submission-expand-detail/, 'production report table needs an expanded row for complete multi-material and multi-device facts')
+assert.match(page, /activeLeaderTab === 'PRODUCTION'\s*\?\s*'190'\s*:\s*getSubmissionColumnWidthString\('operation'\)/, 'production operation column must ignore stale user widths and stay fixed at 190px')
 assert.match(page, /activeLeaderTab !== 'PRODUCTION'[\s\S]*isSubmissionColumnVisible\('completionQuantity'\)/, 'completion quantity column must be kept out of production leader main rows')
 assert.match(page, /activeLeaderTab !== 'PRODUCTION'[\s\S]*isSubmissionColumnVisible\('lossQuantity'\)/, 'loss quantity column must be kept out of production leader main rows')
 assert.doesNotMatch(page, /isProductionLeader && isSubmissionColumnVisible\('submissionMaterialSummary'\)/, 'production leader main row must not show duplicate material summary')
