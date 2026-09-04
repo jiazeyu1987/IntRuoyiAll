@@ -1011,7 +1011,7 @@ const openBinding = async (row: DccProductCatalogRespVO) => {
   bindingVisible.value = true
   bindingLoading.value = true
   try {
-    const page = await getProjectCodePage({ pageNo: 1, pageSize: 500, status: 'ENABLE' })
+    const page = await getProjectCodePage({ pageNo: 1, pageSize: 200, status: 'ENABLE' })
     bindingProjectCodeOptions.value = page.list
   } finally {
     bindingLoading.value = false
@@ -1024,7 +1024,7 @@ const handleBindingProjectCodeChange = async (projectCodeId: number | string) =>
   if (!projectCodeId) return
   bindingCertificateLoading.value = true
   try {
-    const page = await getRegistrationCertificatePage({ pageNo: 1, pageSize: 500, projectCodeId, status: 'CURRENT' })
+    const page = await getRegistrationCertificatePage({ pageNo: 1, pageSize: 200, projectCodeId, status: 'CURRENT' })
     bindingCertificateOptions.value = page.list
   } finally {
     bindingCertificateLoading.value = false
