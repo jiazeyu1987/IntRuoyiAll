@@ -31,3 +31,9 @@ None.
 ## Push Blocker
 - FAIL: git push origin int_main failed twice with TLS connect error `unexpected eof while reading`.
 - Impact: local implementation and closeout commits exist, but branch remains ahead of origin; task cannot be marked completed until push succeeds.
+
+## Runtime Restart Evidence
+- PASS: standard full restart script completed backend package with BUILD SUCCESS and dispatched int_main restart.
+- PASS: frontend http://127.0.0.1:8081/ returned HTTP 200.
+- PASS: backend http://127.0.0.1:48081/actuator/health returned UP.
+- Listener PIDs after restart: 8081 -> 66440, 48081 -> 70108.

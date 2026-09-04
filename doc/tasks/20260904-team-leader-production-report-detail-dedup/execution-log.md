@@ -16,3 +16,7 @@ CLOSEOUT: cleanup preview -> PASS, deleted only frontend-feature-evidence.md.
 CLOSEOUT: cleanup apply -> PASS, kept task.md, execution-log.md, verification-report.md.
 COMMIT: d97ce10cc feat: 优化生产报工多物料设备展示 -> implementation and verification records committed.
 BLOCKED: git push origin int_main -> FAIL twice, TLS connect error unexpected eof while reading. Branch remains ahead of origin; project rule forbids completed status until push succeeds.
+RESTART: IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1 -Component full -> BUILD SUCCESS and restart dispatched for int_main frontend=8081 backend=48081.
+GREEN: Invoke-WebRequest http://127.0.0.1:8081/ -> HTTP 200.
+GREEN: Invoke-RestMethod http://127.0.0.1:48081/actuator/health -> UP.
+LISTEN: 8081 PID 66440; 48081 PID 70108.
