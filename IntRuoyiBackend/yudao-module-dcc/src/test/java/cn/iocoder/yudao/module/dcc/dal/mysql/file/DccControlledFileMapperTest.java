@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 
@@ -380,6 +381,34 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
 
         assertEquals(List.of(9912L), candidates.stream().map(DccControlledFileDO::getId).toList());
         assertEquals(2L, controlledFileMapper.countUnownedSourceReferences(0L));
+    }
+
+    @Test
+    void effectiveSourceReferenceQueries_excludeDeletedAndOutOfSnapshotRows() {
+        insertSourceReference(9921L, 9720L, 0);
+        insertSourceReference(9922L, 9720L, 0);
+        insertSourceReference(9923L, 9720L, 1);
+        insertSourceReference(9924L, 9720L, 0);
+        executeUpdate("UPDATE dcc_controlled_file SET tenant_id = ? WHERE id = ?", 120L, 9921L);
+        executeUpdate("UPDATE dcc_controlled_file SET tenant_id = ? WHERE id = ?", 121L, 9922L);
+        executeUpdate("UPDATE dcc_controlled_file SET tenant_id = ? WHERE id = ?", 122L, 9923L);
+        executeUpdate("UPDATE dcc_controlled_file SET tenant_id = ? WHERE id = ?", 123L, 9924L);
+
+        List<DccControlledFileDO> unowned = controlledFileMapper
+                .selectEffectiveUnownedSourceReferences(120L, 9924L, 10);
+        assertEquals(List.of(9921L), unowned.stream().map(DccControlledFileDO::getId).toList());
+
+        TenantContextHolder.setTenantId(120L);
+        List<DccControlledFileMapper.GlobalSourceReference> global;
+        try {
+            global = controlledFileMapper.selectGlobalEffectiveSourceReferences(9720L, 9923L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+        assertEquals(List.of(9921L, 9922L), global.stream()
+                .map(DccControlledFileMapper.GlobalSourceReference::getControlledFileId).toList());
+        assertEquals(List.of(120L, 121L), global.stream()
+                .map(DccControlledFileMapper.GlobalSourceReference::getTenantId).toList());
     }
 
     private DccControlledFileDO insertControlledFile(Long masterId, String title, String fileName, String fileNumber) {

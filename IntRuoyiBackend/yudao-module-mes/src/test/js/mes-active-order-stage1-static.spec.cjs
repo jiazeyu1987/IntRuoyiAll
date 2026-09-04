@@ -143,5 +143,11 @@ assert.doesNotMatch(workbench, /生产和检验进度均为100%/,
   'Stage1 success message must not hardcode 100%; it must display persisted response progress');
 assert.match(workbench, /formatActiveOrderProgressPercent\(result\.productionProgressPercent\)[\s\S]*formatActiveOrderProgressPercent\(result\.inspectionProgressPercent\)/,
   'Stage1 success message must display the recomputed persisted progress values');
+assert.match(workbench, /activeOrderDetailActiveOrderId\.value\s*=\s*requirePositiveNumber\(\s*result\.activeOrderId[\s\S]*activeOrderDetailVisible\.value\s*=\s*true[\s\S]*await loadActiveOrderSubmissionDetail\(activeOrderDetailActiveOrderId\.value\)/,
+  'Stage1 completion must open the generated active order detail so PQC submissions are read from the order that Stage1 actually submitted');
+assert.match(workbench, /Stage1模拟详情[\s\S]*activeOrderDetailStage1SourceWorkOrderCode[\s\S]*→[\s\S]*activeOrderSubmissionDetail\.workOrderCode/,
+  'Stage1 generated detail dialog title must visibly show source to generated order mapping');
+assert.match(workbench, /activeOrderDetailStage1SourceWorkOrderCode\.value\s*=\s*row\.workOrderCode\s*\|\|\s*''/,
+  'Stage1 generated detail dialog must visibly show the clicked source order and the generated test order');
 
 console.log('mes-active-order-stage1-static: PASS');

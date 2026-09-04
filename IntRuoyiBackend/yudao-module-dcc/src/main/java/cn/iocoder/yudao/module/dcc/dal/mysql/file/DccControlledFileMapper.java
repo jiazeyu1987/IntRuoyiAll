@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePag
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.apache.ibatis.annotations.Mapper;
@@ -260,6 +261,47 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                                                             @Param("limit") int limit);
 
     @Select("""
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            LEFT JOIN dcc_controlled_file_source_migration source_migration
+              ON source_migration.tenant_id = controlled_file.tenant_id
+             AND source_migration.controlled_file_id = controlled_file.id
+             AND source_migration.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.id <= #{snapshotMaxControlledFileId}
+              AND controlled_file.deleted = 0
+              AND controlled_file.source_file_id IS NOT NULL
+              AND source_owner.id IS NULL
+            ORDER BY CASE WHEN source_migration.migration_status = 'FAILED' THEN 1 ELSE 0 END,
+                     controlled_file.source_file_id,
+                     controlled_file.id
+            LIMIT #{limit}
+            """)
+    List<DccControlledFileDO> selectEffectiveUnownedSourceReferences(
+            @Param("tenantId") Long tenantId,
+            @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId,
+            @Param("limit") int limit);
+
+    @TenantIgnore
+    @Select("""
+            SELECT id AS controlled_file_id,
+                   tenant_id,
+                   source_file_id
+            FROM dcc_controlled_file
+            WHERE source_file_id = #{sourceFileId}
+              AND id <= #{snapshotMaxControlledFileId}
+              AND deleted = 0
+            ORDER BY tenant_id, id
+            """)
+    List<GlobalSourceReference> selectGlobalEffectiveSourceReferences(
+            @Param("sourceFileId") Long sourceFileId,
+            @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId);
+
+    @Select("""
             SELECT *
             FROM dcc_controlled_file
             WHERE tenant_id = #{tenantId}
@@ -423,6 +465,36 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
         public void setFileCount(Long fileCount) {
             this.fileCount = fileCount;
+        }
+    }
+
+    class GlobalSourceReference {
+        private Long controlledFileId;
+        private Long tenantId;
+        private Long sourceFileId;
+
+        public Long getControlledFileId() {
+            return controlledFileId;
+        }
+
+        public void setControlledFileId(Long controlledFileId) {
+            this.controlledFileId = controlledFileId;
+        }
+
+        public Long getTenantId() {
+            return tenantId;
+        }
+
+        public void setTenantId(Long tenantId) {
+            this.tenantId = tenantId;
+        }
+
+        public Long getSourceFileId() {
+            return sourceFileId;
+        }
+
+        public void setSourceFileId(Long sourceFileId) {
+            this.sourceFileId = sourceFileId;
         }
     }
 

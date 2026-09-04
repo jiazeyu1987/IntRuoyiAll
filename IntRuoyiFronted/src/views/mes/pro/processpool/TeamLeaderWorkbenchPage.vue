@@ -1929,7 +1929,9 @@
       data-team-leader-active-order-detail-dialog
       :title="
         activeOrderSubmissionDetail
-          ? `订单 ${activeOrderSubmissionDetail.workOrderCode} · 工序提交详情`
+          ? activeOrderDetailStage1SourceWorkOrderCode
+            ? `Stage1模拟详情：${activeOrderDetailStage1SourceWorkOrderCode} → ${activeOrderSubmissionDetail.workOrderCode}`
+            : `订单 ${activeOrderSubmissionDetail.workOrderCode} · 工序提交详情`
           : '工序提交详情'
       "
       width="min(1080px, calc(100vw - 32px))"
@@ -1950,6 +1952,15 @@
           </template>
         </el-alert>
         <template v-else-if="activeOrderSubmissionDetail">
+          <el-alert
+            v-if="activeOrderDetailStage1SourceWorkOrderCode"
+            class="mb-12px"
+            type="info"
+            :closable="false"
+            show-icon
+            data-team-leader-stage1-generated-detail-source
+            :title="`你点击的是来源订单 ${activeOrderDetailStage1SourceWorkOrderCode}；当前展示的是 Stage1 新生成测试订单 ${activeOrderSubmissionDetail.workOrderCode} 的模拟提交结果。`"
+          />
           <div class="team-leader-workbench__active-order-detail-summary">
             <div>
               <span>生产订单</span>
@@ -4571,6 +4582,7 @@ const activeOrderSubmissionDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderDetailLoading = ref(false)
 const activeOrderDetailError = ref('')
 const activeOrderDetailActiveOrderId = ref<number>()
+const activeOrderDetailStage1SourceWorkOrderCode = ref('')
 const activeOrderDetailActiveTab = ref('')
 const activeOrderDetailInnerTabs = ref<Record<string, 'production' | 'pqc'>>({})
 const activeOrderConflictSelectedOrder = ref<TeamLeaderActiveOrderRespVO>()
@@ -5932,6 +5944,7 @@ const loadActiveOrderSubmissionDetail = async (activeOrderId: number) => {
 
 const openActiveOrderSubmissionDetail = async (row: TeamLeaderActiveOrderRespVO) => {
   const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  activeOrderDetailStage1SourceWorkOrderCode.value = ''
   activeOrderDetailActiveOrderId.value = activeOrderId
   activeOrderDetailVisible.value = true
   await loadActiveOrderSubmissionDetail(activeOrderId)
@@ -9849,7 +9862,14 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.success(
       `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
+    activeOrderDetailStage1SourceWorkOrderCode.value = row.workOrderCode || ''
+    activeOrderDetailActiveOrderId.value = requirePositiveNumber(
+      result.activeOrderId,
+      'Stage1 新活跃订单ID不能为空'
+    )
+    activeOrderDetailVisible.value = true
     await loadActiveOrders()
+    await loadActiveOrderSubmissionDetail(activeOrderDetailActiveOrderId.value)
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(
