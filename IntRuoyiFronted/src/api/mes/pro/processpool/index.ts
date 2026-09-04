@@ -58,8 +58,10 @@ export interface ProcessPoolTimelineDeviceParameterReadingVO {
   parameterName?: string
   unit?: string
   value?: number | string | boolean
+  textValue?: string
   valueType?: string
   optionValues?: string[]
+  displayConfig?: Record<string, unknown>
   lowerLimit?: number | string
   upperLimit?: number | string
   parameterStatus?: 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'

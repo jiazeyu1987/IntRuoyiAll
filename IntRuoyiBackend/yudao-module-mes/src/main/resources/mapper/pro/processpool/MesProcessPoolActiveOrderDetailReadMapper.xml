@@ -16,8 +16,12 @@
                process_snapshot.planned_quantity_snapshot AS requiredQuantity,
                allocation.event_id AS eventId,
                allocation.allocated_quantity AS submittedQuantity,
-               COALESCE(submitter.nickname, submitter_profile.display_name) AS submitterName,
-               reviewer.nickname AS reviewerName,
+               COALESCE(NULLIF(submitter.nickname, ''), NULLIF(submitter_profile.display_name, ''),
+                        NULLIF(submitter_profile.employee_name, ''), NULLIF(submitter.username, '')) AS submitterName,
+               COALESCE(NULLIF(reviewer.nickname, ''), NULLIF(reviewer_profile_by_user.display_name, ''),
+                        NULLIF(reviewer_profile_by_user.employee_name, ''),
+                        NULLIF(reviewer_profile_by_id.display_name, ''),
+                        NULLIF(reviewer_profile_by_id.employee_name, ''), NULLIF(reviewer.username, '')) AS reviewerName,
                pool_event.server_submit_time AS submittedAt
         FROM mes_pro_process_pool_active_order_process_snapshot process_snapshot
         INNER JOIN mes_pro_process_pool_active_order active_order
@@ -75,6 +79,29 @@
           ON reviewer.id = latest_review.leader_user_id
          AND reviewer.tenant_id = pool_event.tenant_id
          AND reviewer.deleted = 0
+        LEFT JOIN (
+            SELECT tenant_id, system_user_id, display_name, employee_name
+            FROM (
+                SELECT profile.tenant_id,
+                       profile.system_user_id,
+                       profile.display_name,
+                       profile.employee_name,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY profile.tenant_id, profile.system_user_id
+                           ORDER BY profile.enabled DESC, profile.id DESC
+                       ) AS profile_rank
+                FROM mes_pro_process_pool_team_employee_profile profile
+                WHERE profile.deleted = 0
+                  AND profile.system_user_id IS NOT NULL
+            ) ranked_profile
+            WHERE profile_rank = 1
+        ) reviewer_profile_by_user
+          ON reviewer_profile_by_user.system_user_id = latest_review.leader_user_id
+         AND reviewer_profile_by_user.tenant_id = pool_event.tenant_id
+        LEFT JOIN mes_pro_process_pool_team_employee_profile reviewer_profile_by_id
+          ON reviewer_profile_by_id.id = latest_review.leader_user_id
+         AND reviewer_profile_by_id.tenant_id = pool_event.tenant_id
+         AND reviewer_profile_by_id.deleted = 0
         WHERE process_snapshot.active_order_id = #{activeOrderId}
           AND process_snapshot.deleted = 0
         ORDER BY process_snapshot.id ASC, pool_event.server_submit_time ASC, allocation.id ASC

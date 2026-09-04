@@ -83,6 +83,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -106,6 +107,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private static final String PLACEHOLDER_MATERIAL_CODE = "/";
     private static final String PQC_SOURCE = "MES_PQC_INSPECTION_TASK";
     private static final String PRODUCTION_SOURCE = "MES_PRO_FEEDBACK";
+    private static final BigDecimal PERCENT_DIVISOR = BigDecimal.valueOf(100);
+    private static final int PROGRESS_PERCENT_SCALE = 6;
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
@@ -259,9 +262,14 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         verifyPersistedSimulationFacts(fixture, validated.getSimulationRunId());
         assertFormalOrderProcessCompletionFacts(fixture, validated.getSimulationRunId());
         assertNoDownstreamSideEffects(fixture);
+        Stage1Progress persistedProgress = calculateStage1PersistedProgress(fixture);
+        if (!persistedProgress.complete()) {
+            throw new IllegalStateException("STAGE1_PERSISTED_PROGRESS_NOT_100");
+        }
         String cleanedRunId = cleanupOwnedRuns(validated.getActorUserId(), validated.getSimulationRunId());
         List<MesProcessPoolActiveOrderPickListBindingDO> fixtureBindings = requireBindings(fixture);
-        Map<String, Object> snapshot = buildSnapshot(fixture, templateBindings, fixtureBindings, validated, simulation);
+        Map<String, Object> snapshot = buildSnapshot(fixture, templateBindings, fixtureBindings, validated, simulation,
+                persistedProgress);
         return new MesStage1ActiveOrderCompleteSimulationResult()
                 .setSimulationRunId(validated.getSimulationRunId())
                 .setCleanedSimulationRunId(cleanedRunId)
@@ -274,8 +282,10 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .setProductionReviewCount(simulation.getProductionReviewCount())
                 .setPqcSubmitCount(simulation.getPqcSubmitCount())
                 .setPqcReviewCount(simulation.getPqcReviewCount())
-                .setProductionProgress100(true)
-                .setInspectionProgress100(true)
+                .setProductionProgressPercent(persistedProgress.productionProgressPercent())
+                .setInspectionProgressPercent(persistedProgress.inspectionProgressPercent())
+                .setProductionProgress100(persistedProgress.productionProgress100())
+                .setInspectionProgress100(persistedProgress.inspectionProgress100())
                 .setCompletionButtonEnabled(true)
                 .setActiveOrderCompleteSnapshot(snapshot);
     }
@@ -673,7 +683,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                                               List<MesProcessPoolActiveOrderPickListBindingDO> templateBindings,
                                               List<MesProcessPoolActiveOrderPickListBindingDO> bindings,
                                               MesStage1ActiveOrderCompleteSimulationCommand command,
-                                              MesTeamLeaderActiveOrderSimulationResult simulation) {
+                                              MesTeamLeaderActiveOrderSimulationResult simulation,
+                                              Stage1Progress persistedProgress) {
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder.getWorkOrderId());
         List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshots = snapshotMapper
                 .selectListByActiveOrderIdForUpdate(activeOrder.getId());
@@ -713,14 +724,69 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 "reviewCount", simulation.getPqcReviewCount(),
                 "pieceData", true,
                 "source", "formal frontline PQC submit + PQC leader review"));
-        snapshot.put("progress", Map.of("productionPercent", 100, "inspectionPercent", 100,
-                "completionButtonEnabled", true));
+        snapshot.put("progress", Map.of(
+                "productionPercent", persistedProgress.productionProgressPercent(),
+                "inspectionPercent", persistedProgress.inspectionProgressPercent(),
+                "completionButtonEnabled", persistedProgress.complete()));
         snapshot.put("downstreamSideEffects", Map.of(
                 "completion", false, "backfill", false, "batchExecution", false,
                 "fileUpload", false, "release", false));
         snapshot.put("stage2InputContract", "activeOrderCompleteSnapshot.v2");
         snapshot.put("independentFixture", true);
         return snapshot;
+    }
+
+    private Stage1Progress calculateStage1PersistedProgress(MesProcessPoolActiveOrderDO activeOrder) {
+        List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshots = snapshotMapper
+                .selectListByActiveOrderIdForUpdate(activeOrder.getId());
+        if (processSnapshots == null || processSnapshots.isEmpty()) {
+            throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_REQUIRED");
+        }
+        Map<String, BigDecimal> targetQuantityByProcess = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : processSnapshots) {
+            if (!Objects.equals(activeOrder.getWorkOrderId(), snapshot.getWorkOrderId())
+                    || !Objects.equals(activeOrder.getRouteId(), snapshot.getRouteId())
+                    || !Objects.equals(activeOrder.getRouteVersionId(), snapshot.getRouteVersionId())
+                    || snapshot.getRouteProcessId() == null || snapshot.getProcessId() == null
+                    || snapshot.getPlannedQuantitySnapshot() == null
+                    || snapshot.getPlannedQuantitySnapshot().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_INVALID");
+            }
+            String key = processKey(snapshot.getRouteProcessId(), snapshot.getProcessId());
+            if (targetQuantityByProcess.put(key, snapshot.getPlannedQuantitySnapshot()) != null) {
+                throw new IllegalStateException("STAGE1_PROCESS_SNAPSHOT_INVALID");
+            }
+        }
+        Map<String, BigDecimal> allocatedQuantityByProcess = new LinkedHashMap<>();
+        for (MesProcessPoolReportAllocationDO allocation : allocationMapper
+                .selectListByActiveOrderIds(List.of(activeOrder.getId()))) {
+            if (allocation.getRouteProcessId() == null || allocation.getProcessId() == null
+                    || allocation.getAllocatedQuantity() == null) {
+                throw new IllegalStateException("STAGE1_PRODUCTION_PROGRESS_FACT_INVALID");
+            }
+            String key = processKey(allocation.getRouteProcessId(), allocation.getProcessId());
+            if (!targetQuantityByProcess.containsKey(key)) {
+                throw new IllegalStateException("STAGE1_PRODUCTION_PROGRESS_FACT_INVALID");
+            }
+            allocatedQuantityByProcess.merge(key, allocation.getAllocatedQuantity(), BigDecimal::add);
+        }
+        long completedProductionProcessCount = targetQuantityByProcess.entrySet().stream()
+                .filter(entry -> allocatedQuantityByProcess.getOrDefault(entry.getKey(), BigDecimal.ZERO)
+                        .compareTo(entry.getValue()) >= 0)
+                .count();
+        List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderId(activeOrder.getId());
+        BigDecimal inspectionProgressPercent;
+        if (tasks == null || tasks.isEmpty()) {
+            inspectionProgressPercent = zeroProgressPercent();
+        } else {
+            long confirmedTaskCount = tasks.stream()
+                    .filter(task -> MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))
+                    .count();
+            inspectionProgressPercent = toProgressPercent(confirmedTaskCount, tasks.size());
+        }
+        return new Stage1Progress(
+                toProgressPercent(completedProductionProcessCount, targetQuantityByProcess.size()),
+                inspectionProgressPercent);
     }
 
     private void requireTemplate(MesProcessPoolActiveOrderDO activeOrder, Long actorUserId) {
@@ -1274,6 +1340,19 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         return routeProcessId + "|" + processId;
     }
 
+    private BigDecimal toProgressPercent(long completedProcessCount, int totalProcessCount) {
+        if (totalProcessCount <= 0) {
+            throw new IllegalStateException("STAGE1_PROGRESS_TARGET_REQUIRED");
+        }
+        return BigDecimal.valueOf(completedProcessCount)
+                .multiply(PERCENT_DIVISOR)
+                .divide(BigDecimal.valueOf(totalProcessCount), PROGRESS_PERCENT_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal zeroProgressPercent() {
+        return BigDecimal.ZERO.setScale(PROGRESS_PERCENT_SCALE, RoundingMode.UNNECESSARY);
+    }
+
     private String hash(Object value) {
         return DigestUtil.sha256Hex(JsonUtils.toJsonString(value));
     }
@@ -1288,5 +1367,22 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
 
     private boolean zero(BigDecimal value) {
         return value != null && value.signum() == 0;
+    }
+
+    private record Stage1Progress(BigDecimal productionProgressPercent, BigDecimal inspectionProgressPercent) {
+
+        private boolean productionProgress100() {
+            return productionProgressPercent != null
+                    && productionProgressPercent.compareTo(PERCENT_DIVISOR) == 0;
+        }
+
+        private boolean inspectionProgress100() {
+            return inspectionProgressPercent != null
+                    && inspectionProgressPercent.compareTo(PERCENT_DIVISOR) == 0;
+        }
+
+        private boolean complete() {
+            return productionProgress100() && inspectionProgress100();
+        }
     }
 }

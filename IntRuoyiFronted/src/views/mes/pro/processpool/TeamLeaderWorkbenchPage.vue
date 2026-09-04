@@ -646,44 +646,20 @@
                         class="team-leader-workbench__submission-detail-table"
                         data-team-leader-submission-material-device-row
                       >
-                        <el-table-column label="选用设备" prop="deviceText" min-width="180" />
-                        <el-table-column label="设备参数" min-width="360">
+                        <el-table-column label="设备名称" prop="deviceNameText" min-width="180" />
+                        <el-table-column label="设备编号" prop="deviceCodeText" min-width="160" />
+                        <el-table-column label="设备参数" prop="parameterText" min-width="520">
                           <template #default="{ row: device }">
-                            <div
-                              v-if="device.parameterItems.length"
-                              class="team-leader-workbench__parameter-list"
+                            <span
+                              class="team-leader-workbench__submission-device-parameter-inline"
+                              :class="{ 'is-out-of-range': device.hasAbnormalParameter }"
+                              :data-parameter-status="
+                                device.hasAbnormalParameter ? 'ABNORMAL' : 'NORMAL'
+                              "
                               data-team-leader-submission-device-parameter-detail
                             >
-                              <div
-                                v-for="item in device.parameterItems"
-                                :key="item.key"
-                                class="team-leader-workbench__parameter-item"
-                              >
-                                <span class="team-leader-workbench__parameter-label">
-                                  {{ item.label }}
-                                </span>
-                                <span
-                                  class="team-leader-workbench__parameter-value"
-                                  :class="{
-                                    'is-parameter-out-of-range': item.outOfRange,
-                                    'is-out-of-range': item.outOfRange
-                                  }"
-                                  :data-parameter-status="
-                                    item.parameterStatus ||
-                                    (item.outOfRange ? 'ABNORMAL' : 'NORMAL')
-                                  "
-                                >
-                                  {{ item.valueText }}
-                                </span>
-                                <span
-                                  v-if="item.metaText"
-                                  class="team-leader-workbench__parameter-meta"
-                                >
-                                  {{ item.metaText }}
-                                </span>
-                              </div>
-                            </div>
-                            <span v-else>无参数</span>
+                              {{ device.parameterText }}
+                            </span>
                           </template>
                         </el-table-column>
                       </el-table>
@@ -742,7 +718,7 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isSubmissionColumnVisible('completionQuantity')"
+            v-if="activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible('completionQuantity')"
             :label="completionQuantityColumnLabel"
             prop="completionQuantity"
             :width="getSubmissionColumnWidthString('completionQuantity')"
@@ -764,7 +740,7 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isSubmissionColumnVisible('lossQuantity')"
+            v-if="activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible('lossQuantity')"
             label="损耗数量"
             prop="lossQuantity"
             :width="getSubmissionColumnWidthString('lossQuantity')"
@@ -803,7 +779,11 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isProductionLeader && isSubmissionColumnVisible('reportUnallocatedQuantity')"
+            v-if="
+              activeLeaderTab !== 'PRODUCTION' &&
+              isProductionLeader &&
+              isSubmissionColumnVisible('reportUnallocatedQuantity')
+            "
             label="未分配数量"
             prop="reportUnallocatedQuantity"
             :width="getSubmissionColumnWidthString('reportUnallocatedQuantity')"
@@ -814,7 +794,11 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isProductionLeader && isSubmissionColumnVisible('submissionMaterialSummary')"
+            v-if="
+              activeLeaderTab !== 'PRODUCTION' &&
+              isProductionLeader &&
+              isSubmissionColumnVisible('submissionMaterialSummary')
+            "
             label="物料明细"
             prop="submissionMaterialSummary"
             :width="getSubmissionColumnWidthString('submissionMaterialSummary')"
@@ -836,7 +820,11 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isProductionLeader && isSubmissionColumnVisible('submissionDeviceSummary')"
+            v-if="
+              activeLeaderTab !== 'PRODUCTION' &&
+              isProductionLeader &&
+              isSubmissionColumnVisible('submissionDeviceSummary')
+            "
             label="选用设备"
             prop="submissionDeviceSummary"
             :width="getSubmissionColumnWidthString('submissionDeviceSummary')"
@@ -858,7 +846,11 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isProductionLeader && isSubmissionColumnVisible('submissionParameterSummary')"
+            v-if="
+              activeLeaderTab !== 'PRODUCTION' &&
+              isProductionLeader &&
+              isSubmissionColumnVisible('submissionParameterSummary')
+            "
             label="设备参数"
             prop="submissionParameterSummary"
             :width="getSubmissionColumnWidthString('submissionParameterSummary')"
@@ -4490,8 +4482,10 @@ interface ProductionReportCorrectionParameterRow {
   parameterName?: string
   unit?: string
   value?: number | string | boolean
+  textValue?: string
   valueType?: string
   optionValues?: string[]
+  displayConfig?: Record<string, unknown>
   lowerLimit?: number | string
   upperLimit?: number | string
   parameterStatus?: 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
@@ -4758,13 +4752,7 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'employeeUser', label: '员工', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
-  { key: 'completionQuantity', label: '完成数量', minWidth: 130 },
   { key: 'reportAllocations', label: '分配订单', minWidth: 240 },
-  { key: 'reportUnallocatedQuantity', label: '未分配数量', minWidth: 130 },
-  { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
-  { key: 'submissionMaterialSummary', label: '物料明细', minWidth: 180 },
-  { key: 'submissionDeviceSummary', label: '选用设备', minWidth: 180 },
-  { key: 'submissionParameterSummary', label: '设备参数', minWidth: 180 },
   { key: 'operation', label: '操作', width: 135, hideable: false, business: false }
 ]
 const productionReportHistoryDefaultColumns: UserTableColumnDefinition[] = [
@@ -5321,7 +5309,12 @@ const isCorrectionSelectParameter = (parameterRow: ProductionReportCorrectionPar
 const resolveCorrectionParameterOptions = (
   parameterRow: ProductionReportCorrectionParameterRow
 ) => {
-  const options = normalizeCorrectionOptionValues(parameterRow.optionValues)
+  const displayOptions = isRecord(parameterRow.displayConfig)
+    ? parameterRow.displayConfig.optionValues ?? parameterRow.displayConfig.options
+    : undefined
+  const options = normalizeCorrectionOptionValues(
+    parameterRow.optionValues?.length ? parameterRow.optionValues : displayOptions
+  )
   const currentValue = String(parameterRow.value ?? '').trim()
   if (currentValue && !options.includes(currentValue)) {
     return [...options, currentValue]
@@ -7523,8 +7516,10 @@ interface SubmissionMaterialDetailRow {
 
 interface SubmissionMaterialDeviceRow {
   key: string
-  deviceText: string
-  parameterItems: SubmissionStructuredItem[]
+  deviceNameText: string
+  deviceCodeText: string
+  parameterText: string
+  hasAbnormalParameter: boolean
 }
 
 interface ProductionParameterRuleSnapshot {
@@ -7621,6 +7616,129 @@ const normalizeProductionParameterStatus = (
   return value === 'BELOW_LOWER' || value === 'ABOVE_UPPER' ? value : 'NORMAL'
 }
 
+const toCorrectionParameterRow = (
+  reading: unknown
+): ProductionReportCorrectionParameterRow | undefined => {
+  if (!isRecord(reading)) {
+    return undefined
+  }
+  const deviceId = Number(reading.deviceId)
+  const parameterCode = String(reading.parameterCode ?? '').trim()
+  if (!Number.isFinite(deviceId) || deviceId <= 0 || !parameterCode) {
+    return undefined
+  }
+  const valueType = String(reading.valueType ?? '').trim() || undefined
+  return {
+    deviceId,
+    deviceCode: String(reading.deviceCode ?? '').trim() || undefined,
+    deviceName: String(reading.deviceName ?? '').trim() || undefined,
+    parameterCode,
+    parameterName: String(reading.parameterName ?? '').trim() || undefined,
+    unit: String(reading.unit ?? '').trim() || undefined,
+    value:
+      valueType === 'SELECT'
+        ? String(reading.textValue ?? reading.value ?? '').trim()
+        : optionalCorrectionNumber(reading.value),
+    textValue: String(reading.textValue ?? '').trim() || undefined,
+    valueType,
+    optionValues: normalizeCorrectionOptionValues(reading.optionValues ?? reading.optionValuesJson),
+    displayConfig: isRecord(reading.displayConfig) ? reading.displayConfig : undefined,
+    lowerLimit: reading.lowerLimit as number | string | undefined,
+    upperLimit: reading.upperLimit as number | string | undefined,
+    parameterStatus: normalizeProductionParameterStatus(reading.parameterStatus)
+  }
+}
+
+const resolveCorrectionParameterSnapshotKey = (
+  parameterRow: Pick<ProductionReportCorrectionParameterRow, 'deviceId' | 'parameterCode'>
+) => `${parameterRow.deviceId}:${parameterRow.parameterCode}`
+
+const buildCorrectionParameterSnapshotMap = (event: ProcessPoolTimelineEventVO) => {
+  const { rootPayload } = resolvePqcPayloadPair(event)
+  const snapshotRows = [
+    ...(event.deviceParameterReadings || []),
+    ...normalizeSubmissionArray(rootPayload?.deviceParameterReadings)
+  ]
+  const snapshotMap = new Map<string, ProductionReportCorrectionParameterRow>()
+  snapshotRows
+    .map(toCorrectionParameterRow)
+    .filter((item): item is ProductionReportCorrectionParameterRow => Boolean(item))
+    .forEach((item) => {
+      const key = resolveCorrectionParameterSnapshotKey(item)
+      if (!snapshotMap.has(key)) {
+        snapshotMap.set(key, item)
+      }
+    })
+  return snapshotMap
+}
+
+const resolveCorrectionParameterRule = (
+  event: ProcessPoolTimelineEventVO,
+  parameterRow: ProductionReportCorrectionParameterRow
+) => {
+  const routeProcessId = Number(event.routeProcessId)
+  if (!Number.isFinite(routeProcessId) || routeProcessId <= 0) {
+    return undefined
+  }
+  const processConfig = processConfigRows.value.find(
+    (row) => row.routeProcessId === routeProcessId
+  )
+  return processConfig?.devices
+    .find((device) => device.deviceId === parameterRow.deviceId)
+    ?.parameters.find((parameter) => parameter.parameterCode === parameterRow.parameterCode)
+}
+
+const mergeCorrectionParameterSnapshot = (
+  event: ProcessPoolTimelineEventVO,
+  parameterRow: ProductionReportCorrectionParameterRow,
+  snapshotMap: Map<string, ProductionReportCorrectionParameterRow>
+) => {
+  const rule = resolveCorrectionParameterRule(event, parameterRow)
+  const snapshot = snapshotMap.get(resolveCorrectionParameterSnapshotKey(parameterRow))
+  const snapshotTextValue = String(snapshot?.textValue ?? '').trim()
+  const snapshotValue = String(snapshot?.value ?? '').trim()
+  const currentValue = String(parameterRow.value ?? '').trim()
+  const valueType = parameterRow.valueType || snapshot?.valueType || rule?.valueType
+  const optionValues = parameterRow.optionValues?.length
+    ? parameterRow.optionValues
+    : snapshot?.optionValues?.length
+      ? snapshot.optionValues
+      : rule?.optionValues || []
+  const enriched: ProductionReportCorrectionParameterRow = {
+    ...parameterRow,
+    parameterName: parameterRow.parameterName || snapshot?.parameterName || rule?.parameterName,
+    unit: parameterRow.unit || snapshot?.unit || rule?.unit,
+    valueType,
+    optionValues,
+    value:
+      isCorrectionSelectParameter({ ...parameterRow, valueType })
+        ? currentValue || snapshotTextValue || snapshotValue || rule?.defaultText || ''
+        : parameterRow.value ?? snapshot?.value,
+    textValue: parameterRow.textValue || snapshot?.textValue,
+    displayConfig: parameterRow.displayConfig || snapshot?.displayConfig,
+    lowerLimit: parameterRow.lowerLimit ?? snapshot?.lowerLimit ?? rule?.lowerLimit ?? undefined,
+    upperLimit: parameterRow.upperLimit ?? snapshot?.upperLimit ?? rule?.upperLimit ?? undefined,
+    parameterStatus: parameterRow.parameterStatus || snapshot?.parameterStatus || 'NORMAL'
+  }
+  if (isCorrectionSelectParameter(enriched) && String(enriched.value ?? '').trim()) {
+    enriched.textValue = String(enriched.value).trim()
+  }
+  return enriched
+}
+
+const enrichCorrectionMaterialParameterRows = (
+  event: ProcessPoolTimelineEventVO,
+  materialRows: ProductionReportCorrectionMaterialRow[]
+) => {
+  const snapshotMap = buildCorrectionParameterSnapshotMap(event)
+  return materialRows.map((materialRow) => ({
+    ...materialRow,
+    deviceParameterReadings: materialRow.deviceParameterReadings.map((parameterRow) =>
+      mergeCorrectionParameterSnapshot(event, parameterRow, snapshotMap)
+    )
+  }))
+}
+
 const toProductionMaterialRow = (
   value: unknown,
   index: number
@@ -7668,27 +7786,8 @@ const toProductionMaterialRow = (
       }))
       .filter((device) => Number.isFinite(device.deviceId) && device.deviceId > 0),
     deviceParameterReadings: normalizeSubmissionArray(value.deviceParameterReadings)
-      .filter((reading): reading is Record<string, unknown> => isRecord(reading))
-      .map((reading): ProductionReportCorrectionParameterRow => ({
-        deviceId: Number(reading.deviceId),
-        deviceCode: String(reading.deviceCode ?? '').trim() || undefined,
-        deviceName: String(reading.deviceName ?? '').trim() || undefined,
-        parameterCode: String(reading.parameterCode ?? '').trim(),
-        parameterName: String(reading.parameterName ?? '').trim() || undefined,
-        unit: String(reading.unit ?? '').trim() || undefined,
-        value:
-          String(reading.valueType ?? '').trim() === 'SELECT'
-            ? String(reading.value ?? '').trim()
-            : optionalCorrectionNumber(reading.value),
-        valueType: String(reading.valueType ?? '').trim() || undefined,
-        optionValues: normalizeCorrectionOptionValues(
-          reading.optionValues ?? reading.optionValuesJson
-        ),
-        lowerLimit: reading.lowerLimit as number | string | undefined,
-        upperLimit: reading.upperLimit as number | string | undefined,
-        parameterStatus: normalizeProductionParameterStatus(reading.parameterStatus)
-      }))
-      .filter((reading) => reading.deviceId > 0 && reading.parameterCode)
+      .map(toCorrectionParameterRow)
+      .filter((reading): reading is ProductionReportCorrectionParameterRow => Boolean(reading))
   }
 }
 
@@ -8200,28 +8299,54 @@ const isMeaningfulSubmissionText = (value?: string) => {
   return Boolean(text) && text !== '--'
 }
 
+const formatSubmissionDeviceParameterText = (items: SubmissionStructuredItem[]) => {
+  const text = items
+    .filter((item) => isMeaningfulSubmissionText(item.valueText))
+    .map((item) => {
+      const statusText = item.outOfRange ? '异常' : ''
+      const metaText = [statusText, item.metaText].filter(Boolean).join('，')
+      return `${item.label}：${item.valueText}${metaText ? `（${metaText}）` : ''}`
+    })
+    .join('；')
+  return text || '无参数'
+}
+
+const toSubmissionMaterialDeviceRow = (
+  device: ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow,
+  key: string,
+  parameterItems: SubmissionStructuredItem[]
+): SubmissionMaterialDeviceRow => ({
+  key,
+  deviceNameText: formatSubmissionText(device.deviceName, '未命名设备'),
+  deviceCodeText: formatSubmissionText(
+    device.deviceCode || (device.deviceId ? `#${device.deviceId}` : '')
+  ),
+  parameterText: formatSubmissionDeviceParameterText(parameterItems),
+  hasAbnormalParameter: parameterItems.some((item) => item.outOfRange)
+})
+
 const resolveSubmissionMaterialDeviceRows = (
   materialRow: ProductionReportCorrectionMaterialRow,
   materialIndex: number
 ): SubmissionMaterialDeviceRow[] => {
-  const deviceMap = new Map<string, SubmissionMaterialDeviceRow>()
-  const ensureDeviceRow = (
+  const deviceMap = new Map<
+    string,
+    ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow
+  >()
+  const parameterMap = new Map<string, SubmissionStructuredItem[]>()
+  const resolveDeviceKey = (
+    device: ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow,
+    deviceIndex: number
+  ) => String(device.deviceId || device.deviceCode || `${materialIndex}-${deviceIndex}`)
+  const ensureDevice = (
     device: ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow,
     deviceIndex: number
   ) => {
-    const deviceText = formatSubmissionText(
-      device.deviceName || device.deviceCode,
-      device.deviceId ? `设备 #${device.deviceId}` : '设备'
-    )
-    const key = String(device.deviceId || device.deviceCode || `${materialIndex}-${deviceIndex}`)
+    const key = resolveDeviceKey(device, deviceIndex)
     if (!deviceMap.has(key)) {
-      deviceMap.set(key, {
-        key,
-        deviceText,
-        parameterItems: []
-      })
+      deviceMap.set(key, device)
     }
-    return deviceMap.get(key)!
+    return key
   }
   const selectedDevices = [
     ...(materialRow.selectedDevices || []),
@@ -8229,20 +8354,24 @@ const resolveSubmissionMaterialDeviceRows = (
   ]
   selectedDevices
     .filter((device) => device.deviceId || device.deviceCode || device.deviceName)
-    .forEach((device, deviceIndex) => ensureDeviceRow(device, deviceIndex))
+    .forEach((device, deviceIndex) => ensureDevice(device, deviceIndex))
   materialRow.deviceParameterReadings.forEach((reading, parameterIndex) => {
-    const deviceRow = ensureDeviceRow(reading, parameterIndex)
+    const deviceKey = ensureDevice(reading, parameterIndex)
     const parameterItem = resolveProductionParameterItems(undefined, [reading])[0]
     if (!parameterItem || !isMeaningfulSubmissionText(parameterItem.valueText)) {
       return
     }
-    deviceRow.parameterItems.push({
+    const parameterItems = parameterMap.get(deviceKey) || []
+    parameterItems.push({
       ...parameterItem,
-      key: `${deviceRow.key}-${parameterItem.key}-${parameterIndex}`,
+      key: `${deviceKey}-${parameterItem.key}-${parameterIndex}`,
       label: formatSubmissionText(reading.parameterName || reading.parameterCode, '参数')
     })
+    parameterMap.set(deviceKey, parameterItems)
   })
-  return [...deviceMap.values()]
+  return [...deviceMap.entries()].map(([key, device]) =>
+    toSubmissionMaterialDeviceRow(device, key, parameterMap.get(key) || [])
+  )
 }
 
 const resolveSubmissionMaterialDetailRows = (
@@ -8264,11 +8393,9 @@ const resolveSubmissionMaterialDetailRows = (
           .join('；'),
         devices: resolveSubmissionEquipmentItems(row)
           .filter((item) => isMeaningfulSubmissionText(item.valueText))
-          .map((item) => ({
-            key: item.key,
-            deviceText: item.valueText,
-            parameterItems
-          }))
+          .map((item) =>
+            toSubmissionMaterialDeviceRow({ deviceName: item.valueText }, item.key, parameterItems)
+          )
       }
     ]
   }
@@ -8883,36 +9010,15 @@ const openProductionCorrection = async (event: ProcessPoolTimelineEventVO, event
       }
     })
 
-  const parameterRows = (event.deviceParameterReadings || []).flatMap((item) => {
-    const deviceId = Number(item.deviceId)
-    const parameterCode = String(item.parameterCode || '').trim()
-    if (!Number.isFinite(deviceId) || deviceId <= 0 || !parameterCode) {
-      return []
-    }
-    const value =
-      String(item.valueType ?? '').trim() === 'SELECT'
-        ? String(item.value ?? '').trim()
-        : optionalCorrectionNumber(item.value)
-    return {
-      deviceId,
-      deviceCode: item.deviceCode,
-      deviceName: item.deviceName,
-      parameterCode,
-      parameterName: item.parameterName,
-      unit: item.unit,
-      value,
-      valueType: item.valueType,
-      optionValues: normalizeCorrectionOptionValues(item.optionValues),
-      lowerLimit: item.lowerLimit,
-      upperLimit: item.upperLimit,
-      parameterStatus: normalizeProductionParameterStatus(item.parameterStatus)
-    }
-  })
+  const parameterRows = (event.deviceParameterReadings || [])
+    .map(toCorrectionParameterRow)
+    .filter((item): item is ProductionReportCorrectionParameterRow => Boolean(item))
 
   resetCorrectionFormForEvent(event, eventId, 'PRODUCTION')
   correctionForm.outputQuantity = outputQuantity
-  correctionForm.materialDetails = await resolveCorrectionMaterialNames(
-    resolveProductionMaterialRows(event)
+  correctionForm.materialDetails = enrichCorrectionMaterialParameterRows(
+    event,
+    await resolveCorrectionMaterialNames(resolveProductionMaterialRows(event))
   )
   initializeCorrectionMaterialDeviceTabs(correctionForm.materialDetails)
   correctionForm.lossDetails = [...lossRowMap.values()]
@@ -9739,7 +9845,7 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
     })
     writeCompleted = true
     ElMessage.success(
-      `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产和检验进度均为100%。`
+      `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
     await loadActiveOrders()
   } catch (error) {
@@ -11473,6 +11579,19 @@ onMounted(() => {
 
 .team-leader-workbench__submission-detail-table :deep(.el-table__cell) {
   vertical-align: top;
+}
+
+.team-leader-workbench__submission-device-parameter-inline {
+  display: block;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__submission-device-parameter-inline.is-out-of-range {
+  color: #c00000;
 }
 
 .team-leader-workbench__submission-material-empty {

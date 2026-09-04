@@ -11,3 +11,11 @@ GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateAccessRequest
 GREEN: `mvn -pl yudao-module-bpm "-Dtest=BpmMessageServiceImplTest" test` -> PASS，15 tests, 0 failures, 0 errors。
 
 BLOCKED: `git push origin int_main` -> FAIL，连续两次返回 `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`。本地注册证下载融合提交已生成，远端 `origin/int_main` 仍未更新。
+
+GREEN: `node IntRuoyiFronted/tests/registration-certificate-access-request-panel-static.spec.mjs; node IntRuoyiFronted/tests/registration-certificate-download-e2e-doc-static.spec.mjs; node IntRuoyiFronted/tests/registration-certificate-download-request-inline-ux-static.spec.mjs; node IntRuoyiFronted/tests/registration-certificate-download-search-static.spec.mjs; node IntRuoyiFronted/tests/registration-certificate-chinese-copy-static.spec.mjs` -> PASS，继续验证缺少项目代码可申请下载、24 小时口径、中文文案和下载搜索合同。
+
+GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateAccessRequestServiceTest,DccRegistrationCertificateFileDeliveryServiceTest,DccRegistrationCertificateBpmIntegrationTest,DccRegistrationCertificateApprovalRuntimeTest,DccRegistrationCertificateAccessPolicyTest,DccRegistrationCertificateGrantServiceTest" test` -> PASS，62 tests, 0 failures, 0 errors。
+
+GREEN: `mvn -pl yudao-module-bpm "-Dtest=BpmMessageServiceImplTest" test` -> PASS，15 tests, 0 failures, 0 errors。
+
+BLOCKED: `git fetch origin; git status --short --branch; git push origin int_main` -> FAIL，`git fetch origin` 与 `git push origin int_main` 均返回 `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`。影响：无法按用户要求同步到远端最新代码，且本地领先 `origin/int_main` 的 2 个提交无法推送。

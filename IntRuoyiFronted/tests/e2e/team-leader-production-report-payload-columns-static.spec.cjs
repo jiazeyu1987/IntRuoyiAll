@@ -50,12 +50,13 @@ assert.doesNotMatch(
   'production leader report column settings must not show PQC submission content labels'
 )
 
-assert.match(productionDefaultColumns, /key:\s*'completionQuantity'[\s\S]*label:\s*'完成数量'/, 'report table must expose completion quantity')
-assert.match(productionDefaultColumns, /key:\s*'lossQuantity'[\s\S]*label:\s*'损耗数量'/, 'report table must expose loss quantity')
-assert.match(productionDefaultColumns, /key:\s*'submissionMaterialSummary'[\s\S]*label:\s*'物料明细'/, 'production report table must summarize multi-material submissions on the main row')
-assert.match(productionDefaultColumns, /key:\s*'submissionDeviceSummary'[\s\S]*label:\s*'选用设备'/, 'production report table must summarize selected devices on the main row')
-assert.match(productionDefaultColumns, /key:\s*'submissionParameterSummary'[\s\S]*label:\s*'设备参数'/, 'production report table must summarize device parameters on the main row')
-assert.doesNotMatch(productionDefaultColumns, /key:\s*'lossBreakdown'|key:\s*'selectedDevice'|key:\s*'deviceParameterReadings'/, 'production report default columns must move detailed loss/device/parameter fields into the expanded detail row')
+assert.doesNotMatch(
+  productionDefaultColumns,
+  /key:\s*'completionQuantity'|key:\s*'lossQuantity'|key:\s*'reportUnallocatedQuantity'|key:\s*'submissionMaterialSummary'|key:\s*'submissionDeviceSummary'|key:\s*'submissionParameterSummary'|key:\s*'lossBreakdown'|key:\s*'selectedDevice'|key:\s*'deviceParameterReadings'/,
+  'production report default columns must hide duplicate detail fields from the main row'
+)
+assert.match(pqcDefaultColumns, /key:\s*'completionQuantity'[\s\S]*label:\s*'检验数量'/, 'PQC report table must keep inspection quantity')
+assert.match(pqcDefaultColumns, /key:\s*'lossQuantity'[\s\S]*label:\s*'损耗数量'/, 'PQC report table must keep loss quantity')
 
 for (const pqcOnlyColumn of [
   'product',
@@ -81,15 +82,19 @@ assert.match(
 )
 
 assert.match(page, /type="expand"[\s\S]*data-team-leader-submission-expand-detail/, 'production report table needs an expanded row for complete multi-material and multi-device facts')
-assert.match(page, /data-team-leader-submission-material-summary/, 'main row material summary needs a stable marker')
-assert.match(page, /data-team-leader-submission-device-summary/, 'main row device summary needs a stable marker')
-assert.match(page, /data-team-leader-submission-parameter-summary/, 'main row device parameter summary needs a stable marker')
+assert.match(page, /activeLeaderTab !== 'PRODUCTION'[\s\S]*isSubmissionColumnVisible\('completionQuantity'\)/, 'completion quantity column must be kept out of production leader main rows')
+assert.match(page, /activeLeaderTab !== 'PRODUCTION'[\s\S]*isSubmissionColumnVisible\('lossQuantity'\)/, 'loss quantity column must be kept out of production leader main rows')
+assert.doesNotMatch(page, /isProductionLeader && isSubmissionColumnVisible\('submissionMaterialSummary'\)/, 'production leader main row must not show duplicate material summary')
+assert.doesNotMatch(page, /isProductionLeader && isSubmissionColumnVisible\('submissionDeviceSummary'\)/, 'production leader main row must not show duplicate device summary')
+assert.doesNotMatch(page, /isProductionLeader && isSubmissionColumnVisible\('submissionParameterSummary'\)/, 'production leader main row must not show duplicate parameter summary')
 assert.match(page, /data-team-leader-submission-material-detail[\s\S]*resolveSubmissionMaterialDetailRows\(row\)/, 'expanded detail row must render full material detail rows')
 assert.match(page, /data-team-leader-submission-material-card[\s\S]*v-for="material in resolveSubmissionMaterialDetailRows\(row\)"/, 'expanded detail row must render one material block per submitted material')
 assert.match(page, /:data="material\.devices"[\s\S]*data-team-leader-submission-material-device-row/, 'expanded material block must render one row per device that belongs to the material')
 assert.doesNotMatch(page, /data-team-leader-submission-device-detail[\s\S]*resolveSubmissionDeviceDetailGroups\(row\)/, 'expanded detail row must not render devices in a separate cross-material device section')
 assert.match(page, /interface SubmissionMaterialDetailRow[\s\S]*devices: SubmissionMaterialDeviceRow\[\]/, 'material detail rows must carry their own device rows')
-assert.match(page, /interface SubmissionMaterialDeviceRow[\s\S]*parameterItems: SubmissionStructuredItem\[\]/, 'device rows must carry their own parameter detail items')
+assert.match(page, /interface SubmissionMaterialDeviceRow[\s\S]*deviceNameText: string[\s\S]*deviceCodeText: string[\s\S]*parameterText: string/, 'device rows must expose device name, device code and inline parameter text')
+assert.match(page, /<el-table-column label="设备名称" prop="deviceNameText"[\s\S]*<el-table-column label="设备编号" prop="deviceCodeText"[\s\S]*<el-table-column label="设备参数" prop="parameterText"/, 'expanded device row must show name, code and parameter text on one row')
+assert.match(page, /formatSubmissionDeviceParameterText[\s\S]*\.join\('；'\)/, 'device parameter text must be separated by semicolons')
 assert.match(page, /data-team-leader-submission-device-parameter-detail/, 'expanded device parameter detail needs a stable marker')
 assert.match(page, /activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible\('lossBreakdown'\)/, 'legacy loss breakdown column must be kept out of production leader main rows')
 assert.match(page, /activeLeaderTab !== 'PRODUCTION' && isSubmissionColumnVisible\('selectedDevice'\)/, 'legacy selected device column must be kept out of production leader main rows')

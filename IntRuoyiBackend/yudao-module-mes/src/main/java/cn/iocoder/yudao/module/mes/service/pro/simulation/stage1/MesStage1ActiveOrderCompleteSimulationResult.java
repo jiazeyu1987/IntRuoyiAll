@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.simulation.stage1;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.List;
 
@@ -20,6 +21,8 @@ public class MesStage1ActiveOrderCompleteSimulationResult {
     private Integer productionReviewCount;
     private Integer pqcSubmitCount;
     private Integer pqcReviewCount;
+    private BigDecimal productionProgressPercent;
+    private BigDecimal inspectionProgressPercent;
     private boolean productionProgress100;
     private boolean inspectionProgress100;
     private boolean completionButtonEnabled;

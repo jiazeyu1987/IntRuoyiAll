@@ -18,7 +18,7 @@
 
 ## Current Status
 
-ready_for_closeout - `int_main` 本地已通过注册证下载定向前端静态合同、DCC 后端下载/审批测试和 BPM 通知通道测试，并已纳入本地注册证下载融合提交。远端推送连续两次失败，错误为 GitHub HTTPS TLS connect unexpected EOF，因此暂不能标记为 completed。当前仍有 MES 生产组长相关未提交改动，未纳入本任务范围。
+blocked - `int_main` 本地已再次通过注册证下载定向前端静态合同、DCC 后端下载/审批测试和 BPM 通知通道测试，并已纳入本地注册证下载融合提交。继续同步远端时 `git fetch origin` 和 `git push origin int_main` 均失败，错误为 GitHub HTTPS TLS connect unexpected EOF，因此无法同步最新远端代码，也暂不能标记为 completed。当前仍有 MES 生产组长相关未提交改动，未纳入本任务范围。
 
 ## 设计约束检查
 

@@ -327,6 +327,8 @@ export interface Stage1ActiveOrderCompleteSimulationRespVO {
   productionReviewCount: number
   pqcSubmitCount: number
   pqcReviewCount: number
+  productionProgressPercent: number | string
+  inspectionProgressPercent: number | string
   productionProgress100: boolean
   inspectionProgress100: boolean
   completionButtonEnabled: boolean

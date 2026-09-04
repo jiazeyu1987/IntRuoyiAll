@@ -66,6 +66,12 @@ assert.match(stage1Service, /bindingId|IdUtil\.getSnowflake\(\)\.nextId\(\)/,
   'Stage1 binding persistence must use an explicit primary key for the non-auto-increment binding tables');
 assert.match(stage1Service, /simulateActiveOrderCompletion[\s\S]*?STAGE/,
   'Stage1 must reuse the formal active-order simulation service');
+assert.match(stage1Service, /calculateStage1PersistedProgress/,
+  'Stage1 must recompute persisted progress after writing formal facts and before returning success');
+assert.doesNotMatch(stage1Service, /\.setProductionProgress100\(true\)|\.setInspectionProgress100\(true\)/,
+  'Stage1 must not hardcode progress booleans to true in the response');
+assert.doesNotMatch(stage1Service, /"productionPercent",\s*100[\s\S]*"inspectionPercent",\s*100/,
+  'Stage1 snapshot progress must use the recomputed persisted progress, not a hardcoded 100%');
 assert.match(stage1Service, /activeOrderCompleteSnapshot\.v2/,
   'Stage1 must return the v2 completion snapshot contract');
 assert.match(stage1Service, /assertNoDownstreamSideEffects/,
@@ -125,9 +131,17 @@ assert.match(frontendApi, /simulateStage1ActiveOrderCompletion/,
   'frontend API must expose the independent Stage1 action');
 assert.match(frontendApi, /active-order\/simulation\/stage1/,
   'frontend API must call the dedicated Stage1 endpoint');
+assert.match(frontendApi, /productionProgressPercent/,
+  'frontend Stage1 response type must expose the persisted production progress percent');
+assert.match(frontendApi, /inspectionProgressPercent/,
+  'frontend Stage1 response type must expose the persisted inspection progress percent');
 assert.match(workbench, /data-team-leader-simulate-active-order-stage1/,
   'real active-order page must expose the Stage1 button');
 assert.match(workbench, /simulateStage1ActiveOrderCompletion\(/,
   'Stage1 button must call the dedicated API');
+assert.doesNotMatch(workbench, /生产和检验进度均为100%/,
+  'Stage1 success message must not hardcode 100%; it must display persisted response progress');
+assert.match(workbench, /formatActiveOrderProgressPercent\(result\.productionProgressPercent\)[\s\S]*formatActiveOrderProgressPercent\(result\.inspectionProgressPercent\)/,
+  'Stage1 success message must display the recomputed persisted progress values');
 
 console.log('mes-active-order-stage1-static: PASS');

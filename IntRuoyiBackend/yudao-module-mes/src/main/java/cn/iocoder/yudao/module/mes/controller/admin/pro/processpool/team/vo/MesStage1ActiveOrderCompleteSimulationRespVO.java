@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 @Schema(description = "管理后台 - MES Stage1 活跃订单完成模拟 Response VO")
@@ -20,6 +21,8 @@ public class MesStage1ActiveOrderCompleteSimulationRespVO {
     private Integer productionReviewCount;
     private Integer pqcSubmitCount;
     private Integer pqcReviewCount;
+    private BigDecimal productionProgressPercent;
+    private BigDecimal inspectionProgressPercent;
     private Boolean productionProgress100;
     private Boolean inspectionProgress100;
     private Boolean completionButtonEnabled;

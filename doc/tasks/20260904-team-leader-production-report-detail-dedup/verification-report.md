@@ -1,0 +1,24 @@
+# Verification Report
+
+## Summary
+生产组长报工主表已移除详情中已有的重复字段，展开详情继续按物料承载所属设备，设备名称、设备编号和参数同一行展示，参数以中文分号分隔。
+
+## Code Changes Verified
+- `TeamLeaderWorkbenchPage.vue`：生产组长默认列移除完成数量、损耗数量、未分配数量、物料明细、选用设备、设备参数。
+- `TeamLeaderWorkbenchPage.vue`：模板守卫禁止生产组长主表渲染这些重复字段，即使用户列配置中残留旧 key 也不显示。
+- `RegistrationCertificateConfig.vue`：修复全量类型检查暴露的数组推断编译错误。
+- `docs/experience-index.md`：补充黄框字段/主表去重/参数分号分隔关键词索引。
+
+## Verification Evidence
+- PASS: node IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs
+- PASS: node tests/e2e/team-leader-multi-material-device-dialogs-static.spec.cjs
+- PASS: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260904-team-leader-production-report-detail-dedup/frontend-feature-evidence.md
+- PASS: pnpm exec vue-tsc --noEmit --pretty false
+- PASS: pnpm build:local
+- PASS: node yudao-module-mes/src/test/js/mes-active-order-stage1-static.spec.cjs
+- PASS: node yudao-module-mes/src/test/js/mes-active-order-submission-overview-static.spec.cjs
+- PASS: mvn -pl yudao-module-mes -am "-DskipTests" test
+- PASS: git diff --check
+
+## Blockers
+None.

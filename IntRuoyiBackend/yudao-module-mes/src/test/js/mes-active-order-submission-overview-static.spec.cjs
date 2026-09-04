@@ -25,6 +25,9 @@ const frontendApi = fs.readFileSync(
   path.join(root, 'IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts'),
   'utf8'
 )
+const detailReadMapperXml = read(
+  'IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/pro/processpool/MesProcessPoolActiveOrderDetailReadMapper.xml'
+)
 
 assert(
   detailModel.includes('List<InputMaterialDetail> inputMaterials'),
@@ -47,6 +50,15 @@ assert(
   detailService.includes('MesFrontlineProcessMaterialService') &&
     detailService.includes('listFrozenMaterials(activeOrderId, activeOrder.getRouteId()'),
   'detail service must resolve input material batches from active order formal pick-list sources'
+)
+assert(
+  /COALESCE\(\s*NULLIF\(reviewer\.nickname,\s*''\),\s*NULLIF\(reviewer_profile_by_user\.display_name,\s*''\),\s*NULLIF\(reviewer_profile_by_user\.employee_name,\s*''\),\s*NULLIF\(reviewer_profile_by_id\.display_name,\s*''\),\s*NULLIF\(reviewer_profile_by_id\.employee_name,\s*''\),\s*NULLIF\(reviewer\.username,\s*''\)\s*\)\s+AS reviewerName/s.test(detailReadMapperXml),
+  'active-order detail reviewerName must display the current simulation actor from formal user or team employee profile data'
+)
+assert(
+  detailReadMapperXml.includes('reviewer_profile_by_user.system_user_id = latest_review.leader_user_id') &&
+    detailReadMapperXml.includes('reviewer_profile_by_id.id = latest_review.leader_user_id'),
+  'active-order detail reviewer lookup must support both formal system user ids and team employee profile ids'
 )
 assert(
   detailService.includes('MesPqcInspectionTaskMapper') &&

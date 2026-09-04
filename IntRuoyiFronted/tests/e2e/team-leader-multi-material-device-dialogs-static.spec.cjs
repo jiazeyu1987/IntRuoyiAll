@@ -90,6 +90,42 @@ assert.match(
 
 assert.match(
   page,
+  /String\(reading\.textValue \?\? reading\.value \?\? ''\)\.trim\(\)/,
+  '选择类设备参数当前值必须优先读取时间线快照 textValue。'
+)
+
+assert.match(
+  page,
+  /const buildCorrectionParameterSnapshotMap = \(event: ProcessPoolTimelineEventVO\)[\s\S]*event\.deviceParameterReadings[\s\S]*rootPayload\?\.deviceParameterReadings[\s\S]*toCorrectionParameterRow/,
+  '修改弹框必须建立同一报工事件的顶层设备参数快照索引。'
+)
+
+assert.match(
+  page,
+  /const mergeCorrectionParameterSnapshot = \([\s\S]*snapshot\?\.textValue[\s\S]*snapshot\?\.value[\s\S]*const valueType = parameterRow\.valueType \|\| snapshot\?\.valueType \|\| rule\?\.valueType[\s\S]*optionValues = parameterRow\.optionValues\?\.length[\s\S]*snapshot\?\.optionValues\?\.length[\s\S]*rule\?\.optionValues/,
+  '物料内参数缺少下拉字段时，必须从同设备同参数的顶层快照补齐当前值、类型和选项。'
+)
+
+assert.match(
+  page,
+  /correctionForm\.materialDetails = enrichCorrectionMaterialParameterRows\([\s\S]*event,[\s\S]*await resolveCorrectionMaterialNames\(resolveProductionMaterialRows\(event\)\)[\s\S]*\)/,
+  '修改弹框必须用当前工序配置补齐历史快照缺失的参数类型和下拉选项。'
+)
+
+assert.match(
+  page,
+  /const resolveCorrectionParameterRule = \([\s\S]*row\) => row\.routeProcessId === routeProcessId[\s\S]*device\) => device\.deviceId === parameterRow\.deviceId[\s\S]*parameter\) => parameter\.parameterCode === parameterRow\.parameterCode/,
+  '参数规则补齐必须按路线工序、设备和参数编码精确匹配，不能跨工序或跨设备借用选项。'
+)
+
+assert.match(
+  page,
+  /valueType,[\s\S]*optionValues,[\s\S]*value:[\s\S]*isCorrectionSelectParameter\(\{ \.\.\.parameterRow, valueType \}\)[\s\S]*currentValue \|\| snapshotTextValue \|\| snapshotValue \|\| rule\?\.defaultText/,
+  '补齐后的选择类参数必须使用快照/规则 valueType、optionValues，并在原值缺失时使用正式快照值或默认文本。'
+)
+
+assert.match(
+  page,
   /v-else[\s\S]*<el-input-number[\s\S]*v-model="parameterRow\.value"/,
   '非选择类设备参数必须继续使用数值输入框。'
 )

@@ -518,6 +518,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setProductionReviewCount(result.getProductionReviewCount())
                 .setPqcSubmitCount(result.getPqcSubmitCount())
                 .setPqcReviewCount(result.getPqcReviewCount())
+                .setProductionProgressPercent(result.getProductionProgressPercent())
+                .setInspectionProgressPercent(result.getInspectionProgressPercent())
                 .setProductionProgress100(result.isProductionProgress100())
                 .setInspectionProgress100(result.isInspectionProgress100())
                 .setCompletionButtonEnabled(result.isCompletionButtonEnabled())

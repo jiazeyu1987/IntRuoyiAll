@@ -88,7 +88,8 @@
 import {
   getRegistrationCertificateReminderConfig,
   updateRegistrationCertificateReminderConfig,
-  type DccRegistrationCertificateReminderConfigRespVO
+  type DccRegistrationCertificateReminderConfigRespVO,
+  type RegistrationCertificateThresholdRecipientUserIds
 } from '@/api/dcc/registrationCertificate/reminderConfig'
 
 defineProps<{
@@ -101,7 +102,16 @@ const loading = ref(false)
 const saving = ref(false)
 const loaded = ref(false)
 const loadError = ref('')
-const form = reactive({
+interface RegistrationCertificateReminderConfigForm {
+  enabled: boolean
+  dailyRunTime: string
+  timezone: string
+  thresholdDaysJson: string
+  thresholdRecipientUserIds: RegistrationCertificateThresholdRecipientUserIds
+  rowVersion: number
+}
+
+const form = reactive<RegistrationCertificateReminderConfigForm>({
   enabled: true,
   dailyRunTime: '09:00',
   timezone: 'Asia/Shanghai',

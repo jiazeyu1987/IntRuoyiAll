@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Schema(description = "管理后台 - MES 工序池提交事件时间轴 Response VO")
 @Data
@@ -262,7 +263,11 @@ public class ProcessPoolTimelineEventRespVO {
         private String parameterCode;
         private String parameterName;
         private String unit;
-        private BigDecimal value;
+        private Object value;
+        private String textValue;
+        private String valueType;
+        private List<String> optionValues;
+        private Map<String, Object> displayConfig;
         private BigDecimal lowerLimit;
         private BigDecimal upperLimit;
         private String parameterStatus;
