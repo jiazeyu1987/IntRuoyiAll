@@ -56,6 +56,7 @@
 
 - Trigger: 本地端口已有后端进程、运行 Jar 早于目标提交、目标修复依赖新增类或迁移，或完整构建被其它模块编译错误阻断但仍需做定向 E2E。
 - Preflight check: 在浏览器验证前同时记录分支、提交、监听端口进程和运行 Jar；按目标修复列出关键类或资源，并直接核对运行 Jar 内嵌模块是否包含它们。需要组合定向测试 Jar 时，只能使用同一提交的干净 worktree 构建产物，校验内嵌 Jar 哈希和 Spring Boot nested Jar 压缩方式，并明确标为测试运行产物。
+- Preflight check: 多模块 Spring Boot 可执行 Jar 重新打包前，若目标修复位于子模块，必须先对该子模块执行 `mvn install` 或等价的本地仓库刷新，再打包 server；否则 server 可能继续嵌入本地 Maven 仓库里的旧子模块 Jar。打包后必须用 `jar tf`/`javap`/关键资源哈希核对 nested Jar 内真实代码，而不能只看源码或子模块 `target/classes`。
 - Worktree port check: 可复用到多个 profile/worktree 的 E2E 脚本不得写死某次任务端口；必须按当前 repo root 读取正式 `worktree-ports.json` active 登记并校验前后端成对端口。主工作区只允许固定基准端口，附加 worktree 找不到唯一 active 登记时必须在浏览器启动前失败。
 - Blocker: 运行 Jar 来源不明、关键类缺失、内嵌模块不是同一提交、哈希或压缩方式不符、替换后 health 未恢复，或定向组合产物被用作完整发布构建通过证据时必须停止。
 - Verification: 证据包含提交、运行 Jar 路径与哈希、关键类清单、替换模块哈希、端口 PID 和 health；完整构建若失败，必须单独记录失败模块与错误数量，定向 E2E 只能证明目标模块运行行为，不能证明发布构建通过。
@@ -116,6 +117,7 @@
 - Trigger: Playwright 在 Element Plus 表格、多条件筛选、quick filter、页签过滤或列表搜索中填入目标业务编号，但列表结果仍返回大批量数据、目标样本缺失、或失败信息疑似“数据不存在”。
 - Preflight check: 点击查询前必须同时确认目标筛选容器内可见输入框的 DOM value 已等于目标值，并监听正式分页请求；请求返回后必须记录实际 request URL、业务码、total 和前几条业务 code，确认 URL 中包含目标筛选参数。对于需要页签或筛选状态同步的组件，必须等待组件内部状态更新后再点击查询。
 - UnifiedList upgrade check: 复用历史脚本时先检查当前列表使用 `TableQuickFilter` 还是 `TableMultiFilter`。多条件筛选默认空状态必须按真实“新增筛选条件 -> 选择字段 -> 填值 -> 查询”操作；Element Plus 条件行可能同时含只读操作符 input 和业务文本框，必须按 placeholder/role 精确定位可填写控件，禁止继续使用泛化 `input`。
+- Table evidence check: 查询后只能把目标表格区域内的行文本、单元格文本或稳定行级 DOM 作为命中证据；不得把筛选输入框、筛选标签、页标题或其它页面上下文里的关键词当成目标行。Element Plus 固定操作列可能不在主表格行 DOM 内，点击“审核”“详细”等行级动作时优先使用稳定属性（如 `data-approval-action`、`data-testid`）或在已筛到唯一目标后点击可见动作按钮。
 - Preflight check: 若目标列表在某租户下没有可见筛选框、筛选区被权限或页面布局隐藏，不能直接判定目标样本缺失；应先按真实分页控件逐页查找目标可见行，并记录命中的 pageNo、pageSize、目标行文本和目标写请求数。分页查找仍属于真实页面路径，但不得用 API-only 查询替代页面可见性断言。
 - Blocker: 输入框可见值正确但正式分页请求 URL 未带目标参数、请求命中错误页签/错误接口、返回 list 前几条 code 明显未按目标过滤，或只能证明 DOM 值而不能证明请求参数时，必须停止并归因为脚本/组件同步问题，不得把结果写成目标业务数据缺失。
 - Verification: 真实 E2E 证据需包含目标筛选值、最终请求 URL、业务码、total、前几条 code，以及修复后同一用户路径命中目标样本并完成后续断言。
@@ -750,3 +752,12 @@
 - Verification: 成功路径至少证明页面状态、有效记录计数、逻辑删除标记或删除状态三者一致；任务自有数据清理后要只读确认无有效残留。
 - Forbidden action: 禁止把逻辑删除历史行当成未清理残留，禁止为了通过 E2E 对正式审计/文件表做物理删除，禁止吞掉异常清理失败。
 - Evidence: `doc/tasks/20260830-nas-original-path-sync/verification-report.md`。
+
+## 上传关联候选来源门禁
+
+- Trigger: 真实页面 E2E 验证“上传时选择关联文件”“同项目代码候选文件”“刚创建的数据可再次被选择”等写入后立即复用的业务路径。
+- Preflight check: 先确认页面要证明的是上传关联候选，还是正式浏览/生效文件列表；两者业务范围可能不同。若验收要求“刚通过上传页提交的文件可作为后续上传关联候选”，后端候选来源必须按上传动作的项目代码业务范围取数，不能复用只展示生效或可浏览文件的列表入口。
+- Blocker: Playwright 已通过真实页面创建候选文件，但后续关联下拉为空；或候选接口复用的列表会过滤待审批、草稿、不可浏览但仍允许关联的任务文件时，必须停止并修正候选来源，不得用接口造数、SQL 插入或 API-only 断言补齐 E2E。
+- Verification: E2E 必须通过真实前端创建至少两个任务自有候选文件，再重新打开上传页，从页面 DOM 中断言关联下拉包含刚创建的文件编号并完成选择。若可见项目基础资料不合法，应优先选择页面可见且业务资料完整的项目；若没有此类项目，记录真实数据阻断。
+- Forbidden action: 禁止把正式浏览列表有数据等同于上传关联候选可用；禁止把网络响应 JSON 当作前端选择通过依据；禁止为了通过 E2E 放宽生产代码过滤或新增兼容 fallback。
+- Evidence: `doc/tasks/20260903-dcc-upload-related-files/verification-report.md`，DCC 上传 PDF 后关联文件选择 E2E。

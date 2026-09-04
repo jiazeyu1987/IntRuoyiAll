@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING;
@@ -62,12 +63,11 @@ public class DccRegistrationCertificateBusinessEventNotifier {
     private void send(Long tenantId, Long ownerCompanyId, Long certificateId, Long versionId, Long actorId,
                       String eventType, String eventKey, String eventTitle, String productName,
                       String certificateNo, LocalDate effectiveDate, LocalDate expiryDate) {
-        DccRegistrationCertificateBusinessEventNotificationConfigService.RecipientScope recipientScope =
-                configService.resolveRecipientScope();
-        notificationService.send(new DccRegistrationCertificateBusinessEventNotificationCommand(
-                tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
-                recipientScope.roleIds(), recipientScope.permission(),
-                detailParams(eventTitle, productName, certificateNo, effectiveDate, expiryDate)));
+        notificationService.sendToUsers(new DccRegistrationCertificateBusinessEventNotificationCommand(
+                        tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
+                        List.of(), "",
+                        detailParams(eventTitle, productName, certificateNo, effectiveDate, expiryDate)),
+                configService.resolveRecipientUserIds(tenantId));
     }
 
     private static Map<String, Object> detailParams(String eventTitle, String productName, String certificateNo,

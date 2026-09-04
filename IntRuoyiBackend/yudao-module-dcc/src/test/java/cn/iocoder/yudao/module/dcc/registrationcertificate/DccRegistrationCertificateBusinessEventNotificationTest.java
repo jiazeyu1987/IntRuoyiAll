@@ -117,6 +117,25 @@ class DccRegistrationCertificateBusinessEventNotificationTest {
     }
 
     @Test
+    void configuredRecipientUserIdsSendWithoutRoleCompanyScopeAndIncludeActor() {
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any())).thenAnswer(invocation -> {
+            NotifySendSingleToUserIdempotentReqDTO req = invocation.getArgument(0);
+            return 900000L + req.getUserId();
+        });
+
+        DccRegistrationCertificateBusinessEventNotificationResult result = service.sendToUsers(
+                command("NEW_CERTIFICATE_FORMALIZED"), List.of(22L, 22L, 11L));
+
+        assertEquals(Map.of(22L, 900022L, 11L, 900011L, 99L, 900099L), result.recipientMessageIds());
+        assertEquals(List.of(
+                        "REG_CERT:NEW_CERTIFICATE_FORMALIZED:EVENT-NEW_CERTIFICATE_FORMALIZED:USER:22",
+                        "REG_CERT:NEW_CERTIFICATE_FORMALIZED:EVENT-NEW_CERTIFICATE_FORMALIZED:USER:11",
+                        "REG_CERT:NEW_CERTIFICATE_FORMALIZED:EVENT-NEW_CERTIFICATE_FORMALIZED:USER:99"),
+                capturedBusinessKeysAndReset());
+        verify(recipientResolver, never()).resolve(any(), any(), any());
+    }
+
+    @Test
     void unapprovedEventsNeverSendNotification() {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.send(command("THRESHOLD_REMINDER")));

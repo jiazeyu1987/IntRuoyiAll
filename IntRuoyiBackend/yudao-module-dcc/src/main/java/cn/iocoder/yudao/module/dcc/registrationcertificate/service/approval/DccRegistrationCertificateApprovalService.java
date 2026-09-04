@@ -150,6 +150,7 @@ public class DccRegistrationCertificateApprovalService {
         variables.put("requestKey", request.getRequestKey());
         if (REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
             addRegistrationCertificateSummaryVariables(variables, request);
+            bpmRequest.setName(buildRegistrationCertificateApprovalName(variables));
         }
         bpmRequest.setVariables(variables);
         String processInstanceId = createNativeProcessInstance(actorId, bpmRequest);
@@ -560,6 +561,20 @@ public class DccRegistrationCertificateApprovalService {
         }
         String operation = String.valueOf(parsed.get("operation")).trim();
         return operation.isEmpty() ? null : operation;
+    }
+
+    private static String buildRegistrationCertificateApprovalName(Map<String, Object> variables) {
+        String label = switch (String.valueOf(variables.get("requestOperation"))) {
+            case OPERATION_UPLOAD_CERTIFICATE -> "注册证上传审批";
+            case OPERATION_RENEWAL_CERTIFICATE -> "注册证延续审批";
+            case OPERATION_CHANGE_CERTIFICATE -> "注册证变更审批";
+            default -> throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        };
+        Object certificateNo = variables.get("certificateNo");
+        if (certificateNo == null || isBlank(String.valueOf(certificateNo))) {
+            return label;
+        }
+        return label + " " + String.valueOf(certificateNo).trim();
     }
 
     private static void addRegistrationCertificateSummaryVariables(

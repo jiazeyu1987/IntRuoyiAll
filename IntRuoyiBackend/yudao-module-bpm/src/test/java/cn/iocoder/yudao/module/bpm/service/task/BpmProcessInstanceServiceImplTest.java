@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.bpm.service.task;
 
 import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
+import cn.iocoder.yudao.module.bpm.controller.admin.definition.vo.model.BpmModelMetaInfoVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceBpmnModelViewRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceCancelReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.definition.BpmProcessDefinitionInfoDO;
@@ -23,6 +24,7 @@ import org.flowable.engine.RuntimeService;
 import org.flowable.engine.history.HistoricActivityInstance;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.history.HistoricProcessInstanceQuery;
+import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.engine.runtime.ProcessInstanceQuery;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +34,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.flowable.bpmn.constants.BpmnXMLConstants.ELEMENT_SEQUENCE_FLOW;
@@ -187,6 +192,36 @@ class BpmProcessInstanceServiceImplTest {
         assertFalse(result.getUnfinishedTaskActivityIds().contains("task_missing_running"));
         assertTrue(result.getFinishedSequenceFlowActivityIds().contains("flow_present"));
         assertFalse(result.getFinishedSequenceFlowActivityIds().contains("flow_missing_done"));
+    }
+
+    @Test
+    void processProcessInstanceCreated_shouldKeepExplicitProcessInstanceName() {
+        String processDefinitionId = "registration-upload-def";
+        ProcessDefinition processDefinition = mock(ProcessDefinition.class);
+        BpmProcessDefinitionInfoDO processDefinitionInfo = new BpmProcessDefinitionInfoDO();
+        BpmModelMetaInfoVO.TitleSetting titleSetting = new BpmModelMetaInfoVO.TitleSetting();
+        titleSetting.setEnable(true);
+        titleSetting.setTitle("{PROCESS_DEFINITION_NAME} {certificateNo}");
+        processDefinitionInfo.setTitleSetting(titleSetting);
+
+        when(processInstance.getProcessDefinitionId()).thenReturn(processDefinitionId);
+        when(processDefinitionService.getProcessDefinitionInfo(processDefinitionId)).thenReturn(processDefinitionInfo);
+        when(processDefinitionService.getProcessDefinition(processDefinitionId)).thenReturn(processDefinition);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME, true,
+                "certificateNo", "E2E-UPLOAD-20260904070732-SELF"));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            processInstanceService.processProcessInstanceCreated(processInstance);
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCommit();
+            }
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        verify(runtimeService, never()).setProcessInstanceName(anyString(), anyString());
     }
 
     private static HistoricActivityInstance mockHistoricActivity(String activityId, String activityType,

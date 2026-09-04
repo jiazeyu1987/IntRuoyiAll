@@ -234,7 +234,7 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
     labels.map((label) => label.textContent?.trim()).filter(Boolean)
   )
   const allowedLabels = [
-    'DCC项目代码',
+    '实际项目代码',
     '公司名称',
     '产品名称',
     '注册证号',

@@ -310,7 +310,7 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @Test
-    void listOwnerCompaniesReturnsCurrentUserTenantScopedCandidates() {
+    void listOwnerCompaniesReturnsTenantOwnedCandidatesWithoutCompanyScope() {
         MdmEnterpriseRespDTO candidate = MdmEnterpriseRespDTO.builder()
                 .id(501L)
                 .tenantId(TENANT_ID)
@@ -329,16 +329,18 @@ class DccRegistrationCertificateUploadServiceTest {
                 .status("ENABLE")
                 .revision(1)
                 .build();
-        when(companyScopeApi.getEnabledCompanyIdsForUser(ACTOR_ID)).thenReturn(Set.of(501L, 502L));
-        when(enterpriseApi.getEnabledEnterprises(Set.of(501L, 502L),
-                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())))
+        when(enterpriseApi.listEnabledEnterprises(
+                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()), "上海", 20))
                 .thenReturn(List.of(candidate, otherCandidate));
 
         List<MdmEnterpriseRespDTO> result = uploadService.listOwnerCompanies(TENANT_ID, ACTOR_ID, "上海");
 
-        assertEquals(1, result.size());
+        assertEquals(2, result.size());
         assertEquals(501L, result.get(0).getId());
         assertEquals("上海七木医疗器械有限公司", result.get(0).getName());
+        assertEquals(502L, result.get(1).getId());
+        verify(companyScopeApi, never()).getEnabledCompanyIdsForUser(ACTOR_ID);
+        verify(companyScopeApi, never()).validateUserCompanyAccess(any(), any());
     }
 
     @Test

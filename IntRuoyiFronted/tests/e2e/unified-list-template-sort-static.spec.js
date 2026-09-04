@@ -124,6 +124,20 @@ for (const field of ['projectName', 'projectCode']) {
     `product catalog ${field} must explicitly opt into backend custom sorting`
   )
 }
+assert.ok(
+  productCatalogPage.indexOf("prop=\"classification\"") >= 0,
+  'product catalog classification column must exist'
+)
+assert.ok(
+  productCatalogPage.indexOf("prop=\"classification\"") <
+    productCatalogPage.indexOf("prop=\"registrationCertificateName\""),
+  'product catalog classification column must render before registration certificate name'
+)
+assert.ok(
+  productCatalogPage.indexOf("{ key: 'classification', label: '分类'") <
+    productCatalogPage.indexOf("{ key: 'registrationCertificateName', label: '注册证名称'"),
+  'product catalog user column config must keep classification before registration certificate name'
+)
 for (const field of [
   'certificateNo',
   'ownerCompanyName',

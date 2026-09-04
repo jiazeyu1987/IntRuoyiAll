@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
+import org.flowable.task.api.TaskQuery;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -143,6 +144,129 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void pageTodoFindsClaimableRegistrationCertificateUploadTaskWhenKeywordIsCertificateNo() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-upload-approve");
+        when(task.getName()).thenReturn("注册证上传审批 E2E-UPLOAD-20260904061314");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve");
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "requestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-20260904061314",
+                "classification", "II",
+                "productName", "注册证上传E2E产品-20260904061314",
+                "ownerCompanyName", "上海七木医疗器械有限公司"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+
+        TaskQuery taskQuery = mock(TaskQuery.class);
+        when(flowableTaskService.createTaskQuery()).thenReturn(taskQuery);
+        when(taskQuery.active()).thenReturn(taskQuery);
+        when(taskQuery.includeProcessVariables()).thenReturn(taskQuery);
+        when(taskQuery.processVariableValueEquals("requestType", "UPLOAD_CERTIFICATE")).thenReturn(taskQuery);
+        when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        when(taskQuery.desc()).thenReturn(taskQuery);
+        when(taskQuery.list()).thenReturn(List.of(task));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "requestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-20260904061314",
+                "classification", "II",
+                "productName", "注册证上传E2E产品-20260904061314",
+                "ownerCompanyName", "上海七木医疗器械有限公司"));
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-upload-approve")))
+                .thenReturn(Map.of("pi-upload-approve", processInstance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "E2E-UPLOAD-20260904061314", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-upload-approve", summary.getId());
+        assertEquals("task-upload-approve", summary.getSourceTaskId());
+        assertEquals("pi-upload-approve", summary.getProcessInstanceId());
+        assertEquals(200L, summary.getAssigneeUserId());
+        assertEquals("注册证上传审批 E2E-UPLOAD-20260904061314", summary.getBusinessTitle());
+        assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
+        assertTrue(summary.getAvailableActions().contains("APPROVE"));
+    }
+
+    @Test
+    void pageTodoFindsUnassignedClaimableRegistrationCertificateUploadTaskWhenKeywordIsCertificateNo() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-upload-approve-unassigned");
+        when(task.getName()).thenReturn("注册证上传审批");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve-unassigned");
+        when(task.getAssignee()).thenReturn(null);
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 151L,
+                "requestId", 151L,
+                "certificateId", 990819197L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-UNASSIGNED",
+                "classification", "III",
+                "productName", "注册证上传E2E产品-未签收",
+                "ownerCompanyName", "上海七木医疗器械有限公司"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+
+        TaskQuery taskQuery = mock(TaskQuery.class);
+        when(flowableTaskService.createTaskQuery()).thenReturn(taskQuery);
+        when(taskQuery.active()).thenReturn(taskQuery);
+        when(taskQuery.includeProcessVariables()).thenReturn(taskQuery);
+        when(taskQuery.processVariableValueEquals("requestType", "UPLOAD_CERTIFICATE")).thenReturn(taskQuery);
+        when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        when(taskQuery.desc()).thenReturn(taskQuery);
+        when(taskQuery.list()).thenReturn(List.of(task));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 151L,
+                "requestId", 151L,
+                "certificateId", 990819197L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-UNASSIGNED",
+                "classification", "III",
+                "productName", "注册证上传E2E产品-未签收",
+                "ownerCompanyName", "上海七木医疗器械有限公司"));
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-upload-approve-unassigned")))
+                .thenReturn(Map.of("pi-upload-approve-unassigned", processInstance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "E2E-UPLOAD-UNASSIGNED", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-upload-approve-unassigned", summary.getId());
+        assertEquals("task-upload-approve-unassigned", summary.getSourceTaskId());
+        assertEquals("pi-upload-approve-unassigned", summary.getProcessInstanceId());
+        assertNull(summary.getAssigneeUserId());
+        assertEquals("注册证上传审批 E2E-UPLOAD-UNASSIGNED", summary.getBusinessTitle());
+        assertTrue(summary.getAvailableActions().contains("APPROVE"));
+    }
+
+    @Test
     void pageTodoUsesBatchRecordVersionVariablesForBusinessTitle() {
         Task task = mock(Task.class);
         when(task.getId()).thenReturn("task-batch-version");
@@ -224,7 +348,7 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REG-UPLOAD", 1, 10)).getList().get(0);
 
-        assertEquals("注册证上传审批", summary.getBusinessTitle());
+        assertEquals("注册证上传审批 国械注准20263000001", summary.getBusinessTitle());
         assertNull(summary.getBusinessCode());
         assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000001", "分类：III类", "产品：一次性使用无菌导管",
@@ -266,7 +390,7 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RENEWAL", 1, 10)).getList().get(0);
 
-        assertEquals("注册证延续审批", summary.getBusinessTitle());
+        assertEquals("注册证延续审批 国械注准20263000002", summary.getBusinessTitle());
         assertNull(summary.getBusinessCode());
         assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000002", "分类：II类", "产品：球囊扩张导管",
@@ -365,7 +489,7 @@ class BpmNativeApprovalTaskProviderTest {
 
         assertEquals(2L, page.getTotal());
         ApprovalTaskSummary uploadSummary = page.getList().get(0);
-        assertEquals("注册证上传审批", uploadSummary.getBusinessTitle());
+        assertEquals("注册证上传审批 国械注准20263000010", uploadSummary.getBusinessTitle());
         assertNull(uploadSummary.getBusinessCode());
         assertEquals(Boolean.TRUE, uploadSummary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000010", "分类：二类", "产品：按压式球囊扩充压力泵",
@@ -373,7 +497,7 @@ class BpmNativeApprovalTaskProviderTest {
                 uploadSummary.getBusinessContextTags());
 
         ApprovalTaskSummary renewalSummary = page.getList().get(1);
-        assertEquals("注册证延续审批", renewalSummary.getBusinessTitle());
+        assertEquals("注册证延续审批 国械注准20263000011", renewalSummary.getBusinessTitle());
         assertNull(renewalSummary.getBusinessCode());
         assertEquals(Boolean.TRUE, renewalSummary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000011", "分类：三类", "产品：按压式球囊扩充压力泵",
@@ -418,7 +542,7 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "RUNTIME", 1, 10)).getList().get(0);
 
-        assertEquals("注册证上传审批", summary.getBusinessTitle());
+        assertEquals("注册证上传审批 国械注准20263000020", summary.getBusinessTitle());
         assertNull(summary.getBusinessCode());
         assertEquals(Boolean.TRUE, summary.getBusinessIdentifierHidden());
         assertEquals(List.of("注册证编号：国械注准20263000020", "分类：二类", "产品：按压式球囊扩充压力泵",

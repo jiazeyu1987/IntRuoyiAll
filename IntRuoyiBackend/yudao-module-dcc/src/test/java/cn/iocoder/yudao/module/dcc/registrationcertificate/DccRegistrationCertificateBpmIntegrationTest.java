@@ -174,6 +174,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
                 ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
         verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
         Map<String, Object> variables = captor.getValue().getVariables();
+        assertEquals("注册证上传审批 国械注准20263000001", captor.getValue().getName());
         assertEquals("国械注准20263000001", variables.get("certificateNo"));
         assertEquals("III类", variables.get("classification"));
         assertEquals("一次性使用无菌导管", variables.get("productName"));
@@ -205,6 +206,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
                 ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
         verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
         Map<String, Object> variables = captor.getValue().getVariables();
+        assertEquals("注册证延续审批 国械注准20263000001", captor.getValue().getName());
         assertEquals("RENEWAL_CERTIFICATE", variables.get("requestOperation"));
         assertEquals("国械注准20263000001", variables.get("certificateNo"));
         assertEquals("III类", variables.get("classification"));

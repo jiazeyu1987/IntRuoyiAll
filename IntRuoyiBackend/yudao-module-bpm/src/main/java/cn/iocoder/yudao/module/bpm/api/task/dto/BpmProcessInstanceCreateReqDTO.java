@@ -33,6 +33,11 @@ public class BpmProcessInstanceCreateReqDTO {
     private String businessKey;
 
     /**
+     * 流程实例名称
+     */
+    private String name;
+
+    /**
      * 发起人自选审批人 Map
      *
      * key：taskKey 任务编码
