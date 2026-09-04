@@ -132,7 +132,7 @@
             <el-upload
               ref="uploadRef"
               action="#"
-              accept=".doc,.docx,.xls,.xlsx,.dwg,.sldprt,.sldasm,.slddrw"
+              accept=".doc,.docx,.xls,.xlsx,.pdf,.dwg,.sldprt,.sldasm,.slddrw"
               :auto-upload="false"
               :limit="1"
               :file-list="fileList"

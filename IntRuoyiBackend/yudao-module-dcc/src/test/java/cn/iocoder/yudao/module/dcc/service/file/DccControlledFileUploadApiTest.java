@@ -607,6 +607,42 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void uploadPreviewFile_sourcePdf_success() throws Exception {
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "invoice.pdf", "application/pdf", "%PDF-1.7".getBytes()));
+        mockSizePolicy("SOURCE", 8L);
+        when(fileService.createFileAndReturnId(eq("%PDF-1.7".getBytes()), eq("invoice.pdf"), eq("dcc/original"),
+                eq("application/pdf"))).thenReturn(105L);
+        when(fileMapper.selectById(105L)).thenReturn(storedFile(105L, "invoice.pdf", "application/pdf"));
+        when(watermarkService.build(99L, "preview", "invoice.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-20260904-0001", "session-1", "SOURCE", "AVAILABLE",
+                LocalDateTime.of(2026, 9, 4, 12, 30), 105L, "invoice.pdf", "application/pdf", 8L));
+
+        DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-SOURCE-PDF"));
+
+        assertEquals("UT-20260904-0001", respVO.getUploadTicket());
+        assertEquals("SOURCE", respVO.getPurpose());
+        assertEquals("invoice.pdf", respVO.getFileName());
+        assertEquals("application/pdf", respVO.getContentType());
+        assertEquals("PDF", respVO.getPreviewKind());
+        assertNull(respVO.getOnlyofficeBaseUrl());
+        verify(onlyOfficePreviewTokenService, never()).issueBusinessFile(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void uploadPreviewFile_sourceFakePdf_throws() {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "invoice.pdf", "application/pdf", "not-a-pdf".getBytes()));
+
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO, auditContext("REQ-SOURCE-FAKE-PDF")),
+                CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+    }
+
+    @Test
     void uploadPreviewFile_drawingPdf_success() throws Exception {
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("DRAWING_PDF",
                 new MockMultipartFile("files", "drawing.pdf", "application/pdf", "%PDF-1.4".getBytes()));

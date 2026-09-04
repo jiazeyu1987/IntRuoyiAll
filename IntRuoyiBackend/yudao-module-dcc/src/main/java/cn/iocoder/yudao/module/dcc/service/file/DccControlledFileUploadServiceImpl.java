@@ -178,6 +178,11 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     }
 
     private void validatePreviewPurposeContent(String purpose, String fileName, byte[] content) {
+        if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
+                && DccControlledFileUploadTypePolicy.isPdfName(fileName)
+                && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
+            throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
+        }
         if (DccControlledFileUploadTypePolicy.isDrawingPdfPurpose(purpose)
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
             throw exception(CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
