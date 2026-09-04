@@ -10,3 +10,8 @@
 
 ## Blockers
 - Push blocker remains possible from existing GitHub TLS connection failure observed earlier in this thread.
+
+## Commit And Push
+- Commit: 88c6d3f7d fix: 固定生产报工操作列宽度.
+- Push failed: git push origin int_main returned TLS connect error `unexpected eof while reading`.
+- Impact: local code is committed, but branch remains ahead of origin and task is marked blocked until network/GitHub TLS push succeeds.

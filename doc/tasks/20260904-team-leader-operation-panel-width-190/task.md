@@ -15,9 +15,10 @@
 - git diff --check
 
 ## Current Status
-ready_for_closeout
+blocked
 
 ## 设计约束检查
 - 仅调整生产组长操作列宽度，不改业务按钮、权限或接口。
 - 生产页签操作列直接固定为 190，避免旧用户列宽配置继续生效。
 - 保留现有多物料展开详情展示逻辑。
+
