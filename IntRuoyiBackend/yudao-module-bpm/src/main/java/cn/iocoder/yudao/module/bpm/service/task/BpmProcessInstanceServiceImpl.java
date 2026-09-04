@@ -851,7 +851,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         ProcessDefinition definition = processDefinitionService
                 .getProcessDefinition(createReqVO.getProcessDefinitionId());
         // 发起流程
-        return createProcessInstance0(userId, definition, createReqVO.getVariables(), null,
+        return createProcessInstance0(userId, definition, createReqVO.getVariables(), null, null,
                 createReqVO.getStartUserSelectAssignees());
     }
 
@@ -863,14 +863,14 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             ProcessDefinition definition = processDefinitionService
                     .getActiveProcessDefinition(createReqDTO.getProcessDefinitionKey());
             // 发起流程
-            return createProcessInstance0(userId, definition, createReqDTO.getVariables(),
+            return createProcessInstance0(userId, definition, createReqDTO.getVariables(), createReqDTO.getName(),
                     createReqDTO.getBusinessKey(),
                     createReqDTO.getStartUserSelectAssignees());
         });
     }
 
     private String createProcessInstance0(Long userId, ProcessDefinition definition,
-                                          Map<String, Object> variables, String businessKey,
+                                          Map<String, Object> variables, String name, String businessKey,
                                           Map<String, List<Long>> startUserSelectAssignees) {
         // 1.1 校验流程定义
         if (definition == null) {
@@ -896,6 +896,11 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             variables = new HashMap<>();
         }
         FlowableUtils.filterProcessInstanceFormVariable(variables); // 过滤一下，避免 ProcessInstance 系统级的变量被占用
+        variables.remove(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME);
+        boolean explicitProcessInstanceName = StrUtil.isNotBlank(name);
+        if (explicitProcessInstanceName) {
+            variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME, true);
+        }
         variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_ID, userId); // 设置流程变量，发起人 ID
         variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_STATUS, // 流程实例状态：审批中
                 BpmProcessInstanceStatusEnum.RUNNING.getStatus());
@@ -917,7 +922,8 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             processInstanceBuilder.predefineProcessInstanceId(processIdRedisDAO.generate(processIdRule));
         }
         // 3.2 流程名称
-        processInstanceBuilder.name(generateProcessInstanceName(userId, definition, processDefinitionInfo, variables));
+        processInstanceBuilder.name(explicitProcessInstanceName ? name.trim()
+                : generateProcessInstanceName(userId, definition, processDefinitionInfo, variables));
         // 3.3 发起流程实例
         ProcessInstance instance = processInstanceBuilder.start();
         return instance.getId();
@@ -970,6 +976,15 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         cloneVariables.put(BpmnVariableConstants.PROCESS_START_TIME, DateUtil.now());
         cloneVariables.put(BpmnVariableConstants.PROCESS_DEFINITION_NAME, definition.getName().trim());
         return StrUtil.format(definitionInfo.getTitleSetting().getTitle(), cloneVariables);
+    }
+
+    private boolean isExplicitProcessInstanceName(ProcessInstance instance) {
+        Map<String, Object> processVariables = instance.getProcessVariables();
+        if (CollUtil.isEmpty(processVariables)) {
+            return false;
+        }
+        return BooleanUtil.isTrue(Convert.toBool(
+                processVariables.get(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_EXPLICIT_NAME)));
     }
 
     @Override
@@ -1155,10 +1170,12 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
 
             @Override
             public void afterCommit() {
-                String name = generateProcessInstanceName(Long.valueOf(instance.getStartUserId()),
-                        processDefinition, processDefinitionInfo, instance.getProcessVariables());
-                if (ObjUtil.notEqual(instance.getName(), name)) {
-                    runtimeService.setProcessInstanceName(instance.getProcessInstanceId(), name);
+                if (!isExplicitProcessInstanceName(instance)) {
+                    String name = generateProcessInstanceName(Long.valueOf(instance.getStartUserId()),
+                            processDefinition, processDefinitionInfo, instance.getProcessVariables());
+                    if (ObjUtil.notEqual(instance.getName(), name)) {
+                        runtimeService.setProcessInstanceName(instance.getProcessInstanceId(), name);
+                    }
                 }
 
                 // 流程前置通知：需要在流程启动后(事务提交后)，保证 variables 已设置

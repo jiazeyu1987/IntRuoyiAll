@@ -237,14 +237,12 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, Long id,
                                                                       DccProjectCodeControlledFilePageReqVO reqVO) {
         getProjectCode(userId, id);
-        DccControlledFilePageReqVO controlledFilePageReqVO = new DccControlledFilePageReqVO();
-        controlledFilePageReqVO.setPageNo(1);
-        controlledFilePageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
-        controlledFilePageReqVO.setKeyword(reqVO.getKeyword());
-        controlledFilePageReqVO.setStatus(reqVO.getStatus());
-        controlledFilePageReqVO.setDccProjectCodeId(id);
-        List<DccControlledFileRespVO> associatedRows = new ArrayList<>(
-                controlledFileQueryService.getControlledFilePage(userId, controlledFilePageReqVO).getList());
+        List<DccControlledFileRespVO> associatedRows = controlledFileMapper
+                .selectAssociatedFilesByProjectCodeId(id, null)
+                .stream()
+                .filter(file -> matchesAssociatedFileFilters(file, reqVO.getKeyword(), reqVO.getStatus()))
+                .map(this::toAssociatedControlledFileRespVO)
+                .collect(Collectors.toCollection(ArrayList::new));
         associatedRows.forEach(this::markControlledFileSource);
         associatedRows.addAll(registrationCertificateFileAssociationService.listAssociatedRows(
                 id, reqVO.getKeyword(), reqVO.getStatus()));
@@ -460,12 +458,11 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     private List<Long> listVisibleAssociatedControlledFileIds(Long userId, Long projectCodeId) {
-        DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
+        DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
-        return getControlledFilePage(userId, projectCodeId, reqVO).getList().stream()
-                .filter(row -> !DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE.equals(
-                        row.getBusinessSourceType()))
+        reqVO.setDccProjectCodeId(projectCodeId);
+        return controlledFileQueryService.getControlledFilePage(userId, reqVO).getList().stream()
                 .map(DccControlledFileRespVO::getId)
                 .filter(Objects::nonNull)
                 .toList();
@@ -475,6 +472,53 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         if (row != null && row.getBusinessSourceType() == null) {
             row.setBusinessSourceType(CONTROLLED_FILE_SOURCE_TYPE);
         }
+    }
+
+    private boolean matchesAssociatedFileFilters(DccControlledFileDO file, String keyword, String status) {
+        if (file == null) {
+            return false;
+        }
+        if (StrUtil.isNotBlank(status) && !StrUtil.equals(status, file.getStatus())) {
+            return false;
+        }
+        if (StrUtil.isBlank(keyword)) {
+            return true;
+        }
+        String normalizedKeyword = StrUtil.trim(keyword).toLowerCase(Locale.ROOT);
+        return containsIgnoreCase(file.getFileNumber(), normalizedKeyword)
+                || containsIgnoreCase(file.getFileName(), normalizedKeyword)
+                || containsIgnoreCase(file.getTitle(), normalizedKeyword)
+                || containsIgnoreCase(file.getVersionNo(), normalizedKeyword);
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedKeyword) {
+        return StrUtil.isNotBlank(value) && value.toLowerCase(Locale.ROOT).contains(normalizedKeyword);
+    }
+
+    private DccControlledFileRespVO toAssociatedControlledFileRespVO(DccControlledFileDO file) {
+        DccControlledFileRespVO respVO = new DccControlledFileRespVO();
+        respVO.setId(file.getId());
+        respVO.setMasterId(file.getMasterId());
+        respVO.setCategoryId(file.getCategoryId());
+        respVO.setDirectoryId(file.getDirectoryId());
+        respVO.setFileName(file.getFileName());
+        respVO.setTitle(file.getTitle());
+        respVO.setFileNumber(file.getFileNumber());
+        respVO.setDccProjectCodeId(file.getDccProjectCodeId());
+        respVO.setFileTypeTaxonomyId(file.getFileTypeTaxonomyId());
+        respVO.setFileTypeLevel1(file.getFileTypeLevel1());
+        respVO.setFileTypeLevel2(file.getFileTypeLevel2());
+        respVO.setFileTypeLevel3(file.getFileTypeLevel3());
+        respVO.setFileTypeLevel4(file.getFileTypeLevel4());
+        respVO.setFileTypeLevel5(file.getFileTypeLevel5());
+        respVO.setProcessType(file.getProcessType());
+        respVO.setVersionNo(file.getVersionNo());
+        respVO.setStatus(file.getStatus());
+        respVO.setSubmittedTime(file.getSubmittedTime());
+        respVO.setApprovedTime(file.getApprovedTime());
+        respVO.setPublishedTime(file.getPublishedTime());
+        respVO.setBusinessSourceType(CONTROLLED_FILE_SOURCE_TYPE);
+        return respVO;
     }
 
     private PageResult<DccControlledFileRespVO> buildAssociatedControlledFilePageResult(

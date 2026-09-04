@@ -23,6 +23,7 @@ import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
+import org.flowable.task.api.TaskQuery;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -194,8 +195,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return;
         }
         Task task = taskService.getTask(taskId);
-        if (task == null || !hasText(task.getAssignee())
-                || Objects.equals(String.valueOf(loginUserId), task.getAssignee())) {
+        if (task == null || (hasText(task.getAssignee())
+                && Objects.equals(String.valueOf(loginUserId), task.getAssignee()))) {
             return;
         }
         String processInstanceId = task.getProcessInstanceId();
@@ -227,9 +228,50 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                         processInstancesById, task.getProcessInstanceId())))
                 .toList();
         if (page.getTotal() == 0 && hasText(context.getKeyword())) {
+            PageResult<ApprovalTaskSummary> claimableRegistrationCertificateUploadTodos =
+                    pageClaimableRegistrationCertificateUploadTodos(context);
+            if (claimableRegistrationCertificateUploadTodos.getTotal() > 0) {
+                return claimableRegistrationCertificateUploadTodos;
+            }
             return pageTodoByProcessInstanceId(context);
         }
         return new PageResult<>(summaries, page.getTotal());
+    }
+
+    private PageResult<ApprovalTaskSummary> pageClaimableRegistrationCertificateUploadTodos(
+            ApprovalTaskQueryContext context) {
+        if (context.isGlobalView() || context.getLoginUserId() == null
+                || !hasText(context.getKeyword())
+                || !hasRegistrationCertificateUploadApprovalAuthority(context.getLoginUserId())) {
+            return PageResult.empty();
+        }
+        TaskQuery taskQuery = flowableTaskService.createTaskQuery()
+                .active()
+                .includeProcessVariables()
+                .processVariableValueEquals("requestType", REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE)
+                .orderByTaskCreateTime()
+                .desc();
+        List<Task> tasks = taskQuery.list().stream()
+                .filter(BpmNativeApprovalTaskProvider::isCurrentTenantTask)
+                .filter(task -> !Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee()))
+                .toList();
+        if (tasks.isEmpty()) {
+            return PageResult.empty();
+        }
+        Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(tasks);
+        String keyword = context.getKeyword().trim();
+        List<ApprovalTaskSummary> summaries = tasks.stream()
+                .filter(task -> {
+                    ProcessInstance processInstance = requireRuntimeProcessInstance(
+                            processInstancesById, task.getProcessInstanceId());
+                    Map<String, Object> variables = resolveTodoProcessVariables(task, processInstance);
+                    return isRegistrationCertificateUploadApproval(variables)
+                            && matchesRegistrationCertificateUploadKeyword(task, variables, keyword);
+                })
+                .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
+                        processInstancesById, task.getProcessInstanceId())))
+                .toList();
+        return pageSummaries(summaries, context.getPageNo(), context.getPageSize());
     }
 
     private PageResult<ApprovalTaskSummary> pageTodoByProcessInstanceId(ApprovalTaskQueryContext context) {
@@ -555,6 +597,23 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         return Objects.equals(currentTenantId, taskTenantId);
     }
 
+    private static boolean matchesRegistrationCertificateUploadKeyword(Task task,
+                                                                       Map<String, Object> variables,
+                                                                       String keyword) {
+        if (!hasText(keyword)) {
+            return true;
+        }
+        return containsIgnoreCase(task.getName(), keyword)
+                || containsIgnoreCase(task.getProcessInstanceId(), keyword)
+                || containsIgnoreCase(firstText(variables.get("certificateNo"),
+                variables.get("registrationCertificateNo")), keyword)
+                || containsIgnoreCase(variables.get("productName"), keyword)
+                || containsIgnoreCase(variables.get("ownerCompanyName"), keyword)
+                || containsIgnoreCase(variables.get("classification"), keyword)
+                || containsIgnoreCase(firstText(variables.get("registrationCertificateAccessRequestId"),
+                variables.get("requestId")), keyword);
+    }
+
     private static String resolveBusinessTitle(String fallback, Map<String, Object> variables) {
         if (variables == null || variables.isEmpty()) {
             return sanitizeBusinessTitle(fallback, null);
@@ -614,6 +673,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     private static String resolveRegistrationCertificateAccessTitle(Map<String, Object> variables) {
         StringBuilder title = new StringBuilder(resolveRegistrationCertificateRequestTypeLabel(variables));
         if (isRegistrationCertificateUploadOrRenewalApproval(variables)) {
+            appendTitlePart(title, variables.get("certificateNo"));
             return title.toString();
         }
         appendTitlePart(title, firstText(variables.get("requestKey"), variables.get("registrationCertificateAccessRequestId"),
@@ -1004,6 +1064,14 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             }
         }
         return null;
+    }
+
+    private static boolean containsIgnoreCase(Object value, String keyword) {
+        String text = asText(value);
+        if (!hasText(text) || !hasText(keyword)) {
+            return false;
+        }
+        return text.toLowerCase().contains(keyword.toLowerCase());
     }
 
     private static boolean hasText(String value) {

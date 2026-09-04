@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
 import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,25 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
             sendToRecipient(validated, recipient.userId(), messageIds);
         }
         sendToRecipient(validated, validated.actorId(), messageIds);
+        return new DccRegistrationCertificateBusinessEventNotificationResult(
+                validated.eventType(), Map.copyOf(messageIds));
+    }
+
+    public DccRegistrationCertificateBusinessEventNotificationResult sendToUsers(
+            DccRegistrationCertificateBusinessEventNotificationCommand command,
+            List<Long> configuredRecipientUserIds) {
+        ValidatedCommand validated = validateEvent(command);
+        LinkedHashSet<Long> recipientUserIds = new LinkedHashSet<>();
+        if (configuredRecipientUserIds != null) {
+            configuredRecipientUserIds.stream()
+                    .filter(userId -> userId != null && userId > 0)
+                    .forEach(recipientUserIds::add);
+        }
+        recipientUserIds.add(validated.actorId());
+        LinkedHashMap<Long, Long> messageIds = new LinkedHashMap<>();
+        for (Long userId : recipientUserIds) {
+            sendToRecipient(validated, userId, messageIds);
+        }
         return new DccRegistrationCertificateBusinessEventNotificationResult(
                 validated.eventType(), Map.copyOf(messageIds));
     }
@@ -97,6 +117,16 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
     }
 
     private static ValidatedCommand validate(DccRegistrationCertificateBusinessEventNotificationCommand command) {
+        ValidatedCommand validated = validateEvent(command);
+        if (StrUtil.isBlank(command.recipientPermission())
+                || command.documentControlRoleIds() == null
+                || command.documentControlRoleIds().isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
+        }
+        return validated;
+    }
+
+    private static ValidatedCommand validateEvent(DccRegistrationCertificateBusinessEventNotificationCommand command) {
         if (command == null
                 || !positive(command.tenantId())
                 || !positive(command.ownerCompanyId())
@@ -104,10 +134,7 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
                 || !positive(command.versionId())
                 || !positive(command.actorId())
                 || StrUtil.isBlank(command.eventType())
-                || StrUtil.isBlank(command.eventKey())
-                || StrUtil.isBlank(command.recipientPermission())
-                || command.documentControlRoleIds() == null
-                || command.documentControlRoleIds().isEmpty()) {
+                || StrUtil.isBlank(command.eventKey())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING);
         }
         String eventType = command.eventType().trim();
@@ -117,7 +144,8 @@ public class DccRegistrationCertificateBusinessEventNotificationService {
         requireReadableTemplateParams(command.detailParams());
         return new ValidatedCommand(command.tenantId(), command.ownerCompanyId(), command.certificateId(),
                 command.versionId(), command.actorId(), eventType, command.eventKey().trim(),
-                command.recipientPermission().trim(), command.detailParams());
+                command.recipientPermission() == null ? "" : command.recipientPermission().trim(),
+                command.detailParams());
     }
 
     private static void requireReadableTemplateParams(Map<String, Object> detailParams) {

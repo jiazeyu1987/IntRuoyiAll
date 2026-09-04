@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.dcc.service.projectcode;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
@@ -415,9 +414,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     @Test
     void controlledFilePageShouldMergeRegistrationCertificateSourceRows() {
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
-        DccControlledFileRespVO controlledFile = new DccControlledFileRespVO();
-        controlledFile.setId(7001L);
-        controlledFile.setFileName("controlled-file.pdf");
+        DccControlledFileDO controlledFile = insertControlledFile(projectCode.getId(), "DCC-7001",
+                "controlled-file.pdf", null, null);
         DccControlledFileRespVO registrationFile = new DccControlledFileRespVO();
         registrationFile.setId(8001L);
         registrationFile.setFileName("registration-certificate.pdf");
@@ -425,29 +423,44 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE);
         registrationFile.setRegistrationCertificateId(9001L);
         registrationFile.setRegistrationCertificateBusinessFileId(8001L);
-        when(controlledFileQueryService.getControlledFilePage(eq(99L), any()))
-                .thenReturn(new PageResult<>(List.of(controlledFile), 1L));
         when(registrationCertificateFileAssociationService.listAssociatedRows(
-                projectCode.getId(), "注册证", "BOUND")).thenReturn(List.of(registrationFile));
+                projectCode.getId(), null, null)).thenReturn(List.of(registrationFile));
 
         DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(20);
-        reqVO.setKeyword("注册证");
-        reqVO.setStatus("BOUND");
         PageResult<DccControlledFileRespVO> page = projectCodeService.getControlledFilePage(
                 99L, projectCode.getId(), reqVO);
 
         assertEquals(2L, page.getTotal());
-        assertEquals(List.of(7001L, 8001L), page.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        assertEquals(List.of(controlledFile.getId(), 8001L),
+                page.getList().stream().map(DccControlledFileRespVO::getId).toList());
         assertEquals("DCC_CONTROLLED_FILE", page.getList().get(0).getBusinessSourceType());
         assertEquals(DccRegistrationCertificateProjectCodeFileAssociationService.BUSINESS_SOURCE_TYPE,
                 page.getList().get(1).getBusinessSourceType());
         assertEquals(9001L, page.getList().get(1).getRegistrationCertificateId());
         assertEquals(8001L, page.getList().get(1).getRegistrationCertificateBusinessFileId());
-        ArgumentCaptor<DccControlledFilePageReqVO> reqCaptor = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
-        verify(controlledFileQueryService).getControlledFilePage(eq(99L), reqCaptor.capture());
-        assertEquals(projectCode.getId(), reqCaptor.getValue().getDccProjectCodeId());
+    }
+
+    @Test
+    void controlledFilePageShouldListPendingUploadedControlledFilesForUploadRelation() {
+        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
+        DccControlledFileDO pendingFile = insertControlledFile(projectCode.getId(), "PENDING-001",
+                "待审批上传文件.pdf", null, null, DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus());
+
+        DccProjectCodeControlledFilePageReqVO reqVO = new DccProjectCodeControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        PageResult<DccControlledFileRespVO> page = projectCodeService.getControlledFilePage(
+                99L, projectCode.getId(), reqVO);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(pendingFile.getId(), page.getList().get(0).getId());
+        assertEquals("PENDING-001", page.getList().get(0).getFileNumber());
+        assertEquals("待审批上传文件.pdf", page.getList().get(0).getFileName());
+        assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus(),
+                page.getList().get(0).getStatus());
+        assertEquals("DCC_CONTROLLED_FILE", page.getList().get(0).getBusinessSourceType());
     }
 
     @Test
@@ -1285,6 +1298,12 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
     private DccControlledFileDO insertControlledFile(Long dccProjectCodeId, String fileNumber, String fileName,
                                                     String fileTypeLevel2, String fileTypeLevel3) {
+        return insertControlledFile(dccProjectCodeId, fileNumber, fileName, fileTypeLevel2, fileTypeLevel3,
+                DccControlledFileStatusEnum.ACTIVE.getStatus());
+    }
+
+    private DccControlledFileDO insertControlledFile(Long dccProjectCodeId, String fileNumber, String fileName,
+                                                    String fileTypeLevel2, String fileTypeLevel3, String status) {
         DccControlledFileDO controlledFile = DccControlledFileDO.builder()
                 .masterId(1L)
                 .categoryId(1L)
@@ -1300,7 +1319,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .needTraining(false)
                 .processType("CONTROLLED_FILE")
                 .versionNo("A1")
-                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .status(status)
                 .submitterId(1L)
                 .requesterId(1L)
                 .build();

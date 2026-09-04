@@ -926,6 +926,7 @@
 - Forbidden action: 禁止把“部分失败”文本当 Job 成功、用固定天数近似月份、只靠内存锁去重、补发全部历史阈值或要求必须在阈值当天运行。
 - Evidence: `doc/tasks/20260814-domestic-registration-certificate-lifecycle-design/verification-report.md`。
 - Configured-recipient extension: 当业务允许管理员按阈值或事件配置具体通知人时，接收人名单必须成为租户级正式配置，任务按事件实际命中的阈值读取对应名单；不得继续从 Quartz `handler_param` 中的固定角色、账号或公司范围推断。配置要求接收人具备业务查看权限时，应通过可审计、可同步撤销的动态权益来源维护名单并集；从全部规则移除的用户只撤销该配置来源产生的权益，不得删除其其它角色或授权。配置保存、接收人校验和权益同步必须处于同一事务失败边界，多选投递需按事件与用户唯一键逐人幂等。
+- Configured-recipient runtime check: 当迁移已将 Quartz `handler_param` 缩减为调度参数时，任何业务即时通知、审批通过通知或人工触发事件都不得再依赖 `handler_param` 中的 `roleIds`、`permission` 或公司范围。审批 E2E 若在业务动作成功后报“未配置提醒任务/缺少 handler 参数”，优先核对代码是否仍读取旧调度参数，而不是给用户补旧格式 job 参数。
 
 ## 站内信领域幂等必须延伸到平台消息门禁
 

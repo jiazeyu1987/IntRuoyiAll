@@ -69,7 +69,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Import({
@@ -189,20 +191,19 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void pageAppliesCompanyScopeBeforeCountAndListAndAuditsReturnedObjects() {
+    void pageListsTenantCurrentCertificatesWithoutCompanyScopeAndAuditsReturnedObjects() {
         FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-VISIBLE", true, 20L);
-        FormalFixture hidden = seedFormal(1L, 11L, "ACTIVE", "CURRENT", "CERT-HIDDEN", true, 21L);
-        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
-        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
-                .thenReturn(List.of(owner(10L, "Owner A")));
+        FormalFixture otherCompany = seedFormal(1L, 11L, "ACTIVE", "CURRENT", "CERT-OTHER-COMPANY", true, 21L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L, 11L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A"), owner(11L, "Owner B")));
 
         PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
                 1L, 99L, DccRegistrationCertificatePageQuery.builder()
                         .pageNo(1).pageSize(10).status("CURRENT").missingFile(false).build(),
                 context("REQ-PAGE-001"));
 
-        assertEquals(1L, page.getTotal());
-        assertEquals(List.of(visible.certificateId()),
+        assertEquals(2L, page.getTotal());
+        assertEquals(List.of(visible.certificateId(), otherCompany.certificateId()),
                 page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
         assertEquals("Owner A", page.getList().get(0).getOwnerCompanyName());
         assertEquals("DCC-PROJ-20", page.getList().get(0).getProjectCode());
@@ -211,9 +212,10 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertFalse(page.getList().get(0).getHasPendingRenewal(),
                 "a current certificate without an open renewal must remain available for renewal submission");
         assertEquals(1, auditMapper.selectListByCertificateId(visible.certificateId()).size());
-        assertEquals(0, auditMapper.selectListByCertificateId(hidden.certificateId()).size());
-        assertEquals(1L, queryMapper.countPage(1L, List.of(10L),
+        assertEquals(1, auditMapper.selectListByCertificateId(otherCompany.certificateId()).size());
+        assertEquals(2L, queryMapper.countPage(1L, List.of(),
                 DccRegistrationCertificatePageQuery.builder().status("CURRENT").missingFile(false).build()));
+        verify(companyScopeApi, never()).getEnabledCompanyIdsForUser(99L);
     }
 
     @Test
