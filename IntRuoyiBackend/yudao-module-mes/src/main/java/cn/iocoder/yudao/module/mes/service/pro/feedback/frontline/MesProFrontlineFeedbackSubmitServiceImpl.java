@@ -111,7 +111,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole())).toList();
         List<MesFrontlineProcessMaterial> outputMaterials = frozenMaterials.stream()
                 .filter(material -> MesFrontlineProcessMaterial.ROLE_OUTPUT.equals(material.materialRole())).toList();
-        requireExactOutputMaterialDetails(outputMaterials, reqVO.getMaterialDetails());
         attachInputMaterialEvidence(reqVO, inputMaterials);
         MesProFrontlineFeedbackMaterialSubmission materialSubmission = outputMaterials.isEmpty() ? null
                 : materialSubmissionValidator.validate(outputMaterials,
@@ -340,20 +339,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());
         rawPayload.put("inputMaterialDetails", evidence);
         reqVO.setRawPayload(rawPayload);
-    }
-
-    private void requireExactOutputMaterialDetails(List<MesFrontlineProcessMaterial> outputMaterials,
-                                                   List<MesProFrontlineFeedbackMaterialReqVO> submitted) {
-        java.util.Set<Long> expectedIds = outputMaterials.stream()
-                .map(MesFrontlineProcessMaterial::materialId)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        java.util.Set<Long> submittedIds = submitted.stream()
-                .map(MesProFrontlineFeedbackMaterialReqVO::getMaterialId)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        if (submittedIds.size() != submitted.size() || !expectedIds.equals(submittedIds)) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
-                    "materialDetails must exactly match frozen output materials");
-        }
     }
 
     private static void validateDeviceSelections(MesProFrontlineFeedbackPayloadReqVO payload,

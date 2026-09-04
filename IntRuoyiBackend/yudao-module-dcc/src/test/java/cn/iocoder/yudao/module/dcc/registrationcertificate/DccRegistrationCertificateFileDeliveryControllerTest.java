@@ -4,6 +4,9 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.file
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.file.vo.DccRegistrationCertificateFileDownloadGrantStatusRespVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFileDeliveryService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFileDownloadResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFilePreviewService;
@@ -22,9 +25,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.time.LocalDateTime;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +50,12 @@ class DccRegistrationCertificateFileDeliveryControllerTest extends BaseMockitoUn
 
     @Mock
     private DccRegistrationCertificateFileDeliveryService deliveryService;
+
+    @Mock
+    private DccRegistrationCertificateAccessPolicyService accessPolicyService;
+
+    @Mock
+    private DccRegistrationCertificateBusinessClock businessClock;
 
     @InjectMocks
     private DccRegistrationCertificateFilePreviewController controller;
@@ -77,6 +89,52 @@ class DccRegistrationCertificateFileDeliveryControllerTest extends BaseMockitoUn
         assertEquals(DOWNLOAD_ATTEMPT_KEY_HEADER, attemptKey.value());
         assertTrue(attemptKey.required());
         assertEquals(HttpServletRequest.class, parameters[2].getType());
+    }
+
+    @Test
+    void downloadGrantStatusEndpoint_exposesRoutePermissionAndDelegatesPolicy() throws Exception {
+        RequestMapping root = DccRegistrationCertificateFilePreviewController.class
+                .getAnnotation(RequestMapping.class);
+        assertNotNull(root);
+        assertEquals("/dcc/registration-certificates/files", root.value()[0]);
+
+        Method listDownloadGrants = Arrays.stream(DccRegistrationCertificateFilePreviewController.class.getDeclaredMethods())
+                .filter(method -> method.getName().equals("listDownloadGrants"))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(listDownloadGrants, "download-grants endpoint must exist as a real HTTP entry");
+        GetMapping mapping = listDownloadGrants.getAnnotation(GetMapping.class);
+        assertNotNull(mapping);
+        assertEquals("/download-grants", mapping.value()[0]);
+        PreAuthorize preAuthorize = listDownloadGrants.getAnnotation(PreAuthorize.class);
+        assertNotNull(preAuthorize);
+        assertTrue(preAuthorize.value().contains("dcc:registration-certificate:query-current"));
+        assertTrue(preAuthorize.value().contains("dcc:registration-certificate:access-request:create"));
+        assertTrue(preAuthorize.value().contains("dcc:registration-certificate:access-request:approve"));
+
+        LocalDateTime now = LocalDateTime.of(2026, 9, 3, 22, 45);
+        when(businessClock.now()).thenReturn(now);
+        when(accessPolicyService.canDownloadFile(11L, 22L, 33L, now)).thenReturn(true);
+        when(accessPolicyService.canDownloadFile(11L, 22L, 44L, now)).thenReturn(false);
+        TenantContextHolder.setTenantId(11L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(22L);
+
+            var response = controller.listDownloadGrants(List.of(33L, 44L, 33L, 0L, -1L));
+
+            assertEquals(0, response.getCode());
+            assertEquals(2, response.getData().size());
+            DccRegistrationCertificateFileDownloadGrantStatusRespVO first = response.getData().get(0);
+            assertEquals(33L, first.getBusinessFileId());
+            assertEquals(Boolean.TRUE, first.getCanDownload());
+            DccRegistrationCertificateFileDownloadGrantStatusRespVO second = response.getData().get(1);
+            assertEquals(44L, second.getBusinessFileId());
+            assertEquals(Boolean.FALSE, second.getCanDownload());
+            verify(accessPolicyService, times(1)).canDownloadFile(11L, 22L, 33L, now);
+            verify(accessPolicyService, times(1)).canDownloadFile(11L, 22L, 44L, now);
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 
     @Test

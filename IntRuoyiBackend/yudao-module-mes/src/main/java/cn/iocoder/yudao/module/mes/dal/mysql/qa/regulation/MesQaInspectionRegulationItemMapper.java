@@ -3,7 +3,9 @@ package cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -49,6 +51,9 @@ public interface MesQaInspectionRegulationItemMapper
         return delete(new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
                 .eq(MesQaInspectionRegulationItemDO::getRegulationVersionId, regulationVersionId));
     }
+
+    @Delete("DELETE FROM mes_qa_inspection_regulation_item WHERE regulation_version_id = #{regulationVersionId}")
+    int deletePhysicallyByVersionId(@Param("regulationVersionId") Long regulationVersionId);
 
     default int deleteByVersionIds(Collection<Long> regulationVersionIds) {
         if (regulationVersionIds == null || regulationVersionIds.isEmpty()) {

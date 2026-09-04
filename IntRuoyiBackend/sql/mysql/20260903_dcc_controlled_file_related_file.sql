@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_related_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `controlled_file_id` BIGINT NOT NULL COMMENT '上传的受控文件 ID',
+  `related_controlled_file_id` BIGINT NOT NULL COMMENT '关联的受控文件 ID',
+  `project_code_id` BIGINT NOT NULL COMMENT 'DCC 项目代码 ID',
+  `related_master_id` BIGINT NULL COMMENT '关联文件主版本链 ID',
+  `related_file_number_snapshot` VARCHAR(64) NULL COMMENT '关联文件编号快照',
+  `related_file_name_snapshot` VARCHAR(256) NULL COMMENT '关联文件名称快照',
+  `related_version_no_snapshot` VARCHAR(64) NULL COMMENT '关联文件版本快照',
+  `relation_source` VARCHAR(32) NOT NULL COMMENT '关联来源',
+  `tenant_id` BIGINT NOT NULL DEFAULT 0 COMMENT '租户编号',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `creator` VARCHAR(64) NULL COMMENT '创建者',
+  `updater` VARCHAR(64) NULL COMMENT '更新者',
+  `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_related_file` (`tenant_id`, `controlled_file_id`, `related_controlled_file_id`, `deleted`),
+  KEY `idx_dcc_related_file_target` (`tenant_id`, `related_controlled_file_id`, `deleted`),
+  KEY `idx_dcc_related_file_project` (`tenant_id`, `project_code_id`, `deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC 受控文件上传关联文件';

@@ -26,6 +26,36 @@ import java.util.Map;
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
 
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = #{actorId},
+                checked_out_time = CURRENT_TIMESTAMP,
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+              AND checked_out_by IS NULL
+            """)
+    int checkoutByIdAndTenantWhenAvailable(@Param("tenantId") Long tenantId,
+                                           @Param("controlledFileId") Long controlledFileId,
+                                           @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = NULL,
+                checked_out_time = NULL,
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+              AND checked_out_by = #{actorId}
+            """)
+    int checkinByIdAndTenantWhenOwner(@Param("tenantId") Long tenantId,
+                                      @Param("controlledFileId") Long controlledFileId,
+                                      @Param("actorId") Long actorId);
+
     @Select("""
             SELECT id,
                    tenant_id,

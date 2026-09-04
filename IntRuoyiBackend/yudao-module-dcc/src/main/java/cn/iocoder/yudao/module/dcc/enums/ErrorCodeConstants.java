@@ -306,6 +306,16 @@ public interface ErrorCodeConstants {
             "最终批准条件未就绪：{}");
     ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_FAILED = new ErrorCode(1_080_000_203,
             "签名证据受控副本绑定失败：{}");
+    ErrorCode CONTROLLED_FILE_ALREADY_CHECKED_OUT = new ErrorCode(1_080_000_304,
+            "受控文件已由用户 {} 检出，不能重复检出");
+    ErrorCode CONTROLLED_FILE_NOT_CHECKED_OUT = new ErrorCode(1_080_000_305,
+            "受控文件当前未检出");
+    ErrorCode CONTROLLED_FILE_CHECKIN_NOT_OWNER = new ErrorCode(1_080_000_306,
+            "受控文件已由用户 {} 检出，只有检出人可以检入");
+    ErrorCode CONTROLLED_FILE_RELATED_FILE_INVALID = new ErrorCode(1_080_000_302,
+            "关联文件必须属于当前 DCC 项目代码");
+    ErrorCode CONTROLLED_FILE_RELATED_FILE_DUPLICATE = new ErrorCode(1_080_000_303,
+            "关联文件不能重复选择");
     ErrorCode CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT = new ErrorCode(1_080_000_204,
             "正式源文件已由其它受控记录占用：sourceFileId={}");
     ErrorCode CONTROLLED_FILE_SOURCE_ISOLATION_FAILED = new ErrorCode(1_080_000_205,

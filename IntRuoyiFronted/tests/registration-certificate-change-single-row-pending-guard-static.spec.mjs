@@ -8,8 +8,8 @@ const detail = read('src/views/dcc/registration-certificate/detail/index.vue')
 
 assert.match(api, /export interface DccRegistrationCertificatePageItemVO[\s\S]*hasPendingChange:\s*boolean/,
   'current list item must expose the backend pending-change state')
-assert.match(list, /v-if="row\.status === 'CURRENT' && row\.hasPendingChange === false"[\s\S]*>\s*变更\s*</,
-  'current list must block the change entry while an approval is pending')
+assert.match(list, /v-if="row\.status === 'CURRENT' && row\.hasPendingChange === false && canChangeRegistrationCertificate"[\s\S]*>\s*变更\s*</,
+  'current list must block the change entry while an approval is pending and allow authorized roles')
 assert.match(detail, /if \(status === 'APPLIED'\) return '已变更'/,
   'applied change history must display 已变更')
 assert.match(detail, /if \(status === 'PENDING_APPROVAL'\) return '待审批'/,

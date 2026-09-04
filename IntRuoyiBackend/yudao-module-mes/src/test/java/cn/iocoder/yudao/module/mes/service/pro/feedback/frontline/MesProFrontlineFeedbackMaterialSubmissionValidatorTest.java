@@ -60,11 +60,21 @@ class MesProFrontlineFeedbackMaterialSubmissionValidatorTest {
     }
 
     @Test
-    void validate_rejectsMissingFrozenMaterialAsWholeSubmission() {
-        ServiceException error = assertThrows(ServiceException.class, () -> validator.validate(
-                frozenMaterials(), List.of(), List.of(material(501L, "5", "0"))));
+    void validate_acceptsNonEmptyFrozenOutputMaterialSubset() {
+        MesProFrontlineFeedbackMaterialSubmission result = validator.validate(
+                frozenMaterials(), List.of(), List.of(material(501L, "5", "0")));
 
-        assertTrue(error.getMessage().contains("物料集合与冻结工序不一致"));
+        assertEquals(List.of(501L), result.materials().stream()
+                .map(MesProFrontlineFeedbackMaterialSubmission.Material::materialId).toList());
+        assertEquals(new BigDecimal("5"), result.progressQuantity());
+    }
+
+    @Test
+    void validate_rejectsUnknownFrozenMaterial() {
+        ServiceException error = assertThrows(ServiceException.class, () -> validator.validate(
+                frozenMaterials(), List.of(), List.of(material(9999L, "5", "0"))));
+
+        assertTrue(error.getMessage().contains("提交物料必须是冻结工序物料的非空子集"));
     }
 
     @Test

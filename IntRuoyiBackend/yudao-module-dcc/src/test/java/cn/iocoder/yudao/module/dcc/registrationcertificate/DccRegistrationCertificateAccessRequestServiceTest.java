@@ -20,7 +20,6 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accessrequest
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accessrequest.DccRegistrationCertificateAccessRequestService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +44,6 @@ import java.util.List;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH;
@@ -53,7 +51,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -81,19 +78,17 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    private MdmCompanyScopeApi companyScopeApi;
-    @MockitoBean
     private DccProjectCodeService projectCodeService;
 
     @BeforeEach
     void setUp() {
-        reset(companyScopeApi, projectCodeService);
+        reset(projectCodeService);
     }
 
     @Test
     void submitDownloadRequestValidatesProjectAndPersistsRequestAndFilesAtomically() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
 
         DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-1",
@@ -103,7 +98,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
         assertEquals(10L, result.ownerCompanyId());
         assertEquals("SUBMITTED", result.status());
         assertEquals(List.of(fixture.fileId()), result.businessFileIds());
-        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+        verify(projectCodeService, never()).getProjectCode(99L, 40L);
         DccRegistrationCertificateAccessRequestDO request = requestMapper.selectById(result.requestId());
         assertEquals("DOWNLOAD_FILE", request.getRequestType());
         assertEquals(40L, request.getProjectCodeId());
@@ -119,7 +114,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @Test
     void submitDownloadRequestResolvesProjectAndFileIdsFromTheCertificateWhenOmitted() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
 
         DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-auto-ids",
@@ -136,7 +131,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
         Long oldFileId = seedBusinessFile("VERSION", oldVersionId, "REGISTRATION_CERTIFICATE", "old.pdf");
         Long changeId = seedAppliedChange(current.certificateId(), current.versionId());
         Long changeFileId = seedBusinessFile("CHANGE", changeId, "CHANGE_APPROVAL", "change.pdf");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
 
         DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-old-change",
@@ -161,7 +156,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
 
         assertEquals(fixture.certificateId(), result.certificateId());
         assertEquals(List.of(), result.businessFileIds());
-        verify(projectCodeService, never()).getProjectCode(99L, 40L);
+        verify(projectCodeService, never()).getProjectCode(40L);
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
                 + "WHERE request_key = 'view-old-1' AND project_code_id IS NULL"));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
@@ -171,7 +166,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @Test
     void sameKeySamePayloadReplaysExistingRequestAndDoesNotDuplicateRows() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
         DccRegistrationCertificateAccessRequestCommand command =
                 download(fixture.certificateId(), 40L, List.of(fixture.fileId()));
@@ -189,7 +184,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @Test
     void sameKeyDifferentPayloadConflictsAndDoesNotAppendRows() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
         service.submit(1L, 99L, "download-conflict",
                 download(fixture.certificateId(), 40L, List.of(fixture.fileId())));
@@ -207,7 +202,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @Test
     void replayRequiresPayloadHashFieldToMatchExactlyRatherThanSubstring() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
         DccRegistrationCertificateAccessRequestCommand command =
                 download(fixture.certificateId(), 40L, List.of(fixture.fileId()));
@@ -243,12 +238,12 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
         assertEquals(REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED.getCode(), missing.getCode());
 
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.DISABLE));
         ServiceException disabled = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
                 "disabled-project", download(fixture.certificateId(), 40L, List.of(fixture.fileId()))));
 
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 21L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 21L,
                 DccProjectCodeStatusConstants.ENABLE));
         ServiceException mismatch = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
                 "product-mismatch", download(fixture.certificateId(), 40L, List.of(fixture.fileId()))));
@@ -261,7 +256,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @Test
     void downloadRequestAllowsUploadedCertificateWithoutProductMasterBinding() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND", 40L, null);
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 21L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 21L,
                 DccProjectCodeStatusConstants.ENABLE));
 
         DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-uploaded",
@@ -276,27 +271,13 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     @Test
     void downloadFileMustBeBoundRegistrationCertificateFileForTheSameCertificate() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "STAGED");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+        when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.ENABLE));
 
         ServiceException notBound = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
                 "file-not-bound", download(fixture.certificateId(), 40L, List.of(fixture.fileId()))));
 
         assertEquals(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED.getCode(), notBound.getCode());
-        assertNoRequestRows();
-    }
-
-    @Test
-    void companyScopeDeniedDoesNotPersistRequestOrFiles() {
-        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
-        doThrow(new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
-                .when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
-
-        ServiceException denied = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
-                "scope-denied", new DccRegistrationCertificateAccessRequestCommand(
-                        fixture.certificateId(), "VIEW_OLD_CERTIFICATE", "legacy lookup", null, List.of())));
-
-        assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), denied.getCode());
         assertNoRequestRows();
     }
 
@@ -437,6 +418,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
                 .id(40L)
                 .productMasterId(productMasterId)
+                .projectCode("PRJ-001")
                 .status(status)
                 .build();
         projectCode.setTenantId(tenantId);

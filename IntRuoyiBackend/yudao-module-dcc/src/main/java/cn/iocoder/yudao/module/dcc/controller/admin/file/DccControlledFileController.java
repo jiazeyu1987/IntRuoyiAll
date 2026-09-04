@@ -392,6 +392,20 @@ public class DccControlledFileController {
         return success(queryService.getControlledFile(getLoginUserId(), id));
     }
 
+    @PostMapping("/{id:\\d+}/checkout")
+    @Operation(summary = "Check out one controlled file")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<DccControlledFileRespVO> checkoutControlledFile(@PathVariable("id") Long id) {
+        return success(queryService.checkoutControlledFile(getLoginUserId(), id));
+    }
+
+    @PostMapping("/{id:\\d+}/checkin")
+    @Operation(summary = "Check in one controlled file")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<DccControlledFileRespVO> checkinControlledFile(@PathVariable("id") Long id) {
+        return success(queryService.checkinControlledFile(getLoginUserId(), id));
+    }
+
     @GetMapping("/{id:\\d+}/access-explanation")
     @Operation(summary = "Explain why current user can or cannot access one controlled file")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")

@@ -526,6 +526,8 @@ public class MesFrontlineDeviceAccountController {
         item.setActiveOrderProcessSnapshotId(context.activeOrderProcessSnapshotId());
         item.setParameterSnapshotSha256(context.parameterSnapshotSha256());
         item.setParameterSnapshotState(context.parameterSnapshotState());
+        item.setDeviceSelectionSnapshotJson(context.deviceSelectionSnapshotJson());
+        item.setDeviceSelectionSnapshotSha256(context.deviceSelectionSnapshotSha256());
         return item;
     }
 

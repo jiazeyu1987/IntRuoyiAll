@@ -302,6 +302,12 @@ export interface DccRegistrationCertificateGrantStatusVO {
   revokeReason?: string
 }
 
+export interface DccRegistrationCertificateFileDownloadGrantStatusVO {
+  businessFileId: number | string
+  canDownload: boolean
+  pendingRequestId?: number | string
+}
+
 export interface DccRegistrationCertificateAccessRequestStatusVO {
   requestId: number | string
   certificateId: number | string
@@ -587,6 +593,15 @@ export const downloadRegistrationCertificateFile = async (
     throw new Error('下载响应文件名无效，已拒绝保存文件。')
   }
   return { blob: response.data, fileName: fileName.trim() }
+}
+
+export const getRegistrationCertificateFileDownloadGrantStatuses = async (
+  businessFileIds: Array<number | string>
+) => {
+  return await request.get<DccRegistrationCertificateFileDownloadGrantStatusVO[]>({
+    url: '/dcc/registration-certificates/files/download-grants',
+    params: { businessFileIds: businessFileIds.map((id) => String(id)).join(',') }
+  })
 }
 
 export const getRegistrationCertificateFilePreviewMetadata = async (

@@ -76,5 +76,7 @@ public class DccControlledFileDO extends BaseDO {
     private Long supersededByFileId;
     private String rejectReason;
     private String finalizationError;
+    private Long checkedOutBy;
+    private LocalDateTime checkedOutTime;
 
 }

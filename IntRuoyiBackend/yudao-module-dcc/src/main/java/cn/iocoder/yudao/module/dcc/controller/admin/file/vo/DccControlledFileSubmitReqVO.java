@@ -47,6 +47,8 @@ public class DccControlledFileSubmitReqVO {
 
     private Long revisionTargetControlledFileId;
 
+    private List<Long> relatedControlledFileIds;
+
     private Boolean needTraining;
 
     private String processType;

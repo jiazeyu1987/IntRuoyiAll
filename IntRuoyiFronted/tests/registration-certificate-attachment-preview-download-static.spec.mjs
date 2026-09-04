@@ -9,7 +9,9 @@ const paths = {
   detail: 'IntRuoyiFronted/src/views/dcc/registration-certificate/detail/index.vue',
   actionPanel: 'IntRuoyiFronted/src/views/dcc/registration-certificate/workflow/ActionPanel.vue',
   commonPreview: 'IntRuoyiFronted/src/api/common/filePreview.ts',
-  api: 'IntRuoyiFronted/src/api/dcc/registrationCertificate/index.ts'
+  api: 'IntRuoyiFronted/src/api/dcc/registrationCertificate/index.ts',
+  fileController: 'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/file/DccRegistrationCertificateFilePreviewController.java',
+  accessPolicy: 'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/service/accesspolicy/DccRegistrationCertificateAccessPolicyService.java'
 }
 
 for (const path of Object.values(paths)) {
@@ -20,6 +22,8 @@ const detail = read(paths.detail)
 const actionPanel = read(paths.actionPanel)
 const commonPreview = read(paths.commonPreview)
 const api = read(paths.api)
+const fileController = read(paths.fileController)
+const accessPolicy = read(paths.accessPolicy)
 
 assert.match(
   commonPreview,
@@ -61,9 +65,10 @@ for (const anchor of [
 ]) {
   assert.match(detail, new RegExp(`data-testid=["']${anchor}["']`), `detail must expose ${anchor}`)
 }
-for (const label of ['在线查看', '下载', '申请下载']) {
+for (const label of ['在线查看', '下载']) {
   assert.match(detail, new RegExp(`>\\s*${label}\\s*<`), `detail must expose ${label}`)
 }
+assert.match(detail, /申请中[\s\S]*申请下载/, 'detail must expose request-download and pending labels')
 assert.match(detail, /ProtectedPdfViewer/, 'detail must reuse the protected controlled-file viewer')
 assert.match(
   detail,
@@ -102,23 +107,38 @@ assert.match(
 )
 assert.match(
   detail,
-  /const canDirectDownload = computed\(\(\) => checkRole\(\['dcc_registration_certificate_approver'\]\)\)/,
-  'detail must derive direct-download visibility from the formal registration manager role'
-)
-assert.equal(
-  (detail.match(/v-if="canDirectDownload"/g) || []).length,
-  2,
-  'registration and renewal attachment areas must each expose one direct-download branch'
-)
-assert.equal(
-  (detail.match(/v-else\n\s+v-hasPermi="\['dcc:registration-certificate:access-request:create'\]"/g) || []).length,
-  2,
-  'registration and renewal attachment areas must each expose one request-download branch'
+  /getRegistrationCertificateFileDownloadGrantStatuses/,
+  'detail must load current-user download authorization status from the backend'
 )
 assert.match(
   detail,
-  /mode:\s*'access-request'[\s\S]*downloadFileId:/,
-  'detail must keep a formal download-request entry for files without a grant'
+  /const canDirectDownload = \(businessFileId: number \| string\) =>[\s\S]*checkRole\(\['dcc_registration_certificate_approver'\]\)[\s\S]*downloadAuthorizedFileIds\.value\.has\(String\(businessFileId\)\)/,
+  'detail must show direct download for registration managers or files with active download grants'
+)
+assert.equal(
+  (detail.match(/v-if="canDirectDownload\(/g) || []).length,
+  3,
+  'registration, renewal, and change attachment areas must each expose one direct-download branch'
+)
+assert.equal(
+  (detail.match(/v-else\r?\n\s+v-hasPermi="\['dcc:registration-certificate:access-request:create'\]"/g) || []).length,
+  3,
+  'registration, renewal, and change attachment areas must each expose one request-download branch'
+)
+assert.doesNotMatch(
+  detail,
+  /const canDirectDownload = computed\(\(\) => checkRole\(\['dcc_registration_certificate_approver'\]\)\)/,
+  'detail must not rely only on a fixed role to decide whether an approved applicant can download'
+)
+assert.match(
+  detail,
+  /submitRegistrationCertificateAccessRequest\(\s*\{[\s\S]*requestType:\s*'DOWNLOAD_FILE'[\s\S]*businessFileIds:\s*\[businessFileId\]/,
+  'detail must submit a formal download request for files without a grant'
+)
+assert.doesNotMatch(
+  detail,
+  /const openDownloadRequest = async[\s\S]{0,800}mode:\s*'access-request'/,
+  'detail attachment request must not switch into access-request workflow mode'
 )
 assert.match(
   detail,
@@ -149,6 +169,22 @@ assert.doesNotMatch(detail, /window\.open\(|infraFileId|\/infra\/file\//,
   'detail must not bypass the business-file preview and download guards')
 
 assert.match(api, /downloadRegistrationCertificateFile/, 'authorized download API must remain available')
+assert.match(
+  api,
+  /getRegistrationCertificateFileDownloadGrantStatuses[\s\S]*\/dcc\/registration-certificates\/files\/download-grants[\s\S]*businessFileIds\.map\(\(id\) => String\(id\)\)\.join\(','\)/,
+  'frontend must call the current-user download grant status endpoint with explicit business-file ids'
+)
+assert.match(api, /pendingRequestId\?: number \| string/, 'download grant status type must expose pendingRequestId')
+assert.match(
+  fileController,
+  /@GetMapping\("\/download-grants"\)[\s\S]*listDownloadGrants[\s\S]*accessPolicyService\.canDownloadFile/,
+  'backend must expose a read-only current-user download authorization status endpoint'
+)
+assert.match(
+  accessPolicy,
+  /public boolean canDownloadFile[\s\S]*authorizeRegistrationManagerDownloadIfRole[\s\S]*requireDownloadGrant/,
+  'backend authorization status must honor both registration-manager direct download and approved grants'
+)
 assert.match(
   actionPanel,
   /initial-access-request-type|initialAccessRequestType/,

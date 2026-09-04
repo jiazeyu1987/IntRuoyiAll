@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -87,18 +88,22 @@ public class DccRegistrationCertificateChangeService {
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
     private final DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
+    private final DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
     public DccRegistrationCertificateChangeService(JdbcTemplate jdbcTemplate,
                                                     FileService fileService,
                                                     DccRegistrationCertificateBusinessClock businessClock,
                                                     DccRegistrationCertificateBusinessEventNotifier businessEventNotifier,
-                                                    DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService) {
+                                                    DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService,
+                                                    DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService) {
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
         this.fileService = require(fileService, "fileService");
         this.businessClock = require(businessClock, "businessClock");
         this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
         this.projectCodeFileAssociationService = require(
                 projectCodeFileAssociationService, "projectCodeFileAssociationService");
+        this.productCatalogRegistrationSyncService = require(
+                productCatalogRegistrationSyncService, "productCatalogRegistrationSyncService");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -231,6 +236,7 @@ public class DccRegistrationCertificateChangeService {
                 tenantId, state.ownerCompanyId(), application.certificateId(), state.versionId(),
                 approverId, approvalKey.trim(), notificationProductName, state.certificateNo(),
                 state.effectiveDate(), state.expiryDate());
+        productCatalogRegistrationSyncService.syncByRegistrationCertificateId(application.certificateId());
         return new DccRegistrationCertificateChangeResult(application.certificateId(), application.changeId(),
                 state.snapshotId(), resultingSnapshotId, STATUS_APPLIED);
     }

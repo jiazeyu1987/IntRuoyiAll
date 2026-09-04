@@ -25,11 +25,13 @@
               {{ formatRecipientLabel(userId) }}
             </el-tag>
           </div>
-          <UserSelect
-            v-model="recipientPickerValues[threshold.key]"
+          <UserSelectV2
+            v-model="formData.thresholdRecipientUserIds[threshold.key]"
             class="recipient-picker-trigger"
+            :multiple="true"
+            :hide-selected-label="true"
             placeholder="选择通知接收人"
-            @change="(user) => addRecipient(threshold.key, user)"
+            @change="handleRecipientChange"
           />
         </div>
       </el-form-item>
@@ -58,7 +60,7 @@ import {
   type RegistrationCertificateThresholdRecipientUserIds
 } from '@/api/dcc/registrationCertificate/reminderConfig'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
-import UserSelect from '@/views/system/user/components/UserSelect.vue'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 
 type ThresholdKey = keyof RegistrationCertificateThresholdRecipientUserIds
 
@@ -81,12 +83,6 @@ const formData = reactive({
   rowVersion: 0,
   thresholdRecipientUserIds: createEmptyRecipients()
 })
-const recipientPickerValues = reactive<Record<ThresholdKey, number | undefined>>({
-  T_30: undefined,
-  T_8: undefined,
-  T_2: undefined,
-  T_1: undefined
-})
 const formRules: FormRules = Object.fromEntries(
   thresholds.map(({ key }) => [
     `thresholdRecipientUserIds.${key}`,
@@ -102,12 +98,15 @@ const open = async () => {
       getRegistrationCertificateReminderConfig(),
       getSimpleUserList()
     ])
-    userOptions.value = users.filter((user) => user.disabled !== true && user.status === 0)
+    // /system/user/simple-list already returns enabled users; UserSimpleRespVO has no status field.
+    userOptions.value = users.filter((user) => user.disabled !== true)
     formData.enabled = config.enabled
     formData.dailyRunTime = config.dailyRunTime
     formData.rowVersion = config.rowVersion
     for (const { key } of thresholds) {
-      formData.thresholdRecipientUserIds[key] = [...(config.thresholdRecipientUserIds[key] || [])]
+      formData.thresholdRecipientUserIds[key] = normalizeUserIds(
+        config.thresholdRecipientUserIds[key] || []
+      )
     }
   } catch (error) {
     dialogVisible.value = false
@@ -127,10 +126,10 @@ const submit = async () => {
       dailyRunTime: formData.dailyRunTime,
       expectedRowVersion: formData.rowVersion,
       thresholdRecipientUserIds: {
-        T_30: [...formData.thresholdRecipientUserIds.T_30],
-        T_8: [...formData.thresholdRecipientUserIds.T_8],
-        T_2: [...formData.thresholdRecipientUserIds.T_2],
-        T_1: [...formData.thresholdRecipientUserIds.T_1]
+        T_30: normalizeUserIds(formData.thresholdRecipientUserIds.T_30),
+        T_8: normalizeUserIds(formData.thresholdRecipientUserIds.T_8),
+        T_2: normalizeUserIds(formData.thresholdRecipientUserIds.T_2),
+        T_1: normalizeUserIds(formData.thresholdRecipientUserIds.T_1)
       }
     })
     formData.rowVersion = updated.rowVersion
@@ -141,17 +140,20 @@ const submit = async () => {
   }
 }
 
-const addRecipient = (threshold: ThresholdKey, user: UserVO | undefined) => {
-  if (!user) return
-  if (!formData.thresholdRecipientUserIds[threshold].includes(user.id)) {
-    formData.thresholdRecipientUserIds[threshold].push(user.id)
+const handleRecipientChange = (users: UserVO | UserVO[] | undefined) => {
+  const changedUsers = Array.isArray(users) ? users : users ? [users] : []
+  for (const user of changedUsers) {
+    const userId = normalizeUserId(user.id)
+    if (!userOptions.value.some((candidate) => normalizeUserId(candidate.id) === userId)) {
+      userOptions.value.push(user)
+    }
   }
-  recipientPickerValues[threshold] = undefined
 }
 
 const removeRecipient = (threshold: ThresholdKey, userId: number) => {
+  const normalizedUserId = normalizeUserId(userId)
   formData.thresholdRecipientUserIds[threshold] = formData.thresholdRecipientUserIds[threshold]
-    .filter((currentUserId) => currentUserId !== userId)
+    .filter((currentUserId) => normalizeUserId(currentUserId) !== normalizedUserId)
 }
 
 function createEmptyRecipients(): RegistrationCertificateThresholdRecipientUserIds {
@@ -163,8 +165,18 @@ function formatUserLabel(user: UserVO) {
 }
 
 function formatRecipientLabel(userId: number) {
-  const user = userOptions.value.find((candidate) => candidate.id === userId)
+  const user = userOptions.value.find(
+    (candidate) => normalizeUserId(candidate.id) === normalizeUserId(userId)
+  )
   return user ? formatUserLabel(user) : `未识别用户（ID ${userId}）`
+}
+
+function normalizeUserId(userId: number | string) {
+  return Number(userId)
+}
+
+function normalizeUserIds(userIds: Array<number | string>) {
+  return Array.from(new Set(userIds.map(normalizeUserId))).filter((userId) => Number.isFinite(userId))
 }
 
 defineExpose({ open })

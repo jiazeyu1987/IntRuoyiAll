@@ -16,6 +16,7 @@ export interface UploadFormDraft {
   dccProjectCodeId: number | null
   fileTypeTaxonomyId: number | null
   revisionTargetControlledFileId: number | null
+  relatedControlledFileIds: number[]
   needTraining: boolean
   selectedSignoffUserIds: number[]
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
@@ -337,6 +338,7 @@ export const buildSubmitPayload = (
   dccProjectCodeId: draft.dccProjectCodeId ?? undefined,
   fileTypeTaxonomyId: draft.fileTypeTaxonomyId ?? undefined,
   revisionTargetControlledFileId: draft.revisionTargetControlledFileId ?? undefined,
+  relatedControlledFileIds: [...(draft.relatedControlledFileIds ?? [])],
   needTraining: Boolean(draft.needTraining),
   selectedSignoffUserIds: draft.selectedSignoffUserIds ?? [],
   processType: draft.processType,

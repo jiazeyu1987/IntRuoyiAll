@@ -31,6 +31,7 @@
 - Verification: 静态合同应锁定入口模式与正式状态共同参与判定，并锁定文件 ID 等值限制；真实页面验证时应从目标列表入口进入，而不是直接拼详情 URL 或 API-only。
 - Forbidden action: 禁止用默认失效、默认当前、文件名包含关键字、列表缓存或后端文件名猜测入口语义；禁止让预览链路、申请下载链路和正式下载链路互相替代验证。
 - Evidence: 任务 `doc/tasks/20260902-registration-old-download-expired-filename-fix/`，老证详情下载日志出现 `expired: false` 后，将旧证判定从仅 `detail.status === 'OLD'` 补强为 `mode=old-detail` 或正式 OLD 状态，并且仅作用于详情主注册证文件。
+- Detail action state extension: 详情附件区的“申请下载”这类状态型动作，应直接调用正式申请接口并原地切换按钮状态；审批结果、撤销授权、grant 下载等治理控件只属于明确的审批/工作台入口。刷新后状态必须来自后端只读投影（如当前用户待处理申请 ID），不得靠路由 `mode`、滚动到面板或前端临时缓存冒充持久状态。Evidence: 任务 `doc/tasks/20260903-registration-download-request-inline-ux/`。
 
 ## 前端源码目录与 .gitignore 门禁
 
@@ -176,8 +177,9 @@
 
 - Trigger: 远程搜索下拉已成功返回已选对象详情，但页面标签在刷新候选、切换关键词或重新加载组件后消失。
 - Preflight check: 将“已选对象的正式 ID 与详情”作为独立回显状态保存，将“本次搜索候选”作为可替换状态维护；已选标签只从回显状态或其明确的正式详情映射读取，不能依赖会被搜索请求替换的 options 数组。
-- Blocker: 已选详情请求成功但标签仍为空、搜索结果替换导致已选项丢失、或为了显示标签把历史候选永久累加时必须停止。
-- Verification: 静态合同锁定独立已选回显状态、详情加载后的赋值、候选替换不清空回显；真实页面可用时，先加载已有选项，再输入新关键词并确认原标签仍可见。
+- Long ID extension: 用户、角色、物料、路线等正式 ID 可能因后端 Long 序列化策略在不同接口中呈现为字符串或数字；用于已选项回显、删除、禁选、预选高亮和提交去重前，必须先统一 ID 类型，再做匹配或 `includes` 判断。
+- Blocker: 已选详情请求成功但标签仍为空、搜索结果替换导致已选项丢失、同一个 ID 因字符串/数字严格比较不相等而显示“未识别”，或为了显示标签把历史候选永久累加时必须停止。
+- Verification: 静态合同锁定独立已选回显状态、详情加载后的赋值、候选替换不清空回显、ID 类型归一化后再匹配；真实页面可用时，先加载已有选项，再输入新关键词并确认原标签仍可见。
 - Forbidden action: 禁止用旧候选缓存、默认物料、名称猜测或空列表掩盖正式详情回显失败；禁止让搜索候选数组同时承担已选标签的唯一数据源。
 
 ### 多选选择框外置标签不得隐藏搜索输入控件
@@ -441,10 +443,11 @@
 
 - Trigger: 同一列表在不同浏览器、账号或租户显示不同字段，页面存在“显示字段”、`useUserTableColumns`、`data-user-table-key`、用户列配置接口，用户要求统一为 admin 默认布局，或要求收窄固定操作列并将操作按钮排成稳定行列。
 - Preflight check: 先区分三类差异：个人列配置控制的字段可见性/列宽、`v-hasPermi` 控制的操作按钮、视口宽度造成的横向滚动。若需求是让既有用户统一采用新的默认列集合或固定操作列宽度，同时仍保留“显示字段”，必须升级稳定 table key，并同步标准列表模板、Element Plus 表格标识和 `useUserTableColumns` 调用；只修改默认 `visible` 或模板宽度不会覆盖旧服务端配置。若需求是删除某个列表列，必须同时检查 `<el-table-column>`、默认列定义、列设置池、该列专用的行级辅助请求/弹窗/样式，以及静态或真实 E2E 脚本；不得只删除 DOM 或只用 `v-if` 隐藏，避免显示字段或旧测试把已删除列带回。若需求是记住用户拖拽列宽，保存的 `columns[].width` 必须回填到实际 `el-table-column` 的 `width`，默认 `min-width` 只能作为无保存配置时的模板约束。收窄固定操作列并指定按钮行列数时，必须使用明确 grid 轨道，清除 Element Plus 相邻按钮默认外边距，并保持按钮文案不换行；不得依赖 flex 自由换行碰巧形成目标行数。若验收要求“列表行直接显示”关键业务信息，必须确认这些信息不只存在于可隐藏列、固定列或横向滚动外区域，应在至少一个默认稳定可见列中重复承载可读摘要。
+- Role action visibility extension: 当业务明确要求某正式角色也能看到列表操作按钮，而该角色未必拥有按钮原权限码时，页面不能继续只用 `v-hasPermi` 隐藏入口；应使用共享 `checkPermi(...) || checkRole([...])` 计算属性表达“原权限码或目标角色均可见”，并保留原行级业务状态限制、原按钮处理器和后端正式权限门禁。
 - Blocker: 仍读取旧 table key、只改默认列但历史用户配置继续覆盖、固定操作列仍用自由换行导致不同权限按钮数量下错位或文字裁切、关键验收信息只放在可隐藏列或固定列导致真实 E2E/普通用户无法在主列表行确认、为了视觉一致移除权限指令或给普通用户显示 admin 操作、通过清浏览器缓存或批量删数据库配置冒充正式迁移、或显示字段入口保存到与加载不同的 key 时必须停止。
-- Verification: 聚焦静态合同必须断言新 key 在模板、表格标识和 hook 三处一致，旧 key 不再使用，默认显示/隐藏字段集合明确，关键验收信息位于稳定可见列，显示字段自动保存和既有权限码保留；删除列时必须负向断言模板列、默认列 key、列专用辅助请求/弹窗/样式和旧入口文案不存在，并正向断言相邻业务动作仍保留；涉及列宽时必须断言 hook 合并 `saved.width`、拖拽后自动保存、页面列同时绑定 `:width` 和默认 `:min-width`；涉及紧凑操作列时还要断言模板宽度与默认列定义一致、明确 grid 轨道、按钮无默认左外边距且原权限和处理器保留。真实 E2E 可用时使用同一账号分别在两个浏览器验证表头、显示字段勾选、固定列实际宽度、按钮行数、文字不换行和相邻边界，并记录无业务写请求、无 console error。
+- Verification: 聚焦静态合同必须断言新 key 在模板、表格标识和 hook 三处一致，旧 key 不再使用，默认显示/隐藏字段集合明确，关键验收信息位于稳定可见列，显示字段自动保存和既有权限码保留；删除列时必须负向断言模板列、默认列 key、列专用辅助请求/弹窗/样式和旧入口文案不存在，并正向断言相邻业务动作仍保留；涉及列宽时必须断言 hook 合并 `saved.width`、拖拽后自动保存、页面列同时绑定 `:width` 和默认 `:min-width`；涉及紧凑操作列时还要断言模板宽度与默认列定义一致、明确 grid 轨道、按钮无默认左外边距且原权限和处理器保留；涉及角色直显操作按钮时必须断言 `checkPermi` 原权限路径、`checkRole` 目标角色路径、原状态限制和禁止残留 permission-only directive。真实 E2E 可用时使用同一账号分别在两个浏览器验证表头、显示字段勾选、固定列实际宽度、按钮行数、文字不换行和相邻边界，并记录无业务写请求、无 console error。
 - Forbidden action: 禁止引入 localStorage fallback、静默忽略列配置接口失败、扩大角色权限、删除业务字段定义、或用不同账号的按钮差异证明浏览器渲染不一致。
-- Evidence: `doc/tasks/20260730-route-admin-list-layout-unification/verification-report.md`；`doc/tasks/20260802-dcc-controlled-browser-ux-optimization/verification-report.md`；`doc/tasks/20260812-standard-list-column-width/`；`doc/tasks/20260813-dcc-browser-operation-panel-two-row/verification-report.md`；`doc/tasks/20260813-production-report-operation-panel-half-width/verification-report.md`；`doc/tasks/20260830-batch-record-form-list-hide-filler-column/`。
+- Evidence: `doc/tasks/20260730-route-admin-list-layout-unification/verification-report.md`；`doc/tasks/20260802-dcc-controlled-browser-ux-optimization/verification-report.md`；`doc/tasks/20260812-standard-list-column-width/`；`doc/tasks/20260813-dcc-browser-operation-panel-two-row/verification-report.md`；`doc/tasks/20260813-production-report-operation-panel-half-width/verification-report.md`；`doc/tasks/20260830-batch-record-form-list-hide-filler-column/`；`doc/tasks/20260903-registration-manager-actions-visible/verification-report.md`。
 
 ## 前端权限页签正向授权门禁
 

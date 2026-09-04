@@ -319,8 +319,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .setFinalInspectionApplicable(reqVO.getFinalInspectionApplicable())
                     .setFinalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO))
                     .setSnapshotJson(snapshotJson);
-            itemMapper.deleteByVersionId(version.getId());
-            processMapper.deleteByVersionId(version.getId());
+            itemMapper.deletePhysicallyByVersionId(version.getId());
+            processMapper.deletePhysicallyByVersionId(version.getId());
         }
 
         int finalInspectionQuantity = resolveFinalInspectionQuantity(reqVO);

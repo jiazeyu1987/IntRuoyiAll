@@ -64,7 +64,7 @@
                 <Icon icon="lucide:eye" />在线查看
               </el-button>
               <el-button
-                v-if="canDirectDownload"
+                v-if="canDirectDownload(detail.registrationFileId)"
                 link
                 type="primary"
                 data-testid="registration-certificate-detail-attachment-download"
@@ -78,9 +78,11 @@
                 v-hasPermi="['dcc:registration-certificate:access-request:create']"
                 link
                 data-testid="registration-certificate-detail-attachment-request-download"
+                :loading="isDownloadRequesting(detail.registrationFileId)"
+                :disabled="isDownloadRequestPending(detail.registrationFileId)"
                 @click="openDownloadRequest(detail.registrationFileId)"
               >
-                <Icon icon="lucide:file-key-2" />申请下载
+                <Icon icon="lucide:file-key-2" />{{ isDownloadRequestPending(detail.registrationFileId) ? '申请中' : '申请下载' }}
               </el-button>
             </span>
           </div>
@@ -234,7 +236,7 @@
                   <Icon icon="lucide:eye" />在线查看
                 </el-button>
                 <el-button
-                  v-if="canDirectDownload"
+                  v-if="canDirectDownload(item.businessFileId)"
                   link
                   type="primary"
                   data-testid="registration-certificate-renewal-attachment-download"
@@ -247,9 +249,11 @@
                   v-else
                   v-hasPermi="['dcc:registration-certificate:access-request:create']"
                   link
+                  :loading="isDownloadRequesting(item.businessFileId)"
+                  :disabled="isDownloadRequestPending(item.businessFileId)"
                   @click="openDownloadRequest(item.businessFileId)"
                 >
-                  <Icon icon="lucide:file-key-2" />申请下载
+                  <Icon icon="lucide:file-key-2" />{{ isDownloadRequestPending(item.businessFileId) ? '申请中' : '申请下载' }}
                 </el-button>
               </span>
             </div>
@@ -311,7 +315,7 @@
                   <Icon icon="lucide:eye" />在线查看
                 </el-button>
                 <el-button
-                  v-if="canDirectDownload"
+                  v-if="canDirectDownload(item.businessFileId)"
                   link
                   type="primary"
                   data-testid="registration-certificate-change-attachment-download"
@@ -325,9 +329,11 @@
                   v-hasPermi="['dcc:registration-certificate:access-request:create']"
                   link
                   data-testid="registration-certificate-change-attachment-request-download"
+                  :loading="isDownloadRequesting(item.businessFileId)"
+                  :disabled="isDownloadRequestPending(item.businessFileId)"
                   @click="openDownloadRequest(item.businessFileId)"
                 >
-                  <Icon icon="lucide:file-key-2" />申请下载
+                  <Icon icon="lucide:file-key-2" />{{ isDownloadRequestPending(item.businessFileId) ? '申请中' : '申请下载' }}
                 </el-button>
               </span>
             </div>
@@ -370,14 +376,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   downloadRegistrationCertificateFile,
+  getRegistrationCertificateFileDownloadGrantStatuses,
   getRegistrationCertificateAccessRequestStatus,
   getRegistrationCertificateDetail,
   getRegistrationCertificateHistory,
+  submitRegistrationCertificateAccessRequest,
   type DccRegistrationCertificateDetailVO,
   type DccRegistrationCertificateHistoryItemVO
 } from '@/api/dcc/registrationCertificate'
@@ -386,6 +394,7 @@ import {
   type OnlineFilePreviewSource
 } from '@/api/common/filePreview'
 import { downloadByData } from '@/utils/filt'
+import { generateUUID } from '@/utils'
 import { checkRole } from '@/utils/permission'
 import { normalizeRouteQueryValue, parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
@@ -408,7 +417,7 @@ const props = defineProps<{
 }>()
 
 const route = useRoute()
-const router = useRouter()
+const message = useMessage()
 const REGISTRATION_CERTIFICATE_ACCESS_BUSINESS_KEY_PREFIX = 'DCC_REG_CERT_ACCESS:'
 const routeCertificateId = computed(() => parsePositiveRouteQueryId(route.params.id))
 const accessRequestId = computed(() => {
@@ -437,7 +446,16 @@ const previewDialogVisible = ref(false)
 const selectedPreviewSource = ref<OnlineFilePreviewSource | null>(null)
 const selectedPreviewTitle = ref('')
 const downloadingBusinessFileId = ref('')
-const canDirectDownload = computed(() => checkRole(['dcc_registration_certificate_approver']))
+const requestingDownloadFileId = ref('')
+const downloadAuthorizedFileIds = ref<Set<string>>(new Set())
+const requestPendingFileIds = ref<Set<string>>(new Set())
+const canDirectDownload = (businessFileId: number | string) =>
+  checkRole(['dcc_registration_certificate_approver'])
+  || downloadAuthorizedFileIds.value.has(String(businessFileId))
+const isDownloadRequestPending = (businessFileId: number | string) =>
+  requestPendingFileIds.value.has(String(businessFileId))
+const isDownloadRequesting = (businessFileId: number | string) =>
+  requestingDownloadFileId.value === String(businessFileId)
 const attachmentActionError = ref('')
 const viewportWidth = ref(typeof window === 'undefined' ? 1024 : window.innerWidth)
 const detailDescriptionColumns = computed(() => viewportWidth.value <= 720 ? 1 : 2)
@@ -632,16 +650,39 @@ const downloadAttachment = async (businessFileId: number | string) => {
 
 const openDownloadRequest = async (businessFileId: number | string) => {
   attachmentActionError.value = ''
-  await router.replace({
-    query: {
-      ...route.query,
-      mode: 'access-request',
-      downloadFileId: String(businessFileId)
-    }
-  })
-  await nextTick()
-  document.querySelector('[data-testid="registration-certificate-access-request-action"]')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!detail.value?.certificateId) {
+    attachmentActionError.value = '缺少注册证主档 ID，无法提交下载申请。'
+    return
+  }
+  if (!detail.value.projectCodeId) {
+    attachmentActionError.value = '缺少项目代码，无法提交文件下载申请。'
+    return
+  }
+  if (isDownloadRequestPending(businessFileId)) {
+    return
+  }
+  requestingDownloadFileId.value = String(businessFileId)
+  try {
+    await submitRegistrationCertificateAccessRequest(
+      {
+        certificateId: detail.value.certificateId,
+        requestType: 'DOWNLOAD_FILE',
+        purpose: '页面提交的注册证文件下载申请',
+        projectCodeId: detail.value.projectCodeId,
+        businessFileIds: [businessFileId]
+      },
+      `DCC-REG-CERT-ACCESS-SUBMIT-${generateUUID()}`
+    )
+    requestPendingFileIds.value = new Set([...requestPendingFileIds.value, String(businessFileId)])
+    message.success('已申请下载')
+  } catch (error) {
+    attachmentActionError.value = resolveRegistrationCertificateUserMessage(
+      error,
+      '注册证附件下载申请提交失败，请稍后重试。'
+    )
+  } finally {
+    requestingDownloadFileId.value = ''
+  }
 }
 
 type DownloadableFileOption = {
@@ -695,6 +736,26 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   })
 })
 
+const loadDownloadGrantStatuses = async () => {
+  downloadAuthorizedFileIds.value = new Set()
+  requestPendingFileIds.value = new Set()
+  const businessFileIds = downloadableFiles.value.map((file) => file.businessFileId)
+  if (businessFileIds.length === 0) {
+    return
+  }
+  const statuses = await getRegistrationCertificateFileDownloadGrantStatuses(businessFileIds)
+  downloadAuthorizedFileIds.value = new Set(
+    statuses
+      .filter((status) => status.canDownload)
+      .map((status) => String(status.businessFileId))
+  )
+  requestPendingFileIds.value = new Set(
+    statuses
+      .filter((status) => status.pendingRequestId)
+      .map((status) => String(status.businessFileId))
+  )
+}
+
 const resolveCertificateIdForDetail = async () => {
   if (routeCertificateId.value) {
     return routeCertificateId.value
@@ -722,6 +783,7 @@ const loadDetail = async () => {
     if (!resolvedCertificateId) return
     detail.value = await getRegistrationCertificateDetail(resolvedCertificateId, detailVersionId.value)
     history.value = await getRegistrationCertificateHistory(resolvedCertificateId)
+    await loadDownloadGrantStatuses()
   } finally {
     loading.value = false
   }

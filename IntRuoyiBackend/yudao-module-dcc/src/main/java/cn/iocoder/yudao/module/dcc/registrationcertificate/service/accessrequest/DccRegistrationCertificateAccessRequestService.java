@@ -16,7 +16,6 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,11 +38,11 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH;
@@ -69,7 +68,6 @@ public class DccRegistrationCertificateAccessRequestService {
     private final DccRegistrationCertificateMapper certificateMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateFileMapper fileMapper;
-    private final MdmCompanyScopeApi companyScopeApi;
     private final DccProjectCodeService projectCodeService;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final JdbcTemplate jdbcTemplate;
@@ -80,7 +78,6 @@ public class DccRegistrationCertificateAccessRequestService {
             DccRegistrationCertificateMapper certificateMapper,
             DccRegistrationCertificateVersionMapper versionMapper,
             DccRegistrationCertificateFileMapper fileMapper,
-            MdmCompanyScopeApi companyScopeApi,
             DccProjectCodeService projectCodeService,
             DccRegistrationCertificateBusinessClock businessClock,
             JdbcTemplate jdbcTemplate) {
@@ -89,7 +86,6 @@ public class DccRegistrationCertificateAccessRequestService {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
-        this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.projectCodeService = require(projectCodeService, "projectCodeService");
         this.businessClock = require(businessClock, "businessClock");
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
@@ -102,7 +98,7 @@ public class DccRegistrationCertificateAccessRequestService {
         String normalizedKey = requireText(requestKey, "requestKey", REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED);
         NormalizedCommand requested = normalize(command);
         DccRegistrationCertificateDO certificate = requireCertificate(tenantId, requested.certificateId());
-        companyScope(tenantId, actorId, certificate.getOwnerCompanyId());
+        requireOwnerCompany(certificate.getOwnerCompanyId());
         NormalizedCommand normalized = resolveFormalReferences(tenantId, certificate, requested);
         String payloadHash = payloadHash(normalized);
         DccRegistrationCertificateAccessRequestDO existing =
@@ -111,7 +107,7 @@ public class DccRegistrationCertificateAccessRequestService {
             return replay(existing, payloadHash);
         }
         if (TYPE_DOWNLOAD_FILE.equals(normalized.requestType())) {
-            validateProjectCode(tenantId, actorId, normalized.projectCodeId(), certificate.getProductMasterId());
+            validateProjectCode(tenantId, normalized.projectCodeId(), certificate.getProductMasterId());
         }
         List<DccRegistrationCertificateFileDO> files = validateFiles(
                 tenantId, certificate, normalized.requestType(), normalized.businessFileIds());
@@ -253,14 +249,14 @@ public class DccRegistrationCertificateAccessRequestService {
         return certificate;
     }
 
-    private void companyScope(Long tenantId, Long actorId, Long ownerCompanyId) {
+    private void requireOwnerCompany(Long ownerCompanyId) {
         if (ownerCompanyId == null) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+            throw new ServiceException(REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
         }
     }
 
-    private void validateProjectCode(Long tenantId, Long actorId, Long projectCodeId, Long productMasterId) {
-        DccProjectCodeDO projectCode = projectCodeService.getProjectCode(actorId, projectCodeId);
+    private void validateProjectCode(Long tenantId, Long projectCodeId, Long productMasterId) {
+        DccProjectCodeDO projectCode = projectCodeService.getProjectCode(projectCodeId);
         if (projectCode == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }

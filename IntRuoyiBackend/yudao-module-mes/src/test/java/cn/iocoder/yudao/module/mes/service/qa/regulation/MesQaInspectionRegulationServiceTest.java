@@ -219,6 +219,33 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
+    void saveDraft_replacesExistingDraftWithPhysicalChildCleanup() {
+        MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
+        MesQaInspectionRegulationVersionDO draft = MesQaInspectionRegulationVersionDO.builder()
+                .id(VERSION_ID)
+                .regulationId(REGULATION_ID)
+                .versionNo("G/1")
+                .lifecycleStatus("DRAFT")
+                .snapshotJson("{}")
+                .build();
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(draft);
+        doAnswer(invocation -> {
+            invocation.<MesQaInspectionRegulationProcessDO>getArgument(0).setId(QA_PROCESS_ID);
+            return 1;
+        }).when(processMapper).insert(any(MesQaInspectionRegulationProcessDO.class));
+
+        service.saveDraft(reqVO);
+
+        verify(itemMapper).deletePhysicallyByVersionId(VERSION_ID);
+        verify(processMapper).deletePhysicallyByVersionId(VERSION_ID);
+        verify(itemMapper, never()).deleteByVersionId(VERSION_ID);
+        verify(processMapper, never()).deleteByVersionId(VERSION_ID);
+        verify(itemMapper, org.mockito.Mockito.times(3)).insert(any(MesQaInspectionRegulationItemDO.class));
+    }
+
+    @Test
     void saveDraft_mapsConcurrentActiveDccDuplicateToStableBusinessError() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);

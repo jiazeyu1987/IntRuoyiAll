@@ -356,6 +356,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `superseded_by_file_id` BIGINT NULL,
   `reject_reason` VARCHAR(255) NULL,
   `finalization_error` VARCHAR(500) NULL,
+  `checked_out_by` BIGINT NULL,
+  `checked_out_time` DATETIME NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
   `update_time` DATETIME NULL,
@@ -365,7 +367,28 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   PRIMARY KEY (`id`),
   KEY `idx_dcc_controlled_file_project_code` (`tenant_id`, `dcc_project_code_id`),
   KEY `idx_dcc_controlled_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`),
-  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`)
+  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
+  KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_related_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `related_controlled_file_id` BIGINT NOT NULL,
+  `project_code_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NULL,
+  `related_file_number_snapshot` VARCHAR(64) NULL,
+  `related_file_name_snapshot` VARCHAR(256) NULL,
+  `related_version_no_snapshot` VARCHAR(64) NULL,
+  `relation_source` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `controlled_file_id`, `related_controlled_file_id`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (

@@ -9,7 +9,6 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateGrantMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -38,7 +37,6 @@ public class DccRegistrationCertificateAccessPolicyService {
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateFileMapper fileMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
-    private final MdmCompanyScopeApi companyScopeApi;
     private final PermissionApi permissionApi;
     private final JdbcTemplate jdbcTemplate;
 
@@ -47,14 +45,12 @@ public class DccRegistrationCertificateAccessPolicyService {
             DccRegistrationCertificateVersionMapper versionMapper,
             DccRegistrationCertificateFileMapper fileMapper,
             DccRegistrationCertificateGrantMapper grantMapper,
-            MdmCompanyScopeApi companyScopeApi,
             PermissionApi permissionApi,
             JdbcTemplate jdbcTemplate) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
         this.grantMapper = require(grantMapper, "grantMapper");
-        this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.permissionApi = require(permissionApi, "permissionApi");
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
     }
@@ -123,6 +119,57 @@ public class DccRegistrationCertificateAccessPolicyService {
 
     public void assertDownloadAllowed(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
         requireDownloadGrant(tenantId, actorId, businessFileId, at);
+    }
+
+    public boolean canDownloadFile(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
+        if (businessFileId == null || at == null) {
+            return false;
+        }
+        DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
+        if (file == null || !Objects.equals(file.getTenantId(), tenantId)
+                || !FILE_STATUS_BOUND.equals(file.getStatus())
+                || !isDownloadableFileKind(file)) {
+            return false;
+        }
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(resolveVersionId(tenantId, file));
+        if (version == null || !Objects.equals(version.getTenantId(), tenantId)) {
+            return false;
+        }
+        if (authorizeRegistrationManagerDownloadIfRole(tenantId, actorId, version.getCertificateId())) {
+            return true;
+        }
+        try {
+            requireDownloadGrant(tenantId, actorId, businessFileId, at);
+            return true;
+        } catch (ServiceException ex) {
+            if (isMissingDownloadGrant(ex)) {
+                return false;
+            }
+            throw ex;
+        }
+    }
+
+    public Long findPendingDownloadRequestId(Long tenantId, Long actorId, Long businessFileId) {
+        if (tenantId == null || actorId == null || businessFileId == null || businessFileId <= 0) {
+            return null;
+        }
+        return jdbcTemplate.query("""
+                SELECT r.id
+                  FROM dcc_registration_certificate_access_request r
+                  JOIN dcc_registration_certificate_access_request_file rf
+                    ON rf.tenant_id = r.tenant_id
+                   AND rf.request_id = r.id
+                   AND rf.deleted = 0
+                 WHERE r.tenant_id = ?
+                   AND r.requester_user_id = ?
+                   AND r.request_type = 'DOWNLOAD_FILE'
+                   AND r.status IN ('SUBMITTED', 'BPM_BOUND')
+                   AND r.deleted = 0
+                   AND rf.business_file_id = ?
+                   AND rf.download_requested = 1
+                 ORDER BY r.requested_at DESC, r.id DESC
+                 LIMIT 1
+                """, rs -> rs.next() ? rs.getLong(1) : null, tenantId, actorId, businessFileId);
     }
 
     public boolean authorizeRegistrationManagerDownloadIfRole(Long tenantId, Long actorId, Long certificateId) {
@@ -194,6 +241,13 @@ public class DccRegistrationCertificateAccessPolicyService {
             return grant;
         }
         throw lastFailure;
+    }
+
+    private boolean isMissingDownloadGrant(ServiceException ex) {
+        Integer code = ex.getCode();
+        return Objects.equals(code, REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode())
+                || Objects.equals(code, REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED.getCode())
+                || Objects.equals(code, REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED.getCode());
     }
 
     private DccRegistrationCertificateDO requireLiveCertificate(Long tenantId, Long certificateId) {

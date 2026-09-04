@@ -160,14 +160,16 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 null,
                 parameterSnapshot.snapshotId(),
                 parameterSnapshot.sha256(),
-                parameterSnapshot.state());
+                parameterSnapshot.state(),
+                parameterSnapshot.deviceSelectionSnapshotJson(),
+                parameterSnapshot.deviceSelectionSnapshotSha256());
     }
 
     private ParameterRuntimeSnapshot resolveParameterRuntimeSnapshot(
             MesFrontlineRouteProcessCandidate process, Long activeOrderId) {
         if (activeOrderId == null) {
             return new ParameterRuntimeSnapshot(null, null,
-                    MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT, null, null);
+                    MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT, null, null, null, null);
         }
         MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshotMapper.selectByActiveOrderAndProcess(
                 activeOrderId, process.routeProcessId(), process.processId());
@@ -179,7 +181,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         if (state == null || state.isBlank()
                 || MesDeviceParameterSnapshotCodec.STATE_MISSING_LEGACY.equals(state)) {
             return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(),
-                    MesDeviceParameterSnapshotCodec.STATE_MISSING_LEGACY, List.of(), List.of());
+                    MesDeviceParameterSnapshotCodec.STATE_MISSING_LEGACY, List.of(), List.of(),
+                    snapshot.getDeviceSelectionSnapshotJson(), snapshot.getDeviceSelectionSnapshotSha256());
         }
         if (!MesDeviceParameterSnapshotCodec.STATE_FROZEN.equals(state)) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
@@ -200,7 +203,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                     PRODUCTION_CONTEXT_PREFIX + "deviceSelectionSnapshot");
         }
         return new ParameterRuntimeSnapshot(snapshot.getId(), snapshot.getParameterSnapshotSha256(), state, rules,
-                selectionGroups);
+                selectionGroups, snapshot.getDeviceSelectionSnapshotJson(),
+                snapshot.getDeviceSelectionSnapshotSha256());
     }
 
     private static void requirePositive(Long value, String field) {
@@ -472,7 +476,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
 
     private record ParameterRuntimeSnapshot(Long snapshotId, String sha256, String state,
                                             List<MesDeviceParameterSnapshotRule> rules,
-                                            List<MesFrontlineDeviceSelectionGroup> selectionGroups) {
+                                            List<MesFrontlineDeviceSelectionGroup> selectionGroups,
+                                            String deviceSelectionSnapshotJson,
+                                            String deviceSelectionSnapshotSha256) {
     }
 
 }

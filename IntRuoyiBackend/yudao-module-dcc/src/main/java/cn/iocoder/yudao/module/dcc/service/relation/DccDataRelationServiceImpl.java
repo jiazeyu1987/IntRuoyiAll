@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,8 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccRegistrationCertificateMapper registrationCertificateMapper;
+    @Resource
+    private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -49,7 +52,8 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
         if (catalog == null || projectCode == null || certificate == null) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
-        if (!StrUtil.equals(StrUtil.trim(catalog.getProjectCode()), StrUtil.trim(projectCode.getProjectCode()))) {
+        String catalogProjectCode = StrUtil.trimToNull(catalog.getProjectCode());
+        if (catalogProjectCode != null && !StrUtil.equals(catalogProjectCode, StrUtil.trim(projectCode.getProjectCode()))) {
             throw exception(DCC_DATA_RELATION_TARGET_INVALID);
         }
         if (!projectCode.getId().equals(certificate.getProjectCodeId())) {
@@ -64,6 +68,7 @@ public class DccDataRelationServiceImpl implements DccDataRelationService {
         relation.setConfirmedBy(userId);
         relation.setConfirmedTime(LocalDateTime.now());
         relationMapper.insert(relation);
+        productCatalogRegistrationSyncService.syncRelation(relation);
         return relation;
     }
 

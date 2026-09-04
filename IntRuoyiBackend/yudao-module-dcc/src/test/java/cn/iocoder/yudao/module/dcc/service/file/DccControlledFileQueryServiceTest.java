@@ -176,6 +176,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileSignatureBindingService signatureBindingService;
     @Mock
+    private DccControlledFileRelatedFileService relatedFileService;
+    @Mock
     private DccExternalFileReviewMapper externalReviewMapper;
     @Mock
     private DccControlledFileAccessLogMapper accessLogMapper;

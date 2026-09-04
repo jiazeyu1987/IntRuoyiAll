@@ -539,6 +539,8 @@ export interface FrontlineProductionSubmitContextVO {
   activeOrderProcessSnapshotId?: number
   parameterSnapshotSha256?: string
   parameterSnapshotState: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
+  deviceSelectionSnapshotJson?: string
+  deviceSelectionSnapshotSha256?: string
 }
 
 export interface FrontlineRuntimeConfigVO {

@@ -50,6 +50,46 @@
             :title="projectCodeOptionsError"
           />
         </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="关联文件">
+          <div class="w-full">
+            <el-select
+              v-model="formData.relatedControlledFileIds"
+              data-testid="dcc-upload-related-files-select"
+              class="!w-560px"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              :disabled="!formData.dccProjectCodeId"
+              :loading="relatedFileOptionsLoading"
+              placeholder="可选择同一 DCC 项目下的多个文件"
+            >
+              <el-option
+                v-for="file in relatedFileOptions"
+                :key="file.id"
+                :label="formatRelatedFileOptionLabel(file)"
+                :value="file.id"
+              />
+            </el-select>
+            <div v-if="!formData.dccProjectCodeId" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+              选择 DCC 项目后可选择关联文件
+            </div>
+            <el-alert
+              v-else-if="relatedFileOptionsError"
+              class="mt-8px !w-560px"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="relatedFileOptionsError"
+            />
+            <div
+              v-else-if="!relatedFileOptionsLoading && relatedFileOptions.length === 0"
+              class="mt-6px text-12px text-[var(--el-text-color-secondary)]"
+            >
+              当前项目下暂无可关联文件
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item v-if="!isExternalReview" label="文件分类" prop="fileTypeTaxonomyId">
           <div class="w-full">
             <el-cascader
@@ -497,6 +537,7 @@ import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCate
 import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodeControlledFilesPage,
   getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
@@ -565,6 +606,7 @@ const uploadRef = ref()
 const drawingPdfUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const relatedFileOptions = ref<ControlledFileVO[]>([])
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const selectedRevisionCandidate = ref<ControlledFileVO>()
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
@@ -589,8 +631,10 @@ const routeReadinessError = ref('')
 let routeReadinessRequestSeq = 0
 const revisionTargetLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
+const relatedFileOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
 const projectCodeOptionsError = ref('')
+const relatedFileOptionsError = ref('')
 const fileTypeTaxonomyOptionsError = ref('')
 const categoryOptionsError = ref('')
 const selectedHistoryVersion = ref('')
@@ -640,6 +684,7 @@ const formData = reactive<UploadFormDraft>({
   dccProjectCodeId: null,
   fileTypeTaxonomyId: null,
   revisionTargetControlledFileId: null,
+  relatedControlledFileIds: [],
   needTraining: false,
   selectedSignoffUserIds: [],
   processType: resolveProcessTypeByRoute(),
@@ -1191,8 +1236,43 @@ const ensureUploadNameOptionsLoaded = async () => {
 }
 
 const handleProjectCodeChange = async () => {
+  formData.relatedControlledFileIds = []
+  relatedFileOptions.value = []
+  relatedFileOptionsError.value = ''
   applyDccProjectCodeProductNumber()
   resetUploadNameContext(true)
+  if (formData.dccProjectCodeId) {
+    await loadRelatedFileOptions(formData.dccProjectCodeId)
+  }
+}
+
+const formatRelatedFileOptionLabel = (file: ControlledFileVO) =>
+  [file.fileNumber, file.fileName || file.title, file.versionNo].filter(Boolean).join(' / ')
+
+const loadRelatedFileOptions = async (projectCodeId: number) => {
+  relatedFileOptionsLoading.value = true
+  relatedFileOptionsError.value = ''
+  try {
+    const page = await getProjectCodeControlledFilesPage(projectCodeId, {
+      pageNo: 1,
+      pageSize: 200
+    })
+    if (formData.dccProjectCodeId !== projectCodeId) {
+      return
+    }
+    relatedFileOptions.value = page.list || []
+  } catch (error) {
+    if (formData.dccProjectCodeId !== projectCodeId) {
+      return
+    }
+    relatedFileOptions.value = []
+    relatedFileOptionsError.value = resolveUploadErrorMessage(error, '关联文件候选加载失败，请稍后重试')
+    message.error(relatedFileOptionsError.value)
+  } finally {
+    if (formData.dccProjectCodeId === projectCodeId) {
+      relatedFileOptionsLoading.value = false
+    }
+  }
 }
 
 const handleFileTypeTaxonomyChange = async () => {

@@ -10,11 +10,13 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DccDataRelationServiceImplTest extends BaseMockitoUnitTest {
@@ -29,6 +31,27 @@ class DccDataRelationServiceImplTest extends BaseMockitoUnitTest {
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
     private DccRegistrationCertificateMapper registrationCertificateMapper;
+    @Mock
+    private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
+
+    @Test
+    void createRelationShouldSyncCatalogFromRegistrationCertificate() {
+        DccProductCatalogDO catalog = new DccProductCatalogDO();
+        catalog.setId(11L);
+        DccProjectCodeDO projectCode = new DccProjectCodeDO();
+        projectCode.setId(22L);
+        projectCode.setProjectCode("P-001");
+        DccRegistrationCertificateDO certificate = new DccRegistrationCertificateDO();
+        certificate.setId(33L);
+        certificate.setProjectCodeId(22L);
+        when(productCatalogMapper.selectById(11L)).thenReturn(catalog);
+        when(projectCodeMapper.selectById(22L)).thenReturn(projectCode);
+        when(registrationCertificateMapper.selectById(33L)).thenReturn(certificate);
+
+        service.createRelation(99L, request());
+
+        verify(productCatalogRegistrationSyncService).syncRelation(org.mockito.ArgumentMatchers.any());
+    }
 
     @Test
     void createRelationShouldRejectProjectCodeIdentityMismatch() {

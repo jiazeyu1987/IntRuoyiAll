@@ -23,6 +23,10 @@ public interface DccControlledFileQueryService {
 
     DccControlledFileRespVO getControlledFile(Long userId, Long id);
 
+    DccControlledFileRespVO checkoutControlledFile(Long userId, Long id);
+
+    DccControlledFileRespVO checkinControlledFile(Long userId, Long id);
+
     DccControlledFileAccessExplanationRespVO explainControlledFileAccess(Long userId, Long id);
 
     DccControlledFileUploadDirectoryTreeRespVO getUploadDirectoryTree(Long categoryId);

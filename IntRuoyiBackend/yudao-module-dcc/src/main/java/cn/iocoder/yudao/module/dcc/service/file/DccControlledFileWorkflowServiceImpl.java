@@ -210,6 +210,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Resource
     private DccControlledFileQueryService queryService;
     @Resource
+    private DccControlledFileRelatedFileService relatedFileService;
+    @Resource
     private DccControlledContentAdapter platformAdapter;
     @Resource
     private MdmProductApi mdmProductApi;
@@ -319,6 +321,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .requireReady();
         DccControlledFileDO file = insertControlledFile(context, userId,
                 toPendingStatus(resolvedRoute.nodes().get(0).stageNo()), processDefinitionKey);
+        relatedFileService.validateAndBindRelatedFiles(file.getId(),
+                context.projectCode() == null ? null : context.projectCode().getId(),
+                reqVO.getRelatedControlledFileIds());
         bindSubmitTickets(context, userId, file.getId());
 
         for (DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode routeNode : resolvedRoute.nodes()) {
@@ -391,6 +396,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                         ? DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()
                         : DccControlledFileStatusEnum.FINALIZING.getStatus(),
                 null);
+        relatedFileService.validateAndBindRelatedFiles(file.getId(),
+                context.projectCode() == null ? null : context.projectCode().getId(),
+                reqVO.getRelatedControlledFileIds());
         if (normalizedProcessInstanceId != null) {
             controlledFileMapper.updateById(DccControlledFileDO.builder()
                     .id(file.getId())

@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotRule;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -257,6 +258,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .valueType("DECIMAL")
                 .standardText("0-10MPa，目标5MPa")
                 .build()));
+        String deviceSelectionJson = MesDeviceSelectionSnapshotCodec.canonicalize(
+                List.of(processDevice(LOGIN_USER_ID, 7001L)), PROCESS_ID);
         when(processSnapshotMapper.selectByActiveOrderAndProcess(8101L, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
                         .setId(5101L)
@@ -266,6 +269,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                         .setProcessId(PROCESS_ID)
                         .setParameterSnapshotJson(frozenJson)
                         .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(frozenJson))
+                        .setDeviceSelectionSnapshotJson(deviceSelectionJson)
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionJson))
                         .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN));
 
         MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, 8101L, ROUTE_ID,
@@ -442,6 +447,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .leaderUserId(leaderUserId)
                 .processId(PROCESS_ID)
                 .deviceId(deviceId)
+                .deviceGroupKey("DEFAULT")
+                .selectionMode("SINGLE")
                 .enabled(Boolean.TRUE)
                 .build();
     }

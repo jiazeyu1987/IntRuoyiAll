@@ -65,7 +65,8 @@ class MesFrontlineRuntimeConfigControllerTest {
                 List.of(new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE)),
                 new MesFrontlineProductionSubmitContext(41L, "WO-F2-001", "F2正式工单",
                         51L, 101L, 1001L, 201L, 301L, 61L, 9001L, 901L,
-                        new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0)),
+                        new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0),
+                        5101L, "parameter-sha", "FROZEN", "[{\"deviceGroupKey\":\"G1\"}]", "device-sha"),
                 List.of(
                         new MesFrontlineEmployeeSwitchResult(9001L, 8801L, 101L, 1001L, 201L, false,
                                 new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 8801L)),
@@ -110,6 +111,9 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals(61L, data.getProductionSubmitContext().getItemId());
         assertEquals(9001L, data.getProductionSubmitContext().getApproveUserId());
         assertEquals(901L, data.getProductionSubmitContext().getRecordbookId());
+        assertEquals("[{\"deviceGroupKey\":\"G1\"}]",
+                data.getProductionSubmitContext().getDeviceSelectionSnapshotJson());
+        assertEquals("device-sha", data.getProductionSubmitContext().getDeviceSelectionSnapshotSha256());
         assertEquals(2, data.getEmployeeSwitchSnapshots().size());
         assertEquals(8801L, data.getEmployeeSwitchSnapshots().get(0).getActualEmployeeId());
         assertEquals(1001L, data.getEmployeeSwitchSnapshots().get(0).getRouteProcessId());

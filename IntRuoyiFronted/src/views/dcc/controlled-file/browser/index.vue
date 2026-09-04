@@ -382,9 +382,36 @@
               {{ getSelectedVersion(row).remark || '-' }}
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 107)">
+          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 160)">
             <template #default="{ row }">
               <div class="browser-row-actions">
+                <el-tag
+                  v-if="getSelectedVersion(row).checkedOutBy"
+                  type="warning"
+                  data-testid="dcc-controlled-browser-checked-out-by"
+                >
+                  已由 {{ getCheckoutDisplayName(getSelectedVersion(row)) }} 检出
+                </el-tag>
+                <el-button
+                  v-if="!getSelectedVersion(row).checkedOutBy"
+                  data-testid="dcc-controlled-browser-checkout"
+                  link
+                  type="primary"
+                  :loading="checkoutLoadingId === getSelectedVersion(row).id"
+                  @click="handleCheckout(getSelectedVersion(row))"
+                >
+                  检出
+                </el-button>
+                <el-button
+                  v-if="isCheckedOutByCurrentUser(getSelectedVersion(row))"
+                  data-testid="dcc-controlled-browser-checkin"
+                  link
+                  type="primary"
+                  :loading="checkoutLoadingId === getSelectedVersion(row).id"
+                  @click="handleCheckin(getSelectedVersion(row))"
+                >
+                  检入
+                </el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPreview"
                   link
@@ -902,6 +929,8 @@ import {
 import {
   confirmControlledFileMetadataImport,
   confirmControlledFileRecognitionMigrationImport,
+  checkoutControlledFile,
+  checkinControlledFile,
   createControlledFileBatchRecognitionTask,
   exportControlledFileMetadataExcel,
   exportControlledFileRecognitionMigrationExcel,
@@ -1071,6 +1100,7 @@ const browserListErrorMessage = ref<string>('')
 const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
+const checkoutLoadingId = ref<number>()
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1117,6 +1147,10 @@ type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
     | 'publishedArtifactAvailable'
     | 'stampedArtifactAvailable'
     | 'currentActiveVersionNo'
+    | 'checkedOut'
+    | 'checkedOutBy'
+    | 'checkedOutByName'
+    | 'checkedOutTime'
   >
 
 type ControlledFileDirectoryNode = ControlledFileDirectoryVO & {
@@ -1360,7 +1394,11 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   canDownload: row.canDownload,
   canPrint: row.canPrint,
   modifying: row.modifying,
-  actionProjection: row.actionProjection
+  actionProjection: row.actionProjection,
+  checkedOut: row.checkedOut,
+  checkedOutBy: row.checkedOutBy,
+  checkedOutByName: row.checkedOutByName,
+  checkedOutTime: row.checkedOutTime
 })
 
 const hydrateCurrentBrowserVersionActionState = (
@@ -1380,7 +1418,11 @@ const hydrateCurrentBrowserVersionActionState = (
     canPreview: version.canPreview ?? row.canPreview,
     canDownload: version.canDownload ?? row.canDownload,
     canPrint: version.canPrint ?? row.canPrint,
-    actionProjection: version.actionProjection ?? row.actionProjection
+    actionProjection: version.actionProjection ?? row.actionProjection,
+    checkedOut: version.checkedOut ?? row.checkedOut,
+    checkedOutBy: version.checkedOutBy ?? row.checkedOutBy,
+    checkedOutByName: version.checkedOutByName ?? row.checkedOutByName,
+    checkedOutTime: version.checkedOutTime ?? row.checkedOutTime
   }
 }
 
@@ -1465,6 +1507,42 @@ const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
     return ''
   }
   return getBrowserRowActionState(getSelectedVersion(row)).actionReadonlyReason
+}
+
+const isCheckedOutByCurrentUser = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
+  Boolean(file.checkedOutBy && String(file.checkedOutBy) === String(userStore.getUser.id))
+
+const getCheckoutDisplayName = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
+  file.checkedOutByName || (file.checkedOutBy ? `用户 ${file.checkedOutBy}` : '')
+
+const handleCheckout = async (file: ControlledFileBrowserVersion) => {
+  const id = Number(file.id)
+  if (!Number.isFinite(id) || file.checkedOutBy) return
+  checkoutLoadingId.value = id
+  try {
+    await checkoutControlledFile(id)
+    message.success('文件已检出')
+    await getList()
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '文件检出失败，请稍后重试。'))
+  } finally {
+    if (checkoutLoadingId.value === id) checkoutLoadingId.value = undefined
+  }
+}
+
+const handleCheckin = async (file: ControlledFileBrowserVersion) => {
+  const id = Number(file.id)
+  if (!Number.isFinite(id) || !isCheckedOutByCurrentUser(file)) return
+  checkoutLoadingId.value = id
+  try {
+    await checkinControlledFile(id)
+    message.success('文件已检入')
+    await getList()
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '文件检入失败，请稍后重试。'))
+  } finally {
+    if (checkoutLoadingId.value === id) checkoutLoadingId.value = undefined
+  }
 }
 
 const handleBrowserRowCommand = (command: string, row: ControlledFileBrowserRow) => {

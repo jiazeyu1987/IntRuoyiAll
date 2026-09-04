@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccReg
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +66,8 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
     @MockitoBean
     private DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
+    @MockitoBean
+    private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
     @BeforeEach
     void setUpFileService() {

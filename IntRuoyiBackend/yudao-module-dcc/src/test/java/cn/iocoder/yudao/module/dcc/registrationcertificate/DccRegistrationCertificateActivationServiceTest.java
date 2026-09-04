@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.Dc
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,8 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
     private ControlledContentRegistrationProjectionService projectionService;
     @MockitoBean
     private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
+    @MockitoBean
+    private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
     @Test
     void duePendingCandidateSwitchesOnceToCurrentAndOld() {

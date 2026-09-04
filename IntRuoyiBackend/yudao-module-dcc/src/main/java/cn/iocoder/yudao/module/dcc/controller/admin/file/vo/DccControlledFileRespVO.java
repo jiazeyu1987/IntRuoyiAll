@@ -61,6 +61,10 @@ public class DccControlledFileRespVO {
     private Long supersededByFileId;
     private String rejectReason;
     private String finalizationError;
+    private Boolean checkedOut;
+    private Long checkedOutBy;
+    private String checkedOutByName;
+    private LocalDateTime checkedOutTime;
     private Boolean canPreview;
     private Boolean canDownload;
     private Boolean canPrint;
@@ -78,4 +82,5 @@ public class DccControlledFileRespVO {
     private List<DccControlledFileDistributionStatusRespVO> distributionStatuses;
     private List<DccControlledFileTrainingStatusRespVO> trainingStatuses;
     private List<DccControlledFileSignatureSummaryRespVO> signatureSummaries;
+    private List<DccControlledFileRelatedFileRespVO> relatedFiles;
 }

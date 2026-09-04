@@ -38,7 +38,7 @@
               >
                 <Icon icon="ep:bell" class="mr-5px" />通知设置
               </el-button>
-              <el-button v-hasPermi="['dcc:registration-certificate:upload:create']" type="success" @click="openUploadDialog">
+              <el-button v-if="canUploadRegistrationCertificate" type="success" @click="openUploadDialog">
                 <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
             </template>
@@ -217,19 +217,17 @@
                         详细
                       </el-button>
                       <el-button
-                        v-if="row.status === 'CURRENT'"
+                        v-if="row.status === 'CURRENT' && canRenewRegistrationCertificate"
                         link
                         type="primary"
-                        v-hasPermi="['dcc:registration-certificate:renewal:upload']"
                         @click="openRenewalDialog(row)"
                       >
                         延续
                       </el-button>
                       <el-button
-                        v-if="row.status === 'CURRENT' && row.hasPendingChange === false"
+                        v-if="row.status === 'CURRENT' && row.hasPendingChange === false && canChangeRegistrationCertificate"
                         link
                         type="primary"
-                        v-hasPermi="['dcc:registration-certificate:change:submit']"
                         @click="openChange(row)"
                       >
                         变更
@@ -413,6 +411,7 @@ import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import RegistrationCertificateChangeDialog from '../change/ChangeDialog.vue'
 import RegistrationCertificateReminderConfigDialog from '../config/ReminderConfigDialog.vue'
+import { checkPermi, checkRole } from '@/utils/permission'
 import {
   REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS,
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
@@ -430,6 +429,7 @@ defineOptions({ name: 'DccRegistrationCertificateIndex' })
 const router = useRouter()
 const route = useRoute()
 const REGISTRATION_CERTIFICATE_ROUTE_PATH = '/mdm/registration-certificate'
+const REGISTRATION_CERTIFICATE_MANAGER_ROLE = 'dcc_registration_certificate_approver'
 
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
@@ -465,6 +465,18 @@ const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, page
 const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
 const currentSortState = ref<RegistrationCertificateSortState>({})
 const oldSortState = ref<RegistrationCertificateSortState>({})
+const canUploadRegistrationCertificate = computed(() =>
+  checkPermi(['dcc:registration-certificate:upload:create']) ||
+  checkRole([REGISTRATION_CERTIFICATE_MANAGER_ROLE])
+)
+const canRenewRegistrationCertificate = computed(() =>
+  checkPermi(['dcc:registration-certificate:renewal:upload']) ||
+  checkRole([REGISTRATION_CERTIFICATE_MANAGER_ROLE])
+)
+const canChangeRegistrationCertificate = computed(() =>
+  checkPermi(['dcc:registration-certificate:change:submit']) ||
+  checkRole([REGISTRATION_CERTIFICATE_MANAGER_ROLE])
+)
 
 const CURRENT_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
   'certificateNo',

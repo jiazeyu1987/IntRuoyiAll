@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentKey;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
@@ -49,6 +50,7 @@ public class DccRegistrationCertificateActivationService {
     private final ControlledContentRegistrationProjectionService projectionService;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
+    private final DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
     public DccRegistrationCertificateActivationService(
             DccRegistrationCertificateMapper certificateMapper,
@@ -58,7 +60,8 @@ public class DccRegistrationCertificateActivationService {
             JdbcTemplate jdbcTemplate,
             ControlledContentRegistrationProjectionService projectionService,
             DccRegistrationCertificateBusinessClock businessClock,
-            DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
+            DccRegistrationCertificateBusinessEventNotifier businessEventNotifier,
+            DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.snapshotMapper = require(snapshotMapper, "snapshotMapper");
@@ -67,6 +70,8 @@ public class DccRegistrationCertificateActivationService {
         this.projectionService = require(projectionService, "projectionService");
         this.businessClock = require(businessClock, "businessClock");
         this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
+        this.productCatalogRegistrationSyncService = require(
+                productCatalogRegistrationSyncService, "productCatalogRegistrationSyncService");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -129,6 +134,7 @@ public class DccRegistrationCertificateActivationService {
                 command.tenantId(), certificate.getOwnerCompanyId(), command.certificateId(), pending.getId(),
                 command.actorId(), command.idempotencyKey(), activationSnapshot.getProductName(),
                 pending.getCertificateNo(), pending.getEffectiveDate(), pending.getExpiryDate());
+        productCatalogRegistrationSyncService.syncByRegistrationCertificateId(command.certificateId());
         return new DccRegistrationCertificateActivationResult(command.certificateId(), command.currentVersionId(),
                 command.pendingVersionId(), activationSnapshot.getId(), true);
     }

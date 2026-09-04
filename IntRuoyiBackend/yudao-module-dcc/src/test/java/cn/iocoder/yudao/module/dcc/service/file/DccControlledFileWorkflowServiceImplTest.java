@@ -198,6 +198,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileQueryService queryService;
     @Mock
+    private DccControlledFileRelatedFileService relatedFileService;
+    @Mock
     private BpmProcessInstanceApi bpmProcessInstanceApi;
     @Mock
     private BpmProcessInstanceService bpmProcessInstanceService;
@@ -353,6 +355,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         Long fileId = workflowService.submitControlledFile(99L, reqVO);
 
         assertEquals(900L, fileId);
+        verify(relatedFileService).validateAndBindRelatedFiles(900L, 3000L, null);
         ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
         verify(controlledFileMasterMapper).insert(masterCaptor.capture());
         verify(controlledFileMasterMapper).selectByIdForUpdate(700L);

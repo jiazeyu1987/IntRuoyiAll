@@ -31,7 +31,6 @@ import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
-import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,7 +68,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -110,8 +108,6 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    private MdmCompanyScopeApi companyScopeApi;
-    @MockitoBean
     private DccProjectCodeService projectCodeService;
     @MockitoBean
     private FileService fileService;
@@ -120,14 +116,14 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUp() {
-        reset(companyScopeApi, projectCodeService, fileService, permissionApi);
+        reset(projectCodeService, fileService, permissionApi);
     }
 
     @Test
     void downloadReturnsServerOwnedFileNameAndConsumesOnlyOnceBeforeLaterStorageRead() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
         when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
                 .thenReturn("CERT-BYTES".getBytes(StandardCharsets.UTF_8));
 
@@ -167,7 +163,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         assertNotNull(audit);
         assertNull(audit.getGrantId());
         assertTrue(audit.getDetailJson().contains("REGISTRATION_MANAGER_ROLE"));
-        verify(projectCodeService, never()).getProjectCode(99L, 40L);
+        verify(projectCodeService, never()).getProjectCode(40L);
     }
 
     @Test
@@ -230,24 +226,6 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void registrationManagerDownloadStillRequiresCompanyScopeBeforeStorageIo() throws Exception {
-        FormalFixture fixture = seedDownloadCandidate("ACTIVE", "CURRENT", "BOUND",
-                "manager-denied.pdf", 20L, null);
-        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
-        doThrow(new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID))
-                .when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
-
-        ServiceException failure = assertThrows(ServiceException.class,
-                () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
-                        "attempt-manager-company-denied", context("REQ-MANAGER-COMPANY-DENIED")));
-
-        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), failure.getCode());
-        assertNotNull(accessAuditMapper.selectByEventKey(
-                1L, "attempt-manager-company-denied:DOWNLOAD:FAILURE"));
-        verify(fileService, never()).getFileContent(fixture.infraConfigId(), fixture.infraPath());
-    }
-
-    @Test
     void changeAndExpiredFilesUseTheRequiredDownloadNameSuffixes() throws Exception {
         FormalFixture changeFixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "change.pdf");
         jdbcTemplate.update("""
@@ -264,7 +242,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                  WHERE id = ?
                 """, changeFixture.businessFileId());
         when(fileService.getFile(changeFixture.infraFileId())).thenReturn(infraFile(changeFixture, "change.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
         when(fileService.getFileContent(changeFixture.infraConfigId(), changeFixture.infraPath()))
                 .thenReturn("CHANGE".getBytes(StandardCharsets.UTF_8));
 
@@ -285,7 +263,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     void preStartStorageFailureIsAuditedButDoesNotConsume() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
         IllegalStateException storageFailure = new IllegalStateException("storage unavailable");
         when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
                 .thenThrow(storageFailure)
@@ -310,7 +288,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     void liveProjectCodeDriftFailsBeforeStorageIoAndAuditsFailure() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project("DISABLED", 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project("DISABLED", 20L));
 
         ServiceException failure = assertThrows(ServiceException.class,
                 () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
@@ -327,7 +305,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
                 "uploaded-registration.pdf", null);
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "uploaded-registration.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 21L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 21L));
         when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
                 .thenReturn("UPLOADED-CERT".getBytes(StandardCharsets.UTF_8));
 
@@ -344,7 +322,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
         IllegalStateException outage = new IllegalStateException("project code service outage");
-        when(projectCodeService.getProjectCode(99L, 40L)).thenThrow(outage);
+        when(projectCodeService.getProjectCode(40L)).thenThrow(outage);
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
                 () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
@@ -381,7 +359,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     void successAuditConflictRollsBackSuccessfulConsumptionAndRecordsFailure() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
         when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
                 .thenReturn("AUDIT-CONFLICT".getBytes(StandardCharsets.UTF_8));
         DccRegistrationCertificateAccessAuditDO existingAudit =
@@ -413,7 +391,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     void missingServerOwnedFilenameFactsFailBeforeStorageIoAndConsumption() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
 
         ServiceException failure = assertThrows(ServiceException.class,
                 () -> deliveryService.download(1L, 99L, fixture.businessFileId(),
@@ -429,7 +407,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     void concurrentDownloadRaceReadsStorageOnceAndReturnsOneSuccess() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
-        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(projectCodeService.getProjectCode(40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
         CountDownLatch firstReadEntered = new CountDownLatch(1);
         CountDownLatch releaseStorage = new CountDownLatch(1);
         AtomicInteger storageReads = new AtomicInteger();

@@ -64,8 +64,12 @@ requireMatch(runtimeConfig, /ROLE_INPUT\.equals\(material\.materialRole\(\)\)[\s
   'runtime config must separate input evidence from output tabs')
 requireMatch(frontlineSubmit, /inputMaterialDetails[\s\S]*sourcePickListIds[\s\S]*sourceSnapshotHash|sourcePickListIds[\s\S]*inputMaterialDetails/,
   'production submit raw payload must retain server-managed input material evidence')
-requireMatch(frontlinePage, /runtimeConfig\?\.materials[\s\S]*configuredProductionMaterials/,
+requireMatch(frontlinePage, /configuredProductionMaterials\s*=\s*computed[\s\S]*runtimeConfig\?\.materials/,
   'production material tabs must continue to use output materials only')
+requireMatch(frontlinePage, /请至少填写一个输出物料的完成数量/,
+  'production material submit should allow a non-empty subset instead of requiring every output material')
+forbid(frontlinePage, /请填写全部输出物料的完成数量/,
+  'production material submit must not require all configured output materials')
 forbid(frontlinePage, /runtimeConfig\?\.inputMaterials[^\n]*(map|forEach)|configuredProductionMaterials[^\n]*inputMaterials/,
   'input materials must not generate user completion tabs')
 requireMatch(resolver, /selectListByActiveOrderId\(activeOrder\.getId\(\)\)/,

@@ -13,6 +13,7 @@
     clearable   — 是否允许清空（鼠标悬停时显示清除图标）
     placeholder — 占位文字
     deptId      — 部门 ID
+    hideSelectedLabel — 是否隐藏输入框内的已选名称，仅保留外部展示
   Events:
     update:modelValue — v-model 更新
     change(item | items)      — 选中用户变化时触发，传递完整 UserVO（清空时为 undefined | []）
@@ -79,6 +80,7 @@ const props = withDefaults(
     clearable?: boolean // 是否允许清空
     placeholder?: string // 占位文字
     deptId?: number // 部门 ID
+    hideSelectedLabel?: boolean // 是否隐藏输入框内的已选名称
   }>(),
   {
     defaultCurrentUser: false,
@@ -101,8 +103,13 @@ const selectedItems = ref<UserApi.UserVO[]>([]) // 当前选中的用户
 
 /** 输入框显示文本：展示用户昵称，保持简洁 */
 const displayLabel = computed(() => {
+  if (props.hideSelectedLabel) {
+    return ''
+  }
   return selectedItems.value.map((item) => item.nickname || item.username).join('、')
 })
+
+const normalizeUserId = (id: number | string) => Number(id)
 
 /** 是否显示清除图标 */
 const showClear = computed(() => {
@@ -121,16 +128,17 @@ const resolveItemById = async (id: number | number[] | undefined) => {
     return
   }
   const ids: number[] = Array.isArray(id) ? id : [id]
+  const normalizedIds = ids.map((currentId) => normalizeUserId(currentId))
   if (
-    selectedItems.value.length === ids.length &&
-    selectedItems.value.every((item) => ids.includes(item.id))
+    selectedItems.value.length === normalizedIds.length &&
+    selectedItems.value.every((item) => normalizedIds.includes(normalizeUserId(item.id)))
   ) {
     return
   }
   try {
     const simpleUsers = await UserApi.getSimpleUserList()
-    selectedItems.value = ids
-      .map((currentId) => simpleUsers.find((item) => item.id === currentId))
+    selectedItems.value = normalizedIds
+      .map((currentId) => simpleUsers.find((item) => normalizeUserId(item.id) === currentId))
       .filter((item): item is UserApi.UserVO => Boolean(item))
   } catch (e) {
     console.error('[UserSelectV2] resolveItemById failed:', e)
@@ -185,12 +193,12 @@ const handleSelected = (rows: UserApi.UserVO[]) => {
   if (props.multiple) {
     emit(
       'update:modelValue',
-      rows.map((item) => item.id)
+      rows.map((item) => normalizeUserId(item.id))
     )
     emit('change', rows)
   } else {
     const item = rows[0]
-    emit('update:modelValue', item.id)
+    emit('update:modelValue', normalizeUserId(item.id))
     emit('change', item)
   }
 }

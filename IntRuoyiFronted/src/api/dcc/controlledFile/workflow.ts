@@ -52,6 +52,7 @@ export interface ControlledFileSubmitReqVO {
   dccProjectCodeId?: number | null
   fileTypeTaxonomyId?: number | null
   revisionTargetControlledFileId?: number | null
+  relatedControlledFileIds?: number[]
   needTraining: boolean
   selectedSignoffUserIds?: number[]
   processType?: string
@@ -619,6 +620,7 @@ export interface ControlledFileVO {
   versionNo: string
   effectiveDate?: string
   remark?: string
+  relatedFiles?: ControlledFileRelatedFileVO[]
   status: string
   requesterId: number
   processInstanceId?: string
@@ -634,6 +636,10 @@ export interface ControlledFileVO {
   supersededByFileId?: number | null
   rejectReason?: string
   finalizationError?: string
+  checkedOut?: boolean
+  checkedOutBy?: number | null
+  checkedOutByName?: string | null
+  checkedOutTime?: number | null
   canPreview?: boolean
   previewUnavailableReason?: string
   canDownload?: boolean
@@ -653,6 +659,16 @@ export interface ControlledFileVO {
   distributionStatuses?: ControlledFileDistributionStatusVO[]
   trainingStatuses?: ControlledFileTrainingStatusVO[]
   signatureSummaries?: ControlledFileSignatureSummaryVO[]
+}
+
+export interface ControlledFileRelatedFileVO {
+  controlledFileId: number
+  masterId?: number | null
+  projectCodeId?: number | null
+  fileNumber?: string | null
+  fileName?: string | null
+  versionNo?: string | null
+  status?: string | null
 }
 
 export interface ExternalFileReviewVO {
@@ -1658,6 +1674,12 @@ export const getControlledFileBrowserPage = async (
 ): Promise<PageResult<ControlledFileVO[]>> => {
   return await request.get({ url: '/dcc/controlled-files/browser-page', params })
 }
+
+export const checkoutControlledFile = async (id: number | string) =>
+  await request.post({ url: `/dcc/controlled-files/${id}/checkout` })
+
+export const checkinControlledFile = async (id: number | string) =>
+  await request.post({ url: `/dcc/controlled-files/${id}/checkin` })
 
 export const getControlledFileBrowserExtensionBlacklist = async (): Promise<ControlledFileBrowserExtensionBlacklistRespVO> => {
   return await request.get({ url: '/dcc/controlled-files/browser-extension-blacklist' })

@@ -4296,11 +4296,8 @@ const assertProductionSubmissionReady = () => {
     const filledMaterials = configuredProductionMaterials.value.filter(
       (material) => productionMaterialDrafts[material.key]?.outputQuantity !== undefined
     )
-    if (filledMaterials.length !== configuredProductionMaterials.value.length) {
-      const missing = configuredProductionMaterials.value
-        .filter((material) => productionMaterialDrafts[material.key]?.outputQuantity === undefined)
-        .map((material) => material.materialName)
-      throw new Error(`请填写全部输出物料的完成数量：${missing.join('、')}`)
+    if (filledMaterials.length === 0) {
+      throw new Error('请至少填写一个输出物料的完成数量')
     }
     const invalidLossMaterials = filledMaterials.filter((material) => {
       const materialDraft = productionMaterialDrafts[material.key]
@@ -4313,11 +4310,15 @@ const assertProductionSubmissionReady = () => {
     }
   } else {
     if (productionDraft.outputQuantity === undefined || productionDraft.outputQuantity <= 0) {
-      throw new Error('请填写工序完成数量：输出数量必须大于 0')
+      throw new Error('请填写完成数量：工序输出数量必须大于 0')
     }
     if (productionScrapQuantity.value > productionDraft.outputQuantity) {
       throw new Error('损耗数量不能大于完成数量')
     }
+  }
+  const device = activeProductionDevice.value
+  if (!device) {
+    return
   }
   const selectedDevices = selectedProductionDeviceKeys.value
     .map((key) => visibleDeviceCards.value.find((device) => device.key === key))
@@ -4711,6 +4712,8 @@ interface FrontlineFormalSubmitContext {
   frontlineSessionSnapshotId?: string
   frontlineSessionSnapshotHash?: string
   activeOrderProcessSnapshotId?: number
+  deviceSelectionSnapshotJson?: string
+  deviceSelectionSnapshotSha256?: string
 }
 
 const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
@@ -4740,7 +4743,9 @@ const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
     expireDate: serverContext?.expireDate ? String(serverContext.expireDate) : undefined,
     frontlineSessionSnapshotId: deviceState.runtimeConfig?.frontlineSessionSnapshotId,
     frontlineSessionSnapshotHash: deviceState.runtimeConfig?.frontlineSessionSnapshotHash,
-    activeOrderProcessSnapshotId: serverContext?.activeOrderProcessSnapshotId
+    activeOrderProcessSnapshotId: serverContext?.activeOrderProcessSnapshotId,
+    deviceSelectionSnapshotJson: serverContext?.deviceSelectionSnapshotJson,
+    deviceSelectionSnapshotSha256: serverContext?.deviceSelectionSnapshotSha256
   }
 }
 
@@ -4773,6 +4778,12 @@ const assertProductionSubmitSnapshotContext = (formalContext: FrontlineFormalSub
   }
   if (!formalContext.frontlineSessionSnapshotId || !formalContext.frontlineSessionSnapshotHash) {
     throw new Error('缺少一线生产会话快照，无法提交。')
+  }
+  if (
+    snapshotContext.parameterSnapshotState === 'FROZEN' &&
+    (!snapshotContext.deviceSelectionSnapshotJson || !snapshotContext.deviceSelectionSnapshotSha256)
+  ) {
+    throw new Error('当前提交快照缺少设备选择快照，请重新进入工序。')
   }
 }
 

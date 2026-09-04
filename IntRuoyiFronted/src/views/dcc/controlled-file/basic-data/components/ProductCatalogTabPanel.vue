@@ -273,9 +273,19 @@
                 label="操作"
                 prop="actions"
                 fixed="right"
-                :width="getProductCatalogColumnWidthString('actions', 130)"
+                :width="getProductCatalogColumnWidthString('actions', 180)"
               >
                 <template #default="{ row }">
+                  <el-button
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--primary"
+                    type="primary"
+                    data-testid="dcc-product-catalog-bind-registration"
+                    @click="openBinding(row)"
+                    v-hasPermi="['dcc:project-code:update']"
+                  >
+                    绑定
+                  </el-button>
                   <el-button
                     link
                     class="scheme-d-row-action scheme-d-row-action--primary"
@@ -400,6 +410,33 @@
       </div>
     </template>
   </Dialog>
+
+  <Dialog v-model="bindingVisible" class="scheme-d-form-control" title="绑定项目代码和注册证" width="620px">
+    <el-form ref="bindingFormRef" v-loading="bindingLoading" :model="bindingFormData" :rules="bindingFormRules" label-width="126px">
+      <el-form-item label="产品目录">
+        <el-input :model-value="bindingRow?.product || bindingRow?.productCode || '-'" disabled />
+      </el-form-item>
+      <el-form-item label="DCC项目代码" prop="projectCodeId">
+        <el-select v-model="bindingFormData.projectCodeId" class="!w-100%" filterable placeholder="请选择DCC项目代码" @change="handleBindingProjectCodeChange">
+          <el-option v-for="item in bindingProjectCodeOptions" :key="item.id" :label="`${item.projectCode} / ${item.projectName}`" :value="item.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="注册证" prop="registrationCertificateId">
+        <el-select v-model="bindingFormData.registrationCertificateId" class="!w-100%" filterable :disabled="!bindingFormData.projectCodeId || bindingCertificateLoading" placeholder="请先选择DCC项目代码">
+          <el-option v-for="item in bindingCertificateOptions" :key="item.certificateId" :label="`${item.certificateNo} / ${item.productName}`" :value="item.certificateId" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="绑定备注" prop="relationRemark">
+        <el-input v-model="bindingFormData.relationRemark" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="请输入绑定备注" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--success" type="primary" :loading="bindingLoading" @click="submitBinding">确定绑定</el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" :disabled="bindingLoading" @click="bindingVisible = false">取消</el-button>
+      </div>
+    </template>
+  </Dialog>
 </template>
 
 <script lang="ts" setup>
@@ -423,6 +460,12 @@ import {
   getProductCatalogPage,
   updateProductCatalog
 } from '@/api/dcc/controlledFile/productCatalog'
+import { getProjectCodePage, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
+import { createDccDataRelation } from '@/api/dcc/dataRelations'
+import {
+  getRegistrationCertificatePage,
+  type DccRegistrationCertificatePageItemVO
+} from '@/api/dcc/registrationCertificate'
 
 defineOptions({ name: 'ProductCatalogTabPanel' })
 
@@ -433,6 +476,22 @@ const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
 const total = ref(0)
 const formRef = ref()
+const bindingFormRef = ref()
+const bindingVisible = ref(false)
+const bindingLoading = ref(false)
+const bindingCertificateLoading = ref(false)
+const bindingRow = ref<DccProductCatalogRespVO>()
+const bindingProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const bindingCertificateOptions = ref<DccRegistrationCertificatePageItemVO[]>([])
+const bindingFormData = reactive({
+  projectCodeId: undefined as number | string | undefined,
+  registrationCertificateId: undefined as number | string | undefined,
+  relationRemark: ''
+})
+const bindingFormRules: FormRules = {
+  projectCodeId: [{ required: true, message: '请选择DCC项目代码', trigger: 'change' }],
+  registrationCertificateId: [{ required: true, message: '请选择注册证', trigger: 'change' }]
+}
 
 const productStatusOptions = [
   { label: '在研(N)', value: 'N' },
@@ -935,6 +994,59 @@ const copyProductCatalogBatchRecordTotalRecognitionJson = async (row: DccProduct
   await copy()
   if (unref(copied)) {
     message.success('批记录识别 JSON 已复制')
+  }
+}
+
+const resetBindingForm = () => {
+  bindingFormData.projectCodeId = undefined
+  bindingFormData.registrationCertificateId = undefined
+  bindingFormData.relationRemark = ''
+  bindingCertificateOptions.value = []
+  bindingFormRef.value?.resetFields()
+}
+
+const openBinding = async (row: DccProductCatalogRespVO) => {
+  bindingRow.value = row
+  resetBindingForm()
+  bindingVisible.value = true
+  bindingLoading.value = true
+  try {
+    const page = await getProjectCodePage({ pageNo: 1, pageSize: 500, status: 'ENABLE' })
+    bindingProjectCodeOptions.value = page.list
+  } finally {
+    bindingLoading.value = false
+  }
+}
+
+const handleBindingProjectCodeChange = async (projectCodeId: number | string) => {
+  bindingFormData.registrationCertificateId = undefined
+  bindingCertificateOptions.value = []
+  if (!projectCodeId) return
+  bindingCertificateLoading.value = true
+  try {
+    const page = await getRegistrationCertificatePage({ pageNo: 1, pageSize: 500, projectCodeId, status: 'CURRENT' })
+    bindingCertificateOptions.value = page.list
+  } finally {
+    bindingCertificateLoading.value = false
+  }
+}
+
+const submitBinding = async () => {
+  const valid = await bindingFormRef.value?.validate()
+  if (!valid || !bindingRow.value) return
+  bindingLoading.value = true
+  try {
+    await createDccDataRelation({
+      productCatalogId: bindingRow.value.id,
+      projectCodeId: bindingFormData.projectCodeId!,
+      registrationCertificateId: bindingFormData.registrationCertificateId!,
+      relationRemark: bindingFormData.relationRemark.trim() || undefined
+    })
+    message.success('绑定成功，产品目录已同步注册证数据')
+    bindingVisible.value = false
+    await getList()
+  } finally {
+    bindingLoading.value = false
   }
 }
 

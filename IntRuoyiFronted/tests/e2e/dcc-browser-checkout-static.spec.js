@@ -1,0 +1,20 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const root = path.resolve(__dirname, '../..')
+const api = fs.readFileSync(path.join(root, 'src/api/dcc/controlledFile/workflow.ts'), 'utf8')
+const page = fs.readFileSync(path.join(root, 'src/views/dcc/controlled-file/browser/index.vue'), 'utf8')
+
+assert.match(api, /export const checkoutControlledFile[\s\S]*request\.post\(\{ url: `\/dcc\/controlled-files\/\$\{id\}\/checkout` \}\)/)
+assert.match(api, /export const checkinControlledFile[\s\S]*request\.post\(\{ url: `\/dcc\/controlled-files\/\$\{id\}\/checkin` \}\)/)
+assert.match(api, /checkedOutByName\?: string \| null/)
+assert.match(page, /checkoutControlledFile/)
+assert.match(page, /checkinControlledFile/)
+assert.match(page, /data-testid="dcc-controlled-browser-checkout"/)
+assert.match(page, /data-testid="dcc-controlled-browser-checkin"/)
+assert.match(page, /data-testid="dcc-controlled-browser-checked-out-by"/)
+assert.match(page, /!getSelectedVersion\(row\)\.checkedOutBy/)
+assert.match(page, /isCheckedOutByCurrentUser/)
+
+console.log('PASS: dcc browser checkout static contract')

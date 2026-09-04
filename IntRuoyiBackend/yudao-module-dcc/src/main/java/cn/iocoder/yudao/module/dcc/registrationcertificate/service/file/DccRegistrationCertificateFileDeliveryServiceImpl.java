@@ -141,7 +141,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             }
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
-            DccProjectCodeDO projectCode = requireLiveProjectCode(userId, request.getProjectCodeId(),
+            DccProjectCodeDO projectCode = requireLiveProjectCode(request.getProjectCodeId(),
                     certificate.getProductMasterId());
             String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
             String lockKey = tenantId + ":" + grant.getId() + ":" + businessFileId;
@@ -242,8 +242,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         return request;
     }
 
-    private DccProjectCodeDO requireLiveProjectCode(Long userId, Long projectCodeId, Long productMasterId) {
-        DccProjectCodeDO projectCode = projectCodeService.getProjectCode(userId, projectCodeId);
+    private DccProjectCodeDO requireLiveProjectCode(Long projectCodeId, Long productMasterId) {
+        DccProjectCodeDO projectCode = projectCodeService.getProjectCode(projectCodeId);
         if (projectCode == null || !DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())
                 || hasConflictingProductBinding(productMasterId, projectCode.getProductMasterId())
                 || StrUtil.isBlank(projectCode.getProjectCode())) {

@@ -283,6 +283,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `superseded_by_file_id` bigint DEFAULT NULL,
   `reject_reason` varchar(255) DEFAULT NULL,
   `finalization_error` varchar(500) DEFAULT NULL,
+  `checked_out_by` bigint DEFAULT NULL COMMENT '当前检出人用户ID',
+  `checked_out_time` datetime DEFAULT NULL COMMENT '当前检出时间',
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,
   `update_time` datetime DEFAULT NULL,
@@ -295,7 +297,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   KEY `idx_dcc_controlled_file_directory` (`directory_id`),
   KEY `idx_dcc_controlled_file_status` (`status`),
   KEY `idx_dcc_controlled_file_project_code` (`tenant_id`, `dcc_project_code_id`),
-  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`)
+  KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
+  KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file revision';
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (

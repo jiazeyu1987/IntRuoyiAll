@@ -114,5 +114,7 @@ public class MesFrontlineRuntimeConfigRespVO {
         private Long activeOrderProcessSnapshotId;
         private String parameterSnapshotSha256;
         private String parameterSnapshotState;
+        private String deviceSelectionSnapshotJson;
+        private String deviceSelectionSnapshotSha256;
     }
 }

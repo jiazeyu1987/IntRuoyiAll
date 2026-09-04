@@ -6,6 +6,9 @@ import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.file.vo.DccRegistrationCertificateFileDownloadGrantStatusRespVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFileDeliveryService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFilePreviewService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFileDownloadResult;
@@ -24,11 +27,14 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
@@ -51,12 +57,37 @@ public class DccRegistrationCertificateFilePreviewController {
 
     private final DccRegistrationCertificateFilePreviewService previewService;
     private final DccRegistrationCertificateFileDeliveryService deliveryService;
+    private final DccRegistrationCertificateAccessPolicyService accessPolicyService;
+    private final DccRegistrationCertificateBusinessClock businessClock;
 
     public DccRegistrationCertificateFilePreviewController(
             DccRegistrationCertificateFilePreviewService previewService,
-            DccRegistrationCertificateFileDeliveryService deliveryService) {
+            DccRegistrationCertificateFileDeliveryService deliveryService,
+            DccRegistrationCertificateAccessPolicyService accessPolicyService,
+            DccRegistrationCertificateBusinessClock businessClock) {
         this.previewService = previewService;
         this.deliveryService = deliveryService;
+        this.accessPolicyService = accessPolicyService;
+        this.businessClock = businessClock;
+    }
+
+    @GetMapping("/download-grants")
+    @Operation(summary = "查询当前账号注册证文件下载授权")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:registration-certificate:query-current', "
+            + "'dcc:registration-certificate:access-request:create', "
+            + "'dcc:registration-certificate:access-request:approve')")
+    public CommonResult<List<DccRegistrationCertificateFileDownloadGrantStatusRespVO>> listDownloadGrants(
+            @RequestParam("businessFileIds") List<Long> businessFileIds) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long userId = getLoginUserId();
+        List<DccRegistrationCertificateFileDownloadGrantStatusRespVO> statuses = new LinkedHashSet<>(businessFileIds)
+                .stream()
+                .filter(id -> id != null && id > 0)
+                .map(id -> DccRegistrationCertificateFileDownloadGrantStatusRespVO.of(id,
+                        accessPolicyService.canDownloadFile(tenantId, userId, id, businessClock.now()),
+                        accessPolicyService.findPendingDownloadRequestId(tenantId, userId, id)))
+                .toList();
+        return success(statuses);
     }
 
     @GetMapping("/{businessFileId}/preview-metadata")
@@ -102,7 +133,8 @@ public class DccRegistrationCertificateFilePreviewController {
 
     @GetMapping("/{businessFileId}/download")
     @Operation(summary = "下载注册证文件")
-    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:access-request:create')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:registration-certificate:access-request:create', "
+            + "'dcc:registration-certificate:access-request:approve')")
     public ResponseEntity<byte[]> downloadFile(
             @PathVariable("businessFileId") Long businessFileId,
             @RequestHeader(DOWNLOAD_ATTEMPT_KEY_HEADER) String attemptKey,
