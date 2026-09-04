@@ -103,6 +103,14 @@
 - Forbidden action: 禁止在 E2E 脚本中未经当前任务明确授权就创建角色、分配角色、扩大菜单权限、重置审批人密码、静默切换租户账号或用 API-only 伪造审批处理。
 - Evidence: `doc/tasks/20260901-registration-certificate-dcc-category-binding/execution-log.md`。
 
+### 审批流程通知通道门禁
+
+- Trigger: 申请提交成功、审批待办可见或审批动作已进入 Flowable，但页面 toast 出现“手机号不存在”、短信模板异常、短信日志字段过长等与目标业务无关的通知错误。
+- Preflight check: 先从后端日志定位异常栈，区分业务提交/审批失败与流程通知失败；DCC、注册证、eDHR、工艺路线等内部审批流程应优先走站内通知模板，不能因测试账号未配置手机号而落入短信发送路径并回滚业务事务。
+- Blocker: 只看到 toast 就误判为权限失败、审批人缺失、下载文件失败，或为了通过 E2E 临时给账号补手机号/改密码/换管理员审批时必须停止。
+- Verification: 证据需包含触发的真实页面动作、异常栈中的消息服务/通知通道、流程定义 key、修复后的消息服务单测和完整 Playwright 复跑结果。
+- Forbidden action: 禁止吞掉短信异常、伪造通知成功、API-only 完成审批、或把通知失败绕写成业务成功；应修正流程到正确通知通道。
+- Evidence: `doc/tasks/20260904-registration-download-e2e-flow/execution-log.md`，注册证下载审批完成通知曾因 `dcc-registration-certificate-access` 未纳入 DCC 站内通知分支而落入短信路径，补齐通知流程映射后完整下载 E2E 通过。
 ### 前端 API 路径同源门禁
 
 - Trigger: Playwright 已通过真实页面完成提交或导入，但后续用 `fetch` 做最终状态核验时返回模块禁用兜底、请求地址不存在、401/403 或与页面网络请求不一致；尤其是 Form Center、DCC、MES 等前端 API wrapper 自带业务前缀时。
