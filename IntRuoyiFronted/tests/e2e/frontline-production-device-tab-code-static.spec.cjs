@@ -74,24 +74,39 @@ assert.doesNotMatch(
   'device tab label must not prefer deviceName over deviceCode.'
 )
 
-const selectedDevicePayloadBlock = extractFunctionBlock(
+const selectedDevicesFromKeysBlock = extractFunctionBlock(
   panel,
-  'const buildProductionSelectedDevicePayload = ()'
+  'const buildProductionSelectedDevicesFromKeys ='
 )
 assert.match(
-  selectedDevicePayloadBlock,
+  selectedDevicesFromKeysBlock,
+  /deviceKeys[\s\S]*visibleDeviceCards\.value\.find/,
+  'production submission payload must resolve selected devices from the selected device keys.'
+)
+assert.match(
+  selectedDevicesFromKeysBlock,
   /deviceId:\s*device\.deviceId/,
   'production submission payload must retain selected deviceId.'
 )
 assert.match(
-  selectedDevicePayloadBlock,
+  selectedDevicesFromKeysBlock,
   /deviceCode:\s*device\.deviceCode/,
   'production submission payload must retain selected deviceCode.'
 )
 assert.match(
-  selectedDevicePayloadBlock,
+  selectedDevicesFromKeysBlock,
   /deviceName:\s*device\.deviceName/,
   'production submission payload must retain selected deviceName.'
+)
+assert.match(
+  panel,
+  /const buildProductionSelectedDevicesPayload = \(\) =>\n\s*buildProductionSelectedDevicesFromKeys\(selectedProductionDeviceKeys\.value\)/,
+  'production submission payload must use the selected device key list.'
+)
+assert.doesNotMatch(
+  panel,
+  /const buildProductionSelectedDevicePayload = \(\)/,
+  'production submission payload must not keep the legacy single-device helper.'
 )
 
 console.log('PASS: frontline production device tab displays device code')

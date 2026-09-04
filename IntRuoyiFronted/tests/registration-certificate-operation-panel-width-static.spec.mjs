@@ -91,13 +91,13 @@ assert.equal(
 )
 assert.match(
   currentActionPanel,
-  /<el-button link type="primary" @click="openDetail\(row\.certificateId\)">\s*详细\s*<\/el-button>/,
-  'current registration-certificate action panel must show the detail action as 详细 and keep the handler'
+  /<el-button link type="primary" @click="openDetail\(row\.certificateId\)">\s*详情\s*<\/el-button>/,
+  'current registration-certificate action panel must show the detail action as 详情 and keep the handler'
 )
 assert.match(
   currentActionPanel,
-  /v-hasPermi="\['dcc:registration-certificate:change:submit'\]"[\s\S]*@click="openChange\(row\)"[\s\S]*>\s*变更\s*</,
-  'current registration-certificate action panel must show the change action as 变更 and keep the change approval upload permission and handler'
+  /v-if="row\.status === 'CURRENT' && row\.hasPendingChange === false && canChangeRegistrationCertificate"[\s\S]*@click="openChange\(row\)"[\s\S]*>\s*变更\s*</,
+  'current registration-certificate action panel must show the change action as 变更 and keep the manager-aware permission and handler'
 )
 assert.match(
   list,
@@ -106,13 +106,13 @@ assert.match(
 )
 assert.match(
   currentActionPanel,
-  /v-hasPermi="\['dcc:registration-certificate:renewal:upload'\]"[\s\S]*@click="openRenewalDialog\(row\)"[\s\S]*>\s*延续\s*</,
-  'current registration-certificate action panel must keep the renewal permission and handler'
+  /v-if="row\.status === 'CURRENT' && canRenewRegistrationCertificate"[\s\S]*@click="openRenewalDialog\(row\)"[\s\S]*>\s*延续\s*</,
+  'current registration-certificate action panel must keep the manager-aware renewal permission and handler'
 )
 assert.match(
   currentActionPanel,
-  />\s*详细\s*<[\s\S]*>\s*延续\s*<[\s\S]*>\s*变更\s*</,
-  'current registration-certificate action panel must order buttons as 详细、延续、变更'
+  />\s*详情\s*<[\s\S]*>\s*延续\s*<[\s\S]*>\s*变更\s*</,
+  'current registration-certificate action panel must order buttons as 详情、延续、变更'
 )
 assert.doesNotMatch(
   currentActionPanel,
@@ -148,7 +148,7 @@ assert.match(
 assert.match(
   list,
   /\.registration-certificate-row-actions--compact\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*4px;/,
-  'current registration-certificate compact row actions must use a three-column grid so 详细、延续、变更 stay on one row'
+  'current registration-certificate compact row actions must use a three-column grid so 详情、延续、变更 stay on one row'
 )
 assert.match(
   list,

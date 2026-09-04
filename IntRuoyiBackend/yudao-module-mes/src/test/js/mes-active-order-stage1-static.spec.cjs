@@ -46,6 +46,12 @@ assert.doesNotMatch(stage1Service, /bindingMapper\.selectByActiveOrderId\(/,
   'Stage1 multi-source facts must not be reduced to the first active-order binding');
 assert.match(stage1Service, /for \(MesProcessPoolActiveOrderPickListBindingDO templateBinding : templateBindings\)/,
   'Stage1 must clone and bind every resolved formal pick list independently');
+assert.match(stage1Service, /createFormalProductIssueForBinding/,
+  'Stage1 must create formal product issue evidence per pick-list binding');
+assert.match(stage1Service, /STAGE1-ISSUE-[\s\S]*binding\.getId\(\)/,
+  'Stage1 product issue code must retain the source pick-list binding identity');
+assert.doesNotMatch(stage1Service, /List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems = new ArrayList<>\(\);[\s\S]*bindingItems\.addAll\(items\);[\s\S]*MesWmProductIssueDO issue/s,
+  'Stage1 must not merge items from multiple pick-list bindings into one product issue');
 assert.match(stage1Service, /"STAGE1-" \+ safe \+ "-PL-" \+ source\.getPickListId\(\)/,
   'each copied pick-list source identity must include its formal pick-list ID');
 assert.match(stage1Service, /cleanupCopiedPickLists\(runId\)/,
@@ -86,6 +92,12 @@ assert.match(activeOrderSimulationService, /inputMaterialDetails/,
   'Stage1 must persist input material batch trace details separately from output quantities.');
 assert.match(activeOrderSimulationService, /listBatchCodes/,
   'Stage1 input material evidence must obtain batch codes from the formal synchronized source.');
+assert.match(activeOrderSimulationService, /PLACEHOLDER_MATERIAL_CODE\s*=\s*"\/"/,
+  'Stage1 must explicitly recognize slash as a placeholder material code');
+assert.match(activeOrderSimulationService, /isPlaceholderMaterialCode\(material\.getCode\(\)\)[\s\S]*detail\.put\("batchCodes",\s*List\.of\(\)\)/,
+  'Stage1 must not query formal pick-list batches for slash placeholder input material codes');
+assert.match(stage1Service, /isPlaceholderMaterialCode\(item\.getMaterialNumber\(\)\)/,
+  'Stage1 product issue materialization must not match slash placeholder pick-list lines against material masters');
 assert.match(activeOrderSimulationService, /resolveDefaultSimulationDevice/,
   'Stage1 must resolve a formal default device for simulated output material facts.');
 assert.match(activeOrderSimulationService, /orderByAsc\(MesProcessPoolTeamProcessDeviceDO::getId\)/,

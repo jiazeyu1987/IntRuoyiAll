@@ -195,6 +195,7 @@ class MesFrontlineProcessMaterialServiceTest {
 
     private static MesProFeedbackMaterialBatchEvidence evidence(String code, List<String> lots) {
         return new MesProFeedbackMaterialBatchEvidence(code, lots, BigDecimal.TEN, BigDecimal.TEN,
-                BigDecimal.TEN, List.of(101L, 102L), List.of(1001L, 1002L), "source-hash");
+                BigDecimal.TEN, List.of(101L, 102L), List.of("SIM-SOUT-001", "SIM-SOUT-002"),
+                List.of(1001L, 1002L), "source-hash");
     }
 }

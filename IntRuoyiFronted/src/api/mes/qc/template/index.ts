@@ -104,6 +104,18 @@ export interface QaInspectionRegulationProjectStatusVO {
   publishedVersionNo?: string
 }
 
+export interface QaInspectionRegulationVersionOptionVO {
+  dccProjectCodeId: number
+  regulationId: number
+  versionId: number
+  versionNo: string
+  lifecycleStatus: string
+  effectiveDate?: string
+  publishedAt?: string
+  retiredAt?: string
+  currentPublished: boolean
+}
+
 export interface QaInspectionRegulationSaveReqVO {
   regulationId?: number
   dccProjectCodeId: number
@@ -258,6 +270,16 @@ export const QcTemplateApi = {
     return await request.get({
       url: `/mes/qa/inspection-regulation/published-version`,
       params: { dccProjectCodeId, ...(versionId ? { versionId } : {}) }
+    })
+  },
+
+  // 查询 DCC 项目全部 QA 检验规程版本
+  listQaRegulationVersions: async (
+    dccProjectCodeId: number
+  ): Promise<QaInspectionRegulationVersionOptionVO[]> => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/versions`,
+      params: { dccProjectCodeId }
     })
   },
 

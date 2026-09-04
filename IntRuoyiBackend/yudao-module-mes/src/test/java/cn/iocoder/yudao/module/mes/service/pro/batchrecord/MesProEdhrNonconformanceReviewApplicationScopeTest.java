@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewDisposeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
@@ -27,6 +28,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -188,6 +191,64 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         assertEquals(false, reviewCaptor.getValue().getPreviousWorkOrderTemporaryFrozen());
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3002L), true);
         verify(batchExecutionMapper).updateById(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void workOrderPendingReviewFreezeErrorIncludesBranchDetail() {
+        when(reviewMapper.selectFirstBlockingByWorkOrderId(3005L)).thenReturn(
+                MesProEdhrNonconformanceReviewDO.builder()
+                        .id(1101L)
+                        .reviewCode("NCR-1101")
+                        .reviewStatus("pending_review")
+                        .workOrderId(3005L)
+                        .sourceType("PQC_SUBMISSION")
+                        .sourceId(160L)
+                        .build());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.ensureWorkOrderNotFrozen(3005L, "报工"));
+
+        assertTrue(exception.getMessage().contains("冻结分支=待处置不合格评审"));
+        assertTrue(exception.getMessage().contains("action=报工"));
+        assertTrue(exception.getMessage().contains("workOrderId=3005"));
+        assertTrue(exception.getMessage().contains("reviewId=1101"));
+        assertTrue(exception.getMessage().contains("sourceType=PQC_SUBMISSION"));
+    }
+
+    @Test
+    void workOrderVoidDispositionFreezeErrorIncludesBranchDetail() {
+        when(reviewMapper.selectFirstBlockingByWorkOrderId(3006L)).thenReturn(
+                MesProEdhrNonconformanceReviewDO.builder()
+                        .id(1102L)
+                        .reviewCode("NCR-1102")
+                        .reviewStatus("closed")
+                        .disposition("void")
+                        .workOrderId(3006L)
+                        .sourceType("PQC_RELEASE")
+                        .sourceId(7001L)
+                        .build());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.ensureWorkOrderNotFrozen(3006L, "报工"));
+
+        assertTrue(exception.getMessage().contains("冻结分支=作废处置不合格评审"));
+        assertTrue(exception.getMessage().contains("action=报工"));
+        assertTrue(exception.getMessage().contains("workOrderId=3006"));
+        assertTrue(exception.getMessage().contains("reviewId=1102"));
+        assertTrue(exception.getMessage().contains("sourceType=PQC_RELEASE"));
+    }
+
+    @Test
+    void workOrderTemporaryFrozenErrorIncludesBranchDetail() {
+        when(workOrderMapper.selectByIdForUpdate(3007L)).thenReturn(
+                new MesProWorkOrderDO().setId(3007L).setTemporaryFrozen(true));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.ensureWorkOrderNotFrozen(3007L, "报工"));
+
+        assertTrue(exception.getMessage().contains("冻结分支=工单临时冻结"));
+        assertTrue(exception.getMessage().contains("action=报工"));
+        assertTrue(exception.getMessage().contains("workOrderId=3007"));
     }
 
     @Test

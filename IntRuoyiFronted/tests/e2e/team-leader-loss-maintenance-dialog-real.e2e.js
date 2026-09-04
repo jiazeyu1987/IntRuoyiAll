@@ -9,7 +9,7 @@ const RESULT_DIR = path.resolve(
     || path.join(WORKSPACE_ROOT, 'doc', 'tasks', TASK_ID, 'evidence', 'real-browser')
 )
 const RESULT_FILE = path.join(RESULT_DIR, 'result.json')
-const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/team-leader'
+const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/production-leader'
 const DEFAULT_DATA_PREFIX = 'LMD20260807'
 const LOSS_REASON_ENDPOINT = '/mes/pro/process-pool/team-leader/loss-reasons'
 const PROCESS_CONFIG_ENDPOINT = '/mes/pro/process-pool/team-leader/process-config/list'

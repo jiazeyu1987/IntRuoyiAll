@@ -227,6 +227,7 @@ const props = withDefaults(
     title?: string
     multiple?: boolean // true 多选（checkbox），false 单选（radio）
     deptId?: number // 部门 ID
+    userOptions?: UserApi.UserVO[] // 由业务页面预加载的用户选项
   }>(),
   {
     title: '人员选择',
@@ -353,9 +354,26 @@ const queryParams = reactive({
 const getList = async () => {
   loading.value = true
   try {
-    const data = await UserApi.getUserPage(queryParams)
-    list.value = data.list
-    total.value = data.total
+    if (props.userOptions !== undefined) {
+      const username = (queryParams.username || '').trim().toLowerCase()
+      const nickname = (queryParams.nickname || '').trim().toLowerCase()
+      const mobile = (queryParams.mobile || '').trim().toLowerCase()
+      const filtered = props.userOptions.filter((row) => {
+        if (row.disabled === true) return false
+        if (queryParams.deptId !== undefined && row.deptId !== queryParams.deptId) return false
+        if (username && !row.username.toLowerCase().includes(username)) return false
+        if (nickname && !row.nickname.toLowerCase().includes(nickname)) return false
+        if (mobile && !(row.mobile || '').toLowerCase().includes(mobile)) return false
+        return true
+      })
+      total.value = filtered.length
+      const start = (queryParams.pageNo - 1) * queryParams.pageSize
+      list.value = filtered.slice(start, start + queryParams.pageSize)
+    } else {
+      const data = await UserApi.getUserPage(queryParams)
+      list.value = data.list
+      total.value = data.total
+    }
     list.value.forEach((row) => {
       row.disabled = preDisabledIds.value.includes(row.id)
     })

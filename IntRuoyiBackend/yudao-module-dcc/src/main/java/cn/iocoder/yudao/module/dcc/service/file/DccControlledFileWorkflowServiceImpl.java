@@ -1110,6 +1110,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (!DccControlledFileUploadTypePolicy.isAllowedEditableSourceName(sourceFile.getName())) {
             throw exception(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID);
         }
+        if (DccControlledFileUploadTypePolicy.isPdfName(sourceFile.getName())) {
+            return;
+        }
         if (DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFile.getName()) && submitFiles.drawingPdfFileId() == null) {
             throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
         }

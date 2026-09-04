@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID;
@@ -106,7 +105,7 @@ public class DccRegistrationCertificateAccessRequestService {
         if (existing != null) {
             return replay(existing, payloadHash);
         }
-        if (TYPE_DOWNLOAD_FILE.equals(normalized.requestType())) {
+        if (TYPE_DOWNLOAD_FILE.equals(normalized.requestType()) && normalized.projectCodeId() != null) {
             validateProjectCode(tenantId, normalized.projectCodeId(), certificate.getProductMasterId());
         }
         List<DccRegistrationCertificateFileDO> files = validateFiles(
@@ -198,8 +197,8 @@ public class DccRegistrationCertificateAccessRequestService {
         } else if (!Objects.equals(projectCodeId, certificate.getProjectCodeId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
-        if (projectCodeId == null || projectCodeId <= 0) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED);
+        if (projectCodeId != null && projectCodeId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
         List<Long> fileIds = requested.businessFileIds();
         if (fileIds.isEmpty()) {

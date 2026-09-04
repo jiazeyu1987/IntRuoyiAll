@@ -30,6 +30,7 @@
             class="recipient-picker-trigger"
             :multiple="true"
             :hide-selected-label="true"
+            :user-options="userOptions"
             placeholder="选择通知接收人"
             @change="handleRecipientChange"
           />

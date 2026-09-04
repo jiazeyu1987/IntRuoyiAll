@@ -411,7 +411,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     @Override
     public DccControlledFileRespVO checkoutControlledFile(Long userId, Long id) {
-        DccControlledFileDO file = requireAccessibleControlledFile(userId, id);
+        DccControlledFileDO file = requireCheckoutAccessibleControlledFile(userId, id);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (controlledFileMapper.checkoutByIdAndTenantWhenAvailable(tenantId, id, userId) == 0) {
             DccControlledFileDO current = controlledFileMapper.selectById(id);
@@ -425,7 +425,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     @Override
     public DccControlledFileRespVO checkinControlledFile(Long userId, Long id) {
-        DccControlledFileDO file = requireAccessibleControlledFile(userId, id);
+        DccControlledFileDO file = requireCheckoutAccessibleControlledFile(userId, id);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (controlledFileMapper.checkinByIdAndTenantWhenOwner(tenantId, id, userId) == 0) {
             DccControlledFileDO current = controlledFileMapper.selectById(id);
@@ -446,6 +446,18 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
         if (!canAccessDetail(userId, file)) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        return file;
+    }
+
+    private DccControlledFileDO requireCheckoutAccessibleControlledFile(Long userId, Long id) {
+        DccControlledFileDO file = controlledFileMapper.selectById(id);
+        if (file == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        boolean hasDirectoryManagementPermission = directoryAccessPermissionService.hasDirectoryManagementPermission(userId);
+        if (!canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
         return file;
@@ -1711,6 +1723,17 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
     }
 
+    private void fillCheckoutProjection(DccControlledFileVersionHistoryRespVO respVO, DccControlledFileDO file) {
+        Long checkedOutBy = file.getCheckedOutBy();
+        respVO.setCheckedOut(checkedOutBy != null);
+        respVO.setCheckedOutBy(checkedOutBy);
+        respVO.setCheckedOutTime(file.getCheckedOutTime());
+        if (checkedOutBy != null) {
+            AdminUserRespDTO user = adminUserApi.getUser(checkedOutBy);
+            respVO.setCheckedOutByName(user == null ? null : user.getNickname());
+        }
+    }
+
     private DccControlledFileActionProjectionRespVO buildActionProjection(Long userId, DccControlledFileDO file,
                                                                           Boolean canPreview,
                                                                           Boolean canDownload,
@@ -2049,6 +2072,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
                     respVO.setCanDownload(canReadBinary(userId, history, DccAccessTypeEnum.DOWNLOAD,
                             hasDirectoryManagementPermission));
+                    fillCheckoutProjection(respVO, history);
                     return respVO;
                 })
                 .toList();

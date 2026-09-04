@@ -88,6 +88,21 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
     }
 
     @Test
+    void projectOptionalMigrationShouldDropDownloadProjectCodeCheck() throws Exception {
+        Path backendRoot = findBackendRoot();
+        Path migration = backendRoot.resolve(
+                "sql/mysql/20260904_dcc_registration_certificate_download_project_optional.sql");
+        assertTrue(Files.isRegularFile(migration),
+                "download project optional migration must exist");
+
+        String normalized = Files.readString(migration, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(normalized.contains("alter table `dcc_registration_certificate_access_request`"),
+                "download project optional migration must target access request table");
+        assertTrue(normalized.contains("drop check `chk_dcc_reg_cert_access_request_project`"),
+                "download project optional migration must drop the obsolete non-null project-code check");
+    }
+
+    @Test
     void h2FixtureShouldLoadAccessTablesAndEnforcePortableConstraints() throws Exception {
         Set<String> present = new LinkedHashSet<>();
         try (var connection = dataSource.getConnection();
@@ -127,8 +142,8 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
                 statement.setLong(1, 2L);
                 statement.setString(2, "DOWNLOAD_FILE");
                 statement.setString(3, "req:download:missing-project");
-                assertThrows(SQLException.class, statement::executeUpdate,
-                        "download requests must carry an approved project code at submission");
+                assertEquals(1, statement.executeUpdate(),
+                        "download requests may omit project code when the certificate has no project code");
                 statement.setLong(1, 4L);
                 statement.setString(2, "UPLOAD_CERTIFICATE");
                 statement.setString(3, "req:upload:1");

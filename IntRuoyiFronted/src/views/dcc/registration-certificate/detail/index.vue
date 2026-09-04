@@ -654,10 +654,6 @@ const openDownloadRequest = async (businessFileId: number | string) => {
     attachmentActionError.value = '缺少注册证主档 ID，无法提交下载申请。'
     return
   }
-  if (!detail.value.projectCodeId) {
-    attachmentActionError.value = '缺少项目代码，无法提交文件下载申请。'
-    return
-  }
   if (isDownloadRequestPending(businessFileId)) {
     return
   }

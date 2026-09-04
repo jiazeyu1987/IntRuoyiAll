@@ -295,7 +295,8 @@ public class MesWmProductIssueServiceImpl implements MesWmProductIssueService {
         }
         if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
             throw exception(PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN,
-                    actionName, issue.getWorkOrderId());
+                    actionName, "冻结分支=工单临时冻结, action=" + actionName
+                            + ", workOrderId=" + issue.getWorkOrderId());
         }
     }
 

@@ -9,6 +9,7 @@ public record MesProFeedbackMaterialBatchEvidence(String materialCode,
                                                    BigDecimal actualQuantity,
                                                    BigDecimal baseActualQuantity,
                                                    List<Long> pickListIds,
+                                                   List<String> pickListNos,
                                                    List<Long> pickListItemIds,
                                                    String sourceSnapshotHash) {
 }

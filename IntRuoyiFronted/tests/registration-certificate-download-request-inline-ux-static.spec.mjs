@@ -71,6 +71,11 @@ assert.match(
   /submitRegistrationCertificateAccessRequest\(\s*\{[\s\S]*requestType:\s*'DOWNLOAD_FILE'[\s\S]*businessFileIds:\s*\[businessFileId\]/,
   'download request click must submit DOWNLOAD_FILE for the clicked formal business file id'
 )
+assert.doesNotMatch(
+  detail,
+  /if \(!detail\.value\.projectCodeId\)[\s\S]{0,180}缺少项目代码/,
+  'download request must not be blocked when the registration certificate has no project code'
+)
 assert.match(
   detail,
   /requestPendingFileIds\.value = new Set\(\[\.\.\.requestPendingFileIds\.value,\s*String\(businessFileId\)\]\)/,

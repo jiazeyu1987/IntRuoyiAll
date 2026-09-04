@@ -1,0 +1,24 @@
+### Page
+- Page URL: http://127.0.0.1:8081/login?redirect=/mdm/product-catalog
+- Page Title: 瑛泰管理系统 - 登录
+### Snapshot
+```yaml
+- generic [ref=f3e5]:
+  - generic [ref=f3e6]: 瑛泰数字化平台
+  - generic [ref=f3e10]:
+    - heading "登录" [level=2] [ref=f3e14]
+    - generic [ref=f3e19]:
+      - generic [ref=f3e25]:
+        - combobox [ref=f3e27]
+        - generic [ref=f3e28]: 芋道源码
+      - generic [ref=f3e30] [cursor=pointer]
+    - textbox "请输入用户名" [ref=f3e44]
+    - textbox "请输入密码" [ref=f3e57]
+    - generic [ref=f3e61]:
+      - generic [ref=f3e63] [cursor=pointer]:
+        - generic [ref=f3e64]:
+          - checkbox "记住我"
+        - generic [ref=f3e66]: 记住我
+      - generic [ref=f3e67]: 忘记密码?
+    - button "登录" [ref=f3e73] [cursor=pointer]
+```

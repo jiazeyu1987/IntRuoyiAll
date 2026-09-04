@@ -42,7 +42,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED;
@@ -231,11 +230,14 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
-    void downloadProjectCodeIsRequiredEnabledSameTenantAndSameProductBeforeInsert() {
+    void downloadRequestAllowsMissingProjectCodeButValidatesExistingProjectCodeBeforeInsert() {
         FormalFixture missingProjectFixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND", null);
-        ServiceException missing = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
-                "missing-project", download(missingProjectFixture.certificateId(), null, List.of(missingProjectFixture.fileId()))));
-        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED.getCode(), missing.getCode());
+        DccRegistrationCertificateAccessRequestResult missingProjectResult = service.submit(1L, 99L,
+                "missing-project", download(missingProjectFixture.certificateId(), null,
+                        List.of(missingProjectFixture.fileId())));
+        assertEquals(missingProjectFixture.certificateId(), missingProjectResult.certificateId());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
+                + "WHERE id = ? AND project_code_id IS NULL", missingProjectResult.requestId()));
 
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
         when(projectCodeService.getProjectCode(40L)).thenReturn(projectCode(1L, 20L,
@@ -250,7 +252,8 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
 
         assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED.getCode(), disabled.getCode());
         assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode(), mismatch.getCode());
-        assertNoRequestRows();
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request"));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file"));
     }
 
     @Test

@@ -7,7 +7,7 @@ const WORKSPACE_ROOT = path.resolve(__dirname, '../../..')
 const FRONTEND_ROOT = path.join(WORKSPACE_ROOT, 'IntRuoyiFronted')
 const RESULT_DIR = path.join(FRONTEND_ROOT, 'test-results', 'production-personnel-management-real')
 const EVIDENCE_FILE = path.join(WORKSPACE_ROOT, 'doc', 'tasks', TASK_ID, 'e2e-production-personnel-evidence.md')
-const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/team-leader'
+const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/production-leader'
 const REQUIRED_ENV = [
   'PPM_FRONTEND_URL',
   'PPM_BACKEND_URL',

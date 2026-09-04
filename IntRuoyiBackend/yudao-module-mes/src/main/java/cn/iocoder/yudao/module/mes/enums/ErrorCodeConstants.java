@@ -1170,7 +1170,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_PROCESS_POOL_SIMULATION_COPY_CLEANUP_BLOCKED = new ErrorCode(1_040_760_394,
             "测试模拟订单已产生下游业务数据，禁止直接清理：{}");
     ErrorCode PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN = new ErrorCode(1_040_760_393,
-            "生产工单已临时冻结，禁止{}：workOrderId={}");
+            "生产工单已临时冻结，禁止{}：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS = new ErrorCode(1_040_760_307,
             "班组员工档案不存在或已禁用：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_NOT_EXISTS = new ErrorCode(1_040_760_308,

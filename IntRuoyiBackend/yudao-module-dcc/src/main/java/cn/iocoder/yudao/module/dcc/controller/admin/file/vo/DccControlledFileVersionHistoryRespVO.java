@@ -24,4 +24,8 @@ public class DccControlledFileVersionHistoryRespVO {
     private Boolean canPreview;
     private String previewUnavailableReason;
     private Boolean canDownload;
+    private Boolean checkedOut;
+    private Long checkedOutBy;
+    private String checkedOutByName;
+    private LocalDateTime checkedOutTime;
 }

@@ -23,6 +23,14 @@
 - 写入接口若设置 `ignoreErrorMessage: true`，调用方必须在当前可见业务区域本地 `catch` 并展示正式错误；已处理的用户操作错误不得继续冒泡成全局“系统异常”。
 - 不得为测试额外添加无产品价值的页面控件或绕过真实用户路径。
 
+## 历史快照与当前配置合同隔离门禁
+
+- Trigger: 页面支持在同一 DCC 项目或业务对象下切换当前版本、草稿版本、历史已发布版本或已作废版本，同时页面还会加载设备配置、人员配置、表单槽位等“当前配置”合同。
+- Preflight check: 先区分所选版本的冻结快照展示和当前配置的可编辑辅助数据；历史已发布/已作废版本只能读取自身快照，不得把历史 itemCodes、processIds 或表单绑定身份传给按当前版本校验的配置接口。
+- Blocker: 切换历史版本后仍调用当前配置接口并触发项目项名称、同名项完整性、设备配置一致性等合同校验，或用当前配置结果覆盖历史快照时必须停止。
+- Verification: 静态合同应锁定历史版本分支不调用当前配置加载，且当前发布/草稿版本仍保留正式配置加载；真实页面验证时要覆盖至少一个历史版本和当前版本切换。
+- Evidence: 任务 `doc/tasks/20260904-qa-regulation-version-status-dropdown/`，QA 规程版本下拉切换 B/2 历史版本时，历史 itemCodes 误触发当前 PQC 设备配置合同，报 `itemEquipmentConfig.itemCodes.itemNameMismatch`；修复为仅当前发布或草稿版本加载设备绑定。
+
 ## 前端入口态与详情状态判定门禁
 
 - Trigger: 列表页存在多个入口进入同一个详情页，例如当前库、旧证库、授权查看、审批详情；同一个下载、预览或操作按钮需要按入口语义改变展示或文件名。
@@ -31,7 +39,7 @@
 - Verification: 静态合同应锁定入口模式与正式状态共同参与判定，并锁定文件 ID 等值限制；真实页面验证时应从目标列表入口进入，而不是直接拼详情 URL 或 API-only。
 - Forbidden action: 禁止用默认失效、默认当前、文件名包含关键字、列表缓存或后端文件名猜测入口语义；禁止让预览链路、申请下载链路和正式下载链路互相替代验证。
 - Evidence: 任务 `doc/tasks/20260902-registration-old-download-expired-filename-fix/`，老证详情下载日志出现 `expired: false` 后，将旧证判定从仅 `detail.status === 'OLD'` 补强为 `mode=old-detail` 或正式 OLD 状态，并且仅作用于详情主注册证文件。
-- Detail action state extension: 详情附件区的“申请下载”这类状态型动作，应直接调用正式申请接口并原地切换按钮状态；审批结果、撤销授权、grant 下载等治理控件只属于明确的审批/工作台入口。刷新后状态必须来自后端只读投影（如当前用户待处理申请 ID），不得靠路由 `mode`、滚动到面板或前端临时缓存冒充持久状态。Evidence: 任务 `doc/tasks/20260903-registration-download-request-inline-ux/`。
+- Detail action state extension: 详情附件区的“申请下载”这类状态型动作，应直接调用正式申请接口并原地切换按钮状态；审批结果、撤销授权、grant 下载等治理控件只属于明确的审批/工作台入口；若产品要求去除独立治理入口，静态合同必须锁定对应页签、testid、handler 和 API import 在源码中均不存在，而不是只断言普通详情页不可见。刷新后状态必须来自后端只读投影（如当前用户待处理申请 ID），不得靠路由 `mode`、滚动到面板或前端临时缓存冒充持久状态。若同页同时存在内联按钮和流程/访问申请面板，静态合同必须覆盖所有可提交同一申请的入口；项目代码等可选业务事实不得在任一入口被重新变成前端必填。Evidence: 任务 `doc/tasks/20260903-registration-download-request-inline-ux/`、`doc/tasks/20260903-registration-download-request-project-scope/`、`doc/tasks/20260904-registration-download-flow-alignment/`。
 
 ## 前端源码目录与 .gitignore 门禁
 
@@ -414,12 +422,15 @@
 
 - Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签、角色工作台页面内部功能模块 Tab 或其它角色型工作台拆分。
 - Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；当同名对象既可能是 Office 文件也可能是系统页面时，必须先用用户给出的路径、截图、路由或组件文本确认真实承载物，未定位到 Office 文件不得仅因用户使用“tab”一词就转向工作簿处理。用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。若用户明确说同一角色下“人员管理、报工管理、损耗管理、历史表单”等不同功能模块，则按该角色页面内部功能模块 Tab 处理，并先核对共享组件中其它角色复用的 content gate、默认激活页签、默认模块首次挂载的数据加载、每个非默认功能模块的数据加载触发和相邻静态合同。默认页签的状态值在 setup 阶段已经确定，不会触发非 immediate watcher；默认模块必须由 `onMounted`、immediate watcher 或等价的显式初始化入口加载正式数据，并与非默认页签切换加载使用同一查询契约。当前/历史页签拆分还必须把互斥边界落实到后端正式查询：当前页排除已进入历史终态的记录，历史页只读取该终态，同时明确未处理和退回待修改记录的归属；前端隐藏按钮不能替代列表读模型边界。共享组件内同一角色页签可能在人员、管理、详情、看板等多个模块块重复渲染，新增页签必须同步全部重复 tab 组、独立 tab key、显示 gate、查询触发、列池或状态隔离，不能只改当前可见块。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Legacy route removal: 用户要求删除旧角色工作台“路由和页面”时，先区分可访问页面身份与仍被正式包装页复用的共享实现；应删除旧 route/name/direct navigation，并把真实流程脚本迁移到当前正式角色路由，但不得为追求文件名消失而复制或重命名超大共享组件，也不得误删仍在使用的 `/team-leader/**` API 和权限命名空间。动态菜单按旧 path/component/componentName 只读核对为零时，不新增无目标数据的删除迁移。
 - Additional preflight check: 涉及提交后审查、复核或处置类按钮迁移时，先区分“一线填写/提交前页面”和“提交后的管理列表行操作”；只能提交后触发的动作必须落到管理列表对应业务行，并由该行携带正式来源 ID 和可用业务上下文，不能保留在一线填写页作为提前入口。PQC提交类不合格审查的最小入口是 `PQC_SUBMISSION + sourceId`，PQC管理入口不得携带 `batchExecutionId`，按钮可见性也不得依赖该字段。若源码已有行按钮但真实页面看不到，必须同步核对 `v-hasPermi`、目标角色 `role.code`、隐藏按钮 `type=3` 授权和登录后权限缓存；不得把权限缺失误判成组件缺失，也不得为显示行按钮而授予独立页面菜单或处置类权限。
 - Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、把页面内部功能模块 Tab 误做成新菜单、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、同一终态记录同时出现在当前与历史列表、功能模块仍纵向混排、旧 route/tab key/页面关系图仍指向相反角色、默认功能模块已显示但仅依赖非 immediate watcher 导致首次挂载不加载、非默认功能模块只切换显示但没有 watcher/handler 触发正式列表加载、或静态合同只断言“有独立页签”但不验证角色 props、模块 gate、共享 gate、数据加载触发和原工作台负向隐藏时必须停止。
 - Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；页面内部功能模块 Tab 还必须断言包装页显式启用模块 Tab、非目标角色未启用该专属 Tab、每个模块块由对应 computed gate 控制、默认数据列表在首次挂载时调用正式加载方法、非默认数据列表在 tab 选中时设置正式 query 角色/日期/分页并调用正式加载方法、共享 gate 未破坏相邻角色合同。当前/历史列表还必须分别锁定前端视图参数和后端互斥查询条件，并覆盖无终态、退回状态和已完成终态三类数据。真实页面验证默认列表时，必须在点击任何模块页签前监听正式列表请求，断言默认 tab 为选中态、请求成功且表格有可见行。涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
 - Additional verification: 提交后按钮迁移必须同时覆盖原一线入口负向断言、新管理行入口正向断言、路由参数或请求参数携带正式来源 ID、缺少批次执行时仍显示入口、目标角色拥有行按钮所需隐藏权限且不拥有无关菜单/处置权限，以及真实 E2E 脚本按新管理路径点击行级按钮。权限迁移后真实页面验证必须使用 fresh 登录或等价权限缓存刷新。
 - Forbidden action: 禁止用 CSS 隐藏、仅隐藏操作按钮、前端本地过滤、空数据、路由别名、旧页签文案、内部 Tab 冒充主导航入口或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
 - Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs；任务 `doc/tasks/20260805-production-leader-function-tabs/`，用户要求生产组长内“人员管理、报工管理、损耗管理”等不同功能模块是不同 Tab，最终保留 `ProductionLeaderWorkbenchPage` 主导航入口，仅在共享工作台增加生产组长内部模块 Tab，并复跑 PQC 组长相邻合同防止共享 gate 破坏。任务 `doc/tasks/20260806-production-leader-feedback-random-data/`，生产组长内部默认页签为“人员管理”，用户点击“报工管理”后旧代码只切显示不触发 `getSubmissionList()`，最终补 `watch(activeProductionModuleTab)` 并用真实页面证明表格不再为空。任务 `doc/tasks/20260807-pqc-form-history-tab/`，PQC 组长新增“历史表单”时必须同步 4 组重复 PQC module tabs，新增 `history` 状态、`showPqcFormHistoryModule`、独立列池 tableKey、`APPROVED` 查询和只读操作边界，并更新生产报工历史相邻合同兼容共享逻辑。任务 `doc/tasks/20260809-batch-record-mapping-tab/`，用户通过截图澄清“批记录测试”是系统页面而不是 Excel 工作簿，最终按现有 `BatchRecordTestPage.vue` 内部 `el-tabs` 增加第五个页签。任务 `doc/tasks/20260810-pqc-management-initial-load-fix/`，PQC 默认页签初始值已是 `management`，非 immediate watcher 不会首轮执行，最终在首次挂载显式加载当前默认列表并用真实页面证明无需切换页签即可显示数据。任务 `doc/tasks/20260811-pqc-review-same-inspector-confirmation/`，PQC 历史表单虽已限定 `APPROVED`，但管理列表 `CURRENT` 未排除该终态，最终在正式 Mapper 中锁定互斥边界并保留未复核和 `REJECTED` 记录。任务 `doc/tasks/20260901-pqc-management-nonconformance-action-visible/`，PQC 管理行按钮源码已存在但因 `pqc_leader_permission` 缺少不合格审查创建权限被 `v-hasPermi` 隐藏，最终补隐藏查询/创建按钮授权并阻断独立页面菜单和 QA 处置权限误授。任务 `doc/tasks/20260902-pqc-management-nonconformance-button-visible/`，PQC 管理行记录可复核但缺少 `batchExecutionId` 时按钮也必须显示，前端以 `PQC_SUBMISSION + sourceId` 进入统一评审页，后端按提交事件解析工单并冻结工单。
+
+- Evidence extension: 任务 `doc/tasks/20260904-remove-team-leader-workbench/` 删除旧班组长 route/name 和真实脚本直达地址，同时保留生产/PQC包装页共享实现及后端 API 命名空间。
 
 ## 前端多布局模式真实页面门禁
 
@@ -786,6 +797,7 @@
 
 - Trigger: 页面同时存在草稿/预览结果计算和正式提交前置断言，例如 PQC `全部合格`、批量赋值、样本数量精确校验、`assert*ForSubmit`、`get*ForSubmit`、watch/computed 自动重算和提交按钮；或正式提交载荷含后端必填结构字段，如设备必填 PQC 项目的 `itemResults.*.selectedEquipmentId`。
 - Preflight check: 严格提交断言只能放在显式提交 handler 或提交 preflight 内；草稿态、预览态、watch/computed、批量赋值中的结果计算只能读取当前已建立的表单状态，不得调用 submit-only 精确断言，也不得在用户补齐中间态时抛出提交级错误。正式提交结构字段必须在打开签名弹框和发出写请求前逐项校验，前端可选状态不得弱化后端正式必填字段；PQC 设备字段必须按发布 QA 项目的 `equipmentRequired` 与正式设备选项分支校验，一线 PQC 检验方法详情区有正式设备选项时必须显示“检验设备/设备编号”卡片，无正式设备选项时不得显示这两张卡片或“无需设备”占位；一线 PQC 检验类型卡片必须从当前工序正式 `pqcTaskOptions` 去重渲染，缺少 `FIRST` 或 `PATROL` 时不得留下 disabled 首检/巡检卡片。同一工序存在多个检验方法/任务时，提交粒度必须是当前工序全部可执行检验方法：提交前先保存当前方法草稿，再按正式任务身份逐方法构建独立 payload，每个方法使用自己的 `pqcTaskId/regulationVersionId/qaProcessId/inspectionItems`、数量、损耗、不良说明、逐件值和设备选择；未切换过的合格/不合格检验方法也必须在提交链路按任务计划数量物化默认 `合格` 样本，不能让原始空数组进入严格数量校验或 payload；最终正式 payload 的 `itemResults`、`rawPayload.pqcPieceValues` 和 `rawPayload.pqcItemDetails` 必须复用 exact 样本数组，禁止保留 relaxed/filter 样本路径把空数组过滤后再交给后端。正式任务筛选还必须保留失败原因，至少区分任务未生成、汇总/明细缺失、没有 `PENDING` 状态和 `PENDING` 任务必要快照字段无效；页面空态与提交拦截必须复用同一诊断结果。
+- Production device default extension: 一线生产当前工序存在正式设备时，前端进入或刷新运行配置后必须默认选中第一台可见设备，使参数填写和 `selectedDevices[]` 身份从首屏开始明确；物料草稿恢复、工序/物料切换和运行配置刷新都必须复用同一默认选择归一化逻辑，避免空 `selectedDeviceKeys` 覆盖默认选择；已有有效选择不得被刷新覆盖，多选设备仍允许继续手动勾选或取消，无设备工序必须清空选择并显示无设备状态，禁止伪造设备。设备卡片已选状态必须在数据状态和可见勾选符号上同时成立，不能只靠 active 背景让操作者猜测是否已选择。
 - Blocker: 点击批量操作、单元格选择或中间态重算时触发 submit-only 断言、页面出现 `Unhandled error during execution of native event handler`、提交按钮外的 watcher 阻断继续填写、正式写请求因本地可预检字段缺失才被后端拒绝、无设备 PQC 项目仍提示设备必填、有设备 PQC 项目不显示“检验设备/设备编号”卡片、无设备 PQC 项目显示“无需检验设备/无需设备编号”占位卡、无正式 `FIRST` 任务的工序仍显示首检卡片、同工序多检验方法提交时只提交当前选中方法或复用当前方法草稿/逐件值/PQC任务身份、PENDING 任务因字段缺失被过滤后只显示笼统“暂无任务”，或静态合同无法证明 submit-only 函数只从提交链路调用、类型卡片只从正式任务选项渲染、全方法提交不是逐任务独立 payload 时必须停止。
 - Verification: 聚焦静态合同必须同时覆盖“草稿计算不调用 submit-only 函数”“提交 handler 仍调用严格断言”“正式必填结构字段在签名前校验”“无设备 PQC 项目不强制设备字段”“有设备项目显示检验设备/设备编号卡片、无设备项目隐藏卡片且无占位文案”“检验类型卡片从当前工序正式 `pqcTaskOptions` 动态渲染且无 disabled 占位卡”“当前工序全部检验方法逐任务构建提交 payload，禁止只读取 active task”“最终 payload 三处样本字段均使用 exact task samples，禁止 relaxed helper 残留”，以及任务未生成、明细不一致、非 PENDING 状态、PENDING 字段无效和完整 PENDING 放行五类任务诊断；真实写入 E2E 需覆盖中间态批量赋值、多检验方法最终提交、无 pageerror、提交前无目标写请求、提交后 DB 按每个检验方法生成独立正式记录。
 - Forbidden action: 禁止用禁用按钮、吞异常、默认合格、减少样本数、API-only 写入、前端可选状态、签名后再报错、把所有任务过滤失败压缩成单一布尔空态，或把严格断言从提交链路移除来绕过页面中间态崩溃和正式载荷缺字段。

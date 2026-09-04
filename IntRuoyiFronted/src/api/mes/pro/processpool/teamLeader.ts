@@ -470,6 +470,47 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   quantityConflict?: boolean
 }
 
+export interface TeamLeaderActiveOrderInputMaterialDetailRespVO {
+  materialId: number
+  materialCode: string
+  materialName: string
+  materialSpecification?: string
+  batchCodes: string[]
+  requestedQuantity?: number | string
+  actualQuantity?: number | string
+  baseActualQuantity?: number | string
+  sourcePickListIds: number[]
+  sourcePickListNos: string[]
+  sourcePickListItemIds: number[]
+  sourceSnapshotHash?: string
+}
+
+export interface TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO {
+  aggregateDetailId: number
+  sampleNo?: number
+  itemCode?: string
+  itemName?: string
+  inspectionMethod?: string
+  standardText?: string
+  measuredValue?: string
+  itemResult?: string
+  judgement?: string
+  selectedEquipmentName?: string
+  selectedEquipmentNumber?: string
+}
+
+export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
+  pqcTaskId: number
+  submittedEventId?: number
+  inspectionType?: string
+  businessDate?: string
+  shiftCode?: string
+  roundNo?: number
+  actualInspectionQuantity?: number
+  taskStatus?: string
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+}
+
 export interface TeamLeaderActiveOrderProcessDetailRespVO {
   routeProcessId: number
   processId: number
@@ -478,7 +519,9 @@ export interface TeamLeaderActiveOrderProcessDetailRespVO {
   requiredQuantity: number | string
   submittedQuantity: number | string
   submissionCount: number
+  inputMaterials: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
   submissions: TeamLeaderActiveOrderSubmissionDetailRespVO[]
+  pqcSubmissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]
   quantityConflict?: boolean
   overageQuantity?: number | string
 }

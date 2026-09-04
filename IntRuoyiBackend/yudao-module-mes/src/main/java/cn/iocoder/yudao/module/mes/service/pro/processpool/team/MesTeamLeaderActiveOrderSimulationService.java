@@ -77,6 +77,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesTeamLeaderActiveOrderSimulationService {
 
     private static final String ACTIVE_STATUS_ACTIVE = "ACTIVE";
+    private static final String PLACEHOLDER_MATERIAL_CODE = "/";
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
     private static final String PRODUCTION_FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
     private static final String SIMULATION_TEMPLATE_TYPE_PRODUCTION = "SIMULATED_PRODUCTION_SUBMIT";
@@ -561,6 +562,11 @@ public class MesTeamLeaderActiveOrderSimulationService {
 
     private Map<String, Object> inputMaterialDetail(MesMdItemDO material, Long workOrderId) {
         Map<String, Object> detail = materialIdentity(material, "INPUT");
+        if (isPlaceholderMaterialCode(material.getCode())) {
+            detail.put("batchCodes", List.of());
+            detail.put("placeholderMaterial", true);
+            return detail;
+        }
         detail.put("batchCodes", materialBatchQueryService.listBatchCodes(workOrderId, material.getCode()));
         return detail;
     }
@@ -587,6 +593,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
         detail.put("materialSpecification", material.getSpecification());
         detail.put("direction", direction);
         return detail;
+    }
+
+    private boolean isPlaceholderMaterialCode(String materialCode) {
+        return materialCode != null && PLACEHOLDER_MATERIAL_CODE.equals(materialCode.trim());
     }
 
     private Long createZeroLossProductionFeedback(MesProcessPoolActiveOrderDO activeOrder,

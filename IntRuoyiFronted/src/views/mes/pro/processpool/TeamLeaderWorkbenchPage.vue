@@ -1816,68 +1816,195 @@
             </div>
           </div>
 
-          <section
-            v-for="process in activeOrderSubmissionDetail.processes"
-            :key="`${process.routeProcessId}-${process.processId}`"
-            class="team-leader-workbench__active-order-process-detail"
-            :class="{ 'is-quantity-conflict': process.quantityConflict }"
+          <el-tabs
+            v-model="activeOrderDetailActiveTab"
+            data-team-leader-active-order-detail-process-tabs
+            class="team-leader-workbench__active-order-detail-tabs"
           >
-            <div class="team-leader-workbench__active-order-process-header">
-              <div class="team-leader-workbench__active-order-process-title">
-                <strong>{{ process.processName }}</strong>
-                <span v-if="process.processCode">{{ process.processCode }}</span>
-              </div>
-              <div class="team-leader-workbench__active-order-process-metrics">
-                <div>
-                  <span>应提数量</span>
-                  <strong>{{ formatTraceQuantity(process.requiredQuantity) }}</strong>
-                </div>
-                <div>
-                  <span>已提交</span>
-                  <strong>{{ formatTraceQuantity(process.submittedQuantity) }}</strong>
-                </div>
-                <div>
-                  <span>提交记录</span>
-                  <strong>{{ process.submissionCount }}</strong>
-                </div>
-                <div v-if="process.quantityConflict">
-                  <span>超出数量</span>
-                  <strong class="team-leader-workbench__quantity-conflict-text">
-                    {{ formatTraceQuantity(process.overageQuantity) }}
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            <el-table
-              v-if="process.submissions.length"
-              :data="process.submissions"
-              size="small"
-              border
-              :row-class-name="resolveActiveOrderSubmissionRowClassName"
-              class="team-leader-workbench__active-order-submission-table"
+            <el-tab-pane
+              v-for="(process, processIndex) in activeOrderSubmissionDetail.processes"
+              :key="`${process.routeProcessId}-${process.processId}`"
+              :name="activeOrderDetailProcessTabName(process, processIndex)"
             >
-              <el-table-column label="提交数量" min-width="120">
-                <template #default="{ row: submission }">
-                  {{ formatTraceQuantity(submission.submittedQuantity) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="提交人" prop="submitterName" min-width="140" />
-              <el-table-column label="审核人" min-width="140">
-                <template #default="{ row: submission }">
-                  <span :class="{ 'is-pending': !submission.reviewerName }">
-                    {{ submission.reviewerName || '未审核' }}
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column label="提交时间" min-width="180">
-                <template #default="{ row: submission }">
-                  {{ formatDateTime(submission.submittedAt) }}
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-empty v-else :image-size="56" description="暂无提交记录" />
-          </section>
+              <template #label>
+                <span
+                  data-team-leader-active-order-detail-process-tab
+                  :title="process.processName"
+                >
+                  {{ processIndex + 1 }}. {{ process.processName }}
+                </span>
+              </template>
+              <section
+                class="team-leader-workbench__active-order-process-detail"
+                :class="{ 'is-quantity-conflict': process.quantityConflict }"
+              >
+                <div class="team-leader-workbench__active-order-process-header">
+                  <div class="team-leader-workbench__active-order-process-title">
+                    <strong>{{ process.processName }}</strong>
+                    <span v-if="process.processCode">{{ process.processCode }}</span>
+                  </div>
+                  <div class="team-leader-workbench__active-order-process-metrics">
+                    <div>
+                      <span>应提数量</span>
+                      <strong>{{ formatTraceQuantity(process.requiredQuantity) }}</strong>
+                    </div>
+                    <div>
+                      <span>已提交</span>
+                      <strong>{{ formatTraceQuantity(process.submittedQuantity) }}</strong>
+                    </div>
+                    <div>
+                      <span>提交记录</span>
+                      <strong>{{ process.submissionCount }}</strong>
+                    </div>
+                    <div v-if="process.quantityConflict">
+                      <span>超出数量</span>
+                      <strong class="team-leader-workbench__quantity-conflict-text">
+                        {{ formatTraceQuantity(process.overageQuantity) }}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                <el-tabs
+                  v-model="activeOrderDetailInnerTabs[activeOrderDetailProcessTabName(process, processIndex)]"
+                  class="team-leader-workbench__active-order-detail-inner-tabs"
+                >
+                  <el-tab-pane label="生产提交" name="production">
+                    <el-table
+                      v-if="process.submissions?.length"
+                      :data="process.submissions"
+                      size="small"
+                      border
+                      :row-class-name="resolveActiveOrderSubmissionRowClassName"
+                      class="team-leader-workbench__active-order-submission-table"
+                    >
+                      <el-table-column label="提交数量" min-width="120">
+                        <template #default="{ row: submission }">
+                          {{ formatTraceQuantity(submission.submittedQuantity) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="提交人" prop="submitterName" min-width="140" />
+                      <el-table-column label="审核人" min-width="140">
+                        <template #default="{ row: submission }">
+                          <span :class="{ 'is-pending': !submission.reviewerName }">
+                            {{ submission.reviewerName || '未审核' }}
+                          </span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="提交时间" min-width="180">
+                        <template #default="{ row: submission }">
+                          {{ formatDateTime(submission.submittedAt) }}
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                    <el-empty v-else :image-size="56" description="暂无一线生产提交" />
+                  </el-tab-pane>
+                  <el-tab-pane label="PQC提交" name="pqc">
+                    <template v-if="process.pqcSubmissions?.length">
+                      <div
+                        v-for="pqcSubmission in process.pqcSubmissions"
+                        :key="pqcSubmission.pqcTaskId"
+                        class="team-leader-workbench__active-order-pqc-card"
+                      >
+                        <div class="team-leader-workbench__active-order-pqc-title">
+                          <strong>
+                            {{ resolvePqcInspectionTypeText(pqcSubmission.inspectionType) }}
+                            <template v-if="pqcSubmission.roundNo"> / 第 {{ pqcSubmission.roundNo }} 轮</template>
+                          </strong>
+                          <span>实检 {{ pqcSubmission.actualInspectionQuantity ?? '-' }} 件</span>
+                          <span v-if="pqcSubmission.submittedEventId">
+                            事件 {{ pqcSubmission.submittedEventId }}
+                          </span>
+                        </div>
+                        <el-table
+                          v-if="pqcSubmission.items?.length"
+                          :data="pqcSubmission.items"
+                          size="small"
+                          border
+                          class="team-leader-workbench__active-order-submission-table"
+                        >
+                          <el-table-column label="样本" min-width="90">
+                            <template #default="{ row: item }">
+                              {{ item.sampleNo ?? '-' }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="检验项" min-width="180">
+                            <template #default="{ row: item }">
+                              {{ item.itemName || item.itemCode || '-' }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="标准" min-width="180">
+                            <template #default="{ row: item }">
+                              {{ item.standardText || '-' }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="结果" min-width="140">
+                            <template #default="{ row: item }">
+                              {{ item.measuredValue || item.itemResult || '-' }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="判定" min-width="100">
+                            <template #default="{ row: item }">
+                              {{ item.judgement || '-' }}
+                            </template>
+                          </el-table-column>
+                          <el-table-column label="设备" min-width="160">
+                            <template #default="{ row: item }">
+                              {{ item.selectedEquipmentNumber || item.selectedEquipmentName || '-' }}
+                            </template>
+                          </el-table-column>
+                        </el-table>
+                        <el-empty v-else :image-size="56" description="暂无PQC检验明细" />
+                      </div>
+                    </template>
+                    <el-empty v-else :image-size="56" description="暂无一线PQC提交" />
+                  </el-tab-pane>
+                </el-tabs>
+              </section>
+            </el-tab-pane>
+            <el-tab-pane
+              label="领料单"
+              name="materials"
+              data-team-leader-active-order-detail-material-tab
+            >
+              <el-table
+                v-if="activeOrderDetailPickListMaterials.length"
+                :data="activeOrderDetailPickListMaterials"
+                size="small"
+                border
+                class="team-leader-workbench__active-order-submission-table"
+              >
+                <el-table-column label="领料单" min-width="180">
+                  <template #default="{ row: material }">
+                    {{ formatActiveOrderPickListNos(material.sourcePickListNos) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="物料编码" prop="materialCode" min-width="140" />
+                <el-table-column label="物料名称" prop="materialName" min-width="180" />
+                <el-table-column label="规格型号" min-width="160">
+                  <template #default="{ row: material }">
+                    {{ material.materialSpecification || '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="批号" min-width="220">
+                  <template #default="{ row: material }">
+                    {{ formatActiveOrderBatchCodes(material.batchCodes) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="实发数量" min-width="120">
+                  <template #default="{ row: material }">
+                    {{ formatTraceQuantity(material.actualQuantity) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="对应工序" min-width="180">
+                  <template #default="{ row: material }">
+                    {{ material.sourceProcessNames.join('、') || '-' }}
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-else :image-size="56" description="暂无领料单物料批号" />
+            </el-tab-pane>
+          </el-tabs>
         </template>
       </div>
     </el-dialog>
@@ -3870,7 +3997,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
@@ -3936,6 +4063,8 @@ import {
   type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderCommitAction,
   type TeamLeaderActiveOrderDetailRespVO,
+  type TeamLeaderActiveOrderInputMaterialDetailRespVO,
+  type TeamLeaderActiveOrderProcessDetailRespVO,
   type TeamLeaderActiveOrderReleaseApplyRespVO,
   type TeamLeaderActiveOrderReleaseApplicationStatus,
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
@@ -4246,6 +4375,8 @@ const activeOrderSubmissionDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderDetailLoading = ref(false)
 const activeOrderDetailError = ref('')
 const activeOrderDetailActiveOrderId = ref<number>()
+const activeOrderDetailActiveTab = ref('')
+const activeOrderDetailInnerTabs = ref<Record<string, 'production' | 'pqc'>>({})
 const activeOrderConflictSelectedOrder = ref<TeamLeaderActiveOrderRespVO>()
 const activeOrderConflictDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderConflictLoading = ref(false)
@@ -5356,16 +5487,89 @@ const formatTraceQuantity = (value: number | string | undefined) => {
   return Number.isFinite(parsed) ? parsed.toFixed(3) : String(value)
 }
 
+const formatActiveOrderBatchCodes = (batchCodes?: string[]) => {
+  const normalized = (batchCodes ?? []).map((code) => String(code).trim()).filter(Boolean)
+  return normalized.length ? normalized.join('、') : '-'
+}
+
+const formatActiveOrderPickListNos = (sourceNos?: string[]) => {
+  const normalized = (sourceNos ?? []).map((sourceNo) => String(sourceNo).trim()).filter(Boolean)
+  return normalized.length ? normalized.join('、') : '-'
+}
+
+const activeOrderDetailProcessTabName = (
+  process: TeamLeaderActiveOrderProcessDetailRespVO,
+  index: number
+) => `process-${process.routeProcessId}-${process.processId}-${index}`
+
+type ActiveOrderDetailPickListMaterialRow = TeamLeaderActiveOrderInputMaterialDetailRespVO & {
+  sourceProcessNames: string[]
+}
+
+const activeOrderDetailPickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() => {
+  const detailResult = activeOrderSubmissionDetail.value
+  if (!detailResult?.processes?.length) return []
+  const rowsByKey = new Map<string, ActiveOrderDetailPickListMaterialRow>()
+  for (const process of detailResult.processes) {
+    for (const material of process.inputMaterials ?? []) {
+      const sourcePickListNos = (material.sourcePickListNos ?? [])
+        .map((sourceNo) => String(sourceNo).trim())
+        .filter(Boolean)
+        .sort()
+      const batchCodes = (material.batchCodes ?? [])
+        .map((batchCode) => String(batchCode).trim())
+        .filter(Boolean)
+        .sort()
+      const rowKey = [
+        sourcePickListNos.join('|'),
+        material.materialCode,
+        batchCodes.join('|'),
+        material.actualQuantity ?? '',
+        material.baseActualQuantity ?? ''
+      ].join('::')
+      const existed = rowsByKey.get(rowKey)
+      if (existed) {
+        if (!existed.sourceProcessNames.includes(process.processName)) {
+          existed.sourceProcessNames.push(process.processName)
+        }
+        continue
+      }
+      rowsByKey.set(rowKey, {
+        ...material,
+        sourcePickListNos,
+        batchCodes,
+        sourceProcessNames: [process.processName]
+      })
+    }
+  }
+  return Array.from(rowsByKey.values())
+})
+
+const resetActiveOrderDetailTabs = (detailResult?: TeamLeaderActiveOrderDetailRespVO) => {
+  const firstProcess = detailResult?.processes?.[0]
+  activeOrderDetailActiveTab.value = firstProcess
+    ? activeOrderDetailProcessTabName(firstProcess, 0)
+    : 'materials'
+  const nextInnerTabs: Record<string, 'production' | 'pqc'> = {}
+  detailResult?.processes?.forEach((process, index) => {
+    nextInnerTabs[activeOrderDetailProcessTabName(process, index)] = 'production'
+  })
+  activeOrderDetailInnerTabs.value = nextInnerTabs
+}
+
 const loadActiveOrderSubmissionDetail = async (activeOrderId: number) => {
   activeOrderDetailLoading.value = true
   activeOrderDetailError.value = ''
   activeOrderSubmissionDetail.value = undefined
+  resetActiveOrderDetailTabs()
   try {
     const detailResult = await getTeamLeaderActiveOrderDetail(activeOrderId)
     if (!detailResult.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法显示提交详情')
     }
     activeOrderSubmissionDetail.value = detailResult
+    await nextTick()
+    resetActiveOrderDetailTabs(detailResult)
   } catch (error) {
     activeOrderDetailError.value = resolveErrorMessage(error, '工序提交详情加载失败')
     ElMessage.error(activeOrderDetailError.value)
@@ -10170,6 +10374,34 @@ onMounted(() => {
 
 .team-leader-workbench__active-order-submission-table {
   width: 100%;
+}
+
+.team-leader-workbench__active-order-detail-section-title {
+  padding: 12px 14px 8px;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__active-order-pqc-card {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.team-leader-workbench__active-order-pqc-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__active-order-pqc-title strong {
+  color: var(--el-text-color-primary);
+  font-size: 13px;
 }
 
 :deep(.team-leader-workbench__active-order-submission-row--quantity-conflict > td) {

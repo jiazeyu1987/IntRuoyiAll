@@ -34,6 +34,12 @@ public class DccProductCatalogRespVO {
     @Schema(description = "项目代码")
     private String projectCode;
 
+    @Schema(description = "绑定 DCC 项目代码 ID")
+    private Long projectCodeId;
+
+    @Schema(description = "绑定注册证 ID")
+    private Long registrationCertificateId;
+
     @Schema(description = "批记录总识别 JSON")
     private String batchRecordTotalRecognitionJson;
 

@@ -50,9 +50,7 @@ const config = {
     'admin',
   approverUsername:
     process.env.REG_CERT_E2E_APPROVER_USERNAME ||
-    process.env.REG_CERT_E2E_USERNAME ||
-    readDotEnvValue('VITE_APP_DEFAULT_LOGIN_USERNAME') ||
-    'admin',
+    'chudongchuan',
   password:
     process.env.REG_CERT_E2E_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD'),

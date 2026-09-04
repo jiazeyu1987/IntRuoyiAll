@@ -17,7 +17,7 @@ const RUNTIME_MIGRATION_VERIFIER_SCRIPT = path.resolve(
   'verify_p0_runtime_migration.py'
 )
 
-const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/team-leader'
+const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/production-leader'
 const PQC_LEADER_ROUTE = '/mes/pro/process-pool/pqc-leader'
 const PRODUCTION_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const PQC_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-pqc-fill'

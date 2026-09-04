@@ -92,13 +92,27 @@
         <div class="qa-regulation-page__version-publish" data-qa-regulation-version-publish>
           <label class="qa-regulation-page__header-field">
             <span class="qa-regulation-page__header-field-label">版本</span>
-            <el-input
-              v-model="qaRegulationDraft.versionNo"
+            <el-select
+              v-model="selectedQaRegulationVersionId"
               aria-label="规程版本"
               size="small"
-              placeholder="请输入版本"
+              filterable
+              :loading="qaRegulationVersionOptionsLoading"
+              :disabled="!selectedDccProjectCode || qaRegulationVersionOptionsLoading"
+              placeholder="请选择版本"
               class="qa-regulation-page__version-input"
-            />
+              data-qa-regulation-version-dropdown
+              @change="handleQaRegulationVersionChange"
+            >
+              <el-option
+                v-for="version in qaRegulationVersionOptions"
+                :key="version.versionId"
+                :label="formatQaRegulationVersionOption(version)"
+                :value="version.versionId"
+              >
+                <span>{{ formatQaRegulationVersionOption(version) }}</span>
+              </el-option>
+            </el-select>
           </label>
           <label class="qa-regulation-page__header-field">
             <span class="qa-regulation-page__header-field-label">生效日期</span>
@@ -113,10 +127,11 @@
           </label>
           <el-tag
             data-qa-regulation-configuration-status
-            :type="qaConfigurationExists ? 'warning' : 'info'"
+            data-qa-regulation-selected-version-status
+            :type="resolveQaRegulationLifecycleStatusTagType(selectedQaRegulationVersionStatus)"
             effect="plain"
           >
-            {{ qaConfigurationStatusText }}
+            {{ qaSelectedVersionStatusText }}
           </el-tag>
           <el-button
             data-qa-regulation-header-save
@@ -1003,7 +1018,8 @@ import {
   type QaInspectionRegulationProjectStatusVO,
   type QaInspectionRegulationSaveItemVO,
   type QaInspectionRegulationSaveProcessVO,
-  type QaInspectionRegulationSaveReqVO
+  type QaInspectionRegulationSaveReqVO,
+  type QaInspectionRegulationVersionOptionVO
 } from '@/api/mes/qc/template'
 import {
   createQaItemInspectionState,
@@ -1226,6 +1242,11 @@ const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDra
 const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>(createEmptyQaInspectionTypeRules())
 const qaRegulationItems = ref<QaRegulationItem[]>([])
 const qaPublishedVersionNo = ref('')
+const qaRegulationVersionOptions = ref<QaInspectionRegulationVersionOptionVO[]>([])
+const selectedQaRegulationVersionId = ref<number>()
+const qaRegulationVersionOptionsLoading = ref(false)
+const qaRegulationVersionOptionsLoadError = ref('')
+let qaRegulationVersionOptionsLoadSerial = 0
 const qaRegulationSaving = ref(false)
 const qaRegulationPublishing = ref(false)
 const qaCurrentConfigurationLoading = ref(false)
@@ -1304,20 +1325,60 @@ const selectedDccProjectCodeLabel = computed(() =>
   selectedDccProjectCode.value ? formatDccProjectCodeOption(selectedDccProjectCode.value) : ''
 )
 
-const qaConfigurationStatusText = computed(() => {
+const QA_REGULATION_LIFECYCLE_STATUS_LABELS: Record<string, string> = {
+  PUBLISHED: '已发布',
+  RETIRED: '已作废',
+  DRAFT: '草稿'
+}
+
+const selectedQaRegulationVersionOption = computed(() =>
+  qaRegulationVersionOptions.value.find(
+    (version) => Number(version.versionId) === Number(selectedQaRegulationVersionId.value)
+  )
+)
+
+const selectedQaRegulationVersionStatus = computed(
+  () => selectedQaRegulationVersionOption.value?.lifecycleStatus || qaRegulationDraft.lifecycleStatus
+)
+
+const resolveQaRegulationLifecycleStatusText = (status?: string) => {
+  if (!status) {
+    return '未配置'
+  }
+  const label = QA_REGULATION_LIFECYCLE_STATUS_LABELS[status]
+  if (!label) {
+    throw new Error('未知 QA 规程版本状态：' + status)
+  }
+  return label
+}
+
+const resolveQaRegulationLifecycleStatusTagType = (status?: string) => {
+  if (status === 'PUBLISHED') {
+    return 'success'
+  }
+  if (status === 'RETIRED') {
+    return 'danger'
+  }
+  if (status === 'DRAFT') {
+    return 'warning'
+  }
+  return 'info'
+}
+
+const qaSelectedVersionStatusText = computed(() => {
   if (!selectedDccProjectCode.value) {
     return '未选择项目'
   }
-  if (qaCurrentConfigurationLoading.value) {
+  if (qaCurrentConfigurationLoading.value || qaRegulationVersionOptionsLoading.value) {
     return '加载中'
   }
-  if (qaCurrentConfigurationLoadError.value) {
+  if (qaCurrentConfigurationLoadError.value || qaRegulationVersionOptionsLoadError.value) {
     return '加载失败'
   }
   if (!qaConfigurationExists.value) {
     return '未配置'
   }
-  return qaRegulationDraft.lifecycleStatus === 'PUBLISHED' ? '已发布' : '草稿'
+  return resolveQaRegulationLifecycleStatusText(selectedQaRegulationVersionStatus.value)
 })
 
 const qaRegulationItemsEmptyText = computed(() =>
@@ -1333,6 +1394,20 @@ const resolveDccProjectCodeErrorMessage = (error: unknown) => {
 
 const formatDccProjectCodeOption = (project: DccProjectCodeRespVO) =>
   [project.projectCode, project.projectName, project.docControlNo].filter(Boolean).join(' / ')
+
+const formatQaRegulationVersionOption = (version: QaInspectionRegulationVersionOptionVO) => {
+  const suffix = version.currentPublished ? ' / 当前发布' : ''
+  return `${version.versionNo} / ${resolveQaRegulationLifecycleStatusText(version.lifecycleStatus)}${suffix}`
+}
+
+const shouldLoadQaEquipmentBindingsForSelectedVersion = (
+  configuration: QaInspectionRegulationPublishedVersionVO
+) => {
+  const selectedOption = qaRegulationVersionOptions.value.find(
+    (version) => Number(version.versionId) === Number(configuration.publishedVersionId)
+  )
+  return selectedOption?.currentPublished === true || configuration.lifecycleStatus === 'DRAFT'
+}
 
 const resolvePositiveId = (value: unknown, label: string) => {
   const id = Number(value)
@@ -1407,6 +1482,7 @@ const resetQaRegulationConfiguration = (dccProjectCodeId?: number) => {
   qaEquipmentBindingLoadError.value = ''
   qaConfigurationExists.value = false
   qaPublishedVersionNo.value = ''
+  selectedQaRegulationVersionId.value = undefined
   qaItemsQuery.pageNo = 1
 }
 
@@ -1429,6 +1505,7 @@ const applyQaRegulationConfiguration = (
   qaConfigurationExists.value = true
   qaPublishedVersionNo.value =
     configuration.lifecycleStatus === 'PUBLISHED' ? configuration.versionNo : ''
+  selectedQaRegulationVersionId.value = configuration.publishedVersionId
   qaItemsQuery.pageNo = 1
 }
 
@@ -1763,6 +1840,71 @@ const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeR
   }
 }
 
+const loadQaRegulationVersionOptions = async (dccProjectCodeId: number) => {
+  const loadSerial = ++qaRegulationVersionOptionsLoadSerial
+  qaRegulationVersionOptions.value = []
+  qaRegulationVersionOptionsLoadError.value = ''
+  qaRegulationVersionOptionsLoading.value = true
+  try {
+    const versions = await QcTemplateApi.listQaRegulationVersions(dccProjectCodeId)
+    if (loadSerial !== qaRegulationVersionOptionsLoadSerial) {
+      return
+    }
+    qaRegulationVersionOptions.value = versions
+    if (
+      selectedQaRegulationVersionId.value &&
+      !versions.some(
+        (version) => Number(version.versionId) === Number(selectedQaRegulationVersionId.value)
+      )
+    ) {
+      selectedQaRegulationVersionId.value = undefined
+    }
+  } catch (error) {
+    if (loadSerial === qaRegulationVersionOptionsLoadSerial) {
+      qaRegulationVersionOptionsLoadError.value =
+        'QA 规程版本列表加载失败：' + resolveDccProjectCodeErrorMessage(error)
+      dccProjectCodeLoadError.value = qaRegulationVersionOptionsLoadError.value
+    }
+    throw error
+  } finally {
+    if (loadSerial === qaRegulationVersionOptionsLoadSerial) {
+      qaRegulationVersionOptionsLoading.value = false
+    }
+  }
+}
+
+const handleQaRegulationVersionChange = async (versionId?: number) => {
+  if (!versionId || !selectedDccProjectCode.value) {
+    return
+  }
+  const dccProjectCodeId = resolvePositiveId(selectedDccProjectCode.value.id, 'DCC 项目代码 ID')
+  const selectedVersion = qaRegulationVersionOptions.value.find(
+    (version) => Number(version.versionId) === Number(versionId)
+  )
+  if (!selectedVersion) {
+    throw new Error('指定的 QA 规程版本不存在')
+  }
+  qaCurrentConfigurationLoading.value = true
+  qaCurrentConfigurationLoadError.value = ''
+  try {
+    const configuration = await QcTemplateApi.getPublishedQaRegulationVersion(dccProjectCodeId, versionId)
+    if (!configuration || Number(configuration.publishedVersionId) !== Number(versionId)) {
+      throw new Error('后端返回的 QA 规程版本与所选版本不一致')
+    }
+    applyQaRegulationConfiguration(configuration)
+    if (shouldLoadQaEquipmentBindingsForSelectedVersion(configuration)) {
+      await loadQaEquipmentBindings(dccProjectCodeId)
+    }
+  } catch (error) {
+    qaCurrentConfigurationLoadError.value =
+      'QA 规程版本加载失败：' + resolveDccProjectCodeErrorMessage(error)
+    ElMessage.error(qaCurrentConfigurationLoadError.value)
+    throw error
+  } finally {
+    qaCurrentConfigurationLoading.value = false
+  }
+}
+
 const loadCurrentQaRegulation = async (dccProjectCodeId: number) => {
   const loadSerial = ++qaCurrentConfigurationLoadSerial
   qaCurrentConfigurationLoading.value = true
@@ -1831,13 +1973,16 @@ const selectDccProjectCode = async (project?: DccProjectCodeRespVO) => {
   if (!project) {
     resetQaRegulationConfiguration()
     qaCurrentPublishedVersion.value = undefined
+    qaRegulationVersionOptions.value = []
+    qaRegulationVersionOptionsLoadError.value = ''
     return
   }
   const dccProjectCodeId = resolvePositiveId(project.id, 'DCC 项目代码 ID')
   qaRegulationDraft.dccProjectCodeId = dccProjectCodeId
   await Promise.all([
     loadCurrentQaRegulation(dccProjectCodeId),
-    loadCurrentPublishedQaRegulationVersion(project)
+    loadCurrentPublishedQaRegulationVersion(project),
+    loadQaRegulationVersionOptions(dccProjectCodeId)
   ])
 }
 
@@ -2322,6 +2467,7 @@ const previewQaRegulationDraft = async () => {
     qaRegulationDraft.regulationId = result.regulationId
     qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
     qaConfigurationExists.value = true
+    selectedQaRegulationVersionId.value = result.draftVersionId
     const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
     const currentStatus = statusMap.get(payload.dccProjectCodeId)
     statusMap.set(payload.dccProjectCodeId, {
@@ -2335,6 +2481,7 @@ const previewQaRegulationDraft = async () => {
       lifecycleStatus: result.lifecycleStatus
     })
     qaRegulationProjectStatusByDccId.value = statusMap
+    await loadQaRegulationVersionOptions(payload.dccProjectCodeId)
     ElMessage.success('QA 规程草稿已保存到后端：' + result.versionNo)
   } catch (error) {
     ElMessage.error('QA 规程草稿保存失败：' + resolveDccProjectCodeErrorMessage(error))
@@ -2372,6 +2519,7 @@ const runQaPublishPrecheck = async () => {
       lifecycleStatus: 'PUBLISHED'
     })
     qaRegulationProjectStatusByDccId.value = statusMap
+    await loadQaRegulationVersionOptions(payload.dccProjectCodeId)
     ElMessage.success('QA 规程已发布为不可变版本：' + publishedVersion.versionNo)
   } catch (error) {
     ElMessage.error('QA 规程发布失败：' + resolveDccProjectCodeErrorMessage(error))

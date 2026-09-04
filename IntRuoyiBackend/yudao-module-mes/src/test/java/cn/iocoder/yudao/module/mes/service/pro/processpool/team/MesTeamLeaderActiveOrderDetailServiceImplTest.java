@@ -2,10 +2,16 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterialService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,6 +35,12 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesProcessPoolActiveOrderDetailReadMapper detailReadMapper;
+    @Mock
+    private MesFrontlineProcessMaterialService processMaterialService;
+    @Mock
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @Mock
+    private MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper;
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
@@ -38,6 +50,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .id(8101L)
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
+                .routeId(9201L)
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -46,6 +59,10 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 row(9101L, 5001L, 6001L, "粗洗", "100.000000", 7002L, "40", "李四", null,
                         "2026-08-13T09:20:00"),
                 row(9102L, 5002L, 6002L, "精洗", "100.000000", null, null, null, null, null)));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5002L, 6002L)).thenReturn(List.of());
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
 
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 
@@ -66,11 +83,81 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void shouldExposeInputMaterialBatchesAndPqcSubmissionDetailsByProcess() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(9201L)
+                .routeVersionId(9301L)
+                .activeStatus("ACTIVE")
+                .build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100.000000", 7001L, "30", "张三", "生产组长甲",
+                        "2026-08-13T08:10:00")));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of(
+                new MesFrontlineProcessMaterial(3101L, "MAT-A", "物料A", "S1",
+                        MesFrontlineProcessMaterial.ROLE_INPUT, null, List.of("LOT-01", "LOT-02"),
+                        new BigDecimal("10"), new BigDecimal("9"), new BigDecimal("9"),
+                        List.of(2101L, 2102L), List.of("SIM-SOUT-001", "SIM-SOUT-002"),
+                        List.of(2201L, 2202L), "hash-pick-list"),
+                new MesFrontlineProcessMaterial(3102L, "OUT-A", "产出A", "S2",
+                        MesFrontlineProcessMaterial.ROLE_OUTPUT, null, List.of(), null,
+                        null, null, List.of(), List.of(), List.of(), null)));
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder()
+                        .id(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .inspectionType("FIRST")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
+                        .actualInspectionQuantity(2)
+                        .submittedEventId(7101L)
+                        .build()));
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4201L)
+                        .pqcTaskId(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("WIDTH")
+                        .itemName("宽度")
+                        .measuredValue("12.3")
+                        .itemResult("12.3")
+                        .judgement("PASS")
+                        .selectedEquipmentNumber("EQ-001")
+                        .standardText("10-15")
+                        .build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
+        assertEquals(1, process.getInputMaterials().size());
+        assertEquals("MAT-A", process.getInputMaterials().get(0).getMaterialCode());
+        assertEquals(List.of("LOT-01", "LOT-02"), process.getInputMaterials().get(0).getBatchCodes());
+        assertEquals(List.of(2101L, 2102L), process.getInputMaterials().get(0).getSourcePickListIds());
+        assertEquals(List.of("SIM-SOUT-001", "SIM-SOUT-002"),
+                process.getInputMaterials().get(0).getSourcePickListNos());
+        assertEquals(1, process.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pqcSubmission = process.getPqcSubmissions().get(0);
+        assertEquals(4101L, pqcSubmission.getPqcTaskId());
+        assertEquals(7101L, pqcSubmission.getSubmittedEventId());
+        assertEquals(1, pqcSubmission.getItems().size());
+        assertEquals("WIDTH", pqcSubmission.getItems().get(0).getItemCode());
+        assertEquals("EQ-001", pqcSubmission.getItems().get(0).getSelectedEquipmentNumber());
+    }
+
+    @Test
     void shouldMarkAllSubmissionsOfOverrunProcessAsQuantityConflict() throws Exception {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
+                .routeId(9201L)
                 .activeStatus("ACTIVE")
                 .build());
         when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
@@ -78,6 +165,9 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                         "2026-08-19T16:52:08"),
                 row(9101L, 5001L, 6001L, "粗洗", "1500.000000", 7002L, "2000", "李四", "生产组长甲",
                         "2026-08-19T16:53:03")));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
 
         MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
 

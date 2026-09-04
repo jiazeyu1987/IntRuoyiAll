@@ -4840,7 +4840,7 @@ async function verifyPqcLeaderSubmissionDetailUnauthorizedBlocked(page, config, 
   const unauthorizedPage = await context.newPage()
   try {
     await login(unauthorizedPage, config, 'unauthorizedActor', unauthorizedActor)
-    const targetUrl = new URL('/mes/pro/process-pool/team-leader', config.frontendUrl)
+    const targetUrl = new URL('/mes/pro/process-pool/pqc-leader', config.frontendUrl)
     await unauthorizedPage.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
     await unauthorizedPage.locator('#app').waitFor({ state: 'visible', timeout: 60000 })
     assert.equal(
@@ -6262,7 +6262,7 @@ async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, action
       }
     }
 
-    const targetUrl = new URL('/mes/pro/process-pool/team-leader', config.frontendUrl)
+    const targetUrl = new URL('/mes/pro/process-pool/production-leader', config.frontendUrl)
     await unauthorizedPage.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
     await unauthorizedPage.locator('#app').waitFor({ state: 'visible', timeout: 60000 })
     assert.equal(

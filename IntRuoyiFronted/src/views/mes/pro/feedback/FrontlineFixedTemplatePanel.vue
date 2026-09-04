@@ -1398,6 +1398,7 @@ type ProductionMaterialDraftState = {
   deviceParameters: Record<string, ProductionDeviceParameterDraft>
   deviceMeteringValidity: ProductionDeviceMeteringValidityDraft
 }
+type ProductionMaterialDeviceDraftState = Pick<ProductionMaterialDraftState, 'selectedDeviceKey' | 'selectedDeviceKeys' | 'deviceParameters' | 'deviceMeteringValidity'>
 type FrontlineEmployeeSwitchResult = {
   actualEmployeeId: number
   template?: {
@@ -1684,6 +1685,7 @@ const productionDraft = reactive({
 const productionDefectDraft = reactive<Record<ProductionDefectKey, number>>({})
 
 const productionMaterialDrafts = reactive<Record<string, ProductionMaterialDraftState>>({})
+const productionMaterialLastDeviceDrafts = reactive<Record<string, ProductionMaterialDeviceDraftState>>({})
 const selectedProductionMaterialKey = ref<string>()
 const selectedProductionDeviceKey = ref<string>()
 const selectedProductionDeviceKeys = ref<string[]>([])
@@ -2305,6 +2307,21 @@ const syncProductionDeviceParameterDraft = (devices: ProductionDeviceCard[]) => 
   }
 }
 
+const ensureProductionDefaultDeviceSelection = (devices: ProductionDeviceCard[]) => {
+  if (!devices.length) {
+    return
+  }
+  const visibleKeys = new Set(devices.map((device) => device.key))
+  selectedProductionDeviceKeys.value = selectedProductionDeviceKeys.value.filter((key) => visibleKeys.has(key))
+  const firstVisibleDeviceKey = devices[0].key
+  if (!selectedProductionDeviceKeys.value.length) {
+    selectedProductionDeviceKeys.value = [firstVisibleDeviceKey]
+  }
+  if (!selectedProductionDeviceKeys.value.includes(selectedProductionDeviceKey.value || '')) {
+    selectedProductionDeviceKey.value = selectedProductionDeviceKeys.value[0]
+  }
+}
+
 const resetProductionDeviceParameterDraft = () => {
   for (const deviceKey of Object.keys(deviceParameterDraft)) {
     delete deviceParameterDraft[deviceKey]
@@ -2332,16 +2349,23 @@ function replaceReactiveRecord<T>(target: Record<string, T>, source: Record<stri
   Object.assign(target, source)
 }
 
-const createProductionMaterialDraftState = (): ProductionMaterialDraftState => ({
-  outputQuantity: undefined,
-  defectQuantities: Object.fromEntries(
-    configuredDefectReasons.value.map((defect) => [defect.key, 0])
-  ),
-  selectedDeviceKey: undefined,
-  selectedDeviceKeys: [],
-  deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
-  deviceMeteringValidity: { ...deviceMeteringValidityDraft }
-})
+const createProductionMaterialDraftState = (materialKey: string): ProductionMaterialDraftState => {
+  const lastDeviceDraft = productionMaterialLastDeviceDrafts[materialKey]
+  return {
+    outputQuantity: undefined,
+    defectQuantities: Object.fromEntries(
+      configuredDefectReasons.value.map((defect) => [defect.key, 0])
+    ),
+    selectedDeviceKey: lastDeviceDraft?.selectedDeviceKey,
+    selectedDeviceKeys: [...(lastDeviceDraft?.selectedDeviceKeys || [])],
+    deviceParameters: lastDeviceDraft
+      ? cloneProductionDeviceParameters(lastDeviceDraft.deviceParameters)
+      : cloneProductionDeviceParameters(deviceParameterDraft),
+    deviceMeteringValidity: lastDeviceDraft
+      ? { ...lastDeviceDraft.deviceMeteringValidity }
+      : { ...deviceMeteringValidityDraft }
+  }
+}
 
 const persistActiveProductionMaterialDraft = () => {
   const materialKey = selectedProductionMaterialKey.value
@@ -2385,6 +2409,7 @@ const restoreProductionMaterialDraft = (materialKey: string) => {
   selectedProductionDeviceKeys.value = (materialDraft.selectedDeviceKeys || []).filter((key) =>
     visibleDeviceCards.value.some((device) => device.key === key)
   )
+  ensureProductionDefaultDeviceSelection(visibleDeviceCards.value)
 }
 
 const clearProductionMaterialDrafts = () => {
@@ -2413,7 +2438,7 @@ const syncProductionMaterialDrafts = (materials: ProductionMaterialOption[]) => 
   }
   for (const material of materials) {
     if (!productionMaterialDrafts[material.key]) {
-      productionMaterialDrafts[material.key] = createProductionMaterialDraftState()
+      productionMaterialDrafts[material.key] = createProductionMaterialDraftState(material.key)
     }
   }
   const activeMaterialKey = selectedProductionMaterialKey.value
@@ -2667,11 +2692,7 @@ watch(
       selectedProductionDeviceKeys.value = []
       return
     }
-    const visibleKeys = new Set(devices.map((device) => device.key))
-    selectedProductionDeviceKeys.value = selectedProductionDeviceKeys.value.filter((key) => visibleKeys.has(key))
-    if (!selectedProductionDeviceKeys.value.includes(selectedProductionDeviceKey.value || '')) {
-      selectedProductionDeviceKey.value = selectedProductionDeviceKeys.value[0]
-    }
+    ensureProductionDefaultDeviceSelection(devices)
   },
   { immediate: true }
 )
@@ -2941,6 +2962,18 @@ const buildProductionDeviceMeteringValidityPayload = () =>
     deviceName: device.deviceName,
     inMeteringValidityPeriod: isProductionDeviceMeteringValid(device.key)
   }))
+
+const rememberProductionMaterialDeviceDrafts = () => {
+  persistActiveProductionMaterialDraft()
+  for (const [materialKey, materialDraft] of Object.entries(productionMaterialDrafts)) {
+    productionMaterialLastDeviceDrafts[materialKey] = {
+      selectedDeviceKey: materialDraft.selectedDeviceKey,
+      selectedDeviceKeys: [...materialDraft.selectedDeviceKeys],
+      deviceParameters: cloneProductionDeviceParameters(materialDraft.deviceParameters),
+      deviceMeteringValidity: { ...materialDraft.deviceMeteringValidity }
+    }
+  }
+}
 
 const resetProductionSubmissionDraft = () => {
   resetProductionMaterialDrafts()
@@ -4482,6 +4515,7 @@ const handleProductionFormalSubmit = async () => {
 
     payloadLoading.value = true
     const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload)
+    rememberProductionMaterialDeviceDrafts()
     resetProductionSubmissionDraft()
     openProductionSubmitSuccessDialog()
     showParameterAuditWarning(submitResult)
@@ -7788,6 +7822,11 @@ onUnmounted(() => {
 .frontline-production-device-card.active .device-tab-selection {
   border-color: #9ce0c1;
   background: #15815f;
+}
+
+.frontline-production-device-card.active .device-tab-selection::after {
+  content: '✓';
+  font-weight: 900;
 }
 
 .frontline-pqc-reset-button {

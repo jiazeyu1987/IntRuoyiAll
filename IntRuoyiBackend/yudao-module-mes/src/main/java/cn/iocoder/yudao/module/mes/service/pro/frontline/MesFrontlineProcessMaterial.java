@@ -14,6 +14,7 @@ public record MesFrontlineProcessMaterial(Long materialId,
                                           BigDecimal actualQuantity,
                                           BigDecimal baseActualQuantity,
                                           List<Long> sourcePickListIds,
+                                          List<String> sourcePickListNos,
                                           List<Long> sourcePickListItemIds,
                                           String sourceSnapshotHash) {
 
@@ -24,12 +25,12 @@ public record MesFrontlineProcessMaterial(Long materialId,
                                        String materialSpecification, BigDecimal bomQuantity,
                                        List<String> batchCodes) {
         this(materialId, materialCode, materialName, materialSpecification, ROLE_OUTPUT,
-                bomQuantity, batchCodes, null, null, null, List.of(), List.of(), null);
+                bomQuantity, batchCodes, null, null, null, List.of(), List.of(), List.of(), null);
     }
 
     public MesFrontlineProcessMaterial(Long materialId, String materialCode, String materialName,
                                        String materialSpecification, BigDecimal bomQuantity) {
         this(materialId, materialCode, materialName, materialSpecification, ROLE_OUTPUT,
-                bomQuantity, List.of(), null, null, null, List.of(), List.of(), null);
+                bomQuantity, List.of(), null, null, null, List.of(), List.of(), List.of(), null);
     }
 }

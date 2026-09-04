@@ -26,15 +26,22 @@ class DccControlledFileCheckoutContractTest {
         String service = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java");
         String mapper = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java");
         String response = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java");
+        String versionHistoryResponse = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileVersionHistoryRespVO.java");
         String dataObject = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java");
         assertTrue(service.contains("checkoutControlledFile"));
         assertTrue(service.contains("checkinControlledFile"));
-        assertTrue(service.contains("checkedOutByName"));
+        assertTrue(service.contains("requireCheckoutAccessibleControlledFile(userId, id)"));
+        assertTrue(service.contains("private DccControlledFileDO requireCheckoutAccessibleControlledFile"));
+        assertTrue(service.contains("canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)"));
+        assertTrue(service.contains("setCheckedOutByName"));
         assertTrue(mapper.contains("checked_out_by IS NULL"));
         assertTrue(mapper.contains("checked_out_by = #{actorId}"));
         assertTrue(mapper.contains("checked_out_by = NULL"));
         assertTrue(response.contains("private Long checkedOutBy"));
         assertTrue(response.contains("private String checkedOutByName"));
+        assertTrue(versionHistoryResponse.contains("private Long checkedOutBy"));
+        assertTrue(versionHistoryResponse.contains("private String checkedOutByName"));
+        assertTrue(service.contains("fillCheckoutProjection(respVO, history)"));
         assertTrue(dataObject.contains("private Long checkedOutBy"));
         assertTrue(dataObject.contains("private LocalDateTime checkedOutTime"));
     }

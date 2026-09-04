@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationVersionOptionRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
@@ -214,11 +215,35 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         boolean productionCurrent = versionId == null;
         boolean allowed = productionCurrent
                 ? Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus())
-                : Set.of(STATUS_PUBLISHED, STATUS_RETIRED).contains(version.getLifecycleStatus());
+                : Set.of(STATUS_DRAFT, STATUS_PUBLISHED, STATUS_RETIRED).contains(version.getLifecycleStatus());
         if (!allowed) {
             throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED, version.getId());
         }
         return buildVersionResp(regulation, version);
+    }
+
+    @Override
+    public List<MesQaInspectionRegulationVersionOptionRespVO> listVersions(Long dccProjectCodeId) {
+        requireEnabledDccProjectCode(dccProjectCodeId);
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectByDccProjectCodeId(dccProjectCodeId);
+        if (regulation == null) {
+            return List.of();
+        }
+        Long currentVersionId = regulation.getCurrentVersionId();
+        return versionMapper.selectListByRegulationId(regulation.getId()).stream()
+                .map(version -> MesQaInspectionRegulationVersionOptionRespVO.builder()
+                        .dccProjectCodeId(dccProjectCodeId)
+                        .regulationId(regulation.getId())
+                        .versionId(version.getId())
+                        .versionNo(version.getVersionNo())
+                        .lifecycleStatus(version.getLifecycleStatus())
+                        .effectiveDate(version.getEffectiveDate())
+                        .publishedAt(version.getPublishedAt())
+                        .retiredAt(version.getRetiredAt())
+                        .currentPublished(Objects.equals(currentVersionId, version.getId())
+                                && Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus()))
+                        .build())
+                .toList();
     }
 
     @Override

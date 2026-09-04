@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationVersionOptionRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -439,6 +440,37 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(66L, longProperty(status, "getPublishedVersionId"));
         assertEquals("G/2", status.getPublishedVersionNo());
         assertEquals(true, booleanProperty(status, "getProductionReady"));
+    }
+
+    @Test
+    void listVersions_returnsAllDraftPublishedAndRetiredOptions() {
+        MesQaInspectionRegulationVersionDO retired = publishedVersion()
+                .setId(60L)
+                .setVersionNo("B/0")
+                .setLifecycleStatus("RETIRED")
+                .setRetiredAt(LocalDateTime.of(2026, 1, 3, 9, 0));
+        MesQaInspectionRegulationVersionDO published = publishedVersion()
+                .setId(61L)
+                .setVersionNo("B/1");
+        MesQaInspectionRegulationVersionDO draft = publishedVersion()
+                .setId(62L)
+                .setVersionNo("B/2")
+                .setLifecycleStatus("DRAFT")
+                .setPublishedAt(null);
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(
+                publishedRegulation().setCurrentVersionId(61L));
+        when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(
+                List.of(retired, published, draft));
+
+        List<MesQaInspectionRegulationVersionOptionRespVO> result = service.listVersions(DCC_PROJECT_ID);
+
+        assertEquals(List.of("B/0", "B/1", "B/2"),
+                result.stream().map(MesQaInspectionRegulationVersionOptionRespVO::getVersionNo).toList());
+        assertEquals(List.of("RETIRED", "PUBLISHED", "DRAFT"),
+                result.stream().map(MesQaInspectionRegulationVersionOptionRespVO::getLifecycleStatus).toList());
+        assertEquals(List.of(false, true, false),
+                result.stream().map(MesQaInspectionRegulationVersionOptionRespVO::getCurrentPublished).toList());
     }
 
     @Test

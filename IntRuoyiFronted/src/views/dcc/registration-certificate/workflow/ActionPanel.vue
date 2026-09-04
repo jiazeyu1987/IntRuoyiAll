@@ -84,7 +84,7 @@
             </el-select>
             <el-alert
               :type="hasDownloadFacts ? 'info' : 'warning'"
-              :title="hasDownloadFacts ? '下载所需正式事实已由系统带出' : '当前档案缺少项目代码或可下载文件，下载已锁定'"
+              :title="hasDownloadFacts ? '下载所需正式事实已由系统带出' : '当前档案缺少可下载文件，下载已锁定'"
               :closable="false"
             />
           </template>
@@ -96,63 +96,13 @@
           >提交访问申请</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="审批结果" name="approvalResult">
-        <div data-testid="registration-certificate-approval-result-action" class="registration-certificate-workflow__panel">
-          <el-alert type="info" :closable="false" title="审批结果由审批中心待办处理，页面仅展示系统返回的正式结果。" />
-          <el-input v-model="accessReason" data-field="accessReason" aria-label="撤回或撤销原因" />
-          <el-button :disabled="!accessRequestId" :loading="submitting" @click="handleRefreshAccessStatus">刷新申请状态</el-button>
-          <el-button
-            v-if="accessStatus && ['SUBMITTED', 'BPM_BOUND'].includes(accessStatus.requestStatus)"
-            type="warning"
-            plain
-            :loading="submitting"
-            @click="handleWithdrawAccessRequest"
-          >撤回申请</el-button>
-          <el-descriptions v-if="accessStatus" :column="2" border class="registration-certificate-workflow__status">
-            <el-descriptions-item label="申请状态">{{ formatRegistrationCertificateWorkflowStatus(accessStatus.requestStatus) }}</el-descriptions-item>
-            <el-descriptions-item label="审批流程实例">{{ accessStatus.bpmProcessInstanceId || '未创建' }}</el-descriptions-item>
-            <el-descriptions-item label="审批状态">{{ formatRegistrationCertificateWorkflowStatus(accessStatus.bpmBindingStatus) }}</el-descriptions-item>
-            <el-descriptions-item label="申请用途">{{ accessStatus.purpose }}</el-descriptions-item>
-          </el-descriptions>
-          <el-table v-if="accessStatus" :data="accessStatus.grants" row-key="grantId" class="registration-certificate-workflow__grants">
-            <el-table-column label="授权 ID" prop="grantId" width="120" />
-            <el-table-column label="文件 ID" prop="businessFileId" width="120" />
-            <el-table-column label="授权状态" prop="status" width="120">
-              <template #default="scope">
-                {{ formatRegistrationCertificateWorkflowStatus(scope.row.status) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="260">
-              <template #default="scope">
-                <el-button
-                  v-if="scope.row.status === 'ACTIVE' && scope.row.businessFileId"
-                  link
-                  type="primary"
-                  :loading="submitting"
-                  @click="handleDownloadGrant(scope.row.businessFileId)"
-                >下载</el-button>
-                <el-button
-                  v-if="scope.row.status === 'ACTIVE'"
-                  link
-                  type="danger"
-                  :loading="submitting"
-                  @click="handleRevokeGrant(scope.row.grantId)"
-                >撤销授权</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </el-tab-pane>
     </el-tabs>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import {
-  formatRegistrationCertificateWorkflowStatus,
-  resolveRegistrationCertificateUserMessage
-} from '../shared/state'
+import { resolveRegistrationCertificateUserMessage } from '../shared/state'
 import {
   createRegistrationCertificateDraft,
   updateRegistrationCertificateDraft,
@@ -161,14 +111,8 @@ import {
   voidRegistrationCertificateRenewalCandidate,
   uploadRegistrationCertificateSupportingDocument,
   submitRegistrationCertificateAccessRequest,
-  getRegistrationCertificateAccessRequestStatus,
-  withdrawRegistrationCertificateAccessRequest,
-  revokeRegistrationCertificateGrant,
-  downloadRegistrationCertificateFile,
-  type DccRegistrationCertificateAccessRequestStatusVO,
   type DccRegistrationCertificateDraftReqVO
 } from '@/api/dcc/registrationCertificate'
-import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
 
 type DownloadableFileOption = {
@@ -188,7 +132,7 @@ const props = defineProps<{
   initialAccessRequestType?: 'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'
   initialDownloadBusinessFileId?: number | string
   supportingDocumentId?: number | string
-  initialAction?: 'draft' | 'formalize' | 'renewal' | 'supporting' | 'access' | 'approvalResult'
+  initialAction?: 'draft' | 'formalize' | 'renewal' | 'supporting' | 'access'
   readOnly?: boolean
   certificateStatus?: string
 }>()
@@ -200,9 +144,6 @@ const lastActionResult = ref('')
 const accessRequestType = ref<'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'>(
   props.initialAccessRequestType || 'VIEW_OLD_CERTIFICATE'
 )
-const accessRequestId = ref<number | string>('')
-const accessReason = ref('')
-const accessStatus = ref<DccRegistrationCertificateAccessRequestStatusVO>()
 const pendingVersionId = ref<number | string>()
 const activeSupportingDocumentId = ref<number | string>(props.supportingDocumentId ?? '')
 const selectedDownloadBusinessFileId = ref<number | string>(
@@ -217,8 +158,7 @@ const operationKeys = {
   renewalUpload: ref(''),
   renewalVoid: ref(''),
   supportingUpload: ref(''),
-  accessSubmit: ref(''),
-  downloadGrant: ref('')
+  accessSubmit: ref('')
 }
 
 type IdempotencyOperation = keyof typeof operationKeys
@@ -247,7 +187,7 @@ const downloadFileOptions = computed<DownloadableFileOption[]>(() => {
 })
 
 const hasDownloadFacts = computed(() =>
-  Boolean(props.projectCodeId && selectedDownloadBusinessFileId.value)
+  Boolean(selectedDownloadBusinessFileId.value)
 )
 
 watch(
@@ -325,32 +265,11 @@ const requireBusinessFileId = () => {
   return props.businessFileId
 }
 
-const requireProjectCodeId = () => {
-  if (!props.projectCodeId) {
-    throw new Error('缺少项目代码，无法提交文件下载申请。')
-  }
-  return props.projectCodeId
-}
-
 const requireSelectedDownloadBusinessFileId = () => {
   if (!selectedDownloadBusinessFileId.value) {
     throw new Error('请选择需要下载的注册证业务文件。')
   }
   return selectedDownloadBusinessFileId.value
-}
-
-const requireAccessRequestId = () => {
-  if (!accessRequestId.value) {
-    throw new Error('缺少访问申请 ID，无法读取审批状态。')
-  }
-  return accessRequestId.value
-}
-
-const requireAccessReason = () => {
-  if (!accessReason.value.trim()) {
-    throw new Error('请填写撤回或撤销原因。')
-  }
-  return accessReason.value.trim()
 }
 
 const requireRowVersion = () => {
@@ -435,7 +354,7 @@ const handleSubmitAccessRequest = () => runAction('提交访问申请', async ()
         certificateId: requireCertificateId(),
         requestType,
         purpose: '页面提交的注册证文件下载申请',
-        projectCodeId: requireProjectCodeId(),
+        projectCodeId: props.projectCodeId || undefined,
         businessFileIds: [requireSelectedDownloadBusinessFileId()]
       }
     : {
@@ -447,40 +366,8 @@ const handleSubmitAccessRequest = () => runAction('提交访问申请', async ()
     payload,
     getOrCreateIdempotencyKey('accessSubmit')
   )
-  accessRequestId.value = requestId
-  await handleRefreshAccessStatus()
   return requestId
 }, 'accessSubmit')
-
-const handleRefreshAccessStatus = () => runAction('刷新申请状态', async () => {
-  const status = await getRegistrationCertificateAccessRequestStatus(requireAccessRequestId())
-  accessStatus.value = status
-  return status.requestStatus
-})
-
-const handleWithdrawAccessRequest = () => runAction('撤回访问申请', async () => {
-  const result = await withdrawRegistrationCertificateAccessRequest(
-    requireAccessRequestId(),
-    { reason: requireAccessReason() }
-  )
-  await handleRefreshAccessStatus()
-  return result.status
-})
-
-const handleRevokeGrant = (grantId: number | string) => runAction('撤销访问授权', async () => {
-  const result = await revokeRegistrationCertificateGrant(grantId, { reason: requireAccessReason() })
-  await handleRefreshAccessStatus()
-  return result
-})
-
-const handleDownloadGrant = (businessFileId: number | string) => runAction('下载注册证文件', async () => {
-  const result = await downloadRegistrationCertificateFile(
-    businessFileId,
-    getOrCreateIdempotencyKey('downloadGrant')
-  )
-  downloadByData(result.blob, result.fileName, result.blob.type || 'application/octet-stream')
-  return result.fileName
-}, 'downloadGrant')
 </script>
 
 <style scoped>
@@ -503,8 +390,4 @@ const handleDownloadGrant = (businessFileId: number | string) => runAction('下�
   width: 240px;
 }
 
-.registration-certificate-workflow__status,
-.registration-certificate-workflow__grants {
-  width: 100%;
-}
 </style>

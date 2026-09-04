@@ -1210,9 +1210,32 @@ public class MesProcessPoolTeamLeaderController {
                 .setSubmissionCount(process.getSubmissionCount())
                 .setQuantityConflict(process.getQuantityConflict())
                 .setOverageQuantity(process.getOverageQuantity())
+                .setInputMaterials(process.getInputMaterials().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderInputMaterialDetailRespVO)
+                        .toList())
                 .setSubmissions(process.getSubmissions().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDetailRespVO)
+                        .toList())
+                .setPqcSubmissions(process.getPqcSubmissions().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionDetailRespVO)
                         .toList());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.InputMaterialDetail toActiveOrderInputMaterialDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.InputMaterialDetail material) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.InputMaterialDetail()
+                .setMaterialId(material.getMaterialId())
+                .setMaterialCode(material.getMaterialCode())
+                .setMaterialName(material.getMaterialName())
+                .setMaterialSpecification(material.getMaterialSpecification())
+                .setBatchCodes(material.getBatchCodes())
+                .setRequestedQuantity(material.getRequestedQuantity())
+                .setActualQuantity(material.getActualQuantity())
+                .setBaseActualQuantity(material.getBaseActualQuantity())
+                .setSourcePickListIds(material.getSourcePickListIds())
+                .setSourcePickListNos(material.getSourcePickListNos())
+                .setSourcePickListItemIds(material.getSourcePickListItemIds())
+                .setSourceSnapshotHash(material.getSourceSnapshotHash());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.SubmissionDetail toActiveOrderSubmissionDetailRespVO(
@@ -1224,6 +1247,38 @@ public class MesProcessPoolTeamLeaderController {
                 .setReviewerName(submission.getReviewerName())
                 .setSubmittedAt(submission.getSubmittedAt())
                 .setQuantityConflict(submission.getQuantityConflict());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionDetail toActiveOrderPqcSubmissionDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionDetail()
+                .setPqcTaskId(submission.getPqcTaskId())
+                .setSubmittedEventId(submission.getSubmittedEventId())
+                .setInspectionType(submission.getInspectionType())
+                .setBusinessDate(submission.getBusinessDate())
+                .setShiftCode(submission.getShiftCode())
+                .setRoundNo(submission.getRoundNo())
+                .setActualInspectionQuantity(submission.getActualInspectionQuantity())
+                .setTaskStatus(submission.getTaskStatus())
+                .setItems(submission.getItems().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
+                        .toList());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionItemDetail toActiveOrderPqcSubmissionItemDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.PqcSubmissionItemDetail item) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionItemDetail()
+                .setAggregateDetailId(item.getAggregateDetailId())
+                .setSampleNo(item.getSampleNo())
+                .setItemCode(item.getItemCode())
+                .setItemName(item.getItemName())
+                .setInspectionMethod(item.getInspectionMethod())
+                .setStandardText(item.getStandardText())
+                .setMeasuredValue(item.getMeasuredValue())
+                .setItemResult(item.getItemResult())
+                .setJudgement(item.getJudgement())
+                .setSelectedEquipmentName(item.getSelectedEquipmentName())
+                .setSelectedEquipmentNumber(item.getSelectedEquipmentNumber());
     }
 
     private static MesTeamLeaderActiveOrderReleaseApplyRespVO toActiveOrderReleaseApplyRespVO(

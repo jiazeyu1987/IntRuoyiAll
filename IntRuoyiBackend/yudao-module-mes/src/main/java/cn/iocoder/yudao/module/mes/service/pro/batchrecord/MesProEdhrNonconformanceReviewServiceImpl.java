@@ -237,23 +237,53 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
 
     @Override
     public void ensureBatchNotFrozen(Long batchExecutionId, String actionName) {
-        if (isBatchFrozen(batchExecutionId)) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED, actionName);
+        MesProEdhrNonconformanceReviewDO pendingReview = batchExecutionId == null
+                ? null : reviewMapper.selectPendingByBatchExecutionId(batchExecutionId);
+        if (pendingReview != null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED,
+                    actionName, buildPendingReviewFreezeDetail(actionName, pendingReview));
         }
     }
 
     @Override
     public void ensureWorkOrderNotFrozen(Long workOrderId, String actionName) {
-        if (workOrderId != null && reviewMapper.selectBlockingCountByWorkOrderId(workOrderId) > 0) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED, actionName);
+        MesProEdhrNonconformanceReviewDO blockingReview = workOrderId == null
+                ? null : reviewMapper.selectFirstBlockingByWorkOrderId(workOrderId);
+        if (blockingReview != null) {
+            String branch = STATUS_PENDING_REVIEW.equals(blockingReview.getReviewStatus())
+                    ? "待处置不合格评审" : "作废处置不合格评审";
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED,
+                    actionName, buildReviewFreezeDetail(actionName, branch, blockingReview));
         }
         if (workOrderId != null) {
             MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
             if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
                 throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
-                        .PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN, actionName, workOrderId);
+                                .PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN,
+                        actionName, buildWorkOrderFreezeDetail(actionName, workOrderId, "工单临时冻结"));
             }
         }
+    }
+
+    private String buildPendingReviewFreezeDetail(String actionName, MesProEdhrNonconformanceReviewDO review) {
+        return buildReviewFreezeDetail(actionName, "待处置不合格评审", review);
+    }
+
+    private String buildReviewFreezeDetail(String actionName, String branch, MesProEdhrNonconformanceReviewDO review) {
+        return "冻结分支=" + branch
+                + ", action=" + actionName
+                + ", batchExecutionId=" + review.getBatchExecutionId()
+                + ", workOrderId=" + review.getWorkOrderId()
+                + ", reviewId=" + review.getId()
+                + ", reviewCode=" + review.getReviewCode()
+                + ", sourceType=" + review.getSourceType()
+                + ", sourceId=" + review.getSourceId();
+    }
+
+    private String buildWorkOrderFreezeDetail(String actionName, Long workOrderId, String branch) {
+        return "冻结分支=" + branch
+                + ", action=" + actionName
+                + ", workOrderId=" + workOrderId;
     }
 
     private MesProEdhrNonconformanceReviewDO requirePendingReviewForUpdate(Long id) {

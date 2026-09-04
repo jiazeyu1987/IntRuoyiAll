@@ -140,9 +140,9 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                         businessFileId);
             }
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
-            DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
-            DccProjectCodeDO projectCode = requireLiveProjectCode(request.getProjectCodeId(),
-                    certificate.getProductMasterId());
+        DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
+            DccProjectCodeDO projectCode = request.getProjectCodeId() == null ? null
+                    : requireLiveProjectCode(request.getProjectCodeId(), certificate.getProductMasterId());
             String fileName = buildFileName(projectCode, certificate, version, snapshot, businessFile);
             String lockKey = tenantId + ":" + grant.getId() + ":" + businessFileId;
             Object lock = downloadLocks.computeIfAbsent(lockKey, ignored -> new Object());
@@ -235,8 +235,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     private DccRegistrationCertificateAccessRequestDO requireRequest(Long tenantId, Long requestId) {
         DccRegistrationCertificateAccessRequestDO request = requestMapper.selectById(requestId);
         if (request == null || !Objects.equals(request.getTenantId(), tenantId)
-                || !"DOWNLOAD_FILE".equals(request.getRequestType())
-                || request.getProjectCodeId() == null) {
+                || !"DOWNLOAD_FILE".equals(request.getRequestType())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID);
         }
         return request;

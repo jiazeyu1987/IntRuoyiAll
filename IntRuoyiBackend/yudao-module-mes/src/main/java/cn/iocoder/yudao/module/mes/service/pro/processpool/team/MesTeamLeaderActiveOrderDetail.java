@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,7 +30,26 @@ public class MesTeamLeaderActiveOrderDetail {
         private Integer submissionCount;
         private Boolean quantityConflict;
         private BigDecimal overageQuantity;
+        private List<InputMaterialDetail> inputMaterials = List.of();
         private List<SubmissionDetail> submissions = List.of();
+        private List<PqcSubmissionDetail> pqcSubmissions = List.of();
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class InputMaterialDetail {
+        private Long materialId;
+        private String materialCode;
+        private String materialName;
+        private String materialSpecification;
+        private List<String> batchCodes = List.of();
+        private BigDecimal requestedQuantity;
+        private BigDecimal actualQuantity;
+        private BigDecimal baseActualQuantity;
+        private List<Long> sourcePickListIds = List.of();
+        private List<String> sourcePickListNos = List.of();
+        private List<Long> sourcePickListItemIds = List.of();
+        private String sourceSnapshotHash;
     }
 
     @Data
@@ -41,5 +61,35 @@ public class MesTeamLeaderActiveOrderDetail {
         private String reviewerName;
         private LocalDateTime submittedAt;
         private Boolean quantityConflict;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class PqcSubmissionDetail {
+        private Long pqcTaskId;
+        private Long submittedEventId;
+        private String inspectionType;
+        private LocalDate businessDate;
+        private String shiftCode;
+        private Integer roundNo;
+        private Integer actualInspectionQuantity;
+        private String taskStatus;
+        private List<PqcSubmissionItemDetail> items = List.of();
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class PqcSubmissionItemDetail {
+        private Long aggregateDetailId;
+        private Integer sampleNo;
+        private String itemCode;
+        private String itemName;
+        private String inspectionMethod;
+        private String standardText;
+        private String measuredValue;
+        private String itemResult;
+        private String judgement;
+        private String selectedEquipmentName;
+        private String selectedEquipmentNumber;
     }
 }

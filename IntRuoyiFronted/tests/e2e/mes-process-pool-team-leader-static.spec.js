@@ -231,13 +231,14 @@ assert(
 assert(page.includes('lowerLimit') && page.includes('targetValue') && page.includes('upperLimit'), '工序配置参数标准必须包含下限、目标值和上限字段。')
 assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默隐藏后端错误。')
 
-assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')
+assert(!routes.includes("path: 'pro/process-pool/team-leader'"), '旧班组长工作台路由必须移除。')
+assert(!routes.includes("name: 'MesProProcessPoolTeamLeader'"), '旧班组长工作台页面身份必须移除。')
 assert(routes.includes("path: 'pro/process-pool/production-leader'"), 'remaining 路由必须提供独立生产组长主导航入口。')
 assert(routes.includes('ProductionLeaderWorkbenchPage.vue'), '生产组长入口必须使用 process-pool 专门包装页。')
 assert(routes.includes("path: 'pro/process-pool/pqc-leader'"), 'remaining 路由必须提供独立 PQC组长主导航入口。')
 assert(routes.includes('PqcLeaderWorkbenchPage.vue'), 'PQC组长入口必须使用 process-pool 专门包装页。')
 assert(!/pro\/feedback\/edhr-batch-(?:team-leader|production-leader|pqc-leader)/.test(routes), '旧 eDHR 组长路由必须移除。')
-assert(routes.includes("permission: ['mes:pro-process-pool-team-leader:query']"), '班组长工作台路由必须绑定查询权限。')
+assert(routes.includes("permission: ['mes:pro-process-pool-team-leader:query']"), '生产组长路由必须保留正式查询权限。')
 assert(
   /data-production-leader-workbench-page[\s\S]*leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/.test(productionLeaderPage),
   '生产组长独立页面必须锁定生产工作台内容并关闭内部切换。'

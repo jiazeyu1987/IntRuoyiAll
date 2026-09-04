@@ -44,3 +44,18 @@ test('user selector can hide selected names from input and resolve string long i
   assert.match(selector, /normalizeUserId\(item\.id\) === currentId/)
   assert.match(selector, /rows\.map\(\(item\) => normalizeUserId\(item\.id\)\)/)
 })
+
+test('notification recipient selector uses preloaded enabled users without system user query permission', async () => {
+  const [configDialog, selector, userDialog] = await Promise.all([
+    readFile(resolve('src/views/dcc/registration-certificate/config/ReminderConfigDialog.vue'), 'utf8'),
+    readFile(resolve('src/views/system/user/components/UserSelectV2.vue'), 'utf8'),
+    readFile(resolve('src/views/system/user/components/UserSelectDialogV2.vue'), 'utf8')
+  ])
+
+  assert.match(configDialog, /:user-options="userOptions"/)
+  assert.match(selector, /userOptions\?: UserApi\.UserVO\[\]/)
+  assert.match(selector, /:user-options="userOptions"/)
+  assert.match(userDialog, /userOptions\?: UserApi\.UserVO\[\]/)
+  assert.match(userDialog, /props\.userOptions/)
+  assert.match(userDialog, /getUserPage\(queryParams\)/)
+})

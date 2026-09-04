@@ -93,6 +93,16 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                         .eq(MesProEdhrNonconformanceReviewDO::getDisposition, "void")));
     }
 
+    default MesProEdhrNonconformanceReviewDO selectFirstBlockingByWorkOrderId(Long workOrderId) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
+                .and(query -> query
+                        .eq(MesProEdhrNonconformanceReviewDO::getReviewStatus, STATUS_PENDING_REVIEW)
+                        .or()
+                        .eq(MesProEdhrNonconformanceReviewDO::getDisposition, "void"))
+                .last("ORDER BY CASE WHEN review_status = 'pending_review' THEN 0 ELSE 1 END, id DESC LIMIT 1"));
+    }
+
     default List<MesProEdhrNonconformanceReviewDO> selectListByBatchExecutionId(Long batchExecutionId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getBatchExecutionId, batchExecutionId)

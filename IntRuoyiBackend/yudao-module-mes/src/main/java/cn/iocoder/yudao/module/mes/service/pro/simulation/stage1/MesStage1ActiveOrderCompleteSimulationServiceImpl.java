@@ -103,6 +103,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private static final String STAGE = "STAGE1";
     private static final String MARKER = "[STAGE1_SIMULATION]";
     private static final String ACTIVE = "ACTIVE";
+    private static final String PLACEHOLDER_MATERIAL_CODE = "/";
     private static final String PQC_SOURCE = "MES_PQC_INSPECTION_TASK";
     private static final String PRODUCTION_SOURCE = "MES_PRO_FEEDBACK";
 
@@ -982,29 +983,49 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     }
 
     private void createFormalProductIssue(MesProcessPoolActiveOrderDO activeOrder,
-                                          MesProWorkOrderDO workOrder,
-                                          MesStage1ActiveOrderCompleteSimulationCommand command) {
-        List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems = new ArrayList<>();
-        for (MesProcessPoolActiveOrderPickListBindingDO binding : requireBindings(activeOrder)) {
-            List<MesProcessPoolActiveOrderPickListBindingItemDO> items = bindingItemMapper
-                    .selectListByBindingId(binding.getId());
-            if (items == null || items.isEmpty()) {
-                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_REQUIRED");
-            }
-            bindingItems.addAll(items);
-        }
-        if (bindingItems.isEmpty()) {
-            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_REQUIRED");
-        }
+                                           MesProWorkOrderDO workOrder,
+                                           MesStage1ActiveOrderCompleteSimulationCommand command) {
         MesWmWarehouseDO warehouse = requireWarehouse(MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE);
         MesWmWarehouseLocationDO location = requireLocation(warehouse.getId(),
                 MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION);
         MesWmWarehouseAreaDO area = requireArea(location.getId(), MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA);
         String marker = marker(command.getSimulationRunId(), command.getActorUserId());
         LocalDateTime now = LocalDateTime.now();
+        int issueIndex = 0;
+        int batchIndex = 0;
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : requireBindings(activeOrder)) {
+            List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems = bindingItemMapper
+                    .selectListByBindingId(binding.getId());
+            if (bindingItems == null || bindingItems.isEmpty()) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_REQUIRED");
+            }
+            createFormalProductIssueForBinding(activeOrder, workOrder, command, binding, bindingItems,
+                    warehouse, location, area, marker, now, issueIndex++, batchIndex);
+            batchIndex += bindingItems.size();
+        }
+    }
+
+    private void createFormalProductIssueForBinding(MesProcessPoolActiveOrderDO activeOrder,
+                                                    MesProWorkOrderDO workOrder,
+                                                    MesStage1ActiveOrderCompleteSimulationCommand command,
+                                                    MesProcessPoolActiveOrderPickListBindingDO binding,
+                                                    List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems,
+                                                    MesWmWarehouseDO warehouse,
+                                                    MesWmWarehouseLocationDO location,
+                                                    MesWmWarehouseAreaDO area,
+                                                    String marker,
+                                                    LocalDateTime now,
+                                                    int issueIndex,
+                                                    int batchIndexStart) {
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> materializedItems = bindingItems.stream()
+                .filter(item -> item != null && !isPlaceholderMaterialCode(item.getMaterialNumber()))
+                .toList();
+        if (materializedItems.isEmpty()) {
+            return;
+        }
         MesWmProductIssueDO issue = MesWmProductIssueDO.builder()
-                .code("STAGE1-ISSUE-" + shortRunId(command.getSimulationRunId()))
-                .name(workOrder.getName() + " Stage1正式领料")
+                .code("STAGE1-ISSUE-" + shortRunId(command.getSimulationRunId()) + "-" + binding.getId())
+                .name(workOrder.getName() + " Stage1正式领料-" + (issueIndex + 1))
                 .workOrderId(workOrder.getId())
                 .issueDate(now)
                 .requiredTime(now)
@@ -1012,8 +1033,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .remark(marker)
                 .build();
         productIssueMapper.insert(issue);
-        int index = 0;
-        for (MesProcessPoolActiveOrderPickListBindingItemDO bindingItem : bindingItems) {
+        int index = batchIndexStart;
+        for (MesProcessPoolActiveOrderPickListBindingItemDO bindingItem : materializedItems) {
             MesMdItemDO item = itemMapper.selectByCode(bindingItem.getMaterialNumber());
             if (item == null) {
                 throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_ITEM_REQUIRED");
@@ -1072,45 +1093,53 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private void validateFormalProductIssue(MesProcessPoolActiveOrderDO activeOrder, String runId, Long actorUserId) {
         List<MesWmProductIssueDO> issues = productIssueMapper
                 .selectListByWorkOrderIdForUpdate(activeOrder.getWorkOrderId());
-        if (issues == null || issues.size() != 1) {
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = requireBindings(activeOrder);
+        long expectedIssueCount = bindings.stream()
+                .map(binding -> bindingItemMapper.selectListByBindingId(binding.getId()))
+                .filter(items -> items != null && items.stream()
+                        .anyMatch(item -> item != null && !isPlaceholderMaterialCode(item.getMaterialNumber())))
+                .count();
+        if (issues == null || issues.size() != expectedIssueCount) {
             throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_REQUIRED");
         }
-        MesWmProductIssueDO issue = issues.get(0);
         String marker = marker(runId, actorUserId);
-        if (issue == null || issue.getId() == null || !Objects.equals(activeOrder.getWorkOrderId(), issue.getWorkOrderId())
-                || !Objects.equals(MesWmProductIssueStatusEnum.FINISHED.getStatus(), issue.getStatus())
-                || !Objects.equals(marker, issue.getRemark())) {
-            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_INVALID");
-        }
-        List<MesWmProductIssueLineDO> lines = productIssueLineMapper.selectListByIssueId(issue.getId());
-        List<MesWmProductIssueDetailDO> details = productIssueDetailMapper.selectListByIssueId(issue.getId());
-        if (lines == null || lines.isEmpty() || details == null || details.isEmpty()
-                || lines.size() != details.size()) {
-            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_DETAIL_REQUIRED");
-        }
         Set<Long> batchIds = new LinkedHashSet<>();
         Set<Long> stockIds = new LinkedHashSet<>();
-        for (MesWmProductIssueLineDO line : lines) {
-            if (line == null || line.getId() == null || !Objects.equals(issue.getId(), line.getIssueId())
-                    || line.getItemId() == null || line.getQuantity() == null
-                    || line.getQuantity().signum() <= 0 || line.getBatchId() == null
-                    || !Objects.equals(marker, line.getRemark())) {
-                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_LINE_INVALID");
+        for (MesWmProductIssueDO issue : issues) {
+            if (issue == null || issue.getId() == null
+                    || !Objects.equals(activeOrder.getWorkOrderId(), issue.getWorkOrderId())
+                    || !Objects.equals(MesWmProductIssueStatusEnum.FINISHED.getStatus(), issue.getStatus())
+                    || !Objects.equals(marker, issue.getRemark())) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_INVALID");
             }
-            batchIds.add(line.getBatchId());
-        }
-        for (MesWmProductIssueDetailDO detail : details) {
-            if (detail == null || detail.getId() == null || !Objects.equals(issue.getId(), detail.getIssueId())
-                    || detail.getLineId() == null || detail.getMaterialStockId() == null
-                    || detail.getItemId() == null || detail.getQuantity() == null
-                    || detail.getQuantity().signum() <= 0 || detail.getBatchId() == null
-                    || blank(detail.getBatchCode()) || detail.getWarehouseId() == null
-                    || detail.getLocationId() == null || detail.getAreaId() == null
-                    || !Objects.equals(marker, detail.getRemark())) {
-                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_DETAIL_INVALID");
+            List<MesWmProductIssueLineDO> lines = productIssueLineMapper.selectListByIssueId(issue.getId());
+            List<MesWmProductIssueDetailDO> details = productIssueDetailMapper.selectListByIssueId(issue.getId());
+            if (lines == null || lines.isEmpty() || details == null || details.isEmpty()
+                    || lines.size() != details.size()) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_DETAIL_REQUIRED");
             }
-            batchIds.add(detail.getBatchId());
-            stockIds.add(detail.getMaterialStockId());
+            for (MesWmProductIssueLineDO line : lines) {
+                if (line == null || line.getId() == null || !Objects.equals(issue.getId(), line.getIssueId())
+                        || line.getItemId() == null || line.getQuantity() == null
+                        || line.getQuantity().signum() <= 0 || line.getBatchId() == null
+                        || !Objects.equals(marker, line.getRemark())) {
+                    throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_LINE_INVALID");
+                }
+                batchIds.add(line.getBatchId());
+            }
+            for (MesWmProductIssueDetailDO detail : details) {
+                if (detail == null || detail.getId() == null || !Objects.equals(issue.getId(), detail.getIssueId())
+                        || detail.getLineId() == null || detail.getMaterialStockId() == null
+                        || detail.getItemId() == null || detail.getQuantity() == null
+                        || detail.getQuantity().signum() <= 0 || detail.getBatchId() == null
+                        || blank(detail.getBatchCode()) || detail.getWarehouseId() == null
+                        || detail.getLocationId() == null || detail.getAreaId() == null
+                        || !Objects.equals(marker, detail.getRemark())) {
+                    throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_DETAIL_INVALID");
+                }
+                batchIds.add(detail.getBatchId());
+                stockIds.add(detail.getMaterialStockId());
+            }
         }
         List<MesWmBatchDO> batches = batchMapper.selectList(new LambdaQueryWrapper<MesWmBatchDO>()
                 .in(MesWmBatchDO::getId, batchIds)
@@ -1251,6 +1280,10 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
 
     private boolean blank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private boolean isPlaceholderMaterialCode(String materialCode) {
+        return materialCode != null && PLACEHOLDER_MATERIAL_CODE.equals(materialCode.trim());
     }
 
     private boolean zero(BigDecimal value) {

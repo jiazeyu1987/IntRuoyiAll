@@ -253,6 +253,7 @@ public class MesFrontlineProcessMaterialServiceImpl implements MesFrontlineProce
                 evidence == null ? null : evidence.actualQuantity(),
                 evidence == null ? null : evidence.baseActualQuantity(),
                 evidence == null ? List.of() : evidence.pickListIds(),
+                evidence == null ? List.of() : evidence.pickListNos(),
                 evidence == null ? List.of() : evidence.pickListItemIds(),
                 evidence == null ? null : evidence.sourceSnapshotHash());
     }

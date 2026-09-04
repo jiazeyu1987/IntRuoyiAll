@@ -214,7 +214,7 @@
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions registration-certificate-row-actions--compact">
                       <el-button link type="primary" @click="openDetail(row.certificateId)">
-                        详细
+                        详情
                       </el-button>
                       <el-button
                         v-if="row.status === 'CURRENT' && canRenewRegistrationCertificate"

@@ -54,6 +54,7 @@
     ref="dialogRef"
     :multiple="multiple"
     :deptId="deptId"
+    :user-options="userOptions"
     @selected="handleSelected"
   />
 </template>
@@ -81,6 +82,7 @@ const props = withDefaults(
     placeholder?: string // 占位文字
     deptId?: number // 部门 ID
     hideSelectedLabel?: boolean // 是否隐藏输入框内的已选名称
+    userOptions?: UserApi.UserVO[] // 由业务页面预加载的用户选项
   }>(),
   {
     defaultCurrentUser: false,
@@ -136,7 +138,7 @@ const resolveItemById = async (id: number | number[] | undefined) => {
     return
   }
   try {
-    const simpleUsers = await UserApi.getSimpleUserList()
+    const simpleUsers = props.userOptions ?? (await UserApi.getSimpleUserList())
     selectedItems.value = normalizedIds
       .map((currentId) => simpleUsers.find((item) => normalizeUserId(item.id) === currentId))
       .filter((item): item is UserApi.UserVO => Boolean(item))
@@ -147,9 +149,9 @@ const resolveItemById = async (id: number | number[] | undefined) => {
 
 /** 监听 modelValue 变化，触发回显 */
 watch(
-  () => props.modelValue,
-  (val) => {
-    resolveItemById(val)
+  () => [props.modelValue, props.userOptions],
+  ([modelValue]) => {
+    resolveItemById(modelValue as number | number[] | undefined)
   },
   { deep: true, immediate: true }
 )

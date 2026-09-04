@@ -10,8 +10,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.relation.DccDataRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -35,6 +37,9 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccProjectCodeMapper projectCodeMapper;
+
+    @Mock
+    private DccDataRelationMapper relationMapper;
 
     @Test
     void getProductCatalogPageShouldReadDatabasePage() {
@@ -76,6 +81,26 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("{\"sourceFileName\":\"RE-PP-IDI-01.docx\"}",
                 result.getList().get(0).getBatchRecordTotalRecognitionJson());
         verify(projectCodeMapper).selectEnabledList();
+    }
+
+    @Test
+    void getProductCatalogPageShouldExposeBoundProjectCodeAndRegistrationCertificateIds() {
+        DccProductCatalogPageReqVO reqVO = new DccProductCatalogPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        when(productCatalogMapper.selectPage(reqVO)).thenReturn(
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "按压式球囊扩充压力泵")), 1L));
+        DccDataRelationDO relation = new DccDataRelationDO();
+        relation.setProductCatalogId(10L);
+        relation.setProjectCodeId(22L);
+        relation.setRegistrationCertificateId(33L);
+        when(relationMapper.selectByProductCatalogIds(List.of(10L))).thenReturn(List.of(relation));
+
+        PageResult<DccProductCatalogRespVO> result = service.getProductCatalogPage(reqVO);
+
+        assertEquals(22L, result.getList().get(0).getProjectCodeId());
+        assertEquals(33L, result.getList().get(0).getRegistrationCertificateId());
+        verify(relationMapper).selectByProductCatalogIds(List.of(10L));
     }
 
     @Test

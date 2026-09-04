@@ -212,6 +212,15 @@
 - Forbidden action: 禁止在 detached worktree 中手工复制启动脚本参数绕过分支解析；禁止把缺运行产物或验证码开启解释为功能失败；禁止随机换端口、强杀未知进程、复制 node_modules、复用旧 Jar、只靠命令行临时 env 但未验证页面实际关闭验证码，或只跑静态合同冒充真实 E2E。
 - Evidence: `doc/tasks/20260817-qa-word-template-import-verification/execution-log.md`，QA Word 导入验证在 detached worktree 完成构建后才发现标准启动脚本无法解析空分支名，本轮仅保留为已记录的一次性验证绕过；后续真实运行态 worktree 必须在创建前取得具名分支条件。
 
+### 任务目录 Playwright 脚本依赖解析门禁
+
+- Trigger: 真实 E2E 脚本位于 `doc/tasks/<task-id>/...`，但依赖安装在 `IntRuoyiFronted\node_modules`，运行时报 `Cannot find module 'playwright'` 或其它前端 devDependency 缺失。
+- Preflight check: 先确认 `IntRuoyiFronted\node_modules` 和目标依赖真实存在，再用 `NODE_PATH=<worktree>\IntRuoyiFronted\node_modules` 或从前端工作目录的正式脚本入口运行；这只修正 Node 模块解析，不改变 E2E 的真实页面路径。
+- Blocker: 前端依赖目录不存在、`pnpm install --frozen-lockfile` 失败、目标脚本必须从任务目录读取相对 artifact 但命令切换工作目录会改写证据路径，或需要新增依赖/复制 node_modules 才能运行时必须停止并记录工具链前置缺口。
+- Verification: 记录实际脚本路径、`NODE_PATH` 或工作目录策略、前端依赖存在性、Playwright 真实页面命令和结果 JSON；不要把首次模块解析失败写成产品业务失败。
+- Forbidden action: 禁止复制 `node_modules` 到任务目录、把依赖解析失败当作页面不可达、或改用 API-only/静态合同替代真实 Playwright 验收。
+- Evidence: `doc/tasks/20260903-dcc-product-catalog-registration-binding/execution-log.md`，产品目录绑定跳转 E2E 在 slot 17 worktree 中首次因任务目录脚本无法解析 `playwright` 失败，显式指向前端依赖后真实页面复跑通过。
+
 ### 主工作区端口被并行任务占用时的成对运行态门禁
 
 - Trigger: 主工作区 `8081/48081` 被无关任务、旧 Jar 或无法替换的共享运行态占用，但当前任务仍需要真实前端路径 E2E 验证。

@@ -150,7 +150,21 @@
                 :width="getProductCatalogColumnWidthString('projectCode')"
                 :min-width="getProductCatalogColumnMinWidthString('projectCode', 120)"
                 v-bind="sortColumnAttrs('projectCode')"
-              />
+              >
+                <template #default="{ row }">
+                  <el-button
+                    v-if="row.projectCode && row.projectCodeId"
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--primary"
+                    type="primary"
+                    data-testid="dcc-product-catalog-project-code-link"
+                    @click="openLinkedProjectCode(row)"
+                  >
+                    {{ row.projectCode }}
+                  </el-button>
+                  <span v-else>{{ row.projectCode || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column
                 v-if="isProductCatalogColumnVisible('batchRecordTotalRecognitionJson')"
                 label="批记录识别JSON"
@@ -188,7 +202,21 @@
                   getProductCatalogColumnMinWidthString('registrationCertificateName', 220)
                 "
                 v-bind="sortColumnAttrs('registrationCertificateName')"
-              />
+              >
+                <template #default="{ row }">
+                  <el-button
+                    v-if="row.registrationCertificateName && row.registrationCertificateId"
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--primary"
+                    type="primary"
+                    data-testid="dcc-product-catalog-registration-certificate-link"
+                    @click="openLinkedRegistrationCertificate(row)"
+                  >
+                    {{ row.registrationCertificateName }}
+                  </el-button>
+                  <span v-else>{{ row.registrationCertificateName || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column
                 v-if="isProductCatalogColumnVisible('registrationCertificateNumber')"
                 label="注册证号"
@@ -198,7 +226,21 @@
                   getProductCatalogColumnMinWidthString('registrationCertificateNumber', 180)
                 "
                 v-bind="sortColumnAttrs('registrationCertificateNumber')"
-              />
+              >
+                <template #default="{ row }">
+                  <el-button
+                    v-if="row.registrationCertificateNumber && row.registrationCertificateId"
+                    link
+                    class="scheme-d-row-action scheme-d-row-action--primary"
+                    type="primary"
+                    data-testid="dcc-product-catalog-registration-certificate-number-link"
+                    @click="openLinkedRegistrationCertificate(row)"
+                  >
+                    {{ row.registrationCertificateNumber }}
+                  </el-button>
+                  <span v-else>{{ row.registrationCertificateNumber || '-' }}</span>
+                </template>
+              </el-table-column>
               <el-table-column
                 v-if="isProductCatalogColumnVisible('certificateHolder')"
                 label="持证人"
@@ -273,7 +315,7 @@
                 label="操作"
                 prop="actions"
                 fixed="right"
-                :width="getProductCatalogColumnWidthString('actions', 180)"
+                :width="getProductCatalogActionColumnWidthString()"
               >
                 <template #default="{ row }">
                   <el-button
@@ -470,6 +512,7 @@ import {
 defineOptions({ name: 'ProductCatalogTabPanel' })
 
 const message = useMessage()
+const router = useRouter()
 const loading = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
@@ -639,6 +682,8 @@ const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   }
 ]
 
+const PRODUCT_CATALOG_ACTION_PANEL_WIDTH = 540
+
 const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'categoryLevel1', label: '产品类别 I', minWidth: 180 },
   { key: 'categoryLevel2', label: '产品类别 II', minWidth: 180 },
@@ -659,7 +704,13 @@ const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productStatus', label: '产品状态', width: 120 },
   { key: 'registrationInfoLink', label: '注册证信息链接', minWidth: 150 },
   { key: 'remark', label: '备注', minWidth: 220 },
-  { key: 'actions', label: '操作', width: 130, hideable: false, business: false }
+  {
+    key: 'actions',
+    label: '操作',
+    width: PRODUCT_CATALOG_ACTION_PANEL_WIDTH,
+    hideable: false,
+    business: false
+  }
 ]
 
 const {
@@ -672,6 +723,16 @@ const {
   saveConfig: saveProductCatalogColumnConfig,
   resetConfig: resetProductCatalogColumnConfig
 } = useUserTableColumns('dcc.productCatalog.main', productCatalogDefaultColumns)
+
+const getProductCatalogActionColumnWidthString = () => {
+  const configuredWidth = Number(
+    getProductCatalogColumnWidthString('actions', PRODUCT_CATALOG_ACTION_PANEL_WIDTH)
+  )
+  const width = Number.isFinite(configuredWidth)
+    ? Math.max(configuredWidth, PRODUCT_CATALOG_ACTION_PANEL_WIDTH)
+    : PRODUCT_CATALOG_ACTION_PANEL_WIDTH
+  return String(width)
+}
 
 type DccProductCatalogPageQuery = DccProductCatalogPageReqVO & {
   pageNo: number
@@ -1048,6 +1109,30 @@ const submitBinding = async () => {
   } finally {
     bindingLoading.value = false
   }
+}
+
+const openLinkedProjectCode = (row: DccProductCatalogRespVO) => {
+  if (!row.projectCodeId) {
+    message.error('当前产品目录缺少绑定的 DCC 项目代码，无法跳转')
+    return
+  }
+  router.push({
+    path: '/mes/md/dcc-project-code',
+    query: { projectCodeId: String(row.projectCodeId) }
+  })
+}
+
+const openLinkedRegistrationCertificate = (row: DccProductCatalogRespVO) => {
+  if (!row.registrationCertificateId) {
+    message.error('当前产品目录缺少绑定的注册证，无法跳转')
+    return
+  }
+  router.push({
+    path: '/mdm/registration-certificate/detail/' + String(row.registrationCertificateId),
+    query: {
+      projectCodeId: row.projectCodeId ? String(row.projectCodeId) : undefined
+    }
+  })
 }
 
 const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {

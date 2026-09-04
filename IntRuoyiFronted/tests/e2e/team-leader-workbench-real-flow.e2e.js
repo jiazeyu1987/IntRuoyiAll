@@ -9,7 +9,7 @@ const FRONTEND_ROOT = path.resolve(WORKSPACE_ROOT, 'IntRuoyiFronted')
 const RESULT_DIR = path.resolve(FRONTEND_ROOT, 'test-results', 'team-leader-workbench-real-flow')
 const EVIDENCE_FILE = path.resolve(WORKSPACE_ROOT, 'doc', 'tasks', TASK_ID, 'p6-real-e2e-evidence.md')
 
-const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/team-leader'
+const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/production-leader'
 const PRODUCTION_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const FORBIDDEN_TENANTS = ['芋道源码', 'yudao', 'prod', 'production']
 

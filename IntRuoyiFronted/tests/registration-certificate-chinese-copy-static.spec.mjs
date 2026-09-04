@@ -28,12 +28,16 @@ for (const englishCopy of ['BPM Native', 'BPM 实例', 'BPM 状态', '后端结�
   assert.doesNotMatch(actionPanel, new RegExp(englishCopy),
     `registration certificate UI must not expose ${englishCopy}`)
 }
-assert.match(actionPanel, /formatRegistrationCertificateWorkflowStatus\(accessStatus\.requestStatus\)/,
-  'request status must use the Chinese workflow status formatter')
-assert.match(actionPanel, /formatRegistrationCertificateWorkflowStatus\(accessStatus\.bpmBindingStatus\)/,
-  'approval status must use the Chinese workflow status formatter')
-assert.match(actionPanel, /formatRegistrationCertificateWorkflowStatus\(scope\.row\.status\)/,
-  'grant status must use the Chinese workflow status formatter')
+for (const removedApprovalResultToken of [
+  'label="审批结果"',
+  'registration-certificate-approval-result-action',
+  'handleDownloadGrant',
+  'handleRevokeGrant',
+  '撤销授权'
+]) {
+  assert.doesNotMatch(actionPanel, new RegExp(removedApprovalResultToken),
+    `registration certificate access request panel must not expose removed approval-result control ${removedApprovalResultToken}`)
+}
 assert.match(actionPanel, /lastActionResult\.value\s*=\s*`\$\{name\}成功`/,
   'success feedback must not expose raw backend result values')
 

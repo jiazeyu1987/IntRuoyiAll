@@ -53,7 +53,8 @@ final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
         materials.add(new MesFrontlineProcessMaterial(503L, "A003", "输入原料", null,
                 MesFrontlineProcessMaterial.ROLE_INPUT, null, List.of("LOT-001", "LOT-002"),
                 new java.math.BigDecimal("12"), new java.math.BigDecimal("10"),
-                new java.math.BigDecimal("10"), List.of(101L, 102L), List.of(1001L, 1002L),
+                new java.math.BigDecimal("10"), List.of(101L, 102L), List.of("SIM-SOUT-001", "SIM-SOUT-002"),
+                List.of(1001L, 1002L),
                 "input-source-hash"));
         materials.add(new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null,
                 java.math.BigDecimal.ONE));

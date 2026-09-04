@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationVersionOptionRespVO;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationWordImportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -81,6 +82,15 @@ public class MesQaInspectionRegulationController {
             @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
             @RequestParam(value = "versionId", required = false) Long versionId) {
         return success(regulationService.getPublishedVersion(dccProjectCodeId, versionId));
+    }
+
+    @GetMapping("/versions")
+    @Operation(summary = "获得 DCC 项目全部 QA 检验规程版本")
+    @Parameter(name = "dccProjectCodeId", description = "DCC 项目代码 ID")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<List<MesQaInspectionRegulationVersionOptionRespVO>> listVersions(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
+        return success(regulationService.listVersions(dccProjectCodeId));
     }
 
     @GetMapping("/current")

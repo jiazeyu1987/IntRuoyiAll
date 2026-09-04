@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceException;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceResolver;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFormalProductionPickListSourceResolver.Source;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -55,11 +56,29 @@ public class MesProFeedbackMaterialBatchQueryServiceImpl implements MesProFeedba
         if (batchCodes.isEmpty()) {
             throw invalid("正式领料单未包含物料或批号：" + normalizedMaterialCode);
         }
+        List<Long> matchedPickListIds = matchedItems.stream()
+                .map(ErpKingdeeProductionPickListItemDO::getProductionPickListId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        List<String> matchedPickListNos = resolution.sources().stream()
+                .filter(source -> matchedPickListIds.contains(source.header().getId()))
+                .map(Source::header)
+                .map(header -> normalize(header.getSourceBillNo()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        if (matchedPickListNos.size() != matchedPickListIds.size()) {
+            throw invalid("正式领料单来源单号缺失或重复：" + normalizedMaterialCode);
+        }
         return new MesProFeedbackMaterialBatchEvidence(normalizedMaterialCode, batchCodes,
                 sum(matchedItems, ErpKingdeeProductionPickListItemDO::getRequestedQuantity),
                 sum(matchedItems, ErpKingdeeProductionPickListItemDO::getActualQuantity),
                 sum(matchedItems, ErpKingdeeProductionPickListItemDO::getBaseActualQuantity),
-                resolution.sources().stream().map(source -> source.header().getId()).toList(),
+                matchedPickListIds,
+                matchedPickListNos,
                 matchedItems.stream().map(ErpKingdeeProductionPickListItemDO::getId).toList(),
                 resolution.hash());
     }

@@ -10,6 +10,14 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.batch.MesWmBatchDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueLineDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseAreaDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseLocationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
@@ -279,7 +287,7 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     }
 
     @Test
-    void formalProductIssueReadsBindingItemsFromEveryPickListBinding() {
+    void formalProductIssueCreatesOneIssuePerPickListBinding() {
         TenantContextHolder.setTenantId(1L);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(328L);
         MesProcessPoolActiveOrderPickListBindingDO first = MesProcessPoolActiveOrderPickListBindingDO.builder()
@@ -288,16 +296,51 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
                 .id(7002L).activeOrderId(328L).pickListId(8002L).build();
         when(bindingMapper.selectListByActiveOrderId(328L)).thenReturn(List.of(first, second));
         when(bindingItemMapper.selectListByBindingId(7001L)).thenReturn(List.of(
-                MesProcessPoolActiveOrderPickListBindingItemDO.builder().bindingId(7001L).build()));
+                MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                        .bindingId(7001L).materialNumber("MAT-001").requestedQuantity(BigDecimal.ONE)
+                        .lotNumber("LOT-A").build()));
         when(bindingItemMapper.selectListByBindingId(7002L)).thenReturn(List.of(
-                MesProcessPoolActiveOrderPickListBindingItemDO.builder().bindingId(7002L).build()));
+                MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                        .bindingId(7002L).materialNumber("MAT-002").requestedQuantity(BigDecimal.ONE)
+                        .lotNumber("LOT-B").build()));
+        when(warehouseMapper.selectByCode(MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE))
+                .thenReturn(MesWmWarehouseDO.builder().id(8101L).build());
+        when(warehouseLocationMapper.selectByCode(8101L, MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION))
+                .thenReturn(MesWmWarehouseLocationDO.builder().id(8201L).build());
+        when(warehouseAreaMapper.selectByCode(8201L, MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA))
+                .thenReturn(MesWmWarehouseAreaDO.builder().id(8301L).build());
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(MesMdItemDO.builder().id(1001L).itemTypeId(2001L).build());
+        when(itemMapper.selectByCode("MAT-002")).thenReturn(MesMdItemDO.builder().id(1002L).itemTypeId(2002L).build());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.getArgument(0, MesWmProductIssueDO.class)
+                    .setId(invocation.getArgument(0, MesWmProductIssueDO.class).getCode().endsWith("-7001")
+                            ? 90001L : 90002L);
+            return 1;
+        }).when(productIssueMapper).insert(any(MesWmProductIssueDO.class));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.getArgument(0, MesWmProductIssueLineDO.class).setId(91001L);
+            return 1;
+        }).when(productIssueLineMapper).insert(any(MesWmProductIssueLineDO.class));
+        AtomicLong batchIds = new AtomicLong(92001L);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.getArgument(0, MesWmBatchDO.class).setId(batchIds.getAndIncrement());
+            return 1;
+        }).when(batchMapper).insert(any(MesWmBatchDO.class));
 
-        assertThrows(IllegalStateException.class,
-                () -> ReflectionTestUtils.invokeMethod(service, "createFormalProductIssue", activeOrder,
-                        workOrder(), command(328L)));
+        ReflectionTestUtils.invokeMethod(service, "createFormalProductIssue", activeOrder,
+                workOrder(), command(328L));
 
         verify(bindingItemMapper).selectListByBindingId(7001L);
         verify(bindingItemMapper).selectListByBindingId(7002L);
+        ArgumentCaptor<MesWmProductIssueDO> issues = ArgumentCaptor.forClass(MesWmProductIssueDO.class);
+        verify(productIssueMapper, times(2)).insert(issues.capture());
+        assertEquals(List.of("STAGE1-ISSUE-STAGE1unit-7001", "STAGE1-ISSUE-STAGE1unit-7002"),
+                issues.getAllValues().stream().map(MesWmProductIssueDO::getCode).toList());
+        ArgumentCaptor<MesWmBatchDO> batches = ArgumentCaptor.forClass(MesWmBatchDO.class);
+        verify(batchMapper, times(2)).insert(batches.capture());
+        assertEquals(List.of("LOT-A", "LOT-B"), batches.getAllValues().stream()
+                .map(MesWmBatchDO::getLotNumber).toList());
+        verify(productIssueDetailMapper, times(2)).insert(any(MesWmProductIssueDetailDO.class));
     }
 
     @Test

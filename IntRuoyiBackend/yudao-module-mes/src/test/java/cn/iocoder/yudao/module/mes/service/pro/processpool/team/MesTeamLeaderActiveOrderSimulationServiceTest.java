@@ -50,6 +50,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -243,6 +245,28 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 allocation.getConfirmedAt() != null
                         && allocation.getConfirmedAt().equals(
                         productionReviewByEvent.get(allocation.getEventId()).getReviewedAt())));
+    }
+
+    @Test
+    void placeholderInputMaterialCodeSkipsFormalPickListBatchLookup() {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder();
+        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(922119L)
+                .routeSnapshotJson("{\"routeId\":922119,\"configSnapshots\":{"
+                        + "\"flowGraph\":{\"nodes\":[{\"routeProcessId\":5001,\"processId\":6001}]},"
+                        + "\"batchUseConfigs\":[{\"routeProcessId\":5001,\"inputMaterialIds\":[1001],"
+                        + "\"outputMaterialIds\":[]}]}}")
+                .build();
+        when(itemMapper.selectById(1001L)).thenReturn(material(1001L, "/", "占位物料"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "buildSimulationMaterialPayload", activeOrder, routeVersion,
+                processSnapshot(5001L, 6001L), BigDecimal.ONE, null);
+
+        assertTrue(String.valueOf(payload.get("inputMaterialDetails")).contains("placeholderMaterial=true"));
+        verify(materialBatchQueryService, never()).listBatchCodes(any(), any());
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder() {

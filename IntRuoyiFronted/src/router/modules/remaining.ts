@@ -2035,20 +2035,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/process-pool/team-leader',
-        component: () => import('@/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'),
-        name: 'MesProProcessPoolTeamLeader',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: '工序池班组长工作台',
-          activeMenu: '/mes/pro/process-pool/team-leader',
-          permission: ['mes:pro-process-pool-team-leader:query']
-        }
-      },
-      {
         path: 'pro/process-pool/qa-regulation',
         component: () => import('@/views/mes/pro/processpool/QaRegulationPage.vue'),
         name: 'MesProProcessPoolQaRegulation',

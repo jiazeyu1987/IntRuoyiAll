@@ -13,8 +13,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProduct
 import cn.iocoder.yudao.module.dcc.controller.admin.productcatalog.vo.DccProductCatalogUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.productcatalog.DccProductCatalogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.relation.DccDataRelationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.productcatalog.DccProductCatalogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.relation.DccDataRelationMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,12 +63,16 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     private DccProjectCodeMapper projectCodeMapper;
 
     @Resource
+    private DccDataRelationMapper relationMapper;
+
+    @Resource
     private DccRegistrationExpiryExternalPageClient externalPageClient;
 
     @Override
     public PageResult<DccProductCatalogRespVO> getProductCatalogPage(DccProductCatalogPageReqVO reqVO) {
         PageResult<DccProductCatalogRespVO> page =
                 BeanUtils.toBean(productCatalogMapper.selectPage(reqVO), DccProductCatalogRespVO.class);
+        enrichBoundRelationIds(page.getList());
         enrichBatchRecordTotalRecognitionJson(page.getList());
         return page;
     }
@@ -190,6 +196,33 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
             if (projectCode != null) {
                 row.setBatchRecordTotalRecognitionJson(recognitionJsonByProjectCode.get(projectCode));
             }
+        }
+    }
+
+    private void enrichBoundRelationIds(List<DccProductCatalogRespVO> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        List<Long> productCatalogIds = rows.stream()
+                .map(DccProductCatalogRespVO::getId)
+                .filter(id -> id != null)
+                .toList();
+        if (productCatalogIds.isEmpty()) {
+            return;
+        }
+        Map<Long, DccDataRelationDO> latestRelationByCatalogId = new HashMap<>();
+        for (DccDataRelationDO relation : relationMapper.selectByProductCatalogIds(productCatalogIds)) {
+            if (relation.getProductCatalogId() != null) {
+                latestRelationByCatalogId.putIfAbsent(relation.getProductCatalogId(), relation);
+            }
+        }
+        for (DccProductCatalogRespVO row : rows) {
+            DccDataRelationDO relation = latestRelationByCatalogId.get(row.getId());
+            if (relation == null) {
+                continue;
+            }
+            row.setProjectCodeId(relation.getProjectCodeId());
+            row.setRegistrationCertificateId(relation.getRegistrationCertificateId());
         }
     }
 
