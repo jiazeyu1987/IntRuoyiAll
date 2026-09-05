@@ -60,10 +60,15 @@ async function login(page) {
 
 async function openProductionReportTab(page) {
   await page.goto(`${FRONTEND_URL}${TARGET_ROUTE}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  const reportTab = page.locator('[data-production-leader-module-tab-report]:visible').first()
-  await reportTab.waitFor({ state: 'visible', timeout: 60000 })
-  await reportTab.click()
   const reportWorkbench = page.locator('[data-team-leader-report-workbench]').first()
+  const reportTab = page.getByRole('tab', { name: '报工管理', exact: true }).first()
+  try {
+    await reportWorkbench.waitFor({ state: 'visible', timeout: 10000 })
+    return reportWorkbench
+  } catch (_) {
+    await reportTab.waitFor({ state: 'visible', timeout: 60000 })
+    await reportTab.click()
+  }
   await reportWorkbench.waitFor({ state: 'visible', timeout: 60000 })
   return reportWorkbench
 }
