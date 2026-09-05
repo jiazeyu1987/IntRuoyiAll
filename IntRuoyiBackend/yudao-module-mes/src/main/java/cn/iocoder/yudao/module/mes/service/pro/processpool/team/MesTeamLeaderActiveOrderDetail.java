@@ -79,6 +79,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private LocalDateTime submittedAt;
         private Boolean quantityConflict;
         private List<SubmissionDeviceDetail> devices = List.of();
+        private List<SubmissionMaterialDetail> materials = List.of();
     }
 
     @Data
@@ -87,6 +88,18 @@ public class MesTeamLeaderActiveOrderDetail {
         private Long deviceId;
         private String deviceCode;
         private String deviceName;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SubmissionMaterialDetail {
+        private Long materialId;
+        private String materialCode;
+        private String materialName;
+        private String materialSpecification;
+        private BigDecimal outputQuantity;
+        private BigDecimal lossQuantity;
+        private List<SubmissionDeviceDetail> devices = List.of();
     }
 
     @Data

@@ -469,6 +469,16 @@ export interface TeamLeaderActiveOrderSubmissionDeviceDetailRespVO {
   deviceName?: string
 }
 
+export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
+  materialId: number
+  materialCode: string
+  materialName: string
+  materialSpecification?: string
+  outputQuantity: number | string
+  lossQuantity: number | string
+  devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
+}
+
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   eventId: number
   submittedQuantity: number | string
@@ -477,6 +487,7 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   submittedAt: string | number
   quantityConflict?: boolean
   devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
+  materials: TeamLeaderActiveOrderSubmissionMaterialDetailRespVO[]
 }
 
 export interface TeamLeaderActiveOrderInputMaterialDetailRespVO {

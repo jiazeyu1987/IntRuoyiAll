@@ -1273,7 +1273,24 @@ public class MesProcessPoolTeamLeaderController {
                 .setQuantityConflict(submission.getQuantityConflict())
                 .setDevices(submission.getDevices().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceDetailRespVO)
-                        .toList());
+                        .toList())
+                .setMaterials(toSubmissionMaterialDetailRespVOs(submission.getMaterials()));
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetailRespVO.SubmissionMaterialDetail>
+    toSubmissionMaterialDetailRespVOs(List<MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail> materials) {
+        return materials.stream()
+                .map(material -> new MesTeamLeaderActiveOrderDetailRespVO.SubmissionMaterialDetail()
+                        .setMaterialId(material.getMaterialId())
+                        .setMaterialCode(material.getMaterialCode())
+                        .setMaterialName(material.getMaterialName())
+                        .setMaterialSpecification(material.getMaterialSpecification())
+                        .setOutputQuantity(material.getOutputQuantity())
+                        .setLossQuantity(material.getLossQuantity())
+                        .setDevices(material.getDevices().stream()
+                                .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceDetailRespVO)
+                                .toList()))
+                .toList();
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceDetail toActiveOrderSubmissionDeviceDetailRespVO(

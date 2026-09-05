@@ -57,8 +57,8 @@ assert.match(
 )
 assert.match(
   detailPanel,
-  /submission\.materials\?\.length[\s\S]*输出物料明细[\s\S]*material\.materialName[\s\S]*material\.materialCode[\s\S]*material\.outputQuantity[\s\S]*material\.lossQuantity[\s\S]*formatActiveOrderSubmissionDevices\(material\.devices\)/,
-  '详情页必须在每条生产提交下展示输出物料明细，而不是只显示提交事件行。'
+  /:data="buildActiveOrderProductionSubmissionRows\(process\)"[\s\S]*label="输出物料"[\s\S]*row\.materialName[\s\S]*label="物料编码"[\s\S]*row\.materialCode[\s\S]*label="完成数量"[\s\S]*row\.outputQuantity \?\? row\.submittedQuantity[\s\S]*label="损耗数量"[\s\S]*row\.lossQuantity[\s\S]*formatActiveOrderSubmissionDevices\(row\.devices\)/,
+  '详情页必须把每条生产提交的输出物料展开成标准列表行，而不是只显示提交事件行。'
 )
 
 console.log('PASS: active-order output material detail display static contract')

@@ -97,35 +97,56 @@
                   class="team-leader-workbench__active-order-detail-table-shell"
                 >
                   <el-table
-                    :data="process.submissions"
+                    :data="buildActiveOrderProductionSubmissionRows(process)"
                     size="small"
                     border
                     :fit="true"
                     table-layout="fixed"
+                    row-key="key"
                     :row-class-name="resolveActiveOrderSubmissionRowClassName"
                     class="team-leader-workbench__active-order-submission-table"
                   >
-                    <el-table-column label="提交数量" width="120">
-                      <template #default="{ row: submission }">
-                        {{ formatTraceQuantity(submission.submittedQuantity) }}
+                    <el-table-column label="输出物料" width="150">
+                      <template #default="{ row }">
+                        {{ row.materialName || '-' }}
                       </template>
                     </el-table-column>
-                    <el-table-column label="设备">
-                      <template #default="{ row: submission }">
-                        {{ formatActiveOrderSubmissionDevices(submission.devices) }}
+                    <el-table-column label="物料编码" width="140">
+                      <template #default="{ row }">
+                        {{ row.materialCode || '-' }}
                       </template>
                     </el-table-column>
-                    <el-table-column label="提交人" prop="submitterName" width="140" />
+                    <el-table-column label="规格型号" width="140">
+                      <template #default="{ row }">
+                        {{ row.materialSpecification || '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="完成数量" width="120">
+                      <template #default="{ row }">
+                        {{ formatTraceQuantity(row.outputQuantity ?? row.submittedQuantity) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="损耗数量" width="120">
+                      <template #default="{ row }">
+                        {{ formatTraceQuantity(row.lossQuantity) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="设备" width="180">
+                      <template #default="{ row }">
+                        {{ formatActiveOrderSubmissionDevices(row.devices) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="提交人" prop="submitterName" width="110" />
                     <el-table-column label="审核人" width="140">
-                      <template #default="{ row: submission }">
-                        <span :class="{ 'is-pending': !submission.reviewerName }">
-                          {{ submission.reviewerName || '未审核' }}
+                      <template #default="{ row }">
+                        <span :class="{ 'is-pending': !row.reviewerName }">
+                          {{ row.reviewerName || '未审核' }}
                         </span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="提交时间" width="180">
-                      <template #default="{ row: submission }">
-                        {{ formatDateTime(submission.submittedAt) }}
+                    <el-table-column label="提交时间" width="160">
+                      <template #default="{ row }">
+                        {{ formatDateTime(row.submittedAt) }}
                       </template>
                     </el-table-column>
                   </el-table>
@@ -333,8 +354,10 @@ import type {
   TeamLeaderActiveOrderPqcSubmissionDetailRespVO,
   TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO,
   TeamLeaderActiveOrderProcessDetailRespVO,
-  TeamLeaderActiveOrderSupplementMaterialDetailRespVO,
-  TeamLeaderActiveOrderSubmissionDeviceDetailRespVO
+  TeamLeaderActiveOrderSubmissionDetailRespVO,
+  TeamLeaderActiveOrderSubmissionDeviceDetailRespVO,
+  TeamLeaderActiveOrderSubmissionMaterialDetailRespVO,
+  TeamLeaderActiveOrderSupplementMaterialDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import { formatDateTimeValue } from '@/utils/formatTime'
 
@@ -414,6 +437,72 @@ interface ActiveOrderPqcItemAggregateRow {
   judgementSummaryText: string
   equipmentSummaryText: string
 }
+
+interface ActiveOrderProductionSubmissionRow {
+  key: string
+  eventId: number
+  materialId?: number
+  materialCode?: string
+  materialName?: string
+  materialSpecification?: string
+  submittedQuantity: number | string
+  outputQuantity?: number | string
+  lossQuantity?: number | string
+  submitterName: string
+  reviewerName?: string
+  submittedAt: string | number
+  quantityConflict?: boolean
+  devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
+}
+
+const buildActiveOrderProductionSubmissionRows = (
+  process: TeamLeaderActiveOrderProcessDetailRespVO
+): ActiveOrderProductionSubmissionRow[] => {
+  const rows: ActiveOrderProductionSubmissionRow[] = []
+  for (const submission of process.submissions ?? []) {
+    for (const [materialIndex, material] of (submission.materials ?? []).entries()) {
+      rows.push(toActiveOrderProductionMaterialSubmissionRow(submission, material, materialIndex))
+    }
+    if (!submission.materials?.length) {
+      rows.push(toActiveOrderProductionEventSubmissionRow(submission))
+    }
+  }
+  return rows
+}
+
+const toActiveOrderProductionMaterialSubmissionRow = (
+  submission: TeamLeaderActiveOrderSubmissionDetailRespVO,
+  material: TeamLeaderActiveOrderSubmissionMaterialDetailRespVO,
+  materialIndex: number
+): ActiveOrderProductionSubmissionRow => ({
+  key: `${submission.eventId}-${materialIndex}-${material.materialId}-${material.materialCode}`,
+  eventId: submission.eventId,
+  materialId: material.materialId,
+  materialCode: material.materialCode,
+  materialName: material.materialName,
+  materialSpecification: material.materialSpecification,
+  submittedQuantity: submission.submittedQuantity,
+  outputQuantity: material.outputQuantity,
+  lossQuantity: material.lossQuantity,
+  submitterName: submission.submitterName,
+  reviewerName: submission.reviewerName,
+  submittedAt: submission.submittedAt,
+  quantityConflict: submission.quantityConflict,
+  devices: material.devices?.length ? material.devices : submission.devices
+})
+
+const toActiveOrderProductionEventSubmissionRow = (
+  submission: TeamLeaderActiveOrderSubmissionDetailRespVO
+): ActiveOrderProductionSubmissionRow => ({
+  key: `${submission.eventId}`,
+  eventId: submission.eventId,
+  submittedQuantity: submission.submittedQuantity,
+  submitterName: submission.submitterName,
+  reviewerName: submission.reviewerName,
+  submittedAt: submission.submittedAt,
+  quantityConflict: submission.quantityConflict,
+  devices: submission.devices
+})
 
 const normalizeActiveOrderPqcText = (value?: string | number | null) => {
   if (value === undefined || value === null) return ''
@@ -809,6 +898,30 @@ watch(
 
 .team-leader-workbench__active-order-submission-table {
   width: 100%;
+}
+
+.team-leader-workbench__active-order-output-materials {
+  display: grid;
+  gap: 6px;
+}
+
+.team-leader-workbench__active-order-output-materials-title {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__active-order-output-material {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  color: var(--el-text-color-regular);
+  line-height: 1.45;
+}
+
+.team-leader-workbench__active-order-output-material-name {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
 }
 
 .team-leader-workbench__active-order-detail-table-shell {

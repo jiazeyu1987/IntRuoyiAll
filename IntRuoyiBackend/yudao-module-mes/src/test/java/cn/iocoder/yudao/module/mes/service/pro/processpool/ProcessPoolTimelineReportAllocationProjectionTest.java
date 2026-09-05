@@ -91,6 +91,98 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
     }
 
     @Test
+    void shouldReadLegacySingleObjectSelectedDevicesPayload() {
+        ProcessPoolTimelineEventReadDO event = ProcessPoolTimelineTestSupport.event(
+                        1002L, "2026-07-30T08:35:00", 2001L, 6001L, 9001L, "PRODUCTION", 30001L)
+                .setOriginalPayloadJson("""
+                        {
+                          "outputQuantity": 10,
+                          "lossQuantity": 0,
+                          "selectedDevices": {
+                            "deviceId": 9001,
+                            "deviceCode": "B09393",
+                            "deviceName": "超声波清洗机"
+                          }
+                        }
+                        """);
+
+        PageResult<ProcessPoolTimelineEventRespVO> page = ProcessPoolTimelineTestSupport
+                .service(ProcessPoolTimelineTestSupport.mapper(event))
+                .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq());
+
+        ProcessPoolTimelineEventRespVO actual = page.getList().get(0);
+        assertEquals(1, actual.getSelectedDevices().size());
+        assertEquals(9001L, actual.getSelectedDevices().get(0).getDeviceId());
+        assertEquals("B09393", actual.getSelectedDevices().get(0).getDeviceCode());
+        assertEquals("超声波清洗机", actual.getSelectedDevices().get(0).getDeviceName());
+    }
+
+    @Test
+    void shouldMergeFormalFeedbackMaterialNameAndLegacySingleObjectMaterialDeviceSnapshot() {
+        ProcessPoolTimelineEventReadDO event = ProcessPoolTimelineTestSupport.event(
+                        1003L, "2026-07-30T08:40:00", 2001L, 6001L, 9001L, "PRODUCTION", 30001L)
+                .setSourceFeedbackId(7001L)
+                .setOriginalPayloadJson("""
+                        {
+                          "materialDetails": [
+                            {
+                              "materialId": 81001,
+                              "outputQuantity": 1111,
+                              "lossQuantity": 1
+                            }
+                          ]
+                        }
+                        """);
+        MesProProcessPoolTimelineReadMapper mapper = new MesProProcessPoolTimelineReadMapper() {
+            @Override
+            public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+                return 1L;
+            }
+
+            @Override
+            public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+                return List.of(event);
+            }
+
+            @Override
+            public ProcessPoolTimelineEventReadDO selectTimelineDetailById(Long id) {
+                return event;
+            }
+
+            @Override
+            public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(
+                    List<Long> eventIds) {
+                return List.of();
+            }
+
+            @Override
+            public List<MesProFeedbackMaterialDO> selectFeedbackMaterialsByFeedbackIds(List<Long> feedbackIds) {
+                assertEquals(List.of(7001L), feedbackIds);
+                return List.of(new MesProFeedbackMaterialDO()
+                        .setFeedbackId(7001L)
+                        .setMaterialId(81001L)
+                        .setMaterialCode("MAT-81001")
+                        .setMaterialName("弹簧")
+                        .setOutputQuantity(new BigDecimal("1111"))
+                        .setLossQuantity(new BigDecimal("1"))
+                        .setSelectedDeviceJson("""
+                                {"deviceId":980021,"deviceCode":"B09031","deviceName":"超声波清洗机"}
+                                """));
+            }
+        };
+
+        PageResult<ProcessPoolTimelineEventRespVO> page = new ProcessPoolTimelineServiceImpl(mapper)
+                .getTimelinePage(ProcessPoolTimelineTestSupport.pageReq());
+
+        ProcessPoolTimelineEventRespVO.MaterialDetailRespVO material = page.getList().get(0).getMaterialDetails().get(0);
+        assertEquals("弹簧", material.getMaterialName());
+        assertEquals("MAT-81001", material.getMaterialCode());
+        assertEquals(1, material.getSelectedDevices().size());
+        assertEquals("B09031", material.getSelectedDevices().get(0).getDeviceCode());
+        assertEquals("超声波清洗机", material.getSelectedDevices().get(0).getDeviceName());
+    }
+
+    @Test
     void shouldFailWhenFormalOrderProcessTargetIsMissing() {
         ProcessPoolTimelineEventReadDO event = ProcessPoolTimelineTestSupport.event(
                 1001L, "2026-07-30T08:30:00", 2001L, 6001L, 9001L, "PRODUCTION", 30001L)

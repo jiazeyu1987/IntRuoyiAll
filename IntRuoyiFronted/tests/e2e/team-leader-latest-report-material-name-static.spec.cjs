@@ -25,7 +25,12 @@ assert.match(
 )
 assert.match(
   page,
-  /resolveSubmissionMaterialTitle[\s\S]*submissionMaterialNameCache\.value\[String\(item\.materialId\)\]/,
+  /isPlaceholderMaterialName[\s\S]*物料名称未记录/,
+  'placeholder text 物料名称未记录 must be treated as missing, not as a real material name'
+)
+assert.match(
+  page,
+  /resolveSubmissionMaterialTitle[\s\S]*!isPlaceholderMaterialName\(item\.materialName\)[\s\S]*submissionMaterialNameCache\.value\[String\(item\.materialId\)\]/,
   'expanded material title must read the enriched formal material name cache'
 )
 assert.match(

@@ -7452,22 +7452,24 @@ const enrichCorrectionMaterialParameterRows = (
   }))
 }
 
-const isPlaceholderMaterialName = (value?: string) =>
-  /^物料\s*\d+$/.test(String(value ?? '').trim())
+const isPlaceholderMaterialName = (value?: string) => {
+  const text = String(value ?? '').trim()
+  return text === '物料名称未记录' || /^物料\s*\d+$/.test(text)
+}
 
 const resolveSubmittedMaterialName = (value: PqcSubmissionPayloadRecord) => {
   const material = isRecord(value.material) ? value.material : undefined
-  return (
-    String(
-      value.materialName ??
-        value.itemName ??
-        value.productName ??
-        value.outputMaterialName ??
-        material?.materialName ??
-        material?.name ??
-        ''
-    ).trim() || undefined
-  )
+  const candidates = [
+    value.materialName,
+    value.itemName,
+    value.productName,
+    value.outputMaterialName,
+    material?.materialName,
+    material?.name
+  ]
+  return candidates
+    .map((candidate) => String(candidate ?? '').trim())
+    .find((candidate) => candidate && !isPlaceholderMaterialName(candidate))
 }
 
 const toProductionMaterialRow = (value: unknown): ProductionReportCorrectionMaterialRow | undefined => {
@@ -7566,14 +7568,19 @@ const resolveProductionMaterialRows = (row: ProcessPoolTimelineEventVO) => {
 }
 
 const resolveSubmissionMaterialTitle = (item: ProductionReportCorrectionMaterialRow) =>
-  formatSubmissionText(item.materialName, '物料名称未记录')
+  formatSubmissionText(
+    item.materialName && !isPlaceholderMaterialName(item.materialName)
+      ? item.materialName
+      : submissionMaterialNameCache.value[String(item.materialId)],
+    '物料名称未记录'
+  )
 
 const resolveCorrectionMaterialNames = async (
   materialRows: ProductionReportCorrectionMaterialRow[]
 ) => {
   return await Promise.all(
     materialRows.map(async (item) => {
-      const hasRealName = item.materialName && !/^物料\s*\d+$/.test(item.materialName)
+      const hasRealName = item.materialName && !isPlaceholderMaterialName(item.materialName)
       if (hasRealName) {
         return item
       }
@@ -7585,6 +7592,37 @@ const resolveCorrectionMaterialNames = async (
       return { ...item, materialName }
     })
   )
+}
+
+const enrichSubmissionMaterialNames = async (rows: ProcessPoolTimelineEventVO[]) => {
+  const missingMaterialRows = rows
+    .flatMap((row) => resolveProductionMaterialRows(row))
+    .filter(
+      (item) =>
+        item.materialId > 0 &&
+        (!item.materialName || isPlaceholderMaterialName(item.materialName)) &&
+        !submissionMaterialNameCache.value[String(item.materialId)]
+    )
+  const uniqueMaterialRows = [
+    ...new Map(missingMaterialRows.map((item) => [item.materialId, item])).values()
+  ]
+  if (!uniqueMaterialRows.length) {
+    return
+  }
+  const resolvedEntries = await Promise.all(
+    uniqueMaterialRows.map(async (item) => {
+      const material = await MdItemApi.getItem(item.materialId)
+      const materialName = String(material?.name || '').trim()
+      if (!materialName) {
+        throw new Error(`物料 ${item.materialId} 缺少真实物料名称，不能展示报工明细`)
+      }
+      return [String(item.materialId), materialName] as const
+    })
+  )
+  submissionMaterialNameCache.value = {
+    ...submissionMaterialNameCache.value,
+    ...Object.fromEntries(resolvedEntries)
+  }
 }
 
 const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
@@ -8388,7 +8426,9 @@ async function getSubmissionList() {
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
-    submissionList.value = data.list || []
+    const list = data.list || []
+    await enrichSubmissionMaterialNames(list)
+    submissionList.value = list
     submissionTotal.value = data.total || 0
   } catch (error) {
     submissionList.value = []
@@ -11641,4 +11681,3 @@ onMounted(() => {
   }
 }
 </style>
-

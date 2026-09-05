@@ -512,7 +512,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
                     .setSubmittedAt(row.getSubmittedAt())
-                    .setDevices(resolveSubmissionDevices(row, activeOrderId)));
+                    .setDevices(resolveSubmissionDevices(row, activeOrderId))
+                    .setMaterials(resolveSubmissionMaterials(row, activeOrderId)));
             submittedQuantity = submittedQuantity.add(row.getSubmittedQuantity());
         }
 
@@ -559,6 +560,40 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         addDevice(devices, row.getEventDeviceId(), row.getEventDeviceCode(), row.getEventDeviceName());
         return List.copyOf(devices.values());
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail> resolveSubmissionMaterials(
+            MesTeamLeaderActiveOrderDetailReadDO row, Long activeOrderId) {
+        Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+        if (payload == null) {
+            return List.of();
+        }
+        Object value = payload.get("materialDetails");
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> materialDetails)) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        List<MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail> rows = new ArrayList<>();
+        for (Object materialDetail : materialDetails) {
+            if (!(materialDetail instanceof Map<?, ?> detail)) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices = new LinkedHashMap<>();
+            addDevicesFromValue(devices, detail.get("selectedDevice"), activeOrderId);
+            addDevicesFromValue(devices, detail.get("selectedDevices"), activeOrderId);
+            addDevicesFromValue(devices, detail.get("deviceParameterReadings"), activeOrderId);
+            rows.add(new MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail()
+                    .setMaterialId(requirePositiveLongValue(detail.get("materialId"), activeOrderId))
+                    .setMaterialCode(requireStringValue(detail.get("materialCode"), activeOrderId))
+                    .setMaterialName(requireStringValue(detail.get("materialName"), activeOrderId))
+                    .setMaterialSpecification(stringValue(detail.get("materialSpecification")))
+                    .setOutputQuantity(bigDecimalValue(detail.get("outputQuantity"), activeOrderId))
+                    .setLossQuantity(bigDecimalValue(detail.get("lossQuantity"), activeOrderId))
+                    .setDevices(List.copyOf(devices.values())));
+        }
+        return List.copyOf(rows);
     }
 
     private static Map<?, ?> parseOriginalPayload(String originalPayloadJson, Long activeOrderId) {
@@ -659,8 +694,42 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
     }
 
+    private static Long requirePositiveLongValue(Object value, Long activeOrderId) {
+        Long parsed = longValue(value, activeOrderId);
+        if (parsed == null || parsed <= 0) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        return parsed;
+    }
+
     private static String stringValue(Object value) {
         return trimToNull(value);
+    }
+
+    private static String requireStringValue(Object value, Long activeOrderId) {
+        String text = trimToNull(value);
+        if (text == null) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        return text;
+    }
+
+    private static BigDecimal bigDecimalValue(Object value, Long activeOrderId) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number number) {
+            return new BigDecimal(number.toString());
+        }
+        String text = trimToNull(value);
+        if (text == null) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException ex) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
     }
 
     private static String trimToNull(Object value) {

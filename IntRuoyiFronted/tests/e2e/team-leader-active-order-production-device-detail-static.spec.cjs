@@ -87,8 +87,8 @@ assert.match(
 )
 assert.match(
   detailPanel,
-  /<el-table-column label="设备"[\s\S]*formatActiveOrderSubmissionDevices\(submission\.devices\)/,
-  '生产提交详情表必须显示设备列并格式化设备集合'
+  /<el-table-column label="设备"[\s\S]*formatActiveOrderSubmissionDevices\(row\.devices\)/,
+  '生产提交详情表必须显示设备列并格式化展开后的物料行设备集合'
 )
 
 console.log('team-leader-active-order-production-device-detail-static.spec.cjs PASS')

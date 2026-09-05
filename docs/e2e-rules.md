@@ -78,6 +78,7 @@
 - Trigger: 任务验收文档指定 `pnpm test:e2e ...`、`pnpm test <target>`、Playwright spec 文件或新增真实用户路径 E2E。
 - Preflight check: 运行前读取当前前端 `package.json` 的 scripts，确认命令名存在、命名 runner 能识别目标、spec 文件存在，并记录实际工作目录；PowerShell 下若 `pnpm --dir` 或 `pnpm -C` 解析异常，改用显式 `workdir` 复核，不把第一次命令解析失败当作业务 E2E 结果。
 - Preflight check: 静态合同脚本可能按仓库根目录或前端根目录解析相对路径，运行前必须从脚本的 `process.cwd()` 和路径拼接方式确认期望工作目录；若只因工作目录错误导致文件不存在，应修正命令后重跑，不能把路径错误写成业务 FAIL。
+- Preflight check: 任务目录下的一次性真实 E2E 脚本如果直接 `require('playwright')`，Node 会按脚本目录而不是前端目录解析依赖；必须显式从 `IntRuoyiFronted/node_modules/playwright` 加载，或把脚本放在前端测试目录并从前端工作目录运行。Element Plus tabs/table 会保留隐藏的非激活 DOM，表头或单元格断言必须锚定 `:visible`、当前激活 tab 或业务容器；不得把隐藏旧表头命中写成产品页面失败。
 - Preflight check: 验收文档包含写入型用户路径时，还必须同时确认真实页面入口、前端 route、权限 meta、页面主按钮和写 API wrapper 全链路存在；只有 API wrapper 或只读追溯页存在时，不得宣称写路径已实现。
 - Preflight check: 复用历史真实脚本前，必须先按当前源码或真实 DOM 核对入口按钮文案、稳定锚点和可点击条件；按钮已 visible 但仍受 loading、navigationLoading、saving 或权限状态禁用时，脚本应等待正式可点击状态并记录禁用来源，不能把瞬时 disabled 或旧文案定位失败直接写成产品功能失败。
 - Preflight check: Element Plus 弹窗标题可能使用业务文件名、编号或动态标题；脚本等待弹窗时应锚定真实 DOM 中稳定可见的业务文本或 `data-testid`，不得硬等旧固定标题。打开预览、抽屉或遮罩后继续操作底层页面按钮前，必须先关闭覆盖层并等待其隐藏，不能把遮罩拦截点击误判为业务按钮不可用或下载失败。

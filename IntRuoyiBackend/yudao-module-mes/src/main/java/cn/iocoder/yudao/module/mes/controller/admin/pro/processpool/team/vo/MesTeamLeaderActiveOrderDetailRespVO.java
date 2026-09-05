@@ -81,6 +81,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private LocalDateTime submittedAt;
         private Boolean quantityConflict;
         private List<SubmissionDeviceDetail> devices;
+        private List<SubmissionMaterialDetail> materials;
     }
 
     @Data
@@ -89,6 +90,18 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Long deviceId;
         private String deviceCode;
         private String deviceName;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SubmissionMaterialDetail {
+        private Long materialId;
+        private String materialCode;
+        private String materialName;
+        private String materialSpecification;
+        private BigDecimal outputQuantity;
+        private BigDecimal lossQuantity;
+        private List<SubmissionDeviceDetail> devices;
     }
 
     @Data

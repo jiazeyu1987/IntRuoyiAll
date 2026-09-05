@@ -36,6 +36,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
     private static final TypeReference<List<ProcessPoolTimelineEventRespVO.MaterialDetailRespVO>> MATERIAL_DETAIL_TYPE =
             new TypeReference<>() {
             };
+    private static final TypeReference<List<ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO>> SELECTED_DEVICE_LIST_TYPE =
+            new TypeReference<>() {
+            };
     private static final TypeReference<List<ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO>>
             DEVICE_PARAMETER_READING_TYPE = new TypeReference<>() {
             };
@@ -185,9 +188,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setMaterialDetails(convertValue(payload.get("materialDetails"), MATERIAL_DETAIL_TYPE))
                 .setSelectedDevice(convertValue(payload.get("selectedDevice"),
                         ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class))
-                .setSelectedDevices(convertValue(payload.get("selectedDevices"),
-                        new com.fasterxml.jackson.core.type.TypeReference<List<
-                                ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO>>() {}))
+                .setSelectedDevices(toSelectedDevices(payload.get("selectedDevices")))
                 .setDeviceParameterReadings(convertValue(payload.get("deviceParameterReadings"),
                         DEVICE_PARAMETER_READING_TYPE));
     }
@@ -248,9 +249,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         }
         if ((result.getSelectedDevices() == null || result.getSelectedDevices().isEmpty())
                 && StrUtil.isNotBlank(material.getSelectedDeviceJson())) {
-            result.setSelectedDevices(convertJson(material.getSelectedDeviceJson(),
-                    new TypeReference<List<ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO>>() {
-                    }));
+            result.setSelectedDevices(convertSelectedDevicesJson(material.getSelectedDeviceJson()));
         }
         if (result.getDeviceParameterReadings() == null || result.getDeviceParameterReadings().isEmpty()) {
             result.setDeviceParameterReadings(convertJson(material.getDeviceParameterReadingsJson(),
@@ -264,6 +263,22 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
             return null;
         }
         return JsonUtils.parseObject(json, typeReference);
+    }
+
+    private List<ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO> convertSelectedDevicesJson(String json) {
+        if (StrUtil.isBlank(json)) {
+            return null;
+        }
+        String trimmed = json.trim();
+        if (trimmed.startsWith("[")) {
+            return JsonUtils.parseObject(trimmed, SELECTED_DEVICE_LIST_TYPE);
+        }
+        if (trimmed.startsWith("{")) {
+            ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO device = JsonUtils.parseObject(trimmed,
+                    ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class);
+            return device == null ? null : List.of(device);
+        }
+        throw new IllegalArgumentException("selectedDeviceJson 快照格式无效，必须是数组或单设备对象");
     }
 
     private Map<String, Object> parseOriginalPayload(String originalPayloadJson) {
@@ -326,6 +341,19 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
 
     private static <T> T convertValue(Object value, TypeReference<T> typeReference) {
         return value == null ? null : JsonUtils.getObjectMapper().convertValue(value, typeReference);
+    }
+
+    private static List<ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO> toSelectedDevices(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof List<?>) {
+            return convertValue(value, SELECTED_DEVICE_LIST_TYPE);
+        }
+        if (value instanceof Map<?, ?>) {
+            return List.of(convertValue(value, ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class));
+        }
+        throw new IllegalArgumentException("selectedDevices 快照格式无效，必须是数组或单设备对象");
     }
 
     private static String resolveDisplayProcessCode(ProcessPoolTimelineEventReadDO event) {
