@@ -103,6 +103,10 @@
   - `mvn -pl yudao-module-bpm "-Dtest=BpmNativeApprovalTaskProviderTest,BpmTaskServiceImplApprovalFilterTest,BpmMessageServiceImplTest" test` -> PASS, 53 tests.
   - `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateAccessRequestServiceTest,DccRegistrationCertificateBpmIntegrationTest,DccRegistrationCertificateBusinessEventNotifierTest,DccRegistrationCertificateBusinessEventNotificationTest" test` -> PASS, 38 tests.
   - `git diff --check` -> PASS.
+- Closeout apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --mode apply --task-id 20260904-registration-change-e2e-sync` -> APPLIED. It deleted task-local evidence artifacts, fast-forward merged `codex/20260904-registration-change-e2e-sync` into `E:\IntRuoyi`, and removed Git worktree registration.
+- Post-merge HEAD: `int_main` -> `7afa6b11c`.
+- Post-merge worktree status: `E:\IntRuoyi` clean, ahead of origin by 13 local commits.
+- Residual cleanup note: `Test-Path D:\IntRuoyiWorktree\20260904-registration-change-e2e-sync` returned `True`, but `git worktree list --porcelain` no longer includes that path. The residual contains task-owned `IntRuoyiFronted\node_modules`. Attempts to remove the residual directory with guarded PowerShell `Remove-Item -LiteralPath ... -Recurse -Force` were rejected by local execution policy, so it remains as a non-Git physical cache directory requiring manual cleanup.
 - Rebased again after `int_main` advanced locally; final ancestry check shows `codex/20260904-registration-change-e2e-sync` is one commit ahead of current `int_main`.
 - Final closeout preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --mode preview --task-id 20260904-registration-change-e2e-sync` -> BLOCKED only because main worktree `E:\IntRuoyi` is dirty and cannot receive ff-only merge. Current main dirty files are unrelated Kingdee/source-governance task files, so they were not modified.
 - User authorized committing the main-worktree blocker first. Main-worktree verification before that commit:

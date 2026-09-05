@@ -32,7 +32,7 @@
 
 ## Current Status
 
-ready_for_closeout - 已按用户授权完成 E2E-8 修复和 E2E-9 数据模拟验证，并将分支 rebase 到当前 `int_main`，本任务分支只领先 1 个提交。目标静态合同、BPM/DCC 后端单测和 `git diff --check` 均通过；主工作区阻塞改动已按用户要求提交，等待 closeout apply 融合。
+completed - 已按用户授权完成 E2E-8 修复和 E2E-9 数据模拟验证，并融合进 `int_main`。主干先提交 `ca4a1fc33 feat: prepare DCC source governance manifests`，随后本任务以 `7afa6b11c 修复注册证变更下载E2E链路` 快进合入，当前 `int_main` HEAD 为 `7afa6b11c`。目标静态合同、BPM/DCC 后端单测和 `git diff --check` 均通过；closeout apply 已清理任务证据并移除 Git worktree 注册。物理目录仍残留任务前端 `node_modules` 缓存，递归删除命令被本地策略拦截，需手工清理。
 
 ## Design Constraints Check
 

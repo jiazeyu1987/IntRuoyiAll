@@ -142,3 +142,12 @@ The requested SMS/mobile dependency, missing reminder-job configuration blocker,
   - `mvn -pl yudao-module-bpm "-Dtest=BpmNativeApprovalTaskProviderTest,BpmTaskServiceImplApprovalFilterTest,BpmMessageServiceImplTest" test` -> PASS, 53 tests.
   - `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateAccessRequestServiceTest,DccRegistrationCertificateBpmIntegrationTest,DccRegistrationCertificateBusinessEventNotifierTest,DccRegistrationCertificateBusinessEventNotificationTest" test` -> PASS, 38 tests.
   - `git diff --check` -> PASS.
+
+## Final Integration Result
+
+- Main-worktree blocker commit: `ca4a1fc33 feat: prepare DCC source governance manifests`.
+- Task integration commit: `7afa6b11c 修复注册证变更下载E2E链路`.
+- Final `int_main` HEAD after fast-forward merge: `7afa6b11c`.
+- Closeout apply result: APPLIED. Git worktree registration for `D:\IntRuoyiWorktree\20260904-registration-change-e2e-sync` was removed.
+- Post-merge status: `E:\IntRuoyi` clean and `int_main` ahead of `origin/int_main` by 13 local commits.
+- Cleanup residual: the physical path `D:\IntRuoyiWorktree\20260904-registration-change-e2e-sync` still exists with task-owned `IntRuoyiFronted\node_modules`; guarded recursive delete commands were rejected by local policy, so this is a manual filesystem cleanup item, not a merge blocker.
