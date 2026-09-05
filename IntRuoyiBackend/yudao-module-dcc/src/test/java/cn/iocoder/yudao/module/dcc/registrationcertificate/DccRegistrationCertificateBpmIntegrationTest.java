@@ -210,6 +210,33 @@ class DccRegistrationCertificateBpmIntegrationTest {
     }
 
     @Test
+    void startDownloadApprovalCarriesCertificateNoIntoNativeNameAndVariables() {
+        DccRegistrationCertificateAccessRequestDO request = submittedDownloadRequest();
+        when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
+                .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 120L)));
+        when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-download-1001");
+        when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
+        when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
+
+        service.startNativeApproval(
+                TENANT_ID, ACTOR_ID, new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
+
+        ArgumentCaptor<BpmProcessInstanceCreateReqDTO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
+        verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
+        BpmProcessInstanceCreateReqDTO bpmRequest = captor.getValue();
+        assertEquals("注册证下载审批 国械注准20263000001", bpmRequest.getName());
+        assertEquals("国械注准20263000001", bpmRequest.getVariables().get("certificateNo"));
+        assertEquals("DOWNLOAD_FILE", bpmRequest.getVariables().get("requestType"));
+        assertEquals("request-1001", bpmRequest.getVariables().get("requestKey"));
+    }
+
+    @Test
     void startCarriesRenewalOperationIntoNativeApprovalVariables() {
         DccRegistrationCertificateAccessRequestDO request = submittedUploadRequest();
         request.setDetailJson(registrationCertificateDetail("RENEWAL_CERTIFICATE"));
@@ -516,6 +543,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
         request.setDetailJson("""
                 {
                   "requestType": "DOWNLOAD_FILE",
+                  "certificateNo": "国械注准20263000001",
                   "businessFileIds": [990819182]
                 }
                 """);

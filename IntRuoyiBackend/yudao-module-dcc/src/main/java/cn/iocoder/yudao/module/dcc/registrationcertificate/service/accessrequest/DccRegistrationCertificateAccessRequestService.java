@@ -111,6 +111,8 @@ public class DccRegistrationCertificateAccessRequestService {
         List<DccRegistrationCertificateFileDO> files = validateFiles(
                 tenantId, certificate, normalized.requestType(), normalized.businessFileIds());
         LocalDateTime now = businessClock.now();
+        String certificateNo = TYPE_DOWNLOAD_FILE.equals(normalized.requestType())
+                ? requireCurrentCertificateNo(tenantId, certificate) : null;
         DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
                 .ownerCompanyId(certificate.getOwnerCompanyId())
                 .certificateId(certificate.getId())
@@ -121,7 +123,7 @@ public class DccRegistrationCertificateAccessRequestService {
                 .projectCodeId(normalized.projectCodeId())
                 .status(STATUS_SUBMITTED)
                 .requestedAt(now)
-                .detailJson(detailJson(payloadHash, normalized))
+                .detailJson(detailJson(payloadHash, normalized, certificateNo))
                 .build();
         request.setTenantId(tenantId);
         try {
@@ -254,6 +256,19 @@ public class DccRegistrationCertificateAccessRequestService {
         }
     }
 
+    private String requireCurrentCertificateNo(Long tenantId, DccRegistrationCertificateDO certificate) {
+        if (certificate.getCurrentVersionId() == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+        }
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(certificate.getCurrentVersionId());
+        if (version == null || !Objects.equals(version.getTenantId(), tenantId)
+                || !Objects.equals(version.getCertificateId(), certificate.getId())
+                || isBlank(version.getCertificateNo())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+        }
+        return version.getCertificateNo().trim();
+    }
+
     private void validateProjectCodeIfPresent(Long tenantId, Long projectCodeId, Long productMasterId) {
         if (projectCodeId == null) {
             return;
@@ -344,11 +359,14 @@ public class DccRegistrationCertificateAccessRequestService {
         return sha256Hex(JsonUtils.toJsonString(payload));
     }
 
-    private static String detailJson(String payloadHash, NormalizedCommand command) {
+    private static String detailJson(String payloadHash, NormalizedCommand command, String certificateNo) {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("payloadHash", payloadHash);
         detail.put("requestType", command.requestType());
         detail.put("businessFileIds", command.businessFileIds());
+        if (!isBlank(certificateNo)) {
+            detail.put("certificateNo", certificateNo.trim());
+        }
         return JsonUtils.toJsonString(detail);
     }
 
@@ -366,6 +384,10 @@ public class DccRegistrationCertificateAccessRequestService {
             throw new ServiceException(errorCode);
         }
         return value.trim();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private static <T> T require(T value, String name) {

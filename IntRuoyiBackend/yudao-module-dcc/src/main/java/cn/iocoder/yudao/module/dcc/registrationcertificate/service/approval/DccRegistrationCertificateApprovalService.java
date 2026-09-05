@@ -151,6 +151,9 @@ public class DccRegistrationCertificateApprovalService {
         if (REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
             addRegistrationCertificateSummaryVariables(variables, request);
             bpmRequest.setName(buildRegistrationCertificateApprovalName(variables));
+        } else {
+            addRegistrationCertificateAccessSummaryVariables(variables, request);
+            bpmRequest.setName(buildRegistrationCertificateAccessApprovalName(variables));
         }
         bpmRequest.setVariables(variables);
         String processInstanceId = createNativeProcessInstance(actorId, bpmRequest);
@@ -586,6 +589,23 @@ public class DccRegistrationCertificateApprovalService {
         return label + " " + String.valueOf(certificateNo).trim();
     }
 
+    private static String buildRegistrationCertificateAccessApprovalName(Map<String, Object> variables) {
+        String label = switch (String.valueOf(variables.get("requestType"))) {
+            case "VIEW_OLD_CERTIFICATE" -> "旧注册证查看审批";
+            case "DOWNLOAD_FILE" -> "注册证下载审批";
+            default -> throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        };
+        Object certificateNo = variables.get("certificateNo");
+        if (certificateNo != null && !isBlank(String.valueOf(certificateNo))) {
+            return label + " " + String.valueOf(certificateNo).trim();
+        }
+        Object requestKey = variables.get("requestKey");
+        if (requestKey != null && !isBlank(String.valueOf(requestKey))) {
+            return label + " " + String.valueOf(requestKey).trim();
+        }
+        return label;
+    }
+
     private static void addRegistrationCertificateSummaryVariables(
             Map<String, Object> variables, DccRegistrationCertificateAccessRequestDO request) {
         Map<?, ?> detail = isBlank(request.getDetailJson())
@@ -604,6 +624,19 @@ public class DccRegistrationCertificateApprovalService {
         variables.put("classification", requireSummaryText(detail, "classification"));
         variables.put("productName", requireSummaryText(detail, "productName"));
         variables.put("ownerCompanyName", requireSummaryText(detail, "ownerCompanyName"));
+    }
+
+    private static void addRegistrationCertificateAccessSummaryVariables(
+            Map<String, Object> variables, DccRegistrationCertificateAccessRequestDO request) {
+        Map<?, ?> detail = isBlank(request.getDetailJson())
+                ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
+        if (detail == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        Object certificateNo = detail.get("certificateNo");
+        if (certificateNo != null && !isBlank(String.valueOf(certificateNo))) {
+            variables.put("certificateNo", String.valueOf(certificateNo).trim());
+        }
     }
 
     private static String requireSummaryText(Map<?, ?> detail, String key) {

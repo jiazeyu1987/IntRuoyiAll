@@ -106,6 +106,15 @@
 - Forbidden action: 禁止在 E2E 脚本中未经当前任务明确授权就创建角色、分配角色、扩大菜单权限、重置审批人密码、静默切换租户账号或用 API-only 伪造审批处理。
 - Evidence: `doc/tasks/20260901-registration-certificate-dcc-category-binding/execution-log.md`。
 
+### 账号标签与页面显示名审计门禁
+
+- Trigger: 注册证、DCC、BPM、eDHR 或其它真实 E2E 需要断言申请人、上传人、审批人、操作人、签名人等审计字段。
+- Preflight check: 先区分“登录账号标签”和“页面审计显示名/真实姓名”。登录步骤和任务日志可用账号标签标识身份；详情页、审批摘要、操作审计和签名记录若产品字段定义为姓名，应按页面真实姓名断言，例如 `wanglixuan` 的注册证上传审计显示 `王立轩` 是正确结果。
+- Blocker: 脚本只用用户名字符串断言审计姓名、把正确真实姓名误判为账号不一致、或为了让断言通过而要求产品改回登录名时，必须停止并修正验收文档或脚本断言；不得把该类脚本口径错误记录为产品失败。
+- Verification: 证据同时记录账号标签、页面可见审计显示值、该显示值来源字段，以及申请人与审批人是否分离；若真实姓名未知，可先以真实页面权限信息或审批中心可见姓名做只读身份核对，再继续页面业务路径。
+- Forbidden action: 禁止把账号标签和真实姓名混为同一个验收字段；禁止在日志中记录密码、token、cookie 或完整敏感响应。
+- Evidence: `doc/tasks/20260904-registration-upload-e2e-verify/verification-report.md`。
+
 ### 审批流程通知通道门禁
 
 - Trigger: 申请提交成功、审批待办可见或审批动作已进入 Flowable，但页面 toast 出现“手机号不存在”、短信模板异常、短信日志字段过长等与目标业务无关的通知错误。
@@ -128,6 +137,7 @@
 - Trigger: Playwright 在 Element Plus 表格、多条件筛选、quick filter、页签过滤或列表搜索中填入目标业务编号，但列表结果仍返回大批量数据、目标样本缺失、或失败信息疑似“数据不存在”。
 - Preflight check: 点击查询前必须同时确认目标筛选容器内可见输入框的 DOM value 已等于目标值，并监听正式分页请求；请求返回后必须记录实际 request URL、业务码、total 和前几条业务 code，确认 URL 中包含目标筛选参数。对于需要页签或筛选状态同步的组件，必须等待组件内部状态更新后再点击查询。
 - UnifiedList upgrade check: 复用历史脚本时先检查当前列表使用 `TableQuickFilter` 还是 `TableMultiFilter`。多条件筛选默认空状态必须按真实“新增筛选条件 -> 选择字段 -> 填值 -> 查询”操作；Element Plus 条件行可能同时含只读操作符 input 和业务文本框，必须按 placeholder/role 精确定位可填写控件，禁止继续使用泛化 `input`。
+- Async table refresh check: 真实 E2E 通过接口响应拿到目标列表行后，页面可能被后续默认分页或未过滤请求覆盖；打开详情、审批或下载前必须重新锚定可见 DOM 中包含目标业务编号的行再点击，不得只按接口数组下标或第一个可见按钮操作。若响应目标正确但页面点击进入其它对象，应先判定脚本锚定失效并修正，再记录产品失败。
 - Table evidence check: 查询后只能把目标表格区域内的行文本、单元格文本或稳定行级 DOM 作为命中证据；不得把筛选输入框、筛选标签、页标题或其它页面上下文里的关键词当成目标行。Element Plus 固定操作列可能不在主表格行 DOM 内，点击“审核”“详细”等行级动作时优先使用稳定属性（如 `data-approval-action`、`data-testid`）或在已筛到唯一目标后点击可见动作按钮。
 - Preflight check: 若目标列表在某租户下没有可见筛选框、筛选区被权限或页面布局隐藏，不能直接判定目标样本缺失；应先按真实分页控件逐页查找目标可见行，并记录命中的 pageNo、pageSize、目标行文本和目标写请求数。分页查找仍属于真实页面路径，但不得用 API-only 查询替代页面可见性断言。
 - Blocker: 输入框可见值正确但正式分页请求 URL 未带目标参数、请求命中错误页签/错误接口、返回 list 前几条 code 明显未按目标过滤，或只能证明 DOM 值而不能证明请求参数时，必须停止并归因为脚本/组件同步问题，不得把结果写成目标业务数据缺失。
@@ -542,6 +552,7 @@
 
 - Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户、弹框表单项或其他写入型业务对象。
 - Preflight check: 优先按页面可见业务唯一文本定位选项，例如租户名称、工单编码、路线编码/名称/ID；填入搜索词后必须等待目标 `.el-select-dropdown__item:visible` 出现并点击该选项。Element Plus 的 placeholder 可能由外层组件展示而不写入真实 `input[placeholder]`，真实 E2E 定位搜索型 `el-select` 时应先用 DOM 快照确认可见 `input.el-select__input[role="combobox"]` 或控件作用域内稳定选择器，再填值触发远程搜索。若同一弹框内存在多个下拉或校验消息会产生重复可见文本，必须先按精确可见 `.el-form-item__label` 定位当前表单项，再在该 `.el-form-item` 内读取当前 combobox 的 `aria-controls`，只从对应下拉面板选择选项。若上一步操作的是 `multiple` 多选下拉，Element Plus 选择后可能继续保持浮层展开，切换到另一个下拉前必须显式关闭旧浮层并等待目标表单项自己的下拉面板可见；读取选项时优先限定当前表单项或最新可见下拉，避免把旧多选面板当成新字段选项。若标签存在包含关系，例如“类别”和“类别否变更”，不得用 `hasText('类别').first()` 定位目标下拉，应给目标控件增加稳定 `data-testid` 或使用精确标签边界定位。若 `el-select` 位于 `el-popover`、抽屉内局部弹层或 click-outside 容器中，必须确认下拉面板归属不会触发外层误关闭，必要时使用受控可见状态和 `:teleported="false"` 静态合同锁定。
+- Preflight check: 弹窗内连续选择多个 `el-select` 时，禁止用全局 `Escape` 关闭旧下拉层；在没有下拉层时 `Escape` 会关闭 `el-dialog`，导致后续定位命中底层页面或旧隐藏节点。应只等待可见 `.el-select-dropdown` 隐藏，或把关闭动作限定到下拉面板自身。远程下拉如果缺少稳定选择器，优先给业务控件补 `data-testid`，不要长期依赖 placeholder 或截断文本。
 - Blocker: 如果只按 `input[placeholder=...]` 找不到控件、只填输入框后按 Enter 未触发真实选项选择、目标选项未出现、页面显示文本与脚本断言字段不一致、同名校验消息或重复下拉项导致 locator 命中多个字段、多选旧浮层未关闭导致读取到错误选项、或选择项点击导致外层 Popover 在确认动作前误关闭，必须停止并记录输入框 DOM 快照、下拉可见文本、弹层状态和相关接口响应，不得继续提交写入。
 - Verification: 对写入结果使用 UI 响应和最终只读 API/DB 核验；涉及发布版/草稿版差异时，必须核验落库版本 ID、版本号、快照 JSON 和当前草稿仍存在。Popover 内下拉还必须验证“选择后保持打开、确认成功后显式关闭”。
 - Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
@@ -567,11 +578,11 @@
 ### Element Plus 上传控件门禁
 
 - Trigger: Playwright 通过 Element Plus `el-upload`、隐藏 `input[type=file]`、拖拽上传区或 Word/附件导入弹窗执行真实文件上传。
-- Preflight check: `setInputFiles` 后必须断言可见上传列表出现目标文件名，或断言页面已发出目标上传请求；未看到文件列表时不得直接点击提交并长时间等待响应。
-- Blocker: 文件名未进入上传列表、上传请求未触发、导入按钮只触发表单校验、或页面停留在空上传控件时必须记录 BLOCKED；不得改用 API-only 上传替代真实页面路径。
+- Preflight check: `setInputFiles` 后必须断言可见上传列表出现目标文件名，或断言页面已发出目标上传请求；未看到文件列表时不得直接点击提交并长时间等待响应。Windows/新 worktree 首次文件输入可能慢于 30 秒，若 `setInputFiles` 自身超时，先用最小静态 file input 探针区分本机文件选择耗时与页面业务缺陷，再重跑真实页面路径。
+- Blocker: 文件名未进入上传列表、上传请求未触发、导入按钮只触发表单校验、最小静态 file input 探针也无法设置同一文件，或页面停留在空上传控件时必须记录 BLOCKED；不得改用 API-only 上传替代真实页面路径。
 - Verification: 证据需包含真实文件路径、页面入口、上传接口、文件列表断言、请求触发断言、最终响应或阻塞截图。
 - Forbidden action: 禁止只因为 `input.files.length > 0` 就认定 Element Plus 组件状态已接收文件；禁止等待接口超时后不记录文件列表状态。
-- Evidence: `doc/tasks/20260727-shared-word-parser-real-e2e/verification-report.md`。
+- Evidence: `doc/tasks/20260727-shared-word-parser-real-e2e/verification-report.md`；`doc/tasks/20260904-registration-upload-e2e-verify/verification-report.md`。
 
 ### Element Plus 表单值断言门禁
 
@@ -616,6 +627,7 @@
 - 当页面对列表进行本地排序、过滤或虚拟渲染时，Playwright 必须按页面可见的业务唯一文本定位目标行，再操作同一行的复选框或按钮。
 - 行状态文案存在包含关系时必须使用精确状态或显式反向排除，例如“不可重排”包含“可重排”；脚本不得用 `hasText('可重排')`、`includes('可重排')` 直接定位可重排行，必须同时排除“不可重排”或读取专用状态/aria。
 - 不得直接用 API 返回数组下标映射前端表格行；接口排序和页面排序可能不同，会误选冻结行、错误行或无关业务数据。
+- 列表页进入后若会自动发起未筛选分页请求，必须先等初始 loading 消失，再填写筛选条件并等待带目标参数的分页响应；否则较慢的未筛选响应可能覆盖已筛选 DOM，导致脚本点到其它业务行。接口响应已确认唯一目标时，若 DOM 文本被省略号截断，可以点击筛选结果的第一条可见行级动作，但必须保留接口筛选参数、业务码和截图证据，并在详情页二次确认业务唯一键。
 - Element Plus `el-table` 存在 header/body/fixed 表格重复 DOM 时，选择行复选框必须限定在可见 `.el-table__body-wrapper tbody tr`，显式排除 `.el-table__header-wrapper` 和 `thead`；点击后必须立即断言已选业务唯一键集合，再进入“确认/应用”等写入动作。
 - 行内编辑会把原显示文本替换为输入框、开关或其它编辑控件时，只能用原文本定位并点击进入编辑；进入编辑态后必须改用当前弹框或表格作用域内唯一可见编辑器继续填写，保存刷新后再用目标文本重新定位。若同时出现多个可见编辑器或无法按稳定记录 ID 证明编辑对象，必须停止，不得继续复用依赖旧文本的动态行 locator。
 

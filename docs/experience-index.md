@@ -1,4 +1,6 @@
 # 项目经验索引
+- Keywords: Element Plus 下拉 Escape 关闭弹窗, el-dialog 被 Escape 关闭, 远程下拉 data-testid, placeholder 定位不稳, 初始未筛选分页覆盖筛选 DOM, 注册证下载审批搜索, certificateNo 下载审批待办, el-table 省略号截断 -> `docs/e2e-rules.md#element-plus-下拉选择门禁` and `docs/e2e-rules.md#表格行定位`
+- Keywords: 账号标签, 页面显示名, 真实姓名审计, 上传人显示王立轩, wanglixuan 王立轩, 申请人审计姓名, 审批人显示名, 登录账号不等于审计姓名 -> `docs/e2e-rules.md#账号标签与页面显示名审计门禁`
 - Keywords: 动态菜单隐藏详情路由, 主页可见详情404, 角色菜单绑定, get-permission-info, 详情路由, 历史路由, 相同permission不自动生成路由 -> `docs/frontend-development.md#动态菜单真实可见性缓存门禁`
 - Keywords: 标准后端重启, 构建失败后48081离线, restart-int-ruoyi-local, testCompile失败, 完整Reactor, BUILD SUCCESS, 旧后端已停止 -> `docs/local-runtime.md#标准后端重启构建失败离线门禁`
 - Keywords: 登录页默认 admin, 无浏览记录默认用户名, 默认管理员账号, 默认登录密码, VITE_APP_DEFAULT_LOGIN_USERNAME, VITE_APP_DEFAULT_LOGIN_PASSWORD, login-default-credentials-static -> `docs/login-access.md#登录页默认凭据禁止门禁`

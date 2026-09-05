@@ -28,6 +28,7 @@
               :remote-method="searchProjectCodes"
               :loading="projectCodeLoading"
               placeholder="请选择实际项目代码"
+              data-testid="registration-certificate-upload-project-code"
             >
               <el-option
                 v-for="item in projectCodeOptions"

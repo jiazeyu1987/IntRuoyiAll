@@ -102,6 +102,7 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
         assertEquals("DOWNLOAD_FILE", request.getRequestType());
         assertEquals(40L, request.getProjectCodeId());
         assertTrue(request.getDetailJson().contains("payloadHash"));
+        assertTrue(request.getDetailJson().contains("\"certificateNo\":\"CERT-ACCESS-001\""));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
                 + "WHERE tenant_id = 1 AND request_id = ? AND business_file_id = ? "
                 + "AND download_requested = TRUE AND status = 'REQUESTED'",

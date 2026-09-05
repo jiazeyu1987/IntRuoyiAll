@@ -270,22 +270,25 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
 
     private boolean canSeeRegistrationCertificateCandidateTask(ApprovalTaskQueryContext context, Task task) {
         Map<String, Object> variables = task.getProcessVariables();
-        if (!isRegistrationCertificateAccessApproval(variables)
-                || !selectedCandidateUserIds(variables).contains(context.getLoginUserId())) {
+        boolean assignedToLoginUser = Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee());
+        if (!isRegistrationCertificateClaimableApproval(variables)
+                || !matchesCurrentTenantTask(task, variables)
+                || (!assignedToLoginUser && !selectedCandidateUserIds(variables).contains(context.getLoginUserId()))) {
             return false;
         }
         if (!hasText(context.getKeyword())) {
-            return true;
+            return hasRegistrationCertificateApprovalAuthority(context.getLoginUserId(), variables);
         }
         String keyword = context.getKeyword().trim();
-        return Stream.of(task.getName(), task.getProcessInstanceId(),
+        boolean keywordMatched = Stream.of(task.getName(), task.getProcessInstanceId(),
                         firstText(variables.get("registrationCertificateAccessRequestId"), variables.get("requestId")),
                         firstText(variables.get("certificateId")),
                         firstText(variables.get("certificateNo")),
                         firstText(variables.get("requestKey")),
                         resolveRegistrationCertificateAccessTitle(variables))
                 .filter(Objects::nonNull)
-                .anyMatch(value -> value.contains(keyword));
+                .anyMatch(value -> containsIgnoreCase(value, keyword));
+        return keywordMatched && hasRegistrationCertificateApprovalAuthority(context.getLoginUserId(), variables);
     }
 
     private PageResult<ApprovalTaskSummary> pageTodoByProcessInstanceId(ApprovalTaskQueryContext context) {
@@ -694,6 +697,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             appendTitlePart(title, variables.get("certificateNo"));
             return title.toString();
         }
+        appendTitlePart(title, variables.get("certificateNo"));
         appendTitlePart(title, firstText(variables.get("requestKey"), variables.get("registrationCertificateAccessRequestId"),
                 variables.get("requestId")));
         return title.toString();
@@ -778,6 +782,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         } else if (isRegistrationCertificateAccessApproval(variables)) {
             addTag(tags, "申请类型", resolveRegistrationCertificateRequestTypeLabel(variables)
                     .replace("审批", ""));
+            addTag(tags, "注册证编号", variables.get("certificateNo"));
             addTag(tags, "申请编号", firstText(variables.get("registrationCertificateAccessRequestId"),
                     variables.get("requestId")));
             addTag(tags, "注册证", variables.get("certificateId"));
