@@ -80,3 +80,8 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 - GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；真实页面 `/erp/production/replenishment-list` 返回 `total=2705`，首行 `sourceBillNo=908SCBL00000163`，首行明细数 `1`。
 - GREEN: 同一真实页面点击“增量同步”，正式提交 `/admin-api/erp/kingdee-sync/incremental-sync`，响应 `syncType=PRODUCTION_REPLENISHMENT_LIST`、`handlerName=kingdeeProductionReplenishmentListSyncJob`、`jobId=5622`、业务 `code=0`。
 - GREEN: Playwright 进入 `/job/job-log?id=5622`，通过页面自然请求 `/admin-api/infra/job-log/page?jobId=5622...` 轮询到终态 `status=1`，日志 `id=13304`，`duration=579ms`。
+- Runtime Note: 后续健康检查发现 `48081` 短暂未监听；按本机运行态门禁确认最新标准脚本已派发 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260905-174936.jar`，PID `41716`，health 恢复 `UP`。
+- GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；最新 `int_main` 运行态真实页面返回 `total=2711`，首行 `sourceBillNo=908SCBL00000164`，首行明细数 `1`。
+- GREEN: 同一最新运行态真实页面点击“增量同步”，响应 `syncType=PRODUCTION_REPLENISHMENT_LIST`、`handlerName=kingdeeProductionReplenishmentListSyncJob`、`jobId=5622`、业务 `code=0`；Job 日志 `id=13306`，终态 `status=1`，`duration=634ms`。
+- GREEN: `PROFILE_ERP_SYNC_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> PASS；最新 `int_main` 运行态个人中心配置页仍显示“生产补料单列表”。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` + `Invoke-WebRequest http://127.0.0.1:8081/` -> PASS，backend health `UP`，frontend HTTP `200`，48081 listener PID `41716`。

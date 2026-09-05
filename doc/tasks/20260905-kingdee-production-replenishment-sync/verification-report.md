@@ -37,6 +37,9 @@ ready_for_closeout
 - GREEN: 标准脚本 `restart-int-ruoyi-local.ps1 -Component backend` -> PASS，重启后 48081 health `UP`，PID `14764`。
 - GREEN: `PROFILE_ERP_SYNC_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> PASS；确认个人中心自动同步表格显示“生产补料单列表”，未触发同步写入。
 - GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；列表 `total=2705`，首行 `908SCBL00000163`，增量同步正式提交成功，Job 日志 `id=13304` 终态 `status=1`，执行时长 `579ms`。
+- GREEN: 最新 `int_main` 运行态复验：48081 backend PID `41716`，运行 Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260905-174936.jar`，health `UP`，8081 frontend HTTP `200`。
+- GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；列表 `total=2711`，首行 `908SCBL00000164`，增量同步正式提交成功，Job 日志 `id=13306` 终态 `status=1`，执行时长 `634ms`。
+- GREEN: `PROFILE_ERP_SYNC_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> PASS；确认个人中心自动同步表格显示“生产补料单列表”。
 - Artifacts: `IntRuoyiFronted\output\playwright\profile-erp-table-auto-sync-replenishment-real\profile-erp-table-auto-sync-replenishment-row.png`、`profile-erp-table-auto-sync-replenishment-real-report.json`。
 
 ## Not Run
