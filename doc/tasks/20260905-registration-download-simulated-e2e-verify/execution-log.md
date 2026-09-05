@@ -95,3 +95,12 @@
 
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260905-registration-download-simulated-e2e-verify --mode preview` -> BLOCKED.
 - Blocker details: cleanup preview can classify task-owned E2E artifacts for deletion and core records/scripts for keep, but apply cannot continue while main worktree `E:\IntRuoyi` is dirty. Preview also reports the current uncommitted `DccRegistrationCertificateChangeServiceTest.java` change as unrelated until the implementation/docs are committed or otherwise resolved.
+
+## 2026-09-05 Main Baseline And Post-Rebase Verification
+
+- Main baseline commit: `3283d9bfe` on `int_main`, created after user authorization to clear the dirty main worktree before ff-only merge.
+- Main baseline push: `git push origin int_main` -> PASS, `origin/int_main` updated to `3283d9bfe`.
+- Task implementation commit before rebase: `0f63b2334` (`fix: include registration change approval summary`).
+- Rebase result: task branch rebased onto `int_main` commit `3283d9bfe`; current task commits are `7a86fcf9b`, `25a2e76a8`, `1f0eb6bb9`.
+- GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateGrantServiceTest,DccRegistrationCertificateQueryServiceTest,DccRegistrationCertificateActivationServiceTest,DccRegistrationCertificateRenewalServiceTest,DccRegistrationCertificateChangeServiceTest" test` -> PASS, 70 tests.
+- GREEN: `node IntRuoyiFronted/tests/e2e/registration-certificate-download-consistency-static.spec.cjs; node IntRuoyiFronted/tests/e2e/registration-certificate-change-file-access-static.spec.cjs; node IntRuoyiFronted/tests/registration-certificate-download-diagnostics-static.spec.mjs` -> PASS.

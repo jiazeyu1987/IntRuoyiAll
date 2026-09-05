@@ -43,6 +43,8 @@
 - `node doc/tasks/20260905-registration-download-simulated-e2e-verify/registration-old-combo-e2e.cjs` -> PASS for E2E-8 and E2E-9.
 - Earlier code regression gates retained: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateGrantServiceTest,DccRegistrationCertificateQueryServiceTest" test` -> PASS, 36 tests; static frontend contracts and relaxed `vue-tsc` -> PASS.
 - BPM summary regression: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateChangeServiceTest" test` -> PASS, 12 tests.
+- Post-rebase regression: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateGrantServiceTest,DccRegistrationCertificateQueryServiceTest,DccRegistrationCertificateActivationServiceTest,DccRegistrationCertificateRenewalServiceTest,DccRegistrationCertificateChangeServiceTest" test` -> PASS, 70 tests.
+- Post-rebase static contracts: registration download consistency, change-file access, and download diagnostics scripts -> PASS.
 
 ## Time Simulation Note
 
@@ -55,3 +57,4 @@ Overall result: `PASS` for the current acceptance scope.
 Passed: E2E-1, E2E-2, E2E-3, E2E-4, E2E-5, E2E-7, E2E-8, E2E-9.
 
 Removed from current acceptance scope: E2E-6.
+
