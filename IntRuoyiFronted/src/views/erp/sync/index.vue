@@ -253,6 +253,11 @@ const syncTypes = [
     handlerName: 'kingdeeProductionPickListSyncJob'
   },
   {
+    type: 'PRODUCTION_REPLENISHMENT_LIST',
+    label: '生产补料单列表',
+    handlerName: 'kingdeeProductionReplenishmentListSyncJob'
+  },
+  {
     type: 'PRODUCTION_MATERIAL_LIST',
     label: '生产用料清单',
     handlerName: 'kingdeeProductionMaterialListSyncJob'
