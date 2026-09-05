@@ -12,6 +12,7 @@
 - [x] 先补 BDD 与 RED 测试，锁定补料单同步行为
 - [x] 实现最小后端、数据库、任务和前端入口改动
 - [x] 执行定向测试、技能 evidence validator 和端口/任务文档验证
+- [x] 合并到 `int_main` 并补充个人中心配置页真实 E2E
 
 ## Expected Verification
 
@@ -20,6 +21,7 @@
 - 数据库 schema 测试覆盖补料单主表/明细表、唯一业务键、索引和租户字段。
 - `backend-api-delivery` 与 `database-schema-delivery` evidence validator 必须 PASS。
 - 用户已于 2026-09-05 明确要求执行真实 E2E；需覆盖真实登录、补料单列表渲染、正式增量同步提交和 Job 执行日志终态。
+- 用户反馈 `int_main` 页面未看到补料单后，需在 `int_main` 真实前端 `8081` 覆盖个人中心 `配置 / ERP表格自动同步` 表格中“生产补料单列表”可见。
 
 ## Current Status
 
@@ -37,4 +39,4 @@ ready_for_closeout
 - 实现提交：`58ed56166`，提交信息 `feat: sync Kingdee production replenishment lists`。
 - E2E 验证提交：`b89520cc4`，提交信息 `test: verify Kingdee replenishment sync e2e`。
 - 完成门禁变更：用户于本轮明确说明“不用push”，远端推送不再作为本轮完成条件；当前保留本地分支 ahead 状态。
-- 当前限制：主工作区 `E:\IntRuoyi` 仍有并行脏改动，不能执行 cleanup apply / ff-only merge / worktree removal。
+- int_main 合并：已按仓库规则先提交主干现存脏改动基线，再将 `codex/kingdee-production-replenishment-sync` 合并到 `int_main`。

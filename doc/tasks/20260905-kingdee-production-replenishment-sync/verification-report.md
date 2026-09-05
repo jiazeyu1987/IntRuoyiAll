@@ -30,7 +30,15 @@ ready_for_closeout
 - GREEN: 本地 E2E 验证提交 `b89520cc4` 已创建。
 - BLOCKED: `git push origin codex/kingdee-production-replenishment-sync` 连续两次失败，GitHub HTTPS 代理 `127.0.0.1` 无法连接。
 - Scope Change: 用户明确说明“不用push”，远端推送不再作为本轮完成条件。
+- GREEN: 已合并到 `int_main`，merge 命令通过分支运行端口门禁，主干端口保持 `8081/48081`。
+- GREEN: 已新增个人中心配置页真实 E2E，验证路径为 `/user/profile?tab=config` -> “配置” -> “ERP表格自动同步” -> 表格行“生产补料单列表”。
+- RED: 首次在 `int_main` 跑补料单列表 E2E 时，48081 仍是合并前旧 Jar，接口返回 `yudao-module-erp - 已禁用`。
+- GREEN: `mvn --% -pl yudao-server -am -DskipTests package` -> PASS, 30 modules `BUILD SUCCESS`。
+- GREEN: 标准脚本 `restart-int-ruoyi-local.ps1 -Component backend` -> PASS，重启后 48081 health `UP`，PID `14764`。
+- GREEN: `PROFILE_ERP_SYNC_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> PASS；确认个人中心自动同步表格显示“生产补料单列表”，未触发同步写入。
+- GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；列表 `total=2705`，首行 `908SCBL00000163`，增量同步正式提交成功，Job 日志 `id=13304` 终态 `status=1`，执行时长 `579ms`。
+- Artifacts: `IntRuoyiFronted\output\playwright\profile-erp-table-auto-sync-replenishment-real\profile-erp-table-auto-sync-replenishment-row.png`、`profile-erp-table-auto-sync-replenishment-real-report.json`。
 
 ## Not Run
 
-- 未执行 cleanup apply / ff-only merge / worktree removal；主工作区 `E:\IntRuoyi` 有并行脏改动，按规则不能自动合入或清理 worktree。
+- 未 push；用户已明确要求不用 push。

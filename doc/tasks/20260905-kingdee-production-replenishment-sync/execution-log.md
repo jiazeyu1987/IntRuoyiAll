@@ -56,3 +56,27 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 - GREEN: Playwright 进入 `/job/job-log?id=5622`，通过页面自然请求 `/admin-api/infra/job-log/page?jobId=5622...` 轮询到终态 `status=1`，日志 `id=13295`，`duration=409ms`。
 - Evidence artifacts: `IntRuoyiFronted\output\playwright\erp-production-replenishment-list-real\replenishment-list-page.png`、`replenishment-list-before-submit.png`、`replenishment-list-after-submit.png`、`job-log-terminal-success.png`、`erp-production-replenishment-list-real-report.json`。
 - GREEN: 本地 E2E 验证提交 `b89520cc4` 已创建；按用户“不用push”要求未推送。
+
+## int_main Merge And Profile E2E - 2026-09-05
+
+- Scope Change: 用户反馈 `int_main` 页面未看到补料单，并要求“融合进int_main,然后int_main里进行E2E验证”。
+- Preflight: 已重新读取 `docs/task-closeout-rules.md`、`docs/worktree-restrictions.md`、`docs/local-runtime.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/branch-runtime-ports.md`、`docs/backend-development.md`、`docs/frontend-development.md`、`docs/database-rules.md`、`docs/powershell-encoding.md`。
+- RED: `Invoke-WebRequest http://127.0.0.1:8081/src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue` -> FAIL, expected reason: 合并前 `int_main` 运行中前端源码不包含 `PRODUCTION_REPLENISHMENT_LIST`，因此个人中心自动同步表格不会显示“生产补料单列表”。
+- Baseline: `git commit -m "chore: baseline int_main dirty workspace before replenishment merge"` -> PASS, commit `79f37f862`；按 `task-closeout-rules.md` 隔离提交主干既有非本任务脏改动。
+- Baseline: `git commit -m "fix: complete int_main active order detail baseline"` -> PASS, commit `251d25b0a`。
+- Baseline: `git commit -m "fix: complete int_main active order frontend baseline"` -> PASS, commit `b9d5a11c5`。
+- Baseline: `git commit -m "test: align int_main active order baseline contract"` -> PASS, commit `b86415450`。
+- GREEN: `git merge --no-ff codex/kingdee-production-replenishment-sync -m "merge: integrate Kingdee replenishment sync into int_main"` -> PASS，`docs/e2e-rules.md` 自动合并，端口门禁 PASS。
+- GREEN: 新增 `IntRuoyiFronted/tests/e2e/profile-erp-table-auto-sync-replenishment-real.e2e.js`，用于真实登录后从个人中心配置页验证“生产补料单列表”可见，且不触发同步写入。
+- RED: `PROFILE_ERP_SYNC_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> FAIL, expected reason: Playwright tab 定位 `配置` 同时匹配到 `注册证配置`，需使用 exact tab 定位。
+- RED: 修正 tab 定位后复跑同一命令 -> FAIL, expected reason: 表格中 ERP 表格名和本地页签名都包含“生产补料单列表”，单文本严格定位命中两处，需断言 first visible。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> PASS。
+- GREEN: `PROFILE_ERP_SYNC_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-replenishment-real.e2e.js` -> PASS；真实页面 `/user/profile?tab=config` 中“配置 / ERP表格自动同步”表格显示“生产补料单列表”，未触发同步写入。
+- Evidence artifacts: `IntRuoyiFronted\output\playwright\profile-erp-table-auto-sync-replenishment-real\profile-erp-table-auto-sync-replenishment-row.png`、`profile-erp-table-auto-sync-replenishment-real-report.json`。
+- RED: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> FAIL, expected reason: `int_main` 48081 仍运行合并前旧 Jar，补料单接口返回 `yudao-module-erp - 已禁用`。
+- GREEN: `mvn --% -pl yudao-server -am -DskipTests package` -> PASS, Reactor 30 modules `BUILD SUCCESS`，预停止打包门禁通过。
+- GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend` -> PASS，标准脚本派发 `int_main` backend 重启，端口 `48081`。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> PASS, status `UP`, backend PID `14764`。
+- GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8081 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；真实页面 `/erp/production/replenishment-list` 返回 `total=2705`，首行 `sourceBillNo=908SCBL00000163`，首行明细数 `1`。
+- GREEN: 同一真实页面点击“增量同步”，正式提交 `/admin-api/erp/kingdee-sync/incremental-sync`，响应 `syncType=PRODUCTION_REPLENISHMENT_LIST`、`handlerName=kingdeeProductionReplenishmentListSyncJob`、`jobId=5622`、业务 `code=0`。
+- GREEN: Playwright 进入 `/job/job-log?id=5622`，通过页面自然请求 `/admin-api/infra/job-log/page?jobId=5622...` 轮询到终态 `status=1`，日志 `id=13304`，`duration=579ms`。
