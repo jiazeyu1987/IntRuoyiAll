@@ -2,7 +2,7 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
 ## Scope Verified
 
@@ -20,8 +20,9 @@ blocked
 - Cleanup: 本轮误建的 `D:\IntRuoyiWorktree\kingdee-replenishment-sync` 半初始化 worktree 已移除，物理目录不存在。
 - GREEN: 本地实现提交 `58ed56166` 已创建。
 - BLOCKED: `git push origin codex/kingdee-production-replenishment-sync` 连续两次失败，GitHub HTTPS 代理 `127.0.0.1` 无法连接。
+- Scope Change: 用户明确说明“不用push”，远端推送不再作为本轮完成条件。
 
 ## Not Run
 
 - 未执行真实金蝶账套同步或写入型 E2E；本轮用户授权 worktree 开发验证，但未要求对真实金蝶环境发起同步。
-- 远端推送未完成；网络/代理恢复后需重跑 `git push origin codex/kingdee-production-replenishment-sync`。
+- 未执行 cleanup apply / ff-only merge / worktree removal；主工作区 `E:\IntRuoyi` 有并行脏改动，按规则不能自动合入或清理 worktree。
