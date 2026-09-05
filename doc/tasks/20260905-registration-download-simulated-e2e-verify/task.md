@@ -29,9 +29,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-当前验收范围已通过：E2E-1、E2E-2、E2E-3、E2E-4、E2E-5、E2E-7、E2E-8、E2E-9 均通过真实前端 Playwright 验证；E2E-6 已按用户要求从下载验收文档中删除。任务已完成实现与验证，等待后续 cleanup/提交/合并收尾。
+当前验收范围已通过：E2E-1、E2E-2、E2E-3、E2E-4、E2E-5、E2E-7、E2E-8、E2E-9 均通过真实前端 Playwright 验证；E2E-6 已按用户要求从下载验收文档中删除。任务实现、验证、cleanup、fast-forward 合并和分支推送已完成。
 
 ## Design Constraints Check
 

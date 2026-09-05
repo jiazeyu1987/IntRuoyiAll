@@ -104,3 +104,13 @@
 - Rebase result: task branch rebased onto `int_main` commit `3283d9bfe`; current task commits are `7a86fcf9b`, `25a2e76a8`, `1f0eb6bb9`.
 - GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateGrantServiceTest,DccRegistrationCertificateQueryServiceTest,DccRegistrationCertificateActivationServiceTest,DccRegistrationCertificateRenewalServiceTest,DccRegistrationCertificateChangeServiceTest" test` -> PASS, 70 tests.
 - GREEN: `node IntRuoyiFronted/tests/e2e/registration-certificate-download-consistency-static.spec.cjs; node IntRuoyiFronted/tests/e2e/registration-certificate-change-file-access-static.spec.cjs; node IntRuoyiFronted/tests/registration-certificate-download-diagnostics-static.spec.mjs` -> PASS.
+
+## 2026-09-05 Final Closeout
+
+- Task branch push: `git push origin codex/20260905-registration-download-simulated-e2e-verify` -> PASS, branch pushed at `44959a4e6`.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260905-registration-download-simulated-e2e-verify --mode preview` -> PASS, status `ready`, no blocked paths.
+- Cleanup apply: deleted task-local transient logs and scan helper scripts; kept `task.md`, `execution-log.md`, `verification-report.md`, `final-result.json`, and four retained Playwright evidence scripts.
+- Closeout merge: `codex/20260905-registration-download-simulated-e2e-verify` fast-forward merged into `E:\IntRuoyi` / `int_main` at `44959a4e6`.
+- Worktree cleanup: stopped task-owned frontend/backend processes on `8158/48158`; removed residual directory `D:\IntRuoyiWorktree\20260905-registration-download-simulated-e2e-verify` after verifying it was inside the approved worktree root.
+- Port registry cleanup: marked slot `24` (`8158/48158`) inactive with `cleanupTask=20260905-registration-download-simulated-e2e-verify`.
+- Closeout status: task marked `completed`; final closeout records ready for commit and push on `int_main`.
