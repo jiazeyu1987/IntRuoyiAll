@@ -53,6 +53,27 @@ class BpmTaskServiceImplApprovalFilterTest {
     }
 
     @Test
+    void getTaskTodoPageIncludesCandidateTasksForLoginUser() {
+        when(taskService.createTaskQuery()).thenReturn(taskQuery);
+        when(taskQuery.active()).thenReturn(taskQuery);
+        when(taskQuery.includeProcessVariables()).thenReturn(taskQuery);
+        when(taskQuery.taskTenantId(org.mockito.ArgumentMatchers.anyString())).thenReturn(taskQuery);
+        when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        when(taskQuery.desc()).thenReturn(taskQuery);
+        when(taskQuery.taskCandidateOrAssigned("100")).thenReturn(taskQuery);
+        when(taskQuery.count()).thenReturn(0L);
+
+        BpmTaskPageReqVO reqVO = new BpmTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+
+        PageResult<org.flowable.task.api.Task> page = service.getTaskTodoPage(100L, reqVO);
+
+        assertEquals(0L, page.getTotal());
+        verify(taskQuery).taskCandidateOrAssigned("100");
+    }
+
+    @Test
     void getTaskTodoPageSkipsAssigneeFilterWhenLoginUserIsNull() {
         when(taskService.createTaskQuery()).thenReturn(taskQuery);
         when(taskQuery.active()).thenReturn(taskQuery);

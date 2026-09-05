@@ -1,16 +1,19 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING;
 
 @Service
+@Slf4j
 public class DccRegistrationCertificateBusinessEventNotifier {
 
     private static final String EVENT_NEW_CERTIFICATE_FORMALIZED = "NEW_CERTIFICATE_FORMALIZED";
@@ -63,11 +66,23 @@ public class DccRegistrationCertificateBusinessEventNotifier {
     private void send(Long tenantId, Long ownerCompanyId, Long certificateId, Long versionId, Long actorId,
                       String eventType, String eventKey, String eventTitle, String productName,
                       String certificateNo, LocalDate effectiveDate, LocalDate expiryDate) {
-        notificationService.sendToUsers(new DccRegistrationCertificateBusinessEventNotificationCommand(
-                        tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
-                        List.of(), "",
-                        detailParams(eventTitle, productName, certificateNo, effectiveDate, expiryDate)),
-                configService.resolveRecipientUserIds(tenantId));
+        Map<String, Object> detailParams = detailParams(eventTitle, productName, certificateNo,
+                effectiveDate, expiryDate);
+        DccRegistrationCertificateBusinessEventNotificationConfigService.RecipientScope recipientScope;
+        try {
+            recipientScope = configService.resolveRecipientScope();
+        } catch (ServiceException exception) {
+            if (Objects.equals(exception.getCode(), REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED.getCode())) {
+                log.warn("[send][注册证业务事件通知跳过，提醒任务未配置][tenantId({}) certificateId({}) eventType({}) eventKey({})]",
+                        tenantId, certificateId, eventType, eventKey);
+                return;
+            }
+            throw exception;
+        }
+        notificationService.send(new DccRegistrationCertificateBusinessEventNotificationCommand(
+                tenantId, ownerCompanyId, certificateId, versionId, actorId, eventType, eventKey,
+                recipientScope.roleIds(), recipientScope.permission(),
+                detailParams));
     }
 
     private static Map<String, Object> detailParams(String eventTitle, String productName, String certificateNo,

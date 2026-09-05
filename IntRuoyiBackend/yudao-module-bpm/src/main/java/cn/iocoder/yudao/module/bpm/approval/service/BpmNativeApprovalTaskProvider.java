@@ -23,7 +23,6 @@ import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
-import org.flowable.task.api.TaskQuery;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,6 +60,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "MES_ACTIVE_ORDER_VERSION_UPGRADE_RESTART";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE =
             "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_DOWNLOAD_REQUEST_TYPE =
+            "DOWNLOAD_FILE";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_OPERATION =
             "UPLOAD_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_RENEWAL_OPERATION =
@@ -69,6 +72,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "dcc_registration_certificate_approver";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION =
             "dcc:registration-certificate:upload:approve";
+    private static final String REGISTRATION_CERTIFICATE_ACCESS_REQUEST_APPROVAL_PERMISSION =
+            "dcc:registration-certificate:access-request:approve";
     private static final String BATCH_RECORD_VERSION_DETAIL_ROUTE =
             "/mes/pro/batch-record-form-list";
     private static final String EDHR_RECORD_CHANGE_DETAIL_ROUTE =
@@ -171,7 +176,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         }
         String taskId = requireText(context.getSourceTaskId(), "APPROVAL_TASK_ID_REQUIRED: BPM review");
         if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
-            claimRegistrationUploadTaskIfPermitted(context, taskId);
+            claimRegistrationCertificateTaskIfPermitted(context, taskId);
             taskService.approveTask(context.getLoginUserId(), new BpmTaskApproveReqVO()
                     .setId(taskId)
                     .setReason(trimToNull(context.getReason()))
@@ -180,7 +185,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return;
         }
         if (context.getResult() == ApprovalTaskReviewResult.REJECT) {
-            claimRegistrationUploadTaskIfPermitted(context, taskId);
+            claimRegistrationCertificateTaskIfPermitted(context, taskId);
             taskService.rejectTask(context.getLoginUserId(), new BpmTaskRejectReqVO()
                     .setId(taskId)
                     .setReason(requireText(context.getReason(), "APPROVAL_REJECT_REASON_REQUIRED")));
@@ -189,7 +194,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         throw new IllegalArgumentException("APPROVAL_REVIEW_RESULT_UNSUPPORTED: " + context.getResult());
     }
 
-    private void claimRegistrationUploadTaskIfPermitted(ApprovalTaskReviewContext context, String taskId) {
+    private void claimRegistrationCertificateTaskIfPermitted(ApprovalTaskReviewContext context, String taskId) {
         Long loginUserId = context.getLoginUserId();
         if (loginUserId == null) {
             return;
@@ -210,8 +215,9 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         }
         ProcessInstance processInstance = processInstanceService.getProcessInstance(processInstanceId);
         Map<String, Object> variables = processInstance == null ? null : processInstance.getProcessVariables();
-        if (!isRegistrationCertificateUploadApproval(variables)
-                || !hasRegistrationCertificateUploadApprovalAuthority(loginUserId)) {
+        if (!isRegistrationCertificateClaimableApproval(variables)
+                || !selectedCandidateUserIds(variables).contains(loginUserId)
+                || !hasRegistrationCertificateApprovalAuthority(loginUserId, variables)) {
             return;
         }
         flowableTaskService.setAssignee(taskId, String.valueOf(loginUserId));
@@ -222,56 +228,64 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         PageResult<Task> page = taskService.getTaskTodoPage(resolveQueryUserId(context), reqVO);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM todo");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM todo");
-        Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(page.getList());
-        List<ApprovalTaskSummary> summaries = page.getList().stream()
+        List<Task> visibleTasks = new ArrayList<>(page.getList());
+        visibleTasks.addAll(listRegistrationCertificateCandidateTodos(context, reqVO, visibleTasks));
+        Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(visibleTasks);
+        List<ApprovalTaskSummary> summaries = visibleTasks.stream()
                 .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
                         processInstancesById, task.getProcessInstanceId())))
                 .toList();
-        if (page.getTotal() == 0 && hasText(context.getKeyword())) {
-            PageResult<ApprovalTaskSummary> claimableRegistrationCertificateUploadTodos =
-                    pageClaimableRegistrationCertificateUploadTodos(context);
-            if (claimableRegistrationCertificateUploadTodos.getTotal() > 0) {
-                return claimableRegistrationCertificateUploadTodos;
-            }
+        if (summaries.isEmpty() && hasText(context.getKeyword())) {
             return pageTodoByProcessInstanceId(context);
         }
-        return new PageResult<>(summaries, page.getTotal());
+        return new PageResult<>(summaries, Math.max(page.getTotal(), summaries.size()));
     }
 
-    private PageResult<ApprovalTaskSummary> pageClaimableRegistrationCertificateUploadTodos(
-            ApprovalTaskQueryContext context) {
-        if (context.isGlobalView() || context.getLoginUserId() == null
-                || !hasText(context.getKeyword())
-                || !hasRegistrationCertificateUploadApprovalAuthority(context.getLoginUserId())) {
-            return PageResult.empty();
+    private List<Task> listRegistrationCertificateCandidateTodos(ApprovalTaskQueryContext context,
+                                                                 BpmTaskPageReqVO reqVO,
+                                                                 List<Task> alreadyVisible) {
+        Long loginUserId = context.getLoginUserId();
+        if (loginUserId == null || context.isGlobalView()) {
+            return List.of();
         }
-        TaskQuery taskQuery = flowableTaskService.createTaskQuery()
-                .active()
-                .includeProcessVariables()
-                .processVariableValueEquals("requestType", REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE)
-                .orderByTaskCreateTime()
-                .desc();
-        List<Task> tasks = taskQuery.list().stream()
-                .filter(task -> !Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee()))
+        BpmTaskPageReqVO allReqVO = new BpmTaskPageReqVO();
+        allReqVO.setPageNo(1);
+        allReqVO.setPageSize(Math.max(1000, reqVO.getPageSize() == null ? 0 : reqVO.getPageSize()));
+        allReqVO.setCategory(reqVO.getCategory());
+        allReqVO.setProcessDefinitionKey(reqVO.getProcessDefinitionKey());
+        allReqVO.setCreateTime(reqVO.getCreateTime());
+        PageResult<Task> allPage = taskService.getTaskTodoPage(null, allReqVO);
+        if (allPage == null || allPage.getList() == null || allPage.getList().isEmpty()) {
+            return List.of();
+        }
+        Set<String> visibleTaskIds = alreadyVisible.stream()
+                .map(Task::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return allPage.getList().stream()
+                .filter(task -> !visibleTaskIds.contains(task.getId()))
+                .filter(task -> canSeeRegistrationCertificateCandidateTask(context, task))
                 .toList();
-        if (tasks.isEmpty()) {
-            return PageResult.empty();
+    }
+
+    private boolean canSeeRegistrationCertificateCandidateTask(ApprovalTaskQueryContext context, Task task) {
+        Map<String, Object> variables = task.getProcessVariables();
+        if (!isRegistrationCertificateAccessApproval(variables)
+                || !selectedCandidateUserIds(variables).contains(context.getLoginUserId())) {
+            return false;
         }
-        Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(tasks);
+        if (!hasText(context.getKeyword())) {
+            return true;
+        }
         String keyword = context.getKeyword().trim();
-        List<ApprovalTaskSummary> summaries = tasks.stream()
-                .filter(task -> {
-                    ProcessInstance processInstance = requireRuntimeProcessInstance(
-                            processInstancesById, task.getProcessInstanceId());
-                    Map<String, Object> variables = resolveTodoProcessVariables(task, processInstance);
-                    return matchesCurrentTenantTask(task, variables)
-                            && isRegistrationCertificateUploadApproval(variables)
-                            && matchesRegistrationCertificateUploadKeyword(task, variables, keyword);
-                })
-                .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
-                        processInstancesById, task.getProcessInstanceId())))
-                .toList();
-        return pageSummaries(summaries, context.getPageNo(), context.getPageSize());
+        return Stream.of(task.getName(), task.getProcessInstanceId(),
+                        firstText(variables.get("registrationCertificateAccessRequestId"), variables.get("requestId")),
+                        firstText(variables.get("certificateId")),
+                        firstText(variables.get("certificateNo")),
+                        firstText(variables.get("requestKey")),
+                        resolveRegistrationCertificateAccessTitle(variables))
+                .filter(Objects::nonNull)
+                .anyMatch(value -> value.contains(keyword));
     }
 
     private PageResult<ApprovalTaskSummary> pageTodoByProcessInstanceId(ApprovalTaskQueryContext context) {
@@ -496,7 +510,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     }
 
     private RoleRespDTO resolveRegistrationCertificateAssigneeRole(Map<String, Object> variables) {
-        if (!isRegistrationCertificateUploadApproval(variables)) {
+        if (!isRegistrationCertificateClaimableApproval(variables)) {
             return null;
         }
         RoleRespDTO role = Objects.requireNonNull(roleApi.getRoleByCode(REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE),
@@ -850,17 +864,42 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         return firstText(variables.get("requestOperation"), variables.get("operation"));
     }
 
-    private static boolean isRegistrationCertificateUploadApproval(Map<String, Object> variables) {
+    private static boolean isRegistrationCertificateClaimableApproval(Map<String, Object> variables) {
         return variables != null
-                && REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType")))
+                && (REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType")))
+                || REGISTRATION_CERTIFICATE_DOWNLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType"))))
                 && hasText(firstText(variables.get("registrationCertificateAccessRequestId"),
                 variables.get("requestId")))
                 && hasText(firstText(variables.get("certificateId")));
     }
 
-    private boolean hasRegistrationCertificateUploadApprovalAuthority(Long userId) {
-        return permissionApi.hasAnyRoles(userId, REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE)
-                && permissionApi.hasAnyPermissions(userId, REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION);
+    private boolean hasRegistrationCertificateApprovalAuthority(Long userId, Map<String, Object> variables) {
+        if (!permissionApi.hasAnyRoles(userId, REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE)) {
+            return false;
+        }
+        String requestType = firstText(variables.get("requestType"));
+        if (REGISTRATION_CERTIFICATE_DOWNLOAD_REQUEST_TYPE.equals(requestType)) {
+            return permissionApi.hasAnyPermissions(userId,
+                    REGISTRATION_CERTIFICATE_ACCESS_REQUEST_APPROVAL_PERMISSION);
+        }
+        return permissionApi.hasAnyPermissions(userId, REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION);
+    }
+
+    private static Set<Long> selectedCandidateUserIds(Map<String, Object> variables) {
+        if (variables == null) {
+            return Set.of();
+        }
+        Object raw = variables.get(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES);
+        if (!(raw instanceof Map<?, ?> selected)) {
+            return Set.of();
+        }
+        return selected.values().stream()
+                .filter(Collection.class::isInstance)
+                .map(value -> (Collection<?>) value)
+                .flatMap(Collection::stream)
+                .map(BpmNativeApprovalTaskProvider::parseLong)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     private static boolean isRegistrationCertificateRequestType(Object requestType) {

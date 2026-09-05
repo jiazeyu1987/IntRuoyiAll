@@ -162,6 +162,48 @@ class BpmMessageServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void sendMessageWhenProcessInstanceReject_registrationCertificateProcess_usesNotifyInbox() {
+        BpmMessageSendWhenProcessInstanceRejectReqDTO reqDTO = new BpmMessageSendWhenProcessInstanceRejectReqDTO();
+        reqDTO.setProcessInstanceId("proc-reg-cert-3");
+        reqDTO.setProcessInstanceName("注册证变更审批");
+        reqDTO.setProcessDefinitionKey(DCC_REGISTRATION_CERTIFICATE_PROCESS_DEFINITION_KEY);
+        reqDTO.setStartUserId(77L);
+        reqDTO.setReason("资料需补充");
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9303L);
+
+        messageService.sendMessageWhenProcessInstanceReject(reqDTO);
+
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertEquals(77L, notifyCaptor.getValue().getUserId());
+        assertEquals("dcc_controlled_file_rejected", notifyCaptor.getValue().getTemplateCode());
+        assertEquals("资料需补充", notifyCaptor.getValue().getTemplateParams().get("reason"));
+        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+    }
+
+    @Test
+    void sendMessageWhenTaskTimeout_registrationCertificateProcess_usesNotifyInbox() {
+        BpmMessageSendWhenTaskTimeoutReqDTO reqDTO = new BpmMessageSendWhenTaskTimeoutReqDTO();
+        reqDTO.setProcessInstanceId("proc-reg-cert-4");
+        reqDTO.setProcessInstanceName("注册证变更审批");
+        reqDTO.setProcessDefinitionKey(DCC_REGISTRATION_CERTIFICATE_PROCESS_DEFINITION_KEY);
+        reqDTO.setTaskId("task-reg-cert-4");
+        reqDTO.setTaskName("注册证审批");
+        reqDTO.setAssigneeUserId(100L);
+        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9304L);
+
+        messageService.sendMessageWhenTaskTimeout(reqDTO);
+
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertEquals(100L, notifyCaptor.getValue().getUserId());
+        assertEquals("dcc_task_timeout", notifyCaptor.getValue().getTemplateCode());
+        verify(smsSendApi, never()).sendSingleSmsToAdmin(any(SmsSendSingleToUserReqDTO.class));
+    }
+
+    @Test
     void sendMessageWhenTaskAssigned_edhrProcess_usesNotifyInbox() {
         BpmMessageSendWhenTaskCreatedReqDTO reqDTO = new BpmMessageSendWhenTaskCreatedReqDTO();
         reqDTO.setProcessInstanceId("proc-edhr-1");

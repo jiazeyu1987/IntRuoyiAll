@@ -281,7 +281,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request` (
   `request_key` varchar(256) NOT NULL COMMENT 'Tenant-scoped idempotency key',
   `bpm_process_instance_id` varchar(128) DEFAULT NULL COMMENT 'Native BPM process id after binding',
   `purpose` varchar(512) NOT NULL COMMENT 'Access purpose',
-  `project_code_id` bigint DEFAULT NULL COMMENT 'Required for download requests',
+  `project_code_id` bigint DEFAULT NULL COMMENT 'Optional project code for download requests',
   `status` varchar(32) NOT NULL COMMENT 'Request status',
   `requested_at` datetime NOT NULL COMMENT 'Submission time',
   `completed_at` datetime DEFAULT NULL COMMENT 'Approval completion time',

@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -149,7 +150,31 @@ class DccRegistrationCertificateBpmIntegrationTest {
         assertEquals("DCC_REG_CERT_ACCESS:1001", bpmRequest.getBusinessKey());
         assertEquals(List.of(110L, 120L), bpmRequest.getStartUserSelectAssignees().get(APPROVAL_TASK_DEFINITION_KEY));
         assertEquals(REQUEST_ID, bpmRequest.getVariables().get("requestId"));
-        verify(permissionApi).hasAnyRoles(1L, "super_admin");
+        verify(permissionApi, atLeastOnce()).hasAnyRoles(1L, "super_admin");
+    }
+
+    @Test
+    void startDownloadRequestIncludesRegistrationManagerRoleCandidatesWhenScopeIsNarrow() {
+        DccRegistrationCertificateAccessRequestDO request = submittedDownloadRequest();
+        when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION)).thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
+                .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 1490L, 1L)));
+        when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-download-1001");
+        when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
+        when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
+
+        service.startNativeApproval(TENANT_ID, ACTOR_ID,
+                new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
+
+        ArgumentCaptor<BpmProcessInstanceCreateReqDTO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
+        verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
+        assertEquals(List.of(1L, 1490L), captor.getValue().getStartUserSelectAssignees()
+                .get(APPROVAL_TASK_DEFINITION_KEY));
+        assertEquals("DOWNLOAD_FILE", captor.getValue().getVariables().get("requestType"));
     }
 
     @Test
@@ -180,7 +205,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
         assertEquals("一次性使用无菌导管", variables.get("productName"));
         assertEquals("示例医疗器械有限公司", variables.get("ownerCompanyName"));
         verify(permissionApi).hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION);
-        verify(permissionApi).getUserRoleIdListByRoleIds(List.of(8L));
+        verify(permissionApi, atLeastOnce()).getUserRoleIdListByRoleIds(List.of(8L));
         verify(companyScopeApi, never()).resolveRecipientUserIds(eq(10L), any(Collection.class), eq(UPLOAD_APPROVAL_PERMISSION));
     }
 
@@ -215,6 +240,35 @@ class DccRegistrationCertificateBpmIntegrationTest {
     }
 
     @Test
+    void startCarriesChangeOperationCertificateSummaryIntoNativeApprovalVariables() {
+        DccRegistrationCertificateAccessRequestDO request = submittedUploadRequest();
+        request.setDetailJson(registrationCertificateDetail("CHANGE_CERTIFICATE"));
+        when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
+                .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 120L)));
+        when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-change-1001");
+        when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
+        when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
+
+        service.startNativeApproval(
+                TENANT_ID, ACTOR_ID, new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
+
+        ArgumentCaptor<BpmProcessInstanceCreateReqDTO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
+        verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
+        Map<String, Object> variables = captor.getValue().getVariables();
+        assertEquals("CHANGE_CERTIFICATE", variables.get("requestOperation"));
+        assertEquals("国械注准20263000001", variables.get("certificateNo"));
+        assertEquals("III类", variables.get("classification"));
+        assertEquals("一次性使用无菌导管", variables.get("productName"));
+        assertEquals("示例医疗器械有限公司", variables.get("ownerCompanyName"));
+    }
+
+    @Test
     void approvedNativeContractCannotBeOverriddenByCallerSuppliedProcessRoleOrPermission() {
         DccRegistrationCertificateAccessRequestDO request = submittedRequest();
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
@@ -238,8 +292,8 @@ class DccRegistrationCertificateBpmIntegrationTest {
         assertEquals(List.of(120L), bpmCaptor.getValue().getStartUserSelectAssignees()
                 .get(APPROVAL_TASK_DEFINITION_KEY));
 
-        verify(permissionApi).hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION);
-        verify(permissionApi).getUserRoleIdListByRoleIds(List.of(8L));
+        verify(permissionApi, atLeastOnce()).hasAnyPermissionsInRoles(List.of(8L), APPROVAL_PERMISSION);
+        verify(permissionApi, atLeastOnce()).getUserRoleIdListByRoleIds(List.of(8L));
         verify(companyScopeApi, never()).resolveRecipientUserIds(any(), any(), any());
     }
 
@@ -453,6 +507,18 @@ class DccRegistrationCertificateBpmIntegrationTest {
         DccRegistrationCertificateAccessRequestDO request = submittedRequest();
         request.setRequestType("UPLOAD_CERTIFICATE");
         request.setDetailJson(registrationCertificateDetail("UPLOAD_CERTIFICATE"));
+        return request;
+    }
+
+    private static DccRegistrationCertificateAccessRequestDO submittedDownloadRequest() {
+        DccRegistrationCertificateAccessRequestDO request = submittedRequest();
+        request.setRequestType("DOWNLOAD_FILE");
+        request.setDetailJson("""
+                {
+                  "requestType": "DOWNLOAD_FILE",
+                  "businessFileIds": [990819182]
+                }
+                """);
         return request;
     }
 

@@ -404,3 +404,10 @@
 - 经验规则：启动参数中的日志文件路径、超时等关键配置，尽量用完整单参数或环境变量传递；不要让命令行出现 `key= value` 这种被空格拆开的写法，否则 Spring Boot 可能拿到空值或错误值，导致日志不落盘或配置未生效。
 - 排查顺序：记录旧 PID/新 PID，确认新 PID 独占 `48081`，请求 `/actuator/health`，再扫描本次日志中的启动成功或失败标记；不要只凭端口可访问或历史日志判断版本。
 - 禁止做法：禁止按端口盲杀不属于当前任务的 Java 进程，禁止把 worktree 构建成功写成 `int_main` 已验证，禁止在主工作区 dirty 时清理或覆盖并行任务文件。
+
+### 融合前主线二次漂移与 Dirty 阻断
+
+- 触发场景：用户要求把附加 worktree 融合进 `int_main`，但 rebase/验证期间主分支又被其它任务推进，或主工作区保留并行任务 dirty/untracked 文件。
+- 经验规则：融合前重新执行 `git log --left-right --cherry-pick int_main...<branch>`；若出现 `<` 侧提交，先在附加 worktree 再 rebase 到当前 `int_main` 并重跑目标验证。即使分支已可 fast-forward，主工作区仍需 clean 后才能运行 closeout apply。
+- 阻断处理：主工作区 dirty 属于其它任务时，只记录文件清单和阻断原因，不做 stash、restore、clean、reset，也不手工绕过 closeout guard。
+- 验证方式：记录最终分支领先提交数、任务提交 hash、目标静态/单测结果、`git diff --check` 和 closeout preview 输出。

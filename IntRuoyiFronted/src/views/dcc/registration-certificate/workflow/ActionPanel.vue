@@ -90,7 +90,7 @@
           </template>
           <el-button
             type="primary"
-            :disabled="accessRequestType === 'DOWNLOAD_FILE' && !hasDownloadFacts"
+            :disabled="accessRequestType === 'DOWNLOAD_FILE' && !selectedDownloadBusinessFileId"
             :loading="submitting"
             @click="handleSubmitAccessRequest"
           >提交访问申请</el-button>

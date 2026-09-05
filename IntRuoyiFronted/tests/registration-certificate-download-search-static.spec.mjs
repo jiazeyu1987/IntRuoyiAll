@@ -17,18 +17,20 @@ assert.match(actionPanel, /downloadableFiles\?:\s*DownloadableFileOption\[\]/, '
 assert.match(actionPanel, /selectedDownloadBusinessFileId/, 'action panel must keep the user selected download file')
 assert.match(actionPanel, /businessFileIds:\s*\[requireSelectedDownloadBusinessFileId\(\)\]/,
   'download request must submit the selected business file id')
-assert.match(actionPanel, /projectCodeId:\s*props\.projectCodeId/,
-  'download request may pass through the optional formal project code id when one exists')
+assert.match(actionPanel, /projectCodeId:\s*props\.projectCodeId\s*\|\|\s*undefined/,
+  'download request must omit projectCodeId when the certificate has no project code')
 assert.doesNotMatch(actionPanel, /const requireProjectCodeId[\s\S]{0,240}缺少项目代码/,
   'download request must not require a project code before submitting')
 assert.match(actionPanel, /const hasDownloadFacts = computed\(\(\) =>\s*Boolean\(selectedDownloadBusinessFileId\.value\)\s*\)/,
   'download request availability must depend on the selected business file, not project code')
 assert.doesNotMatch(actionPanel, /当前档案缺少项目代码或可下载文件，下载已锁定/,
   'download request warning must not claim missing project code locks the action')
+assert.doesNotMatch(actionPanel, /projectCodeId:\s*requireProjectCodeId\(\)/,
+  'download request must not require project code before submission')
 assert.doesNotMatch(actionPanel, /props\.businessFileId[\s\S]{0,180}REGISTRATION_CERTIFICATE/,
   'download file options must come from the formal downloadableFiles list, not a single-field fallback')
 assert.doesNotMatch(actionPanel, /requestType,\s*\n\s*purpose:\s*'页面提交的注册证文件下载申请'\s*\n\s*}/,
-  'download request must not omit file and project code identities')
+  'download request must not omit the selected file identity')
 
 const oldFilterBlock = listPage.slice(
   listPage.indexOf('const oldQuickFilterDefinitions'),

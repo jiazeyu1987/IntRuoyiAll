@@ -132,7 +132,7 @@ public class DccRegistrationCertificateApprovalService {
         }
         List<Long> candidates = REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())
                 ? resolveUploadApprovalCandidates(approverRole.getId(), actorId)
-                : resolveScopedApprovalCandidates(request, approverRole.getId(), actorId);
+                : resolveAccessRequestApprovalCandidates(request, approverRole.getId(), actorId);
         if (candidates.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY);
         }
@@ -443,6 +443,15 @@ public class DccRegistrationCertificateApprovalService {
         return normalizeCandidates(rawCandidates, actorId);
     }
 
+    private List<Long> resolveAccessRequestApprovalCandidates(
+            DccRegistrationCertificateAccessRequestDO request, Long roleId, Long actorId) {
+        LinkedHashSet<Long> rawCandidates = new LinkedHashSet<>(resolveScopedApprovalCandidates(request, roleId, actorId));
+        if (permissionApi.hasAnyPermissionsInRoles(List.of(roleId), APPROVAL_PERMISSION)) {
+            rawCandidates.addAll(permissionApi.getUserRoleIdListByRoleIds(List.of(roleId)));
+        }
+        return normalizeCandidates(rawCandidates, actorId);
+    }
+
     private List<Long> resolveUploadApprovalCandidates(Long roleId, Long actorId) {
         if (!permissionApi.hasAnyPermissionsInRoles(List.of(roleId), UPLOAD_APPROVAL_PERMISSION)) {
             return List.of();
@@ -591,9 +600,6 @@ public class DccRegistrationCertificateApprovalService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
         }
         variables.put("requestOperation", operation);
-        if (OPERATION_CHANGE_CERTIFICATE.equals(operation)) {
-            return;
-        }
         variables.put("certificateNo", requireSummaryText(detail, "certificateNo"));
         variables.put("classification", requireSummaryText(detail, "classification"));
         variables.put("productName", requireSummaryText(detail, "productName"));

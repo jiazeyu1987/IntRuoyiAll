@@ -83,6 +83,16 @@ assert.match(
 )
 assert.match(
   detail,
+  /projectCodeId:\s*detail\.value\.projectCodeId\s*\|\|\s*undefined/,
+  'download request click must omit projectCodeId instead of blocking when the certificate has no project code'
+)
+assert.doesNotMatch(
+  detail,
+  /缺少项目代码，无法提交文件下载申请/,
+  'download request click must not block certificates that have no project code'
+)
+assert.match(
+  detail,
   /requestPendingFileIds\.value = new Set\(\[\.\.\.requestPendingFileIds\.value,\s*String\(businessFileId\)\]\)/,
   'successful request must immediately mark the clicked file as pending'
 )
