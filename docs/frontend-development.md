@@ -41,6 +41,7 @@
 - Evidence: 任务 `doc/tasks/20260902-registration-old-download-expired-filename-fix/`，老证详情下载日志出现 `expired: false` 后，将旧证判定从仅 `detail.status === 'OLD'` 补强为 `mode=old-detail` 或正式 OLD 状态，并且仅作用于详情主注册证文件。
 - Detail action state extension: 详情附件区的“申请下载”这类状态型动作，应直接调用正式申请接口并原地切换按钮状态；审批结果、撤销授权、grant 下载等治理控件只属于明确的审批/工作台入口；若产品要求去除独立治理入口，静态合同必须锁定对应页签、testid、handler 和 API import 在源码中均不存在，而不是只断言普通详情页不可见。刷新后状态必须来自后端只读投影（如当前用户待处理申请 ID），不得靠路由 `mode`、滚动到面板或前端临时缓存冒充持久状态。若同页同时存在内联按钮和流程/访问申请面板，静态合同必须覆盖所有可提交同一申请的入口；项目代码等可选业务事实不得在任一入口被重新变成前端必填。Evidence: 任务 `doc/tasks/20260903-registration-download-request-inline-ux/`、`doc/tasks/20260903-registration-download-request-project-scope/`、`doc/tasks/20260904-registration-download-flow-alignment/`。
 - Generated-detail entry extension: 列表动作如果会创建或切换到“生成对象”的详情页（如模拟、复制、派生版本），同一源行后续普通详情入口必须复用后端返回的生成对象 ID 或本页刚生成的映射；不得一个入口看生成对象、另一个入口又看源对象。静态合同必须同时锁定生成后自动跳转、列表行后续详情解析、刷新后持久字段复用和普通未生成行仍打开自身。Evidence: 任务 `doc/tasks/stage1-detail-entry-mismatch-20260905/`。
+- Detail source tab extension: 详情页新增正式来源类主 tab（如领料单、补料单、批号来源）时，必须同时锁定后端 VO 字段、Controller 映射、前端 API 类型、可见 tab 标识和空态；静态合同脚本应使用脚本自身目录解析源码根，避免只能在某一个 cwd 下通过。Evidence: 任务 `doc/tasks/20260905-stage1-supplement-pick-list-tab/`。
 
 ## 前端源码目录与 .gitignore 门禁
 
