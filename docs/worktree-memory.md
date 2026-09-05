@@ -1,5 +1,13 @@
 # Worktree Memory
 
+## 同类需求 Worktree 复用门禁
+
+- Trigger: 用户要求在 worktree 中继续一个业务功能，且 `D:\IntRuoyiWorktree\` 下可能已有同类分支或半成品分支。
+- Preflight check: 新建前先用 `git worktree list`、分支名和 `doc/tasks/<task-id>` 语义检索同类 worktree；若已有同类分支包含目标代码、任务文档和验证证据，优先在该 worktree 继续，不要重复创建新分支。
+- Blocker: 新建过程中被中断并留下 `locked initializing`、大量 staged deletion 或半 checkout 目录时，必须先确认路径属于当前任务且在 worktree 根目录内，再按 Git worktree 注册状态清理或改用既有同类 worktree；不得把半初始化目录当作可用工作区。
+- Verification: 记录最终采用的 worktree 路径、分支、端口槽位和 `git status --short --branch`；若放弃新建的半成品，需要记录 Git 注册、物理目录和端口登记的后续清理状态。
+- Forbidden action: 禁止在已有同类实现分支可复用时继续造重复分支；禁止直接递归删除仍有 Git 注册的 initializing worktree。
+
 ## Worktree 补丁路径归属门禁
 
 - Trigger: 用户明确要求在某个附加 worktree（如 `TR2`）继续修复、验证或收尾，但当前 Codex/补丁工具默认工作区可能仍是主工作区。

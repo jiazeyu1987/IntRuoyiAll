@@ -89,6 +89,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 "SALE_ORDER",
                 "PRODUCTION_ORDER",
                 "PRODUCTION_PICK_LIST",
+                "PRODUCTION_REPLENISHMENT_LIST",
                 "PRODUCTION_MATERIAL_LIST",
                 "BOM"
         }) {
@@ -103,6 +104,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 "kingdeeSaleOrderSyncJob",
                 "kingdeeProductionOrderSyncJob",
                 "kingdeeProductionPickListSyncJob",
+                "kingdeeProductionReplenishmentListSyncJob",
                 "kingdeeProductionMaterialListSyncJob",
                 "kingdeeBomSyncJob"
         }) {
@@ -184,6 +186,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 ERP_MAIN.resolve("job/purchase/KingdeePurchaseOrderSyncJob.java"),
                 ERP_MAIN.resolve("job/sale/KingdeeSaleOrderSyncJob.java"),
                 ERP_MAIN.resolve("job/production/KingdeeProductionPickListSyncJob.java"),
+                ERP_MAIN.resolve("job/production/KingdeeProductionReplenishmentListSyncJob.java"),
                 MES_MAIN.resolve("job/md/KingdeeProductItemSyncJob.java"),
                 MES_MAIN.resolve("job/md/KingdeeBomSyncJob.java"),
                 MES_MAIN.resolve("job/workorder/KingdeeProductionOrderSyncJob.java"),
@@ -200,6 +203,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 ERP_MAIN.resolve("service/stock/kingdee/ErpKingdeeInventoryListServiceImpl.java"),
                 ERP_MAIN.resolve("service/stock/kingdee/ErpKingdeeStockMoveListServiceImpl.java"),
                 ERP_MAIN.resolve("service/production/kingdee/ErpKingdeeProductionPickListServiceImpl.java"),
+                ERP_MAIN.resolve("service/production/kingdee/ErpKingdeeProductionReplenishmentListServiceImpl.java"),
                 ERP_MAIN.resolve("service/sync/admin/ErpKingdeeProductionOrderCreateServiceImpl.java"),
                 MES_MAIN.resolve("service/md/item/sync/MesKingdeeProductBomSyncServiceImpl.java"),
                 MES_MAIN.resolve("service/md/item/kingdee/MesKingdeeBomListServiceImpl.java"),

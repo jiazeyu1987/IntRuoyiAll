@@ -38,6 +38,8 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode KINGDEE_PRODUCTION_ORDER_REQUEST_INVALID = new ErrorCode(1_030_101_021, "Kingdee K3Cloud生产订单请求无效：{}");
     ErrorCode KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL = new ErrorCode(1_030_101_023, "Kingdee K3Cloud生产领料单请求失败：{}");
     ErrorCode KINGDEE_PRODUCTION_PICK_LIST_RESPONSE_INVALID = new ErrorCode(1_030_101_024, "Kingdee K3Cloud生产领料单响应无效：{}");
+    ErrorCode KINGDEE_PRODUCTION_REPLENISHMENT_LIST_REQUEST_FAIL = new ErrorCode(1_030_101_025, "Kingdee K3Cloud生产补料单请求失败：{}");
+    ErrorCode KINGDEE_PRODUCTION_REPLENISHMENT_LIST_RESPONSE_INVALID = new ErrorCode(1_030_101_026, "Kingdee K3Cloud生产补料单响应无效：{}");
 
     ErrorCode NAS_TABLE_SYNC_PLAN_NOT_EXISTS = new ErrorCode(1_030_101_030, "NAS 表格自动同步计划不存在");
     ErrorCode NAS_TABLE_SYNC_PLAN_DISABLED = new ErrorCode(1_030_101_031, "NAS 表格自动同步计划未启用");

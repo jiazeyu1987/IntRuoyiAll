@@ -295,6 +295,7 @@ for (const token of [
   '销售订单',
   '生产工单',
   '生产领料单列表',
+  '生产补料单列表',
   '生产用料清单',
   '物料清单'
 ]) {
@@ -426,8 +427,8 @@ for (const token of [
 
 assert.match(
   component,
-  /PRODUCTION_PICK_LIST[\s\S]*PRODUCTION_MATERIAL_LIST/,
-  '生产领料单列表必须作为独立同步类型展示，且不能覆盖生产用料清单。'
+  /PRODUCTION_PICK_LIST[\s\S]*PRODUCTION_REPLENISHMENT_LIST[\s\S]*PRODUCTION_MATERIAL_LIST/,
+  '生产领料单列表、生产补料单列表必须作为独立同步类型展示，且不能覆盖生产用料清单。'
 )
 
 assert.doesNotMatch(
