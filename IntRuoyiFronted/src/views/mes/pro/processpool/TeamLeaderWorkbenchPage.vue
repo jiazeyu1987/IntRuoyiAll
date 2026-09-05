@@ -4346,6 +4346,7 @@ import {
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
   type TeamLeaderActiveOrderReleaseFailureRespVO,
   type TeamLeaderActiveOrderRespVO,
+  type TeamLeaderActiveOrderSubmissionDeviceDetailRespVO,
   type TeamLeaderActiveOrderSimulationCopyRespVO,
   type TeamLeaderActiveOrderVersionUpgradePreviewRespVO,
   type TeamLeaderLossReasonVO,
@@ -5927,6 +5928,20 @@ const formatActiveOrderBatchCodes = (batchCodes?: string[]) => {
 
 const formatActiveOrderPickListNos = (sourceNos?: string[]) => {
   const normalized = (sourceNos ?? []).map((sourceNo) => String(sourceNo).trim()).filter(Boolean)
+  return normalized.length ? normalized.join('、') : '-'
+}
+
+const formatActiveOrderSubmissionDevices = (
+  devices?: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
+) => {
+  const normalized = (devices ?? [])
+    .map((device) =>
+      [device.deviceName, device.deviceCode]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+        .join(' / ')
+    )
+    .filter(Boolean)
   return normalized.length ? normalized.join('、') : '-'
 }
 
