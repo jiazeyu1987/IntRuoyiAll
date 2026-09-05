@@ -288,6 +288,43 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
 
     @TenantIgnore
     @Select("""
+            SELECT COALESCE(MAX(id), 0)
+            FROM dcc_controlled_file
+            """)
+    Long selectGlobalMaxControlledFileId();
+
+    @TenantIgnore
+    @Select("""
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            LEFT JOIN dcc_controlled_file_source_global_claim global_claim
+              ON global_claim.source_file_id = controlled_file.source_file_id
+             AND global_claim.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.id <= #{snapshotMaxControlledFileId}
+              AND controlled_file.deleted = 0
+              AND (controlled_file.source_file_id IS NULL
+                OR source_owner.id IS NULL
+                OR NOT (source_owner.source_file_id <=> controlled_file.source_file_id)
+                OR source_owner.source_sha256 IS NULL
+                OR CHAR_LENGTH(source_owner.source_sha256) <> 64
+                OR global_claim.id IS NULL
+                OR NOT (global_claim.tenant_id <=> controlled_file.tenant_id)
+                OR NOT (global_claim.controlled_file_id <=> controlled_file.id))
+            ORDER BY controlled_file.source_file_id, controlled_file.id
+            LIMIT #{limit}
+            """)
+    List<DccControlledFileDO> selectEffectiveSourceGovernanceCandidates(
+            @Param("tenantId") Long tenantId,
+            @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId,
+            @Param("limit") int limit);
+
+    @TenantIgnore
+    @Select("""
             SELECT id AS controlled_file_id,
                    tenant_id,
                    source_file_id

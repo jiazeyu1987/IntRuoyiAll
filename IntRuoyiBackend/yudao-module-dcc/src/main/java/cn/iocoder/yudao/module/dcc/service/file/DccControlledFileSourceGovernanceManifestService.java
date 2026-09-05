@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGo
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_ITEM_BLOCKED;
@@ -16,6 +17,13 @@ public class DccControlledFileSourceGovernanceManifestService {
 
     public static final String CURRENT_RULE_VERSION = "dcc-source-ownership-v1";
     public static final String CURRENT_SCHEMA_VERSION = "dcc-source-governance-v1";
+
+    private final DccControlledFileSourceGovernanceManifestHasher manifestHasher;
+
+    public DccControlledFileSourceGovernanceManifestService(
+            DccControlledFileSourceGovernanceManifestHasher manifestHasher) {
+        this.manifestHasher = manifestHasher;
+    }
 
     public void requireConfirmed(DccControlledFileSourceGovernanceBatchDO batch,
                                  String manifestSha256, String requestSha256) {
@@ -33,6 +41,14 @@ public class DccControlledFileSourceGovernanceManifestService {
     public void requireVersioned(DccControlledFileSourceGovernanceBatchDO batch) {
         if (batch == null || !Objects.equals(CURRENT_RULE_VERSION, batch.getRuleVersion())
                 || !Objects.equals(CURRENT_SCHEMA_VERSION, batch.getSchemaVersion())) {
+            throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
+        }
+    }
+
+    public void requireManifestContent(DccControlledFileSourceGovernanceBatchDO batch,
+                                       List<DccControlledFileSourceGovernanceItemDO> items) {
+        if (batch == null || items == null
+                || !Objects.equals(batch.getManifestSha256(), manifestHasher.sha256(batch, items))) {
             throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
         }
     }

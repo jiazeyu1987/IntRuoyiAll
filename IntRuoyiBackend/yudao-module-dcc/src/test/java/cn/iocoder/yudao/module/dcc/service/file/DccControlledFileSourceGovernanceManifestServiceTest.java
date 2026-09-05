@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGo
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGovernanceItemDO;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_ITEM_BLOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID;
@@ -14,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class DccControlledFileSourceGovernanceManifestServiceTest {
 
     private final DccControlledFileSourceGovernanceManifestService service =
-            new DccControlledFileSourceGovernanceManifestService();
+            new DccControlledFileSourceGovernanceManifestService(
+                    new DccControlledFileSourceGovernanceManifestHasher());
 
     @Test
     void requireConfirmed_rejectsUnconfirmedOrDigestMismatch() {
@@ -73,5 +76,28 @@ class DccControlledFileSourceGovernanceManifestServiceTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.requireTenantInScope(batch, 3L));
         assertEquals(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void requireManifestContentRejectsImmutableSnapshotTamperingButAllowsExecutionStatusChange() {
+        DccControlledFileSourceGovernanceManifestHasher hasher =
+                new DccControlledFileSourceGovernanceManifestHasher();
+        DccControlledFileSourceGovernanceBatchDO batch = DccControlledFileSourceGovernanceBatchDO.builder()
+                .tenantScopeJson("[31]").tenantScopeSha256("scope").snapshotMaxControlledFileId(901L)
+                .effectiveControlledFileCount(1L)
+                .ruleVersion(DccControlledFileSourceGovernanceManifestService.CURRENT_RULE_VERSION)
+                .schemaVersion(DccControlledFileSourceGovernanceManifestService.CURRENT_SCHEMA_VERSION).build();
+        DccControlledFileSourceGovernanceItemDO item = DccControlledFileSourceGovernanceItemDO.builder()
+                .tenantId(31L).controlledFileId(901L).legacySourceFileId(700L).snapshotSourceFileId(700L)
+                .snapshotSourceSha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .governanceAction("CLAIM_SOURCE").itemStatus("READY").build();
+        batch.setManifestSha256(hasher.sha256(batch, List.of(item)));
+        service.requireManifestContent(batch, List.of(item));
+
+        item.setItemStatus("COMPLETED");
+        service.requireManifestContent(batch, List.of(item));
+
+        item.setSnapshotSourceFileId(701L);
+        assertThrows(ServiceException.class, () -> service.requireManifestContent(batch, List.of(item)));
     }
 }

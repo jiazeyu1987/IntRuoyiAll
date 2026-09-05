@@ -46,6 +46,13 @@ public class DccControlledFileSourceGovernanceBatchService {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         manifestService.requireVersioned(batch);
         manifestService.requireTenantInScope(batch, tenantId);
+        List<DccControlledFileSourceGovernanceItemDO> items =
+                itemMapper.selectByBatchAndTenant(batch.getId(), tenantId);
+        if (!Objects.equals(batch.getManifestSha256(), manifestSha256)
+                || !Objects.equals(batch.getRequestSha256(), requestSha256)) {
+            throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
+        }
+        manifestService.requireManifestContent(batch, items);
         if (Objects.equals(batch.getBatchStatus(), "CONFIRMED")) {
             manifestService.requireConfirmed(batch, manifestSha256, requestSha256);
             return batch;
@@ -54,11 +61,6 @@ public class DccControlledFileSourceGovernanceBatchService {
                 && !Objects.equals(batch.getBatchStatus(), "READY")) {
             throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
         }
-        if (StrUtil.isBlank(manifestSha256) || StrUtil.isBlank(requestSha256)) {
-            throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
-        }
-        batch.setManifestSha256(manifestSha256);
-        batch.setRequestSha256(requestSha256);
         batch.setBatchStatus("CONFIRMED");
         batch.setConfirmedBy(actorId);
         batch.setConfirmedTime(LocalDateTime.now());
@@ -77,9 +79,10 @@ public class DccControlledFileSourceGovernanceBatchService {
         manifestService.requireVersioned(batch);
         manifestService.requireTenantInScope(batch, tenantId);
         Set<Long> tenantScope = Set.of(tenantId);
-        manifestService.requireConfirmed(batch, manifestSha256, requestSha256);
         List<DccControlledFileSourceGovernanceItemDO> items =
                 itemMapper.selectByBatchAndTenant(batch.getId(), tenantId);
+        manifestService.requireConfirmed(batch, manifestSha256, requestSha256);
+        manifestService.requireManifestContent(batch, items);
         List<DccControlledFileSourceGovernanceItemDO> readyItems = items.stream()
                 .filter(item -> Objects.equals(item.getItemStatus(), "READY"))
                 .sorted(Comparator.comparing(DccControlledFileSourceGovernanceItemDO::getId,

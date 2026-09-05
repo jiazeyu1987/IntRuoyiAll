@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceConfirmReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceExecuteReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePrepareReqVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +27,8 @@ class DccControlledFileSourceGovernanceApiContractTest {
                 "getSourceGovernanceBlockers", String.class);
         Method postflight = DccControlledFileController.class.getDeclaredMethod(
                 "getSourceGovernancePostflight", String.class);
+        Method prepare = DccControlledFileController.class.getDeclaredMethod(
+                "prepareSourceGovernanceBatch", DccControlledFileSourceGovernancePrepareReqVO.class);
 
         assertTrue(Arrays.asList(confirm.getAnnotation(PostMapping.class).value())
                 .contains("/source-governance/batches/{taskKey}/confirm"));
@@ -35,10 +38,13 @@ class DccControlledFileSourceGovernanceApiContractTest {
                 .contains("/source-governance/batches/{taskKey}/blockers"));
         assertTrue(Arrays.asList(postflight.getAnnotation(GetMapping.class).value())
                 .contains("/source-governance/batches/{taskKey}/postflight"));
+        assertTrue(Arrays.asList(prepare.getAnnotation(PostMapping.class).value())
+                .contains("/source-governance/batches/prepare"));
         assertTrue(confirm.isAnnotationPresent(PreAuthorize.class));
         assertTrue(execute.isAnnotationPresent(PreAuthorize.class));
         assertTrue(blockers.isAnnotationPresent(PreAuthorize.class));
         assertTrue(postflight.isAnnotationPresent(PreAuthorize.class));
+        assertTrue(prepare.isAnnotationPresent(PreAuthorize.class));
     }
 
     @Test

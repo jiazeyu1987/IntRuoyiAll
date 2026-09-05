@@ -48,6 +48,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSou
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceConfirmReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceExecuteReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePostflightRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePrepareReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePrepareRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
@@ -73,6 +75,7 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceMigrationService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceBatchService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernancePostflightService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernancePreparationService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBrowserSettingsService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMessageReplayService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataImportExportService;
@@ -155,6 +158,8 @@ public class DccControlledFileController {
     private DccControlledFileSourceGovernanceBatchService sourceGovernanceBatchService;
     @Resource
     private DccControlledFileSourceGovernancePostflightService sourceGovernancePostflightService;
+    @Resource
+    private DccControlledFileSourceGovernancePreparationService sourceGovernancePreparationService;
     @Resource
     private DccControlledFileBrowserSettingsService browserSettingsService;
     @Resource
@@ -877,6 +882,15 @@ public class DccControlledFileController {
         return success(DccControlledFileSourceGovernanceBatchRespVO.from(
                 sourceGovernanceBatchService.confirmBatch(taskKey, getLoginUserId(),
                         reqVO.getManifestSha256(), reqVO.getRequestSha256())));
+    }
+
+    @PostMapping("/source-governance/batches/prepare")
+    @Operation(summary = "Prepare a frozen DCC source governance manifest")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:update')")
+    public CommonResult<DccControlledFileSourceGovernancePrepareRespVO> prepareSourceGovernanceBatch(
+            @Valid @RequestBody DccControlledFileSourceGovernancePrepareReqVO reqVO) {
+        return success(DccControlledFileSourceGovernancePrepareRespVO.from(
+                sourceGovernancePreparationService.prepareBatch(reqVO.getTaskKey(), reqVO.getBatchSize())));
     }
 
     @PostMapping("/source-governance/batches/{taskKey}/execute")
