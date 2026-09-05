@@ -144,6 +144,8 @@ public class DccControlledFileSourceGovernanceExecutionService {
         String message = failureMessage(failure);
         for (DccControlledFileSourceGovernanceItemDO item : items) {
             item.setItemStatus("FAILED");
+            item.setBlockerReasonCode(null);
+            item.setBlockerDetail(null);
             item.setLastError(message);
             item.setProcessedBy(actorId);
             item.setProcessedTime(LocalDateTime.now());
