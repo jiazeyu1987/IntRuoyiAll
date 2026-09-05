@@ -306,6 +306,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
              AND global_claim.deleted = 0
             WHERE controlled_file.tenant_id = #{tenantId}
               AND controlled_file.id <= #{snapshotMaxControlledFileId}
+              AND controlled_file.id > #{startAfterControlledFileId}
               AND controlled_file.deleted = 0
               AND (controlled_file.source_file_id IS NULL
                 OR source_owner.id IS NULL
@@ -315,12 +316,13 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                 OR global_claim.id IS NULL
                 OR NOT (global_claim.tenant_id <=> controlled_file.tenant_id)
                 OR NOT (global_claim.controlled_file_id <=> controlled_file.id))
-            ORDER BY controlled_file.source_file_id, controlled_file.id
+            ORDER BY controlled_file.id
             LIMIT #{limit}
             """)
     List<DccControlledFileDO> selectEffectiveSourceGovernanceCandidates(
             @Param("tenantId") Long tenantId,
             @Param("snapshotMaxControlledFileId") Long snapshotMaxControlledFileId,
+            @Param("startAfterControlledFileId") Long startAfterControlledFileId,
             @Param("limit") int limit);
 
     @TenantIgnore

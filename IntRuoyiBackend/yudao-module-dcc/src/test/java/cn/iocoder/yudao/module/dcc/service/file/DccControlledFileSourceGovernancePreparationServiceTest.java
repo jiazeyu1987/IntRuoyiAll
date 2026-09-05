@@ -65,7 +65,7 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
         DccControlledFileDO candidate = controlledFile(901L, 700L);
         DccControlledFileMapper.GlobalSourceReference reference = reference(31L, 901L, 700L);
         when(controlledFileMapper.selectGlobalMaxControlledFileId()).thenReturn(999L);
-        when(controlledFileMapper.selectEffectiveSourceGovernanceCandidates(31L, 999L, 100))
+        when(controlledFileMapper.selectEffectiveSourceGovernanceCandidates(31L, 999L, 0L, 100))
                 .thenReturn(List.of(candidate));
         when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 999L))
                 .thenReturn(List.of(reference));
@@ -78,12 +78,13 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
             return 1;
         });
 
-        DccControlledFileSourceGovernancePreparationResult result = service.prepareBatch("task-1", 100);
+        DccControlledFileSourceGovernancePreparationResult result = service.prepareBatch("task-1", 100, 0L);
 
         assertEquals("PREPARED", result.batchStatus());
         assertEquals(1, result.totalCount());
         assertEquals(1, result.readyCount());
         assertEquals(0, result.blockedCount());
+        assertEquals(901L, result.lastControlledFileId());
         assertTrue(result.manifestSha256().matches("[0-9a-f]{64}"));
         assertTrue(result.requestSha256().matches("[0-9a-f]{64}"));
         ArgumentCaptor<DccControlledFileSourceGovernanceItemDO> itemCaptor =
@@ -100,7 +101,7 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
     void prepareBatchMarksCrossTenantSharedSourceBlocked() {
         DccControlledFileDO candidate = controlledFile(901L, 700L);
         when(controlledFileMapper.selectGlobalMaxControlledFileId()).thenReturn(999L);
-        when(controlledFileMapper.selectEffectiveSourceGovernanceCandidates(31L, 999L, 100))
+        when(controlledFileMapper.selectEffectiveSourceGovernanceCandidates(31L, 999L, 0L, 100))
                 .thenReturn(List.of(candidate));
         when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 999L)).thenReturn(List.of(
                 reference(31L, 901L, 700L), reference(32L, 902L, 700L)));
@@ -113,7 +114,7 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
             return 1;
         });
 
-        DccControlledFileSourceGovernancePreparationResult result = service.prepareBatch("task-2", 100);
+        DccControlledFileSourceGovernancePreparationResult result = service.prepareBatch("task-2", 100, 0L);
 
         assertEquals(0, result.readyCount());
         assertEquals(1, result.blockedCount());

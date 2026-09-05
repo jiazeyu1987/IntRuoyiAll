@@ -17,6 +17,8 @@ public class DccControlledFileSourceGovernancePrepareRespVO {
     private String manifestSha256;
     private String requestSha256;
     private Long snapshotMaxControlledFileId;
+    private Long startAfterControlledFileId;
+    private Long lastControlledFileId;
     private Integer totalCount;
     private Integer readyCount;
     private Integer blockedCount;
@@ -27,6 +29,8 @@ public class DccControlledFileSourceGovernancePrepareRespVO {
                 .ruleVersion(result.ruleVersion()).schemaVersion(result.schemaVersion())
                 .manifestSha256(result.manifestSha256()).requestSha256(result.requestSha256())
                 .snapshotMaxControlledFileId(result.snapshotMaxControlledFileId())
+                .startAfterControlledFileId(result.startAfterControlledFileId())
+                .lastControlledFileId(result.lastControlledFileId())
                 .totalCount(result.totalCount()).readyCount(result.readyCount())
                 .blockedCount(result.blockedCount()).build();
     }

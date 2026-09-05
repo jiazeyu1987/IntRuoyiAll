@@ -90,4 +90,17 @@ class DccSourceOwnershipSchemaTest {
                 StandardCharsets.UTF_8);
         assertTrue(source.contains("private String requestSha256;"));
     }
+
+    @Test
+    void governancePreparationCursorBelongsToCandidateQuery() throws Exception {
+        String mapper = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao", "module",
+                        "dcc", "dal", "mysql", "file", "DccControlledFileMapper.java"),
+                StandardCharsets.UTF_8);
+        int candidateQuery = mapper.indexOf("LEFT JOIN dcc_controlled_file_source_global_claim global_claim");
+        int candidateMethod = mapper.indexOf("selectEffectiveSourceGovernanceCandidates");
+        assertTrue(candidateQuery >= 0 && candidateMethod > candidateQuery);
+        String candidateContract = mapper.substring(candidateQuery, candidateMethod);
+        assertTrue(candidateContract.contains("controlled_file.id > #{startAfterControlledFileId}"));
+        assertTrue(candidateContract.contains("ORDER BY controlled_file.id"));
+    }
 }

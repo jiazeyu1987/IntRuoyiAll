@@ -8,6 +8,8 @@ public record DccControlledFileSourceGovernancePreparationResult(
         String manifestSha256,
         String requestSha256,
         Long snapshotMaxControlledFileId,
+        Long startAfterControlledFileId,
+        Long lastControlledFileId,
         int totalCount,
         int readyCount,
         int blockedCount) {

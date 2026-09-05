@@ -890,7 +890,8 @@ public class DccControlledFileController {
     public CommonResult<DccControlledFileSourceGovernancePrepareRespVO> prepareSourceGovernanceBatch(
             @Valid @RequestBody DccControlledFileSourceGovernancePrepareReqVO reqVO) {
         return success(DccControlledFileSourceGovernancePrepareRespVO.from(
-                sourceGovernancePreparationService.prepareBatch(reqVO.getTaskKey(), reqVO.getBatchSize())));
+                sourceGovernancePreparationService.prepareBatch(reqVO.getTaskKey(), reqVO.getBatchSize(),
+                        reqVO.getStartAfterControlledFileId())));
     }
 
     @PostMapping("/source-governance/batches/{taskKey}/execute")

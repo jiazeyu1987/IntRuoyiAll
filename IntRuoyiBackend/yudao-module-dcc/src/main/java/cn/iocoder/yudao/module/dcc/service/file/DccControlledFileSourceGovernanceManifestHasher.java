@@ -18,7 +18,7 @@ public class DccControlledFileSourceGovernanceManifestHasher {
         StringBuilder canonical = new StringBuilder();
         append(canonical, batch.getSchemaVersion(), batch.getRuleVersion(), batch.getTenantScopeJson(),
                 batch.getTenantScopeSha256(), batch.getSnapshotMaxControlledFileId(),
-                batch.getEffectiveControlledFileCount());
+                batch.getEffectiveControlledFileCount(), batch.getRequestSha256());
         items.stream().sorted(Comparator
                         .comparing(DccControlledFileSourceGovernanceItemDO::getTenantId,
                                 Comparator.nullsFirst(Long::compareTo))

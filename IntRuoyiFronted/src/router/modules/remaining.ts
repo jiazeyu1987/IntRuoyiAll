@@ -2063,6 +2063,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/process-pool/active-order/:activeOrderId/submission-detail',
+        component: () => import('@/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'),
+        name: 'MesProcessPoolActiveOrderSubmissionDetail',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序提交详情',
+          activeMenu: '/mes/pro/process-pool/production-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
         path: 'pro/process-pool/pqc-leader',
         component: () => import('@/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue'),
         name: 'MesProProcessPoolPqcLeaderWorkbench',

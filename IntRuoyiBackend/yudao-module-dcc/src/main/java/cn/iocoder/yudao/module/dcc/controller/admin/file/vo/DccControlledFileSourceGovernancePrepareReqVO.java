@@ -16,4 +16,7 @@ public class DccControlledFileSourceGovernancePrepareReqVO {
     @Min(1)
     @Max(200)
     private int batchSize = 100;
+
+    @Min(0)
+    private Long startAfterControlledFileId = 0L;
 }

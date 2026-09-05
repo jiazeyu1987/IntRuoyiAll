@@ -50,14 +50,20 @@ public class DccControlledFileSourceGovernancePreparationService {
     private DccControlledFileSourceGovernanceManifestService manifestService;
 
     @Transactional(rollbackFor = Exception.class)
-    public DccControlledFileSourceGovernancePreparationResult prepareBatch(String taskKey, int batchSize) {
+    public DccControlledFileSourceGovernancePreparationResult prepareBatch(
+            String taskKey, int batchSize, Long startAfterControlledFileId) {
         if (StrUtil.isBlank(taskKey) || batchSize < 1
                 || batchSize > DccControlledFileSourceGovernanceBatchService.MAX_BATCH_SIZE) {
             throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
         }
+        long normalizedStartAfterId = startAfterControlledFileId == null ? 0L : startAfterControlledFileId;
+        if (normalizedStartAfterId < 0) {
+            throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID);
+        }
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         String requestSha256 = sha256(String.join("|", taskKey, String.valueOf(tenantId),
-                String.valueOf(batchSize), DccControlledFileSourceGovernanceManifestService.CURRENT_RULE_VERSION,
+                String.valueOf(batchSize), String.valueOf(normalizedStartAfterId),
+                DccControlledFileSourceGovernanceManifestService.CURRENT_RULE_VERSION,
                 DccControlledFileSourceGovernanceManifestService.CURRENT_SCHEMA_VERSION));
         DccControlledFileSourceGovernanceBatchDO existing = batchMapper.selectByTaskKey(taskKey);
         if (existing != null) {
@@ -69,12 +75,12 @@ public class DccControlledFileSourceGovernancePreparationService {
             manifestService.requireVersioned(existing);
             manifestService.requireTenantInScope(existing, tenantId);
             manifestService.requireManifestContent(existing, existingItems);
-            return summarize(existing, existingItems);
+            return summarize(existing, existingItems, normalizedStartAfterId);
         }
 
         Long snapshotMaxControlledFileId = controlledFileMapper.selectGlobalMaxControlledFileId();
         List<DccControlledFileDO> candidates = controlledFileMapper.selectEffectiveSourceGovernanceCandidates(
-                tenantId, snapshotMaxControlledFileId, batchSize);
+                tenantId, snapshotMaxControlledFileId, normalizedStartAfterId, batchSize);
         List<PreparedItem> preparedItems = prepareItems(tenantId, snapshotMaxControlledFileId,
                 batchSize, candidates);
         String tenantScopeJson = "[" + tenantId + "]";
@@ -104,7 +110,7 @@ public class DccControlledFileSourceGovernancePreparationService {
             item.setBatchId(batch.getId());
             itemMapper.insert(item);
         }
-        return summarize(batch, itemRows);
+        return summarize(batch, itemRows, normalizedStartAfterId);
     }
 
     private List<PreparedItem> prepareItems(Long tenantId, Long snapshotMaxControlledFileId, int batchSize,
@@ -224,12 +230,17 @@ public class DccControlledFileSourceGovernancePreparationService {
 
     private DccControlledFileSourceGovernancePreparationResult summarize(
             DccControlledFileSourceGovernanceBatchDO batch,
-            List<DccControlledFileSourceGovernanceItemDO> items) {
+            List<DccControlledFileSourceGovernanceItemDO> items,
+            Long startAfterControlledFileId) {
         int ready = (int) items.stream().filter(item -> Objects.equals(item.getItemStatus(), "READY")).count();
         int blocked = (int) items.stream().filter(item -> Objects.equals(item.getItemStatus(), "BLOCKED")).count();
+        Long lastControlledFileId = items.stream()
+                .map(DccControlledFileSourceGovernanceItemDO::getControlledFileId)
+                .filter(Objects::nonNull).max(Long::compareTo).orElse(startAfterControlledFileId);
         return new DccControlledFileSourceGovernancePreparationResult(
                 batch.getTaskKey(), batch.getBatchStatus(), batch.getRuleVersion(), batch.getSchemaVersion(),
                 batch.getManifestSha256(), batch.getRequestSha256(), batch.getSnapshotMaxControlledFileId(),
+                startAfterControlledFileId, lastControlledFileId,
                 items.size(), ready, blocked);
     }
 
