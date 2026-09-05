@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO;
@@ -49,6 +50,11 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
                 return List.of(
                         allocation(90001L, 8101L, "WO-A", "100", "60", true, true),
                         allocation(90002L, 8102L, "WO-C", "50", "0", false, false));
+            }
+
+            @Override
+            public List<MesProFeedbackMaterialDO> selectFeedbackMaterialsByFeedbackIds(List<Long> feedbackIds) {
+                return List.of();
             }
         };
 
@@ -110,6 +116,11 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
             public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(
                     List<Long> eventIds) {
                 return List.of(allocation(90001L, 8101L, "WO-A", "100", null, null, false));
+            }
+
+            @Override
+            public List<MesProFeedbackMaterialDO> selectFeedbackMaterialsByFeedbackIds(List<Long> feedbackIds) {
+                return List.of();
             }
         };
 

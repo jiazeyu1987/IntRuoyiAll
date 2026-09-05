@@ -99,3 +99,35 @@ watch(
 
 onMounted(loadDetail)
 </script>
+<style scoped>
+.team-leader-workbench__active-order-detail-page {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  min-width: 0;
+}
+
+.team-leader-workbench__active-order-detail-page-header h2 {
+  margin: 4px 0 0;
+  color: var(--el-text-color-primary);
+  font-size: 20px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.team-leader-workbench__active-order-detail-page-eyebrow {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+</style>

@@ -92,38 +92,44 @@
                   </div>
                 </div>
 
-                <el-table
+                <div
                   v-if="process.submissions?.length"
-                  :data="process.submissions"
-                  size="small"
-                  border
-                  :row-class-name="resolveActiveOrderSubmissionRowClassName"
-                  class="team-leader-workbench__active-order-submission-table"
+                  class="team-leader-workbench__active-order-detail-table-shell"
                 >
-                  <el-table-column label="提交数量" min-width="120">
-                    <template #default="{ row: submission }">
-                      {{ formatTraceQuantity(submission.submittedQuantity) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="设备" min-width="220">
-                    <template #default="{ row: submission }">
-                      {{ formatActiveOrderSubmissionDevices(submission.devices) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="提交人" prop="submitterName" min-width="140" />
-                  <el-table-column label="审核人" min-width="140">
-                    <template #default="{ row: submission }">
-                      <span :class="{ 'is-pending': !submission.reviewerName }">
-                        {{ submission.reviewerName || '未审核' }}
-                      </span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="提交时间" min-width="180">
-                    <template #default="{ row: submission }">
-                      {{ formatDateTime(submission.submittedAt) }}
-                    </template>
-                  </el-table-column>
-                </el-table>
+                  <el-table
+                    :data="process.submissions"
+                    size="small"
+                    border
+                    :fit="true"
+                    table-layout="fixed"
+                    :row-class-name="resolveActiveOrderSubmissionRowClassName"
+                    class="team-leader-workbench__active-order-submission-table"
+                  >
+                    <el-table-column label="提交数量" width="120">
+                      <template #default="{ row: submission }">
+                        {{ formatTraceQuantity(submission.submittedQuantity) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="设备">
+                      <template #default="{ row: submission }">
+                        {{ formatActiveOrderSubmissionDevices(submission.devices) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="提交人" prop="submitterName" width="140" />
+                    <el-table-column label="审核人" width="140">
+                      <template #default="{ row: submission }">
+                        <span :class="{ 'is-pending': !submission.reviewerName }">
+                          {{ submission.reviewerName || '未审核' }}
+                        </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="提交时间" width="180">
+                      <template #default="{ row: submission }">
+                        {{ formatDateTime(submission.submittedAt) }}
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
                 <el-empty v-else :image-size="56" description="暂无一线生产提交" />
               </section>
             </el-tab-pane>
@@ -177,29 +183,35 @@
                       事件 {{ formatActiveOrderPqcEventIds(pqcSubmission) }}
                     </span>
                   </div>
-                  <el-table
+                  <div
                     v-if="pqcSubmission.items?.length"
-                    :data="buildActiveOrderPqcItemRows(pqcSubmission)"
-                    size="small"
-                    border
-                    class="team-leader-workbench__active-order-submission-table"
+                    class="team-leader-workbench__active-order-detail-table-shell"
                   >
-                    <el-table-column label="检验项" min-width="180">
-                      <template #default="{ row: item }">{{ item.itemNameText }}</template>
-                    </el-table-column>
-                    <el-table-column label="样本" min-width="160">
-                      <template #default="{ row: item }">{{ item.sampleSummaryText }}</template>
-                    </el-table-column>
-                    <el-table-column label="结果汇总" min-width="180">
-                      <template #default="{ row: item }">{{ item.resultSummaryText }}</template>
-                    </el-table-column>
-                    <el-table-column label="判定" min-width="100">
-                      <template #default="{ row: item }">{{ item.judgementSummaryText }}</template>
-                    </el-table-column>
-                    <el-table-column label="设备" min-width="160">
-                      <template #default="{ row: item }">{{ item.equipmentSummaryText }}</template>
-                    </el-table-column>
-                  </el-table>
+                    <el-table
+                      :data="buildActiveOrderPqcItemRows(pqcSubmission)"
+                      size="small"
+                      border
+                      :fit="true"
+                      table-layout="fixed"
+                      class="team-leader-workbench__active-order-submission-table"
+                    >
+                      <el-table-column label="检验项" width="180">
+                        <template #default="{ row: item }">{{ item.itemNameText }}</template>
+                      </el-table-column>
+                      <el-table-column label="样本" width="180">
+                        <template #default="{ row: item }">{{ item.sampleSummaryText }}</template>
+                      </el-table-column>
+                      <el-table-column label="结果汇总">
+                        <template #default="{ row: item }">{{ item.resultSummaryText }}</template>
+                      </el-table-column>
+                      <el-table-column label="判定" width="120">
+                        <template #default="{ row: item }">{{ item.judgementSummaryText }}</template>
+                      </el-table-column>
+                      <el-table-column label="设备" width="180">
+                        <template #default="{ row: item }">{{ item.equipmentSummaryText }}</template>
+                      </el-table-column>
+                    </el-table>
+                  </div>
                   <el-empty v-else :image-size="56" description="暂无PQC检验明细" />
                 </div>
               </section>
@@ -212,41 +224,47 @@
           name="materials"
           data-team-leader-active-order-detail-material-tab
         >
-          <el-table
+          <div
             v-if="pickListMaterials.length"
-            :data="pickListMaterials"
-            size="small"
-            border
-            class="team-leader-workbench__active-order-submission-table"
+            class="team-leader-workbench__active-order-detail-table-shell"
           >
-            <el-table-column label="领料单" min-width="180">
-              <template #default="{ row: material }">
-                {{ formatActiveOrderPickListNos(material.sourcePickListNos) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="物料编码" prop="materialCode" min-width="140" />
-            <el-table-column label="物料名称" prop="materialName" min-width="180" />
-            <el-table-column label="规格型号" min-width="160">
-              <template #default="{ row: material }">
-                {{ material.materialSpecification || '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="批号" min-width="220">
-              <template #default="{ row: material }">
-                {{ formatActiveOrderBatchCodes(material.batchCodes) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="实发数量" min-width="120">
-              <template #default="{ row: material }">
-                {{ formatTraceQuantity(material.actualQuantity) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="对应工序" min-width="180">
-              <template #default="{ row: material }">
-                {{ material.sourceProcessNames.join('、') || '-' }}
-              </template>
-            </el-table-column>
-          </el-table>
+            <el-table
+              :data="pickListMaterials"
+              size="small"
+              border
+              :fit="true"
+              table-layout="fixed"
+              class="team-leader-workbench__active-order-submission-table"
+            >
+              <el-table-column label="领料单" width="180">
+                <template #default="{ row: material }">
+                  {{ formatActiveOrderPickListNos(material.sourcePickListNos) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="物料编码" prop="materialCode" width="140" />
+              <el-table-column label="物料名称" prop="materialName" />
+              <el-table-column label="规格型号" width="150">
+                <template #default="{ row: material }">
+                  {{ material.materialSpecification || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="批号" width="180">
+                <template #default="{ row: material }">
+                  {{ formatActiveOrderBatchCodes(material.batchCodes) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="实发数量" width="120">
+                <template #default="{ row: material }">
+                  {{ formatTraceQuantity(material.actualQuantity) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="对应工序" width="160">
+                <template #default="{ row: material }">
+                  {{ material.sourceProcessNames.join('、') || '-' }}
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
           <el-empty v-else :image-size="56" description="暂无领料单物料批号" />
         </el-tab-pane>
       </el-tabs>
@@ -548,3 +566,214 @@ watch(
   { immediate: true }
 )
 </script>
+<style scoped>
+.team-leader-workbench__active-order-detail {
+  display: grid;
+  gap: 16px;
+  min-height: 180px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-tabs,
+.team-leader-workbench__active-order-detail-inner-tabs {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-tabs :deep(.el-tabs__header),
+.team-leader-workbench__active-order-detail-inner-tabs :deep(.el-tabs__header) {
+  max-width: 100%;
+}
+
+.team-leader-workbench__active-order-detail-tabs :deep(.el-tabs__nav-wrap),
+.team-leader-workbench__active-order-detail-inner-tabs :deep(.el-tabs__nav-wrap) {
+  max-width: 100%;
+}
+
+.team-leader-workbench__active-order-detail-tabs :deep(.el-tabs__nav-scroll),
+.team-leader-workbench__active-order-detail-inner-tabs :deep(.el-tabs__nav-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.team-leader-workbench__active-order-detail-tabs :deep(.el-tabs__content),
+.team-leader-workbench__active-order-detail-inner-tabs :deep(.el-tabs__content),
+.team-leader-workbench__active-order-detail-tabs :deep(.el-tab-pane),
+.team-leader-workbench__active-order-detail-inner-tabs :deep(.el-tab-pane) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(280px, 1.5fr) 90px;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  background: var(--el-border-color-light);
+}
+
+.team-leader-workbench__active-order-detail-summary > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__active-order-detail-summary span,
+.team-leader-workbench__active-order-process-metrics span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__active-order-detail-summary strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-process-detail {
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  max-width: 100%;
+}
+
+.team-leader-workbench__active-order-process-detail.is-quantity-conflict {
+  border-color: var(--el-color-danger-light-5);
+  background: var(--el-color-danger-light-9);
+}
+
+.team-leader-workbench__quantity-conflict-text {
+  color: var(--el-color-danger);
+}
+
+.team-leader-workbench__active-order-process-header {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-lighter);
+}
+
+.team-leader-workbench__active-order-process-title {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.team-leader-workbench__active-order-process-title strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-process-title span {
+  flex: 0 0 auto;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__active-order-process-metrics {
+  display: grid;
+  flex: 0 0 360px;
+  grid-template-columns: repeat(3, minmax(100px, 1fr));
+  gap: 18px;
+}
+
+.team-leader-workbench__active-order-process-metrics > div {
+  display: grid;
+  gap: 3px;
+}
+
+.team-leader-workbench__active-order-process-metrics strong {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+.team-leader-workbench__active-order-submission-table {
+  width: 100%;
+}
+
+.team-leader-workbench__active-order-detail-table-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-table-shell :deep(.el-table) {
+  width: 100% !important;
+}
+
+.team-leader-workbench__active-order-detail-table-shell :deep(.el-table__inner-wrapper),
+.team-leader-workbench__active-order-detail-table-shell :deep(.el-table__body-wrapper),
+.team-leader-workbench__active-order-detail-table-shell :deep(.el-scrollbar__wrap) {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__active-order-detail-table-shell :deep(.el-table__cell .cell) {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__active-order-pqc-card {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.team-leader-workbench__active-order-pqc-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__active-order-pqc-title strong {
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+}
+
+:deep(.team-leader-workbench__active-order-submission-row--quantity-conflict > td) {
+  background: var(--el-color-danger-light-9) !important;
+  color: var(--el-color-danger);
+}
+
+.team-leader-workbench__active-order-submission-table .is-pending {
+  color: var(--el-color-warning);
+}
+
+@media (max-width: 760px) {
+  .team-leader-workbench__active-order-detail-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .team-leader-workbench__active-order-process-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .team-leader-workbench__active-order-process-metrics {
+    width: 100%;
+    flex-basis: auto;
+  }
+}
+</style>

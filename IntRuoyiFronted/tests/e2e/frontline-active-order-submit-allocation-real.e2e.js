@@ -1198,8 +1198,12 @@ async function assertActiveOrderQuantityConflict(page, config, steps) {
     '数量冲突时活跃订单整行必须标红'
   )
 
+  const detailPagePromise = page.waitForURL((url) => url.pathname.includes('/submission-detail'), {
+    timeout: 30000
+  })
   await row.locator('[data-team-leader-active-order-detail]').click()
-  const detail = page.locator('[data-team-leader-active-order-detail-dialog]')
+  await detailPagePromise
+  const detail = page.locator('[data-team-leader-active-order-detail-page]')
   await detail.waitFor({ state: 'visible', timeout: 30000 })
   const process = detail.locator('section.is-quantity-conflict').filter({ hasText: 'FAS E2E工序' }).first()
   await process.waitFor({ state: 'visible', timeout: 30000 })
@@ -1215,11 +1219,12 @@ async function assertActiveOrderQuantityConflict(page, config, steps) {
     )
   }
 
-  const releaseButton = row.locator('[data-team-leader-active-order-release-apply]').first()
+  await page.goBack()
+  await list.waitFor({ state: 'visible', timeout: 30000 })
+  const refreshedRow = list.locator('tbody tr').filter({ hasText: config.o1WorkOrderCode }).first()
+  const releaseButton = refreshedRow.locator('[data-team-leader-active-order-release-apply]').first()
   assert.equal(await releaseButton.isDisabled(), true, '数量冲突时完工按钮必须禁用')
   assert.match(await releaseButton.getAttribute('title'), /生产数量冲突未解决/)
-  await detail.locator('.el-dialog__headerbtn').click()
-  await detail.waitFor({ state: 'hidden', timeout: 15000 })
   steps.push('活跃订单池确认整行、冲突工序、全部提交明细均已标红，完工按钮已被数量冲突禁用')
 }
 
@@ -1239,8 +1244,12 @@ async function assertActiveOrderQuantityConflictResolved(page, config, steps) {
   }, config.o1WorkOrderCode, { timeout: 30000 })
 
   const row = list.locator('tbody tr').filter({ hasText: config.o1WorkOrderCode }).first()
+  const detailPagePromise = page.waitForURL((url) => url.pathname.includes('/submission-detail'), {
+    timeout: 30000
+  })
   await row.locator('[data-team-leader-active-order-detail]').click()
-  const detail = page.locator('[data-team-leader-active-order-detail-dialog]')
+  await detailPagePromise
+  const detail = page.locator('[data-team-leader-active-order-detail-page]')
   await detail.waitFor({ state: 'visible', timeout: 30000 })
   const process = detail.locator('section').filter({ hasText: 'FAS E2E工序' }).first()
   await process.waitFor({ state: 'visible', timeout: 30000 })
@@ -1249,8 +1258,8 @@ async function assertActiveOrderQuantityConflictResolved(page, config, steps) {
     /is-quantity-conflict/,
     '组长改配到目标数量后工序冲突标识必须消失'
   )
-  await detail.locator('.el-dialog__headerbtn').click()
-  await detail.waitFor({ state: 'hidden', timeout: 15000 })
+  await page.goBack()
+  await list.waitFor({ state: 'visible', timeout: 30000 })
   steps.push('组长改配后活跃订单池已刷新，O1 数量冲突标识和工序冲突样式均已消失')
 }
 

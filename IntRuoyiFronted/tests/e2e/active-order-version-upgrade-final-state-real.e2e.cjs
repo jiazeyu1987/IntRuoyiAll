@@ -242,16 +242,20 @@ async function run() {
         response.request().method() === 'GET',
       { timeout: 30000 }
     )
+    const detailPagePromise = page.waitForURL((url) => url.pathname.includes('/submission-detail'), {
+      timeout: 30000
+    })
     await targetRow.locator('[data-team-leader-active-order-detail]').first().click()
+    await detailPagePromise
     const detailResponse = await detailResponsePromise
     assert.equal(detailResponse.ok(), true, `活跃订单详情 HTTP 失败：${detailResponse.status()}`)
-    const detailDialog = page.locator('[data-team-leader-active-order-detail-dialog]:visible', {
+    const detailPage = page.locator('[data-team-leader-active-order-detail-page]', {
       hasText: WORK_ORDER_CODE
     }).first()
-    await detailDialog.waitFor({ state: 'visible', timeout: 30000 })
-    const detailDialogText = await detailDialog.innerText({ timeout: 10000 })
-    assert.ok(detailDialogText.includes('工序提交详情'), '详情弹窗必须为工序提交详情')
-    assert.ok(detailDialogText.includes(WORK_ORDER_CODE), `详情弹窗必须显示生产订单号：${WORK_ORDER_CODE}`)
+    await detailPage.waitFor({ state: 'visible', timeout: 30000 })
+    const detailPageText = await detailPage.innerText({ timeout: 10000 })
+    assert.ok(detailPageText.includes('工序提交详情'), '详情页面必须为工序提交详情')
+    assert.ok(detailPageText.includes(WORK_ORDER_CODE), `详情页面必须显示生产订单号：${WORK_ORDER_CODE}`)
 
     evidence.replacementActiveOrder = {
       id: TARGET_ACTIVE_ORDER_ID,
@@ -262,7 +266,7 @@ async function run() {
       activeStatus: 'verified by active-order pool visibility',
       businessStatus: 'verified by active-order pool visibility',
       rowText: targetRowText,
-      detailDialogText
+      detailPageText
     }
     await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true })
     evidence.screenshot = SCREENSHOT_PATH

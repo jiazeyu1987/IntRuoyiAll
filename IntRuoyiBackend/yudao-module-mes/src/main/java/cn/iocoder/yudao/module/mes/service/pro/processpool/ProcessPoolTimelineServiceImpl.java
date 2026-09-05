@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
@@ -55,6 +56,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         List<ProcessPoolTimelineEventRespVO> list = timelineReadMapper.selectTimelinePage(reqVO).stream()
                 .map(this::toEventRespVO)
                 .toList();
+        fillFeedbackMaterialDetails(list);
         fillReportAllocations(list);
         return new PageResult<>(list, total);
     }
@@ -69,6 +71,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
             throw new IllegalArgumentException("工序池提交事件不存在，eventId=" + eventId);
         }
         ProcessPoolTimelineDetailRespVO detail = toDetailRespVO(event);
+        fillFeedbackMaterialDetails(List.of(detail));
         fillReportAllocations(List.of(detail));
         return detail;
     }
@@ -187,6 +190,80 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                                 ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO>>() {}))
                 .setDeviceParameterReadings(convertValue(payload.get("deviceParameterReadings"),
                         DEVICE_PARAMETER_READING_TYPE));
+    }
+
+    private void fillFeedbackMaterialDetails(List<? extends ProcessPoolTimelineEventRespVO> events) {
+        if (events.isEmpty()) {
+            return;
+        }
+        Map<Long, ProcessPoolTimelineEventRespVO> eventByFeedbackId = events.stream()
+                .filter(event -> event.getSourceFeedbackId() != null)
+                .collect(Collectors.toMap(ProcessPoolTimelineEventRespVO::getSourceFeedbackId,
+                        Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        if (eventByFeedbackId.isEmpty()) {
+            return;
+        }
+        Map<Long, List<MesProFeedbackMaterialDO>> materialByFeedbackId =
+                timelineReadMapper.selectFeedbackMaterialsByFeedbackIds(List.copyOf(eventByFeedbackId.keySet()))
+                        .stream()
+                        .collect(Collectors.groupingBy(MesProFeedbackMaterialDO::getFeedbackId,
+                                LinkedHashMap::new, Collectors.toList()));
+        for (Map.Entry<Long, ProcessPoolTimelineEventRespVO> entry : eventByFeedbackId.entrySet()) {
+            List<MesProFeedbackMaterialDO> materials = materialByFeedbackId.getOrDefault(entry.getKey(), List.of());
+            if (!materials.isEmpty()) {
+                entry.getValue().setMaterialDetails(mergeFeedbackMaterialDetails(
+                        entry.getValue().getMaterialDetails(), materials));
+            }
+        }
+    }
+
+    private List<ProcessPoolTimelineEventRespVO.MaterialDetailRespVO> mergeFeedbackMaterialDetails(
+            List<ProcessPoolTimelineEventRespVO.MaterialDetailRespVO> payloadMaterials,
+            List<MesProFeedbackMaterialDO> feedbackMaterials) {
+        Map<Long, ProcessPoolTimelineEventRespVO.MaterialDetailRespVO> payloadByMaterialId =
+                payloadMaterials == null ? Map.of() : payloadMaterials.stream()
+                        .filter(material -> material.getMaterialId() != null)
+                        .collect(Collectors.toMap(ProcessPoolTimelineEventRespVO.MaterialDetailRespVO::getMaterialId,
+                                Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        return feedbackMaterials.stream()
+                .map(material -> mergeFeedbackMaterialDetail(payloadByMaterialId.get(material.getMaterialId()),
+                        material))
+                .toList();
+    }
+
+    private ProcessPoolTimelineEventRespVO.MaterialDetailRespVO mergeFeedbackMaterialDetail(
+            ProcessPoolTimelineEventRespVO.MaterialDetailRespVO payload,
+            MesProFeedbackMaterialDO material) {
+        ProcessPoolTimelineEventRespVO.MaterialDetailRespVO result =
+                payload == null ? new ProcessPoolTimelineEventRespVO.MaterialDetailRespVO() : payload;
+        result.setMaterialId(material.getMaterialId())
+                .setMaterialCode(StrUtil.blankToDefault(result.getMaterialCode(), material.getMaterialCode()))
+                .setMaterialName(StrUtil.blankToDefault(result.getMaterialName(), material.getMaterialName()))
+                .setOutputQuantity(result.getOutputQuantity() == null
+                        ? material.getOutputQuantity() : result.getOutputQuantity())
+                .setLossQuantity(result.getLossQuantity() == null
+                        ? material.getLossQuantity() : result.getLossQuantity());
+        if (result.getLossDetails() == null || result.getLossDetails().isEmpty()) {
+            result.setLossDetails(convertJson(material.getLossDetailsJson(), LOSS_DETAIL_TYPE));
+        }
+        if ((result.getSelectedDevices() == null || result.getSelectedDevices().isEmpty())
+                && StrUtil.isNotBlank(material.getSelectedDeviceJson())) {
+            result.setSelectedDevices(convertJson(material.getSelectedDeviceJson(),
+                    new TypeReference<List<ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO>>() {
+                    }));
+        }
+        if (result.getDeviceParameterReadings() == null || result.getDeviceParameterReadings().isEmpty()) {
+            result.setDeviceParameterReadings(convertJson(material.getDeviceParameterReadingsJson(),
+                    DEVICE_PARAMETER_READING_TYPE));
+        }
+        return result;
+    }
+
+    private <T> T convertJson(String json, TypeReference<T> typeReference) {
+        if (StrUtil.isBlank(json)) {
+            return null;
+        }
+        return JsonUtils.parseObject(json, typeReference);
     }
 
     private Map<String, Object> parseOriginalPayload(String originalPayloadJson) {

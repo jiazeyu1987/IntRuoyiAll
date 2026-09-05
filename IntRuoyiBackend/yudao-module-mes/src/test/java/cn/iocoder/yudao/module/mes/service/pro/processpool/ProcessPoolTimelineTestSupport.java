@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO;
@@ -93,6 +94,7 @@ final class ProcessPoolTimelineTestSupport {
     static final class InMemoryTimelineReadMapper implements MesProProcessPoolTimelineReadMapper {
 
         private final List<ProcessPoolTimelineEventReadDO> events;
+        private final List<MesProFeedbackMaterialDO> feedbackMaterials = new ArrayList<>();
         private ProcessPoolTimelinePageReqVO lastPageQuery;
         private int countQueryCalls;
         private int pageQueryCalls;
@@ -116,6 +118,11 @@ final class ProcessPoolTimelineTestSupport {
 
         int getDetailQueryCalls() {
             return detailQueryCalls;
+        }
+
+        InMemoryTimelineReadMapper addFeedbackMaterial(MesProFeedbackMaterialDO material) {
+            feedbackMaterials.add(material);
+            return this;
         }
 
         @Override
@@ -153,6 +160,13 @@ final class ProcessPoolTimelineTestSupport {
         @Override
         public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(List<Long> eventIds) {
             return List.of();
+        }
+
+        @Override
+        public List<MesProFeedbackMaterialDO> selectFeedbackMaterialsByFeedbackIds(List<Long> feedbackIds) {
+            return feedbackMaterials.stream()
+                    .filter(material -> feedbackIds.contains(material.getFeedbackId()))
+                    .toList();
         }
 
         private Stream<ProcessPoolTimelineEventReadDO> filter(ProcessPoolTimelinePageReqVO reqVO) {

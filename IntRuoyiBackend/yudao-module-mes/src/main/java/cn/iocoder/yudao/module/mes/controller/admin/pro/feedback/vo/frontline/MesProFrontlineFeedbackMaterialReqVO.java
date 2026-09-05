@@ -18,6 +18,15 @@ public class MesProFrontlineFeedbackMaterialReqVO {
     @NotNull(message = "报工物料编号不能为空")
     private Long materialId;
 
+    @Schema(description = "正式 MES 物料编码快照")
+    private String materialCode;
+
+    @Schema(description = "正式 MES 物料名称快照")
+    private String materialName;
+
+    @Schema(description = "正式 MES 物料规格快照")
+    private String materialSpecification;
+
     @Schema(description = "完成数量；明确填写 0 时为 0", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "报工物料完成数量不能为空")
     private BigDecimal outputQuantity;

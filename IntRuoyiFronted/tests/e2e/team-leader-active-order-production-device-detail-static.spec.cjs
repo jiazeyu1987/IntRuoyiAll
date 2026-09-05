@@ -7,7 +7,9 @@ const readFrontend = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 const readBackend = (file) =>
   fs.readFileSync(path.resolve(root, '../IntRuoyiBackend', file), 'utf8')
 
-const page = readFrontend('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+const detailPanel = readFrontend(
+  'src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+)
 const api = readFrontend('src/api/mes/pro/processpool/teamLeader.ts')
 const readDO = readBackend(
   'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/team/MesTeamLeaderActiveOrderDetailReadDO.java'
@@ -84,7 +86,7 @@ assert.match(
   '生产提交 API 类型必须携带设备集合'
 )
 assert.match(
-  page,
+  detailPanel,
   /<el-table-column label="设备"[\s\S]*formatActiveOrderSubmissionDevices\(submission\.devices\)/,
   '生产提交详情表必须显示设备列并格式化设备集合'
 )

@@ -103,12 +103,16 @@ async function openTargetActiveOrderDetail(page) {
       response.request().method() === 'GET',
     { timeout: 30000 }
   )
+  const detailPagePromise = page.waitForURL((url) => url.pathname.includes('/submission-detail'), {
+    timeout: 30000
+  })
   await row.locator('[data-team-leader-active-order-detail]').first().click()
+  await detailPagePromise
   const detailResponse = await detailResponsePromise
   assert.equal(detailResponse.ok(), true, `活跃订单详情 HTTP 失败：${detailResponse.status()}`)
-  const dialog = page.locator('[data-team-leader-active-order-detail-dialog]:visible', { hasText: WORK_ORDER_CODE }).first()
-  await dialog.waitFor({ state: 'visible', timeout: 30000 })
-  return dialog
+  const detailPage = page.locator('[data-team-leader-active-order-detail-page]', { hasText: WORK_ORDER_CODE }).first()
+  await detailPage.waitFor({ state: 'visible', timeout: 30000 })
+  return detailPage
 }
 
 async function collectDialogTextByScrolling(page, dialog) {
@@ -175,8 +179,8 @@ async function run() {
     const collectedText = await collectDialogTextByScrolling(page, dialog)
     const missing = REQUIRED_TEXTS.filter((text) => !collectedText.includes(text))
     const forbidden = FORBIDDEN_TEXTS.filter((text) => collectedText.includes(text))
-    assert.deepEqual(missing, [], `详情弹窗缺少预期文本：${missing.join(', ')}`)
-    assert.deepEqual(forbidden, [], `详情弹窗不应展示长整型领料单 ID：${forbidden.join(', ')}`)
+    assert.deepEqual(missing, [], `详情页面缺少预期文本：${missing.join(', ')}`)
+    assert.deepEqual(forbidden, [], `详情页面不应展示长整型领料单 ID：${forbidden.join(', ')}`)
     assert.equal(evidence.pageErrors.length, 0, `页面错误：${evidence.pageErrors.join('\n')}`)
     await page.screenshot({ path: FINAL_SCREENSHOT_PATH, fullPage: true })
     evidence.hasNoPqcText = collectedText.includes('暂无一线PQC提交')

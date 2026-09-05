@@ -5,7 +5,7 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '../..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
-const page = read('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+const detailPanel = read('src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue')
 const api = read('src/api/mes/pro/processpool/teamLeader.ts')
 const backendModel = fs.readFileSync(
   path.resolve(root, '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderDetail.java'),
@@ -51,37 +51,37 @@ assert.match(
 )
 
 assert.match(
-  page,
+  detailPanel,
   /data-team-leader-active-order-detail-main-tabs/,
-  '详情弹框第一层必须是主 tab'
+  '详情面板第一层必须是主 tab'
 )
 assert.match(
-  page,
+  detailPanel,
   /label="生产提交"[\s\S]*name="productionSubmissions"[\s\S]*data-team-leader-active-order-detail-production-process-tabs/,
   '生产提交主 tab 下必须按生产工序展示'
 )
 assert.match(
-  page,
+  detailPanel,
   /label="PQC提交"[\s\S]*name="pqcSubmissions"[\s\S]*data-team-leader-active-order-detail-pqc-process-tabs/,
   'PQC提交主 tab 下必须按 PQC 自有工序展示'
 )
 assert.match(
-  page,
-  /activeOrderDetailPqcProcessGroups/,
+  detailPanel,
+  /pqcProcessGroups/,
   '前端必须构建独立的 PQC 工序分组'
 )
 assert.match(
-  page,
+  detailPanel,
   /resolveActiveOrderPqcProcessTabName\(pqcProcess/,
   'PQC 工序 tab key 必须来自 PQC 分组，不得复用生产工序 tab key'
 )
 assert.doesNotMatch(
-  page,
+  detailPanel,
   /activeOrderDetailInnerTabs/,
   '新结构不应再保留每个生产工序下的生产\/PQC 内层 tab'
 )
 assert.doesNotMatch(
-  page,
+  detailPanel,
   /process\.pqcSubmissions\?\.length[\s\S]*暂无一线PQC提交/,
   'PQC 空状态不能绑定在生产工序对象下面'
 )

@@ -95,7 +95,7 @@ assert.doesNotMatch(
   extractBlock(
     page,
     'v-if="releaseApplicationBlockers.length"',
-    'v-model="activeOrderDetailVisible"'
+    'v-model="activeOrderAddDialogVisible"'
   ),
   /blocker\.reason\s*\|\|\s*blocker\.blockerType/,
   'required blocker reason must not silently fall back to blockerType.'

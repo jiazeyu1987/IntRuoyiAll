@@ -56,6 +56,8 @@ public class ProcessPoolTimelineEventReadDO {
     private Long sourceFeedbackId;
     private Long sourceRecordbookEntryId;
     private Long sourceRecordbookEventId;
+    private java.util.List<cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO>
+            feedbackMaterials;
     private String reportManagementStatus;
     private BigDecimal reportOutputQuantity;
     private BigDecimal reportAllocatedQuantity;

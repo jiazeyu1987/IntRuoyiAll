@@ -5113,6 +5113,9 @@ const buildProductionMaterialDetailsPayload = (): ProFrontlineFeedbackMaterialRe
     const selectedDevices = buildProductionSelectedDevicesFromKeys(materialDraft.selectedDeviceKeys || [])
     return [{
       materialId: material.materialId,
+      materialCode: material.materialCode,
+      materialName: material.materialName,
+      materialSpecification: material.materialSpecification,
       outputQuantity: materialDraft.outputQuantity,
       lossQuantity: lossDetails.reduce((total, detail) => total + detail.quantity, 0),
       lossDetails,

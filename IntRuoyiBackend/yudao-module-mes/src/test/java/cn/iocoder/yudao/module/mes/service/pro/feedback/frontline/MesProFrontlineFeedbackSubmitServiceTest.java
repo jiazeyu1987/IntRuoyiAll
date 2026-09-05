@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackMaterialReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
 import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
@@ -316,7 +317,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
-                new BigDecimal("3").compareTo(payload.getOutputQuantity()) == 0));
+                new BigDecimal("3").compareTo(payload.getOutputQuantity()) == 0
+                        && ((List<?>) payload.getRawPayload().get("materialDetails")).stream()
+                                .map(item -> ((MesProFrontlineFeedbackMaterialReqVO) item).getMaterialName())
+                                .toList().equals(List.of("弹簧", "杠杆"))));
         verify(processPoolSubmitEventService).createInitialAllocation(801L, 81L, new BigDecimal("3"));
     }
 

@@ -149,6 +149,9 @@ export interface ProFrontlineFeedbackPayloadReqVO {
 
 export interface ProFrontlineFeedbackMaterialReqVO {
   materialId: number
+  materialCode?: string
+  materialName?: string
+  materialSpecification?: string
   outputQuantity: number
   lossQuantity: number
   lossDetails?: ProFrontlineLossDetailReqVO[]

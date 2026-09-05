@@ -502,4 +502,33 @@
         ORDER BY allocation.event_id ASC, allocation.id ASC
     </select>
 
+    <select id="selectFeedbackMaterialsByFeedbackIds"
+            resultType="cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO">
+        SELECT id,
+               feedback_id AS feedbackId,
+               active_order_id AS activeOrderId,
+               work_order_id AS workOrderId,
+               route_id AS routeId,
+               route_version_id AS routeVersionId,
+               route_process_id AS routeProcessId,
+               process_id AS processId,
+               material_id AS materialId,
+               material_code AS materialCode,
+               material_name AS materialName,
+               material_specification AS materialSpecification,
+               bom_quantity AS bomQuantity,
+               output_quantity AS outputQuantity,
+               loss_quantity AS lossQuantity,
+               loss_details_json AS lossDetailsJson,
+               selected_device_json AS selectedDeviceJson,
+               device_parameter_readings_json AS deviceParameterReadingsJson
+        FROM mes_pro_feedback_material
+        WHERE deleted = 0
+          AND feedback_id IN
+        <foreach collection="feedbackIds" item="feedbackId" open="(" separator="," close=")">
+            #{feedbackId}
+        </foreach>
+        ORDER BY feedback_id ASC, id ASC
+    </select>
+
 </mapper>

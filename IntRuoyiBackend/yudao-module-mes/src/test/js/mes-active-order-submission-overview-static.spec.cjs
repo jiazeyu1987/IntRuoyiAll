@@ -18,7 +18,10 @@ const controller = read(
   'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java'
 )
 const frontend = fs.readFileSync(
-  path.join(root, 'IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'),
+  path.join(
+    root,
+    'IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
+  ),
   'utf8'
 )
 const frontendApi = fs.readFileSync(
@@ -108,7 +111,7 @@ assert(
     frontend.includes('领料单') &&
     frontend.includes('formatActiveOrderPickListNos(material.sourcePickListNos)') &&
     !frontend.includes('formatActiveOrderSourceIds(material.sourcePickListIds)'),
-  'active order detail dialog must show process production/PQC tabs and a final pick-list tab with exact bill numbers'
+  'active order detail panel must show process production/PQC tabs and a final pick-list tab with exact bill numbers'
 )
 assert(
   frontend.includes('data-team-leader-active-order-detail-main-tabs') &&
@@ -117,11 +120,11 @@ assert(
     frontend.includes('data-team-leader-active-order-detail-production-process-tab') &&
     frontend.includes('data-team-leader-active-order-detail-pqc-process-tab') &&
     frontend.includes('data-team-leader-active-order-detail-material-tab') &&
-    frontend.includes('activeOrderDetailActiveTab') &&
-    frontend.includes('activeOrderDetailProductionActiveTab') &&
-    frontend.includes('activeOrderDetailPqcActiveTab') &&
-    frontend.includes('activeOrderDetailPickListMaterials'),
-  'active order detail dialog must use production/PQC/material main tabs and separate production/PQC process tabs'
+    frontend.includes('const activeTab = ref') &&
+    frontend.includes('const productionActiveTab = ref') &&
+    frontend.includes('const pqcActiveTab = ref') &&
+    frontend.includes('const pickListMaterials = computed'),
+  'active order detail panel must use production/PQC/material main tabs and separate production/PQC process tabs'
 )
 assert(
   frontend.includes('data-team-leader-active-order-detail-main-tabs') &&
@@ -161,7 +164,7 @@ assert(
   'active order detail PQC tab must show merged submitted event id lists'
 )
 assert(
-  frontend.includes('activeOrderDetailPqcProcessGroups') &&
+  frontend.includes('pqcProcessGroups') &&
     frontend.includes('submission.qaProcessId') &&
     frontend.includes('submission.qaProcessName') &&
     !frontend.includes('activeOrderDetailInnerTabs'),
@@ -169,7 +172,7 @@ assert(
 )
 assert(
   frontend.includes('label="领料单"') &&
-    frontend.includes('activeOrderDetailPickListMaterials') &&
+    frontend.includes('pickListMaterials') &&
     frontend.includes('sourceProcessNames'),
   'the final material tab must aggregate pick-list material batches and show related process names'
 )

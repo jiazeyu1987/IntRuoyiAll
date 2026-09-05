@@ -303,6 +303,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private void applyMaterialAggregate(MesProFrontlineFeedbackSubmitReqVO reqVO,
                                         MesProFrontlineFeedbackMaterialSubmission submission) {
         MesProFrontlineFeedbackPayloadReqVO feedback = reqVO.getFeedbackPayload();
+        applyServerResolvedMaterialSnapshots(reqVO, submission);
         List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails = submission.materials().stream()
                 .flatMap(material -> material.lossDetails().stream())
                 .toList();
@@ -318,6 +319,27 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         rawPayload.put("materialDetails", reqVO.getMaterialDetails());
         rawPayload.put("progressQuantity", submission.progressQuantity());
         reqVO.setRawPayload(rawPayload);
+    }
+
+    private void applyServerResolvedMaterialSnapshots(MesProFrontlineFeedbackSubmitReqVO reqVO,
+                                                      MesProFrontlineFeedbackMaterialSubmission submission) {
+        if (reqVO.getMaterialDetails() == null || reqVO.getMaterialDetails().isEmpty()) {
+            return;
+        }
+        Map<Long, MesProFrontlineFeedbackMaterialSubmission.Material> snapshotByMaterialId = new HashMap<>();
+        for (MesProFrontlineFeedbackMaterialSubmission.Material material : submission.materials()) {
+            snapshotByMaterialId.put(material.materialId(), material);
+        }
+        for (MesProFrontlineFeedbackMaterialReqVO material : reqVO.getMaterialDetails()) {
+            MesProFrontlineFeedbackMaterialSubmission.Material snapshot =
+                    snapshotByMaterialId.get(material.getMaterialId());
+            if (snapshot == null) {
+                continue;
+            }
+            material.setMaterialCode(snapshot.materialCode());
+            material.setMaterialName(snapshot.materialName());
+            material.setMaterialSpecification(snapshot.materialSpecification());
+        }
     }
 
     private void attachInputMaterialEvidence(MesProFrontlineFeedbackSubmitReqVO reqVO,

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackMaterialDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import org.junit.jupiter.api.Test;
 
@@ -73,5 +74,30 @@ class ProcessPoolTimelineQueryTest {
 
         assertEquals("QA-P01", page.getList().get(0).getProcessCode());
         assertEquals("清洗", page.getList().get(0).getProcessName());
+    }
+
+    @Test
+    void shouldEnrichProductionMaterialNamesFromFormalFeedbackMaterials() {
+        ProcessPoolTimelineTestSupport.InMemoryTimelineReadMapper mapper = mapper(
+                event(4001L, "2026-07-30T10:30:00", 2001L, 6001L, 9001L,
+                        "PRODUCTION_SIMPLIFIED", 30001L)
+                        .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                        .setSourceFeedbackId(74001L)
+                        .setOriginalPayloadJson("""
+                                {"outputQuantity":10,"lossQuantity":0,
+                                 "materialDetails":[{"materialId":501,"outputQuantity":10,"lossQuantity":0}]}
+                                """))
+                .addFeedbackMaterial(new MesProFeedbackMaterialDO()
+                        .setFeedbackId(74001L)
+                        .setMaterialId(501L)
+                        .setMaterialCode("A001")
+                        .setMaterialName("弹簧")
+                        .setOutputQuantity(new java.math.BigDecimal("10"))
+                        .setLossQuantity(java.math.BigDecimal.ZERO));
+
+        PageResult<ProcessPoolTimelineEventRespVO> page = service(mapper).getTimelinePage(pageReq());
+
+        assertEquals("弹簧", page.getList().get(0).getMaterialDetails().get(0).getMaterialName());
+        assertEquals("A001", page.getList().get(0).getMaterialDetails().get(0).getMaterialCode());
     }
 }

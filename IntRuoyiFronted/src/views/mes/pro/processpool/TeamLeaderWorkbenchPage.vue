@@ -4058,7 +4058,6 @@ import {
   type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderCommitAction,
   type TeamLeaderActiveOrderDetailRespVO,
-  type TeamLeaderActiveOrderProcessDetailRespVO,
   type TeamLeaderActiveOrderReleaseApplyRespVO,
   type TeamLeaderActiveOrderReleaseApplicationStatus,
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
@@ -4373,9 +4372,6 @@ const detail = ref<ProcessPoolTimelineDetailVO>()
 const reviewEvent = ref<ProcessPoolTimelineEventVO>()
 const correctionEvent = ref<ProcessPoolTimelineEventVO>()
 const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
-const stage1GeneratedDetailTargets = ref(
-  new Map<number, { activeOrderId: number; sourceWorkOrderCode: string }>()
-)
 const activeOrderConflictSelectedOrder = ref<TeamLeaderActiveOrderRespVO>()
 const activeOrderConflictDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderConflictLoading = ref(false)
@@ -5591,32 +5587,52 @@ const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRes
     ? 'team-leader-workbench__active-order-row--quantity-conflict'
     : ''
 
-const resolveStage1GeneratedDetailTarget = (row: TeamLeaderActiveOrderRespVO) => {
-  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const persistedStage1GeneratedActiveOrderId = Number(row.stage1GeneratedActiveOrderId)
-  if (
-    Number.isFinite(persistedStage1GeneratedActiveOrderId) &&
-    persistedStage1GeneratedActiveOrderId > 0
-  ) {
-    return {
-      activeOrderId: persistedStage1GeneratedActiveOrderId,
-      sourceWorkOrderCode: row.workOrderCode || ''
-    }
+const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
+  if (row.abnormal) return false
+  if (row.hasQuantityConflict || row.quantityConflict) return false
+  if (row.releaseApplicationStatus) return false
+  return (
+    isActiveOrderProgressComplete(row.productionProgressPercent) &&
+    isActiveOrderProgressComplete(row.inspectionProgressPercent)
+  )
+}
+
+const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (releaseApplicationLocks.get(row.id) === 'UNCERTAIN') {
+    return '申请结果未确认，请人工核对后刷新页面'
   }
-  return stage1GeneratedDetailTargets.value.get(sourceActiveOrderId)
+  if (releaseApplicationLocks.has(row.id)) return '本次申请已提交，请先刷新列表'
+  if (row.hasQuantityConflict || row.quantityConflict) return '生产数量冲突未解决，需先由组长纠错'
+  if (row.abnormal) return row.abnormalReason || '异常订单不能申请放行'
+  if (row.releaseApplicationStatus) {
+    return `已进入${formatActiveOrderReleaseStatus(row.releaseApplicationStatus)}`
+  }
+  if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
+  if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
+  return '提交生产放行申请'
+}
+
+const formatTraceQuantity = (value: number | string | undefined) => {
+  if (value === undefined || value === null || value === '') return '-'
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(3) : String(value)
+}
+
+const navigateActiveOrderSubmissionDetail = (
+  activeOrderId: number,
+  sourceWorkOrderCode?: string
+) => {
+  router.push({
+    name: 'MesProcessPoolActiveOrderSubmissionDetail',
+    params: { activeOrderId },
+    query: sourceWorkOrderCode
+      ? { sourceWorkOrderCode }
+      : undefined
+  })
 }
 
 const openActiveOrderSubmissionDetail = (row: TeamLeaderActiveOrderRespVO) => {
-  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const stage1GeneratedTarget = resolveStage1GeneratedDetailTarget(row)
-  const targetActiveOrderId = stage1GeneratedTarget?.activeOrderId ?? sourceActiveOrderId
-  router.push({
-    name: 'MesProcessPoolActiveOrderSubmissionDetail',
-    params: { activeOrderId: targetActiveOrderId },
-    query: stage1GeneratedTarget?.sourceWorkOrderCode
-      ? { sourceWorkOrderCode: stage1GeneratedTarget.sourceWorkOrderCode }
-      : undefined
-  })
+  navigateActiveOrderSubmissionDetail(requirePositiveNumber(row.id, '活跃订单记录ID不能为空'))
 }
 const resolveActiveOrderConflictProcesses = (
   detailResult?: TeamLeaderActiveOrderDetailRespVO
@@ -7415,10 +7431,25 @@ const enrichCorrectionMaterialParameterRows = (
   }))
 }
 
-const toProductionMaterialRow = (
-  value: unknown,
-  index: number
-): ProductionReportCorrectionMaterialRow | undefined => {
+const isPlaceholderMaterialName = (value?: string) =>
+  /^物料\s*\d+$/.test(String(value ?? '').trim())
+
+const resolveSubmittedMaterialName = (value: PqcSubmissionPayloadRecord) => {
+  const material = isRecord(value.material) ? value.material : undefined
+  return (
+    String(
+      value.materialName ??
+        value.itemName ??
+        value.productName ??
+        value.outputMaterialName ??
+        material?.materialName ??
+        material?.name ??
+        ''
+    ).trim() || undefined
+  )
+}
+
+const toProductionMaterialRow = (value: unknown): ProductionReportCorrectionMaterialRow | undefined => {
   if (!isRecord(value)) {
     return undefined
   }
@@ -7431,8 +7462,7 @@ const toProductionMaterialRow = (
   return {
     materialId,
     materialCode: String(value.materialCode ?? '').trim() || undefined,
-    materialName:
-      String(value.materialName ?? value.itemName ?? '').trim() || `物料 ${index + 1}`,
+    materialName: resolveSubmittedMaterialName(value),
     outputQuantity,
     lossQuantity,
     lossDetails: normalizeSubmissionArray(value.lossDetails)
@@ -7467,8 +7497,31 @@ const toProductionMaterialRow = (
   }
 }
 
+const mergeSubmittedMaterialIdentity = (
+  item: ProductionReportCorrectionMaterialRow,
+  snapshot?: ProductionReportCorrectionMaterialRow
+): ProductionReportCorrectionMaterialRow => {
+  if (!snapshot) {
+    return item
+  }
+  return {
+    ...item,
+    materialCode: item.materialCode || snapshot.materialCode,
+    materialName:
+      item.materialName && !isPlaceholderMaterialName(item.materialName)
+        ? item.materialName
+        : snapshot.materialName
+  }
+}
+
 const resolveProductionMaterialRows = (row: ProcessPoolTimelineEventVO) => {
   const { rootPayload } = resolvePqcPayloadPair(row)
+  const rootPayloadMaterialRows = normalizeSubmissionArray(rootPayload?.materialDetails)
+    .map(toProductionMaterialRow)
+    .filter((item): item is ProductionReportCorrectionMaterialRow => Boolean(item))
+  const rootPayloadMaterialById = new Map(
+    rootPayloadMaterialRows.map((item) => [item.materialId, item])
+  )
   const source =
     row.materialDetails?.length
       ? row.materialDetails
@@ -7476,6 +7529,7 @@ const resolveProductionMaterialRows = (row: ProcessPoolTimelineEventVO) => {
   const materialRows: ProductionReportCorrectionMaterialRow[] = source
     .map(toProductionMaterialRow)
     .filter((item): item is ProductionReportCorrectionMaterialRow => Boolean(item))
+    .map((item) => mergeSubmittedMaterialIdentity(item, rootPayloadMaterialById.get(item.materialId)))
     .map((item) => ({
       materialId: item.materialId,
       materialCode: item.materialCode,
@@ -7489,6 +7543,9 @@ const resolveProductionMaterialRows = (row: ProcessPoolTimelineEventVO) => {
     }))
   return materialRows
 }
+
+const resolveSubmissionMaterialTitle = (item: ProductionReportCorrectionMaterialRow) =>
+  formatSubmissionText(item.materialName, '物料名称未记录')
 
 const resolveCorrectionMaterialNames = async (
   materialRows: ProductionReportCorrectionMaterialRow[]
@@ -8152,7 +8209,7 @@ const resolveSubmissionMaterialDetailRows = (
   return materialRows.map((item, index) => {
     return {
       key: String(item.materialId || index),
-      materialText: [item.materialName, item.materialCode].filter(Boolean).join(' / '),
+      materialText: resolveSubmissionMaterialTitle(item),
       outputQuantityText: formatSubmissionQuantity(item.outputQuantity),
       lossQuantityText: formatSubmissionQuantity(item.lossQuantity),
       lossDetailText:
@@ -9597,17 +9654,12 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.success(
       `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
-    const templateActiveOrderId = requirePositiveNumber(row.id, '活跃订单模板ID不能为空')
     const generatedActiveOrderId = requirePositiveNumber(
       result.activeOrderId,
       'Stage1 新活跃订单ID不能为空'
     )
-    stage1GeneratedDetailTargets.value.set(templateActiveOrderId, {
-      activeOrderId: generatedActiveOrderId,
-      sourceWorkOrderCode: row.workOrderCode || ''
-    })
     await loadActiveOrders()
-    openActiveOrderSubmissionDetail(row)
+    navigateActiveOrderSubmissionDetail(generatedActiveOrderId, row.workOrderCode || '')
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(
