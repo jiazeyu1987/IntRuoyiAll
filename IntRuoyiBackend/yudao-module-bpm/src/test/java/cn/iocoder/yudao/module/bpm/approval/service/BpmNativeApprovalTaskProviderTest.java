@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.bpm.approval.service;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
@@ -22,6 +23,7 @@ import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.TaskQuery;
 import org.flowable.task.api.history.HistoricTaskInstance;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,6 +78,11 @@ class BpmNativeApprovalTaskProviderTest {
             ids.forEach(id -> processInstances.put(id, mock(ProcessInstance.class)));
             return processInstances;
         });
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -203,6 +210,68 @@ class BpmNativeApprovalTaskProviderTest {
         assertEquals("注册证上传审批 E2E-UPLOAD-20260904061314", summary.getBusinessTitle());
         assertEquals("dcc_registration_certificate_approver", summary.getAssigneeRoleCode());
         assertTrue(summary.getAvailableActions().contains("APPROVE"));
+    }
+
+    @Test
+    void pageTodoFindsClaimableRegistrationCertificateUploadTaskWhenFlowableTaskTenantIsBlankButProcessTenantMatches() {
+        TenantContextHolder.setTenantId(1L);
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-upload-approve-tenant-var");
+        when(task.getName()).thenReturn("注册证上传审批 E2E-UPLOAD-TENANT-VAR");
+        when(task.getTaskDefinitionKey()).thenReturn("REG_CERT_ACCESS_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve-tenant-var");
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getTenantId()).thenReturn("");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "tenantId", 1L,
+                "registrationCertificateAccessRequestId", 152L,
+                "requestId", 152L,
+                "certificateId", 990819198L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-TENANT-VAR",
+                "classification", "II",
+                "productName", "注册证上传E2E产品-租户变量",
+                "ownerCompanyName", "上海七木医疗器械有限公司"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+
+        TaskQuery taskQuery = mock(TaskQuery.class);
+        when(flowableTaskService.createTaskQuery()).thenReturn(taskQuery);
+        when(taskQuery.active()).thenReturn(taskQuery);
+        when(taskQuery.includeProcessVariables()).thenReturn(taskQuery);
+        when(taskQuery.processVariableValueEquals("requestType", "UPLOAD_CERTIFICATE")).thenReturn(taskQuery);
+        when(taskQuery.orderByTaskCreateTime()).thenReturn(taskQuery);
+        when(taskQuery.desc()).thenReturn(taskQuery);
+        when(taskQuery.list()).thenReturn(List.of(task));
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "tenantId", 1L,
+                "registrationCertificateAccessRequestId", 152L,
+                "requestId", 152L,
+                "certificateId", 990819198L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestOperation", "UPLOAD_CERTIFICATE",
+                "certificateNo", "E2E-UPLOAD-TENANT-VAR",
+                "classification", "II",
+                "productName", "注册证上传E2E产品-租户变量",
+                "ownerCompanyName", "上海七木医疗器械有限公司"));
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-upload-approve-tenant-var")))
+                .thenReturn(Map.of("pi-upload-approve-tenant-var", processInstance));
+        when(roleApi.getRoleByCode("dcc_registration_certificate_approver"))
+                .thenReturn(registrationManagerRole());
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "E2E-UPLOAD-TENANT-VAR", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("task-upload-approve-tenant-var", summary.getSourceTaskId());
+        assertEquals("注册证上传审批 E2E-UPLOAD-TENANT-VAR", summary.getBusinessTitle());
+        assertTrue(summary.getBusinessContextTags().contains("注册证编号：E2E-UPLOAD-TENANT-VAR"));
     }
 
     @Test

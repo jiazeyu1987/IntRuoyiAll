@@ -77,6 +77,27 @@ class MesPqcItemEquipmentConfigServiceImplTest {
         assertThat(result).containsOnlyKeys("PQC-IDI-001-I004");
     }
 
+    @Test
+    void listEnabledEquipmentOptionsUsesLockedRegulationVersionInsteadOfLatestDraft() {
+        MesQaInspectionRegulationDO regulation = MesQaInspectionRegulationDO.builder()
+                .id(1L).dccProjectCodeId(129L).build();
+        MesQaInspectionRegulationVersionDO lockedPublishedVersion = MesQaInspectionRegulationVersionDO.builder()
+                .id(10L).regulationId(1L).lifecycleStatus("PUBLISHED").build();
+        MesQaInspectionRegulationItemDO lockedFinalItem = item(10L, "PQC-IDI-001-I017", "气密性末检");
+
+        when(regulationVersionMapper.selectById(10L)).thenReturn(lockedPublishedVersion);
+        when(regulationMapper.selectById(1L)).thenReturn(regulation);
+        when(regulationItemMapper.selectListByVersionId(10L)).thenReturn(List.of(lockedFinalItem));
+        when(dccProjectCodeMapper.selectList(any(SFunction.class), any(Collection.class))).thenReturn(List.of(
+                DccProjectCodeDO.builder().id(129L).projectName("按压式球囊扩充压力泵").build()));
+
+        Map<String, List<MesPqcItemEquipmentOption>> result =
+                service.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(129L, 10L,
+                        List.of("PQC-IDI-001-I017"));
+
+        assertThat(result).isEmpty();
+    }
+
     private static MesQaInspectionRegulationItemDO item(Long versionId, String code, String name) {
         return MesQaInspectionRegulationItemDO.builder()
                 .id(versionId).regulationVersionId(versionId).itemCode(code).itemName(name)

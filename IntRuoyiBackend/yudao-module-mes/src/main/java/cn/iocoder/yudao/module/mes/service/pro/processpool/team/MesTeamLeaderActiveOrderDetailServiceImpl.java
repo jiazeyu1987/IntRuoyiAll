@@ -1,13 +1,16 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterialService;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -37,17 +41,20 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesFrontlineProcessMaterialService processMaterialService;
     private final MesPqcInspectionTaskMapper pqcTaskMapper;
     private final MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper;
+    private final MesQaInspectionRegulationProcessMapper qaProcessMapper;
 
     public MesTeamLeaderActiveOrderDetailServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                       MesProcessPoolActiveOrderDetailReadMapper detailReadMapper,
                                                       MesFrontlineProcessMaterialService processMaterialService,
                                                       MesPqcInspectionTaskMapper pqcTaskMapper,
-                                                      MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper) {
+                                                      MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper,
+                                                      MesQaInspectionRegulationProcessMapper qaProcessMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.detailReadMapper = detailReadMapper;
         this.processMaterialService = processMaterialService;
         this.pqcTaskMapper = pqcTaskMapper;
         this.pqcAggregateDetailMapper = pqcAggregateDetailMapper;
+        this.qaProcessMapper = qaProcessMapper;
     }
 
     @Override
@@ -100,8 +107,14 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private void attachPqcSubmissions(Long activeOrderId, Map<ProcessIdentity, ProcessAccumulator> accumulators) {
         List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderId(activeOrderId);
+        if (tasks == null) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
         List<MesPqcProcessInspectionAggregateDetailDO> details =
                 pqcAggregateDetailMapper.selectListByActiveOrderId(activeOrderId);
+        if (details == null) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
         for (MesPqcProcessInspectionAggregateDetailDO detail : details) {
             if (detail == null || detail.getPqcTaskId() == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
@@ -116,12 +129,20 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
         }
+        Map<Long, MesQaInspectionRegulationProcessDO> qaProcessesById = mapById(
+                qaProcessMapper.selectBatchIds(distinctIds(tasks, MesPqcInspectionTaskDO::getQaProcessId)),
+                MesQaInspectionRegulationProcessDO::getId, activeOrderId, "qaProcess");
         Map<PqcSubmissionIdentity, PqcSubmissionAccumulator> pqcSubmissionAccumulators = new LinkedHashMap<>();
         for (MesPqcInspectionTaskDO task : tasks) {
             if (task == null || task.getId() == null || task.getRouteProcessId() == null
-                    || task.getProcessId() == null) {
+                    || task.getProcessId() == null || task.getQaProcessId() == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
+            MesQaInspectionRegulationProcessDO qaProcess = qaProcessesById.get(task.getQaProcessId());
+            if (qaProcess == null || !Objects.equals(qaProcess.getRegulationVersionId(), task.getRegulationVersionId())) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            requireText(qaProcess.getProcessName(), activeOrderId);
             List<MesPqcProcessInspectionAggregateDetailDO> taskDetails =
                     detailsByTask.getOrDefault(task.getId(), List.of());
             if (task.getSubmittedEventId() == null && taskDetails.isEmpty()) {
@@ -134,9 +155,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             PqcSubmissionIdentity submissionIdentity = new PqcSubmissionIdentity(
                     new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()),
-                    task.getInspectionType(), task.getRoundNo());
+                    task.getQaProcessId(), task.getInspectionType(), task.getRoundNo());
             pqcSubmissionAccumulators.computeIfAbsent(submissionIdentity,
-                            ignored -> new PqcSubmissionAccumulator(task))
+                            ignored -> new PqcSubmissionAccumulator(task, qaProcess))
                     .add(task, taskDetails);
         }
         for (Map.Entry<PqcSubmissionIdentity, PqcSubmissionAccumulator> entry : pqcSubmissionAccumulators.entrySet()) {
@@ -163,22 +184,6 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setSourcePickListNos(List.copyOf(material.sourcePickListNos()))
                 .setSourcePickListItemIds(List.copyOf(material.sourcePickListItemIds()))
                 .setSourceSnapshotHash(material.sourceSnapshotHash());
-    }
-
-    private static MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail toPqcSubmissionDetail(
-            MesPqcInspectionTaskDO task, List<MesPqcProcessInspectionAggregateDetailDO> details) {
-        return new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail()
-                .setPqcTaskId(task.getId())
-                .setSubmittedEventId(task.getSubmittedEventId())
-                .setInspectionType(task.getInspectionType())
-                .setBusinessDate(task.getBusinessDate())
-                .setShiftCode(task.getShiftCode())
-                .setRoundNo(task.getRoundNo())
-                .setActualInspectionQuantity(task.getActualInspectionQuantity())
-                .setTaskStatus(task.getTaskStatus())
-                .setItems(details.stream()
-                        .map(MesTeamLeaderActiveOrderDetailServiceImpl::toPqcSubmissionItemDetail)
-                        .toList());
     }
 
     private static MesTeamLeaderActiveOrderDetail.PqcSubmissionItemDetail toPqcSubmissionItemDetail(
@@ -211,21 +216,51 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
     }
 
+    private static <T> List<Long> distinctIds(List<T> rows, Function<T, Long> idGetter) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .filter(Objects::nonNull)
+                .map(idGetter)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private static <T> Map<Long, T> mapById(List<T> rows, Function<T, Long> idGetter,
+                                             Long activeOrderId, String sourceName) {
+        if (rows == null) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        try {
+            return rows.stream().collect(Collectors.toMap(idGetter, Function.identity(),
+                    (left, right) -> {
+                        throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+                    }, LinkedHashMap::new));
+        } catch (NullPointerException exception) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+    }
+
     private record ProcessIdentity(Long routeProcessId, Long processId) {
     }
 
-    private record PqcSubmissionIdentity(ProcessIdentity processIdentity, String inspectionType, Integer roundNo) {
+    private record PqcSubmissionIdentity(ProcessIdentity processIdentity, Long qaProcessId, String inspectionType, Integer roundNo) {
     }
 
     private static final class PqcSubmissionAccumulator {
         private final MesPqcInspectionTaskDO firstTask;
+        private final MesQaInspectionRegulationProcessDO qaProcess;
         private final LinkedHashSet<Long> pqcTaskIds = new LinkedHashSet<>();
         private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
         private final List<MesTeamLeaderActiveOrderDetail.PqcSubmissionItemDetail> items = new ArrayList<>();
         private Integer actualInspectionQuantity;
 
-        private PqcSubmissionAccumulator(MesPqcInspectionTaskDO firstTask) {
+        private PqcSubmissionAccumulator(MesPqcInspectionTaskDO firstTask,
+                                         MesQaInspectionRegulationProcessDO qaProcess) {
             this.firstTask = firstTask;
+            this.qaProcess = qaProcess;
         }
 
         private void add(MesPqcInspectionTaskDO task, List<MesPqcProcessInspectionAggregateDetailDO> details) {
@@ -258,6 +293,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setPqcTaskIds(taskIds)
                     .setSubmittedEventId(eventIds.isEmpty() ? null : eventIds.get(0))
                     .setSubmittedEventIds(eventIds)
+                    .setQaProcessId(qaProcess.getId())
+                    .setQaProcessCode(qaProcess.getProcessCode())
+                    .setQaProcessName(qaProcess.getProcessName())
                     .setInspectionType(firstTask.getInspectionType())
                     .setBusinessDate(firstTask.getBusinessDate())
                     .setShiftCode(firstTask.getShiftCode())
@@ -301,6 +339,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
                     .setSubmittedAt(row.getSubmittedAt()));
+                    .setSubmittedAt(row.getSubmittedAt())
+                    .setDevices(resolveSubmissionDevices(row, activeOrderId)));
             submittedQuantity = submittedQuantity.add(row.getSubmittedQuantity());
         }
 
@@ -328,5 +368,127 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setSubmissions(List.copyOf(submissions))
                     .setPqcSubmissions(List.copyOf(pqcSubmissions));
         }
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> resolveSubmissionDevices(
+            MesTeamLeaderActiveOrderDetailReadDO row, Long activeOrderId) {
+        Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices = new LinkedHashMap<>();
+        Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+        if (payload != null) {
+            addDevicesFromValue(devices, payload.get("selectedDevices"));
+            addDevicesFromMaterialDetails(devices, payload.get("materialDetails"));
+            addDevicesFromValue(devices, payload.get("deviceParameterReadings"));
+        }
+        addDevice(devices, row.getEventDeviceId(), row.getEventDeviceCode(), row.getEventDeviceName());
+        return List.copyOf(devices.values());
+    }
+
+    private static Map<?, ?> parseOriginalPayload(String originalPayloadJson, Long activeOrderId) {
+        if (originalPayloadJson == null || originalPayloadJson.isBlank()) {
+            return null;
+        }
+        try {
+            Map<?, ?> payload = JsonUtils.parseObject(originalPayloadJson, Map.class);
+            if (payload == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            return payload;
+        } catch (RuntimeException ex) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addDevicesFromValue(
+            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value) {
+        if (value instanceof List<?> rows) {
+            for (Object item : rows) {
+                addDevicesFromValue(devices, item);
+            }
+            return;
+        }
+        if (value instanceof Map<?, ?> row) {
+            addDevice(devices, longValue(row.get("deviceId")), stringValue(row.get("deviceCode")),
+                    stringValue(row.get("deviceName")));
+        }
+    }
+
+    private static void addDevicesFromMaterialDetails(
+            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value) {
+        if (!(value instanceof List<?> materialDetails)) {
+            return;
+        }
+        for (Object materialDetail : materialDetails) {
+            if (!(materialDetail instanceof Map<?, ?> detail)) {
+                continue;
+            }
+            addDevicesFromValue(devices, detail.get("selectedDevice"));
+            addDevicesFromValue(devices, detail.get("selectedDevices"));
+            addDevicesFromValue(devices, detail.get("deviceParameterReadings"));
+        }
+    }
+
+    private static void addDevice(Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices,
+                                  Long deviceId, String deviceCode, String deviceName) {
+        String normalizedCode = trimToNull(deviceCode);
+        String normalizedName = trimToNull(deviceName);
+        String key = deviceKey(deviceId, normalizedCode, normalizedName);
+        if (key == null) {
+            return;
+        }
+        MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail existing = devices.get(key);
+        if (existing == null) {
+            devices.put(key, new MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail()
+                    .setDeviceId(deviceId)
+                    .setDeviceCode(normalizedCode)
+                    .setDeviceName(normalizedName));
+            return;
+        }
+        if (existing.getDeviceCode() == null && normalizedCode != null) {
+            existing.setDeviceCode(normalizedCode);
+        }
+        if (existing.getDeviceName() == null && normalizedName != null) {
+            existing.setDeviceName(normalizedName);
+        }
+    }
+
+    private static String deviceKey(Long deviceId, String deviceCode, String deviceName) {
+        if (deviceId != null && deviceId > 0) {
+            return "id:" + deviceId;
+        }
+        if (deviceCode != null) {
+            return "code:" + deviceCode;
+        }
+        if (deviceName != null) {
+            return "name:" + deviceName;
+        }
+        return null;
+    }
+
+    private static Long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        String text = trimToNull(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static String stringValue(Object value) {
+        return trimToNull(value);
+    }
+
+    private static String trimToNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value).trim();
+        return text.isEmpty() ? null : text;
     }
 }

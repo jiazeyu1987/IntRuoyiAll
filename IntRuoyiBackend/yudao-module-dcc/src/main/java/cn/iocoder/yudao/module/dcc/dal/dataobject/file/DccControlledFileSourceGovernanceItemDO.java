@@ -33,6 +33,7 @@ public class DccControlledFileSourceGovernanceItemDO extends BaseDO {
     private Long snapshotSourceConfigId;
     private String snapshotSourcePath;
     private Boolean snapshotSourceDeleted;
+    private String snapshotHistoryEvidenceHash;
     private String sourceSha256;
     private String sharedGroupKey;
     private String governanceAction;

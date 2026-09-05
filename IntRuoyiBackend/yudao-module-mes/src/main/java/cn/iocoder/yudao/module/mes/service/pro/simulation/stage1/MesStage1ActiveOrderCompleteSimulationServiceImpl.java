@@ -296,7 +296,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             List<MesProcessPoolActiveOrderPickListBindingDO> templateBindings,
             MesStage1ActiveOrderCompleteSimulationCommand command) {
         MesProWorkOrderDO workOrder = createWorkOrder(templateWorkOrder, command.getSimulationRunId(),
-                command.getActorUserId());
+                command.getActorUserId(), template.getId());
         MesProcessPoolActiveOrderDO activeOrder = BeanUtils.toBean(template, MesProcessPoolActiveOrderDO.class)
                 .setId(null)
                 .setLeaderUserId(command.getActorUserId())
@@ -325,7 +325,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         return activeOrder;
     }
 
-    private MesProWorkOrderDO createWorkOrder(MesProWorkOrderDO template, String runId, Long actorUserId) {
+    private MesProWorkOrderDO createWorkOrder(MesProWorkOrderDO template, String runId, Long actorUserId,
+                                              Long sourceActiveOrderId) {
         String safe = shortRunId(runId);
         MesProWorkOrderSaveReqVO request = new MesProWorkOrderSaveReqVO()
                 .setCode("STAGE1-WO-" + safe)
@@ -343,7 +344,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .setBatchCode("STAGE1-BATCH-" + safe)
                 .setRequestDate(LocalDateTime.now())
                 .setParentId(MesProWorkOrderDO.PARENT_ID_NULL)
-                .setRemark(marker(runId, actorUserId));
+                .setRemark(marker(runId, actorUserId, sourceActiveOrderId));
         Long id = workOrderService.createWorkOrder(request);
         workOrderService.confirmWorkOrder(id);
         return requireWorkOrder(id);
@@ -1303,13 +1304,17 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         return MARKER + "[simulationRunId=" + runId + "][actorUserId=" + actorUserId + "]";
     }
 
+    private String marker(String runId, Long actorUserId, Long sourceActiveOrderId) {
+        return marker(runId, actorUserId) + "[sourceActiveOrderId=" + sourceActiveOrderId + "]";
+    }
+
     private String runIdFromMarker(String value, Long actorUserId) {
         String prefix = MARKER + "[simulationRunId=";
-        String suffix = "][actorUserId=" + actorUserId + "]";
-        if (value == null || !value.startsWith(prefix) || !value.endsWith(suffix)) {
+        String actorToken = "][actorUserId=" + actorUserId + "]";
+        if (value == null || !value.startsWith(prefix) || !value.contains(actorToken)) {
             throw new IllegalStateException("STAGE1_CLEANUP_SCOPE_INVALID");
         }
-        String runId = value.substring(prefix.length(), value.length() - suffix.length());
+        String runId = value.substring(prefix.length(), value.indexOf(actorToken));
         if (!runId.matches("[A-Za-z0-9._:-]{1,128}")) {
             throw new IllegalStateException("STAGE1_CLEANUP_SCOPE_INVALID");
         }

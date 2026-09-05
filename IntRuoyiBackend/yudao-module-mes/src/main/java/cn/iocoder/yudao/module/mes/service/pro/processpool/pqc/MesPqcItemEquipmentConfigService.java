@@ -25,4 +25,7 @@ public interface MesPqcItemEquipmentConfigService {
 
     Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectAndItemCodes(
             Long dccProjectCodeId, Collection<String> itemCodes);
+
+    Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+            Long dccProjectCodeId, Long regulationVersionId, Collection<String> itemCodes);
 }

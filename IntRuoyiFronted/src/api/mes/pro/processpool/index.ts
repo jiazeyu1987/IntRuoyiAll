@@ -48,6 +48,7 @@ export interface ProcessPoolTimelineSelectedDeviceVO {
   deviceId?: number
   deviceCode?: string
   deviceName?: string
+  inMeteringValidityPeriod?: boolean
 }
 
 export interface ProcessPoolTimelineDeviceParameterReadingVO {

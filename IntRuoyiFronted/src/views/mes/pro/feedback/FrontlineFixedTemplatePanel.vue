@@ -1389,7 +1389,7 @@ type ProductionDefectKey = string
 type ProductionDeviceParameterKey = string
 type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | string | boolean | undefined>
 type ProductionDeviceMeteringValidityDraft = Record<string, boolean | undefined>
-type ProductionClearanceConfirmationKey = 'workplace' | 'validity' | 'material' | 'cleaning'
+type ProductionClearanceConfirmationKey = 'workplace' | 'material' | 'cleaning'
 type ProductionMaterialDraftState = {
   outputQuantity?: number
   defectQuantities: Record<ProductionDefectKey, number>
@@ -1419,11 +1419,6 @@ const FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS: readonly ProductionClearance
     label: '清场',
     description:
       '工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。'
-  },
-  {
-    key: 'validity',
-    label: '效期',
-    description: '是否在计量效期内。'
   },
   {
     key: 'material',
@@ -6417,7 +6412,7 @@ onUnmounted(() => {
   overflow: hidden;
 
   &.active {
-    border-color: var(--frontline-dark);
+    border-color: #15815f;
   }
 }
 
@@ -6620,8 +6615,7 @@ onUnmounted(() => {
 .frontline-production-clearance-confirmations {
   display: grid;
   grid-row: 3;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, auto));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   min-width: 0;
   min-height: 0;

@@ -43,6 +43,11 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSig
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureReissueReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceMigrationReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceMigrationResultRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceBatchRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceBlockerRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceConfirmReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernanceExecuteReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePostflightRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
@@ -66,6 +71,8 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateS
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceMigrationService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceBatchService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernancePostflightService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBrowserSettingsService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMessageReplayService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataImportExportService;
@@ -116,6 +123,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PERSONAL_PAGE_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_LEGACY_ENTRY_DISABLED;
 
 @Tag(name = "Admin - DCC Controlled Files")
 @RestController
@@ -143,6 +151,10 @@ public class DccControlledFileController {
     private DccControlledFileQueryService queryService;
     @Resource
     private DccControlledFileSourceMigrationService sourceMigrationService;
+    @Resource
+    private DccControlledFileSourceGovernanceBatchService sourceGovernanceBatchService;
+    @Resource
+    private DccControlledFileSourceGovernancePostflightService sourceGovernancePostflightService;
     @Resource
     private DccControlledFileBrowserSettingsService browserSettingsService;
     @Resource
@@ -853,8 +865,48 @@ public class DccControlledFileController {
     @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:update')")
     public CommonResult<DccControlledFileSourceMigrationResultRespVO> migrateSourceOwnershipBatch(
             @RequestParam(value = "batchSize", defaultValue = "100") @Min(1) @Max(200) int batchSize) {
-        return success(DccControlledFileSourceMigrationResultRespVO.from(
-                sourceMigrationService.migrateBatch(getLoginUserId(), batchSize)));
+        throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_LEGACY_ENTRY_DISABLED);
+    }
+
+    @PostMapping("/source-governance/batches/{taskKey}/confirm")
+    @Operation(summary = "Confirm a DCC source governance manifest")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:update')")
+    public CommonResult<DccControlledFileSourceGovernanceBatchRespVO> confirmSourceGovernanceBatch(
+            @PathVariable String taskKey,
+            @Valid @RequestBody DccControlledFileSourceGovernanceConfirmReqVO reqVO) {
+        return success(DccControlledFileSourceGovernanceBatchRespVO.from(
+                sourceGovernanceBatchService.confirmBatch(taskKey, getLoginUserId(),
+                        reqVO.getManifestSha256(), reqVO.getRequestSha256())));
+    }
+
+    @PostMapping("/source-governance/batches/{taskKey}/execute")
+    @Operation(summary = "Execute a confirmed DCC source governance batch")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:update')")
+    public CommonResult<DccControlledFileSourceGovernanceBatchRespVO> executeSourceGovernanceBatch(
+            @PathVariable String taskKey,
+            @Valid @RequestBody DccControlledFileSourceGovernanceExecuteReqVO reqVO) {
+        return success(DccControlledFileSourceGovernanceBatchRespVO.from(
+                sourceGovernanceBatchService.executeConfirmedBatch(taskKey, reqVO.getBatchSize(),
+                        reqVO.getManifestSha256(), reqVO.getRequestSha256(), getLoginUserId())));
+    }
+
+    @GetMapping("/source-governance/batches/{taskKey}/blockers")
+    @Operation(summary = "List blockers from a DCC source governance batch")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<List<DccControlledFileSourceGovernanceBlockerRespVO>> getSourceGovernanceBlockers(
+            @PathVariable String taskKey) {
+        return success(sourceGovernanceBatchService.getBlockers(taskKey).stream()
+                .map(DccControlledFileSourceGovernanceBlockerRespVO::from)
+                .toList());
+    }
+
+    @GetMapping("/source-governance/batches/{taskKey}/postflight")
+    @Operation(summary = "Run read-only postflight checks for a DCC source governance batch")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<DccControlledFileSourceGovernancePostflightRespVO> getSourceGovernancePostflight(
+            @PathVariable String taskKey) {
+        return success(DccControlledFileSourceGovernancePostflightRespVO.from(
+                sourceGovernancePostflightService.inspectCompletedItems(taskKey)));
     }
 
     private String encodePreviewWatermark(DccControlledPreviewWatermarkRespVO watermark) {

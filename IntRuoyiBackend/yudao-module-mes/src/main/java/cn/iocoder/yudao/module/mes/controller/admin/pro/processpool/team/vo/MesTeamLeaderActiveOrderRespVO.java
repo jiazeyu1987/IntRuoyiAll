@@ -119,6 +119,13 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "模拟运行编号")
     private String simulationRunId;
 
+    @Schema(description = "最近一次由当前来源活跃订单生成的 Stage1 测试活跃订单编号")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long stage1GeneratedActiveOrderId;
+
+    @Schema(description = "最近一次由当前来源活跃订单生成的 Stage1 测试生产工单号")
+    private String stage1GeneratedWorkOrderCode;
+
     @Schema(description = "管理后台 - MES 班组长活跃订单工序剩余量 Response VO")
     @Data
     @Accessors(chain = true)

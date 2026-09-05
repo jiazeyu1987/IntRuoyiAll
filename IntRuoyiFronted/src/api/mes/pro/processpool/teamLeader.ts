@@ -463,6 +463,12 @@ export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   overageQuantity?: number | string
 }
 
+export interface TeamLeaderActiveOrderSubmissionDeviceDetailRespVO {
+  deviceId?: number
+  deviceCode?: string
+  deviceName?: string
+}
+
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   eventId: number
   submittedQuantity: number | string
@@ -470,6 +476,7 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   reviewerName?: string
   submittedAt: string | number
   quantityConflict?: boolean
+  devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
 }
 
 export interface TeamLeaderActiveOrderInputMaterialDetailRespVO {
@@ -506,6 +513,9 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   pqcTaskIds?: number[]
   submittedEventId?: number
   submittedEventIds?: number[]
+  qaProcessId?: number
+  qaProcessCode?: string
+  qaProcessName?: string
   inspectionType?: string
   businessDate?: string
   shiftCode?: string
@@ -574,6 +584,8 @@ export interface TeamLeaderActiveOrderRespVO {
   simulated?: boolean
   simulationStage?: string
   simulationRunId?: string
+  stage1GeneratedActiveOrderId?: string | number
+  stage1GeneratedWorkOrderCode?: string
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {

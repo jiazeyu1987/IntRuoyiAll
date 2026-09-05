@@ -312,6 +312,18 @@ public interface ErrorCodeConstants {
             "受控文件当前未检出");
     ErrorCode CONTROLLED_FILE_CHECKIN_NOT_OWNER = new ErrorCode(1_080_000_306,
             "受控文件已由用户 {} 检出，只有检出人可以检入");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID = new ErrorCode(1_080_000_307,
+            "DCC 源文件治理清单未确认或摘要不一致");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_ITEM_BLOCKED = new ErrorCode(1_080_000_308,
+            "DCC 源文件治理明细已阻塞：controlledFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID = new ErrorCode(1_080_000_309,
+            "DCC 源文件治理清单与明细范围不一致");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_EXECUTION_FAILED = new ErrorCode(1_080_000_310,
+            "DCC 源文件治理执行失败：controlledFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_LEGACY_ENTRY_DISABLED = new ErrorCode(1_080_000_311,
+            "DCC 旧源文件迁移入口已停用，请使用已确认治理清单");
+    ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_BATCH_SIZE_SPLITS_GROUP = new ErrorCode(1_080_000_312,
+            "DCC 共享源治理组不能被批大小拆分：sharedGroupKey={}");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_INVALID = new ErrorCode(1_080_000_302,
             "关联文件必须属于当前 DCC 项目代码");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_DUPLICATE = new ErrorCode(1_080_000_303,

@@ -112,17 +112,21 @@ async function openTargetActiveOrderDetail(page) {
 }
 
 async function collectDialogTextByScrolling(page, dialog) {
-  const processTabs = dialog.locator('[data-team-leader-active-order-detail-process-tab]')
-  const processTabCount = await processTabs.count()
-  assert.equal(processTabCount, 15, `详情弹窗必须展示 15 个工序 Tab，实际 ${processTabCount}`)
+  const productionProcessTabs = dialog.locator('[data-team-leader-active-order-detail-production-process-tab]')
+  const productionProcessTabCount = await productionProcessTabs.count()
+  assert.equal(productionProcessTabCount, 15, `生产提交必须展示 15 个生产工序 Tab，实际 ${productionProcessTabCount}`)
   await dialog.getByRole('tab', { name: /领料单/ }).waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByRole('tab', { name: /生产提交/ }).waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByRole('tab', { name: /PQC提交/ }).waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.getByRole('tab', { name: /1\.\s*粗洗工序/ }).click()
   await dialog.getByRole('tab', { name: /生产提交/ }).click()
+  await dialog.getByRole('tab', { name: /1\.\s*粗洗工序/ }).click()
 
   let collected = `\n---FIRST-PROCESS---\n${await dialog.innerText({ timeout: 10000 })}`
   await dialog.getByRole('tab', { name: /PQC提交/ }).click()
+  await dialog.locator('[data-team-leader-active-order-detail-pqc-process-tab]').first().waitFor({
+    state: 'visible',
+    timeout: 30000
+  })
   collected += `\n---FIRST-PROCESS-PQC---\n${await dialog.innerText({ timeout: 10000 })}`
   await dialog.getByRole('tab', { name: /领料单/ }).click()
   await dialog.getByText('SIM-SOUT-C58EA189A6E4-04', { exact: false }).first().waitFor({
@@ -176,8 +180,9 @@ async function run() {
     assert.equal(evidence.pageErrors.length, 0, `页面错误：${evidence.pageErrors.join('\n')}`)
     await page.screenshot({ path: FINAL_SCREENSHOT_PATH, fullPage: true })
     evidence.hasNoPqcText = collectedText.includes('暂无一线PQC提交')
-    evidence.processTabCount = await dialog.locator('[data-team-leader-active-order-detail-process-tab]').count()
-    evidence.totalTopLevelTabs = evidence.processTabCount + 1
+    evidence.productionProcessTabCount = await dialog.locator('[data-team-leader-active-order-detail-production-process-tab]').count()
+    evidence.pqcProcessTabCount = await dialog.locator('[data-team-leader-active-order-detail-pqc-process-tab]').count()
+    evidence.totalTopLevelTabs = 3
     evidence.requiredTexts = REQUIRED_TEXTS
     evidence.forbiddenTexts = FORBIDDEN_TEXTS
     evidence.screenshots = [FINAL_SCREENSHOT_PATH, MATERIAL_SCREENSHOT_PATH]

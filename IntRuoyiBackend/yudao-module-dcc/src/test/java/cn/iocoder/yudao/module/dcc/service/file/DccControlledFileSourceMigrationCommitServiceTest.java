@@ -29,6 +29,8 @@ class DccControlledFileSourceMigrationCommitServiceTest extends BaseMockitoUnitT
     private DccControlledFileSourceMigrationMapper migrationMapper;
     @Mock
     private DccControlledFileSourceOwnershipService ownershipService;
+    @Mock
+    private DccControlledFileSourceGlobalClaimService globalClaimService;
     @InjectMocks
     private DccControlledFileSourceMigrationCommitService service;
 
@@ -54,6 +56,7 @@ class DccControlledFileSourceMigrationCommitServiceTest extends BaseMockitoUnitT
 
         service.commitIsolatedSource(candidate, migration, prepared, 120L);
 
+        verify(globalClaimService).claim(31L, 1700L, 901L, "verified-sha", 120L, null, null);
         verify(ownershipService).claimSubmissionSource(901L, prepared, 120L, "HISTORICAL_MIGRATION");
         ArgumentCaptor<DccControlledFileSourceMigrationDO> captor =
                 ArgumentCaptor.forClass(DccControlledFileSourceMigrationDO.class);
@@ -80,6 +83,7 @@ class DccControlledFileSourceMigrationCommitServiceTest extends BaseMockitoUnitT
         verify(controlledFileMapper, never()).updateSourceFileIdIncludingDeleted(
                 31L, 901L, 700L, 1700L, 120L);
         verify(ownershipService, never()).claimSubmissionSource(901L, prepared, 120L, "HISTORICAL_MIGRATION");
+        verify(globalClaimService, never()).claim(31L, 1700L, 901L, "verified-sha", 120L, null, null);
     }
 
     private DccControlledFileDO file(Long id, Long sourceFileId) {

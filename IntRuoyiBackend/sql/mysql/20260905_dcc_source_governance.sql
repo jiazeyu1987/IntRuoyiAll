@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_governance_item` (
   `snapshot_source_config_id` bigint DEFAULT NULL,
   `snapshot_source_path` varchar(512) DEFAULT NULL,
   `snapshot_source_deleted` bit(1) DEFAULT NULL,
+  `snapshot_history_evidence_hash` varchar(64) DEFAULT NULL,
   `source_sha256` varchar(64) DEFAULT NULL,
   `shared_group_key` varchar(128) DEFAULT NULL,
   `governance_action` varchar(32) NOT NULL,
@@ -68,3 +69,26 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_governance_item` (
   KEY `idx_dcc_source_governance_item_shared` (`batch_id`, `shared_group_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Per-controlled-file source evidence and governance decision';
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_global_claim` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `source_file_id` bigint NOT NULL,
+  `tenant_id` bigint NOT NULL,
+  `controlled_file_id` bigint NOT NULL,
+  `governance_batch_id` bigint DEFAULT NULL,
+  `governance_item_id` bigint DEFAULT NULL,
+  `claim_status` varchar(32) NOT NULL,
+  `source_sha256` varchar(64) NOT NULL,
+  `claimed_by` bigint DEFAULT NULL,
+  `claimed_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_source_global_claim_source` (`source_file_id`),
+  UNIQUE KEY `uk_dcc_source_global_claim_controlled` (`tenant_id`, `controlled_file_id`),
+  KEY `idx_dcc_source_global_claim_batch` (`governance_batch_id`, `claim_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Global claim preventing cross-tenant reuse of one infra source file';

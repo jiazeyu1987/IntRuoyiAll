@@ -63,6 +63,15 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String reviewerName;
         private LocalDateTime submittedAt;
         private Boolean quantityConflict;
+        private List<SubmissionDeviceDetail> devices;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SubmissionDeviceDetail {
+        private Long deviceId;
+        private String deviceCode;
+        private String deviceName;
     }
 
     @Data
@@ -72,6 +81,9 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> pqcTaskIds;
         private Long submittedEventId;
         private List<Long> submittedEventIds;
+        private Long qaProcessId;
+        private String qaProcessCode;
+        private String qaProcessName;
         private String inspectionType;
         private LocalDate businessDate;
         private String shiftCode;

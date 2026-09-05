@@ -252,7 +252,6 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .orderByTaskCreateTime()
                 .desc();
         List<Task> tasks = taskQuery.list().stream()
-                .filter(BpmNativeApprovalTaskProvider::isCurrentTenantTask)
                 .filter(task -> !Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee()))
                 .toList();
         if (tasks.isEmpty()) {
@@ -265,7 +264,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                     ProcessInstance processInstance = requireRuntimeProcessInstance(
                             processInstancesById, task.getProcessInstanceId());
                     Map<String, Object> variables = resolveTodoProcessVariables(task, processInstance);
-                    return isRegistrationCertificateUploadApproval(variables)
+                    return matchesCurrentTenantTask(task, variables)
+                            && isRegistrationCertificateUploadApproval(variables)
                             && matchesRegistrationCertificateUploadKeyword(task, variables, keyword);
                 })
                 .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
@@ -280,10 +280,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .stream()
                 .filter(task -> context.isGlobalView()
                         || Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee()))
-                .filter(BpmNativeApprovalTaskProvider::isCurrentTenantTask)
                 .toList();
         Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(tasks);
         return pageSummaries(tasks.stream()
+                .filter(task -> matchesCurrentTenantTask(task, requireRuntimeProcessInstance(
+                        processInstancesById, task.getProcessInstanceId()).getProcessVariables()))
                 .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
                         processInstancesById, task.getProcessInstanceId())))
                 .toList(), context.getPageNo(), context.getPageSize());
@@ -588,13 +589,16 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         return new PageResult<>(rows.subList(fromIndex, toIndex), (long) rows.size());
     }
 
-    private static boolean isCurrentTenantTask(Task task) {
+    private static boolean matchesCurrentTenantTask(Task task, Map<String, Object> variables) {
         String currentTenantId = FlowableUtils.getTenantId();
         String taskTenantId = task.getTenantId();
+        String variableTenantId = variables == null ? null : firstText(variables.get("tenantId"));
         if (!hasText(currentTenantId)) {
-            return !hasText(taskTenantId);
+            return !hasText(taskTenantId) && !hasText(variableTenantId);
         }
-        return Objects.equals(currentTenantId, taskTenantId);
+        return hasText(taskTenantId)
+                ? Objects.equals(currentTenantId, taskTenantId)
+                : Objects.equals(currentTenantId, variableTenantId);
     }
 
     private static boolean matchesRegistrationCertificateUploadKeyword(Task task,

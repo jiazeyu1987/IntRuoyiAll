@@ -26,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,8 +74,8 @@ class DccControlledFileSourceOwnershipServiceTest extends BaseMockitoUnitTest {
     void prepareSubmissionSource_rawReferenceCreatesAndVerifiesIndependentCopy() throws Exception {
         byte[] content = "source-b".getBytes(StandardCharsets.UTF_8);
         stubFile(701L, "source-b.docx", "nas/inbound/source-b.docx", content);
-        when(fileService.createFileAndReturnId(content, "source-b.docx", "dcc/source-owned",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document")).thenReturn(1701L);
+        when(fileService.createFileAndReturnId(any(byte[].class), anyString(), anyString(),
+                eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))).thenReturn(1701L);
         stubFile(1701L, "source-b.docx", "dcc/source-owned/source-b.docx", content);
 
         DccControlledFilePreparedSource result = service.prepareSubmissionSource(701L, true);
@@ -89,8 +91,8 @@ class DccControlledFileSourceOwnershipServiceTest extends BaseMockitoUnitTest {
         byte[] content = "source-c".getBytes(StandardCharsets.UTF_8);
         stubFile(702L, "source-c.docx", "dcc/temp/source-c.docx", content);
         when(controlledFileMapper.countAllBySourceFileId(31L, 702L)).thenReturn(1L);
-        when(fileService.createFileAndReturnId(content, "source-c.docx", "dcc/source-owned",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document")).thenReturn(1702L);
+        when(fileService.createFileAndReturnId(any(byte[].class), anyString(), anyString(),
+                eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))).thenReturn(1702L);
         stubFile(1702L, "source-c.docx", "dcc/source-owned/source-c.docx", content);
 
         DccControlledFilePreparedSource result = service.prepareSubmissionSource(702L, false);
@@ -119,6 +121,26 @@ class DccControlledFileSourceOwnershipServiceTest extends BaseMockitoUnitTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.claimSubmissionSource(901L, prepared, 120L, "SUBMISSION"));
         assertEquals(CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT.getCode(), ex.getCode());
+    }
+
+    @Test
+    void createVerifiedCopy_usesDifferentPhysicalDirectoryForEveryCopy() throws Exception {
+        byte[] content = "shared-source".getBytes(StandardCharsets.UTF_8);
+        stubFile(704L, "shared.docx", "dcc/temp/shared.docx", content);
+        when(fileService.createFileAndReturnId(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(1704L, 1705L);
+        stubFile(1704L, "shared.docx", "dcc/source-owned/704/copy-a/shared.docx", content);
+        stubFile(1705L, "shared.docx", "dcc/source-owned/704/copy-b/shared.docx", content);
+
+        service.createVerifiedCopy(704L);
+        service.createVerifiedCopy(704L);
+
+        ArgumentCaptor<String> directoryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(fileService, org.mockito.Mockito.times(2)).createFileAndReturnId(
+                any(byte[].class), eq("shared.docx"), directoryCaptor.capture(), anyString());
+        assertTrue(directoryCaptor.getAllValues().stream()
+                .allMatch(directory -> directory.startsWith("dcc/source-owned/704/")));
+        assertNotEquals(directoryCaptor.getAllValues().get(0), directoryCaptor.getAllValues().get(1));
     }
 
     private void stubFile(Long fileId, String name, String path, byte[] content) throws Exception {

@@ -147,6 +147,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     static final String STATUS_ACTIVE = "ACTIVE";
     static final String STATUS_REMOVED = "REMOVED";
+    private static final String SIMULATION_STAGE_STAGE1 = "STAGE1";
+    private static final String STAGE1_MARKER = "[STAGE1_SIMULATION]";
     private static final String CANDIDATE_STATE_ADDABLE = "ADDABLE";
     private static final String CANDIDATE_STATE_REUSABLE = "REUSABLE";
     private static final String CANDIDATE_STATE_RECOVERABLE = "RECOVERABLE";
@@ -1697,12 +1699,83 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> latestReleaseApplicationByActiveOrderId =
                 loadLatestReleaseApplications(activeOrders);
+        Map<Long, Stage1GeneratedDetailTarget> latestStage1GeneratedBySourceActiveOrderId =
+                resolveLatestStage1GeneratedDetailTargets(activeOrders, workOrdersById);
         return activeOrders.stream()
                 .map(activeOrder -> toActiveOrderRow(activeOrder, routeVersionsById,
                         routeNamesByActiveOrderId,
                         workOrdersById, productsById, progressByActiveOrderId, openAbnormalByWorkOrderId,
-                        latestReleaseApplicationByActiveOrderId))
+                        latestReleaseApplicationByActiveOrderId, latestStage1GeneratedBySourceActiveOrderId))
                 .toList();
+    }
+
+    private Map<Long, Stage1GeneratedDetailTarget> resolveLatestStage1GeneratedDetailTargets(
+            List<MesProcessPoolActiveOrderDO> activeOrders,
+            Map<Long, MesProWorkOrderDO> workOrdersById) {
+        Map<Long, Stage1GeneratedDetailTarget> targets = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderDO activeOrder : activeOrders) {
+            if (activeOrder == null || activeOrder.getId() == null
+                    || !Boolean.TRUE.equals(activeOrder.getSimulated())
+                    || !Objects.equals(SIMULATION_STAGE_STAGE1, activeOrder.getSimulationStage())) {
+                continue;
+            }
+            MesProWorkOrderDO workOrder = workOrdersById.get(activeOrder.getWorkOrderId());
+            Long sourceActiveOrderId = sourceActiveOrderIdFromStage1Marker(
+                    workOrder == null ? null : workOrder.getRemark(), activeOrder.getLeaderUserId());
+            if (sourceActiveOrderId == null || Objects.equals(sourceActiveOrderId, activeOrder.getId())) {
+                continue;
+            }
+            Stage1GeneratedDetailTarget candidate = new Stage1GeneratedDetailTarget(
+                    activeOrder.getId(),
+                    workOrder == null ? null : workOrder.getCode(),
+                    activeOrder.getJoinedAt());
+            Stage1GeneratedDetailTarget existing = targets.get(sourceActiveOrderId);
+            if (existing == null || isLaterStage1GeneratedTarget(candidate, existing)) {
+                targets.put(sourceActiveOrderId, candidate);
+            }
+        }
+        return targets;
+    }
+
+    private static boolean isLaterStage1GeneratedTarget(Stage1GeneratedDetailTarget candidate,
+                                                        Stage1GeneratedDetailTarget existing) {
+        LocalDateTime candidateJoinedAt = candidate.joinedAt();
+        LocalDateTime existingJoinedAt = existing.joinedAt();
+        if (candidateJoinedAt != null && existingJoinedAt != null
+                && !Objects.equals(candidateJoinedAt, existingJoinedAt)) {
+            return candidateJoinedAt.isAfter(existingJoinedAt);
+        }
+        if (candidateJoinedAt != null && existingJoinedAt == null) {
+            return true;
+        }
+        if (candidateJoinedAt == null && existingJoinedAt != null) {
+            return false;
+        }
+        return candidate.activeOrderId() != null && existing.activeOrderId() != null
+                && candidate.activeOrderId() > existing.activeOrderId();
+    }
+
+    private static Long sourceActiveOrderIdFromStage1Marker(String value, Long actorUserId) {
+        String actorToken = "][actorUserId=" + actorUserId + "]";
+        String sourcePrefix = "[sourceActiveOrderId=";
+        if (value == null || !value.startsWith(STAGE1_MARKER + "[simulationRunId=")
+                || !value.contains(actorToken) || !value.endsWith("]")) {
+            return null;
+        }
+        int sourceStart = value.indexOf(sourcePrefix, value.indexOf(actorToken));
+        if (sourceStart < 0) {
+            return null;
+        }
+        int valueStart = sourceStart + sourcePrefix.length();
+        int valueEnd = value.indexOf(']', valueStart);
+        if (valueEnd <= valueStart) {
+            return null;
+        }
+        String rawSourceActiveOrderId = value.substring(valueStart, valueEnd);
+        if (!rawSourceActiveOrderId.matches("\\d+")) {
+            return null;
+        }
+        return Long.valueOf(rawSourceActiveOrderId);
     }
 
     private Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> loadLatestReleaseApplications(
@@ -2088,7 +2161,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             Map<Long, MesMdItemDO> productsById,
             Map<Long, ActiveOrderProgress> progressByActiveOrderId,
             Map<Long, MesProcessPoolWorkOrderAbnormalDO> openAbnormalByWorkOrderId,
-            Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> releaseApplicationByActiveOrderId) {
+            Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> releaseApplicationByActiveOrderId,
+            Map<Long, Stage1GeneratedDetailTarget> stage1GeneratedTargetBySourceActiveOrderId) {
         MesProRouteVersionDO routeVersion = routeVersionsById.get(activeOrder.getRouteVersionId());
         MesProWorkOrderDO workOrder = workOrdersById.get(activeOrder.getWorkOrderId());
         MesMdItemDO product = productsById.get(workOrder.getProductId());
@@ -2099,6 +2173,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         MesProcessPoolWorkOrderAbnormalDO abnormal = openAbnormalByWorkOrderId.get(activeOrder.getWorkOrderId());
         MesProcessPoolActiveOrderReleaseApplicationDO releaseApplication =
                 releaseApplicationByActiveOrderId.get(activeOrder.getId());
+        Stage1GeneratedDetailTarget stage1GeneratedTarget =
+                stage1GeneratedTargetBySourceActiveOrderId.get(activeOrder.getId());
         return new MesTeamLeaderActiveOrderRow()
                 .setId(activeOrder.getId())
                 .setLeaderUserId(activeOrder.getLeaderUserId())
@@ -2132,7 +2208,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setOverageQuantity(progress.overageQuantity())
                 .setSimulated(activeOrder.getSimulated())
                 .setSimulationStage(activeOrder.getSimulationStage())
-                .setSimulationRunId(activeOrder.getSimulationRunId());
+                .setSimulationRunId(activeOrder.getSimulationRunId())
+                .setStage1GeneratedActiveOrderId(
+                        stage1GeneratedTarget == null ? null : stage1GeneratedTarget.activeOrderId())
+                .setStage1GeneratedWorkOrderCode(
+                        stage1GeneratedTarget == null ? null : stage1GeneratedTarget.workOrderCode());
     }
 
     private ActiveOrderRouteSource requireProductionRouteSourceForAdd(MesProWorkOrderDO workOrder) {
@@ -2815,6 +2895,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                        boolean hasQuantityConflict,
                                        int quantityConflictProcessCount,
                                        BigDecimal overageQuantity) {
+    }
+
+    private record Stage1GeneratedDetailTarget(Long activeOrderId, String workOrderCode,
+                                               LocalDateTime joinedAt) {
     }
 
     private record ProcessIdentity(Long routeProcessId, Long processId) {

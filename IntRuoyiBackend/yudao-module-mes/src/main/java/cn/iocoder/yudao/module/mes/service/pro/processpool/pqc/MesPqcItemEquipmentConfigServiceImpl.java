@@ -296,6 +296,12 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
     @Override
     public Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectAndItemCodes(
             Long dccProjectCodeId, Collection<String> itemCodes) {
+        return listEnabledEquipmentOptionsByProjectVersionAndItemCodes(dccProjectCodeId, null, itemCodes);
+    }
+
+    @Override
+    public Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+            Long dccProjectCodeId, Long regulationVersionId, Collection<String> itemCodes) {
         if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.dccProjectCodeId");
@@ -304,7 +310,9 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
         if (normalizedCodes.isEmpty()) {
             return Map.of();
         }
-        Map<String, ConfigurableItem> itemMap = loadConfigurableItemMap(dccProjectCodeId);
+        Map<String, ConfigurableItem> itemMap = regulationVersionId == null
+                ? loadConfigurableItemMap(dccProjectCodeId)
+                : loadConfigurableItemMap(dccProjectCodeId, regulationVersionId);
         if (normalizedCodes.stream().anyMatch(code -> !itemMap.containsKey(code))) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.itemCodes.projectMismatch=" + normalizedCodes);
@@ -380,6 +388,40 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
                         && !Objects.equals(configurableItem.dccProjectCodeId(), dccProjectCodeId)) {
                     continue;
                 }
+                ConfigurableItem existing = itemByCode.putIfAbsent(configurableItem.itemCode(), configurableItem);
+                if (existing != null && (!Objects.equals(existing.projectName(), configurableItem.projectName())
+                        || !Objects.equals(existing.itemName(), configurableItem.itemName()))) {
+                    throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                            "itemEquipmentConfig.itemCode.displayNameAmbiguous=" + configurableItem.itemCode());
+                }
+            }
+        }
+        return itemByCode;
+    }
+
+    private Map<String, ConfigurableItem> loadConfigurableItemMap(Long dccProjectCodeId, Long regulationVersionId) {
+        if (regulationVersionId == null || regulationVersionId <= 0) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.regulationVersionId=" + regulationVersionId);
+        }
+        MesQaInspectionRegulationVersionDO version = regulationVersionMapper.selectById(regulationVersionId);
+        if (version == null || version.getRegulationId() == null) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.regulationVersionId=" + regulationVersionId);
+        }
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(version.getRegulationId());
+        if (regulation == null || !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCodeId)) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.dccProjectCodeId=" + dccProjectCodeId);
+        }
+        List<MesQaInspectionRegulationItemDO> rows = regulationItemMapper.selectListByVersionId(regulationVersionId);
+        Map<Long, MesQaInspectionRegulationVersionDO> versionById = Map.of(version.getId(), version);
+        Map<Long, MesQaInspectionRegulationDO> regulationById = Map.of(regulation.getId(), regulation);
+        Map<Long, DccProjectCodeDO> projectById = loadProjectsById(List.of(regulation));
+        Map<String, ConfigurableItem> itemByCode = new LinkedHashMap<>();
+        for (MesQaInspectionRegulationItemDO row : rows) {
+            if (row != null && StrUtil.isNotBlank(row.getItemCode())) {
+                ConfigurableItem configurableItem = toConfigurableItem(row, versionById, regulationById, projectById);
                 ConfigurableItem existing = itemByCode.putIfAbsent(configurableItem.itemCode(), configurableItem);
                 if (existing != null && (!Objects.equals(existing.projectName(), configurableItem.projectName())
                         || !Objects.equals(existing.itemName(), configurableItem.itemName()))) {

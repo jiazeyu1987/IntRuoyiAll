@@ -51,6 +51,8 @@ public class MesTeamLeaderActiveOrderRow {
     private Boolean simulated;
     private String simulationStage;
     private String simulationRunId;
+    private Long stage1GeneratedActiveOrderId;
+    private String stage1GeneratedWorkOrderCode;
 
     @Data
     @Accessors(chain = true)

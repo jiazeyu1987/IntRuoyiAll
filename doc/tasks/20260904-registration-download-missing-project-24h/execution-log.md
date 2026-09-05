@@ -19,3 +19,9 @@ GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateAccessRequest
 GREEN: `mvn -pl yudao-module-bpm "-Dtest=BpmMessageServiceImplTest" test` -> PASS，15 tests, 0 failures, 0 errors。
 
 BLOCKED: `git fetch origin; git status --short --branch; git push origin int_main` -> FAIL，`git fetch origin` 与 `git push origin int_main` 均返回 `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`。影响：无法按用户要求同步到远端最新代码，且本地领先 `origin/int_main` 的 2 个提交无法推送。
+
+BDD: 注册证上传与变更 E2E 文档超时口径统一 -> Given `e2e_test/registration` 下注册证上传、变更、下载验收文档 When 检查普通用户下载授权有效期 Then 文档统一使用 24 小时，不再保留 3 天、三天或 72 小时口径。
+
+GREEN: `rg -n "3\s*天|三天|72\s*小时|72小时" e2e_test\registration -g "*.md"` -> PASS，无旧 3 天/72 小时超时口径残留。
+
+GREEN: `node IntRuoyiFronted/tests/registration-certificate-download-e2e-doc-static.spec.mjs` -> PASS，下载 E2E 文档 24 小时口径合同仍通过。

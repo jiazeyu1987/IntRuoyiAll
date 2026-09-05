@@ -17,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Objects;
+import java.util.UUID;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_ISOLATION_FAILED;
@@ -49,8 +50,10 @@ public class DccControlledFileSourceOwnershipService {
         SourceContent source = readSource(sourceFileId);
         Long copiedFileId;
         try {
+            String isolatedDirectory = OWNED_SOURCE_DIRECTORY + "/" + sourceFileId + "/"
+                    + UUID.randomUUID().toString().replace("-", "");
             copiedFileId = fileService.createFileAndReturnId(source.content(), source.file().getName(),
-                    OWNED_SOURCE_DIRECTORY, source.file().getType());
+                    isolatedDirectory, source.file().getType());
         } catch (Exception ex) {
             throw isolationFailure("无法创建独立副本 sourceFileId=" + sourceFileId, ex);
         }
@@ -128,7 +131,7 @@ public class DccControlledFileSourceOwnershipService {
         }
     }
 
-    private void deleteFailedCopy(Long copiedFileId, RuntimeException cause) {
+    public void cleanupFailedCopy(Long copiedFileId, RuntimeException cause) {
         try {
             fileService.deleteFile(copiedFileId);
         } catch (Exception cleanupFailure) {
@@ -137,6 +140,10 @@ public class DccControlledFileSourceOwnershipService {
             failure.addSuppressed(cleanupFailure);
             throw failure;
         }
+    }
+
+    private void deleteFailedCopy(Long copiedFileId, RuntimeException cause) {
+        cleanupFailedCopy(copiedFileId, cause);
     }
 
     private RuntimeException isolationFailure(String reason, Exception cause) {

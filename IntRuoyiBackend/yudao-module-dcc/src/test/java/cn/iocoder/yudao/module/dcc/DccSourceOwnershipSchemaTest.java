@@ -49,6 +49,7 @@ class DccSourceOwnershipSchemaTest {
         assertTrue(sql.contains("snapshot_source_file_id"));
         assertTrue(sql.contains("snapshot_source_sha256"));
         assertTrue(sql.contains("snapshot_location_hash"));
+        assertTrue(sql.contains("snapshot_history_evidence_hash"));
         assertTrue(sql.contains("shared_group_key"));
         assertTrue(sql.contains("blocker_reason_code"));
         assertTrue(sql.contains("unique key `uk_dcc_source_governance_item_file` (`batch_id`, `tenant_id`, `controlled_file_id`)"));
@@ -59,6 +60,9 @@ class DccSourceOwnershipSchemaTest {
         assertTrue(normalizedSql.contains("completed_count bigint not null default 0"));
         assertTrue(normalizedSql.contains("blocked_count bigint not null default 0"));
         assertTrue(normalizedSql.contains("failed_count bigint not null default 0"));
+        assertTrue(sql.contains("dcc_controlled_file_source_global_claim"));
+        assertTrue(sql.contains("unique key `uk_dcc_source_global_claim_source` (`source_file_id`)"));
+        assertTrue(sql.contains("unique key `uk_dcc_source_global_claim_controlled` (`tenant_id`, `controlled_file_id`)"));
     }
 
     @Test

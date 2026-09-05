@@ -648,6 +648,7 @@
                       >
                         <el-table-column label="设备名称" prop="deviceNameText" min-width="180" />
                         <el-table-column label="设备编号" prop="deviceCodeText" min-width="160" />
+                        <el-table-column label="计量状态" prop="meteringValidityText" min-width="130" />
                         <el-table-column label="设备参数" prop="parameterText" min-width="520">
                           <template #default="{ row: device }">
                             <span
@@ -703,6 +704,42 @@
             :min-width="getSubmissionColumnMinWidthString('process', 150)"
           >
             <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
+          </el-table-column>
+          <el-table-column
+            v-if="isSubmissionColumnVisible('clearanceWorkplace')"
+            label="清场"
+            prop="clearanceWorkplace"
+            align="center"
+            :width="getSubmissionColumnWidthString('clearanceWorkplace')"
+            :min-width="getSubmissionColumnMinWidthString('clearanceWorkplace', 90)"
+          >
+            <template #default="{ row }">
+              {{ resolveProductionClearanceConfirmationText(row, 'workplace') }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isSubmissionColumnVisible('clearanceMaterial')"
+            label="物料"
+            prop="clearanceMaterial"
+            align="center"
+            :width="getSubmissionColumnWidthString('clearanceMaterial')"
+            :min-width="getSubmissionColumnMinWidthString('clearanceMaterial', 90)"
+          >
+            <template #default="{ row }">
+              {{ resolveProductionClearanceConfirmationText(row, 'material') }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isSubmissionColumnVisible('clearanceCleaning')"
+            label="清洁"
+            prop="clearanceCleaning"
+            align="center"
+            :width="getSubmissionColumnWidthString('clearanceCleaning')"
+            :min-width="getSubmissionColumnMinWidthString('clearanceCleaning', 90)"
+          >
+            <template #default="{ row }">
+              {{ resolveProductionClearanceConfirmationText(row, 'cleaning') }}
+            </template>
           </el-table-column>
           <el-table-column
             v-if="isSubmissionColumnVisible('workOrder')"
@@ -1978,58 +2015,59 @@
 
           <el-tabs
             v-model="activeOrderDetailActiveTab"
-            data-team-leader-active-order-detail-process-tabs
+            data-team-leader-active-order-detail-main-tabs
             class="team-leader-workbench__active-order-detail-tabs"
           >
-            <el-tab-pane
-              v-for="(process, processIndex) in activeOrderSubmissionDetail.processes"
-              :key="`${process.routeProcessId}-${process.processId}`"
-              :name="activeOrderDetailProcessTabName(process, processIndex)"
-            >
-              <template #label>
-                <span
-                  data-team-leader-active-order-detail-process-tab
-                  :title="process.processName"
-                >
-                  {{ processIndex + 1 }}. {{ process.processName }}
-                </span>
-              </template>
-              <section
-                class="team-leader-workbench__active-order-process-detail"
-                :class="{ 'is-quantity-conflict': process.quantityConflict }"
+            <el-tab-pane label="生产提交" name="productionSubmissions">
+              <el-tabs
+                v-model="activeOrderDetailProductionActiveTab"
+                data-team-leader-active-order-detail-production-process-tabs
+                class="team-leader-workbench__active-order-detail-inner-tabs"
               >
-                <div class="team-leader-workbench__active-order-process-header">
-                  <div class="team-leader-workbench__active-order-process-title">
-                    <strong>{{ process.processName }}</strong>
-                    <span v-if="process.processCode">{{ process.processCode }}</span>
-                  </div>
-                  <div class="team-leader-workbench__active-order-process-metrics">
-                    <div>
-                      <span>应提数量</span>
-                      <strong>{{ formatTraceQuantity(process.requiredQuantity) }}</strong>
-                    </div>
-                    <div>
-                      <span>已提交</span>
-                      <strong>{{ formatTraceQuantity(process.submittedQuantity) }}</strong>
-                    </div>
-                    <div>
-                      <span>提交记录</span>
-                      <strong>{{ process.submissionCount }}</strong>
-                    </div>
-                    <div v-if="process.quantityConflict">
-                      <span>超出数量</span>
-                      <strong class="team-leader-workbench__quantity-conflict-text">
-                        {{ formatTraceQuantity(process.overageQuantity) }}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                <el-tabs
-                  v-model="activeOrderDetailInnerTabs[activeOrderDetailProcessTabName(process, processIndex)]"
-                  class="team-leader-workbench__active-order-detail-inner-tabs"
+                <el-tab-pane
+                  v-for="(process, processIndex) in activeOrderSubmissionDetail.processes"
+                  :key="`${process.routeProcessId}-${process.processId}`"
+                  :name="activeOrderDetailProcessTabName(process, processIndex)"
                 >
-                  <el-tab-pane label="生产提交" name="production">
+                  <template #label>
+                    <span
+                      data-team-leader-active-order-detail-production-process-tab
+                      :title="process.processName"
+                    >
+                      {{ processIndex + 1 }}. {{ process.processName }}
+                    </span>
+                  </template>
+                  <section
+                    class="team-leader-workbench__active-order-process-detail"
+                    :class="{ 'is-quantity-conflict': process.quantityConflict }"
+                  >
+                    <div class="team-leader-workbench__active-order-process-header">
+                      <div class="team-leader-workbench__active-order-process-title">
+                        <strong>{{ process.processName }}</strong>
+                        <span v-if="process.processCode">{{ process.processCode }}</span>
+                      </div>
+                      <div class="team-leader-workbench__active-order-process-metrics">
+                        <div>
+                          <span>应提数量</span>
+                          <strong>{{ formatTraceQuantity(process.requiredQuantity) }}</strong>
+                        </div>
+                        <div>
+                          <span>已提交</span>
+                          <strong>{{ formatTraceQuantity(process.submittedQuantity) }}</strong>
+                        </div>
+                        <div>
+                          <span>提交记录</span>
+                          <strong>{{ process.submissionCount }}</strong>
+                        </div>
+                        <div v-if="process.quantityConflict">
+                          <span>超出数量</span>
+                          <strong class="team-leader-workbench__quantity-conflict-text">
+                            {{ formatTraceQuantity(process.overageQuantity) }}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
                     <el-table
                       v-if="process.submissions?.length"
                       :data="process.submissions"
@@ -2041,6 +2079,11 @@
                       <el-table-column label="提交数量" min-width="120">
                         <template #default="{ row: submission }">
                           {{ formatTraceQuantity(submission.submittedQuantity) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="设备" min-width="220">
+                        <template #default="{ row: submission }">
+                          {{ formatActiveOrderSubmissionDevices(submission.devices) }}
                         </template>
                       </el-table-column>
                       <el-table-column label="提交人" prop="submitterName" min-width="140" />
@@ -2058,64 +2101,97 @@
                       </el-table-column>
                     </el-table>
                     <el-empty v-else :image-size="56" description="暂无一线生产提交" />
-                  </el-tab-pane>
-                  <el-tab-pane label="PQC提交" name="pqc">
-                    <template v-if="process.pqcSubmissions?.length">
-                      <div
-                        v-for="pqcSubmission in process.pqcSubmissions"
-                        :key="pqcSubmission.pqcTaskId"
-                        class="team-leader-workbench__active-order-pqc-card"
-                      >
-                        <div class="team-leader-workbench__active-order-pqc-title">
-                          <strong>
-                            {{ resolvePqcInspectionTypeText(pqcSubmission.inspectionType) }}
-                            <template v-if="pqcSubmission.roundNo"> / 第 {{ pqcSubmission.roundNo }} 轮</template>
-                          </strong>
-                          <span>实检 {{ pqcSubmission.actualInspectionQuantity ?? '-' }} 件</span>
-                          <span v-if="formatActiveOrderPqcEventIds(pqcSubmission) !== '-'">
-                            事件 {{ formatActiveOrderPqcEventIds(pqcSubmission) }}
-                          </span>
-                        </div>
-                        <el-table
-                          v-if="pqcSubmission.items?.length"
-                          :data="pqcSubmission.items"
-                          size="small"
-                          border
-                          class="team-leader-workbench__active-order-submission-table"
-                        >
-                          <el-table-column label="样本" min-width="90">
-                            <template #default="{ row: item }">
-                              {{ item.sampleNo ?? '-' }}
-                            </template>
-                          </el-table-column>
-                          <el-table-column label="检验项" min-width="180">
-                            <template #default="{ row: item }">
-                              {{ item.itemName || item.itemCode || '-' }}
-                            </template>
-                          </el-table-column>
-                          <el-table-column label="结果" min-width="140">
-                            <template #default="{ row: item }">
-                              {{ item.measuredValue || item.itemResult || '-' }}
-                            </template>
-                          </el-table-column>
-                          <el-table-column label="判定" min-width="100">
-                            <template #default="{ row: item }">
-                              {{ item.judgement || '-' }}
-                            </template>
-                          </el-table-column>
-                          <el-table-column label="设备" min-width="160">
-                            <template #default="{ row: item }">
-                              {{ item.selectedEquipmentNumber || item.selectedEquipmentName || '-' }}
-                            </template>
-                          </el-table-column>
-                        </el-table>
-                        <el-empty v-else :image-size="56" description="暂无PQC检验明细" />
+                  </section>
+                </el-tab-pane>
+              </el-tabs>
+            </el-tab-pane>
+            <el-tab-pane label="PQC提交" name="pqcSubmissions">
+              <el-tabs
+                v-if="activeOrderDetailPqcProcessGroups.length"
+                v-model="activeOrderDetailPqcActiveTab"
+                data-team-leader-active-order-detail-pqc-process-tabs
+                class="team-leader-workbench__active-order-detail-inner-tabs"
+              >
+                <el-tab-pane
+                  v-for="(pqcProcess, pqcProcessIndex) in activeOrderDetailPqcProcessGroups"
+                  :key="pqcProcess.key"
+                  :name="resolveActiveOrderPqcProcessTabName(pqcProcess, pqcProcessIndex)"
+                >
+                  <template #label>
+                    <span
+                      data-team-leader-active-order-detail-pqc-process-tab
+                      :title="pqcProcess.qaProcessName"
+                    >
+                      {{ pqcProcessIndex + 1 }}. {{ pqcProcess.qaProcessName }}
+                    </span>
+                  </template>
+                  <section class="team-leader-workbench__active-order-process-detail">
+                    <div class="team-leader-workbench__active-order-process-header">
+                      <div class="team-leader-workbench__active-order-process-title">
+                        <strong>{{ pqcProcess.qaProcessName }}</strong>
+                        <span v-if="pqcProcess.qaProcessCode">{{ pqcProcess.qaProcessCode }}</span>
                       </div>
-                    </template>
-                    <el-empty v-else :image-size="56" description="暂无一线PQC提交" />
-                  </el-tab-pane>
-                </el-tabs>
-              </section>
+                      <div class="team-leader-workbench__active-order-process-metrics">
+                        <div>
+                          <span>PQC提交</span>
+                          <strong>{{ pqcProcess.submissions.length }}</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      v-for="pqcSubmission in pqcProcess.submissions"
+                      :key="pqcSubmission.pqcTaskId"
+                      class="team-leader-workbench__active-order-pqc-card"
+                    >
+                      <div class="team-leader-workbench__active-order-pqc-title">
+                        <strong>
+                          {{ resolvePqcInspectionTypeText(pqcSubmission.inspectionType) }}
+                          <template v-if="pqcSubmission.roundNo"> / 第 {{ pqcSubmission.roundNo }} 轮</template>
+                        </strong>
+                        <span>实检 {{ pqcSubmission.actualInspectionQuantity ?? '-' }} 件</span>
+                        <span v-if="formatActiveOrderPqcEventIds(pqcSubmission) !== '-'">
+                          事件 {{ formatActiveOrderPqcEventIds(pqcSubmission) }}
+                        </span>
+                      </div>
+                      <el-table
+                        v-if="pqcSubmission.items?.length"
+                        :data="buildActiveOrderPqcItemRows(pqcSubmission)"
+                        size="small"
+                        border
+                        class="team-leader-workbench__active-order-submission-table"
+                      >
+                        <el-table-column label="检验项" min-width="180">
+                          <template #default="{ row: item }">
+                            {{ item.itemNameText }}
+                          </template>
+                        </el-table-column>
+                        <el-table-column label="样本" min-width="160">
+                          <template #default="{ row: item }">
+                            {{ item.sampleSummaryText }}
+                          </template>
+                        </el-table-column>
+                        <el-table-column label="结果汇总" min-width="180">
+                          <template #default="{ row: item }">
+                            {{ item.resultSummaryText }}
+                          </template>
+                        </el-table-column>
+                        <el-table-column label="判定" min-width="100">
+                          <template #default="{ row: item }">
+                            {{ item.judgementSummaryText }}
+                          </template>
+                        </el-table-column>
+                        <el-table-column label="设备" min-width="160">
+                          <template #default="{ row: item }">
+                            {{ item.equipmentSummaryText }}
+                          </template>
+                        </el-table-column>
+                      </el-table>
+                      <el-empty v-else :image-size="56" description="暂无PQC检验明细" />
+                    </div>
+                  </section>
+                </el-tab-pane>
+              </el-tabs>
+              <el-empty v-else :image-size="56" description="暂无一线PQC提交" />
             </el-tab-pane>
             <el-tab-pane
               label="领料单"
@@ -4263,6 +4339,7 @@ import {
   type TeamLeaderActiveOrderDetailRespVO,
   type TeamLeaderActiveOrderInputMaterialDetailRespVO,
   type TeamLeaderActiveOrderPqcSubmissionDetailRespVO,
+  type TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO,
   type TeamLeaderActiveOrderProcessDetailRespVO,
   type TeamLeaderActiveOrderReleaseApplyRespVO,
   type TeamLeaderActiveOrderReleaseApplicationStatus,
@@ -4455,6 +4532,7 @@ const CLEANING_WASH_DEVICE_PARAMETER_TEMPLATES_BY_KIND: Record<
 
 type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
+type ProductionClearanceConfirmationColumnKey = 'workplace' | 'material' | 'cleaning'
 type AllocationShortcutMode = 'MAX' | 'HALF'
 type ActiveOrderReleaseApplicationLockState =
   | 'CONFIRMED'
@@ -4583,8 +4661,12 @@ const activeOrderDetailLoading = ref(false)
 const activeOrderDetailError = ref('')
 const activeOrderDetailActiveOrderId = ref<number>()
 const activeOrderDetailStage1SourceWorkOrderCode = ref('')
+const stage1GeneratedDetailTargets = ref(
+  new Map<number, { activeOrderId: number; sourceWorkOrderCode: string }>()
+)
 const activeOrderDetailActiveTab = ref('')
-const activeOrderDetailInnerTabs = ref<Record<string, 'production' | 'pqc'>>({})
+const activeOrderDetailProductionActiveTab = ref('')
+const activeOrderDetailPqcActiveTab = ref('')
 const activeOrderConflictSelectedOrder = ref<TeamLeaderActiveOrderRespVO>()
 const activeOrderConflictDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderConflictLoading = ref(false)
@@ -4754,7 +4836,7 @@ const pqcDetailColumns: any[] = [
   { key: 'judgement', label: '判定', visible: true }
 ]
 const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
-const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production.operation-half-width-v1`
+const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production.clearance-columns-v2`
 const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.productionHistory.reject-v1`
 const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
 const PQC_FORM_HISTORY_TABLE_KEY = `${PQC_SUBMISSION_TABLE_KEY}.history`
@@ -4765,6 +4847,9 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
   { key: 'employeeUser', label: '员工', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
+  { key: 'clearanceWorkplace', label: '清场', minWidth: 90 },
+  { key: 'clearanceMaterial', label: '物料', minWidth: 90 },
+  { key: 'clearanceCleaning', label: '清洁', minWidth: 90 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'reportAllocations', label: '分配订单', minWidth: 240 },
   { key: 'operation', label: '操作', width: 190, hideable: false, business: false }
@@ -5861,10 +5946,149 @@ const formatActiveOrderPqcEventIds = (
   return uniqueIds.length ? uniqueIds.join('、') : '-'
 }
 
+interface ActiveOrderPqcItemAggregateRow {
+  key: string
+  itemNameText: string
+  sampleSummaryText: string
+  resultSummaryText: string
+  judgementSummaryText: string
+  equipmentSummaryText: string
+}
+
+const normalizeActiveOrderPqcText = (value?: string | number | null) => {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+
+const formatActiveOrderPqcItemCountSummary = (values: string[]) => {
+  const counts = new Map<string, number>()
+  for (const value of values.map((item) => item.trim()).filter(Boolean)) {
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  const parts = Array.from(counts.entries())
+    .sort(([left], [right]) => left.localeCompare(right, 'zh-Hans-CN'))
+    .map(([value, count]) => (count > 1 ? `${value} × ${count}` : value))
+  return parts.length ? parts.join('；') : '-'
+}
+
+const formatActiveOrderPqcItemSampleSummary = (
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+) => {
+  const sampleNos = Array.from(
+    new Set(
+      items
+        .map((item) => Number(item.sampleNo))
+        .filter((sampleNo) => Number.isFinite(sampleNo) && sampleNo > 0)
+    )
+  ).sort((left, right) => left - right)
+  if (!sampleNos.length) return `${items.length} 件`
+  const visibleSamples = sampleNos.slice(0, 8).join('、')
+  const suffix = sampleNos.length > 8 ? `…共 ${sampleNos.length} 件` : `共 ${sampleNos.length} 件`
+  return `样本 ${visibleSamples}，${suffix}`
+}
+
+const formatActiveOrderPqcItemResultSummary = (
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+) =>
+  formatActiveOrderPqcItemCountSummary(
+    items.map((item) => normalizeActiveOrderPqcText(item.measuredValue || item.itemResult))
+  )
+
+const formatActiveOrderPqcItemJudgementSummary = (
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+) => formatActiveOrderPqcItemCountSummary(items.map((item) => normalizeActiveOrderPqcText(item.judgement)))
+
+const formatActiveOrderPqcEquipmentSummary = (
+  items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+) => {
+  const equipments = Array.from(
+    new Set(
+      items
+        .map((item) =>
+          normalizeActiveOrderPqcText(item.selectedEquipmentNumber || item.selectedEquipmentName)
+        )
+        .filter(Boolean)
+    )
+  )
+  return equipments.length ? equipments.join('、') : '-'
+}
+
+const buildActiveOrderPqcItemRows = (
+  pqcSubmission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+): ActiveOrderPqcItemAggregateRow[] => {
+  const rowsByItem = new Map<
+    string,
+    {
+      itemNameText: string
+      items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
+    }
+  >()
+  for (const item of pqcSubmission.items ?? []) {
+    const itemCode = normalizeActiveOrderPqcText(item.itemCode)
+    const itemName = normalizeActiveOrderPqcText(item.itemName)
+    const key = itemName || itemCode || `aggregate-${item.aggregateDetailId}`
+    const itemNameText = itemName || itemCode || '-'
+    const existed = rowsByItem.get(key)
+    if (existed) {
+      existed.items.push(item)
+      continue
+    }
+    rowsByItem.set(key, { itemNameText, items: [item] })
+  }
+  return Array.from(rowsByItem.entries()).map(([key, row]) => ({
+    key,
+    itemNameText: row.itemNameText,
+    sampleSummaryText: formatActiveOrderPqcItemSampleSummary(row.items),
+    resultSummaryText: formatActiveOrderPqcItemResultSummary(row.items),
+    judgementSummaryText: formatActiveOrderPqcItemJudgementSummary(row.items),
+    equipmentSummaryText: formatActiveOrderPqcEquipmentSummary(row.items)
+  }))
+}
+
 const activeOrderDetailProcessTabName = (
   process: TeamLeaderActiveOrderProcessDetailRespVO,
   index: number
 ) => `process-${process.routeProcessId}-${process.processId}-${index}`
+
+interface ActiveOrderDetailPqcProcessGroup {
+  key: string
+  qaProcessId: number
+  qaProcessCode?: string
+  qaProcessName: string
+  submissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]
+}
+
+const resolveActiveOrderPqcProcessTabName = (
+  pqcProcess: ActiveOrderDetailPqcProcessGroup,
+  index: number
+) => `pqc-process-${pqcProcess.qaProcessId}-${index}`
+
+const activeOrderDetailPqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
+  const detailResult = activeOrderSubmissionDetail.value
+  if (!detailResult?.processes?.length) return []
+  const groupsByQaProcessId = new Map<number, ActiveOrderDetailPqcProcessGroup>()
+  for (const process of detailResult.processes) {
+    for (const submission of process.pqcSubmissions ?? []) {
+      const qaProcessId = Number(submission.qaProcessId)
+      if (!Number.isFinite(qaProcessId) || qaProcessId <= 0 || !submission.qaProcessName?.trim()) {
+        throw new Error('PQC提交缺少正式检验工序身份，无法按PQC工序展示')
+      }
+      const existed = groupsByQaProcessId.get(qaProcessId)
+      if (existed) {
+        existed.submissions.push(submission)
+        continue
+      }
+      groupsByQaProcessId.set(qaProcessId, {
+        key: `pqc-process-${qaProcessId}`,
+        qaProcessId,
+        qaProcessCode: submission.qaProcessCode,
+        qaProcessName: submission.qaProcessName.trim(),
+        submissions: [submission]
+      })
+    }
+  }
+  return Array.from(groupsByQaProcessId.values())
+})
 
 type ActiveOrderDetailPickListMaterialRow = TeamLeaderActiveOrderInputMaterialDetailRespVO & {
   sourceProcessNames: string[]
@@ -5911,14 +6135,14 @@ const activeOrderDetailPickListMaterials = computed<ActiveOrderDetailPickListMat
 
 const resetActiveOrderDetailTabs = (detailResult?: TeamLeaderActiveOrderDetailRespVO) => {
   const firstProcess = detailResult?.processes?.[0]
-  activeOrderDetailActiveTab.value = firstProcess
+  activeOrderDetailActiveTab.value = firstProcess ? 'productionSubmissions' : 'materials'
+  activeOrderDetailProductionActiveTab.value = firstProcess
     ? activeOrderDetailProcessTabName(firstProcess, 0)
-    : 'materials'
-  const nextInnerTabs: Record<string, 'production' | 'pqc'> = {}
-  detailResult?.processes?.forEach((process, index) => {
-    nextInnerTabs[activeOrderDetailProcessTabName(process, index)] = 'production'
-  })
-  activeOrderDetailInnerTabs.value = nextInnerTabs
+    : ''
+  const firstPqcProcess = activeOrderDetailPqcProcessGroups.value[0]
+  activeOrderDetailPqcActiveTab.value = firstPqcProcess
+    ? resolveActiveOrderPqcProcessTabName(firstPqcProcess, 0)
+    : ''
 }
 
 const loadActiveOrderSubmissionDetail = async (activeOrderId: number) => {
@@ -5942,12 +6166,35 @@ const loadActiveOrderSubmissionDetail = async (activeOrderId: number) => {
   }
 }
 
+const resolveStage1GeneratedDetailTarget = (row: TeamLeaderActiveOrderRespVO) => {
+  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const persistedStage1GeneratedActiveOrderId = Number(row.stage1GeneratedActiveOrderId)
+  if (
+    Number.isFinite(persistedStage1GeneratedActiveOrderId) &&
+    persistedStage1GeneratedActiveOrderId > 0
+  ) {
+    return {
+      activeOrderId: persistedStage1GeneratedActiveOrderId,
+      sourceWorkOrderCode: row.workOrderCode || ''
+    }
+  }
+  return stage1GeneratedDetailTargets.value.get(sourceActiveOrderId)
+}
+
 const openActiveOrderSubmissionDetail = async (row: TeamLeaderActiveOrderRespVO) => {
-  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const stage1GeneratedTarget = resolveStage1GeneratedDetailTarget(row)
+  if (stage1GeneratedTarget) {
+    activeOrderDetailStage1SourceWorkOrderCode.value = stage1GeneratedTarget.sourceWorkOrderCode
+    activeOrderDetailActiveOrderId.value = stage1GeneratedTarget.activeOrderId
+    activeOrderDetailVisible.value = true
+    await loadActiveOrderSubmissionDetail(stage1GeneratedTarget.activeOrderId)
+    return
+  }
   activeOrderDetailStage1SourceWorkOrderCode.value = ''
-  activeOrderDetailActiveOrderId.value = activeOrderId
+  activeOrderDetailActiveOrderId.value = sourceActiveOrderId
   activeOrderDetailVisible.value = true
-  await loadActiveOrderSubmissionDetail(activeOrderId)
+  await loadActiveOrderSubmissionDetail(sourceActiveOrderId)
 }
 
 const retryActiveOrderSubmissionDetail = async () => {
@@ -7533,6 +7780,7 @@ interface SubmissionMaterialDeviceRow {
   key: string
   deviceNameText: string
   deviceCodeText: string
+  meteringValidityText: string
   parameterText: string
   hasAbnormalParameter: boolean
 }
@@ -7945,6 +8193,26 @@ const resolveSubmissionLossQuantity = (row: ProcessPoolTimelineEventVO) =>
 
 const normalizeSubmissionArray = (value: unknown) => (Array.isArray(value) ? value : [])
 
+const resolveProductionClearanceConfirmationText = (
+  row: ProcessPoolTimelineEventVO,
+  key: ProductionClearanceConfirmationColumnKey
+) => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const confirmation = normalizeSubmissionArray(rootPayload?.clearanceConfirmations).find(
+    (item) => isRecord(item) && item.key === key
+  )
+  if (!isRecord(confirmation)) {
+    return '--'
+  }
+  if (confirmation.confirmed === true) {
+    return '已选'
+  }
+  if (confirmation.confirmed === false) {
+    return '未选'
+  }
+  return '--'
+}
+
 const resolveSubmissionLossBreakdownItems = (
   row: ProcessPoolTimelineEventVO
 ): SubmissionStructuredItem[] => {
@@ -8129,6 +8397,41 @@ const formatParameterRangeText = (lower?: unknown, upper?: unknown, unit = '') =
   return `范围 ${lower ?? '--'} ~ ${upper ?? '--'}${unit}`
 }
 
+const formatSubmissionParameterValueText = (item: PqcSubmissionPayloadRecord) =>
+  formatSubmissionText(item.textValue ?? item.value)
+
+const formatSubmissionDeviceMeteringValidityText = (value?: boolean) => {
+  if (value === true) {
+    return '计量有效'
+  }
+  if (value === false) {
+    return '计量超期'
+  }
+  return '计量状态未记录'
+}
+
+const resolveSubmissionDeviceInlineMeteringValidity = (
+  device: ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow
+) => ('inMeteringValidityPeriod' in device ? device.inMeteringValidityPeriod : undefined)
+
+const resolveSubmissionDeviceMeteringValidityMap = (
+  row: ProcessPoolTimelineEventVO
+): Map<string, boolean> => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const rows = normalizeSubmissionArray(rootPayload?.deviceMeteringValidity)
+  const result = new Map<string, boolean>()
+  rows.forEach((item) => {
+    if (!isRecord(item) || typeof item.inMeteringValidityPeriod !== 'boolean') {
+      return
+    }
+    const keys = [item.deviceId, item.deviceCode]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean)
+    keys.forEach((key) => result.set(key, item.inMeteringValidityPeriod as boolean))
+  })
+  return result
+}
+
 const resolvePqcDetailStructuredItems = (
   row: ProcessPoolTimelineEventVO,
   resolveValueText: (detail: PqcItemSnapshotDetail) => string
@@ -8226,7 +8529,7 @@ const resolveProductionParameterItems = (
           ]
             .filter(Boolean)
             .join(' · '),
-          valueText: `${formatSubmissionText(item.value)}${unit}`,
+          valueText: `${formatSubmissionParameterValueText(item)}${unit}`,
           metaText: formatParameterRangeText(item.lowerLimit, item.upperLimit, unit),
           outOfRange: abnormal,
           parameterStatus
@@ -8329,12 +8632,16 @@ const formatSubmissionDeviceParameterText = (items: SubmissionStructuredItem[]) 
 const toSubmissionMaterialDeviceRow = (
   device: ProcessPoolTimelineSelectedDeviceVO | ProductionReportCorrectionParameterRow,
   key: string,
-  parameterItems: SubmissionStructuredItem[]
+  parameterItems: SubmissionStructuredItem[],
+  inMeteringValidityPeriod?: boolean
 ): SubmissionMaterialDeviceRow => ({
   key,
   deviceNameText: formatSubmissionText(device.deviceName, '未命名设备'),
   deviceCodeText: formatSubmissionText(
     device.deviceCode || (device.deviceId ? `#${device.deviceId}` : '')
+  ),
+  meteringValidityText: formatSubmissionDeviceMeteringValidityText(
+    inMeteringValidityPeriod ?? resolveSubmissionDeviceInlineMeteringValidity(device)
   ),
   parameterText: formatSubmissionDeviceParameterText(parameterItems),
   hasAbnormalParameter: parameterItems.some((item) => item.outOfRange)
@@ -8342,7 +8649,8 @@ const toSubmissionMaterialDeviceRow = (
 
 const resolveSubmissionMaterialDeviceRows = (
   materialRow: ProductionReportCorrectionMaterialRow,
-  materialIndex: number
+  materialIndex: number,
+  meteringValidityMap: Map<string, boolean>
 ): SubmissionMaterialDeviceRow[] => {
   const deviceMap = new Map<
     string,
@@ -8384,15 +8692,24 @@ const resolveSubmissionMaterialDeviceRows = (
     })
     parameterMap.set(deviceKey, parameterItems)
   })
-  return [...deviceMap.entries()].map(([key, device]) =>
-    toSubmissionMaterialDeviceRow(device, key, parameterMap.get(key) || [])
-  )
+  return [...deviceMap.entries()].map(([key, device]) => {
+    const inMeteringValidityPeriod =
+      meteringValidityMap.get(String(device.deviceId || '')) ??
+      meteringValidityMap.get(String(device.deviceCode || ''))
+    return toSubmissionMaterialDeviceRow(
+      device,
+      key,
+      parameterMap.get(key) || [],
+      inMeteringValidityPeriod
+    )
+  })
 }
 
 const resolveSubmissionMaterialDetailRows = (
   row: ProcessPoolTimelineEventVO
 ): SubmissionMaterialDetailRow[] => {
   const materialRows = resolveProductionMaterialRows(row)
+  const meteringValidityMap = resolveSubmissionDeviceMeteringValidityMap(row)
   if (!materialRows.length) {
     const parameterItems = resolveSubmissionParameterItems(row).filter((item) =>
       isMeaningfulSubmissionText(item.valueText)
@@ -8409,7 +8726,12 @@ const resolveSubmissionMaterialDetailRows = (
         devices: resolveSubmissionEquipmentItems(row)
           .filter((item) => isMeaningfulSubmissionText(item.valueText))
           .map((item) =>
-            toSubmissionMaterialDeviceRow({ deviceName: item.valueText }, item.key, parameterItems)
+            toSubmissionMaterialDeviceRow(
+              { deviceName: item.valueText },
+              item.key,
+              parameterItems,
+              meteringValidityMap.get(item.key)
+            )
           )
       }
     ]
@@ -8424,7 +8746,7 @@ const resolveSubmissionMaterialDetailRows = (
         item.lossDetails
           .map((detail) => `${detail.reasonName}：${formatSubmissionQuantity(detail.quantity)}`)
           .join('；') || '--',
-      devices: resolveSubmissionMaterialDeviceRows(item, index)
+      devices: resolveSubmissionMaterialDeviceRows(item, index, meteringValidityMap)
     }
   })
 }
@@ -9862,11 +10184,17 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.success(
       `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
-    activeOrderDetailStage1SourceWorkOrderCode.value = row.workOrderCode || ''
-    activeOrderDetailActiveOrderId.value = requirePositiveNumber(
+    const templateActiveOrderId = requirePositiveNumber(row.id, '活跃订单模板ID不能为空')
+    const generatedActiveOrderId = requirePositiveNumber(
       result.activeOrderId,
       'Stage1 新活跃订单ID不能为空'
     )
+    stage1GeneratedDetailTargets.value.set(templateActiveOrderId, {
+      activeOrderId: generatedActiveOrderId,
+      sourceWorkOrderCode: row.workOrderCode || ''
+    })
+    activeOrderDetailStage1SourceWorkOrderCode.value = row.workOrderCode || ''
+    activeOrderDetailActiveOrderId.value = generatedActiveOrderId
     activeOrderDetailVisible.value = true
     await loadActiveOrders()
     await loadActiveOrderSubmissionDetail(activeOrderDetailActiveOrderId.value)

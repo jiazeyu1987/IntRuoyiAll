@@ -225,7 +225,7 @@ class MesFrontlinePqcContextServiceTest {
                 MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
                         .equipmentId(1101L).equipmentCode("FM").equipmentName("砝码")
                         .equipmentNumber("FM-001").defaultFlag(false).sort(1).build()));
-        when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectAndItemCodes(anyLong(), any()))
+        when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(anyLong(), anyLong(), any()))
                 .thenReturn(Map.of("ID-001", List.of(new MesPqcItemEquipmentOption(
                         "ID-001", 1101L, "FM", "砝码", "FM-001", false, 1))));
 

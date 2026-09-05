@@ -109,6 +109,11 @@ assert.doesNotMatch(
   /type ProductionClearanceConfirmationKey = 'workplace' \| 'validity' \| 'material' \| 'cleaning'[\s\S]*key: 'validity'[\s\S]*label: '效期'/,
   'the bottom global validity confirmation must be removed while the device-card metering checkbox remains.'
 )
+assert.match(
+  panel,
+  /type ProductionClearanceConfirmationKey = 'workplace' \| 'material' \| 'cleaning'/,
+  'the bottom global clearance confirmations must only keep workplace, material, and cleaning.'
+)
 
 const tabsStyleBlock = extractCssBlock(panel, '.frontline-production-device-tabs')
 assert.match(
@@ -142,4 +147,4 @@ assert.doesNotMatch(
   'selected device card border must not keep the dark header color.'
 )
 
-console.log('PASS: frontline production device cards expose metering validity checkboxes')
+console.log('PASS: frontline production device cards keep metering validity while global validity is removed')

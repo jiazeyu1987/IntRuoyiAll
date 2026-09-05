@@ -47,10 +47,10 @@ assert.match(
   /if \(isBooleanParameter\(parameter\)\)[\s\S]*value:\s*booleanValue\s*\?\s*1\s*:\s*0/,
   '正式计量效期 checkbox 必须按未选 0、已选 1 提交。'
 )
-assert.match(
+assert.doesNotMatch(
   panel,
   /type ProductionClearanceConfirmationKey = 'workplace' \| 'validity' \| 'material' \| 'cleaning'[\s\S]*key: 'validity'[\s\S]*label: '效期'/,
-  '底部全局效期确认含义不同，必须完整保留。'
+  '底部全局效期确认项必须删除，只保留设备卡片逐设备计量效期 checkbox。'
 )
 
 assert.ok(fs.existsSync(migrationPath), '必须提供光固II A05075/A05059 双设备正式迁移。')

@@ -24,14 +24,23 @@ public class DccControlledFileSourceMigrationCommitService {
     private DccControlledFileSourceMigrationMapper migrationMapper;
     @Resource
     private DccControlledFileSourceOwnershipService ownershipService;
+    @Resource
+    private DccControlledFileSourceGlobalClaimService globalClaimService;
 
     @Transactional(rollbackFor = Exception.class)
     public void commitExistingSource(DccControlledFileDO candidate, DccControlledFileSourceMigrationDO migration,
                                      DccControlledFilePreparedSource preparedSource, Long actorId) {
+        commitExistingSource(candidate, migration, preparedSource, actorId, null, null);
+    }
+
+    public void commitExistingSource(DccControlledFileDO candidate, DccControlledFileSourceMigrationDO migration,
+                                     DccControlledFilePreparedSource preparedSource, Long actorId,
+                                     Long governanceBatchId, Long governanceItemId) {
         DccControlledFileDO current = loadCurrent(candidate.getId());
         if (!Objects.equals(current.getSourceFileId(), candidate.getSourceFileId())) {
             throw migrationConflict(candidate.getId());
         }
+        claimGlobalSource(candidate, preparedSource, actorId, governanceBatchId, governanceItemId);
         ownershipService.claimSubmissionSource(candidate.getId(), preparedSource, actorId, "HISTORICAL_MIGRATION");
         completeMigration(migration, preparedSource, actorId);
     }
@@ -39,9 +48,16 @@ public class DccControlledFileSourceMigrationCommitService {
     @Transactional(rollbackFor = Exception.class)
     public void commitIsolatedSource(DccControlledFileDO candidate, DccControlledFileSourceMigrationDO migration,
                                      DccControlledFilePreparedSource preparedSource, Long actorId) {
+        commitIsolatedSource(candidate, migration, preparedSource, actorId, null, null);
+    }
+
+    public void commitIsolatedSource(DccControlledFileDO candidate, DccControlledFileSourceMigrationDO migration,
+                                     DccControlledFilePreparedSource preparedSource, Long actorId,
+                                     Long governanceBatchId, Long governanceItemId) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         DccControlledFileDO current = loadCurrent(candidate.getId());
         if (Objects.equals(current.getSourceFileId(), preparedSource.sourceFileId())) {
+            claimGlobalSource(candidate, preparedSource, actorId, governanceBatchId, governanceItemId);
             ownershipService.claimSubmissionSource(candidate.getId(), preparedSource, actorId,
                     "HISTORICAL_MIGRATION");
             completeMigration(migration, preparedSource, actorId);
@@ -50,6 +66,7 @@ public class DccControlledFileSourceMigrationCommitService {
         if (!Objects.equals(current.getSourceFileId(), migration.getLegacySourceFileId())) {
             throw migrationConflict(candidate.getId());
         }
+        claimGlobalSource(candidate, preparedSource, actorId, governanceBatchId, governanceItemId);
         int updated = controlledFileMapper.updateSourceFileIdIncludingDeleted(tenantId, candidate.getId(),
                 migration.getLegacySourceFileId(), preparedSource.sourceFileId(), actorId);
         if (updated != 1) {
@@ -82,5 +99,12 @@ public class DccControlledFileSourceMigrationCommitService {
 
     private RuntimeException migrationConflict(Long controlledFileId) {
         return exception(CONTROLLED_FILE_SOURCE_MIGRATION_CONFLICT, controlledFileId);
+    }
+
+    private void claimGlobalSource(DccControlledFileDO candidate,
+                                   DccControlledFilePreparedSource preparedSource, Long actorId,
+                                   Long governanceBatchId, Long governanceItemId) {
+        globalClaimService.claim(candidate.getTenantId(), preparedSource.sourceFileId(), candidate.getId(),
+                preparedSource.sourceSha256(), actorId, governanceBatchId, governanceItemId);
     }
 }

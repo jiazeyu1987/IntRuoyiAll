@@ -22,7 +22,11 @@
                         NULLIF(reviewer_profile_by_user.employee_name, ''),
                         NULLIF(reviewer_profile_by_id.display_name, ''),
                         NULLIF(reviewer_profile_by_id.employee_name, ''), NULLIF(reviewer.username, '')) AS reviewerName,
-               pool_event.server_submit_time AS submittedAt
+               pool_event.server_submit_time AS submittedAt,
+               CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
+               pool_event.device_id AS eventDeviceId,
+               event_device.device_code AS eventDeviceCode,
+               event_device.device_name AS eventDeviceName
         FROM mes_pro_process_pool_active_order_process_snapshot process_snapshot
         INNER JOIN mes_pro_process_pool_active_order active_order
           ON active_order.id = process_snapshot.active_order_id
@@ -50,6 +54,10 @@
          AND pool_event.tenant_id = allocation.tenant_id
          AND pool_event.event_type = 'PRODUCTION_SUBMIT'
          AND pool_event.deleted = 0
+        LEFT JOIN mes_pro_process_pool_team_device event_device
+          ON event_device.id = pool_event.device_id
+         AND event_device.tenant_id = pool_event.tenant_id
+         AND event_device.deleted = 0
         LEFT JOIN system_users submitter
           ON submitter.id = pool_event.actual_employee_id
          AND submitter.tenant_id = pool_event.tenant_id

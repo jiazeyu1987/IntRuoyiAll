@@ -1170,7 +1170,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setOverageQuantity(activeOrder.getOverageQuantity())
                 .setSimulated(activeOrder.getSimulated())
                 .setSimulationStage(activeOrder.getSimulationStage())
-                .setSimulationRunId(activeOrder.getSimulationRunId());
+                .setSimulationRunId(activeOrder.getSimulationRunId())
+                .setStage1GeneratedActiveOrderId(activeOrder.getStage1GeneratedActiveOrderId())
+                .setStage1GeneratedWorkOrderCode(activeOrder.getStage1GeneratedWorkOrderCode());
     }
 
     private static List<MesTeamLeaderActiveOrderRespVO.ProcessRemainingQuantity>
@@ -1248,7 +1250,18 @@ public class MesProcessPoolTeamLeaderController {
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
                 .setSubmittedAt(submission.getSubmittedAt())
-                .setQuantityConflict(submission.getQuantityConflict());
+                .setQuantityConflict(submission.getQuantityConflict())
+                .setDevices(submission.getDevices().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceDetailRespVO)
+                        .toList());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceDetail toActiveOrderSubmissionDeviceDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail device) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceDetail()
+                .setDeviceId(device.getDeviceId())
+                .setDeviceCode(device.getDeviceCode())
+                .setDeviceName(device.getDeviceName());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionDetail toActiveOrderPqcSubmissionDetailRespVO(
@@ -1258,6 +1271,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setPqcTaskIds(submission.getPqcTaskIds())
                 .setSubmittedEventId(submission.getSubmittedEventId())
                 .setSubmittedEventIds(submission.getSubmittedEventIds())
+                .setQaProcessId(submission.getQaProcessId())
+                .setQaProcessCode(submission.getQaProcessCode())
+                .setQaProcessName(submission.getQaProcessName())
                 .setInspectionType(submission.getInspectionType())
                 .setBusinessDate(submission.getBusinessDate())
                 .setShiftCode(submission.getShiftCode())

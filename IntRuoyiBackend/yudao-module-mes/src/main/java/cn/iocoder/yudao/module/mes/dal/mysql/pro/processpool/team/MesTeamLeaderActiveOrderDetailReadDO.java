@@ -25,4 +25,8 @@ public class MesTeamLeaderActiveOrderDetailReadDO {
     private String submitterName;
     private String reviewerName;
     private LocalDateTime submittedAt;
+    private String originalPayloadJson;
+    private Long eventDeviceId;
+    private String eventDeviceCode;
+    private String eventDeviceName;
 }

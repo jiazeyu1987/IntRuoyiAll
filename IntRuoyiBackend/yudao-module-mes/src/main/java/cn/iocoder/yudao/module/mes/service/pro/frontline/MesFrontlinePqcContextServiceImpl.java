@@ -267,7 +267,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         for (MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess qaProcess : qaSource.getProcesses()) {
             List<MesFrontlinePqcProcessRespVO.PqcInspectionItem> inspectionItems =
                     buildPublishedInspectionItemResponses(qaProcess.getItems());
-            applyCurrentEquipmentOptions(activeOrder.getDccProjectCodeId(), inspectionItems);
+            applyCurrentEquipmentOptions(activeOrder.getDccProjectCodeId(),
+                    qaSource.getPublishedVersionId(), inspectionItems);
             if (inspectionItems.isEmpty()) {
                 throw exception(PRO_FRONTLINE_PQC_REGULATION_REQUIRED,
                         activeOrder.getId(), qaSource.getPublishedVersionId(), qaProcess.getQaProcessId());
@@ -562,13 +563,14 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
 
     private void applyCurrentEquipmentOptions(
             Long dccProjectCodeId,
+            Long regulationVersionId,
             List<MesFrontlinePqcProcessRespVO.PqcInspectionItem> inspectionItems) {
         if (CollUtil.isEmpty(inspectionItems)) {
             return;
         }
         Map<String, List<MesPqcItemEquipmentOption>> optionsByItemCode =
-                pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectAndItemCodes(
-                        dccProjectCodeId,
+                pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                        dccProjectCodeId, regulationVersionId,
                         inspectionItems.stream()
                                 .map(MesFrontlinePqcProcessRespVO.PqcInspectionItem::getItemCode)
                                 .filter(StrUtil::isNotBlank)
@@ -1191,8 +1193,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "activeOrder.dccProjectCodeId");
         }
         Map<String, List<MesPqcItemEquipmentOption>> equipmentByItem =
-                pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectAndItemCodes(
-                        activeOrder.getDccProjectCodeId(), expectedCodes);
+                pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                        activeOrder.getDccProjectCodeId(), task.getRegulationVersionId(), expectedCodes);
         return publishedItems.stream()
                 .map(item -> toInspectionItem(item, equipmentByItem.getOrDefault(item.getItemCode(), List.of())))
                 .toList();

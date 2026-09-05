@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface DccControlledFileSourceGovernanceItemMapper
@@ -35,5 +36,16 @@ public interface DccControlledFileSourceGovernanceItemMapper
             ORDER BY tenant_id, controlled_file_id, id
             """)
     List<DccControlledFileSourceGovernanceItemDO> selectByBatchAndTenant(
+            @Param("batchId") Long batchId, @Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT item_status AS itemStatus, COUNT(*) AS itemCount
+            FROM dcc_controlled_file_source_governance_item
+            WHERE batch_id = #{batchId}
+              AND tenant_id = #{tenantId}
+              AND deleted = 0
+            GROUP BY item_status
+            """)
+    List<Map<String, Object>> selectStatusCountsByBatchAndTenant(
             @Param("batchId") Long batchId, @Param("tenantId") Long tenantId);
 }
