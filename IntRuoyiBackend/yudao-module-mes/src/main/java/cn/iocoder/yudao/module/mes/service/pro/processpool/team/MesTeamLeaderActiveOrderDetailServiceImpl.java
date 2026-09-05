@@ -338,7 +338,6 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setSubmittedQuantity(row.getSubmittedQuantity())
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
-                    .setSubmittedAt(row.getSubmittedAt()));
                     .setSubmittedAt(row.getSubmittedAt())
                     .setDevices(resolveSubmissionDevices(row, activeOrderId)));
             submittedQuantity = submittedQuantity.add(row.getSubmittedQuantity());
@@ -375,9 +374,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices = new LinkedHashMap<>();
         Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
         if (payload != null) {
-            addDevicesFromValue(devices, payload.get("selectedDevices"));
-            addDevicesFromMaterialDetails(devices, payload.get("materialDetails"));
-            addDevicesFromValue(devices, payload.get("deviceParameterReadings"));
+            addDevicesFromValue(devices, payload.get("selectedDevices"), activeOrderId);
+            addDevicesFromMaterialDetails(devices, payload.get("materialDetails"), activeOrderId);
+            addDevicesFromValue(devices, payload.get("deviceParameterReadings"), activeOrderId);
         }
         addDevice(devices, row.getEventDeviceId(), row.getEventDeviceCode(), row.getEventDeviceName());
         return List.copyOf(devices.values());
@@ -398,23 +397,24 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static void addDevicesFromValue(
-            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value) {
+            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value,
+            Long activeOrderId) {
         if (value instanceof List<?> rows) {
             for (Object item : rows) {
-                addDevicesFromValue(devices, item);
+                addDevicesFromValue(devices, item, activeOrderId);
             }
             return;
         }
         if (value instanceof Map<?, ?> row) {
-            addDevice(devices, longValue(row.get("deviceId")), stringValue(row.get("deviceCode")),
+            addDevice(devices, longValue(row.get("deviceId"), activeOrderId), stringValue(row.get("deviceCode")),
                     stringValue(row.get("deviceName")));
         }
     }
 
     private static void addDevicesFromMaterialDetails(
-            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value) {
+            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value,
+            Long activeOrderId) {
         if (!(value instanceof List<?> materialDetails)) {
             return;
         }
@@ -422,9 +422,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             if (!(materialDetail instanceof Map<?, ?> detail)) {
                 continue;
             }
-            addDevicesFromValue(devices, detail.get("selectedDevice"));
-            addDevicesFromValue(devices, detail.get("selectedDevices"));
-            addDevicesFromValue(devices, detail.get("deviceParameterReadings"));
+            addDevicesFromValue(devices, detail.get("selectedDevice"), activeOrderId);
+            addDevicesFromValue(devices, detail.get("selectedDevices"), activeOrderId);
+            addDevicesFromValue(devices, detail.get("deviceParameterReadings"), activeOrderId);
         }
     }
 
@@ -465,7 +465,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return null;
     }
 
-    private static Long longValue(Object value) {
+    private static Long longValue(Object value, Long activeOrderId) {
         if (value instanceof Number number) {
             return number.longValue();
         }
@@ -475,8 +475,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         try {
             return Long.parseLong(text);
-        } catch (NumberFormatException ignored) {
-            return null;
+        } catch (NumberFormatException ex) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
         }
     }
 
