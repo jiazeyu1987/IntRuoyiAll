@@ -27,6 +27,7 @@ ready_for_closeout
 - Cleanup: 本轮误建的 `D:\IntRuoyiWorktree\kingdee-replenishment-sync` 半初始化 worktree 已移除，物理目录不存在。
 - Project experience consolidation: `docs/e2e-rules.md` 已补充 ERP 同步真实 E2E 入口与 Job 终态核验规则。
 - GREEN: 本地实现提交 `58ed56166` 已创建。
+- GREEN: 本地 E2E 验证提交 `b89520cc4` 已创建。
 - BLOCKED: `git push origin codex/kingdee-production-replenishment-sync` 连续两次失败，GitHub HTTPS 代理 `127.0.0.1` 无法连接。
 - Scope Change: 用户明确说明“不用push”，远端推送不再作为本轮完成条件。
 

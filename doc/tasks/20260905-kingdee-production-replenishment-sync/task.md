@@ -35,5 +35,6 @@ ready_for_closeout
 - 租户边界：主表和明细表均必须显式写入当前租户 ID，不依赖数据库默认值或拦截器补值。
 - 验证结论：定向 Maven 后端测试 21 个用例 PASS，前端静态合同 PASS，backend/database evidence validator PASS，真实 Playwright E2E PASS。
 - 实现提交：`58ed56166`，提交信息 `feat: sync Kingdee production replenishment lists`。
+- E2E 验证提交：`b89520cc4`，提交信息 `test: verify Kingdee replenishment sync e2e`。
 - 完成门禁变更：用户于本轮明确说明“不用push”，远端推送不再作为本轮完成条件；当前保留本地分支 ahead 状态。
 - 当前限制：主工作区 `E:\IntRuoyi` 仍有并行脏改动，不能执行 cleanup apply / ff-only merge / worktree removal。

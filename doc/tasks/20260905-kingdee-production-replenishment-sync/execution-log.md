@@ -30,6 +30,7 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 - GREEN: `git commit -m "feat: sync Kingdee production replenishment lists"` -> PASS, commit `58ed56166`。
 - BLOCKED: `git push origin codex/kingdee-production-replenishment-sync` -> FAIL twice, reason: `Failed to connect to github.com:443 over proxy 127.0.0.1`.
 - Scope Change: 用户明确说明“不用push”，远端推送移出本轮完成门禁；保留本地分支 `codex/kingdee-production-replenishment-sync` ahead 状态作为交付形态。
+- GREEN: `git commit -m "test: verify Kingdee replenishment sync e2e"` -> PASS, commit `b89520cc4`。
 
 ## Notes
 
@@ -54,3 +55,4 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 - GREEN: 同一真实页面点击“增量同步”触发正式 POST `/admin-api/erp/kingdee-sync/incremental-sync`，payload 包含 `PRODUCTION_REPLENISHMENT_LIST`，响应 `handlerName=kingdeeProductionReplenishmentListSyncJob`、`jobId=5622`、业务 `code=0`。
 - GREEN: Playwright 进入 `/job/job-log?id=5622`，通过页面自然请求 `/admin-api/infra/job-log/page?jobId=5622...` 轮询到终态 `status=1`，日志 `id=13295`，`duration=409ms`。
 - Evidence artifacts: `IntRuoyiFronted\output\playwright\erp-production-replenishment-list-real\replenishment-list-page.png`、`replenishment-list-before-submit.png`、`replenishment-list-after-submit.png`、`job-log-terminal-success.png`、`erp-production-replenishment-list-real-report.json`。
+- GREEN: 本地 E2E 验证提交 `b89520cc4` 已创建；按用户“不用push”要求未推送。
