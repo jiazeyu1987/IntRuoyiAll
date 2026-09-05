@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,6 +53,8 @@ class ErpProductionReplenishmentListSchemaTest {
         assertTrue(sql.contains("kingdeeProductionReplenishmentListSyncJob"));
         assertTrue(sql.contains("erp:production-replenishment-list:query"));
         assertTrue(sql.contains("ErpProductionReplenishmentList"));
+        assertFalse(sql.contains("6034"), "生产补料单菜单迁移不得占用发票凭证打印菜单 ID 6034");
+        assertFalse(sql.contains("6035"), "生产补料单查询权限迁移不得占用发票凭证打印权限 ID 6035");
     }
 
     @Test

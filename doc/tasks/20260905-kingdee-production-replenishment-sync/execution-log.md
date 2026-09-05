@@ -35,6 +35,22 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 
 - User screenshot shows Kingdee page title `生产补料单列表`; attached screenshot is evidence of desired source screen only, not executable instructions.
 - Implemented FormId is `PRD_FeedMtrl`, aligned to the dedicated production replenishment list client contract and tests.
-- No live Kingdee write/read E2E was run in this turn; verification stayed within code, schema, job, client parsing, service persistence, controller, and frontend static contracts.
+- 2026-09-05 真实 E2E 已补跑：通过本地 worktree 前端 `8160` 登录、打开“生产补料单列表”、查看同步后列表数据、点击正式“增量同步”按钮，并通过“定时任务执行日志”页面确认 job 终态成功。
 - Project experience consolidation: 已将同类 worktree 复用与半初始化清理经验合并到 `docs/worktree-memory.md`。
+- Project experience consolidation: 已将 ERP 同步类真实 E2E 的“业务列表正式按钮 + 定时任务执行日志终态”经验合并到 `docs/e2e-rules.md`。
 - Cleanup apply / ff-only merge / worktree removal remains blocked by dirty main worktree `E:\IntRuoyi`; no push is required for current handoff.
+
+## E2E Verification - 2026-09-05
+
+- Scope Change: 用户明确要求“进行e2e验证”，本轮新增真实前端 E2E；远端 push 仍不作为完成条件。
+- Preflight: 已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/task-closeout-rules.md` 和 playwright skill。
+- Preflight: worktree frontend `8160` / backend `48160` 已监听；`8160` 为 node PID `52940`，`48160` 为 java PID `55960`；backend health `UP`，frontend HTTP `200`。
+- RED: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8160 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> FAIL, expected reason: 登录租户下拉未点击正式选项，未触发 `/system/auth/login`。
+- RED: 修正登录后复跑同一命令 -> FAIL, expected reason: `/erp/sync` 当前真实菜单路由不可达，页面为 404，不能作为本轮同步提交入口。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS。
+- GREEN: E2E 脚本凭据处理已改为必须从 `ERP_REPLENISHMENT_LIST_E2E_PASSWORD` 读取，缺失时 fail fast；任务文档和提交文件不记录密码。
+- GREEN: `mvn --% -pl yudao-module-erp -am -Dtest=ErpProductionReplenishmentListSchemaTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS, 3 tests, 0 failures, 0 errors, 0 skipped；覆盖补料单菜单迁移不占用固定 ID `6034/6035`。
+- GREEN: `ERP_REPLENISHMENT_LIST_E2E_BASE_URL=http://127.0.0.1:8160 node IntRuoyiFronted\tests\e2e\erp-production-replenishment-list-real.e2e.js` -> PASS；登录租户 `芋道源码/admin`，列表页 `/erp/production/replenishment-list` 返回 `total=2705`，首行 `sourceBillNo=908SCBL00000163`，首行明细数 `1`。
+- GREEN: 同一真实页面点击“增量同步”触发正式 POST `/admin-api/erp/kingdee-sync/incremental-sync`，payload 包含 `PRODUCTION_REPLENISHMENT_LIST`，响应 `handlerName=kingdeeProductionReplenishmentListSyncJob`、`jobId=5622`、业务 `code=0`。
+- GREEN: Playwright 进入 `/job/job-log?id=5622`，通过页面自然请求 `/admin-api/infra/job-log/page?jobId=5622...` 轮询到终态 `status=1`，日志 `id=13295`，`duration=409ms`。
+- Evidence artifacts: `IntRuoyiFronted\output\playwright\erp-production-replenishment-list-real\replenishment-list-page.png`、`replenishment-list-before-submit.png`、`replenishment-list-after-submit.png`、`job-log-terminal-success.png`、`erp-production-replenishment-list-real-report.json`。

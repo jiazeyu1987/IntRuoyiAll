@@ -21,24 +21,10 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM system_menu
-    WHERE id = 6034
-      AND NOT (
-        deleted = b'0'
-        AND parent_id = v_parent_id
-        AND path = 'replenishment-list'
-        AND component = 'erp/production/replenishment-list/index'
-      )
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'ERP production replenishment-list menu id 6034 is occupied';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM system_menu
     WHERE deleted = b'0'
       AND parent_id = v_parent_id
       AND path = 'replenishment-list'
-      AND id <> 6034
+      AND component <> 'erp/production/replenishment-list/index'
   ) THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'ERP production replenishment-list sibling path is occupied';
@@ -46,22 +32,15 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM system_menu
-    WHERE id = 6035
-      AND NOT (
-        deleted = b'0'
-        AND parent_id = 6034
-        AND permission = 'erp:production-replenishment-list:query'
-      )
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'ERP production replenishment-list menu id 6035 is occupied';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM system_menu
     WHERE deleted = b'0'
       AND permission = 'erp:production-replenishment-list:query'
-      AND id <> 6035
+      AND parent_id NOT IN (
+        SELECT id FROM system_menu
+        WHERE deleted = b'0'
+          AND parent_id = v_parent_id
+          AND path = 'replenishment-list'
+          AND component = 'erp/production/replenishment-list/index'
+      )
   ) THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'ERP production replenishment-list permission erp:production-replenishment-list:query is occupied';
@@ -177,39 +156,60 @@ SET @erp_production_parent_menu_id := (
 );
 
 INSERT INTO system_menu (
-  id, name, permission, type, sort, parent_id, path, icon, component, component_name,
+  name, permission, type, sort, parent_id, path, icon, component, component_name,
   status, visible, keep_alive, always_show, creator, create_time, updater, update_time, deleted
 )
-SELECT 6034, '生产补料单列表', '', 2, 21, @erp_production_parent_menu_id,
+SELECT '生产补料单列表', '', 2, 21, @erp_production_parent_menu_id,
        'replenishment-list', 'ep:list', 'erp/production/replenishment-list/index', 'ErpProductionReplenishmentList',
        0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
 WHERE @erp_production_parent_menu_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM system_menu
-    WHERE id = 6034 OR (parent_id = @erp_production_parent_menu_id AND path = 'replenishment-list')
+    WHERE deleted = b'0'
+      AND parent_id = @erp_production_parent_menu_id
+      AND path = 'replenishment-list'
   );
 
+SET @erp_production_replenishment_menu_id := (
+  SELECT id FROM system_menu
+  WHERE deleted = b'0'
+    AND parent_id = @erp_production_parent_menu_id
+    AND path = 'replenishment-list'
+    AND component = 'erp/production/replenishment-list/index'
+  ORDER BY id LIMIT 1
+);
+
 INSERT INTO system_menu (
-  id, name, permission, type, sort, parent_id, path, icon, component, component_name,
+  name, permission, type, sort, parent_id, path, icon, component, component_name,
   status, visible, keep_alive, always_show, creator, create_time, updater, update_time, deleted
 )
-SELECT 6035, '生产补料单列表查询', 'erp:production-replenishment-list:query', 3, 1, 6034,
+SELECT '生产补料单列表查询', 'erp:production-replenishment-list:query', 3, 1, @erp_production_replenishment_menu_id,
        '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
-WHERE EXISTS (SELECT 1 FROM system_menu WHERE id = 6034 AND deleted = b'0')
+WHERE @erp_production_replenishment_menu_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM system_menu
-    WHERE id = 6035 OR permission = 'erp:production-replenishment-list:query'
+    WHERE deleted = b'0'
+      AND permission = 'erp:production-replenishment-list:query'
   );
+
+SET @erp_production_replenishment_query_menu_id := (
+  SELECT id FROM system_menu
+  WHERE deleted = b'0'
+    AND parent_id = @erp_production_replenishment_menu_id
+    AND permission = 'erp:production-replenishment-list:query'
+  ORDER BY id LIMIT 1
+);
 
 INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted, tenant_id)
 SELECT DISTINCT rm.role_id, menu_ids.menu_id, '1', NOW(), '1', NOW(), b'0', rm.tenant_id
 FROM system_role_menu rm
 JOIN (
-  SELECT 6034 AS menu_id
-  UNION ALL SELECT 6035
+  SELECT @erp_production_replenishment_menu_id AS menu_id
+  UNION ALL SELECT @erp_production_replenishment_query_menu_id
 ) menu_ids
 WHERE rm.menu_id = @erp_production_parent_menu_id
   AND rm.deleted = b'0'
+  AND menu_ids.menu_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM system_role_menu exists_rm
     WHERE exists_rm.role_id = rm.role_id

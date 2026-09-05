@@ -19,7 +19,7 @@
 - 静态/前端测试覆盖 ERP 同步页可见补料单同步项，且不回退到旧 `kingdee-table-auto-sync` 接口。
 - 数据库 schema 测试覆盖补料单主表/明细表、唯一业务键、索引和租户字段。
 - `backend-api-delivery` 与 `database-schema-delivery` evidence validator 必须 PASS。
-- 不执行真实写入型 E2E，除非用户当轮另行明确要求并提供可用金蝶账套验证条件。
+- 用户已于 2026-09-05 明确要求执行真实 E2E；需覆盖真实登录、补料单列表渲染、正式增量同步提交和 Job 执行日志终态。
 
 ## Current Status
 
@@ -33,7 +33,7 @@ ready_for_closeout
 - Runtime profile: `int_main`, slot `26`, frontend `8160`, backend `48160`。
 - 禁止 fallback：缺少金蝶正式 FormId、字段标识、账号权限、schema 或测试依赖时必须 fail fast。
 - 租户边界：主表和明细表均必须显式写入当前租户 ID，不依赖数据库默认值或拦截器补值。
-- 验证结论：定向 Maven 后端测试 21 个用例 PASS，前端静态合同 PASS，backend/database evidence validator PASS。
+- 验证结论：定向 Maven 后端测试 21 个用例 PASS，前端静态合同 PASS，backend/database evidence validator PASS，真实 Playwright E2E PASS。
 - 实现提交：`58ed56166`，提交信息 `feat: sync Kingdee production replenishment lists`。
 - 完成门禁变更：用户于本轮明确说明“不用push”，远端推送不再作为本轮完成条件；当前保留本地分支 ahead 状态。
 - 当前限制：主工作区 `E:\IntRuoyi` 仍有并行脏改动，不能执行 cleanup apply / ff-only merge / worktree removal。
