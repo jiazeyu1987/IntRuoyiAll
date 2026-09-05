@@ -386,6 +386,28 @@ class DccControlledFileSourceGovernanceExecutionServiceTest extends BaseMockitoU
     }
 
     @Test
+    void executeSharedGroup_preservesBusinessBlockerForOuterAudit() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch();
+        List<DccControlledFileSourceGovernanceItemDO> items = List.of(
+                item("COPY_SHARED_SOURCE"), item("COPY_SHARED_SOURCE"));
+        items.get(0).setSharedGroupKey("source:700");
+        items.get(1).setId(67L);
+        items.get(1).setControlledFileId(902L);
+        items.get(1).setSharedGroupKey("source:700");
+        when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 901L)).thenReturn(List.of(
+                reference(31L, 901L, 700L), reference(31L, 902L, 700L)));
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L))
+                .thenReturn(file(901L, 799L));
+
+        DccControlledFileSourceGovernanceGroupBlockedException ex = assertThrows(
+                DccControlledFileSourceGovernanceGroupBlockedException.class,
+                () -> service.executeSharedGroup(batch, items, Set.of(31L),
+                        "manifest", "request", 120L));
+
+        assertEquals("SNAPSHOT_DRIFTED", ex.reasonCode());
+    }
+
+    @Test
     void executeItem_finalEvidenceWriteFailureCleansCreatedCopyAndPropagates() {
         DccControlledFileSourceGovernanceBatchDO batch = batch();
         DccControlledFileSourceGovernanceItemDO item = item("COPY_SHARED_SOURCE");

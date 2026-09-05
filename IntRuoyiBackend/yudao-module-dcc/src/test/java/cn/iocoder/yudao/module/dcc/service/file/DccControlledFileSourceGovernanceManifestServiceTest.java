@@ -94,6 +94,19 @@ class DccControlledFileSourceGovernanceManifestServiceTest {
     }
 
     @Test
+    void requireItemInScope_rejectsCallerScopeWiderThanFrozenScope() {
+        DccControlledFileSourceGovernanceBatchDO batch = DccControlledFileSourceGovernanceBatchDO.builder()
+                .id(55L).tenantScopeJson("[31]").tenantScopeSha256(sha256("[31]")).build();
+        DccControlledFileSourceGovernanceItemDO item = DccControlledFileSourceGovernanceItemDO.builder()
+                .batchId(55L).tenantId(31L).controlledFileId(901L).build();
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.requireItemInScope(batch, item, java.util.Set.of(31L, 32L)));
+
+        assertEquals(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
     void requireTenantInScope_rejectsTamperedFrozenScopeHash() {
         DccControlledFileSourceGovernanceBatchDO batch = DccControlledFileSourceGovernanceBatchDO.builder()
                 .tenantScopeJson("[31]").tenantScopeSha256("tampered").build();

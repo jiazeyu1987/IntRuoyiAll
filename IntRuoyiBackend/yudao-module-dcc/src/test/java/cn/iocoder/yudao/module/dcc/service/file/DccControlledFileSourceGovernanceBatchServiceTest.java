@@ -201,6 +201,36 @@ class DccControlledFileSourceGovernanceBatchServiceTest extends BaseMockitoUnitT
     }
 
     @Test
+    void executeConfirmedBatch_preservesSharedGroupBusinessBlockerAfterRollback() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch("CONFIRMED");
+        List<DccControlledFileSourceGovernanceItemDO> group = List.of(
+                item(66L, "READY"), item(67L, "READY"));
+        group.forEach(item -> {
+            item.setGovernanceAction("COPY_SHARED_SOURCE");
+            item.setSharedGroupKey("source:700");
+            item.setSnapshotSourceFileId(700L);
+        });
+        DccControlledFileSourceGovernanceGroupBlockedException blocked =
+                new DccControlledFileSourceGovernanceGroupBlockedException(
+                        "SNAPSHOT_DRIFTED", "source hash changed");
+        when(batchMapper.selectByTaskKey("task-1")).thenReturn(batch);
+        when(itemMapper.selectByBatchAndTenant(55L, 31L)).thenReturn(group);
+        doThrow(blocked).when(executionService).executeSharedGroup(
+                batch, group, java.util.Set.of(31L), "manifest", "request", 120L);
+        when(itemMapper.selectStatusCountsByBatchAndTenant(55L, 31L)).thenReturn(List.of(
+                Map.of("itemStatus", "BLOCKED", "itemCount", 2)));
+
+        DccControlledFileSourceGovernanceBatchExecutionResult result =
+                service.executeConfirmedBatch("task-1", 100, "manifest", "request", 120L);
+
+        assertEquals("BLOCKED", result.batchStatus());
+        verify(executionService).recordGroupBlocked(group, 120L,
+                "SNAPSHOT_DRIFTED", "source hash changed");
+        verify(executionService, org.mockito.Mockito.never())
+                .recordGroupFailure(any(), any(), any());
+    }
+
+    @Test
     void executeConfirmedBatch_doesNotWrapIndependentGroupsInOneTransaction() throws Exception {
         assertNull(DccControlledFileSourceGovernanceBatchService.class
                 .getMethod("executeConfirmedBatch", String.class, int.class, String.class,
