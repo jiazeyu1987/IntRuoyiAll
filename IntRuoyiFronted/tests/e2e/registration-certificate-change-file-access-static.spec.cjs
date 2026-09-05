@@ -11,11 +11,12 @@ const changeHistoryFileBlock = detailPage.match(
   /<div class="change-history__file">[\s\S]*?<\/div>\s*<\/section>/u
 )?.[0] || ''
 
-assert.match(changeHistoryFileBlock, /item\.fileStatus\s*===\s*'BOUND'\s*&&\s*item\.businessFileId\s*&&\s*item\.originalFileName/u,
-  '变更批件必须与延续文件一样，仅已绑定文件显示操作')
+assert.match(changeHistoryFileBlock,
+  /item\.fileStatus\s*===\s*'BOUND'\s*&&\s*item\.changeStatus\s*===\s*'APPLIED'\s*&&\s*item\.businessFileId\s*&&\s*item\.originalFileName/u,
+  '变更批件必须仅在已绑定且审批生效后显示下载或申请下载操作')
 assert.match(changeHistoryFileBlock, /openAttachmentPreview\(item\.businessFileId,\s*item\.originalFileName\)/u,
   '变更批件必须复用注册证文件在线查看')
-assert.match(changeHistoryFileBlock, /v-if="canDirectDownload"[\s\S]*?downloadAttachment\(item\.businessFileId\)/u,
+assert.match(changeHistoryFileBlock, /v-if="canDirectDownload\(item\.businessFileId\)"[\s\S]*?downloadAttachment\(item\.businessFileId\)/u,
   '有直接下载权限时必须可下载变更批件')
 assert.match(changeHistoryFileBlock, /v-else[\s\S]*?openDownloadRequest\(item\.businessFileId\)/u,
   '无直接下载权限时必须提供下载申请')

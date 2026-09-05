@@ -21,8 +21,17 @@ const roleMigration = fs.readFileSync(
 )
 
 assert.match(detailPage,
-  /item\.fileKind\s*===\s*'CHANGE_APPROVAL'\s*&&\s*item\.fileStatus\s*===\s*'BOUND'/u,
-  '下载申请列表必须过滤未绑定的变更批件')
+  /item\.fileKind\s*===\s*'CHANGE_APPROVAL'\s*&&\s*item\.fileStatus\s*===\s*'BOUND'\s*&&\s*item\.changeStatus\s*===\s*'APPLIED'/u,
+  '下载申请列表必须只包含已生效且已绑定的变更批件')
+assert.match(detailPage,
+  /\.filter\(isHistoryItemForCurrentDetailVersion\)/u,
+  'OLD 注册证详情只能展示当前版本对应的变更履历，不能串到其它版本变更文件')
+assert.match(detailPage,
+  /item\.fileKind\s*!==\s*'REGISTRATION_CERTIFICATE'\s*&&\s*item\.fileKind\s*!==\s*'CHANGE_APPROVAL'/u,
+  'OLD 注册证失效命名必须同时覆盖注册证主文件和变更批件文件')
+assert.match(detailPage,
+  /\$\{baseName\}_已失效\.\$\{extension\}/u,
+  '前端补充失效标识时必须保留 _已失效 分隔符')
 assert.match(referenceService, /OWNER_TYPE_CHANGE\s*=\s*"CHANGE"/u,
   '注册证文件引用服务必须识别变更文件所属类型')
 assert.match(referenceService, /FILE_KIND_CHANGE_APPROVAL\s*=\s*"CHANGE_APPROVAL"/u,

@@ -303,7 +303,7 @@
               <span>变更批件文件</span>
               <span class="change-history__file-name">{{ displayText(item.originalFileName) }}</span>
               <span
-                v-if="item.fileStatus === 'BOUND' && item.businessFileId && item.originalFileName"
+                v-if="item.fileStatus === 'BOUND' && item.changeStatus === 'APPLIED' && item.businessFileId && item.originalFileName"
                 class="change-history__file-actions"
               >
                 <el-button
@@ -460,6 +460,11 @@ const isDownloadRequesting = (businessFileId: number | string) =>
 const attachmentActionError = ref('')
 const viewportWidth = ref(typeof window === 'undefined' ? 1024 : window.innerWidth)
 const detailDescriptionColumns = computed(() => viewportWidth.value <= 720 ? 1 : 2)
+const isHistoryItemForCurrentDetailVersion = (item: DccRegistrationCertificateHistoryItemVO) =>
+  !isOldRegistrationCertificateDetail.value
+  || !detail.value?.versionId
+  || !item.targetVersionId
+  || String(item.targetVersionId) === String(detail.value.versionId)
 const renewalHistory = computed(() => history.value
   .filter((item) => item.eventType === 'RENEWAL_UPLOADED')
   .slice()
@@ -471,6 +476,7 @@ const changeHistory = computed(() => {
   }>()
   history.value
     .filter((item) => item.eventType === 'CHANGE_SUBMITTED' || item.eventType === 'CHANGE_APPLIED')
+    .filter(isHistoryItemForCurrentDetailVersion)
     .forEach((item) => {
       const key = String(item.changeId)
       const existing = grouped.get(key)
@@ -574,11 +580,11 @@ const resolveRegistrationCertificateDownloadFileName = (fileName: string, expire
   }
   const extensionIndex = normalizedName.lastIndexOf('.')
   if (extensionIndex <= 0) {
-    return `${normalizedName}已失效`
+    return `${normalizedName}_已失效`
   }
   const baseName = normalizedName.slice(0, extensionIndex)
   const extension = normalizedName.slice(extensionIndex + 1)
-  return `${baseName}已失效.${extension}`
+  return `${baseName}_已失效.${extension}`
 }
 
 const isOldRegistrationCertificateDetail = computed(() =>
@@ -594,7 +600,7 @@ const expiredRegistrationCertificateFileIds = computed(() => {
     ids.add(String(detail.value.registrationFileId))
   }
   history.value.forEach((item) => {
-    if (!item.businessFileId || item.fileKind !== 'REGISTRATION_CERTIFICATE') {
+    if (!item.businessFileId || (item.fileKind !== 'REGISTRATION_CERTIFICATE' && item.fileKind !== 'CHANGE_APPROVAL')) {
       return
     }
     if (String(item.targetVersionId) !== String(detail.value?.versionId)) {
@@ -705,7 +711,7 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
     if (!item.businessFileId) {
       return
     }
-    if (item.fileKind === 'CHANGE_APPROVAL' && item.fileStatus === 'BOUND') {
+    if (item.fileKind === 'CHANGE_APPROVAL' && item.fileStatus === 'BOUND' && item.changeStatus === 'APPLIED') {
       changeApprovalFileIndex += 1
       files.push({
         businessFileId: item.businessFileId,

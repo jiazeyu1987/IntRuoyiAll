@@ -31,6 +31,7 @@ public class DccRegistrationCertificateGrantService {
     private static final String GRANT_TYPE_VIEW_OLD_CERTIFICATE = "VIEW_OLD_CERTIFICATE";
     private static final String GRANT_TYPE_DOWNLOAD = "DOWNLOAD";
     private static final String GRANT_STATUS_ACTIVE = "ACTIVE";
+    private static final int GRANT_VALID_HOURS = 24;
 
     private final DccRegistrationCertificateAccessRequestMapper requestMapper;
     private final DccRegistrationCertificateAccessRequestFileMapper requestFileMapper;
@@ -100,7 +101,7 @@ public class DccRegistrationCertificateGrantService {
                 .grantKey(grantKey)
                 .status(GRANT_STATUS_ACTIVE)
                 .grantedAt(approvedAt)
-                .expiresAt(approvedAt.plusHours(24))
+                .expiresAt(approvedAt.plusHours(GRANT_VALID_HOURS))
                 .detailJson(JsonUtils.toJsonString(Map.of(
                         "approvalKey", grantKey,
                         "approvedBy", approverId

@@ -68,7 +68,7 @@ class DccRegistrationCertificateGrantServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void approvedDownloadRequestCreatesOnlyFileScopedGrantsAndMarksRequestFilesGranted() {
+    void approvedDownloadRequestCreatesTwentyFourHourFileScopedGrantsAndMarksRequestFilesGranted() {
         FormalFixture fixture = seedFormal("ACTIVE", "CURRENT", "BOUND");
         Long requestId = seedRequest(fixture.certificateId(), "DOWNLOAD_FILE", "APPROVED", 40L);
         Long requestFileId = seedRequestFile(requestId, fixture.fileId(), true, "APPROVED");

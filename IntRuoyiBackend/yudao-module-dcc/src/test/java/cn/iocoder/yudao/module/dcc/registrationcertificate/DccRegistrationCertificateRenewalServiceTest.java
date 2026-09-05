@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRe
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitResult;
+import cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRegistrationSyncService;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
@@ -109,6 +110,8 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     private MdmEnterpriseApi enterpriseApi;
     @MockitoBean
     private DccRegistrationCertificateProjectCodeFileAssociationService projectCodeFileAssociationService;
+    @MockitoBean
+    private DccProductCatalogRegistrationSyncService productCatalogRegistrationSyncService;
 
     @BeforeEach
     void stubOwnerCompany() {
@@ -351,6 +354,34 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                    AND r.status IN ('SUBMITTED', 'BPM_BOUND')
                    AND r.deleted = 0
                 """, current.currentVersionId(), current.certificateId()));
+    }
+
+    @Test
+    void submittedSameCategoryRenewalApprovalIgnoresSummaryCategoryFields() {
+        CurrentFixture current = seedCurrentCertificate();
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("renewal.pdf"), anyString(), eq("application/pdf")))
+                .thenReturn(9002L);
+
+        DccRegistrationCertificateRenewalSubmitResult submitResult = service.submitRenewalForApproval(
+                new DccRegistrationCertificateRenewalSubmitCommand(
+                        1L, 99L, "renewal-approval-same-category", "trace-renewal-approval-same-category",
+                        current.certificateId(), 1, current.currentVersionId(),
+                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2031, 9, 1), false, null, null, renewalApprovalFile()));
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_access_request
+                   SET status = 'APPROVED'
+                 WHERE tenant_id = 1
+                   AND id = ?
+                """, submitResult.requestId()));
+
+        DccRegistrationCertificateRenewalResult approveResult = service.approveRenewalRequest(
+                1L, 100L, submitResult.requestId(), "renewal-approval-same-category-approved");
+
+        DccRegistrationCertificateVersionDO renewal = versionMapper.selectById(approveResult.renewalVersionId());
+        assertEquals("CERT-001", renewal.getCertificateNo());
+        assertEquals("II", renewal.getClassification());
+        assertEquals(false, renewal.getCategoryChanged());
     }
 
     @Test

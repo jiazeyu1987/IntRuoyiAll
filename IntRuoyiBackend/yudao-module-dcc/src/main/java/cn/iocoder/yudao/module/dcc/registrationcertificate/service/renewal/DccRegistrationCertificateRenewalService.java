@@ -852,6 +852,7 @@ public class DccRegistrationCertificateRenewalService {
         if (parsed == null || !VERSION_TYPE_RENEWAL.equals(String.valueOf(parsed.get("operation")))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
         }
+        Boolean categoryChanged = requireDetailBoolean(parsed, "categoryChanged");
         return new RenewalRequestDetail(
                 requireDetailText(parsed, "payloadHash"),
                 requireDetailLong(parsed, "currentVersionId"),
@@ -860,9 +861,9 @@ public class DccRegistrationCertificateRenewalService {
                 LocalDate.parse(requireDetailText(parsed, "approvalDate")),
                 LocalDate.parse(requireDetailText(parsed, "effectiveDate")),
                 LocalDate.parse(requireDetailText(parsed, "expiryDate")),
-                requireDetailBoolean(parsed, "categoryChanged"),
-                optionalDetailText(parsed, "certificateNo"),
-                optionalDetailText(parsed, "classification"));
+                categoryChanged,
+                Boolean.TRUE.equals(categoryChanged) ? optionalDetailText(parsed, "certificateNo") : null,
+                Boolean.TRUE.equals(categoryChanged) ? optionalDetailText(parsed, "classification") : null);
     }
 
     private void validateEventInput(Long tenantId, Long actorId, String eventKey, String requestTraceId) {

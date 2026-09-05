@@ -126,15 +126,6 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                     String.valueOf(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode()), "not_found_or_out_of_scope");
             throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
         }
-        if ("OLD".equals(row.getStatus())) {
-            try {
-                accessPolicyService.assertOldViewAllowed(tenantId, actorId, certificateId, businessClock.now());
-            } catch (ServiceException exception) {
-                recordDetailFailure(tenantId, actorId, certificateId, auditContext,
-                        String.valueOf(exception.getCode()), "old_view_grant_denied");
-                throw exception;
-            }
-        }
         Map<Long, String> companyNames = companyNames(tenantId, List.of(row));
         readAuditService.record(successAudit(tenantId, actorId, row, "DETAIL", auditContext, "detail"));
         DccRegistrationCertificateOperationAudit initialAudit =

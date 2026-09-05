@@ -143,7 +143,8 @@ public class DccRegistrationCertificateActivationService {
             DccRegistrationCertificateActivationCommand command,
             DccRegistrationCertificateDO certificate) {
         List<LifecycleRow> rows = lifecycleRows(command.tenantId(), command.certificateId());
-        LifecycleRow latestChange = validateReplayRows(command, rows);
+        ReplayPlan replayPlan = validateReplayRows(command, rows);
+        LifecycleRow latestChange = replayPlan.latestChange();
         if (latestChange == null) {
             return requireSnapshot(command.pendingVersionId(), REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT);
         }
@@ -171,18 +172,26 @@ public class DccRegistrationCertificateActivationService {
         return copy;
     }
 
-    private LifecycleRow validateReplayRows(DccRegistrationCertificateActivationCommand command,
-                                            List<LifecycleRow> rows) {
+    private ReplayPlan validateReplayRows(DccRegistrationCertificateActivationCommand command,
+                                          List<LifecycleRow> rows) {
         if (rows.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE);
         }
+        LifecycleRow renewal = rows.stream()
+                .filter(row -> EVENT_TYPE_RENEWAL_UPLOADED.equals(row.eventType()))
+                .filter(row -> Objects.equals(row.sourceVersionId(), command.currentVersionId()))
+                .filter(row -> Objects.equals(row.targetVersionId(), command.pendingVersionId()))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE));
         LifecycleRow latestChange = null;
-        int expectedSequence = 1;
-        for (LifecycleRow row : rows) {
+        int expectedSequence = renewal.eventSequence();
+        for (LifecycleRow row : rows.stream()
+                .filter(item -> item.eventSequence() >= renewal.eventSequence())
+                .toList()) {
             if (row.eventSequence() != expectedSequence) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE);
             }
-            if (expectedSequence == 1 && !EVENT_TYPE_RENEWAL_UPLOADED.equals(row.eventType())) {
+            if (expectedSequence == renewal.eventSequence() && !Objects.equals(row.id(), renewal.id())) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE);
             }
             if (EVENT_TYPE_CHANGE_APPLIED.equals(row.eventType())) {
@@ -195,7 +204,7 @@ public class DccRegistrationCertificateActivationService {
             }
             expectedSequence++;
         }
-        return latestChange;
+        return new ReplayPlan(renewal.eventSequence(), latestChange);
     }
 
     private List<LifecycleRow> lifecycleRows(Long tenantId, Long certificateId) {
@@ -275,7 +284,10 @@ public class DccRegistrationCertificateActivationService {
     }
 
     private void insertReplayRows(DccRegistrationCertificateActivationCommand command, Long activationEventId) {
-        List<LifecycleRow> sourceRows = lifecycleRows(command.tenantId(), command.certificateId()).stream()
+        List<LifecycleRow> rows = lifecycleRows(command.tenantId(), command.certificateId());
+        ReplayPlan replayPlan = validateReplayRows(command, rows);
+        List<LifecycleRow> sourceRows = rows.stream()
+                .filter(row -> row.eventSequence() > replayPlan.renewalSequence())
                 .filter(row -> EVENT_TYPE_CHANGE_APPLIED.equals(row.eventType()))
                 .toList();
         int appliedSequence = 1;
@@ -438,5 +450,8 @@ public class DccRegistrationCertificateActivationService {
     }
 
     private record ReplayDetail(Long sourceEventId, Long targetSnapshotId) {
+    }
+
+    private record ReplayPlan(int renewalSequence, LifecycleRow latestChange) {
     }
 }

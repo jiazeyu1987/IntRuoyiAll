@@ -632,21 +632,17 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void detailOutsideCompanyScopeReturnsNotFoundAndRecordsFailureWithoutSensitiveFields() {
-        FormalFixture hidden = seedFormal(1L, 11L, "ACTIVE", "CURRENT", "CERT-HIDDEN", true, 21L);
-        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+    void detailReturnsTenantCurrentCertificateWithoutCompanyScopeFilter() {
+        FormalFixture visible = seedFormal(1L, 11L, "ACTIVE", "CURRENT", "CERT-CROSS-COMPANY", true, 21L);
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(11L)), any()))
+                .thenReturn(List.of(owner(11L, "Owner B")));
 
-        ServiceException error = assertThrows(ServiceException.class,
-                () -> queryService.getDetail(1L, 99L, hidden.certificateId(), null, context("REQ-HIDDEN-001")));
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, visible.certificateId(), null, context("REQ-CROSS-COMPANY-DETAIL"));
 
-        assertEquals(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode(), error.getCode());
-        DccRegistrationCertificateAuditDO audit = auditMapper.selectByTenantIdAndEventKey(
-                1L, "REQ-HIDDEN-001:DETAIL:REQUESTED:" + hidden.certificateId() + ":FAILURE");
-        assertNotNull(audit);
-        assertNull(audit.getOwnerCompanyId());
-        assertNull(audit.getCertificateId());
-        assertEquals(hidden.certificateId(), audit.getRequestedCertificateId());
-        assertEquals("FAILURE", audit.getResult());
+        assertEquals(visible.certificateId(), detail.getCertificateId());
+        assertEquals("Owner B", detail.getOwnerCompanyName());
+        verify(companyScopeApi, never()).getEnabledCompanyIdsForUser(99L);
     }
 
     @Test
@@ -823,18 +819,19 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void oldDetailRequiresAStillValidOldViewGrant() {
+    void oldDetailReturnsForScopedUserWithoutOldViewGrant() {
         FormalFixture old = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD-DETAIL", true, null);
-        seedOldViewGrant(old.certificateId(), LocalDateTime.of(2026, 8, 17, 9, 0),
-                LocalDateTime.of(2026, 8, 18, 9, 0));
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
         when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
                 .thenReturn(List.of(owner(10L, "Owner A")));
 
-        ServiceException error = assertThrows(ServiceException.class,
-                () -> queryService.getDetail(1L, 99L, old.certificateId(), null, context("REQ-OLD-EXPIRED")));
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, old.certificateId(), old.versionId(), context("REQ-OLD-SCOPED-DETAIL"));
 
-        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED.getCode(), error.getCode());
+        assertEquals(old.certificateId(), detail.getCertificateId());
+        assertEquals(old.versionId(), detail.getVersionId());
+        assertEquals("OLD", detail.getStatus());
+        assertEquals(old.registrationFileId(), detail.getRegistrationFileId());
     }
 
     @Test

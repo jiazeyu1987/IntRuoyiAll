@@ -115,6 +115,15 @@
 - Forbidden action: 禁止把账号标签和真实姓名混为同一个验收字段；禁止在日志中记录密码、token、cookie 或完整敏感响应。
 - Evidence: `doc/tasks/20260904-registration-upload-e2e-verify/verification-report.md`。
 
+### 注册证 OLD 与变更文件组合样本门禁
+
+- Trigger: 注册证下载 E2E 需要验证失效旧证、变更批件、或“旧证 + 同版本变更批件”组合命名与申请审批下载链路。
+- Preflight check: 若环境没有现成可操作组合样本，应先通过真实前端提交并审批变更，再通过真实前端提交并审批延续，使旧版本进入 OLD 状态后打开同一旧证详情验证；不得用 SQL、直接接口或跨版本变更履历拼接组合样本。
+- Blocker: OLD 详情不可达、OLD 详情串显其它版本变更文件、变更批件仍处于待审批状态却显示申请入口、或同版本变更批件缺失时，必须分别记录为详情权限、版本隔离、入口状态或样本前置问题，不得合并写成下载失败。
+- Verification: 证据应记录真实页面创建变更、审批变更、创建延续、审批延续、OLD 详情打开、主文件申请审批下载、同版本变更文件申请审批下载，以及最终文件名中 `变更文件` 与 `已失效` 的位置。
+- Forbidden action: 禁止用当前有效证件的变更文件替代 OLD 变更文件，禁止用只读 API/DB 结果替代页面申请、审批和下载动作。
+- Evidence: `doc/tasks/20260905-registration-download-simulated-e2e-verify/verification-report.md`。
+
 ### 审批流程通知通道门禁
 
 - Trigger: 申请提交成功、审批待办可见或审批动作已进入 Flowable，但页面 toast 出现“手机号不存在”、短信模板异常、短信日志字段过长等与目标业务无关的通知错误。
@@ -123,6 +132,7 @@
 - Verification: 证据需包含触发的真实页面动作、异常栈中的消息服务/通知通道、流程定义 key、修复后的消息服务单测和完整 Playwright 复跑结果。
 - Forbidden action: 禁止吞掉短信异常、伪造通知成功、API-only 完成审批、或把通知失败绕写成业务成功；应修正流程到正确通知通道。
 - Evidence: `doc/tasks/20260904-registration-download-e2e-flow/execution-log.md`，注册证下载审批完成通知曾因 `dcc-registration-certificate-access` 未纳入 DCC 站内通知分支而落入短信路径，补齐通知流程映射后完整下载 E2E 通过。
+
 ### 前端 API 路径同源门禁
 
 - Trigger: Playwright 已通过真实页面完成提交或导入，但后续用 `fetch` 做最终状态核验时返回模块禁用兜底、请求地址不存在、401/403 或与页面网络请求不一致；尤其是 Form Center、DCC、MES 等前端 API wrapper 自带业务前缀时。

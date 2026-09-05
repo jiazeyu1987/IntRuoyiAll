@@ -118,6 +118,35 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void activationIgnoresChangesAlreadyAppliedBeforeRenewalUpload() {
+        PendingFixture fixture = seedPendingCandidate(LocalDate.of(2026, 8, 17));
+        Long changedSnapshotId = seedChangedCurrentSnapshot(fixture.currentVersionId(), "Product Before Renewal", 2);
+        assertEquals(1, certificateMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<DccRegistrationCertificateDO>()
+                        .eq(DccRegistrationCertificateDO::getId, fixture.certificateId())
+                        .set(DccRegistrationCertificateDO::getCurrentSnapshotId, changedSnapshotId)));
+        assertEquals(1, versionMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<DccRegistrationCertificateVersionDO>()
+                        .eq(DccRegistrationCertificateVersionDO::getId, fixture.pendingVersionId())
+                        .set(DccRegistrationCertificateVersionDO::getBaseSnapshotId, changedSnapshotId)));
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_lifecycle_event
+                   SET event_sequence = 2,
+                       source_snapshot_id = ?,
+                       baseline_snapshot_revision = 2
+                 WHERE tenant_id = 1 AND certificate_id = ? AND event_key = 'renewal-upload'
+                """, changedSnapshotId, fixture.certificateId()));
+        insertLifecycleEvent(fixture.certificateId(), fixture.currentVersionId(), fixture.currentVersionId(),
+                fixture.currentSnapshotId(), changedSnapshotId, "change-before-renewal", "CHANGE_APPLIED", 1, 2);
+
+        DccRegistrationCertificateActivationResult result = activateOrFail(command(fixture, "activation-after-change"));
+
+        assertEquals(fixture.pendingSnapshotId(), result.currentSnapshotId());
+        assertCurrentOldSwitch(fixture, fixture.pendingSnapshotId());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_activation_replay WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+    }
+
+    @Test
     void activationBlocksOutOfOrderReplayWithoutPartialSwitch() {
         PendingFixture fixture = seedPendingCandidate(LocalDate.of(2026, 8, 17));
         Long changedSnapshotId = seedChangedCurrentSnapshot(fixture.currentVersionId(), "Product B", 2);
