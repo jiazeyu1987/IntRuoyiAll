@@ -14,6 +14,7 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_MIGRATION_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceWriteGuard.requireExactlyOne;
 
 @Service
 public class DccControlledFileSourceMigrationCommitService {
@@ -94,7 +95,7 @@ public class DccControlledFileSourceMigrationCommitService {
         migration.setErrorMessage(null);
         migration.setMigratedBy(actorId);
         migration.setMigratedTime(LocalDateTime.now());
-        migrationMapper.updateById(migration);
+        requireExactlyOne(migrationMapper.updateById(migration), "complete source migration evidence");
     }
 
     private RuntimeException migrationConflict(Long controlledFileId) {

@@ -53,6 +53,7 @@ class DccControlledFileSourceMigrationCommitServiceTest extends BaseMockitoUnitT
         when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L)).thenReturn(candidate);
         when(controlledFileMapper.updateSourceFileIdIncludingDeleted(31L, 901L, 700L, 1700L, 120L))
                 .thenReturn(1);
+        when(migrationMapper.updateById(migration)).thenReturn(1);
 
         service.commitIsolatedSource(candidate, migration, prepared, 120L);
 
@@ -84,6 +85,21 @@ class DccControlledFileSourceMigrationCommitServiceTest extends BaseMockitoUnitT
                 31L, 901L, 700L, 1700L, 120L);
         verify(ownershipService, never()).claimSubmissionSource(901L, prepared, 120L, "HISTORICAL_MIGRATION");
         verify(globalClaimService, never()).claim(31L, 1700L, 901L, "verified-sha", 120L, null, null);
+    }
+
+    @Test
+    void commitIsolatedSource_zeroRowMigrationEvidenceWriteFailsClosed() {
+        DccControlledFileDO candidate = file(901L, 700L);
+        DccControlledFileSourceMigrationDO migration = migration(50L, 901L, 700L);
+        DccControlledFilePreparedSource prepared =
+                new DccControlledFilePreparedSource(1700L, 700L, "verified-sha", true);
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L)).thenReturn(candidate);
+        when(controlledFileMapper.updateSourceFileIdIncludingDeleted(31L, 901L, 700L, 1700L, 120L))
+                .thenReturn(1);
+        when(migrationMapper.updateById(migration)).thenReturn(0);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.commitIsolatedSource(candidate, migration, prepared, 120L));
     }
 
     private DccControlledFileDO file(Long id, Long sourceFileId) {

@@ -22,6 +22,7 @@ import java.util.UUID;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_ISOLATION_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceWriteGuard.requireExactlyOne;
 
 @Service
 public class DccControlledFileSourceOwnershipService {
@@ -97,7 +98,7 @@ public class DccControlledFileSourceOwnershipService {
                 .claimedTime(LocalDateTime.now())
                 .build();
         try {
-            ownershipMapper.insert(ownership);
+            requireExactlyOne(ownershipMapper.insert(ownership), "insert controlled file source ownership");
         } catch (DuplicateKeyException ex) {
             DccControlledFileSourceOwnershipDO owner =
                     ownershipMapper.selectBySourceFileId(tenantId, preparedSource.sourceFileId());

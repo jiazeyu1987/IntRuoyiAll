@@ -33,6 +33,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Boolean quantityConflict;
         private BigDecimal overageQuantity;
         private List<InputMaterialDetail> inputMaterials;
+        private List<SupplementMaterialDetail> supplementMaterials;
         private List<SubmissionDetail> submissions;
         private List<PqcSubmissionDetail> pqcSubmissions;
     }
@@ -52,6 +53,22 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<String> sourcePickListNos;
         private List<Long> sourcePickListItemIds;
         private String sourceSnapshotHash;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SupplementMaterialDetail {
+        private Long materialId;
+        private String materialCode;
+        private String materialName;
+        private String materialSpecification;
+        private List<String> batchCodes;
+        private BigDecimal requestedQuantity;
+        private BigDecimal actualQuantity;
+        private BigDecimal baseActualQuantity;
+        private List<Long> sourceReplenishmentListIds;
+        private List<String> sourceReplenishmentListNos;
+        private List<Long> sourceReplenishmentListItemIds;
     }
 
     @Data

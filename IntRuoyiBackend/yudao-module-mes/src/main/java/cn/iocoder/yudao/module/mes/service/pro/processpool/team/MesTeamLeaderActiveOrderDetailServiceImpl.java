@@ -1,9 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
@@ -42,19 +48,28 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesPqcInspectionTaskMapper pqcTaskMapper;
     private final MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper;
     private final MesQaInspectionRegulationProcessMapper qaProcessMapper;
+    private final ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper;
+    private final ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper;
+    private final MesMdItemMapper itemMapper;
 
     public MesTeamLeaderActiveOrderDetailServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
-                                                      MesProcessPoolActiveOrderDetailReadMapper detailReadMapper,
-                                                      MesFrontlineProcessMaterialService processMaterialService,
-                                                      MesPqcInspectionTaskMapper pqcTaskMapper,
-                                                      MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper,
-                                                      MesQaInspectionRegulationProcessMapper qaProcessMapper) {
+                                                       MesProcessPoolActiveOrderDetailReadMapper detailReadMapper,
+                                                       MesFrontlineProcessMaterialService processMaterialService,
+                                                       MesPqcInspectionTaskMapper pqcTaskMapper,
+                                                       MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper,
+                                                       MesQaInspectionRegulationProcessMapper qaProcessMapper,
+                                                       ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper,
+                                                       ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper,
+                                                       MesMdItemMapper itemMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.detailReadMapper = detailReadMapper;
         this.processMaterialService = processMaterialService;
         this.pqcTaskMapper = pqcTaskMapper;
         this.pqcAggregateDetailMapper = pqcAggregateDetailMapper;
         this.qaProcessMapper = qaProcessMapper;
+        this.replenishmentListItemMapper = replenishmentListItemMapper;
+        this.replenishmentListMapper = replenishmentListMapper;
+        this.itemMapper = itemMapper;
     }
 
     @Override
@@ -82,6 +97,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             accumulator.addSubmission(row, activeOrderId);
         }
         attachInputMaterials(activeOrder, activeOrderId, accumulators);
+        attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
         attachPqcSubmissions(activeOrderId, accumulators);
         return new MesTeamLeaderActiveOrderDetail()
                 .setActiveOrderId(activeOrderId)
@@ -92,7 +108,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     }
 
     private void attachInputMaterials(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
-                                      Map<ProcessIdentity, ProcessAccumulator> accumulators) {
+                                       Map<ProcessIdentity, ProcessAccumulator> accumulators) {
         for (ProcessAccumulator accumulator : accumulators.values()) {
             MesTeamLeaderActiveOrderDetail.ProcessDetail process = accumulator.process;
             List<MesTeamLeaderActiveOrderDetail.InputMaterialDetail> inputMaterials =
@@ -103,6 +119,111 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                             .toList();
             accumulator.setInputMaterials(inputMaterials);
         }
+    }
+
+    private void attachSupplementMaterials(String workOrderCode, Long activeOrderId,
+                                           Map<ProcessIdentity, ProcessAccumulator> accumulators) {
+        List<ErpKingdeeProductionReplenishmentListItemDO> items = replenishmentListItemMapper
+                .selectListByProductionOrderNo(workOrderCode);
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = loadReplenishmentHeaders(activeOrderId, items);
+        Map<String, MesMdItemDO> materialByCode = loadMaterialByCode(activeOrderId, items);
+        Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> supplementsByMaterialCode =
+                groupSupplementMaterials(activeOrderId, items, headersById, materialByCode);
+        for (ProcessAccumulator accumulator : accumulators.values()) {
+            Set<String> inputMaterialCodes = accumulator.inputMaterials.stream()
+                    .map(MesTeamLeaderActiveOrderDetail.InputMaterialDetail::getMaterialCode)
+                    .map(MesTeamLeaderActiveOrderDetailServiceImpl::trimToNull)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (inputMaterialCodes.isEmpty()) {
+                accumulator.setSupplementMaterials(List.of());
+                continue;
+            }
+            List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> matched = inputMaterialCodes.stream()
+                    .flatMap(code -> supplementsByMaterialCode.getOrDefault(code, List.of()).stream())
+                    .toList();
+            accumulator.setSupplementMaterials(matched);
+        }
+    }
+
+    private Map<Long, ErpKingdeeProductionReplenishmentListDO> loadReplenishmentHeaders(
+            Long activeOrderId, List<ErpKingdeeProductionReplenishmentListItemDO> items) {
+        List<Long> headerIds = items.stream()
+                .map(ErpKingdeeProductionReplenishmentListItemDO::getProductionReplenishmentListId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (headerIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        List<ErpKingdeeProductionReplenishmentListDO> headers = replenishmentListMapper.selectBatchIds(headerIds);
+        Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById = mapById(headers,
+                ErpKingdeeProductionReplenishmentListDO::getId, activeOrderId, "replenishmentList");
+        if (!headersById.keySet().containsAll(headerIds)) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        for (ErpKingdeeProductionReplenishmentListDO header : headersById.values()) {
+            requireText(header.getSourceBillNo(), activeOrderId);
+            if (!"C".equals(header.getDocumentStatus())) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+        }
+        return headersById;
+    }
+
+    private Map<String, MesMdItemDO> loadMaterialByCode(Long activeOrderId,
+                                                        List<ErpKingdeeProductionReplenishmentListItemDO> items) {
+        Set<String> materialCodes = items.stream()
+                .map(ErpKingdeeProductionReplenishmentListItemDO::getMaterialNumber)
+                .map(MesTeamLeaderActiveOrderDetailServiceImpl::trimToNull)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (materialCodes.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        Map<String, MesMdItemDO> result = new LinkedHashMap<>();
+        for (String materialCode : materialCodes) {
+            MesMdItemDO item = itemMapper.selectByCode(materialCode);
+            if (item == null || item.getId() == null || trimToNull(item.getCode()) == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            result.put(materialCode, item);
+        }
+        return result;
+    }
+
+    private Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> groupSupplementMaterials(
+            Long activeOrderId,
+            List<ErpKingdeeProductionReplenishmentListItemDO> items,
+            Map<Long, ErpKingdeeProductionReplenishmentListDO> headersById,
+            Map<String, MesMdItemDO> materialByCode) {
+        Map<String, SupplementAccumulator> byMaterialAndSource = new LinkedHashMap<>();
+        for (ErpKingdeeProductionReplenishmentListItemDO item : items) {
+            String materialCode = trimToNull(item.getMaterialNumber());
+            String lotNumber = trimToNull(item.getLotNumber());
+            if (item.getId() == null || item.getProductionReplenishmentListId() == null
+                    || materialCode == null || trimToNull(item.getMaterialName()) == null || lotNumber == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            ErpKingdeeProductionReplenishmentListDO header = headersById.get(item.getProductionReplenishmentListId());
+            MesMdItemDO material = materialByCode.get(materialCode);
+            if (header == null || material == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            String key = item.getProductionReplenishmentListId() + "|" + materialCode;
+            byMaterialAndSource.computeIfAbsent(key, ignored -> new SupplementAccumulator(material, item, header))
+                    .add(item, header);
+        }
+        Map<String, List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail>> byMaterialCode =
+                new LinkedHashMap<>();
+        for (SupplementAccumulator accumulator : byMaterialAndSource.values()) {
+            MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail detail = accumulator.toDetail();
+            byMaterialCode.computeIfAbsent(detail.getMaterialCode(), ignored -> new ArrayList<>()).add(detail);
+        }
+        return byMaterialCode;
     }
 
     private void attachPqcSubmissions(Long activeOrderId, Map<ProcessIdentity, ProcessAccumulator> accumulators) {
@@ -249,6 +370,57 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private record PqcSubmissionIdentity(ProcessIdentity processIdentity, Long qaProcessId, String inspectionType, Integer roundNo) {
     }
 
+    private static final class SupplementAccumulator {
+        private final MesMdItemDO material;
+        private final String materialName;
+        private final String materialSpecification;
+        private final LinkedHashSet<String> batchCodes = new LinkedHashSet<>();
+        private final LinkedHashSet<Long> replenishmentListIds = new LinkedHashSet<>();
+        private final LinkedHashSet<String> replenishmentListNos = new LinkedHashSet<>();
+        private final LinkedHashSet<Long> replenishmentListItemIds = new LinkedHashSet<>();
+        private BigDecimal requestedQuantity = BigDecimal.ZERO;
+        private BigDecimal actualQuantity = BigDecimal.ZERO;
+        private BigDecimal baseActualQuantity = BigDecimal.ZERO;
+
+        private SupplementAccumulator(MesMdItemDO material, ErpKingdeeProductionReplenishmentListItemDO firstItem,
+                                      ErpKingdeeProductionReplenishmentListDO firstHeader) {
+            this.material = material;
+            this.materialName = trimToNull(firstItem.getMaterialName());
+            this.materialSpecification = trimToNull(firstItem.getMaterialSpecification());
+            add(firstItem, firstHeader);
+        }
+
+        private void add(ErpKingdeeProductionReplenishmentListItemDO item,
+                         ErpKingdeeProductionReplenishmentListDO header) {
+            batchCodes.add(trimToNull(item.getLotNumber()));
+            replenishmentListIds.add(item.getProductionReplenishmentListId());
+            replenishmentListNos.add(trimToNull(header.getSourceBillNo()));
+            replenishmentListItemIds.add(item.getId());
+            requestedQuantity = requestedQuantity.add(zeroIfNull(item.getRequestedQuantity()));
+            actualQuantity = actualQuantity.add(zeroIfNull(item.getActualQuantity()));
+            baseActualQuantity = baseActualQuantity.add(zeroIfNull(item.getBaseActualQuantity()));
+        }
+
+        private MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail toDetail() {
+            return new MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail()
+                    .setMaterialId(material.getId())
+                    .setMaterialCode(trimToNull(material.getCode()))
+                    .setMaterialName(materialName)
+                    .setMaterialSpecification(materialSpecification)
+                    .setBatchCodes(batchCodes.stream().filter(Objects::nonNull).sorted().toList())
+                    .setRequestedQuantity(requestedQuantity)
+                    .setActualQuantity(actualQuantity)
+                    .setBaseActualQuantity(baseActualQuantity)
+                    .setSourceReplenishmentListIds(replenishmentListIds.stream().sorted().toList())
+                    .setSourceReplenishmentListNos(replenishmentListNos.stream().filter(Objects::nonNull).sorted().toList())
+                    .setSourceReplenishmentListItemIds(replenishmentListItemIds.stream().sorted().toList());
+        }
+
+        private static BigDecimal zeroIfNull(BigDecimal value) {
+            return value == null ? BigDecimal.ZERO : value;
+        }
+    }
+
     private static final class PqcSubmissionAccumulator {
         private final MesPqcInspectionTaskDO firstTask;
         private final MesQaInspectionRegulationProcessDO qaProcess;
@@ -311,6 +483,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private final List<MesTeamLeaderActiveOrderDetail.SubmissionDetail> submissions = new ArrayList<>();
         private final List<MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail> pqcSubmissions = new ArrayList<>();
         private List<MesTeamLeaderActiveOrderDetail.InputMaterialDetail> inputMaterials = List.of();
+        private List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> supplementMaterials = List.of();
         private BigDecimal submittedQuantity = BigDecimal.ZERO;
 
         private ProcessAccumulator(MesTeamLeaderActiveOrderDetailReadDO row) {
@@ -347,6 +520,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             this.inputMaterials = List.copyOf(inputMaterials);
         }
 
+        private void setSupplementMaterials(
+                List<MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail> supplementMaterials) {
+            this.supplementMaterials = List.copyOf(supplementMaterials);
+        }
+
         private void addPqcSubmission(MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission) {
             this.pqcSubmissions.add(submission);
         }
@@ -364,6 +542,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setQuantityConflict(quantityConflict)
                     .setOverageQuantity(overageQuantity)
                     .setInputMaterials(inputMaterials)
+                    .setSupplementMaterials(supplementMaterials)
                     .setSubmissions(List.copyOf(submissions))
                     .setPqcSubmissions(List.copyOf(pqcSubmissions));
         }

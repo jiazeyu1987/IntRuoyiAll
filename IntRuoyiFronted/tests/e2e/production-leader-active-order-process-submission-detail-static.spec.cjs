@@ -22,8 +22,8 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*navigateActiveOrderSubmissionDetail\(requirePositiveNumber\(row\.id/,
-  '点击列表行详情必须打开当前行自身的活跃订单详情。'
+  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*sourceActiveOrderId[\s\S]*resolveStage1GeneratedDetailTarget\(row\)[\s\S]*stage1GeneratedTarget\?\.activeOrderId\s*\?\?\s*sourceActiveOrderId/,
+  '点击列表行详情默认打开当前行自身详情；若该行已有 Stage1 生成目标，则必须打开同一生成测试订单详情。'
 )
 assert.doesNotMatch(page, /data-team-leader-active-order-detail-dialog|activeOrderDetailVisible/, '工作台不得继续渲染活跃订单详情弹窗。')
 assert.match(

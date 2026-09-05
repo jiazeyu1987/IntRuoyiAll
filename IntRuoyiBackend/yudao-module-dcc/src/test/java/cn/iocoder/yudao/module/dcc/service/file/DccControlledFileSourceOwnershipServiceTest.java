@@ -105,6 +105,7 @@ class DccControlledFileSourceOwnershipServiceTest extends BaseMockitoUnitTest {
     void claimSubmissionSource_persistsTenantScopedOwnershipAndReportsConflict() {
         DccControlledFilePreparedSource prepared =
                 new DccControlledFilePreparedSource(1703L, 703L, "abc123", true);
+        when(ownershipMapper.insert(any(DccControlledFileSourceOwnershipDO.class))).thenReturn(1);
 
         service.claimSubmissionSource(900L, prepared, 120L, "SUBMISSION");
 
@@ -121,6 +122,16 @@ class DccControlledFileSourceOwnershipServiceTest extends BaseMockitoUnitTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.claimSubmissionSource(901L, prepared, 120L, "SUBMISSION"));
         assertEquals(CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT.getCode(), ex.getCode());
+    }
+
+    @Test
+    void claimSubmissionSource_zeroRowInsertFailsClosed() {
+        DccControlledFilePreparedSource prepared =
+                new DccControlledFilePreparedSource(1703L, 703L, "abc123", true);
+        when(ownershipMapper.insert(any(DccControlledFileSourceOwnershipDO.class))).thenReturn(0);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.claimSubmissionSource(900L, prepared, 120L, "SUBMISSION"));
     }
 
     @Test

@@ -46,6 +46,7 @@ class DccControlledFileSourceGlobalClaimServiceTest extends BaseMockitoUnitTest 
     @Test
     void claim_newSourcePersistsGlobalIdentity() {
         when(claimMapper.selectBySourceFileId(700L)).thenReturn(null);
+        when(claimMapper.insert(any(DccControlledFileSourceGlobalClaimDO.class))).thenReturn(1);
 
         service.claim(31L, 700L, 901L, "sha", 120L, 55L, 66L);
 
@@ -56,6 +57,15 @@ class DccControlledFileSourceGlobalClaimServiceTest extends BaseMockitoUnitTest 
                         && value.getSourceSha256().equals("sha")
                         && value.getGovernanceBatchId().equals(55L)
                         && value.getGovernanceItemId().equals(66L)));
+    }
+
+    @Test
+    void claim_zeroRowInsertFailsClosed() {
+        when(claimMapper.selectBySourceFileId(700L)).thenReturn(null);
+        when(claimMapper.insert(any(DccControlledFileSourceGlobalClaimDO.class))).thenReturn(0);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.claim(31L, 700L, 901L, "sha", 120L, 55L, 66L));
     }
 
     private DccControlledFileSourceGlobalClaimDO claim(Long tenantId, Long sourceFileId,

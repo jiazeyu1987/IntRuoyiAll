@@ -1,11 +1,18 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGovernanceBatchDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGovernanceItemDO;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.List;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_ITEM_BLOCKED;
@@ -66,18 +73,47 @@ public class DccControlledFileSourceGovernanceManifestService {
 
     public void requireItemInScope(DccControlledFileSourceGovernanceBatchDO batch,
                                    DccControlledFileSourceGovernanceItemDO item,
-                                   java.util.Set<Long> tenantScope) {
+                                   Set<Long> tenantScope) {
+        Set<Long> frozenTenantScope = frozenTenantScope(batch);
         if (batch == null || item == null || !Objects.equals(batch.getId(), item.getBatchId())
-                || tenantScope == null || !tenantScope.contains(item.getTenantId())) {
+                || tenantScope == null || !tenantScope.contains(item.getTenantId())
+                || !frozenTenantScope.contains(item.getTenantId())) {
             throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID);
         }
     }
 
     public void requireTenantInScope(DccControlledFileSourceGovernanceBatchDO batch, Long tenantId) {
-        if (batch == null || tenantId == null || batch.getTenantScopeJson() == null
-                || !batch.getTenantScopeJson().matches(".*(?:^|\\[|,|\\s)" + tenantId
-                + "(?:$|,|\\s|\\]).*")) {
+        if (tenantId == null || !frozenTenantScope(batch).contains(tenantId)) {
             throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID);
+        }
+    }
+
+    private Set<Long> frozenTenantScope(DccControlledFileSourceGovernanceBatchDO batch) {
+        if (batch == null || batch.getTenantScopeJson() == null || batch.getTenantScopeSha256() == null
+                || !Objects.equals(batch.getTenantScopeSha256(), sha256(batch.getTenantScopeJson()))) {
+            throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID);
+        }
+        try {
+            List<Long> tenantIds = JsonUtils.parseArray(batch.getTenantScopeJson(), Long.class);
+            if (tenantIds == null || tenantIds.isEmpty() || tenantIds.stream().anyMatch(Objects::isNull)
+                    || new HashSet<>(tenantIds).size() != tenantIds.size()) {
+                throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID);
+            }
+            return Set.copyOf(tenantIds);
+        } catch (RuntimeException ex) {
+            if (ex instanceof cn.iocoder.yudao.framework.common.exception.ServiceException) {
+                throw ex;
+            }
+            throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID);
+        }
+    }
+
+    private String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 digest is unavailable", ex);
         }
     }
 }

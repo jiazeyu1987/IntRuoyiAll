@@ -4358,6 +4358,9 @@ const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const activeOrderRebuildSubmittingId = ref<number>()
 const activeOrderVersionUpgradeSubmittingId = ref<number>()
 const activeOrderSimulationSubmittingId = ref<number>()
+const stage1GeneratedDetailTargets = ref(
+  new Map<number, { activeOrderId: number; sourceWorkOrderCode: string }>()
+)
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
@@ -5631,8 +5634,25 @@ const navigateActiveOrderSubmissionDetail = (
   })
 }
 
+const resolveStage1GeneratedDetailTarget = (row: TeamLeaderActiveOrderRespVO) => {
+  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const persistedGeneratedActiveOrderId = normalizePositiveNumber(row.stage1GeneratedActiveOrderId)
+  if (persistedGeneratedActiveOrderId !== undefined) {
+    return {
+      activeOrderId: persistedGeneratedActiveOrderId,
+      sourceWorkOrderCode: row.workOrderCode || row.stage1GeneratedWorkOrderCode || ''
+    }
+  }
+  return stage1GeneratedDetailTargets.value.get(sourceActiveOrderId)
+}
+
 const openActiveOrderSubmissionDetail = (row: TeamLeaderActiveOrderRespVO) => {
-  navigateActiveOrderSubmissionDetail(requirePositiveNumber(row.id, '活跃订单记录ID不能为空'))
+  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const stage1GeneratedTarget = resolveStage1GeneratedDetailTarget(row)
+  navigateActiveOrderSubmissionDetail(
+    stage1GeneratedTarget?.activeOrderId ?? sourceActiveOrderId,
+    stage1GeneratedTarget?.sourceWorkOrderCode
+  )
 }
 const resolveActiveOrderConflictProcesses = (
   detailResult?: TeamLeaderActiveOrderDetailRespVO
@@ -9646,9 +9666,10 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
       '确认模拟生产和PQC',
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
+    const templateActiveOrderId = requirePositiveNumber(row.id, '活跃订单模板ID不能为空')
     const result = await simulateStage1ActiveOrderCompletion({
       simulationRunId: `STAGE1-${Date.now()}`,
-      templateActiveOrderId: requirePositiveNumber(row.id, '活跃订单模板ID不能为空')
+      templateActiveOrderId
     })
     writeCompleted = true
     ElMessage.success(
@@ -9658,6 +9679,10 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
       result.activeOrderId,
       'Stage1 新活跃订单ID不能为空'
     )
+    stage1GeneratedDetailTargets.value.set(templateActiveOrderId, {
+      activeOrderId: generatedActiveOrderId,
+      sourceWorkOrderCode: row.workOrderCode || ''
+    })
     await loadActiveOrders()
     navigateActiveOrderSubmissionDetail(generatedActiveOrderId, row.workOrderCode || '')
   } catch (error) {

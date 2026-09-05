@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
@@ -26,9 +27,11 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchQueryService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialCreateCommand;
@@ -72,6 +75,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     @Mock
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
+    private MesQaInspectionRegulationItemEquipmentMapper inspectionRegulationItemEquipmentMapper;
+    @Mock
     private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     @Mock
     private MesProFeedbackMapper feedbackMapper;
@@ -102,8 +107,9 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderSimulationService(activeOrderMapper, processSnapshotMapper,
                 routeVersionMapper, reportAllocationMapper, submissionReviewMapper, pqcInspectionTaskMapper,
-                inspectionRegulationItemMapper, pqcPieceDetailMapper, feedbackMapper, itemMapper,
-                materialBatchQueryService, processDeviceMapper, deviceMapper, routeProcessMapper,
+                inspectionRegulationItemMapper, inspectionRegulationItemEquipmentMapper, pqcPieceDetailMapper,
+                feedbackMapper, itemMapper, materialBatchQueryService, processDeviceMapper, deviceMapper,
+                routeProcessMapper,
                 feedbackMaterialService, processPoolEventService,
                 reportAllocationCommandService, pqcProcessInspectionAggregationService,
                 orderProcessCompletionService);
@@ -165,6 +171,9 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
             return 1;
         });
         when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(inspectionItem()));
+        when(inspectionRegulationItemEquipmentMapper.selectListByVersionId(9902L)).thenReturn(List.of(
+                pqcEquipment(31L, 1702L, "PQC-DEVICE-002", "第二台PQC设备", "PQC-NO-002", false, 2),
+                pqcEquipment(30L, 1701L, "PQC-DEVICE-001", "第一台PQC设备", "PQC-NO-001", true, 1)));
         when(pqcPieceDetailMapper.selectListByTaskId(8301L)).thenReturn(List.of());
         when(pqcPieceDetailMapper.insertBatch(any(List.class))).thenReturn(Boolean.TRUE);
         when(pqcInspectionTaskMapper.updateSubmittedIfPending(8301L, 1, "SIMULATED:8301:1",
@@ -222,6 +231,22 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .createMaterials(materialCaptor.capture());
         assertEquals(List.of(1002L, 1003L), materialCaptor.getAllValues().stream()
                 .map(command -> command.entries().get(0).materialId()).toList());
+        ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> pqcCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
+        org.mockito.Mockito.verify(processPoolEventService).createPqcInspectionEvent(pqcCaptor.capture());
+        assertEquals(3001L, pqcCaptor.getValue().getDeviceAccountId());
+        assertEquals(1701L, pqcCaptor.getValue().getDeviceId());
+        assertEquals(801L, pqcCaptor.getValue().getWorkstationId());
+        assertTrue(pqcCaptor.getValue().getRawPayload().contains("\"selectedEquipment\""));
+        assertTrue(pqcCaptor.getValue().getRawPayload().contains("\"equipmentCode\":\"PQC-DEVICE-001\""));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<MesPqcInspectionPieceDetailDO>> pieceCaptor =
+                ArgumentCaptor.forClass((Class) List.class);
+        org.mockito.Mockito.verify(pqcPieceDetailMapper).insertBatch(pieceCaptor.capture());
+        assertEquals(1701L, pieceCaptor.getValue().get(0).getSelectedEquipmentId());
+        assertEquals("PQC-DEVICE-001", pieceCaptor.getValue().get(0).getSelectedEquipmentCode());
+        assertEquals("第一台PQC设备", pieceCaptor.getValue().get(0).getSelectedEquipmentName());
+        assertEquals("PQC-NO-001", pieceCaptor.getValue().get(0).getSelectedEquipmentNumber());
 
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
@@ -369,6 +394,23 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 .standardLowerLimit(BigDecimal.ZERO)
                 .standardUpperLimit(BigDecimal.ONE)
                 .standardPrecision(1)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemEquipmentDO pqcEquipment(Long id, Long equipmentId, String code,
+                                                                         String name, String number,
+                                                                         Boolean defaultFlag, Integer sort) {
+        return MesQaInspectionRegulationItemEquipmentDO.builder()
+                .id(id)
+                .regulationVersionId(9902L)
+                .inspectionType("FIRST")
+                .itemCode("FIRST-001")
+                .equipmentId(equipmentId)
+                .equipmentCode(code)
+                .equipmentName(name)
+                .equipmentNumber(number)
+                .defaultFlag(defaultFlag)
+                .sort(sort)
                 .build();
     }
 }

@@ -23,6 +23,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -77,6 +78,7 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
             ((DccControlledFileSourceGovernanceBatchDO) invocation.getArgument(0)).setId(55L);
             return 1;
         });
+        when(itemMapper.insert(any(DccControlledFileSourceGovernanceItemDO.class))).thenReturn(1);
 
         DccControlledFileSourceGovernancePreparationResult result = service.prepareBatch("task-1", 100, 0L);
 
@@ -113,6 +115,7 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
             ((DccControlledFileSourceGovernanceBatchDO) invocation.getArgument(0)).setId(55L);
             return 1;
         });
+        when(itemMapper.insert(any(DccControlledFileSourceGovernanceItemDO.class))).thenReturn(1);
 
         DccControlledFileSourceGovernancePreparationResult result = service.prepareBatch("task-2", 100, 0L);
 
@@ -123,6 +126,28 @@ class DccControlledFileSourceGovernancePreparationServiceTest extends BaseMockit
         verify(itemMapper).insert(itemCaptor.capture());
         assertEquals("SOURCE_GLOBAL_REFERENCE_OUT_OF_SCOPE", itemCaptor.getValue().getBlockerReasonCode());
         assertEquals("NO_ACTION", itemCaptor.getValue().getGovernanceAction());
+    }
+
+    @Test
+    void prepareBatch_zeroRowItemInsertFailsClosed() {
+        DccControlledFileDO candidate = controlledFile(901L, 700L);
+        when(controlledFileMapper.selectGlobalMaxControlledFileId()).thenReturn(999L);
+        when(controlledFileMapper.selectEffectiveSourceGovernanceCandidates(31L, 999L, 0L, 100))
+                .thenReturn(List.of(candidate));
+        when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 999L))
+                .thenReturn(List.of(reference(31L, 901L, 700L)));
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L)).thenReturn(candidate);
+        when(fileMapper.selectById(700L)).thenReturn(sourceFile());
+        when(ownershipService.inspectSource(700L))
+                .thenReturn(new DccControlledFilePreparedSource(700L, 700L, HASH, false));
+        when(batchMapper.insert(any(DccControlledFileSourceGovernanceBatchDO.class))).thenAnswer(invocation -> {
+            ((DccControlledFileSourceGovernanceBatchDO) invocation.getArgument(0)).setId(55L);
+            return 1;
+        });
+        when(itemMapper.insert(any(DccControlledFileSourceGovernanceItemDO.class))).thenReturn(0);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.prepareBatch("task-zero-item", 100, 0L));
     }
 
     private DccControlledFileDO controlledFile(Long id, Long sourceFileId) {

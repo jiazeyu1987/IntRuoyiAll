@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
+
+import static cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceWriteGuard.requireExactlyOne;
 
 @Service
 public class DccControlledFileSourceGovernanceExecutionService {
@@ -53,7 +56,7 @@ public class DccControlledFileSourceGovernanceExecutionService {
             String requestSha256,
             Long actorId) {
         if (items == null || items.isEmpty()) {
-            return List.of();
+            throw new IllegalArgumentException("shared governance group must not be empty");
         }
         manifestService.requireVersioned(batch);
         manifestService.requireConfirmed(batch, manifestSha256, requestSha256);
@@ -108,10 +111,39 @@ public class DccControlledFileSourceGovernanceExecutionService {
             }
             return List.copyOf(results);
         } catch (RuntimeException failure) {
+            RuntimeException cleanupAggregate = null;
             for (Long copyId : newlyCreatedCopies) {
-                ownershipService.cleanupFailedCopy(copyId, failure);
+                try {
+                    ownershipService.cleanupFailedCopy(copyId, failure);
+                } catch (RuntimeException cleanupFailure) {
+                    if (cleanupAggregate == null) {
+                        cleanupAggregate = cleanupFailure;
+                    } else {
+                        cleanupAggregate.addSuppressed(cleanupFailure);
+                    }
+                }
+            }
+            if (cleanupAggregate != null) {
+                cleanupAggregate.addSuppressed(failure);
+                throw cleanupAggregate;
             }
             throw failure;
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public void recordGroupFailure(List<DccControlledFileSourceGovernanceItemDO> items,
+                                   Long actorId, RuntimeException failure) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("failed governance group must not be empty");
+        }
+        String message = failureMessage(failure);
+        for (DccControlledFileSourceGovernanceItemDO item : items) {
+            item.setItemStatus("FAILED");
+            item.setLastError(message);
+            item.setProcessedBy(actorId);
+            item.setProcessedTime(LocalDateTime.now());
+            requireExactlyOne(itemMapper.updateById(item), "record failed source governance item");
         }
     }
 
@@ -211,6 +243,10 @@ public class DccControlledFileSourceGovernanceExecutionService {
 
         DccControlledFileSourceMigrationDO migration = migrationMapper.selectByControlledFileId(
                 tenantId, item.getControlledFileId());
+        if ("COPY_SHARED_SOURCE".equals(decision.action()) && ownership != null) {
+            return block(item, "SOURCE_OWNERSHIP_SHARED_REQUIRES_MANUAL_REVIEW",
+                    "共享源已有 ownership，必须人工确认原归属后再迁移");
+        }
         if (migration == null) {
             migration = DccControlledFileSourceMigrationDO.builder()
                     .tenantId(tenantId)
@@ -218,7 +254,7 @@ public class DccControlledFileSourceGovernanceExecutionService {
                     .legacySourceFileId(sourceFileId)
                     .migrationStatus("PENDING")
                     .build();
-            migrationMapper.insert(migration);
+            requireExactlyOne(migrationMapper.insert(migration), "insert source migration evidence");
         }
         DccControlledFilePreparedSource preparedSource;
         Long newlyCreatedCopyId = null;
@@ -229,15 +265,24 @@ public class DccControlledFileSourceGovernanceExecutionService {
         } else {
             boolean copyCreated = false;
             if (migration.getIsolatedSourceFileId() != null) {
+                if (!Objects.equals(migration.getMigrationStatus(), "COPY_VERIFIED")
+                        || !Objects.equals(migration.getLegacySourceFileId(), sourceFileId)
+                        || !Objects.equals(migration.getSourceSha256(), item.getSnapshotSourceSha256())) {
+                    return block(item, "MIGRATION_COPY_EVIDENCE_INVALID",
+                            "已有独立副本缺少 COPY_VERIFIED 状态或摘要证据不一致");
+                }
+                DccControlledFilePreparedSource inspectedCopy;
                 try {
-                    preparedSource = ownershipService.inspectSource(migration.getIsolatedSourceFileId());
+                    inspectedCopy = ownershipService.inspectSource(migration.getIsolatedSourceFileId());
                 } catch (RuntimeException ex) {
                     return fail(item, ex);
                 }
-                if (!Objects.equals(preparedSource.originSourceFileId(), sourceFileId)
-                        || !Objects.equals(preparedSource.sourceSha256(), item.getSnapshotSourceSha256())) {
+                if (!Objects.equals(inspectedCopy.sourceSha256(), item.getSnapshotSourceSha256())) {
                     return block(item, "SNAPSHOT_DRIFTED", "已存在的独立副本与治理清单证据不一致");
                 }
+                preparedSource = new DccControlledFilePreparedSource(
+                        migration.getIsolatedSourceFileId(), migration.getLegacySourceFileId(),
+                        inspectedCopy.sourceSha256(), true);
             } else {
                 try {
                     preparedSource = ownershipService.createVerifiedCopy(sourceFileId);
@@ -257,7 +302,8 @@ public class DccControlledFileSourceGovernanceExecutionService {
             }
             try {
                 if (copyCreated) {
-                    migrationMapper.updateById(migration);
+                    requireExactlyOne(migrationMapper.updateById(migration),
+                            "record COPY_VERIFIED source migration evidence");
                 }
                 commitService.commitIsolatedSource(candidate, migration, preparedSource, actorId,
                         batch.getId(), item.getId());
@@ -278,7 +324,7 @@ public class DccControlledFileSourceGovernanceExecutionService {
         item.setProcessedBy(actorId);
         item.setProcessedTime(LocalDateTime.now());
         try {
-            itemMapper.updateById(item);
+            requireExactlyOne(itemMapper.updateById(item), "complete source governance item");
         } catch (RuntimeException ex) {
             if (newlyCreatedCopyId != null) {
                 ownershipService.cleanupFailedCopy(newlyCreatedCopyId, ex);
@@ -294,7 +340,7 @@ public class DccControlledFileSourceGovernanceExecutionService {
         item.setBlockerReasonCode(reasonCode);
         item.setBlockerDetail(detail);
         item.setProcessedTime(LocalDateTime.now());
-        itemMapper.updateById(item);
+        requireExactlyOne(itemMapper.updateById(item), "block source governance item");
         return result(item, "BLOCKED", item.getGovernanceAction(), reasonCode, detail);
     }
 
@@ -310,10 +356,16 @@ public class DccControlledFileSourceGovernanceExecutionService {
     private DccControlledFileSourceGovernanceExecutionResult fail(
             DccControlledFileSourceGovernanceItemDO item, RuntimeException failure) {
         item.setItemStatus("FAILED");
-        item.setLastError(failure.getMessage());
+        item.setLastError(failureMessage(failure));
         item.setProcessedTime(LocalDateTime.now());
-        itemMapper.updateById(item);
-        return result(item, "FAILED", item.getGovernanceAction(), null, failure.getMessage());
+        requireExactlyOne(itemMapper.updateById(item), "fail source governance item");
+        return result(item, "FAILED", item.getGovernanceAction(), null, item.getLastError());
+    }
+
+    private String failureMessage(RuntimeException failure) {
+        String message = failure == null || failure.getMessage() == null
+                ? "source governance execution failed" : failure.getMessage();
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
     }
 
     private String locationHash(FileDO file) {

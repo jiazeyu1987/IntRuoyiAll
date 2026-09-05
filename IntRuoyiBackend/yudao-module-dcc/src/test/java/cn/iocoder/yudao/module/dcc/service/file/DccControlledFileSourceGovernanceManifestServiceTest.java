@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGo
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSourceGovernanceItemDO;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_ITEM_BLOCKED;
@@ -71,10 +73,34 @@ class DccControlledFileSourceGovernanceManifestServiceTest {
     @Test
     void requireTenantInScope_rejectsTenantNotInFrozenJson() {
         DccControlledFileSourceGovernanceBatchDO batch = DccControlledFileSourceGovernanceBatchDO.builder()
-                .tenantScopeJson("[31,32]").build();
+                .tenantScopeJson("[31,32]").tenantScopeSha256(sha256("[31,32]")).build();
         service.requireTenantInScope(batch, 31L);
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.requireTenantInScope(batch, 3L));
+        assertEquals(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void requireItemInScope_rejectsItemTenantOutsideFrozenScope() {
+        DccControlledFileSourceGovernanceBatchDO batch = DccControlledFileSourceGovernanceBatchDO.builder()
+                .id(55L).tenantScopeJson("[31]").tenantScopeSha256(sha256("[31]")).build();
+        DccControlledFileSourceGovernanceItemDO item = DccControlledFileSourceGovernanceItemDO.builder()
+                .batchId(55L).tenantId(32L).controlledFileId(901L).build();
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.requireItemInScope(batch, item, java.util.Set.of(32L)));
+
+        assertEquals(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void requireTenantInScope_rejectsTamperedFrozenScopeHash() {
+        DccControlledFileSourceGovernanceBatchDO batch = DccControlledFileSourceGovernanceBatchDO.builder()
+                .tenantScopeJson("[31]").tenantScopeSha256("tampered").build();
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.requireTenantInScope(batch, 31L));
+
         assertEquals(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID.getCode(), ex.getCode());
     }
 
@@ -99,5 +125,14 @@ class DccControlledFileSourceGovernanceManifestServiceTest {
 
         item.setSnapshotSourceFileId(701L);
         assertThrows(ServiceException.class, () -> service.requireManifestContent(batch, List.of(item)));
+    }
+
+    private static String sha256(String value) {
+        try {
+            return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 }

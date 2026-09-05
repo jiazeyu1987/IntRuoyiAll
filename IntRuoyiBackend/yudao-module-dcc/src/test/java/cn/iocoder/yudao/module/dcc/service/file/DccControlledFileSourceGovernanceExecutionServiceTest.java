@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSourceMigrati
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSourceOwnershipMapper;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -54,6 +55,16 @@ class DccControlledFileSourceGovernanceExecutionServiceTest extends BaseMockitoU
     private FileMapper fileMapper;
     @InjectMocks
     private DccControlledFileSourceGovernanceExecutionService service;
+
+    @BeforeEach
+    void stubSuccessfulEvidenceWrites() {
+        org.mockito.Mockito.lenient().when(itemMapper.updateById(
+                any(DccControlledFileSourceGovernanceItemDO.class))).thenReturn(1);
+        org.mockito.Mockito.lenient().when(migrationMapper.insert(
+                any(DccControlledFileSourceMigrationDO.class))).thenReturn(1);
+        org.mockito.Mockito.lenient().when(migrationMapper.updateById(
+                any(DccControlledFileSourceMigrationDO.class))).thenReturn(1);
+    }
 
     @Test
     void executeItem_rejectsUnconfirmedManifestBeforeAnyWrite() {
@@ -195,7 +206,7 @@ class DccControlledFileSourceGovernanceExecutionServiceTest extends BaseMockitoU
         when(ownershipService.inspectSource(700L))
                 .thenReturn(new DccControlledFilePreparedSource(700L, 700L, HASH, false));
         when(ownershipService.inspectSource(1700L))
-                .thenReturn(new DccControlledFilePreparedSource(1700L, 700L, HASH, true));
+                .thenReturn(new DccControlledFilePreparedSource(1700L, 1700L, HASH, false));
         manifestService.requireConfirmed(batch, "manifest", "request");
 
         DccControlledFileSourceGovernanceExecutionResult result =
@@ -205,6 +216,58 @@ class DccControlledFileSourceGovernanceExecutionServiceTest extends BaseMockitoU
         verify(ownershipService, never()).createVerifiedCopy(700L);
         verify(commitService).commitIsolatedSource(eq(candidate), eq(migration),
                 eq(new DccControlledFilePreparedSource(1700L, 700L, HASH, true)), eq(120L), eq(55L), eq(66L));
+    }
+
+    @Test
+    void executeItem_rejectsPersistedCopyWithoutCopyVerifiedEvidence() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch();
+        DccControlledFileSourceGovernanceItemDO item = item("COPY_SHARED_SOURCE");
+        DccControlledFileDO candidate = file(901L, 700L);
+        DccControlledFileSourceMigrationDO migration = DccControlledFileSourceMigrationDO.builder()
+                .id(77L).tenantId(31L).controlledFileId(901L).legacySourceFileId(700L)
+                .isolatedSourceFileId(1700L).sourceSha256(HASH).migrationStatus("FAILED").build();
+        when(manifestService.isCompleted(item)).thenReturn(false);
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L)).thenReturn(candidate);
+        when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 901L)).thenReturn(List.of(
+                reference(31L, 901L, 700L), reference(31L, 902L, 700L)));
+        when(fileMapper.selectById(700L)).thenReturn(file());
+        when(ownershipService.inspectSource(700L))
+                .thenReturn(new DccControlledFilePreparedSource(700L, 700L, HASH, false));
+        when(migrationMapper.selectByControlledFileId(31L, 901L)).thenReturn(migration);
+
+        DccControlledFileSourceGovernanceExecutionResult result =
+                service.executeItem(batch, item, Set.of(31L), "manifest", "request", 120L);
+
+        assertEquals("BLOCKED", result.status());
+        assertEquals("MIGRATION_COPY_EVIDENCE_INVALID", result.reasonCode());
+        verify(ownershipService, never()).inspectSource(1700L);
+        verify(commitService, never()).commitIsolatedSource(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void executeItem_sharedSourceWithExistingOwnershipRequiresManualReview() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch();
+        DccControlledFileSourceGovernanceItemDO item = item("COPY_SHARED_SOURCE");
+        DccControlledFileDO candidate = file(901L, 700L);
+        DccControlledFileSourceOwnershipDO ownership = DccControlledFileSourceOwnershipDO.builder()
+                .id(88L).tenantId(31L).controlledFileId(901L).sourceFileId(700L)
+                .sourceSha256(HASH).build();
+        when(manifestService.isCompleted(item)).thenReturn(false);
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L)).thenReturn(candidate);
+        when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 901L)).thenReturn(List.of(
+                reference(31L, 901L, 700L), reference(31L, 902L, 700L)));
+        when(fileMapper.selectById(700L)).thenReturn(file());
+        when(ownershipMapper.selectByControlledFileId(31L, 901L)).thenReturn(ownership);
+        when(ownershipService.inspectSource(700L))
+                .thenReturn(new DccControlledFilePreparedSource(700L, 700L, HASH, false));
+
+        DccControlledFileSourceGovernanceExecutionResult result =
+                service.executeItem(batch, item, Set.of(31L), "manifest", "request", 120L);
+
+        assertEquals("BLOCKED", result.status());
+        assertEquals("SOURCE_OWNERSHIP_SHARED_REQUIRES_MANUAL_REVIEW", result.reasonCode());
+        verify(ownershipService, never()).createVerifiedCopy(700L);
+        verify(commitService, never()).commitIsolatedSource(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -279,6 +342,50 @@ class DccControlledFileSourceGovernanceExecutionServiceTest extends BaseMockitoU
     }
 
     @Test
+    void executeSharedGroup_attemptsEveryCopyCleanupWhenOneCleanupFails() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch();
+        List<DccControlledFileSourceGovernanceItemDO> items = List.of(
+                item("COPY_SHARED_SOURCE"), item("COPY_SHARED_SOURCE"));
+        for (int index = 0; index < items.size(); index++) {
+            items.get(index).setId(66L + index);
+            items.get(index).setControlledFileId(901L + index);
+            items.get(index).setSharedGroupKey("source:700");
+        }
+        when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 901L)).thenReturn(List.of(
+                reference(31L, 901L, 700L), reference(31L, 902L, 700L)));
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(eq(31L), any()))
+                .thenAnswer(invocation -> file(invocation.getArgument(1), 700L));
+        when(fileMapper.selectById(700L)).thenReturn(file());
+        when(ownershipService.inspectSource(700L))
+                .thenReturn(new DccControlledFilePreparedSource(700L, 700L, HASH, false));
+        when(ownershipService.createVerifiedCopy(700L)).thenReturn(
+                new DccControlledFilePreparedSource(1701L, 700L, HASH, true),
+                new DccControlledFilePreparedSource(1702L, 700L, HASH, true));
+        doAnswer(invocation -> {
+            DccControlledFileDO candidate = invocation.getArgument(0);
+            if (candidate.getId().equals(902L)) {
+                throw new IllegalStateException("group commit failed");
+            }
+            return null;
+        }).when(commitService).commitIsolatedSource(any(), any(), any(), eq(120L), eq(55L), any());
+        doThrow(new IllegalStateException("first cleanup failed")).when(ownershipService)
+                .cleanupFailedCopy(eq(1701L), any(RuntimeException.class));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.executeSharedGroup(batch, items, Set.of(31L), "manifest", "request", 120L));
+
+        verify(ownershipService).cleanupFailedCopy(eq(1701L), any(RuntimeException.class));
+        verify(ownershipService).cleanupFailedCopy(eq(1702L), any(RuntimeException.class));
+    }
+
+    @Test
+    void executeSharedGroup_rejectsEmptyGroupBeforeReturningSuccess() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.executeSharedGroup(batch(), List.of(), Set.of(31L),
+                        "manifest", "request", 120L));
+    }
+
+    @Test
     void executeItem_finalEvidenceWriteFailureCleansCreatedCopyAndPropagates() {
         DccControlledFileSourceGovernanceBatchDO batch = batch();
         DccControlledFileSourceGovernanceItemDO item = item("COPY_SHARED_SOURCE");
@@ -300,6 +407,26 @@ class DccControlledFileSourceGovernanceExecutionServiceTest extends BaseMockitoU
                 () -> service.executeItem(batch, item, Set.of(31L), "manifest", "request", 120L));
 
         verify(ownershipService).cleanupFailedCopy(eq(1700L), any(RuntimeException.class));
+    }
+
+    @Test
+    void executeItem_zeroRowFinalEvidenceWriteFailsInsteadOfReturningCompleted() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch();
+        DccControlledFileSourceGovernanceItemDO item = item("CLAIM_SOURCE");
+        DccControlledFileDO candidate = file(901L, 700L);
+        when(manifestService.isCompleted(item)).thenReturn(false);
+        when(controlledFileMapper.selectByIdAndTenantIncludingDeleted(31L, 901L)).thenReturn(candidate);
+        when(controlledFileMapper.selectGlobalEffectiveSourceReferences(700L, 901L))
+                .thenReturn(List.of(reference(31L, 901L, 700L)));
+        when(fileMapper.selectById(700L)).thenReturn(file());
+        when(ownershipService.inspectSource(700L))
+                .thenReturn(new DccControlledFilePreparedSource(700L, 700L, HASH, false));
+        when(migrationMapper.selectByControlledFileId(31L, 901L)).thenReturn(null);
+        when(migrationMapper.insert(any(DccControlledFileSourceMigrationDO.class))).thenReturn(1);
+        when(itemMapper.updateById(any(DccControlledFileSourceGovernanceItemDO.class))).thenReturn(0);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.executeItem(batch, item, Set.of(31L), "manifest", "request", 120L));
     }
 
     private DccControlledFileSourceGovernanceBatchDO batch() {

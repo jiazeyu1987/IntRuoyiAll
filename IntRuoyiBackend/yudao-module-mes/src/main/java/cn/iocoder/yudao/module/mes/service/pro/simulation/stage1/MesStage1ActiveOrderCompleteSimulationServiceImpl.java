@@ -5,8 +5,12 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionReplenishmentListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionReplenishmentListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
@@ -121,6 +125,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesProcessPoolActiveOrderPickListBindingItemMapper bindingItemMapper;
     private final ErpKingdeeProductionPickListMapper pickListMapper;
     private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    private final ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper;
+    private final ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     private final MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
@@ -162,6 +168,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesProcessPoolActiveOrderPickListBindingItemMapper bindingItemMapper,
             ErpKingdeeProductionPickListMapper pickListMapper,
             ErpKingdeeProductionPickListItemMapper pickListItemMapper,
+            ErpKingdeeProductionReplenishmentListMapper replenishmentListMapper,
+            ErpKingdeeProductionReplenishmentListItemMapper replenishmentListItemMapper,
             MesProProcessPoolEventMapper eventMapper,
             MesProProcessPoolPqcRecordMapper pqcRecordMapper,
             MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper,
@@ -201,6 +209,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         this.bindingItemMapper = bindingItemMapper;
         this.pickListMapper = pickListMapper;
         this.pickListItemMapper = pickListItemMapper;
+        this.replenishmentListMapper = replenishmentListMapper;
+        this.replenishmentListItemMapper = replenishmentListItemMapper;
         this.eventMapper = eventMapper;
         this.pqcRecordMapper = pqcRecordMapper;
         this.quantityFragmentMapper = quantityFragmentMapper;
@@ -321,6 +331,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                     command.getSimulationRunId(), command.getActorUserId());
             cloneBinding(templateBinding, pickList, activeOrder, workOrder, command);
         }
+        cloneReplenishmentLists(templateWorkOrder.getCode(), workOrder.getCode(), command.getSimulationRunId());
         createFormalProductIssue(activeOrder, workOrder, command);
         return activeOrder;
     }
@@ -557,6 +568,71 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                     .simulationStage(STAGE)
                     .simulationRunId(command.getSimulationRunId())
                     .build());
+        }
+    }
+
+    private void cloneReplenishmentLists(String sourceWorkOrderCode, String targetWorkOrderCode, String runId) {
+        if (blank(sourceWorkOrderCode) || blank(targetWorkOrderCode)) {
+            return;
+        }
+        List<ErpKingdeeProductionReplenishmentListItemDO> sourceItems =
+                replenishmentListItemMapper.selectListByProductionOrderNo(sourceWorkOrderCode);
+        if (sourceItems == null || sourceItems.isEmpty()) {
+            return;
+        }
+        List<Long> replenishmentListIds = sourceItems.stream()
+                .map(ErpKingdeeProductionReplenishmentListItemDO::getProductionReplenishmentListId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        String safe = shortRunId(runId);
+        for (Long replenishmentListId : replenishmentListIds) {
+            ErpKingdeeProductionReplenishmentListDO header = replenishmentListMapper.selectById(replenishmentListId);
+            List<ErpKingdeeProductionReplenishmentListItemDO> items = sourceItems.stream()
+                    .filter(item -> Objects.equals(replenishmentListId, item.getProductionReplenishmentListId()))
+                    .toList();
+            if (header == null || blank(header.getSourceFid()) || blank(header.getSourceBillNo())
+                    || blank(header.getDocumentStatus()) || items.isEmpty()) {
+                throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+            }
+            String copiedSourcePrefix = "STAGE1-" + safe + "-RL-" + header.getId();
+            String copiedSourceFid = copiedSourcePrefix + "-FID";
+            String copiedSourceBillNo = "STAGE1-RL-" + safe + "-" + header.getId();
+            ErpKingdeeProductionReplenishmentListDO copy =
+                    BeanUtils.toBean(header, ErpKingdeeProductionReplenishmentListDO.class)
+                            .setId(null)
+                            .setSourceFid(copiedSourceFid)
+                            .setSourceBillNo(copiedSourceBillNo)
+                            .setDocumentStatus("C")
+                            .setDescription("Stage1正式补料模拟")
+                            .setLastSyncTime(LocalDateTime.now())
+                            .setRawPayload(JsonUtils.toJsonString(Map.of(
+                                    "simulated", true, "simulationStage", STAGE,
+                                    "simulationRunId", runId, "source", "MES_STAGE1_SIMULATION_FIXTURE",
+                                    "formalReplenishmentListId", String.valueOf(header.getId()),
+                                    "formalSourceFid", header.getSourceFid(),
+                                    "formalSourceBillNo", header.getSourceBillNo())));
+            replenishmentListMapper.insert(copy);
+            for (ErpKingdeeProductionReplenishmentListItemDO item : items) {
+                replenishmentListItemMapper.insert(BeanUtils.toBean(item,
+                                ErpKingdeeProductionReplenishmentListItemDO.class)
+                        .setId(null)
+                        .setProductionReplenishmentListId(copy.getId())
+                        .setSourceFid(copiedSourceFid)
+                        .setSourceEntryId("STAGE1-" + safe + "-RL-ENTRY-" + item.getId())
+                        .setSourceLineKey(copiedSourcePrefix + "-LINE-" + item.getId())
+                        .setSourceBillNo(copiedSourceBillNo)
+                        .setProductionOrderNo(targetWorkOrderCode)
+                        .setRawPayload(JsonUtils.toJsonString(Map.of(
+                                "simulated", true, "simulationStage", STAGE, "simulationRunId", runId,
+                                "source", "MES_STAGE1_SIMULATION_FIXTURE",
+                                "formalReplenishmentListId", String.valueOf(header.getId()),
+                                "formalSourceFid", item.getSourceFid(),
+                                "formalSourceEntryId", item.getSourceEntryId(),
+                                "formalSourceLineKey", item.getSourceLineKey(),
+                                "formalSourceBillNo", item.getSourceBillNo())))
+                        .setLastSyncTime(LocalDateTime.now()));
+            }
         }
     }
 
@@ -854,6 +930,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 activeOrderMapper.deleteById(activeOrder.getId());
             }
             cleanupCopiedPickLists(runId);
+            cleanupCopiedReplenishmentLists(runId);
             cleanupFormalProductIssueSources(workOrder.getId());
             workOrderBomMapper.deleteByWorkOrderId(workOrder.getId());
             workOrderMapper.deleteById(workOrder.getId());
@@ -871,6 +948,17 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             pickListItemMapper.selectListByPickListIds(List.of(pickList.getId()))
                     .forEach(item -> pickListItemMapper.deleteById(item.getId()));
             pickListMapper.deleteById(pickList.getId());
+        }
+    }
+
+    private void cleanupCopiedReplenishmentLists(String runId) {
+        List<ErpKingdeeProductionReplenishmentListDO> replenishmentLists = replenishmentListMapper.selectList(
+                new LambdaQueryWrapper<ErpKingdeeProductionReplenishmentListDO>()
+                        .likeRight(ErpKingdeeProductionReplenishmentListDO::getSourceFid,
+                                "STAGE1-" + shortRunId(runId) + "-RL-"));
+        for (ErpKingdeeProductionReplenishmentListDO replenishmentList : replenishmentLists) {
+            replenishmentListItemMapper.deleteByProductionReplenishmentListId(replenishmentList.getId());
+            replenishmentListMapper.deleteById(replenishmentList.getId());
         }
     }
 

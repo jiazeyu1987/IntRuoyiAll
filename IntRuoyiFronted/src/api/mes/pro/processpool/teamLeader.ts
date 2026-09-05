@@ -494,6 +494,20 @@ export interface TeamLeaderActiveOrderInputMaterialDetailRespVO {
   sourceSnapshotHash?: string
 }
 
+export interface TeamLeaderActiveOrderSupplementMaterialDetailRespVO {
+  materialId?: number
+  materialCode: string
+  materialName: string
+  materialSpecification?: string
+  batchCodes: string[]
+  requestedQuantity?: number | string
+  actualQuantity?: number | string
+  baseActualQuantity?: number | string
+  sourceReplenishmentListIds: number[]
+  sourceReplenishmentListNos: string[]
+  sourceReplenishmentListItemIds: number[]
+}
+
 export interface TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO {
   aggregateDetailId: number
   sampleNo?: number
@@ -534,6 +548,7 @@ export interface TeamLeaderActiveOrderProcessDetailRespVO {
   submittedQuantity: number | string
   submissionCount: number
   inputMaterials: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
+  supplementMaterials?: TeamLeaderActiveOrderSupplementMaterialDetailRespVO[]
   submissions: TeamLeaderActiveOrderSubmissionDetailRespVO[]
   pqcSubmissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]
   quantityConflict?: boolean

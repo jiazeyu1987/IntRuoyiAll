@@ -31,6 +31,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private Boolean quantityConflict;
         private BigDecimal overageQuantity;
         private List<InputMaterialDetail> inputMaterials = List.of();
+        private List<SupplementMaterialDetail> supplementMaterials = List.of();
         private List<SubmissionDetail> submissions = List.of();
         private List<PqcSubmissionDetail> pqcSubmissions = List.of();
     }
@@ -50,6 +51,22 @@ public class MesTeamLeaderActiveOrderDetail {
         private List<String> sourcePickListNos = List.of();
         private List<Long> sourcePickListItemIds = List.of();
         private String sourceSnapshotHash;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SupplementMaterialDetail {
+        private Long materialId;
+        private String materialCode;
+        private String materialName;
+        private String materialSpecification;
+        private List<String> batchCodes = List.of();
+        private BigDecimal requestedQuantity;
+        private BigDecimal actualQuantity;
+        private BigDecimal baseActualQuantity;
+        private List<Long> sourceReplenishmentListIds = List.of();
+        private List<String> sourceReplenishmentListNos = List.of();
+        private List<Long> sourceReplenishmentListItemIds = List.of();
     }
 
     @Data

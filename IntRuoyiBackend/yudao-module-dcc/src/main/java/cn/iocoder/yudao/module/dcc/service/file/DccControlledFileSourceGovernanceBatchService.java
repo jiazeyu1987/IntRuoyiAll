@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_BATCH_SIZE_SPLITS_GROUP;
+import static cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceWriteGuard.requireExactlyOne;
 
 @Service
 public class DccControlledFileSourceGovernanceBatchService {
@@ -64,11 +65,10 @@ public class DccControlledFileSourceGovernanceBatchService {
         batch.setBatchStatus("CONFIRMED");
         batch.setConfirmedBy(actorId);
         batch.setConfirmedTime(LocalDateTime.now());
-        batchMapper.updateById(batch);
+        requireExactlyOne(batchMapper.updateById(batch), "confirm source governance batch");
         return batch;
     }
 
-    @Transactional(rollbackFor = Exception.class)
     public DccControlledFileSourceGovernanceBatchExecutionResult executeConfirmedBatch(
             String taskKey, int batchSize, String manifestSha256, String requestSha256, Long actorId) {
         if (batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
@@ -104,12 +104,23 @@ public class DccControlledFileSourceGovernanceBatchService {
                 }
                 break;
             }
-            if (Objects.equals(group.get(0).getGovernanceAction(), "COPY_SHARED_SOURCE")) {
-                executionService.executeSharedGroup(batch, group, tenantScope,
-                        manifestSha256, requestSha256, actorId);
-            } else {
-                executionService.executeItem(batch, group.get(0), tenantScope,
-                        manifestSha256, requestSha256, actorId);
+            try {
+                if (Objects.equals(group.get(0).getGovernanceAction(), "COPY_SHARED_SOURCE")) {
+                    executionService.executeSharedGroup(batch, group, tenantScope,
+                            manifestSha256, requestSha256, actorId);
+                } else {
+                    executionService.executeItem(batch, group.get(0), tenantScope,
+                            manifestSha256, requestSha256, actorId);
+                }
+            } catch (RuntimeException failure) {
+                executionService.recordGroupFailure(group, actorId, failure);
+                Map<String, Integer> failedCounts = statusCounts(batch.getId(), tenantId);
+                batch.setBatchStatus("FAILED");
+                batch.setCompletedCount((long) failedCounts.getOrDefault("COMPLETED", 0));
+                batch.setBlockedCount((long) failedCounts.getOrDefault("BLOCKED", 0));
+                batch.setFailedCount((long) failedCounts.getOrDefault("FAILED", group.size()));
+                requireExactlyOne(batchMapper.updateById(batch), "record failed source governance batch");
+                throw failure;
             }
             processed += group.size();
         }
@@ -125,7 +136,7 @@ public class DccControlledFileSourceGovernanceBatchService {
         batch.setCompletedCount((long) completed);
         batch.setBlockedCount((long) blocked);
         batch.setFailedCount((long) failed);
-        batchMapper.updateById(batch);
+        requireExactlyOne(batchMapper.updateById(batch), "update source governance batch summary");
         return new DccControlledFileSourceGovernanceBatchExecutionResult(
                 taskKey, status, processed, completed, blocked, failed, remaining);
     }

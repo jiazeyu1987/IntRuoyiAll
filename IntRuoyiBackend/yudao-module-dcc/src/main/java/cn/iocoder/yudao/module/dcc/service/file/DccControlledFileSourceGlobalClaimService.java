@@ -11,6 +11,7 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceWriteGuard.requireExactlyOne;
 
 @Service
 public class DccControlledFileSourceGlobalClaimService {
@@ -42,7 +43,7 @@ public class DccControlledFileSourceGlobalClaimService {
                 .claimedTime(LocalDateTime.now())
                 .build();
         try {
-            claimMapper.insert(claim);
+            requireExactlyOne(claimMapper.insert(claim), "insert global source claim");
         } catch (DuplicateKeyException ex) {
             DccControlledFileSourceGlobalClaimDO concurrent = claimMapper.selectBySourceFileId(sourceFileId);
             if (matches(concurrent, tenantId, sourceFileId, controlledFileId, sourceSha256)) {

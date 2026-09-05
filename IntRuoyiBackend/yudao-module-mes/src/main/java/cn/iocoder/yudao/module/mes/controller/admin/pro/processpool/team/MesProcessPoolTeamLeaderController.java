@@ -1217,6 +1217,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setInputMaterials(process.getInputMaterials().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderInputMaterialDetailRespVO)
                         .toList())
+                .setSupplementMaterials(process.getSupplementMaterials().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderSupplementMaterialDetailRespVO)
+                        .toList())
                 .setSubmissions(process.getSubmissions().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDetailRespVO)
                         .toList())
@@ -1240,6 +1243,23 @@ public class MesProcessPoolTeamLeaderController {
                 .setSourcePickListNos(material.getSourcePickListNos())
                 .setSourcePickListItemIds(material.getSourcePickListItemIds())
                 .setSourceSnapshotHash(material.getSourceSnapshotHash());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.SupplementMaterialDetail
+    toActiveOrderSupplementMaterialDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.SupplementMaterialDetail material) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.SupplementMaterialDetail()
+                .setMaterialId(material.getMaterialId())
+                .setMaterialCode(material.getMaterialCode())
+                .setMaterialName(material.getMaterialName())
+                .setMaterialSpecification(material.getMaterialSpecification())
+                .setBatchCodes(material.getBatchCodes())
+                .setRequestedQuantity(material.getRequestedQuantity())
+                .setActualQuantity(material.getActualQuantity())
+                .setBaseActualQuantity(material.getBaseActualQuantity())
+                .setSourceReplenishmentListIds(material.getSourceReplenishmentListIds())
+                .setSourceReplenishmentListNos(material.getSourceReplenishmentListNos())
+                .setSourceReplenishmentListItemIds(material.getSourceReplenishmentListItemIds());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.SubmissionDetail toActiveOrderSubmissionDetailRespVO(

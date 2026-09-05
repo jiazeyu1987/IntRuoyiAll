@@ -28,6 +28,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_BATCH_SIZE_SPLITS_GROUP;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_MANIFEST_INVALID;
+import static cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceWriteGuard.requireExactlyOne;
 
 @Service
 public class DccControlledFileSourceGovernancePreparationService {
@@ -105,10 +106,10 @@ public class DccControlledFileSourceGovernancePreparationService {
         List<DccControlledFileSourceGovernanceItemDO> itemRows = preparedItems.stream()
                 .map(prepared -> toItem(null, tenantId, prepared)).toList();
         batch.setManifestSha256(manifestHasher.sha256(batch, itemRows));
-        batchMapper.insert(batch);
+        requireExactlyOne(batchMapper.insert(batch), "insert source governance batch");
         for (DccControlledFileSourceGovernanceItemDO item : itemRows) {
             item.setBatchId(batch.getId());
-            itemMapper.insert(item);
+            requireExactlyOne(itemMapper.insert(item), "insert source governance item");
         }
         return summarize(batch, itemRows, normalizedStartAfterId);
     }

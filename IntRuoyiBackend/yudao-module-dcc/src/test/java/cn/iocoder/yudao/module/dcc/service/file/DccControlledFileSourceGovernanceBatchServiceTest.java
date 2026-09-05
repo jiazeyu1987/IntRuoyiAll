@@ -19,6 +19,7 @@ import java.util.Map;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_GOVERNANCE_BATCH_SIZE_SPLITS_GROUP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -41,6 +42,8 @@ class DccControlledFileSourceGovernanceBatchServiceTest extends BaseMockitoUnitT
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(31L);
+        org.mockito.Mockito.lenient().when(batchMapper.updateById(
+                any(DccControlledFileSourceGovernanceBatchDO.class))).thenReturn(1);
     }
 
     @AfterEach
@@ -52,6 +55,7 @@ class DccControlledFileSourceGovernanceBatchServiceTest extends BaseMockitoUnitT
     void confirmBatch_requiresPreparedStatusAndRecordsConfirmation() {
         DccControlledFileSourceGovernanceBatchDO batch = batch("PREPARED");
         when(batchMapper.selectByTaskKey("task-1")).thenReturn(batch);
+        when(batchMapper.updateById(batch)).thenReturn(1);
 
         DccControlledFileSourceGovernanceBatchDO result =
                 service.confirmBatch("task-1", 120L, "manifest", "request");
@@ -59,6 +63,16 @@ class DccControlledFileSourceGovernanceBatchServiceTest extends BaseMockitoUnitT
         assertEquals("CONFIRMED", result.getBatchStatus());
         assertEquals(120L, result.getConfirmedBy());
         verify(batchMapper).updateById(batch);
+    }
+
+    @Test
+    void confirmBatch_zeroRowAuditUpdateFailsClosed() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch("PREPARED");
+        when(batchMapper.selectByTaskKey("task-1")).thenReturn(batch);
+        when(batchMapper.updateById(batch)).thenReturn(0);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.confirmBatch("task-1", 120L, "manifest", "request"));
     }
 
     @Test
@@ -158,6 +172,40 @@ class DccControlledFileSourceGovernanceBatchServiceTest extends BaseMockitoUnitT
 
         verify(executionService).executeSharedGroup(batch, List.of(item), java.util.Set.of(31L),
                 "manifest", "request", 120L);
+    }
+
+    @Test
+    void executeConfirmedBatch_recordsSharedGroupFailureAfterGroupRollback() {
+        DccControlledFileSourceGovernanceBatchDO batch = batch("CONFIRMED");
+        List<DccControlledFileSourceGovernanceItemDO> group = List.of(
+                item(66L, "READY"), item(67L, "READY"));
+        group.forEach(item -> {
+            item.setGovernanceAction("COPY_SHARED_SOURCE");
+            item.setSharedGroupKey("source:700");
+            item.setSnapshotSourceFileId(700L);
+        });
+        IllegalStateException failure = new IllegalStateException("object storage unavailable");
+        when(batchMapper.selectByTaskKey("task-1")).thenReturn(batch);
+        when(itemMapper.selectByBatchAndTenant(55L, 31L)).thenReturn(group);
+        doThrow(failure).when(executionService).executeSharedGroup(
+                batch, group, java.util.Set.of(31L), "manifest", "request", 120L);
+        when(itemMapper.selectStatusCountsByBatchAndTenant(55L, 31L)).thenReturn(List.of(
+                Map.of("itemStatus", "FAILED", "itemCount", 2)));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.executeConfirmedBatch("task-1", 100, "manifest", "request", 120L));
+
+        verify(executionService).recordGroupFailure(group, 120L, failure);
+        verify(batchMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileSourceGovernanceBatchDO>argThat(value ->
+                "FAILED".equals(value.getBatchStatus()) && Long.valueOf(2L).equals(value.getFailedCount())));
+    }
+
+    @Test
+    void executeConfirmedBatch_doesNotWrapIndependentGroupsInOneTransaction() throws Exception {
+        assertNull(DccControlledFileSourceGovernanceBatchService.class
+                .getMethod("executeConfirmedBatch", String.class, int.class, String.class,
+                        String.class, Long.class)
+                .getAnnotation(org.springframework.transaction.annotation.Transactional.class));
     }
 
     private DccControlledFileSourceGovernanceBatchDO batch(String status) {

@@ -267,6 +267,59 @@
           </div>
           <el-empty v-else :image-size="56" description="暂无领料单物料批号" />
         </el-tab-pane>
+        <el-tab-pane
+          label="补料单"
+          name="replenishmentMaterials"
+          data-team-leader-active-order-detail-replenishment-tab
+        >
+          <div
+            v-if="replenishmentMaterials.length"
+            class="team-leader-workbench__active-order-detail-table-shell"
+          >
+            <el-table
+              :data="replenishmentMaterials"
+              size="small"
+              border
+              :fit="true"
+              table-layout="fixed"
+              class="team-leader-workbench__active-order-submission-table"
+            >
+              <el-table-column label="补料单" width="180">
+                <template #default="{ row: material }">
+                  {{ formatActiveOrderReplenishmentListNos(material.sourceReplenishmentListNos) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="物料编码" prop="materialCode" width="140" />
+              <el-table-column label="物料名称" prop="materialName" />
+              <el-table-column label="规格型号" width="150">
+                <template #default="{ row: material }">
+                  {{ material.materialSpecification || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="批号" width="180">
+                <template #default="{ row: material }">
+                  {{ formatActiveOrderBatchCodes(material.batchCodes) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="申请数量" width="120">
+                <template #default="{ row: material }">
+                  {{ formatTraceQuantity(material.requestedQuantity) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="实发数量" width="120">
+                <template #default="{ row: material }">
+                  {{ formatTraceQuantity(material.actualQuantity) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="对应工序" width="160">
+                <template #default="{ row: material }">
+                  {{ material.sourceProcessNames.join('、') || '-' }}
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <el-empty v-else :image-size="56" description="暂无补料单物料批号" />
+        </el-tab-pane>
       </el-tabs>
     </template>
   </div>
@@ -280,6 +333,7 @@ import type {
   TeamLeaderActiveOrderPqcSubmissionDetailRespVO,
   TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO,
   TeamLeaderActiveOrderProcessDetailRespVO,
+  TeamLeaderActiveOrderSupplementMaterialDetailRespVO,
   TeamLeaderActiveOrderSubmissionDeviceDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -313,6 +367,11 @@ const formatActiveOrderBatchCodes = (batchCodes?: string[]) => {
 }
 
 const formatActiveOrderPickListNos = (sourceNos?: string[]) => {
+  const normalized = (sourceNos ?? []).map((sourceNo) => String(sourceNo).trim()).filter(Boolean)
+  return normalized.length ? normalized.join('、') : '-'
+}
+
+const formatActiveOrderReplenishmentListNos = (sourceNos?: string[]) => {
   const normalized = (sourceNos ?? []).map((sourceNo) => String(sourceNo).trim()).filter(Boolean)
   return normalized.length ? normalized.join('、') : '-'
 }
@@ -526,6 +585,50 @@ const pickListMaterials = computed<ActiveOrderDetailPickListMaterialRow[]>(() =>
       rowsByKey.set(rowKey, {
         ...material,
         sourcePickListNos,
+        batchCodes,
+        sourceProcessNames: [process.processName]
+      })
+    }
+  }
+  return Array.from(rowsByKey.values())
+})
+
+type ActiveOrderDetailReplenishmentMaterialRow =
+  TeamLeaderActiveOrderSupplementMaterialDetailRespVO & {
+    sourceProcessNames: string[]
+  }
+
+const replenishmentMaterials = computed<ActiveOrderDetailReplenishmentMaterialRow[]>(() => {
+  const detailResult = props.detail
+  if (!detailResult?.processes?.length) return []
+  const rowsByKey = new Map<string, ActiveOrderDetailReplenishmentMaterialRow>()
+  for (const process of detailResult.processes) {
+    for (const material of process.supplementMaterials ?? []) {
+      const sourceReplenishmentListNos = (material.sourceReplenishmentListNos ?? [])
+        .map((sourceNo) => String(sourceNo).trim())
+        .filter(Boolean)
+        .sort()
+      const batchCodes = (material.batchCodes ?? [])
+        .map((batchCode) => String(batchCode).trim())
+        .filter(Boolean)
+        .sort()
+      const rowKey = [
+        sourceReplenishmentListNos.join('|'),
+        material.materialCode,
+        batchCodes.join('|'),
+        material.actualQuantity ?? '',
+        material.baseActualQuantity ?? ''
+      ].join('::')
+      const existed = rowsByKey.get(rowKey)
+      if (existed) {
+        if (!existed.sourceProcessNames.includes(process.processName)) {
+          existed.sourceProcessNames.push(process.processName)
+        }
+        continue
+      }
+      rowsByKey.set(rowKey, {
+        ...material,
+        sourceReplenishmentListNos,
         batchCodes,
         sourceProcessNames: [process.processName]
       })
