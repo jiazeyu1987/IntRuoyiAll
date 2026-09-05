@@ -76,3 +76,22 @@
 - Experience consolidation: updated `docs/e2e-rules.md` with the reusable OLD + same-version change-file E2E fixture rule: create and approve change through the real frontend, then create and approve renewal through the real frontend before validating OLD detail and downloads.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260905-registration-download-simulated-e2e-verify --mode preview` -> BLOCKED.
 - Blocker details: current branch `codex/20260905-registration-download-simulated-e2e-verify` is based on `329799964`, while `int_main` is `57a28ec11`; cleanup cannot fast-forward merge until the branch is rebased/merged onto latest `int_main` and implementation changes are committed. The preview also classified pending source/doc changes as unsafe for apply while uncommitted.
+
+## 2026-09-05 Rebase And Targeted Regression
+
+- Rebase: `git rebase int_main` initially conflicted only in `docs/e2e-rules.md`; resolved by keeping both the upstream account-label/display-name audit gate and this task's OLD + same-version change-file E2E fixture gate.
+- Rebase result: branch `codex/20260905-registration-download-simulated-e2e-verify` is now based on `int_main` commit `57a28ec11` with task commits `e1ad9e520` and `d026d0a65` replayed.
+- GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateGrantServiceTest,DccRegistrationCertificateQueryServiceTest,DccRegistrationCertificateActivationServiceTest,DccRegistrationCertificateRenewalServiceTest" test` -> PASS, 58 tests.
+- GREEN: `node IntRuoyiFronted/tests/e2e/registration-certificate-download-consistency-static.spec.cjs; node IntRuoyiFronted/tests/e2e/registration-certificate-change-file-access-static.spec.cjs; node IntRuoyiFronted/tests/registration-certificate-download-diagnostics-static.spec.mjs` -> PASS.
+- GREEN: `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json --pretty false` -> PASS.
+
+## 2026-09-05 BPM Summary Regression
+
+- BDD: 变更申请 BPM 摘要字段完整 -> Given 用户通过真实注册证变更页面提交审批 When 后端写入下载/变更访问申请 Then `detail_json` 必须包含证件编号、分类、产品名称和所属企业名称，审批中心摘要不能只剩技术 ID。
+- GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateChangeServiceTest#submittedChangeApprovalRequestContainsRequiredBpmSummaryFields" test` -> PASS, 1 test.
+- GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateChangeServiceTest" test` -> PASS, 12 tests.
+
+## 2026-09-05 Closeout Preview After Summary Regression
+
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260905-registration-download-simulated-e2e-verify --mode preview` -> BLOCKED.
+- Blocker details: cleanup preview can classify task-owned E2E artifacts for deletion and core records/scripts for keep, but apply cannot continue while main worktree `E:\IntRuoyi` is dirty. Preview also reports the current uncommitted `DccRegistrationCertificateChangeServiceTest.java` change as unrelated until the implementation/docs are committed or otherwise resolved.

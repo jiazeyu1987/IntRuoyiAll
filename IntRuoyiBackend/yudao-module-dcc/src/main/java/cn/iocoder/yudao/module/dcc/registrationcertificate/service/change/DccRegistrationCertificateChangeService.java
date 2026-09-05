@@ -39,6 +39,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT;
@@ -413,7 +414,8 @@ public class DccRegistrationCertificateChangeService {
     private CertificateState requireCurrentState(Long tenantId, Long certificateId, Integer expectedRowVersion) {
         List<CertificateState> rows = jdbcTemplate.query("""
                         SELECT c.owner_company_id, c.current_version_id, c.current_snapshot_id, c.status, c.row_version,
-                               v.status AS version_status, v.certificate_no, v.effective_date, v.expiry_date,
+                               v.status AS version_status, v.certificate_no, v.classification,
+                               v.effective_date, v.expiry_date,
                                s.id AS snapshot_id, s.version_id, s.revision_no, s.product_name, s.registrant_name,
                                s.model_specification, s.structure_composition, s.intended_use,
                                s.technical_requirements, s.residence_address, s.production_address,
@@ -433,6 +435,7 @@ public class DccRegistrationCertificateChangeService {
                         rs.getInt("row_version"),
                         rs.getString("version_status"),
                         rs.getString("certificate_no"),
+                        rs.getString("classification"),
                         rs.getObject("effective_date", LocalDate.class),
                         rs.getObject("expiry_date", LocalDate.class),
                         new SnapshotRow(
@@ -646,6 +649,7 @@ public class DccRegistrationCertificateChangeService {
 
     private Long insertApprovalRequest(DccRegistrationCertificateChangeCommand command, CertificateState state,
                                        Long changeId, String payloadHash) {
+        String ownerCompanyName = resolveOwnerCompanyName(command.tenantId(), state.ownerCompanyId());
         return insertAndReturnId("""
                 INSERT INTO dcc_registration_certificate_access_request
                   (tenant_id, owner_company_id, certificate_id, requester_user_id, request_type, request_key,
@@ -663,10 +667,37 @@ public class DccRegistrationCertificateChangeService {
             ps.setObject(9, businessClock.now());
             ps.setString(10, JsonUtils.toJsonString(Map.of(
                     "operation", REQUEST_OPERATION_CHANGE_CERTIFICATE,
+                    "certificateNo", requireSummaryText(state.certificateNo()),
+                    "classification", requireSummaryText(state.classification()),
+                    "productName", requireSummaryText(state.snapshot().productName()),
+                    "ownerCompanyName", ownerCompanyName,
                     "changeId", changeId,
                     "payloadHash", payloadHash)));
             ps.setString(11, String.valueOf(command.actorId()));
         });
+    }
+
+    private String resolveOwnerCompanyName(Long tenantId, Long ownerCompanyId) {
+        if (ownerCompanyId == null || ownerCompanyId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        List<String> names = jdbcTemplate.queryForList("""
+                SELECT name
+                  FROM mdm_enterprise
+                 WHERE tenant_id = ? AND id = ? AND type = 'OWNED_COMPANY'
+                   AND status = 'ENABLED' AND deleted = 0
+                """, String.class, tenantId, ownerCompanyId);
+        if (names.size() != 1 || isBlank(names.get(0))) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        return names.get(0).trim();
+    }
+
+    private static String requireSummaryText(String value) {
+        if (isBlank(value)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        return value.trim();
     }
 
     private void insertApprovalRequestFile(Long tenantId, Long requestId, Long businessFileId, String payloadHash) {
@@ -986,6 +1017,7 @@ public class DccRegistrationCertificateChangeService {
 
     private record CertificateState(Long ownerCompanyId, Long versionId, Long snapshotId, String status,
                                     Integer rowVersion, String versionStatus, String certificateNo,
+                                    String classification,
                                     LocalDate effectiveDate, LocalDate expiryDate,
                                     SnapshotRow snapshot) {
     }

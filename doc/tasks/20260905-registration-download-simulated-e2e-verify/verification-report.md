@@ -19,6 +19,7 @@
 - 变更批件入口：注册证详情页仅对 `BOUND + APPLIED` 变更批件显示下载/申请下载，避免待审批变更文件触发后端归属冲突。
 - OLD 详情版本隔离：OLD 详情只展示当前版本对应的变更履历，避免跨版本串显。
 - OLD 失效命名：前端对 OLD 注册证主文件和同版本变更批件追加 `_已失效`，组合场景同时保留 `变更文件`。
+- 变更审批摘要：变更申请写入 BPM 摘要所需的证件编号、分类、产品名称和所属企业名称，避免审批中心只显示技术 ID。
 
 ## Results
 
@@ -41,6 +42,7 @@
 - `node doc/tasks/20260905-registration-download-simulated-e2e-verify/registration-change-file-e2e-8-9.cjs` -> PASS for current-scope E2E-7.
 - `node doc/tasks/20260905-registration-download-simulated-e2e-verify/registration-old-combo-e2e.cjs` -> PASS for E2E-8 and E2E-9.
 - Earlier code regression gates retained: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateGrantServiceTest,DccRegistrationCertificateQueryServiceTest" test` -> PASS, 36 tests; static frontend contracts and relaxed `vue-tsc` -> PASS.
+- BPM summary regression: `mvn -pl yudao-module-dcc "-Dtest=DccRegistrationCertificateChangeServiceTest" test` -> PASS, 12 tests.
 
 ## Time Simulation Note
 

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.association.DccRegistrationCertificateProjectCodeFileAssociationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
@@ -117,6 +118,24 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(55L, longValue("SELECT reviewer_user_id FROM dcc_registration_certificate_change WHERE id = ?", changeId));
         assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
         assertEquals("Registrant B", text("SELECT registrant_name FROM dcc_registration_certificate_snapshot WHERE id = ?", approvedSnapshotId));
+    }
+
+    @Test
+    void submittedChangeApprovalRequestContainsRequiredBpmSummaryFields() {
+        seedCurrentCertificate();
+
+        Long requestId = assertDoesNotThrow(() -> service.submitChangeForApproval(command(
+                "change-bpm-summary", 3, Map.of("PRODUCT_NAME", "Product B"),
+                null, null, null, null)));
+
+        String detailJson = text("SELECT detail_json FROM dcc_registration_certificate_access_request WHERE id = ?",
+                requestId);
+        Map<?, ?> detail = JsonUtils.parseObject(detailJson, Map.class);
+        assertEquals("CHANGE_CERTIFICATE", detail.get("operation"));
+        assertEquals("CERT-001", detail.get("certificateNo"));
+        assertEquals("II", detail.get("classification"));
+        assertEquals("Product A", detail.get("productName"));
+        assertEquals("Owner A", detail.get("ownerCompanyName"));
     }
 
     @Test
@@ -336,6 +355,13 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     private void seedCurrentCertificate() {
+        if (count("SELECT COUNT(*) FROM mdm_enterprise WHERE tenant_id = 1 AND id = 10") == 0) {
+            jdbcTemplate.update("""
+                    INSERT INTO mdm_enterprise
+                        (id, enterprise_code, name, type, status, tenant_id, deleted)
+                    VALUES (10, 'OWNER-10', 'Owner A', 'OWNED_COMPANY', 'ENABLED', 1, 0)
+                    """);
+        }
         jdbcTemplate.update("""
                 INSERT INTO dcc_registration_certificate
                   (id, tenant_id, owner_company_id, product_master_id, project_code_id, first_obtained_date,
