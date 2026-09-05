@@ -1,0 +1,83 @@
+{
+  "task_id": "20260904-dcc-source-ownership-hash-governance",
+  "goal": "治理 DCC 历史受控文件的源文件独占关系与 SHA-256 证据，为 Windchill Revision/Iteration 迁移建立可审计前置。",
+  "status": "completed",
+  "current_stage": "completed",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [
+    "全量历史文件仍有 18,065 条 ownership 缺失，AUTO_MAP=0",
+    "平台 ACTIVE 漂移 17,864、路线快照孤儿 24、访问日志孤儿 685，需业务治理",
+    "全量历史治理前后关联快照尚未建立，不能宣称全部历史文件已治理",
+    "授权批次已覆盖 tenant 1 的 17,607 条和 tenant 122 的 465 条 source 引用；可完成项仅 7 条，其余均为明确 BLOCKED"
+  ],
+  "iteration_counts": {
+    "planner_revisions": 1,
+    "plan_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 6
+  },
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "冻结边界与全局 source_file_id 引用盘点",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": ["DCC Mapper/read-only query contracts", "T1 tests"],
+      "acceptance_ids": ["AC-01", "AC-04", "AC-05", "AC-06", "AC-08", "AC-14", "AC-19", "AC-20"],
+      "owner_agent": "executor-T1",
+      "last_outcome": "Mapper tests and real test-DB read-only global-reference check passed"
+    },
+    {
+      "task_id": "T2",
+      "title": "治理清单与 BLOCKED/幂等状态模型",
+      "status": "completed",
+      "dependency_ids": ["T1"],
+      "write_scope": ["DCC governance schema/DO/Mapper", "T2 tests"],
+      "acceptance_ids": ["AC-07", "AC-09", "AC-12", "AC-13", "AC-17", "AC-19", "AC-20"],
+      "owner_agent": "executor-T2",
+      "last_outcome": "Additive governance schema, DO/Mapper contracts and validator passed"
+    },
+    {
+      "task_id": "T3",
+      "title": "READY/BLOCKED 分类、独占认领和共享复制",
+      "status": "completed",
+      "dependency_ids": ["T1", "T2"],
+      "write_scope": ["DCC source ownership/migration services", "T3 tests"],
+      "acceptance_ids": ["AC-02", "AC-03", "AC-07", "AC-08", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15"],
+      "owner_agent": "executor-T3",
+      "last_outcome": "Independent review corrections complete: caller scope exactly equals frozen scope, business blockers remain BLOCKED after group rollback, COPY_VERIFIED retry fixed, groups commit independently, cleanup is exhaustive, and critical writes require exactly one row; 81 tests pass"
+    },
+    {
+      "task_id": "T4",
+      "title": "清单确认、批次执行和 blocker 查询接口",
+      "status": "completed",
+      "dependency_ids": ["T2", "T3"],
+      "write_scope": ["DCC source governance API", "T4 tests"],
+      "acceptance_ids": ["AC-09", "AC-12", "AC-13", "AC-17"],
+      "owner_agent": "executor-T4",
+      "last_outcome": "Confirmation, bounded execution, blocker, and permission contract endpoints passed"
+    },
+    {
+      "task_id": "T5",
+      "title": "源证据 postflight 和完整迁移门禁重跑",
+      "status": "completed",
+      "dependency_ids": ["T3", "T4"],
+      "write_scope": ["Read-only postflight and migration report"],
+      "acceptance_ids": ["AC-15", "AC-16", "AC-18", "AC-19", "AC-20"],
+      "owner_agent": "executor-T5",
+      "last_outcome": "Latest runtime source pointer, ownership and SHA-256 postflight passed 7/7; full read-only Windchill rerun completed with AUTO_MAP=0 and explicit historical blockers"
+    },
+    {
+      "task_id": "T6",
+      "title": "独立测试、回归与阶段放行",
+      "status": "completed",
+      "dependency_ids": ["T5"],
+      "write_scope": ["test-report.md only"],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16", "AC-17", "AC-18", "AC-19", "AC-20"],
+      "owner_agent": "independent-tester",
+      "last_outcome": "Pass 7 independent verification: 13 classes, 81 tests, all validators, latest runtime health, idempotent retry, postflight and read-only inventory passed; NO-GO remains for historical business blockers"
+    }
+  ],
+  "updated_at": "2026-09-06T01:08:00+08:00"
+}
