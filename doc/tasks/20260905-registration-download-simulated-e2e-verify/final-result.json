@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "scopeChange": "User removed E2E-6 from the download acceptance E2E scope on 2026-09-05.",
+  "baseUrl": "http://127.0.0.1:8158",
+  "backendHealth": "UP",
+  "tenant": "芋道源码",
+  "accounts": {
+    "manager": "chudongchuan",
+    "user": "wanglixuan"
+  },
+  "cases": [
+    { "id": "E2E-1", "result": "PASS", "evidence": "e2e-artifacts/result.json" },
+    { "id": "E2E-2", "result": "PASS", "evidence": "e2e-artifacts/result.json" },
+    { "id": "E2E-3", "result": "PASS", "requestId": 443, "evidence": "e2e-artifacts/result.json" },
+    { "id": "E2E-4", "result": "PASS", "taskId": "BPM:BPM_TASK_TODO:ceb64ad4-a935-11f1-9c8a-00155da805d9", "evidence": "e2e-artifacts/result.json" },
+    { "id": "E2E-5", "result": "PASS", "evidence": "e2e-artifacts/result.json" },
+    { "id": "E2E-7", "result": "PASS", "requestId": 446, "evidence": "e2e-artifacts/change-file-e2e-8-9/result.json" },
+    { "id": "E2E-8", "result": "PASS", "requestId": 441, "evidence": "e2e-artifacts/old-combo/result.json" },
+    { "id": "E2E-9", "result": "PASS", "requestId": 442, "evidence": "e2e-artifacts/old-combo/result.json" }
+  ],
+  "verification": {
+    "acceptanceScopeUpdate": "Removed E2E-6 section and related required assertions/failure rules from e2e_test/registration/download/registration-certificate-download-e2e-acceptance.md.",
+    "runtime": "Frontend http://127.0.0.1:8158 -> HTTP 200; backend http://127.0.0.1:48158/actuator/health -> UP.",
+    "mainE2E": "node doc/tasks/20260905-registration-download-simulated-e2e-verify/registration-download-e2e.cjs -> PASS for E2E-1 through E2E-5.",
+    "changeFileE2E": "node doc/tasks/20260905-registration-download-simulated-e2e-verify/registration-change-file-e2e-8-9.cjs -> PASS for E2E-7.",
+    "oldAndCombinationE2E": "node doc/tasks/20260905-registration-download-simulated-e2e-verify/registration-old-combo-e2e.cjs -> PASS for E2E-8 and E2E-9.",
+    "businessTimeFrontendEntry": "No visible registration test tab in current frontend; static contract still fails, but E2E-6 is removed from current scope."
+  }
+}
