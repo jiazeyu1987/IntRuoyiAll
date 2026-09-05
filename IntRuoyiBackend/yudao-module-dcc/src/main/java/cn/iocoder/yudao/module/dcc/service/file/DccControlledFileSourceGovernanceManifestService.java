@@ -76,7 +76,7 @@ public class DccControlledFileSourceGovernanceManifestService {
                                    Set<Long> tenantScope) {
         Set<Long> frozenTenantScope = frozenTenantScope(batch);
         if (batch == null || item == null || !Objects.equals(batch.getId(), item.getBatchId())
-                || tenantScope == null || !tenantScope.contains(item.getTenantId())
+                || tenantScope == null || !tenantScope.equals(frozenTenantScope)
                 || !frozenTenantScope.contains(item.getTenantId())) {
             throw exception(CONTROLLED_FILE_SOURCE_GOVERNANCE_SCOPE_INVALID);
         }

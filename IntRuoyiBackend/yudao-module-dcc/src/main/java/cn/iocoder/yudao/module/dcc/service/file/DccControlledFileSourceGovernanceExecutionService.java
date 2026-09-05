@@ -105,6 +105,10 @@ public class DccControlledFileSourceGovernanceExecutionService {
                 }
                 results.add(result);
                 if (!Objects.equals(result.status(), "COMPLETED")) {
+                    if (Objects.equals(result.status(), "BLOCKED")) {
+                        throw new DccControlledFileSourceGovernanceGroupBlockedException(
+                                result.reasonCode(), result.detail());
+                    }
                     throw new IllegalStateException("shared governance group did not complete: "
                             + result.controlledFileId() + ":" + result.status());
                 }
@@ -144,6 +148,23 @@ public class DccControlledFileSourceGovernanceExecutionService {
             item.setProcessedBy(actorId);
             item.setProcessedTime(LocalDateTime.now());
             requireExactlyOne(itemMapper.updateById(item), "record failed source governance item");
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public void recordGroupBlocked(List<DccControlledFileSourceGovernanceItemDO> items,
+                                   Long actorId, String reasonCode, String detail) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("blocked governance group must not be empty");
+        }
+        for (DccControlledFileSourceGovernanceItemDO item : items) {
+            item.setItemStatus("BLOCKED");
+            item.setBlockerReasonCode(reasonCode);
+            item.setBlockerDetail(detail);
+            item.setLastError(null);
+            item.setProcessedBy(actorId);
+            item.setProcessedTime(LocalDateTime.now());
+            requireExactlyOne(itemMapper.updateById(item), "record blocked source governance item");
         }
     }
 

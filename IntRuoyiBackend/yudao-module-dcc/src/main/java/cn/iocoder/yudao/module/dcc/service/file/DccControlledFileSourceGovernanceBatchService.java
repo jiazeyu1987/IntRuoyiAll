@@ -112,6 +112,9 @@ public class DccControlledFileSourceGovernanceBatchService {
                     executionService.executeItem(batch, group.get(0), tenantScope,
                             manifestSha256, requestSha256, actorId);
                 }
+            } catch (DccControlledFileSourceGovernanceGroupBlockedException blocked) {
+                executionService.recordGroupBlocked(group, actorId,
+                        blocked.reasonCode(), blocked.detail());
             } catch (RuntimeException failure) {
                 executionService.recordGroupFailure(group, actorId, failure);
                 Map<String, Integer> failedCounts = statusCounts(batch.getId(), tenantId);
