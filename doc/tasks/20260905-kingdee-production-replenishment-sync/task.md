@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Design Constraints Check
 
@@ -34,4 +34,5 @@ ready_for_closeout
 - 禁止 fallback：缺少金蝶正式 FormId、字段标识、账号权限、schema 或测试依赖时必须 fail fast。
 - 租户边界：主表和明细表均必须显式写入当前租户 ID，不依赖数据库默认值或拦截器补值。
 - 验证结论：定向 Maven 后端测试 21 个用例 PASS，前端静态合同 PASS，backend/database evidence validator PASS。
-- 当前限制：未执行 Git 提交/推送；项目规则要求当轮明确授权后才能提交/推送。
+- 实现提交：`58ed56166`，提交信息 `feat: sync Kingdee production replenishment lists`。
+- 当前阻塞：`git push origin codex/kingdee-production-replenishment-sync` 连续两次失败，原因是 GitHub HTTPS 代理 `127.0.0.1` 无法连接；按项目规则，远端推送未完成前不能标记 `completed`。

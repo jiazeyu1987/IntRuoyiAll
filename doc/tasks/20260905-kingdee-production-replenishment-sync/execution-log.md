@@ -27,6 +27,8 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 - Reserved runtime slot with `scripts\runtime\reserve-worktree-slot.ps1`: profile `int_main`, slot `26`, frontend `8160`, backend `48160`.
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch `codex/kingdee-production-replenishment-sync`, profile `int_main`, frontend `8160`, backend `48160`.
 - Cleanup: 本轮误建的半初始化 worktree `D:\IntRuoyiWorktree\kingdee-replenishment-sync` 未完成 checkout 且无端口登记；已执行 `git worktree remove --force --force` 与 `git branch -D codex/kingdee-replenishment-sync`，最终 `Test-Path` 为 `False`。
+- GREEN: `git commit -m "feat: sync Kingdee production replenishment lists"` -> PASS, commit `58ed56166`。
+- BLOCKED: `git push origin codex/kingdee-production-replenishment-sync` -> FAIL twice, reason: `Failed to connect to github.com:443 over proxy 127.0.0.1`.
 
 ## Notes
 
@@ -34,3 +36,4 @@ BDD: 租户上下文缺失时失败 -> Given 同步入口无法解析当前租�
 - Implemented FormId is `PRD_FeedMtrl`, aligned to the dedicated production replenishment list client contract and tests.
 - No live Kingdee write/read E2E was run in this turn; verification stayed within code, schema, job, client parsing, service persistence, controller, and frontend static contracts.
 - Project experience consolidation: 已将同类 worktree 复用与半初始化清理经验合并到 `docs/worktree-memory.md`。
+- Remote closeout remains blocked until GitHub/proxy connectivity is restored and the branch can be pushed.
