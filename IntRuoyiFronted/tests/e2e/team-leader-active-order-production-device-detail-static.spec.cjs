@@ -55,12 +55,12 @@ assert.match(
 )
 assert.match(
   service,
-  /resolveSubmissionDevices\(row, activeOrderId\)[\s\S]*\.setDevices\(/,
+  /\.setDevices\(resolveSubmissionDevices\(row, activeOrderId\)\)/,
   '详情服务必须从正式事件快照解析并填充生产提交设备集合'
 )
 assert.match(
   service,
-  /selectedDevices[\s\S]*deviceParameterReadings[\s\S]*eventDeviceId/,
+  /selectedDevices[\s\S]*deviceParameterReadings[\s\S]*getEventDeviceId\(\)/,
   '详情服务必须兼容 selectedDevices、多设备参数读数和 event.device_id 三类正式设备来源'
 )
 assert.match(
@@ -70,7 +70,7 @@ assert.match(
 )
 assert.match(
   controller,
-  /toActiveOrderSubmissionDeviceDetailRespVO[\s\S]*\.setDevices\(submission\.getDevices\(\)\.stream\(\)/,
+  /\.setDevices\(submission\.getDevices\(\)\.stream\(\)[\s\S]*toActiveOrderSubmissionDeviceDetailRespVO/,
   'Controller 必须把生产提交设备集合映射给前端'
 )
 assert.match(
