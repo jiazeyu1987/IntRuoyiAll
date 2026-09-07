@@ -30,6 +30,7 @@
 - SQL migration contract: 3 passed; complete 12-file dependency closure passed.
 - Verified rollback: A/1 remains ACTIVE, B/1 is marked FINALIZATION_FAILED only by the separate failure transaction, Master remains on A/1, all seven follow-up tables have zero residue, and the completion event is not emitted.
 - Runtime database migration, E2E and 48081 restart were not authorized and remain deferred to P4.
+- P1 commit: `b1e08ba6b`, pushed to `origin/int_main`.
 
 ## Artifacts
 

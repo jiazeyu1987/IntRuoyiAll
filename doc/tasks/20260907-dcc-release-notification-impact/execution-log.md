@@ -199,3 +199,5 @@ No P1 code or local test blocker remains. No Git, real database, E2E, or service
 `GREEN: P1-AC1 through P1-AC5 -> completed; business AC-01, AC-02, AC-03, AC-06, AC-07, AC-14 and AC-16 verified`
 
 Project experience consolidation: added the reusable publication-followup transaction and business-audience snapshot gate to `docs/backend-development.md`; no new long-term document was created.
+
+`GREEN: git commit/push -> PASS, P1 implementation, tests, migration, independent evidence, task state and consolidated experience committed as b1e08ba6b and pushed to origin/int_main; unrelated concurrent changes were excluded`
