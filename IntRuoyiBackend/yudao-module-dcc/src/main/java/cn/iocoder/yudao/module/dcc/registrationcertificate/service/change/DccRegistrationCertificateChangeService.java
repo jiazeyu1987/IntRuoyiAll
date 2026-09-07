@@ -685,7 +685,7 @@ public class DccRegistrationCertificateChangeService {
                 SELECT name
                   FROM mdm_enterprise
                  WHERE tenant_id = ? AND id = ? AND type = 'OWNED_COMPANY'
-                   AND status = 'ENABLED' AND deleted = 0
+                   AND status = 'ENABLE' AND deleted = 0
                 """, String.class, tenantId, ownerCompanyId);
         if (names.size() != 1 || isBlank(names.get(0))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);

@@ -202,6 +202,68 @@ async function selectVisibleOption(page, optionText) {
   await option.click({ timeout: 30000, force: true })
 }
 
+async function selectOptionFromSelect(page, select, optionText) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await select.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000, force: true })
+    await page.waitForFunction(
+      (text) => Array.from(document.querySelectorAll('.el-select-dropdown'))
+        .filter((dropdown) => {
+          const style = window.getComputedStyle(dropdown)
+          return style.display !== 'none' && style.visibility !== 'hidden'
+        })
+        .some((dropdown) => Array.from(dropdown.querySelectorAll('.el-select-dropdown__item:not(.is-disabled)'))
+          .some((item) => item.textContent && item.textContent.trim() === text)),
+      optionText,
+      { timeout: 10000 }
+    )
+    await page.evaluate((text) => {
+      const dropdowns = Array.from(document.querySelectorAll('.el-select-dropdown'))
+        .filter((dropdown) => {
+          const style = window.getComputedStyle(dropdown)
+          return style.display !== 'none' && style.visibility !== 'hidden'
+        })
+      const latestDropdown = dropdowns[dropdowns.length - 1]
+      if (!latestDropdown) throw new Error(`no visible dropdown for ${text}`)
+      const options = Array.from(latestDropdown.querySelectorAll('.el-select-dropdown__item:not(.is-disabled)'))
+      const option = options.find((item) => item.textContent && item.textContent.trim() === text)
+      if (!option) {
+        throw new Error(`option ${text} not found in ${options.map((item) => item.textContent?.trim()).join('/')}`)
+      }
+      option.click()
+    }, optionText)
+    await page.waitForTimeout(200)
+    return
+  }
+}
+
+async function selectStructuredChangeType(page, form, select, label, placeholder) {
+  const input = form.locator(`input[placeholder="${placeholder}"]`).first()
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await selectOptionFromSelect(page, select, label)
+    try {
+      await expect(input).toBeVisible({ timeout: 3000 })
+      return
+    } catch (error) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(200)
+    }
+  }
+  await expect(input).toBeVisible({ timeout: 30000 })
+}
+
+function isPreferredChangeCandidate(certificate) {
+  if (!certificate || certificate.status !== 'CURRENT') {
+    return false
+  }
+  if (certificate.hasPendingChange === true) {
+    return false
+  }
+  if (certificate.hasProjectCode === false || certificate.hasRegistrationFile === false) {
+    return false
+  }
+  return true
+}
+
 function formItemByLabel(form, label) {
   return form
     .getByText(optionTextPattern(label))
@@ -210,9 +272,18 @@ function formItemByLabel(form, label) {
 
 async function selectFormItemOption(page, form, label, optionText) {
   const item = formItemByLabel(form, label)
-  await item.locator('.el-select__wrapper, .el-select').first().click({ force: true })
-  await selectVisibleOption(page, optionText)
-  await expect(item.getByText(optionTextPattern(optionText))).toBeVisible({ timeout: 10000 })
+  await selectOptionFromSelect(page, item.locator('.el-select').first(), optionText)
+  await expect
+    .poll(
+      async () => {
+        const selectedTexts = await item
+          .locator('.el-select__selected-item:not(.el-select__input-wrapper), .el-select__placeholder')
+          .allInnerTexts()
+        return selectedTexts.map((text) => text.trim()).find((text) => text && !text.startsWith('请选择')) || ''
+      },
+      { timeout: 10000, message: `${label} must select ${optionText}` }
+    )
+    .toBe(optionText)
 }
 
 async function gotoCurrentList(page) {
@@ -230,7 +301,10 @@ async function gotoCurrentList(page) {
 }
 
 async function chooseChangeableCertificate(page, evidence) {
-  const rows = await gotoCurrentList(page)
+  let rows = await gotoCurrentList(page)
+  if (config.targetCertificateNo) {
+    rows = await applyCertificateNoFilter(page, config.targetCertificateNo)
+  }
   const tableRows = page.locator('.registration-certificate-current-table .el-table__body-wrapper .el-table__row')
   const count = await tableRows.count()
   for (let index = 0; index < count; index += 1) {
@@ -245,6 +319,9 @@ async function chooseChangeableCertificate(page, evidence) {
       continue
     }
     const certificate = rows.find((item) => String(item.certificateNo || '').trim() === rowCertificateNo) || {}
+    if (!config.targetCertificateNo && !isPreferredChangeCandidate(certificate)) {
+      continue
+    }
     evidence.e2e6.candidate = {
       certificateId: certificate.certificateId || '',
       certificateNo: certificate.certificateNo || text.split(/\s+/)[0],
@@ -257,16 +334,39 @@ async function chooseChangeableCertificate(page, evidence) {
   throw new Error('未找到另一张可变更的 CURRENT 注册证。')
 }
 
+async function applyCertificateNoFilter(page, certificateNo) {
+  const filter = page.locator('[data-testid="registration-certificate-current-tab"] .table-multi-filter').first()
+  await filter.waitFor({ state: 'visible', timeout: 60000 })
+  if ((await filter.locator('.table-multi-filter__condition-row:visible').count()) === 0) {
+    await filter.getByRole('button', { name: '新增筛选条件' }).click()
+  }
+  await filter.locator('.table-multi-filter__field-select').click()
+  await selectVisibleOption(page, '注册证编号')
+  await filter.locator('.table-multi-filter-field__value input.el-input__inner').first().fill(certificateNo)
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/dcc/registration-certificates/page') &&
+      response.url().includes(`certificateNo=${encodeURIComponent(certificateNo)}`) &&
+      response.request().method() === 'GET',
+    { timeout: 60000 }
+  )
+  await filter.getByRole('button', { name: '查询' }).click()
+  const payload = await readJsonResponse(await responsePromise)
+  expect(isBusinessOk(payload), `certificate filter code ${payload.code}: ${payload.msg || ''}`).toBe(true)
+  return Array.isArray(payload.data?.list) ? payload.data.list : []
+}
+
 async function submitAllStructuredChange(page, evidence) {
   const { certificate } = await chooseChangeableCertificate(page, evidence)
   const dialog = page.locator('[data-testid="registration-certificate-change-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 60000 })
   const form = page.locator('[data-testid="registration-certificate-change-form"]')
+  await expect(form.locator('.el-loading-mask:visible')).toHaveCount(0, { timeout: 60000 })
   await form.locator('input[placeholder="请选择批准日期"]').fill(config.approvalDate)
-  await form.locator('.el-form-item').filter({ hasText: '变更内容' })
-    .locator('.el-select__wrapper, .el-select').first().click({ force: true })
-  for (const [label] of structuredFields) {
-    await selectVisibleOption(page, label)
+  const changeContentSelect = form.locator('.el-form-item').filter({ hasText: '变更内容' })
+    .locator('[data-change-type-values]').first()
+  for (const [label, placeholder] of structuredFields) {
+    await selectStructuredChangeType(page, form, changeContentSelect, label, placeholder)
   }
   await page.keyboard.press('Escape')
 

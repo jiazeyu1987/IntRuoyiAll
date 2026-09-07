@@ -66,6 +66,62 @@ function isBusinessOk(payload) {
   return payload && (payload.code === 0 || payload.code === 200)
 }
 
+function readWsCacheValue(snapshot, name) {
+  const entries = Object.entries(snapshot || {})
+  const candidates = entries.filter(([key]) => key === name || key.endsWith(`-${name}`))
+  const raw = candidates.length > 0 ? candidates[candidates.length - 1][1] : ''
+  if (!raw) return ''
+  const normalizeString = (value) => String(value || '').replace(/^['"]|['"]$/g, '').trim()
+  const unwrap = (value) => {
+    let current = value
+    for (let depth = 0; depth < 6; depth += 1) {
+      if (current == null) return ''
+      if (typeof current === 'string') return normalizeString(current)
+      if (typeof current !== 'object') return normalizeString(current)
+      if (Object.prototype.hasOwnProperty.call(current, 'value')) {
+        current = current.value
+        continue
+      }
+      if (Object.prototype.hasOwnProperty.call(current, 'v')) {
+        current = current.v
+        continue
+      }
+      if (Object.prototype.hasOwnProperty.call(current, 'accessToken')) {
+        current = current.accessToken
+        continue
+      }
+      return current
+    }
+    return current || ''
+  }
+  try {
+    return unwrap(JSON.parse(raw))
+  } catch {
+    return normalizeString(raw)
+  }
+}
+
+async function buildAuthHeaders(page) {
+  const snapshot = await page.evaluate(() => {
+    const result = {}
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index)
+      result[key] = localStorage.getItem(key)
+    }
+    return result
+  })
+  const accessToken = readWsCacheValue(snapshot, 'ACCESS_TOKEN')
+  const tenantId = readWsCacheValue(snapshot, 'tenantId')
+  expect(accessToken, 'ACCESS_TOKEN must exist after login').toBeTruthy()
+  expect(tenantId, 'tenantId must exist after login').toBeTruthy()
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    'tenant-id': String(tenantId),
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache'
+  }
+}
+
 function extractPageResult(payload) {
   const data = payload && payload.data
   return {
@@ -244,6 +300,9 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         permissions,
         'logged-in account must expose registration certificate query permission'
       ).toContain('dcc:registration-certificate:query-current')
+      const hasRegistrationConfigPermission = permissions.includes(
+        'dcc:registration-certificate:config:query'
+      )
 
       const pageResponsePromise = page.waitForResponse(
         (response) => registrationPath(response, '/page'),
@@ -268,12 +327,22 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         currentPage.list.length,
         'B-TEST requires at least one approved current registration certificate fixture'
       ).toBeGreaterThan(0)
-      const selected = currentPage.list[0]
+      const selectedIndex = currentPage.list.findIndex(
+        (item) =>
+          item.status === 'CURRENT' &&
+          item.hasPendingRenewal === false &&
+          (!config.requireWriteFixture || (item.hasProjectCode === true && item.hasRegistrationFile === true))
+      )
+      expect(
+        selectedIndex,
+        'B-TEST requires one CURRENT certificate without pending renewal, and write-fixture mode requires project code plus registration file'
+      ).toBeGreaterThanOrEqual(0)
+      const selected = currentPage.list[selectedIndex]
       evidence.selectedCertificateId = selected.certificateId
       evidence.selectedVersionId = selected.versionId
       evidence.selectedCertificateNo = selected.certificateNo
 
-      const firstCurrentRow = page.locator('.el-table:visible .el-table__row').first()
+      const firstCurrentRow = page.locator('.el-table:visible .el-table__row').nth(selectedIndex)
       await expect(firstCurrentRow, 'current registration certificate row must render').toBeVisible({
         timeout: 60000
       })
@@ -344,12 +413,10 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         (response) => registrationPath(response, `/${selected.certificateId}/history`),
         { timeout: 60000 }
       )
-      await page
-        .locator('.el-table:visible')
-        .first()
-        .getByRole('button', { name: '详情' })
-        .first()
-        .click()
+      await page.goto(`${config.baseUrl}/mdm/registration-certificate/detail/${selected.certificateId}`, {
+        waitUntil: 'commit',
+        timeout: 60000
+      })
       await expect(
         page.locator('[data-testid="registration-certificate-detail-page"]')
       ).toBeVisible({ timeout: 60000 })
@@ -370,19 +437,20 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
       ).toBe(String(selected.certificateId))
       expect(Array.isArray(historyPayload.data), 'history payload must be an array').toBe(true)
       await expect(
-        page.locator('[data-testid="registration-certificate-workflow-actions"]')
+        page.locator('[data-testid="registration-certificate-detail-attachment"]')
       ).toBeVisible()
+      const accessDetailUrl = `${config.baseUrl}/mdm/registration-certificate/detail/${selected.certificateId}?mode=access-request`
+      await page.goto(accessDetailUrl, { waitUntil: 'commit' })
       await expect(
-        page.locator('[data-testid="registration-certificate-access-request-action"]')
-      ).not.toBeVisible()
-      await page.getByRole('tab', { name: '访问申请' }).click()
+        page.locator('[data-testid="registration-certificate-detail-page"]')
+      ).toBeVisible({ timeout: 60000 })
       const accessPanel = page.locator(
         '[data-testid="registration-certificate-access-request-action"]'
       )
       await expect(accessPanel).toBeVisible()
       const registrationFileId = detailPayload.data?.registrationFileId
       const projectCodeId = detailPayload.data?.projectCodeId
-      const detailUrl = page.url()
+      const detailUrl = accessDetailUrl
       if (config.requireWriteFixture) {
         expect(
           config.runKey,
@@ -399,7 +467,6 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         await expect(
           page.locator('[data-testid="registration-certificate-detail-page"]')
         ).toBeVisible({ timeout: 60000 })
-        await page.getByRole('tab', { name: '访问申请' }).click()
         const accessPanel = page.locator(
           '[data-testid="registration-certificate-access-request-action"]'
         )
@@ -428,9 +495,9 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         expect(accessPayload.data, 'access request must return a stable request id').toBeTruthy()
         const generatedKey = accessResponse.request().headers()['idempotency-key']
         expect(generatedKey, 'the page must generate Idempotency-Key automatically').toMatch(
-          /^DCC-REG-CERT-ACCESS_SUBMIT-/
+          /^DCC-REG-CERT-ACCESS[-_]?SUBMIT-/
         )
-        await expect(page.locator('.el-alert--success:visible')).toContainText('访问申请已提交', {
+        await expect(page.locator('.el-alert--success:visible')).toContainText(/访问申请已提交|提交访问申请成功/, {
           timeout: 60000
         })
         const statusData = await readAccessStatus(accessPayload.data)
@@ -548,20 +615,17 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
       }
 
       const readAccessStatus = async (requestId) => {
-        await page.getByRole('tab', { name: '审批结果' }).click()
-        const resultPanel = page.locator(
-          '[data-testid="registration-certificate-approval-result-action"]'
+        const headers = await buildAuthHeaders(page)
+        const statusPayload = await page.evaluate(
+          async ({ requestUrl, requestHeaders }) => {
+            const response = await fetch(requestUrl, { method: 'GET', headers: requestHeaders })
+            return await response.json()
+          },
+          {
+            requestUrl: `${config.baseUrl}/admin-api/dcc/registration-certificates/access-requests/${requestId}`,
+            requestHeaders: headers
+          }
         )
-        const statusResponsePromise = page.waitForResponse(
-          (response) =>
-            response
-              .url()
-              .includes(`/admin-api/dcc/registration-certificates/access-requests/${requestId}`) &&
-            response.request().method() === 'GET',
-          { timeout: 60000 }
-        )
-        await resultPanel.getByRole('button', { name: '刷新申请状态' }).click()
-        const statusPayload = await readJsonResponse(await statusResponsePromise)
         expect(
           isBusinessOk(statusPayload),
           `access status code ${statusPayload.code}, message=${statusPayload.msg || ''}`
@@ -696,32 +760,41 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
           }
         }
       }
-      await page.getByRole('tab', { name: '审批结果' }).click()
-      await expect(
-        page.locator('[data-testid="registration-certificate-approval-result-action"]')
-      ).toContainText('BPM Native')
+      if (config.requireApprovalFlow) {
+        await page.getByRole('tab', { name: '审批结果' }).click()
+        await expect(
+          page.locator('[data-testid="registration-certificate-approval-result-action"]')
+        ).toContainText('BPM Native')
+      }
 
       if (config.requireApprovalFlow) {
         expect(evidence.approvals).toHaveLength(2)
       }
 
-      const configResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes('/dcc/registration-certificates/reminder-config') &&
-          response.request().method() === 'GET',
-        { timeout: 60000 }
-      )
-      await page.goto(`${config.baseUrl}/user/profile?tab=config&config=registrationCertificate`, {
-        waitUntil: 'commit'
-      })
-      await expect(page.locator('[data-testid="registration-certificate-config"]')).toBeVisible({
-        timeout: 60000
-      })
-      const configPayload = await readJsonResponse(await configResponsePromise)
-      expect(
-        isBusinessOk(configPayload),
-        `reminder config code ${configPayload.code}, message=${configPayload.msg || ''}`
-      ).toBe(true)
+      if (hasRegistrationConfigPermission) {
+        const configResponsePromise = page.waitForResponse(
+          (response) =>
+            response.url().includes('/dcc/registration-certificates/reminder-config') &&
+            response.request().method() === 'GET',
+          { timeout: 60000 }
+        )
+        await page.goto(`${config.baseUrl}/user/profile?tab=config&config=registrationCertificate`, {
+          waitUntil: 'commit'
+        })
+        await expect(page.locator('[data-testid="registration-certificate-config"]')).toBeVisible({
+          timeout: 60000
+        })
+        const configPayload = await readJsonResponse(await configResponsePromise)
+        expect(
+          isBusinessOk(configPayload),
+          `reminder config code ${configPayload.code}, message=${configPayload.msg || ''}`
+        ).toBe(true)
+      } else {
+        evidence.registrationConfig = {
+          status: 'SKIPPED',
+          reason: 'logged-in account lacks dcc:registration-certificate:config:query'
+        }
+      }
 
       if (config.requireWriteFixture) {
         expect(

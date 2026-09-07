@@ -249,13 +249,20 @@ test.describe('registration certificate renewal row dialog real UI', () => {
         currentPage.list.length,
         'E2E requires at least one current registration certificate row'
       ).toBeGreaterThan(0)
-      const selected = currentPage.list[0]
+      const selectedIndex = currentPage.list.findIndex(
+        (item) => item.status === 'CURRENT' && item.hasPendingRenewal === false
+      )
+      expect(
+        selectedIndex,
+        'E2E requires one current registration certificate row without pending renewal'
+      ).toBeGreaterThanOrEqual(0)
+      const selected = currentPage.list[selectedIndex]
       evidence.currentCount = currentPage.total
       evidence.selectedCertificateId = selected.certificateId
       evidence.selectedVersionId = selected.versionId
       evidence.selectedCertificateNo = selected.certificateNo
 
-      const firstRow = page.locator('.el-table:visible .el-table__row').first()
+      const firstRow = page.locator('.el-table:visible .el-table__row').nth(selectedIndex)
       await expect(firstRow, 'current registration certificate row must render').toBeVisible({
         timeout: 60000
       })

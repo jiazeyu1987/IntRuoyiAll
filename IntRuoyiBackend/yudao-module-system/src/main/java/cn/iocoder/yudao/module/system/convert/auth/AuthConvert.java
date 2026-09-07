@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -32,14 +33,25 @@ public interface AuthConvert {
     AuthConvert INSTANCE = Mappers.getMapper(AuthConvert.class);
 
     default AuthPermissionInfoRespVO convert(AdminUserDO user, List<RoleDO> roleList, List<MenuDO> menuList) {
+        Set<String> permissions = convertSet(menuList, MenuDO::getPermission);
+        if (hasSuperAdminRole(roleList)) {
+            permissions.add("*:*:*");
+        }
         return AuthPermissionInfoRespVO.builder()
                 .user(BeanUtils.toBean(user, AuthPermissionInfoRespVO.UserVO.class))
                 .roles(convertSet(roleList, RoleDO::getCode))
                 // 权限标识信息
-                .permissions(convertSet(menuList, MenuDO::getPermission))
+                .permissions(permissions)
                 // 菜单树
                 .menus(buildMenuTree(menuList))
                 .build();
+    }
+
+    default boolean hasSuperAdminRole(List<RoleDO> roleList) {
+        if (CollUtil.isEmpty(roleList)) {
+            return false;
+        }
+        return roleList.stream().anyMatch(role -> RoleCodeEnum.SUPER_ADMIN.getCode().equals(role.getCode()));
     }
 
     /**

@@ -649,6 +649,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/mdm',
+    component: Layout,
+    name: 'MdmHidden',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: 'company-scope',
+        component: () => import('@/views/mdm/company-scope/index.vue'),
+        name: 'MdmCompanyScopeHidden',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '授权公司',
+          activeMenu: '/mdm/company-scope',
+          permission: ['mdm:company-scope:query']
+        }
+      }
+    ]
+  },
+  {
     path: '/403',
     component: () => import('@/views/Error/403.vue'),
     name: 'NoAccess',

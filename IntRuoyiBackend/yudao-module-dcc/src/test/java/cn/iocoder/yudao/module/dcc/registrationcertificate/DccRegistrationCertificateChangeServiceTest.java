@@ -359,7 +359,7 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
             jdbcTemplate.update("""
                     INSERT INTO mdm_enterprise
                         (id, enterprise_code, name, type, status, tenant_id, deleted)
-                    VALUES (10, 'OWNER-10', 'Owner A', 'OWNED_COMPANY', 'ENABLED', 1, 0)
+                    VALUES (10, 'OWNER-10', 'Owner A', 'OWNED_COMPANY', 'ENABLE', 1, 0)
                     """);
         }
         jdbcTemplate.update("""

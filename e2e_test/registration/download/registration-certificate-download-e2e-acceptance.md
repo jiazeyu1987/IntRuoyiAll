@@ -21,7 +21,7 @@
 - 注册部经理 B：`chudongchuan`。密码 Abcd1234!
 - 普通用户 C：固定使用 `wanglixuan`，密码 `111111`。
 - 普通用户下载验证前置：固定使用普通用户 C `wanglixuan`；若该账号已具备目标文件直接下载特权或已有有效下载授权，则跳过普通用户未授权、申请、审批和授权下载相关 E2E 验证，并记录跳过原因。
-- 下载保存目录：任务目录 artifacts/downloads。
+- 下载保存目录：任务目录 `artifacts/downloads/`。
 - 下载授权有效期：注册部经理审批通过后 24 小时内有效。
 - 测试数据标识：申请理由、审批意见、下载目录和证据文件名必须包含本次任务唯一标识，例如 `E2E-DOWNLOAD-YYYYMMDD-HHMMSS`。
 
@@ -371,7 +371,7 @@ Playwright 完成真实页面动作后，可以使用只读 API 或只读 DB 辅
 
 - `result.json`：机器可读结果。
 - `trace.zip`：Playwright trace。
-- 任务目录 artifacts/downloads：真实下载文件。
+- `artifacts/downloads/`：任务目录下真实下载文件。
 - `screenshots/`：关键页面截图。
 - `verification-report.md`：人工可读验收报告。
 
@@ -395,3 +395,4 @@ Playwright 完成真实页面动作后，可以使用只读 API 或只读 DB 辅
 - 不得在文档、日志、截图说明、result.json 或提交信息中写入 token、cookie、Authorization header、数据库连接密钥。
 - Playwright trace 如包含登录请求，应在归档前确认不会暴露敏感字段；无法脱敏时，仅保存必要截图和 result.json，不提交 trace。
 - 下载文件属于 E2E 产物，只能保存在本次任务输出目录，不得覆盖仓库中的固定样本文件。
+- 本轮已授权调整本任务所需角色/菜单权限；若前置核对发现 `chudongchuan` 或 `wanglixuan` 缺少本文档列明的角色、菜单或按钮权限，允许在“芋道源码”租户内做最小化补齐，并记录角色 code、菜单权限、用户账号和影响范围。

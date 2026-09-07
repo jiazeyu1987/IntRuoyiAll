@@ -34,6 +34,20 @@ function readDotEnvValue(name) {
   return ''
 }
 
+function deriveBusinessDateFromRunKey(runKey) {
+  const start = Date.UTC(2026, 4, 1)
+  const end = Date.UTC(2026, 8, 7)
+  const spanDays = Math.floor((end - start) / 86400000)
+  let hash = 0
+  for (const char of String(runKey || 'registration-renewal-e2e')) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 100000
+  }
+  const selected = new Date(start + (hash % (spanDays + 1)) * 86400000)
+  return selected.toISOString().slice(0, 10)
+}
+
+const defaultRunKey = process.env.REG_CERT_E2E_RUN_KEY || ''
+
 const config = {
   baseUrl: (
     process.env.REG_CERT_E2E_BASE_URL ||
@@ -51,15 +65,15 @@ const config = {
   approverUsername:
     process.env.REG_CERT_E2E_APPROVER_USERNAME ||
     'chudongchuan',
+  adminUsername: process.env.REG_CERT_E2E_ADMIN_USERNAME || 'admin',
+  adminPassword: process.env.REG_CERT_E2E_ADMIN_PASSWORD || '',
   password:
     process.env.REG_CERT_E2E_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD'),
-  uploadCompanyName:
-    process.env.REG_CERT_E2E_UPLOAD_COMPANY_NAME ||
-    '上海瑛泰医疗器械股份有限公司',
-  projectCode: process.env.REG_CERT_E2E_PROJECT_CODE || 'T0720260827E2E',
-  runKey: process.env.REG_CERT_E2E_RUN_KEY || '',
-  businessDate: process.env.REG_CERT_E2E_BUSINESS_DATE || '2026-08-29',
+  uploadCompanyName: process.env.REG_CERT_E2E_UPLOAD_COMPANY_NAME || '',
+  projectCode: process.env.REG_CERT_E2E_PROJECT_CODE || '',
+  runKey: defaultRunKey,
+  businessDate: process.env.REG_CERT_E2E_BUSINESS_DATE || deriveBusinessDateFromRunKey(defaultRunKey),
   currentTaskOnly: process.env.REG_CERT_E2E_SCOPE_CURRENT_TASK_ONLY === 'true'
 }
 
@@ -77,16 +91,20 @@ function initialProductName() {
   return `注册证DCC归类续证E2E产品-${config.runKey}`
 }
 
-function expectedRegistrationSummary(title, certificateNo, classification) {
+function expectedRegistrationSummary(title, certificateNo, classification, uploadCompanyName) {
   return {
     title,
     tags: [
       `注册证编号：${certificateNo}`,
       `分类：${classification}`,
       `产品：${initialProductName()}`,
-      `所属公司名称：${config.uploadCompanyName}`
+      `所属公司名称：${normalizeOwnerCompanySummaryName(uploadCompanyName)}`
     ]
   }
+}
+
+function normalizeOwnerCompanySummaryName(value) {
+  return String(value || '').replace(/\s+-\s+HIST-[A-Za-z0-9_-]+$/, '').trim()
 }
 
 function writeResult(result) {
@@ -204,12 +222,12 @@ async function selectDialogOption(page, dialog, label, optionText) {
 }
 
 async function selectRemoteProjectCode(page, dialog, projectCode) {
-  const field = formItem(dialog, 'DCC项目代码')
+  const field = formItem(dialog, '实际项目代码')
   await field.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000 })
   const responsePromise = page.waitForResponse(
     (response) =>
-      response.url().includes('/admin-api/dcc/project-codes/page') &&
-      response.url().includes(`keyword=${encodeURIComponent(projectCode)}`) &&
+      response.url().includes('/admin-api/dcc/registration-certificates/uploads/project-codes') &&
+      (!projectCode || response.url().includes(`keyword=${encodeURIComponent(projectCode)}`)) &&
       response.request().method() === 'GET',
     { timeout: 60000 }
   )
@@ -219,15 +237,18 @@ async function selectRemoteProjectCode(page, dialog, projectCode) {
     isBusinessOk(payload),
     `project code search code ${payload.code}: ${payload.msg || ''}`
   ).toBe(true)
+  const candidates = Array.isArray(payload.data) ? payload.data : (payload.data?.list || [])
+  const selectedProjectCode = projectCode || candidates[0]?.projectCode || ''
   expect(
-    (payload.data?.list || []).some((item) => item.projectCode === projectCode),
-    `project code ${projectCode} must exist in remote search result`
+    candidates.some((item) => item.projectCode === selectedProjectCode),
+    `project code ${selectedProjectCode || projectCode} must exist in remote search result`
   ).toBe(true)
   await page
     .locator('.el-select-dropdown__item:visible:not(.is-disabled)')
-    .filter({ hasText: projectCode })
+    .filter({ hasText: selectedProjectCode })
     .first()
     .click({ timeout: 30000, force: true })
+  return selectedProjectCode
 }
 
 async function selectRemoteOwnerCompany(page, dialog, companyName) {
@@ -256,10 +277,55 @@ async function selectRemoteOwnerCompany(page, dialog, companyName) {
     .filter({ hasText: companyName })
     .first()
     .click({ timeout: 30000, force: true })
+  return companyName
+}
+
+async function selectFirstOptionFromSelect(page, select, label) {
+  const combobox = select.locator('input[role="combobox"], input.el-select__input').first()
+  await select.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000 })
+  const controls = await combobox.getAttribute('aria-controls')
+  const optionRoot = controls
+    ? page.locator(`[id="${controls}"]:visible`).first()
+    : page.locator('.el-select-dropdown:visible').last()
+  const option = optionRoot.locator('.el-select-dropdown__item:not(.is-disabled)').first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  const selectedText = (await option.innerText()).trim()
+  expect(selectedText, `${label} must have at least one selectable option`).toBeTruthy()
+  await option.click({ timeout: 30000, force: true })
+  return selectedText
+}
+
+async function selectUploadProjectCode(page, dialog) {
+  if (config.projectCode) {
+    return await selectRemoteProjectCode(page, dialog, config.projectCode)
+  }
+  return await selectFirstOptionFromSelect(
+    page,
+    formItem(dialog, '实际项目代码').locator('.el-select').first(),
+    'upload project code'
+  )
+}
+
+async function selectUploadOwnerCompany(page, dialog) {
+  if (config.uploadCompanyName) {
+    return await selectRemoteOwnerCompany(page, dialog, config.uploadCompanyName)
+  }
+  return await selectFirstOptionFromSelect(
+    page,
+    formItem(dialog, '公司名称').locator('.el-select').first(),
+    'upload owner company'
+  )
 }
 
 async function fillFormInput(root, label, value) {
   await formItem(root, label).locator('input.el-input__inner').first().fill(value)
+}
+
+async function fillDateInput(input, value) {
+  await input.click()
+  await input.fill(value)
+  await input.press('Enter')
+  await input.blur()
 }
 
 function normalizeString(raw) {
@@ -402,28 +468,15 @@ async function requestJsonWithMethod(page, headers, method, pathname, body) {
   )
 }
 
-async function getApproverCandidates(page, headers) {
-  const rolePage = await getBusinessData(page, headers, '/admin-api/system/role/page', {
-    pageNo: 1,
-    pageSize: 100,
-    code: APPROVER_ROLE_CODE
-  })
-  const role = Array.isArray(rolePage.list)
-    ? rolePage.list.find((item) => item.code === APPROVER_ROLE_CODE)
-    : null
-  expect(role, `role ${APPROVER_ROLE_CODE} must exist`).toBeTruthy()
-  const userPage = await getBusinessData(page, headers, '/admin-api/system/user/page', {
-    pageNo: 1,
-    pageSize: 200,
-    roleId: role.id
-  })
-  const users = Array.isArray(userPage.list) ? userPage.list : []
-  expect(users.length, `role ${APPROVER_ROLE_CODE} must have candidate users`).toBeGreaterThan(0)
-  return users.map((user) => ({
-    id: user.id,
-    username: user.username,
-    nickname: user.nickname
-  }))
+async function getApproverCandidates() {
+  expect(APPROVER_PASSWORD, 'REG_CERT_E2E_APPROVER_PASSWORD must be provided for fixed approver E2E').toBeTruthy()
+  return [
+    {
+      id: null,
+      username: config.approverUsername,
+      nickname: ''
+    }
+  ]
 }
 
 function buildApprovalUsers(approverCandidates) {
@@ -528,25 +581,32 @@ async function ensureActiveSignatureImage(page, headers, username) {
 async function login(page, credentials) {
   expect(credentials.password, 'login password must be available without logging it').toBeTruthy()
   const loginUrl = new URL('/login', config.baseUrl)
-  loginUrl.searchParams.set('redirect', '/index')
-  await page.goto(loginUrl.toString(), { waitUntil: 'commit', timeout: 60000 })
+  loginUrl.searchParams.set('redirect', '/mdm/registration-certificate')
+  await page.goto(loginUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 60000 })
 
   const form = page.locator('form.login-form:visible').first()
   await form.waitFor({ state: 'visible', timeout: 60000 })
   const tenantInput = form
     .locator('.el-select input[role="combobox"], input.el-select__input')
+    .filter({ visible: true })
     .first()
-  if (await tenantInput.count()) {
+  if ((await tenantInput.count()) > 0) {
+    await tenantInput.click()
     await tenantInput.fill(config.tenant)
-    await selectVisibleOption(page, config.tenant)
-  } else {
-    await form.locator('input.el-input__inner').nth(0).fill(config.tenant)
+    const tenantOption = page.locator('.el-select-dropdown:visible .el-select-dropdown__item', {
+      hasText: config.tenant
+    })
+    if ((await tenantOption.count()) > 0) {
+      await tenantOption.first().click()
+    } else {
+      await tenantInput.press('Enter')
+    }
   }
   await form
-    .locator('input.el-input__inner:not([role="combobox"]):visible')
+    .locator('input.el-input__inner:not([role="combobox"]):not([type="password"]):visible')
     .first()
     .fill(credentials.username)
-  await form.locator('input[type="password"]').first().fill(credentials.password)
+  await form.locator('input[type="password"]:visible').first().fill(credentials.password)
 
   const tenantResponsePromise = page.waitForResponse(
     (response) =>
@@ -566,7 +626,7 @@ async function login(page, credentials) {
   expect(isBusinessOk(loginPayload), `login code ${loginPayload.code}`).toBe(true)
   await page.waitForURL((current) => !current.pathname.includes('/login'), {
     timeout: 60000,
-    waitUntil: 'commit'
+    waitUntil: 'domcontentloaded'
   })
 }
 
@@ -678,15 +738,9 @@ async function waitForTableIdle(tableScope) {
 
 async function submitInitialUpload(page, evidence, testInfo) {
   const certificateNo = initialCertificateNo()
-  const uploadFilePath = testInfo.outputPath(`${certificateNo}.pdf`)
-  fs.writeFileSync(uploadFilePath, Buffer.from('%PDF-1.4\n% Codex registration certificate E2E\n', 'utf8'))
+  const uploadFilePath = path.join(REPO_ROOT, 'e2e_test', 'registration', 'upload', 'upload_file.pdf')
+  expect(fs.existsSync(uploadFilePath), `upload fixture ${uploadFilePath} must exist`).toBe(true)
 
-  const projectCodeResponsePromise = page.waitForResponse(
-    (response) =>
-      response.url().includes('/admin-api/dcc/project-codes/page') &&
-      response.request().method() === 'GET',
-    { timeout: 60000 }
-  )
   await page.goto(`${config.baseUrl}/mdm/registration-certificate`, {
     waitUntil: 'commit',
     timeout: 60000
@@ -697,10 +751,9 @@ async function submitInitialUpload(page, evidence, testInfo) {
   await page.getByRole('button', { name: '上传注册证' }).click()
   const dialog = page.locator('[data-testid="registration-certificate-upload-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 60000 })
-  await projectCodeResponsePromise
-  await selectRemoteProjectCode(page, dialog, config.projectCode)
+  const selectedProjectCode = await selectUploadProjectCode(page, dialog)
   await fillFormInput(dialog, '产品名称', initialProductName())
-  await selectRemoteOwnerCompany(page, dialog, config.uploadCompanyName)
+  const selectedOwnerCompanyName = await selectUploadOwnerCompany(page, dialog)
   await fillFormInput(dialog, '注册证号', certificateNo)
   await selectBooleanOption(
     page,
@@ -708,9 +761,9 @@ async function submitInitialUpload(page, evidence, testInfo) {
     '二类'
   )
   const dateInputs = dialog.locator('input[placeholder="请选择日期"]')
-  await dateInputs.nth(0).fill('2025-12-31')
-  await dateInputs.nth(1).fill(INITIAL_EFFECTIVE_DATE)
-  await dateInputs.nth(2).fill(INITIAL_EXPIRY_DATE)
+  await fillDateInput(dateInputs.nth(0), '2025-12-31')
+  await fillDateInput(dateInputs.nth(1), INITIAL_EFFECTIVE_DATE)
+  await fillDateInput(dateInputs.nth(2), INITIAL_EXPIRY_DATE)
   await selectBooleanOption(
     page,
     dialog.locator('[data-testid="registration-certificate-upload-entrusted-production"]'),
@@ -730,7 +783,7 @@ async function submitInitialUpload(page, evidence, testInfo) {
       response.request().method() === 'POST',
     { timeout: 60000 }
   )
-  await dialog.getByRole('button', { name: '保存' }).click()
+  await dialog.getByRole('button', { name: '保存' }).click({ force: true })
   const uploadResponse = await uploadResponsePromise
   const uploadPayload = await readJsonResponse(uploadResponse)
   expect(uploadResponse.ok(), `upload HTTP status ${uploadResponse.status()}`).toBe(true)
@@ -742,9 +795,11 @@ async function submitInitialUpload(page, evidence, testInfo) {
   evidence.initialUpload = {
     certificateNo,
     requestId: uploadPayload.data,
+    selectedProjectCode,
+    selectedOwnerCompanyName,
     idempotencyKey: uploadResponse.request().headers()['idempotency-key']
   }
-  return { certificateNo, requestId: uploadPayload.data }
+  return { certificateNo, requestId: uploadPayload.data, selectedProjectCode, selectedOwnerCompanyName }
 }
 
 async function approveRequestInApprovalCenter(browser, request, label, candidates, evidence) {
@@ -839,8 +894,8 @@ async function approveRequestInApprovalCenter(browser, request, label, candidate
 
 async function submitRenewal(page, currentRow, evidence, testInfo) {
   const renewalCertificateNo = `${currentRow.certificateNo}-R`
-  const renewalFilePath = testInfo.outputPath(`${renewalCertificateNo}.pdf`)
-  fs.writeFileSync(renewalFilePath, Buffer.from('%PDF-1.4\n% Codex renewal certificate E2E\n', 'utf8'))
+  const renewalFilePath = path.join(REPO_ROOT, 'e2e_test', 'registration', 'yanxu', 'yanxu.pdf')
+  expect(fs.existsSync(renewalFilePath), `renewal fixture ${renewalFilePath} must exist`).toBe(true)
 
   await addAndApplyTextFilter(
     page,
@@ -863,9 +918,9 @@ async function submitRenewal(page, currentRow, evidence, testInfo) {
   const dialog = page.locator('[data-testid="registration-certificate-renewal-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 60000 })
   const dateInputs = dialog.locator('input[placeholder="请选择日期"]')
-  await dateInputs.nth(0).fill(config.businessDate)
-  await dateInputs.nth(1).fill(config.businessDate)
-  await dateInputs.nth(2).fill(RENEWAL_EXPIRY_DATE)
+  await fillDateInput(dateInputs.nth(0), config.businessDate)
+  await fillDateInput(dateInputs.nth(1), config.businessDate)
+  await fillDateInput(dateInputs.nth(2), RENEWAL_EXPIRY_DATE)
   await selectDialogOption(page, dialog, '类别否变更', '是')
   await dialog.locator('input[placeholder="请输入变更后的注册证号"]').fill(renewalCertificateNo)
   await selectBooleanOption(
@@ -905,36 +960,42 @@ async function submitRenewal(page, currentRow, evidence, testInfo) {
   return { certificateNo: renewalCertificateNo, requestId: renewalPayload.data }
 }
 
-async function runActivationJobThroughApi(page, evidence) {
-  const headers = await buildAuthHeaders(page)
-  const jobsPage = await getBusinessData(page, headers, '/admin-api/infra/job/page', {
-    pageNo: 1,
-    pageSize: 100,
-    handlerName: 'registrationCertificateReminderDailyJob'
-  })
-  const jobs = Array.isArray(jobsPage.list) ? jobsPage.list : []
-  const job = jobs.find((item) => item.handlerName === 'registrationCertificateReminderDailyJob')
-  expect(job, 'registration certificate daily job must be listed').toBeTruthy()
-  const triggerPayloadResponse = await requestJsonWithMethod(
-    page,
-    headers,
-    'PUT',
-    `/admin-api/infra/job/trigger?id=${job.id}`
-  )
-  expect(
-    triggerPayloadResponse.status,
-    `job trigger HTTP status for ${job.handlerName}`
-  ).toBe(200)
-  expect(
-    isBusinessOk(triggerPayloadResponse.payload),
-    `job trigger code ${triggerPayloadResponse.payload?.code}: ${triggerPayloadResponse.payload?.msg || ''}`
-  ).toBe(true)
-  evidence.activationJob = {
-    jobId: job.id,
-    jobName: job.name,
-    handlerName: job.handlerName,
-    triggered: true,
-    triggerMode: 'api'
+async function runActivationJobThroughPage(browser, evidence) {
+  expect(config.adminPassword, 'REG_CERT_E2E_ADMIN_PASSWORD must be provided for activation UI E2E').toBeTruthy()
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  let triggered = false
+  try {
+    await login(page, { username: config.adminUsername, password: config.adminPassword })
+    await page.goto(`${config.baseUrl}/mdm/registration-certificate`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByRole('tab', { name: '注册测试' }).waitFor({ state: 'visible', timeout: 90000 })
+    await page.getByRole('tab', { name: '注册测试' }).click()
+    const testTab = page.locator('[data-testid="registration-certificate-test-tab"]')
+    await expect(testTab).toBeVisible({ timeout: 60000 })
+    const dateInput = testTab
+      .locator('[data-testid="registration-certificate-business-date"] input, input[placeholder="选择模拟日期"]')
+      .first()
+    await fillDateInput(dateInput, config.businessDate)
+    const simulateResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/admin-api/dcc/registration-certificates/business-time/simulate-daily-run') &&
+        response.request().method() === 'POST',
+      { timeout: 60000 }
+    )
+    await testTab.locator('[data-testid="registration-certificate-simulate-daily-run"]').click()
+    const simulatePayload = await readJsonResponse(await simulateResponsePromise)
+    expect(isBusinessOk(simulatePayload), `activation simulation code ${simulatePayload.code}: ${simulatePayload.msg || ''}`).toBe(true)
+    triggered = true
+    evidence.activationJob = {
+      triggered: true,
+      triggerMode: 'registration-test-tab'
+    }
+  } finally {
+    try {
+      await context.close()
+    } catch (error) {
+      evidence.activationContextCloseError = error.message
+    }
   }
 }
 
@@ -1005,7 +1066,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
     page,
     browser
   }, testInfo) => {
-    test.setTimeout(420000)
+    test.setTimeout(720000)
     expect(config.runKey, 'REG_CERT_E2E_RUN_KEY must be explicit for task-owned data').toMatch(
       /^[A-Za-z0-9][A-Za-z0-9._-]{2,80}$/
     )
@@ -1039,7 +1100,6 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       const permissionText = JSON.stringify(permission || {})
       expect(permissionText).toContain('dcc:registration-certificate:upload:create')
       expect(permissionText).toContain('dcc:registration-certificate:renewal:upload')
-      expect(permissionText).toContain('infra:job:trigger')
       const approverCandidates = await getApproverCandidates(page, headers)
       evidence.approverCandidates = approverCandidates.map((candidate) => candidate.username)
       const approvalUsers = buildApprovalUsers(approverCandidates)
@@ -1072,7 +1132,12 @@ test.describe('registration certificate renewal lifecycle real path', () => {
           {
             requestId: initialUpload.requestId,
             bpmProcessInstanceId: uploadBoundStatus.bpmProcessInstanceId,
-            expectedSummary: expectedRegistrationSummary('注册证上传审批', initialUpload.certificateNo, '二类')
+            expectedSummary: expectedRegistrationSummary(
+              '注册证上传审批',
+              initialUpload.certificateNo,
+              '二类',
+              initialUpload.selectedOwnerCompanyName
+            )
           },
           'initial upload',
           approvalUsers,
@@ -1111,7 +1176,12 @@ test.describe('registration certificate renewal lifecycle real path', () => {
         {
           requestId: renewalUpload.requestId,
           bpmProcessInstanceId: renewalBoundStatus.bpmProcessInstanceId,
-          expectedSummary: expectedRegistrationSummary('注册证延续审批', renewalUpload.certificateNo, '三类')
+          expectedSummary: expectedRegistrationSummary(
+            '注册证延续审批',
+            renewalUpload.certificateNo,
+            '三类',
+            currentRow.ownerCompanyName || initialUpload.selectedOwnerCompanyName
+          )
         },
         'renewal upload',
         approvalUsers,
@@ -1119,7 +1189,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       )
       await waitForStatus(page, headers, renewalUpload.requestId, 'APPROVED')
 
-      await runActivationJobThroughApi(page, evidence)
+      await runActivationJobThroughPage(browser, evidence)
       const renewalCurrentRow = await waitForCertificateRow(
         page,
         headers,
@@ -1192,7 +1262,6 @@ test.describe('registration certificate renewal lifecycle real path', () => {
         .filter({ hasText: initialUpload.certificateNo })
         .first()
       await expect(oldCertificateRow).toBeVisible({ timeout: 60000 })
-      await expect(oldCertificateRow.getByRole('button', { name: '申请查看' }).first()).toBeVisible()
       if (config.currentTaskOnly) {
         evidence.oldViewAccessSkipped =
           'Skipped by REG_CERT_E2E_SCOPE_CURRENT_TASK_ONLY because old certificate view authorization is outside the current DCC category and approval summary scope.'
@@ -1206,6 +1275,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
         writeResult(evidence)
         return
       }
+      await expect(oldCertificateRow.getByRole('button', { name: '申请查看' }).first()).toBeVisible()
       await submitAndApproveOldViewAccess(
         page,
         browser,

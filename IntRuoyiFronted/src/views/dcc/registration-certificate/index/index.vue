@@ -209,7 +209,7 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getCurrentColumnWidthString('actions', 280)"
+                  :width="getCurrentColumnWidthString('actions', 150)"
                 >
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions registration-certificate-row-actions--compact">
@@ -365,6 +365,44 @@
         </div>
       </el-tab-pane>
 
+      <el-tab-pane
+        v-if="canRunRegistrationCertificateBusinessTimeSimulation"
+        name="test"
+        label="注册测试"
+      >
+        <div
+          class="registration-certificate-test-tab"
+          data-testid="registration-certificate-test-tab"
+        >
+          <div class="registration-certificate-business-time-controls">
+            <el-date-picker
+              v-model="businessTimeSimulationDate"
+              clearable
+              data-testid="registration-certificate-business-date"
+              format="YYYY-MM-DD"
+              placeholder="选择模拟日期"
+              type="date"
+              value-format="YYYY-MM-DD"
+            />
+            <el-button
+              :disabled="!businessTimeSimulationDate"
+              :loading="businessTimeSimulationRunning"
+              type="primary"
+              data-testid="registration-certificate-simulate-daily-run"
+              @click="runBusinessTimeSimulation"
+            >
+              触发每日任务
+            </el-button>
+          </div>
+          <div
+            v-if="businessTimeSimulationResult"
+            class="registration-certificate-business-time-result"
+          >
+            {{ businessTimeSimulationResult }}
+          </div>
+        </div>
+      </el-tab-pane>
+
     </el-tabs>
   </ContentWrap>
 
@@ -393,6 +431,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   getRegistrationCertificateOldIndexPage,
   getRegistrationCertificatePage,
+  simulateRegistrationCertificateBusinessTimeDailyRun,
   type DccRegistrationCertificateOldIndexItemVO,
   type DccRegistrationCertificatePageItemVO,
   type DccRegistrationCertificatePageReqVO,
@@ -433,7 +472,7 @@ const REGISTRATION_CERTIFICATE_MANAGER_ROLE = 'dcc_registration_certificate_appr
 
 const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
 
-const activeTab = ref<'current' | 'old'>('current')
+const activeTab = ref<'current' | 'old' | 'test'>('current')
 const loading = ref(false)
 const oldLoading = ref(false)
 const list = ref<DccRegistrationCertificatePageItemVO[]>([])
@@ -477,6 +516,13 @@ const canChangeRegistrationCertificate = computed(() =>
   checkPermi(['dcc:registration-certificate:change:submit']) ||
   checkRole([REGISTRATION_CERTIFICATE_MANAGER_ROLE])
 )
+const canRunRegistrationCertificateBusinessTimeSimulation = computed(() =>
+  checkPermi(['dcc:registration-certificate:config:update']) ||
+  checkRole([REGISTRATION_CERTIFICATE_MANAGER_ROLE])
+)
+const businessTimeSimulationDate = ref('2000-01-01')
+const businessTimeSimulationRunning = ref(false)
+const businessTimeSimulationResult = ref('')
 
 const CURRENT_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
   'certificateNo',
@@ -520,7 +566,7 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'effectiveDate', label: '生效日', width: 120, sortable: 'custom' },
   { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
   { key: 'remark', label: '备注', minWidth: 220, sortable: 'custom' },
-  { key: 'actions', label: '操作', width: 280, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 150, hideable: false, business: false, sortable: false }
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
@@ -876,9 +922,12 @@ const oldQuickFilter = useTableQuickFilter(
 )
 
 const handleTabChange = (tabName: string | number) => {
-  activeTab.value = tabName === 'old' ? 'old' : 'current'
+  activeTab.value = tabName === 'old' ? 'old' : (tabName === 'test' ? 'test' : 'current')
   if (activeTab.value === 'old') {
     void loadOldIndexPage()
+    return
+  }
+  if (activeTab.value === 'test') {
     return
   }
   void loadPage()
@@ -917,6 +966,24 @@ const openRenewalDialog = (row: DccRegistrationCertificatePageItemVO) => {
   showRenewalDialog.value = true
 }
 
+const runBusinessTimeSimulation = async () => {
+  if (!businessTimeSimulationDate.value) {
+    ElMessage.warning('请选择模拟日期')
+    return
+  }
+  businessTimeSimulationRunning.value = true
+  businessTimeSimulationResult.value = ''
+  try {
+    const result = await simulateRegistrationCertificateBusinessTimeDailyRun({
+      businessDate: businessTimeSimulationDate.value
+    })
+    businessTimeSimulationResult.value = `已按 ${result.businessDate} 09:00 触发注册证每日任务`
+    ElMessage.success('注册证业务时间模拟完成')
+  } finally {
+    businessTimeSimulationRunning.value = false
+  }
+}
+
 const handleUploadSaved = async () => {
   showUploadDialog.value = false
   await router.push('/approval-center/todo?viewType=TODO')
@@ -952,6 +1019,9 @@ onActivated(async () => {
     await loadOldIndexPage()
     return
   }
+  if (activeTab.value === 'test') {
+    return
+  }
   await loadPage()
 })
 
@@ -964,6 +1034,9 @@ watch(
     syncRegistrationCertificateQueryFromRoute()
     if (activeTab.value === 'old') {
       await loadOldIndexPage()
+      return
+    }
+    if (activeTab.value === 'test') {
       return
     }
     await loadPage()

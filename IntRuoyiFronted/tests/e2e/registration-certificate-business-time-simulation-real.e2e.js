@@ -79,8 +79,20 @@ async function waitUntilEnabled(page, locator, timeoutMs = 30000) {
 }
 
 async function run() {
-  assert.match(BASE_URL, /^http:\/\/(127\.0\.0\.1|localhost):(8081|8315)$/)
-  assert.match(BACKEND_URL, /^http:\/\/(127\.0\.0\.1|localhost):(48081|48315)$/)
+  const frontendUrl = new URL(BASE_URL)
+  const backendUrl = new URL(BACKEND_URL)
+  assert.ok(
+    frontendUrl.protocol === 'http:' &&
+      ['127.0.0.1', 'localhost'].includes(frontendUrl.hostname) &&
+      /^\d+$/.test(frontendUrl.port),
+    `frontend E2E base URL must be a local HTTP URL with an explicit port: ${BASE_URL}`
+  )
+  assert.ok(
+    backendUrl.protocol === 'http:' &&
+      ['127.0.0.1', 'localhost'].includes(backendUrl.hostname) &&
+      /^\d+$/.test(backendUrl.port),
+    `backend E2E base URL must be a local HTTP URL with an explicit port: ${BACKEND_URL}`
+  )
   assert.ok(
     /^\d{4}-\d{2}-\d{2}$/.test(BUSINESS_DATE) && BUSINESS_DATE < '2000-01-02',
     'E2E must use a no-due-candidate safety date before 2000-01-02'

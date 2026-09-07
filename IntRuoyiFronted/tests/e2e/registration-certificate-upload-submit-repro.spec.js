@@ -5,6 +5,7 @@ const { test, expect } = require('playwright/test')
 test.setTimeout(240000)
 
 const FRONTEND_ROOT = path.resolve(__dirname, '..', '..')
+const REPO_ROOT = path.resolve(FRONTEND_ROOT, '..')
 
 function readDotEnvValue(name) {
   for (const fileName of ['.env.local', '.env']) {
@@ -39,9 +40,7 @@ const config = {
     process.env.REG_CERT_E2E_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD') ||
     'admin123',
-  uploadCompanyName:
-    process.env.REG_CERT_E2E_UPLOAD_COMPANY_NAME ||
-    '上海瑛泰医疗器械股份有限公司'
+  uploadCompanyName: process.env.REG_CERT_E2E_UPLOAD_COMPANY_NAME || ''
 }
 
 function optionTextPattern(text) {
@@ -62,7 +61,7 @@ async function selectOptionFromSelect(page, select, optionText) {
   await select.click()
   const controls = await combobox.getAttribute('aria-controls')
   const scope = controls
-    ? page.locator(`#${controls}`)
+    ? page.locator(`[id="${controls}"]:visible`).first()
     : page.locator('.el-select-dropdown:visible').last()
   const option = scope
     .locator('.el-select-dropdown__item:not(.is-disabled)')
@@ -77,7 +76,7 @@ async function selectFirstOptionFromSelect(page, select) {
   await select.click()
   const controls = await combobox.getAttribute('aria-controls')
   const scope = controls
-    ? page.locator(`#${controls}`)
+    ? page.locator(`[id="${controls}"]:visible`).first()
     : page.locator('.el-select-dropdown:visible').last()
   const option = scope
     .locator('.el-select-dropdown__item:not(.is-disabled)')
@@ -158,6 +157,13 @@ async function selectDialogOption(page, dialog, label, optionText) {
   await selectOptionFromSelect(page, field.locator('.el-select'), optionText)
 }
 
+async function fillDateInput(input, value) {
+  await input.click()
+  await input.fill(value)
+  await input.press('Enter')
+  await input.blur()
+}
+
 test('upload submit succeeds without SkyWalking trace id', async ({ page }, testInfo) => {
   const events = []
   let uploadPostCount = 0
@@ -167,6 +173,14 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
       request.method() === 'POST'
     ) {
       uploadPostCount += 1
+    }
+  })
+  page.on('pageerror', (error) => {
+    events.push({ kind: 'pageerror', message: error.message })
+  })
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      events.push({ kind: 'console', message: message.text() })
     }
   })
   page.on('requestfailed', (request) => {
@@ -257,20 +271,25 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
 
   const certificateNo = `REGCERT-NET-ERROR-${Date.now()}-${testInfo.workerIndex}`
   const productName = `注册证上传回归产品-${Date.now()}-${testInfo.workerIndex}`
-  const pdfPath = testInfo.outputPath('registration-certificate-upload-repro.pdf')
-  fs.writeFileSync(pdfPath, Buffer.from('%PDF-1.4\n% Codex repro file\n', 'utf8'))
+  const pdfPath = path.join(REPO_ROOT, 'e2e_test', 'registration', 'upload', 'upload_file.pdf')
+  expect(fs.existsSync(pdfPath), `upload fixture ${pdfPath} must exist`).toBe(true)
   await dialog.locator('input[type="file"]').setInputFiles(pdfPath)
   const ownerCompanyText = await selectFirstOptionFromSelect(
     page,
-    dialog.locator('[data-testid="registration-certificate-upload-owner-company"]')
+    dialog.locator('[data-testid="registration-certificate-upload-project-code"]')
   )
   expect(ownerCompanyText).toBeTruthy()
+  const selectedOwnerCompanyText = await selectFirstOptionFromSelect(
+    page,
+    dialog.locator('[data-testid="registration-certificate-upload-owner-company"]')
+  )
+  expect(selectedOwnerCompanyText).toBeTruthy()
   await dialog.locator('input[placeholder="请输入产品名称"]').fill(productName)
   await dialog.locator('input[placeholder="请输入注册证号"]').fill(certificateNo)
   const dateInputs = dialog.locator('input[placeholder="请选择日期"]')
-  await dateInputs.nth(0).fill('2025-01-01')
-  await dateInputs.nth(1).fill('2025-01-02')
-  await dateInputs.nth(2).fill('2026-01-01')
+  await fillDateInput(dateInputs.nth(0), '2025-01-01')
+  await fillDateInput(dateInputs.nth(1), '2025-01-02')
+  await fillDateInput(dateInputs.nth(2), '2026-01-01')
   await selectDialogOption(page, dialog, '类别', '三类')
   await dialog.locator('textarea[placeholder="请输入备注"]').fill('network error repro')
   await dialog.locator('textarea[placeholder="请输入备注"]').blur()
@@ -281,7 +300,7 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
 
   await expect(saveButton).toBeEnabled()
   const invalidUploadPostCount = uploadPostCount
-  await saveButton.click()
+  await saveButton.click({ force: true })
   await expect(
     page.locator('.el-form-item__error').filter({ hasText: '是否委托生产和是否自行生产不能同时为否' }).first()
   ).toBeVisible({
@@ -316,7 +335,7 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
     timeout: 10000
   })
   const missingEntrustedUploadPostCount = uploadPostCount
-  await saveButton.click()
+  await saveButton.click({ force: true })
   await expect(
     page.locator('.el-form-item__error').filter({ hasText: '请选择受托企业' }).first()
   ).toBeVisible({
@@ -336,15 +355,22 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
       response.url().includes('/dcc/registration-certificates/uploads') &&
       response.request().method() === 'POST',
     { timeout: 60000 }
-  )
+  ).catch((error) => ({ error }))
   const approvalCenterLoadPromise = page.waitForResponse(
     (response) =>
       response.url().includes('/approval-center/tasks/page') &&
       response.request().method() === 'GET',
     { timeout: 60000 }
   ).catch((error) => ({ error }))
-  await saveButton.click()
+  await saveButton.click({ force: true })
   const uploadResponse = await uploadResponsePromise
+  if (uploadResponse.error) {
+    const formErrors = await page.locator('.el-form-item__error:visible').allInnerTexts()
+    const messages = await page.locator('.el-message:visible, .el-notification:visible').allInnerTexts()
+    throw new Error(
+      `upload POST was not sent; formErrors=${JSON.stringify(formErrors)}; messages=${JSON.stringify(messages)}; events=${JSON.stringify(events)}`
+    )
+  }
   const uploadPayload = await readJsonResponse(uploadResponse)
 
   console.log(JSON.stringify(events, null, 2))

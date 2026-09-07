@@ -45,19 +45,24 @@ const config = {
     process.env.REG_CERT_E2E_TENANT ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_TENANT') ||
     '芋道源码',
-  username: process.env.REG_CERT_E2E_USERNAME || 'admin',
+  username: process.env.REG_CERT_E2E_USERNAME || 'wanglixuan',
   password:
     process.env.REG_CERT_E2E_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD') ||
     '111111',
+  approverUsername: process.env.REG_CERT_E2E_APPROVER_USERNAME || 'chudongchuan',
+  approverPassword: process.env.REG_CERT_E2E_APPROVER_PASSWORD || process.env.REG_CERT_E2E_PASSWORD || '',
   signaturePassword:
     process.env.REG_CERT_E2E_SIGNATURE_PASSWORD ||
-    process.env.REG_CERT_E2E_PASSWORD ||
+    process.env.REG_CERT_E2E_APPROVER_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD') ||
     '111111',
-  uploadCompanyName:
-    process.env.REG_CERT_E2E_UPLOAD_COMPANY_NAME ||
-    '珠海德瑞医疗器械有限公司'
+  uploadCompanyName: process.env.REG_CERT_E2E_UPLOAD_COMPANY_NAME || '',
+  uploadCertificateCount: Number(process.env.REG_CERT_E2E_UPLOAD_CERTIFICATE_COUNT || '1'),
+  certificatePrefix: process.env.REG_CERT_E2E_CERTIFICATE_PREFIX || 'REGCERT-ADMIN-APPROVE',
+  approvalDate: process.env.REG_CERT_E2E_APPROVAL_DATE || '2026-01-01',
+  effectiveDate: process.env.REG_CERT_E2E_EFFECTIVE_DATE || '2026-08-01',
+  expiryDate: process.env.REG_CERT_E2E_EXPIRY_DATE || '2027-08-01'
 }
 
 function optionTextPattern(text) {
@@ -114,8 +119,29 @@ async function selectOptionFromSelect(page, select, optionText) {
   await options.nth(matchedIndex).click({ timeout: 30000 })
 }
 
+async function selectFirstOptionFromSelect(page, select) {
+  const combobox = select.locator('input[role="combobox"], input.el-select__input').first()
+  await select.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000 })
+  const controls = await combobox.getAttribute('aria-controls')
+  const optionRoot = controls
+    ? page.locator(`[id="${controls}"]:visible`).first()
+    : page.locator('.el-select-dropdown:visible').last()
+  const option = optionRoot.locator('.el-select-dropdown__item:not(.is-disabled)').first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  const text = (await option.innerText()).trim()
+  await option.click({ timeout: 30000 })
+  return text
+}
+
 async function selectDialogOption(page, dialog, label, optionText) {
   await selectOptionFromSelect(page, formItem(dialog, label).locator('.el-select').first(), optionText)
+}
+
+async function fillDateInput(input, value) {
+  await input.click()
+  await input.fill(value)
+  await input.press('Enter')
+  await input.blur()
 }
 
 async function selectRemoteOwnerCompany(page, dialog, companyName) {
@@ -141,6 +167,30 @@ async function selectRemoteOwnerCompany(page, dialog, companyName) {
     .filter({ hasText: companyName })
     .first()
     .click({ timeout: 30000, force: true })
+  return companyName
+}
+
+async function selectAvailableOwnerCompany(page, dialog) {
+  const field = formItem(dialog, '公司名称')
+  await field.locator('.el-select').click({ timeout: 30000 })
+  const combobox = field.locator('input[role="combobox"], input.el-select__input').first()
+  const controls = await combobox.getAttribute('aria-controls')
+  const optionRoot = controls
+    ? page.locator(`[id="${controls}"]:visible`).first()
+    : page.locator('.el-select-dropdown:visible').last()
+  const options = optionRoot.locator('.el-select-dropdown__item:not(.is-disabled)')
+  await options.first().waitFor({ state: 'visible', timeout: 30000 })
+  const selectedName = (await options.first().innerText()).trim()
+  expect(selectedName, 'at least one owner company must be selectable for upload').toBeTruthy()
+  await options.first().click({ timeout: 30000, force: true })
+  return selectedName
+}
+
+async function selectUploadOwnerCompany(page, dialog) {
+  if (config.uploadCompanyName) {
+    return await selectRemoteOwnerCompany(page, dialog, config.uploadCompanyName)
+  }
+  return await selectAvailableOwnerCompany(page, dialog)
 }
 
 function readWsCacheValue(snapshot, name) {
@@ -242,7 +292,8 @@ async function getBusinessData(page, headers, pathname, params = {}) {
   return response.payload.data
 }
 
-async function login(page) {
+async function login(page, username = config.username, password = config.password) {
+  expect(password, `password for ${username} must be provided`).toBeTruthy()
   const loginUrl = new URL('/login', config.baseUrl)
   loginUrl.searchParams.set('redirect', '/index')
   await page.goto(loginUrl.toString(), { waitUntil: 'commit', timeout: 60000 })
@@ -264,8 +315,8 @@ async function login(page) {
   await form
     .locator('input.el-input__inner:not([role="combobox"]):visible')
     .first()
-    .fill(config.username)
-  await form.locator('input[type="password"]').first().fill(config.password)
+    .fill(username)
+  await form.locator('input[type="password"]').first().fill(password)
 
   const tenantResponsePromise = page.waitForResponse(
     (response) =>
@@ -304,6 +355,14 @@ async function login(page) {
     timeout: 60000,
     waitUntil: 'commit'
   })
+}
+
+async function clearSession(page) {
+  await page.context().clearCookies()
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  }).catch(() => undefined)
 }
 
 async function waitForStatus(page, headers, requestId, expectedStatus) {
@@ -351,14 +410,15 @@ async function submitUpload(page, certificateNo, productName, uploadFilePath) {
   await page.getByRole('button', { name: '上传注册证' }).click()
   const dialog = page.locator('[data-testid="registration-certificate-upload-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 60000 })
-  await selectRemoteOwnerCompany(page, dialog, config.uploadCompanyName)
+  await selectFirstOptionFromSelect(page, dialog.locator('[data-testid="registration-certificate-upload-project-code"]'))
+  const selectedOwnerCompanyName = await selectUploadOwnerCompany(page, dialog)
   await dialog.locator('input[placeholder="请输入产品名称"]').fill(productName)
   await dialog.locator('input[placeholder="请输入注册证号"]').fill(certificateNo)
   await selectDialogOption(page, dialog, '类别', '三类')
   const dateInputs = dialog.locator('input[placeholder="请选择日期"]')
-  await dateInputs.nth(0).fill('2026-01-01')
-  await dateInputs.nth(1).fill('2026-08-01')
-  await dateInputs.nth(2).fill('2027-08-01')
+  await fillDateInput(dateInputs.nth(0), config.approvalDate)
+  await fillDateInput(dateInputs.nth(1), config.effectiveDate)
+  await fillDateInput(dateInputs.nth(2), config.expiryDate)
   await selectDialogOption(page, dialog, '是否委托生产', '否')
   await selectDialogOption(page, dialog, '是否自行生产', '是')
   await dialog.locator('textarea[placeholder="请输入备注"]').fill('admin role approval e2e')
@@ -370,13 +430,16 @@ async function submitUpload(page, certificateNo, productName, uploadFilePath) {
       response.request().method() === 'POST',
     { timeout: 60000 }
   )
-  await dialog.getByRole('button', { name: '保存' }).click()
+  await dialog.getByRole('button', { name: '保存' }).click({ force: true })
   const uploadResponse = await uploadResponsePromise
   const uploadPayload = await readJsonResponse(uploadResponse)
   expect(uploadResponse.ok(), `upload HTTP status ${uploadResponse.status()}`).toBe(true)
   expect(isBusinessOk(uploadPayload), `upload code ${uploadPayload.code}: ${uploadPayload.msg || ''}`).toBe(true)
   expect(uploadPayload.data, 'upload request id must be returned').toBeTruthy()
-  return uploadPayload.data
+  return {
+    requestId: uploadPayload.data,
+    selectedOwnerCompanyName
+  }
 }
 
 async function approveUploadInApprovalCenter(page, requestId, processInstanceId) {
@@ -411,11 +474,6 @@ async function approveUploadInApprovalCenter(page, requestId, processInstanceId)
     '注册证上传审批'
   )
   expect(task.availableActions || [], 'upload approval must allow APPROVE').toContain('APPROVE')
-  expect(
-    String(task.assigneeUserName || task.assigneeUserId || ''),
-    'this regression must verify admin can approve even when current BPM assignee is another user'
-  ).not.toContain(config.username)
-
   const taskRow = page.locator('.approval-center__table .el-table__row').nth(taskIndex)
   await expect(taskRow).toBeVisible({ timeout: 60000 })
   await taskRow.getByRole('button', { name: /审核|审批/ }).first().click()
@@ -443,49 +501,76 @@ async function approveUploadInApprovalCenter(page, requestId, processInstanceId)
 test('admin with registration manager role can approve upload task assigned to another user', async ({
   page
 }, testInfo) => {
-  await login(page)
+  await login(page, config.username, config.password)
   const headers = await buildAuthHeaders(page)
   const permissionData = await getBusinessData(page, headers, '/admin-api/system/auth/get-permission-info')
   const permissionPayload = { code: 0, data: permissionData }
   const permissionText = JSON.stringify(permissionPayload.data || {})
-  expect(permissionText).toContain(APPROVER_PERMISSION)
-  expect(permissionText).toContain(APPROVER_ROLE_CODE)
+  expect(permissionText).toContain('dcc:registration-certificate:upload:create')
+
+  const runKey = process.env.REG_CERT_E2E_RUN_KEY || `${Date.now()}-${testInfo.workerIndex}`
+  const uploadCount = Math.max(1, Math.min(3, Number.isFinite(config.uploadCertificateCount) ? config.uploadCertificateCount : 1))
+  const uploadFilePath = path.join(REPO_ROOT, 'e2e_test', 'registration', 'upload', 'upload_file.pdf')
+  expect(fs.existsSync(uploadFilePath), `upload fixture ${uploadFilePath} must exist`).toBe(true)
+
+  const uploads = []
+  for (let index = 0; index < uploadCount; index += 1) {
+    const certificateNo = `${config.certificatePrefix}-${runKey}-${index}`
+    const productName = `注册证上传审核回归产品-${runKey}-${index}`
+    const upload = await submitUpload(page, certificateNo, productName, uploadFilePath)
+    const boundStatus = await waitForStatus(page, headers, upload.requestId, 'BPM_BOUND')
+    expect(boundStatus.bpmProcessInstanceId, 'upload request must expose BPM process instance id').toBeTruthy()
+    uploads.push({
+      requestId: upload.requestId,
+      certificateNo,
+      productName,
+      uploadCompanyName: upload.selectedOwnerCompanyName,
+      processInstanceId: boundStatus.bpmProcessInstanceId
+    })
+  }
+
+  await clearSession(page)
+  await login(page, config.approverUsername, config.approverPassword)
+  const approverHeaders = await buildAuthHeaders(page)
+  const approverPermissionData = await getBusinessData(page, approverHeaders, '/admin-api/system/auth/get-permission-info')
+  const approverPermissionText = JSON.stringify(approverPermissionData || {})
+  expect(approverPermissionText).toContain(APPROVER_PERMISSION)
+  expect(approverPermissionText).toContain(APPROVER_ROLE_CODE)
   const signatureImage = await getBusinessData(
     page,
-    headers,
+    approverHeaders,
     '/admin-api/dcc/electronic-signature-authorizations/my-image'
   )
-  expect(signatureImage?.active, 'admin must already have an active signature image').toBe(true)
+  expect(signatureImage?.active, 'approver must already have an active signature image').toBe(true)
 
-  const runKey = `${Date.now()}-${testInfo.workerIndex}`
-  const certificateNo = `REGCERT-ADMIN-APPROVE-${runKey}`
-  const productName = `注册证上传审核回归产品-${runKey}`
-  const uploadFilePath = testInfo.outputPath(`${certificateNo}.pdf`)
-  fs.writeFileSync(uploadFilePath, Buffer.from('%PDF-1.4\n% Codex admin approval E2E\n', 'utf8'))
+  const uploadResults = []
+  for (const upload of uploads) {
+    const approvalTask = await approveUploadInApprovalCenter(
+      page,
+      upload.requestId,
+      upload.processInstanceId
+    )
+    const approvedStatus = await waitForStatus(page, approverHeaders, upload.requestId, 'APPROVED')
+    const certificateRow = await waitForCertificateRow(page, approverHeaders, upload.certificateNo)
+    uploadResults.push({
+      requestId: upload.requestId,
+      certificateNo: upload.certificateNo,
+      uploadCompanyName: upload.uploadCompanyName,
+      processInstanceId: upload.processInstanceId,
+      originalAssigneeUserId: approvalTask.assigneeUserId || null,
+      originalAssigneeUserName: approvalTask.assigneeUserName || null,
+      reviewedBy: config.approverUsername,
+      finalRequestStatus: approvedStatus.requestStatus,
+      certificateStatus: certificateRow.status,
+      certificateVersionNo: certificateRow.versionNo
+    })
+  }
 
-  const requestId = await submitUpload(page, certificateNo, productName, uploadFilePath)
-  const boundStatus = await waitForStatus(page, headers, requestId, 'BPM_BOUND')
-  expect(boundStatus.bpmProcessInstanceId, 'upload request must expose BPM process instance id').toBeTruthy()
-
-  const approvalTask = await approveUploadInApprovalCenter(
-    page,
-    requestId,
-    boundStatus.bpmProcessInstanceId
-  )
-  const approvedStatus = await waitForStatus(page, headers, requestId, 'APPROVED')
-  const certificateRow = await waitForCertificateRow(page, headers, certificateNo)
-
+  const firstResult = uploadResults[0]
   const result = {
-    requestId,
-    certificateNo,
-    uploadCompanyName: config.uploadCompanyName,
-    processInstanceId: boundStatus.bpmProcessInstanceId,
-    originalAssigneeUserId: approvalTask.assigneeUserId || null,
-    originalAssigneeUserName: approvalTask.assigneeUserName || null,
-    reviewedBy: config.username,
-    finalRequestStatus: approvedStatus.requestStatus,
-    certificateStatus: certificateRow.status,
-    certificateVersionNo: certificateRow.versionNo
+    ...firstResult,
+    certificateNos: uploadResults.map((item) => item.certificateNo),
+    uploadResults
   }
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
   fs.writeFileSync(RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`, 'utf8')

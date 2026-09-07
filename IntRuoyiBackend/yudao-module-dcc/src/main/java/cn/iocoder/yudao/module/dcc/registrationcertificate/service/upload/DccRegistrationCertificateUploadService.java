@@ -153,6 +153,10 @@ public class DccRegistrationCertificateUploadService {
         if (tenantId == null || tenantId <= 0 || actorId == null || actorId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
+        Set<Long> enabledCompanyIds = companyScopeApi.getEnabledCompanyIdsForUser(actorId);
+        if (enabledCompanyIds == null || enabledCompanyIds.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
         List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.listEnabledEnterprises(
                 OWNED_COMPANY, normalizeText(keyword), OWNER_COMPANY_CANDIDATE_LIMIT);
         if (enterprises == null || enterprises.isEmpty()) {
@@ -167,6 +171,7 @@ public class DccRegistrationCertificateUploadService {
             }
         }
         return enterprises.stream()
+                .filter(enterprise -> enabledCompanyIds.contains(enterprise.getId()))
                 .sorted(Comparator.comparing(MdmEnterpriseRespDTO::getId))
                 .toList();
     }

@@ -13,9 +13,9 @@ const config = {
   tenant: process.env.REG_CERT_CHANGE_E2E_TENANT || '芋道源码',
   applicantUsername: process.env.REG_CERT_CHANGE_E2E_USERNAME || 'wanglixuan',
   applicantPassword: process.env.REG_CERT_CHANGE_E2E_PASSWORD || '',
-  approverUsername: process.env.REG_CERT_CHANGE_E2E_APPROVER_USERNAME || 'chudongqian',
+  approverUsername: process.env.REG_CERT_CHANGE_E2E_APPROVER_USERNAME || 'chudongchuan',
   approverPassword: process.env.REG_CERT_CHANGE_E2E_APPROVER_PASSWORD || process.env.REG_CERT_CHANGE_E2E_PASSWORD || '',
-  certificateNo: process.env.REG_CERT_CHANGE_E2E_CERTIFICATE_NO || '沪械注准20212020492',
+  certificateNo: process.env.REG_CERT_CHANGE_E2E_CERTIFICATE_NO || '',
   approvalDate: process.env.REG_CERT_CHANGE_E2E_APPROVAL_DATE || '2026-09-04',
   changeFilePath: process.env.REG_CERT_CHANGE_E2E_FILE || path.join(REPO_ROOT, 'e2e_test', 'registration', 'biangeng', 'biangeng.pdf'),
   runKey: process.env.REG_CERT_CHANGE_E2E_RUN_KEY || `E2E-CHANGE-${Date.now()}`
@@ -77,19 +77,93 @@ async function selectVisibleOption(page, optionText) {
   await option.click({ timeout: 30000, force: true })
 }
 
+async function selectOptionFromSelect(page, select, optionText) {
+  const combobox = select.locator('input[role="combobox"], input.el-select__input').first()
+  const globalOptions = page.locator('.el-select-dropdown:visible .el-select-dropdown__item:not(.is-disabled)')
+  if ((await globalOptions.count()) === 0) {
+    await select.locator('.el-select__wrapper, .el-select').first().click({ timeout: 30000, force: true })
+  }
+  const controls = await combobox.getAttribute('aria-controls')
+  let options = controls
+    ? page.locator(`[id="${controls}"]:visible .el-select-dropdown__item:not(.is-disabled)`)
+    : page.locator('.el-select-dropdown:visible .el-select-dropdown__item:not(.is-disabled)')
+  try {
+    await options.first().waitFor({ state: 'visible', timeout: 2000 })
+  } catch (error) {
+    options = globalOptions
+    await options.first().waitFor({ state: 'visible', timeout: 30000 })
+  }
+  const optionTexts = []
+  let matchedIndex = -1
+  const count = await options.count()
+  for (let index = 0; index < count; index += 1) {
+    const text = (await options.nth(index).innerText()).trim()
+    optionTexts.push(text)
+    if (text === optionText && matchedIndex < 0) matchedIndex = index
+  }
+  expect(matchedIndex, `option ${optionText} must exist in ${optionTexts.join('/')}`).toBeGreaterThanOrEqual(0)
+  await options.nth(matchedIndex).click({ timeout: 30000, force: true })
+}
+
+function isPreferredChangeCandidate(certificate) {
+  if (!certificate || certificate.status !== 'CURRENT') {
+    return false
+  }
+  if (certificate.hasPendingChange === true) {
+    return false
+  }
+  if (certificate.hasProjectCode === false || certificate.hasRegistrationFile === false) {
+    return false
+  }
+  return true
+}
+
 async function submitChange(page, evidence) {
+  const pageResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/dcc/registration-certificates/page') &&
+      response.request().method() === 'GET',
+    { timeout: 60000 }
+  )
   await page.goto(`${config.baseUrl}/mdm/registration-certificate`, { waitUntil: 'commit', timeout: 60000 })
   await expect(page.locator('[data-testid="registration-certificate-read-page"]')).toBeVisible({ timeout: 60000 })
-  const row = page.locator('.el-table:visible .el-table__row').filter({ hasText: config.certificateNo }).first()
-  await expect(row, `target certificate ${config.certificateNo} must be visible`).toBeVisible({ timeout: 60000 })
-  await expect(row.getByRole('button', { name: '变更' })).toBeVisible({ timeout: 60000 })
+  const pagePayload = await readJsonResponse(await pageResponsePromise)
+  expect(isBusinessOk(pagePayload), `list code ${pagePayload.code}: ${pagePayload.msg || ''}`).toBe(true)
+  const dataRows = Array.isArray(pagePayload.data?.list) ? pagePayload.data.list : []
+  if (config.certificateNo) {
+    await applyCertificateNoFilter(page, config.certificateNo)
+  }
+  const rows = page.locator('.registration-certificate-current-table .el-table__body-wrapper .el-table__row')
+  await expect(rows.first(), 'current registration certificate rows must render').toBeVisible({ timeout: 60000 })
+  const count = await rows.count()
+  let row = null
+  let selectedCertificateNo = ''
+  for (let index = 0; index < count; index += 1) {
+    const candidate = rows.nth(index)
+    const candidateCertificateNo = (await candidate.locator('.el-table__cell').first().innerText()).trim()
+    if (config.certificateNo && candidateCertificateNo !== config.certificateNo) {
+      continue
+    }
+    const changeButton = candidate.getByRole('button', { name: '变更' })
+    if ((await changeButton.count()) === 0) {
+      continue
+    }
+    const certificate = dataRows.find((item) => String(item.certificateNo || '').trim() === candidateCertificateNo)
+    if (!config.certificateNo && !isPreferredChangeCandidate(certificate)) {
+      continue
+    }
+    row = candidate
+    selectedCertificateNo = candidateCertificateNo
+    break
+  }
+  expect(row, config.certificateNo ? `target certificate ${config.certificateNo} must be changeable` : 'a changeable current certificate must exist').toBeTruthy()
   await row.getByRole('button', { name: '变更' }).click()
   const dialog = page.locator('[data-testid="registration-certificate-change-dialog"]')
   await expect(dialog).toBeVisible({ timeout: 60000 })
   const form = page.locator('[data-testid="registration-certificate-change-form"]')
+  await expect(form.locator('.el-loading-mask:visible')).toHaveCount(0, { timeout: 60000 })
   await form.locator('input[placeholder="请选择批准日期"]').fill(config.approvalDate)
-  await form.locator('.el-form-item').filter({ hasText: '变更内容' }).locator('.el-select').first().click()
-  await selectVisibleOption(page, '产品名称')
+  await selectOptionFromSelect(page, form.locator('[data-change-type-values]').first(), '产品名称')
   await page.keyboard.press('Escape')
   const afterValue = `变更后产品名称-${config.runKey}`
   const productNameInput = form.locator('input[placeholder="变更后的产品名称"]').first()
@@ -109,7 +183,7 @@ async function submitChange(page, evidence) {
   const changeResponse = await changeResponsePromise
   const changePayload = await readJsonResponse(changeResponse)
   evidence.changeSubmit = {
-    certificateNo: config.certificateNo,
+    certificateNo: selectedCertificateNo,
     selectedFields: ['产品名称'],
     afterValue,
     requestPath: new URL(changeResponse.url()).pathname,
@@ -124,6 +198,27 @@ async function submitChange(page, evidence) {
   return changePayload.data
 }
 
+async function applyCertificateNoFilter(page, certificateNo) {
+  const filter = page.locator('[data-testid="registration-certificate-current-tab"] .table-multi-filter').first()
+  await filter.waitFor({ state: 'visible', timeout: 60000 })
+  if ((await filter.locator('.table-multi-filter__condition-row:visible').count()) === 0) {
+    await filter.getByRole('button', { name: '新增筛选条件' }).click()
+  }
+  await filter.locator('.table-multi-filter__field-select').click()
+  await selectVisibleOption(page, '注册证编号')
+  await filter.locator('.table-multi-filter-field__value input.el-input__inner').first().fill(certificateNo)
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/dcc/registration-certificates/page') &&
+      response.url().includes(`certificateNo=${encodeURIComponent(certificateNo)}`) &&
+      response.request().method() === 'GET',
+    { timeout: 60000 }
+  )
+  await filter.getByRole('button', { name: '查询' }).click()
+  const payload = await readJsonResponse(await responsePromise)
+  expect(isBusinessOk(payload), `certificate filter code ${payload.code}: ${payload.msg || ''}`).toBe(true)
+}
+
 async function approveInApprovalCenter(browser, requestId, evidence) {
   const context = await browser.newContext()
   const page = await context.newPage()
@@ -136,7 +231,7 @@ async function approveInApprovalCenter(browser, requestId, evidence) {
         response.request().method() === 'GET',
       { timeout: 60000 }
     )
-    await page.goto(`${config.baseUrl}/approval-center/todo?keyword=${encodeURIComponent(config.certificateNo)}`, {
+    await page.goto(`${config.baseUrl}/approval-center/todo?keyword=${encodeURIComponent(evidence.changeSubmit?.certificateNo || '')}`, {
       waitUntil: 'commit',
       timeout: 60000
     })

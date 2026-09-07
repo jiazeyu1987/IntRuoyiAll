@@ -352,7 +352,7 @@ test.describe('registration certificate download and search targeted real flow',
         { timeout: 60000 }
       )
       await page.goto(
-        `${config.baseUrl}/mdm/registration-certificate/detail/${downloadableCandidate.certificateId}`,
+        `${config.baseUrl}/mdm/registration-certificate/detail/${downloadableCandidate.certificateId}?mode=access-request`,
         { waitUntil: 'commit' }
       )
       await expect(page.locator('[data-testid="registration-certificate-detail-page"]')).toBeVisible({
