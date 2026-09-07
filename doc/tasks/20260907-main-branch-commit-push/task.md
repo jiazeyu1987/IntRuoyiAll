@@ -8,9 +8,9 @@
 
 - [x] 读取提交/收尾相关规则和技能说明。
 - [x] 汇总当前工作区脏改并执行独立基线提交。
-- [ ] 推送 `int_main` 到 `origin/int_main`。
-- [ ] 验证本地分支不再领先远端且工作区干净。
-- [ ] 完成收尾清理并记录最终结果。
+- [x] 推送 `int_main` 到 `origin/int_main`。
+- [x] 验证本地分支不再领先远端且工作区干净。
+- [x] 完成收尾清理并记录最终结果。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Design Constraints Check
 

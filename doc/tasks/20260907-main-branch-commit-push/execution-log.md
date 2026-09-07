@@ -10,3 +10,7 @@
 - CLOSEOUT_STATUS: 基线提交完成后将任务状态设为 `ready_for_closeout`，准备执行 cleanup preview/apply。
 - CLEANUP_PREVIEW: `task-closeout-cleanup --mode preview` PASS，keep task.md/execution-log.md/verification-report.md，delete/blocked/warnings 均为 none。
 - CLEANUP_APPLY: `task-closeout-cleanup --mode apply` PASS，未删除文件；当前为主工作区 linked=False，不涉及 worktree 合并或删除。
+- CLOSEOUT_COMMIT: `88578efbd5d1`，提交信息 `任务: 记录主干提交收尾准备`，强制纳入被 ignore 的本任务三份记录文件。
+- PUSH_ATTEMPT_1: `git push origin int_main` 返回 HTTP 408，远端仍为 `0210963070b6`，本地 `ahead 2`，未执行强推或历史重写。
+- PUSH_ATTEMPT_2: 使用同一命令 `git push origin int_main` 成功，远端 `int_main` 更新为 `88578efbd5d19079cae76949d0ccd8c43b844e94`。
+- FINAL_STATUS: `git status --short --branch` 显示 `## int_main...origin/int_main`，任务标记 completed。
