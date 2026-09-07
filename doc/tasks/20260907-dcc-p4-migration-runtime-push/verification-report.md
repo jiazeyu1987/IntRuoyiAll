@@ -23,14 +23,14 @@
 
 ## DCC Verification
 
-- Backend lifecycle and signature suites: 324 tests, 0 failures/errors; signature subset 56 tests, 0 failures/errors。
+- Backend lifecycle and signature suites after restart: 331 tests, 0 failures/errors; signature subset 56 tests, 0 failures/errors。
 - Frontend: 9 DCC static contracts pass; relaxed `vue-tsc` pass。
 - Real page: B/1 ACTIVE, A/1 SUPERSEDED, A/2 WORKING and A/1 successor B/1 match read-only database facts。
 
 ## Git
 
-- Existing implementation commit `94d1f6b7f` already contains the DCC lifecycle implementation and P4 migration; `HEAD dd771bc4a` and `origin/int_main` were synchronized before this task。
-- No new DCC source diff required a second implementation commit. This task records migration/runtime evidence only.
+- Existing implementation commit `94d1f6b7f` already contains the DCC lifecycle implementation and P4 migration.
+- This task's evidence commit `9c7de643b` was pushed to `origin/int_main`; final `HEAD` and `origin/int_main` are synchronized.
 - Concurrent unrelated changes in `docs/worktree-memory.md` and registration acceptance files were excluded from staging and remain untouched.
 
 ## Residual Boundary
@@ -43,7 +43,3 @@
 - Cleanup preview and apply passed with no blocked paths or warnings.
 - Only this task's intermediate database evidence file was removed after its validator result and migration evidence were copied into this report and execution log.
 - Final task status is `completed`.
-
-## Closeout
-
-- Closeout preview must keep `task.md`, `execution-log.md`, and this report; intermediate database evidence may be removed after the report is complete.
