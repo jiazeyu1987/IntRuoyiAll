@@ -369,6 +369,10 @@
       />
     </ContentWrap>
 
+    <ContentWrap>
+      <PublicationFollowupPanel :controlled-file-id="controlledFileId" />
+    </ContentWrap>
+
     <template v-if="isApprovalUploadHandlingPage">
       <ContentWrap class="mt-16px" data-testid="dcc-approval-upload-view">
         <div class="detail-table-header mb-12px">
@@ -2745,6 +2749,7 @@ import { useUserStore } from '@/store/modules/user'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import PublicationFollowupPanel from './PublicationFollowupPanel.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import type { TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { checkPermi } from '@/utils/permission'

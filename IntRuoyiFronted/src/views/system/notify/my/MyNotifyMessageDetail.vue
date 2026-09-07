@@ -69,6 +69,9 @@
           <el-button v-if="edhrWorkTaskNavigation" type="primary" @click="navigateToEdhrWorkTask">
             处理批记录任务
           </el-button>
+          <el-button v-if="dccPublicationNavigation" type="primary" @click="navigateToDccPublication">
+            查看发布文件
+          </el-button>
         </div>
       </section>
     </div>
@@ -86,6 +89,7 @@ import {
   NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS,
   type BpmApprovalNotifyTarget,
   type EdhrWorkTaskNotifyTarget,
+  type DccPublicationNotifyTarget,
   type ShowroomProductNotifyTarget
 } from '@/utils/notifyMessageNavigation'
 
@@ -130,6 +134,12 @@ const edhrWorkTaskNavigation = computed(
       (target): target is EdhrWorkTaskNotifyTarget => target.type === 'edhrWorkTask'
     ) ?? null
 )
+const dccPublicationNavigation = computed(
+  () =>
+    notifyMessageTargets.value.find(
+      (target): target is DccPublicationNotifyTarget => target.type === 'dccPublication'
+    ) ?? null
+)
 
 const hiddenTemplateParamKeys = NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS
 
@@ -141,7 +151,10 @@ const templateParamLabels: Record<string, string> = {
   businessTitle: '业务标题',
   businessCode: '业务编号',
   moduleName: '来源模块',
-  result: '处理结果'
+  result: '处理结果',
+  fileNumber: '文件编号',
+  versionNo: '发布版本',
+  reasonSummaries: '通知原因'
 }
 
 const formatTemplateParamValue = (value: unknown): string => {
@@ -212,6 +225,17 @@ const navigateToEdhrWorkTask = async () => {
   if (!navigation) {
     return
   }
+  await navigateToNotifyMessageTarget(router, navigation, {
+    beforeNavigate: async () => {
+      resetDialogState()
+      await nextTick()
+    }
+  })
+}
+
+const navigateToDccPublication = async () => {
+  const navigation = dccPublicationNavigation.value
+  if (!navigation) return
   await navigateToNotifyMessageTarget(router, navigation, {
     beforeNavigate: async () => {
       resetDialogState()

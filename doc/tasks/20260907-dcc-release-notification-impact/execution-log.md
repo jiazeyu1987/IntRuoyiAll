@@ -272,9 +272,9 @@ Final P2 correction evidence:
 
 `GREEN: final P1+P2 adjacent rerun -> PASS, 281 tests / 0 failures`
 
-`GREEN: backend-api evidence validator against execution-log.md -> PASS`
+`CORRECTION: backend-api validator run against execution-log.md was only a local format check and is not formal backend-api evidence; formal evidence remains main-Agent owned.`
 
-`GREEN: database-schema evidence validator against execution-log.md -> PASS`
+`CORRECTION: database-schema validator run against execution-log.md was only a local format check and is not formal database-schema evidence; formal evidence remains main-Agent owned.`
 
 `GREEN: tracked P2 diff-check and untracked trailing-whitespace scan -> PASS (line-ending warnings only)`
 
@@ -327,3 +327,190 @@ Project experience consolidation: extended the existing publication-followup gat
 P2 runtime note: real MySQL first/repeat migration, E2E and service restart remain intentionally deferred to P4 and are not claimed here.
 
 `GREEN: Git implementation commit/push -> PASS, P2 implementation, migration, tests, independent evidence, task state and consolidated experience committed as 2d3149d70 and pushed to origin/int_main; unrelated working-tree changes were excluded`
+
+## P3 Executor Pass: Idempotent Notification And Frontend Entry
+
+`BDD: 发布提交后按责任收件人独立发送 -> Given 发布事务已写入 ACTIVE 通知候选及多个收件原因且另有 INACTIVE/MISSING 审计候选，When 主事务提交，Then 只为 ACTIVE 候选建立一人一条 delivery 并在 afterCommit 调用非事务 orchestrator；每个收件人的 attempt、平台幂等发送和 DCC ACK 分属独立提交边界，一个失败不阻塞其他收件人且不改变文件 ACTIVE`
+
+`BDD: 平台消息落库后 ACK 失败可幂等恢复 -> Given 平台已按 batch+user 稳定 businessKey 提交站内信，但 DCC SENT ACK 独立事务失败，When 文控填写原因重试同一 PENDING/FAILED delivery，Then 再次调用 sendSingleMessageIdempotentlyToAdmin 返回同一 messageId，平台消息仍只有一条，DCC 最终 CAS 为 SENT；SENT 不可再次发送或回退`
+
+`BDD: 通知状态和关键动作可审计 -> Given delivery 处于 PENDING 或 FAILED，When 自动发送、失败或文控重试，Then 尝试次数、发送时间、脱敏错误、平台 messageId 和 rowVersion 由条件更新维护，attempt/sent/failed/retry 写入不可变 audit；空原因、旧版本、越权或非法状态零副作用`
+
+`BDD: 发布后续查询沿用当前文件权限 -> Given 用户从站内通知或文件详情查询某发布批次，When 当前 VIEW 仍允许，Then 后端按批次聚合可见来源、收件原因、关系方向和影响任务并返回；权限已撤销时复用 controlled-file detail 授权明确拒绝，消息与历史快照不成为授权来源`
+
+`BDD: 我的评估与文控全量查询权限隔离 -> Given 普通负责人和文控管理员分别打开工作台或发布后续管理页，When 查询分页，Then 普通用户只看到 assignee 为自己的影响任务，文控全量入口同时通过 Controller 注解及 Service 的 doc_control+approve 双校验；分页一行一任务或一批次且一对多原因/方向由后端聚合`
+
+`BDD: 前端入口保留字符串身份和完整状态 -> Given 后端返回超过 JavaScript 安全整数范围的 batch/task/file/message ID，When 用户在详情“发布后续”、工作台“我的影响评估”或文控管理页查看、筛选、重试和跳转，Then API 类型、路由、比较和 payload 全程使用十进制 string；页面明确展示 loading/empty/error/permission，桌面与窄屏内容不重叠且操作具备可访问名称`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationNotificationServiceTest,DccPublicationNotificationDispatchOrchestratorTest,DccPublicationFollowupQueryServiceTest,DccPublicationFollowupControllerTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, expected notification delivery/audit DO and Mapper, independent transaction worker, non-transactional orchestrator, materialization/retry service, follow-up query service/API and formal error contracts did not exist`
+
+`RED: python -X utf8 -m pytest script/tests/test_dcc_publication_notification_sql.py -q -> FAIL, 3 tests / 3 failures, expected 20260907_dcc_publication_notification.sql delivery/audit schema plus template/menu/permission migration did not exist`
+
+`RED: node tests/e2e/dcc-release-impact-workbench-static.spec.js -> FAIL, ENOENT for publicationFollowup.ts; expected my-impact workbench API/section and publication-followup management view did not exist`
+
+`RED: node tests/e2e/dcc-detail-publication-followup-static.spec.js -> FAIL, ENOENT for publicationFollowup.ts; expected detail follow-up API/section did not exist`
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationNotificationServiceTest,DccPublicationNotificationDispatchOrchestratorTest,DccPublicationFollowupQueryServiceTest,DccPublicationFollowupControllerTest,DccPublicationFollowupServiceTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, initial backend slice 15 tests / 0 failures`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationNotificationTransactionIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, H2 reported dcc_publication_notification_delivery missing before P3 fixture; expected real RE behavior could not execute until delivery/audit fixtures existed`
+
+`RED: python -X utf8 -m pytest script/tests/test_dcc_publication_notification_sql.py -q -> FAIL, 2 tests / 2 failures after contract hardening: migration lacked platform business-key dependency, used invalid ${...}/non-JSON template syntax and created an orphan tenant package instead of extending real DCC packages`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationNotificationPostCommitSchedulerTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, 2 tests: no-transaction scheduling sent immediately instead of failing fast, and afterCommit infrastructure failure propagated to the publication caller`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupStatusServiceTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, expected authoritative PENDING/PROCESSING/READY/PARTIAL_FAILED/COMPLETED batch status derivation service did not exist`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupQueryServiceTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile with 10 expected contract gaps: database pages/all filters, current-page child aggregation, candidate name/department, structured visibility users and relation directions were missing`
+
+`RED: node tests/e2e/dcc-publication-notify-navigation-static.spec.js -> FAIL, existing station-message navigation had no DCC publication target, did not validate detail/:id and had no string-safe viewer route or inbox quick action`
+
+`RED: python -X utf8 -m pytest script/tests/test_dcc_publication_notification_sql.py -q -> FAIL, 1 of 3 tests after authorization hardening: role-menu migration still copied every category-management role instead of tenant-scoped active doc_control roles already holding approve permission`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationNotificationDispatchOrchestratorTest,DccPublicationNotificationSchemaTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, 4 tests: null dispatch list was silently accepted and batch/delivery/task locking current-read methods did not exist`
+
+### P3 Implementation
+
+Feature: P3 delivers idempotent DCC publication notifications plus the controlled-file detail, personal impact-assessment workbench and document-control publication-followup management entry points. Non-goals remain historical backfill, external channels, schedulers and automatic related-file version creation.
+
+Acceptance: P3-AC1 through P3-AC5 and business AC-03, AC-04, AC-05, AC-09, AC-14, AC-15 and AC-17 are covered by the backend, schema, transaction, static UI and type evidence below. Real runtime acceptance AC-18 remains P4.
+
+- Added an additive delivery/audit ledger only for P1 `resolutionStatus=ACTIVE` candidates. INACTIVE/MISSING candidates remain immutable audit candidates and never become PENDING deliveries.
+- The publication transaction materializes the unique batch+candidate delivery and registers an afterCommit callback. Scheduling outside an active publication transaction fails fast. The callback invokes a non-transactional orchestrator; attempt, SENT ACK and FAILED ACK use a separate bean with `REQUIRES_NEW`, so platform commit and DCC ACK cannot accidentally join the publication transaction or each other.
+- Every platform call uses `sendSingleMessageIdempotentlyToAdmin` with stable `DCC_PUBLICATION:{batchId}:USER:{userId}`. Tests cover platform commit followed by ACK failure, FAILED rowVersion progression, retry with the same business key/message ID, and SENT no-replay.
+- Batch status recomputation first locks tenant+batch, then uses locking current reads for all deliveries/tasks. Notification ACK/failure and P2 task transitions lock the batch before changing a child, eliminating stale MySQL RR aggregation and lock-order inversion. Real H2 concurrency proves all-SENT becomes COMPLETED and any FAILED becomes PARTIAL_FAILED.
+- Follow-up APIs use database pagination and all approved filters. Only current-page batch/task IDs feed child queries. Detail authorization calls the existing controlled-file detail service before returning immutable visibility rules/users, candidate identity and reasons, directions and impact tasks. Management APIs enforce doc_control + approve + publication-followup manage in Controller and Service.
+- The detail panel, workbench impact section and publication-followup management page expose loading, empty, error and responsive states. DCC IDs remain decimal strings. Station-message navigation accepts only the same-origin `/dcc/controlled-file/detail/<decimal>?viewer=1&from=notification` target and passes IDs without Number conversion.
+- Migration depends on both P2 and the platform message business-key schema, uses the formal `{param}` template syntax/JSON params/nickname, verifies menu ID/path ownership, grants the menu only to active tenant doc_control roles already holding approve, and appends the stable menu ID only to existing packages containing the formal DCC source menu.
+
+### P3 GREEN
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=<P1+P2+P3 23-class suite>' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 306 tests / 0 failures / 0 errors`
+
+`GREEN: mvn -o -pl yudao-module-system '-Dtest=NotifyMessageBusinessKeyIdempotencyTest,NotifyMessageSendApiImplTest,NotifySendServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 26 platform idempotency tests / 0 failures`
+
+`GREEN: python -X utf8 -m pytest script/tests/test_dcc_publication_followup_sql.py script/tests/test_dcc_publication_impact_assessment_sql.py script/tests/test_dcc_publication_notification_sql.py -q -> PASS, 9 tests`
+
+`GREEN: release migration policy gate through 20260907_dcc_publication_notification.sql, including 20260815 platform idempotency dependency -> PASS, migrationCount=15`
+
+`GREEN: node tests/e2e/dcc-release-impact-workbench-static.spec.js; node tests/e2e/dcc-detail-publication-followup-static.spec.js; node tests/e2e/dcc-publication-notify-navigation-static.spec.js -> PASS, 3 frontend contracts`
+
+`GREEN: $env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS`
+
+`GREEN: pnpm exec eslint <P3 API/navigation/detail/workbench/management/router files> -> PASS`
+
+`GREEN: scoped git diff --check -> PASS, line-ending warnings only`
+
+`CORRECTION: the prior claim that backend-api, database-schema and frontend-feature validators against execution-log.md constituted formal evidence is withdrawn. The three formal evidence files remain main-Agent owned and pending refresh; execution-log.md is not a substitute.`
+
+### P3 Scope And Remaining Gate
+
+Task-owned files are the new publication notification migration/SQL contract; delivery/audit DO and Mappers; notification materialization, scheduler, non-transactional orchestrator, REQUIRES_NEW worker, authoritative batch-status and follow-up query services; follow-up Controller/VOs/errors; the minimal P1/P2 status hooks and H2 fixtures/tests; frontend API, detail panel, workbench section, management page, route and station-message navigation; three static contracts; and this log.
+
+No P3 code or local verification blocker remains. Per authorization, no Git operation, real database migration, Playwright/E2E, server restart or remote action was performed. P4 must still apply/verify migrations in real MySQL, run the real page workflow and independent acceptance; those deferred checks are not claimed by P3.
+
+## P3 Review Correction
+
+`BDD: 升版入口由服务端返回权威选项 -> Given 影响任务已决定需要升版，When 负责人打开“开始升版”，Then 后端按同一相关 Master 和当前大版本族返回可选 A/1、A/2 等来源迭代以及唯一开放大版本；存在开放大版本时页面只能填写原因并关联该版本，不存在时才允许选择来源创建，跨 Master、旧 task version 和非负责人继续由 P2 服务拒绝`
+
+`BDD: 我的影响评估默认未完成且可完整翻页 -> Given 当前负责人有超过一页任务且包含流程状态 COMPLETED 的升版跟踪工作，When 不传 taskStatus 打开工作台，Then 后端分页返回 PENDING/UNASSIGNED/IN_REVIEW，以及 COMPLETED+NOT_STARTED/REVISION_LINKED；排除 COMPLETED+NOT_APPLICABLE/RESOLVED，页面提供页码和总数，不静默截断`
+
+`BDD: 页面写动作正确区分取消失败成功 -> Given 用户开始、决定、创建、关联或重试，When 取消原因输入、API 返回业务错误/CAS 冲突或成功，Then 取消不提示系统异常也不清空行，失败在当前区域显示真实错误并保留行，按钮 loading 防止重复点击，只有成功才刷新列表`
+
+`BDD: 发布后续只显示规范中文 -> Given API 返回批次、通知、任务、跟踪、来源和方向内部码，When 详情、工作台或管理页渲染，Then 使用统一中文映射；未知码显示“未知状态（code）”，页面不直接暴露内部码，管理页不展示功能说明副标题`
+
+`BDD: 重复物化必须校验不可变身份 -> Given 同 candidate 已存在 delivery，When 再次物化，Then tenant/batch/candidate/user/businessKey/template 全部一致才幂等返回且不追加 MATERIALIZE audit；任一身份冲突立即失败且不调度发送`
+
+`BDD: 非法管理筛选显式拒绝 -> Given assigneeUserId 非正十进制 Long 或批次/通知/任务/跟踪状态不在正式枚举，When 调用分页 API，Then Bean Validation 或 Service 校验返回参数错误，不把字符串交给 MySQL 隐式转换，也不返回空成功`
+
+`BDD: ACK 丢失后的真实 CAS 演进 -> Given 第一次 attempt 已提交且平台消息 ID 已提交，When DCC SENT ACK 失败后写入 FAILED，再以实际 rowVersion 重试，Then H2 事实依次为 FAILED/version=2 和 SENT/version=4，平台两次请求使用同一 businessKey 并返回同一 messageId；错误字段和日志不包含原始 token/password/secret/Bearer/authorization/密码内容`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccRelatedFileImpactAssessmentServiceTest,DccPublicationNotificationServiceTest,DccPublicationFollowupFilterValidationTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, expected authoritative revision-options domain/API and duplicate-delivery identity verification did not exist`
+
+`RED: python -X utf8 -m pytest script/tests/test_dcc_publication_notification_sql.py -q -> FAIL, 1 of 3 tests, template body still rendered the raw followupUrl instead of keeping it as a hidden navigation parameter`
+
+`RED: node tests/e2e/dcc-release-impact-workbench-static.spec.js; node tests/e2e/dcc-detail-publication-followup-static.spec.js -> FAIL, shared Chinese presentation contract, revision-options/create-or-link dialog, pagination and cancellation/error/loading guards were missing`
+
+### Review Correction Implementation
+
+- Added assignee-authorized revision options. The backend returns either the current revision family's selectable iterations such as A/1 and A/2, or one authoritative open major revision. `create-revision` now revalidates the selected source against those options; an existing open revision blocks creation and the existing P2 same-Master/requester/link contract remains authoritative.
+- Workbench revision handling now loads options into a modal. No open major allows explicit source-iteration selection and create; an open major exposes only link-existing. All IDs remain strings and the modal preserves errors without losing the task row.
+- My-impact database pagination defaults to non-COMPLETED tasks and the workbench exposes total/page controls. Management and mine filter VOs now validate every status and positive decimal assignee ID; the service converts the ID to Long before SQL and rejects overflow rather than relying on MySQL coercion.
+- Start, decision, create, link and retry actions now have per-row loading/duplicate-click guards. Prompt cancellation is recognized without a global error; API/CAS failures remain in the current page/dialog; success is the only branch that refreshes. P3 API calls use local-error ownership to avoid duplicate global errors.
+- Added one shared Chinese mapping for batch, notification, task, decision, tracking, VIEW source, relation direction and controlled-file option statuses. Unknown values render `未知状态（code）`. Detail, workbench, management filters/tables and revision modal use the mappings; the management explanatory subtitle was removed.
+- The notification template body is now readable Chinese without the raw URL. `followupUrl` remains present only in hidden template parameters and is still strictly validated by notification navigation.
+- Duplicate delivery materialization now compares tenant, batch, candidate, user, business key and template before idempotent return. A matching duplicate writes no new MATERIALIZE audit; a conflict fails before scheduling.
+- The H2 ACK-loss integration now uses the production REQUIRES_NEW worker: first platform success plus injected ACK failure commits FAILED at rowVersion 2, retry reuses the same platform business key/message ID and commits SENT at rowVersion 4. Persisted error summaries and dispatch logs retain safe failure types only.
+
+### Review Correction GREEN
+
+`GREEN: focused revision-options/filter/materialization/ACK correction suite -> PASS, 42 tests / 0 failures / 0 errors`
+
+`GREEN: P1+P2+P3 adjacent suite after review corrections -> PASS, 312 tests / 0 failures / 0 errors`
+
+`GREEN: platform idempotency suite -> PASS, 26 tests / 0 failures / 0 errors`
+
+`GREEN: P1/P2/P3 SQL contracts -> PASS, 9 tests`
+
+`GREEN: complete migration dependency closure -> PASS, migrationCount=15`
+
+`GREEN: dcc-release-impact-workbench-static + dcc-detail-publication-followup-static + dcc-publication-notify-navigation-static -> PASS, 3 contracts`
+
+`GREEN: vue-tsc relaxed project check -> PASS; targeted P3 ESLint -> PASS; scoped git diff --check -> PASS`
+
+`CORRECTION: the repeated execution-log validator claim is withdrawn for the same reason. Formal backend-api/database-schema/frontend-feature evidence remains pending main-Agent update and is not claimed by this executor.`
+
+One Maven attempt overlapped an unrelated `yudao-server -am package` process, which replaced shared module output during testCompile and produced widespread missing-class errors. No source was changed in response; after that package completed, the identical focused command passed 42 tests and the final adjacent suite passed 312 tests.
+
+Review correction blocker: none. P4 real MySQL migration, service restart, Playwright workflow and independent runtime acceptance remain intentionally unexecuted under the current authorization. No Git operation was performed.
+
+## P3 Final Backend Boundary Correction
+
+`BDD: 负责人筛选必须是严格正 Long -> Given 管理查询传入 Long.MAX_VALUE、Long.MAX_VALUE+1、0、负数或非数字，When Bean Validation 和 Service 解析筛选，Then 只有 1..9223372036854775807 可到达 Long 类型 Mapper；其它输入显式参数错误且不执行 SQL`
+
+`BDD: 升版操作按 Master 当前正式版本族 -> Given 任务冻结 A/1 后 A/1 已 SUPERSEDED，Master 当前正式版本已是 B/1且存在 B/2 WORKING，When 负责人打开 revision-options 或选择 B/2 创建下一大版本，Then 冻结 A/1 只保留展示，操作权威来源为 Master 当前 B/1，选项返回 B/1+B/2且允许现有 workflow 创建 C/1；仍校验同 Master、当前 requester 和唯一开放修订`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupFilterValidationTest,DccPublicationFollowupQueryServiceTest,DccRelatedFileImpactAssessmentServiceTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, 30 tests with 2 expected failures: Bean Validation accepted 9999999999999999999, and revision-options still read frozen controlledFileId=200 instead of Master currentActiveControlledFileId=300`
+
+Correction: `DccPublicationFollowupPageReqVO` now validates the decimal string by actual `Long.parseLong` in addition to its positive-digit shape, while `DccPublicationFollowupQueryServiceImpl` keeps the independent service-side positive Long parse before calling a Long-typed Mapper. Tests cover Long.MAX_VALUE, overflow, zero, negative and nonnumeric values.
+
+Correction: revision-options now loads `DccControlledFileMaster.currentActiveControlledFileId`, validates that current row is ACTIVE for the same Master and current requester, then derives the selectable revision family from that current version. The frozen relatedActiveControlledFileId remains unchanged for display/audit. A service test proves frozen A/1 SUPERSEDED with current B/1 and B/2 WORKING returns B/1+B/2, and the existing workflow service creates C/1 from selected B/2.
+
+`GREEN: same focused boundary suite -> PASS, 30 tests / 0 failures / 0 errors`
+
+`GREEN: P1+P2+P3 adjacent final rerun after backend boundary corrections -> PASS, 315 tests / 0 failures / 0 errors`
+
+`GREEN: final frontend gates -> PASS, 3 P3 static contracts and relaxed vue-tsc`
+
+Final backend boundary blockers: none. No Git, database, E2E, restart or remote action was performed.
+
+## P3 Default Work Predicate Correction
+
+`BDD: 已决定需要升版的任务继续留在我的工作 -> Given 负责人提交 REVISION_REQUIRED 后任务为 COMPLETED+NOT_STARTED，或已关联开放大版本后为 COMPLETED+REVISION_LINKED，When 工作台按默认条件刷新，Then 两类任务继续分页返回并分别提供“开始升版”或“等待关联版本发布”；只有 COMPLETED+NOT_APPLICABLE 和 COMPLETED+RESOLVED 从默认工作中消失，显式 taskStatus=COMPLETED 仍按原语义返回全部完成任务`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationNotificationSchemaTest#myImpactPageDefaultsToUnfinishedTasksAtDatabaseBoundary,DccPublicationNotificationTransactionIntegrationTest#defaultMyWorkKeepsOutstandingRevisionTrackingAndExplicitCompletedFilterIsUnchanged' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, 2 tests / 2 expected failures: Mapper contract lacked revision tracking predicate and real H2 default page returned only PENDING id=20 instead of ids 20/21/22`
+
+Correction: default assignee page predicate is now `(task_status <> 'COMPLETED' OR revision_tracking_status IN ('NOT_STARTED','REVISION_LINKED'))`. Explicit `taskStatus` continues to use exact equality, so `taskStatus=COMPLETED` still returns all completed decisions, including NOT_APPLICABLE and RESOLVED history.
+
+`GREEN: same focused default-work predicate suite -> PASS, 2 tests / 0 failures / 0 errors`
+
+`GREEN: final P1+P2+P3 adjacent regression -> PASS, 316 tests / 0 failures / 0 errors`
+
+`GREEN: frontend default-work/static flow -> PASS, 3 P3 contracts; relaxed vue-tsc -> PASS; scoped diff-check -> PASS`
+
+Default-work predicate blocker: none. No Git, database, E2E, restart, evidence-file or task-state/test-report change was performed.
+
+## P3 Independent Gate
+
+`GREEN: independent tester final rerun -> PASS, P3 focused 27 tests; P1+P2+P3 adjacent 316 tests; platform idempotency 26 tests; all 0 failures/errors`
+
+`GREEN: P1/P2/P3 SQL contracts -> PASS, 9 tests; 15-file migration dependency closure -> PASS`
+
+`GREEN: 3 P3 frontend static contracts, relaxed vue-tsc, targeted ESLint, DCC compile and scoped diff checks -> PASS`
+
+`GREEN: backend API evidence validator -> PASS; database schema evidence validator -> PASS; frontend feature evidence validator -> PASS`
+
+`GREEN: P3-AC1 through P3-AC5 and business AC-03, AC-04, AC-05, AC-09, AC-14, AC-15 and AC-17 -> completed; current phase advanced to P4`
+
+Project experience consolidation: extended the existing publication-followup and station-message idempotency gates in `docs/backend-development.md` with end-to-end work predicates, attempt/platform/ACK transaction separation, post-commit failure isolation and locking batch-status aggregation; no new long-term document was created.
+
+P3 runtime note: real MySQL first/repeat migration, 48081 deployment and Playwright workflow remain P4 gates and are not claimed here. No Git operation was performed under the current authorization.

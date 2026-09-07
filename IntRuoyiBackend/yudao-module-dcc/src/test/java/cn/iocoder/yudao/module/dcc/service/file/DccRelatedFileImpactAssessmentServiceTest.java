@@ -4,11 +4,13 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationFollowupBatchDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationRelationSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationFollowupBatchMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactTaskMapper;
@@ -59,6 +61,8 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     @Mock private AdminUserApi adminUserApi;
     @Mock private PermissionApi permissionApi;
     @Mock private DccControlledFileMapper controlledFileMapper;
+    @Mock private DccControlledFileMasterMapper controlledFileMasterMapper;
+    @Mock private DccPublicationFollowupStatusService followupStatusService;
 
     @InjectMocks
     private DccRelatedFileImpactAssessmentServiceImpl service;
@@ -314,14 +318,78 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     void assertRevisionCreationAllowed_requiresMatchingTaskVersionMasterAndRequester() {
         DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
         when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
-        when(controlledFileMapper.selectById(200L)).thenReturn(DccControlledFileDO.builder()
-                .id(200L).masterId(20L).requesterId(99L).build());
+        DccControlledFileDO source = DccControlledFileDO.builder()
+                .id(200L).masterId(20L).requesterId(99L).versionNo("A/1")
+                .revisionCode("A").iterationNo(1)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(200L)).thenReturn(source);
+        when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(source));
+        when(controlledFileMasterMapper.selectById(20L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(20L).currentActiveControlledFileId(200L).build());
 
         service.assertRevisionCreationAllowed(99L, 10L, 2, 200L, "同步关联文件");
 
         assertServiceException(() -> service.assertRevisionCreationAllowed(
                 99L, 10L, 1, 200L, "同步关联文件"), PUBLICATION_IMPACT_VERSION_CONFLICT);
         verifyNoInteractions(auditMapper);
+    }
+
+    @Test
+    void getRevisionOptions_returnsCurrentRevisionIterationsOrUniqueOpenMajorRevision() {
+        DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
+        task.setRelatedActiveControlledFileId(200L);
+        when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
+        DccControlledFileDO a1 = DccControlledFileDO.builder().id(200L).masterId(20L).requesterId(99L)
+                .versionNo("A/1").revisionCode("A").iterationNo(1)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        DccControlledFileDO a2 = DccControlledFileDO.builder().id(201L).masterId(20L).requesterId(99L)
+                .versionNo("A/2").revisionCode("A").iterationNo(2).status("WORKING").build();
+        when(controlledFileMapper.selectById(200L)).thenReturn(a1);
+        when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(a1, a2));
+        when(controlledFileMasterMapper.selectById(20L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(20L).currentActiveControlledFileId(200L).build());
+
+        DccPublicationImpactRevisionOptions options = service.getRevisionOptions(99L, 10L);
+
+        assertEquals(List.of(200L, 201L), options.sourceIterations().stream()
+                .map(DccPublicationImpactRevisionOption::controlledFileId).toList());
+        assertEquals(null, options.openMajorRevision());
+
+        DccControlledFileDO b1 = openRevision(500L, 20L, 99L);
+        when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(a1, a2, b1));
+        options = service.getRevisionOptions(99L, 10L);
+        assertEquals(500L, options.openMajorRevision().controlledFileId());
+        assertTrue(options.sourceIterations().isEmpty());
+
+        assertServiceException(() -> service.getRevisionOptions(98L, 10L),
+                PUBLICATION_IMPACT_ASSIGNEE_DENIED);
+    }
+
+    @Test
+    void getRevisionOptions_usesMasterCurrentActiveFamilyWhenFrozenVersionWasSuperseded() {
+        DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
+        task.setRelatedActiveControlledFileId(200L);
+        when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
+        when(controlledFileMasterMapper.selectById(20L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(20L).currentActiveControlledFileId(300L).build());
+        DccControlledFileDO frozenA1 = DccControlledFileDO.builder().id(200L).masterId(20L)
+                .requesterId(99L).versionNo("A/1").revisionCode("A").iterationNo(1)
+                .status(DccControlledFileStatusEnum.SUPERSEDED.getStatus()).build();
+        DccControlledFileDO currentB1 = DccControlledFileDO.builder().id(300L).masterId(20L)
+                .requesterId(99L).versionNo("B/1").revisionCode("B").iterationNo(1)
+                .changeType(DccControlledFileChangeTypeEnum.REVISION.getCode())
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        DccControlledFileDO workingB2 = DccControlledFileDO.builder().id(301L).masterId(20L)
+                .requesterId(99L).versionNo("B/2").revisionCode("B").iterationNo(2)
+                .changeType(DccControlledFileChangeTypeEnum.REVISION.getCode()).status("WORKING").build();
+        when(controlledFileMapper.selectById(300L)).thenReturn(currentB1);
+        when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(frozenA1, currentB1, workingB2));
+
+        DccPublicationImpactRevisionOptions options = service.getRevisionOptions(99L, 10L);
+
+        assertEquals(List.of(300L, 301L), options.sourceIterations().stream()
+                .map(DccPublicationImpactRevisionOption::controlledFileId).toList());
+        assertDoesNotThrow(() -> service.assertRevisionCreationAllowed(99L, 10L, 2, 301L, "创建C/1"));
     }
 
     @Test

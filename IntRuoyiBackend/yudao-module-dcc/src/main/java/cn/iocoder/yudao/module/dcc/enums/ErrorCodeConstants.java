@@ -356,6 +356,20 @@ public interface ErrorCodeConstants {
             "关联的大版本不属于当前相关文件或不是唯一开放大版本");
     ErrorCode PUBLICATION_IMPACT_REVISION_ALREADY_LINKED = new ErrorCode(1_080_000_328,
             "影响评估任务已经关联大版本");
+    ErrorCode PUBLICATION_NOTIFICATION_NOT_EXISTS = new ErrorCode(1_080_000_329,
+            "发布通知记录不存在");
+    ErrorCode PUBLICATION_NOTIFICATION_STATE_INVALID = new ErrorCode(1_080_000_330,
+            "当前通知状态不允许该操作");
+    ErrorCode PUBLICATION_NOTIFICATION_VERSION_CONFLICT = new ErrorCode(1_080_000_331,
+            "发布通知记录已被修改，请刷新后重试");
+    ErrorCode PUBLICATION_NOTIFICATION_MANAGE_DENIED = new ErrorCode(1_080_000_332,
+            "只有同时具备文控角色和批准权限的人员可以管理发布通知");
+    ErrorCode PUBLICATION_NOTIFICATION_REASON_REQUIRED = new ErrorCode(1_080_000_333,
+            "通知操作原因不能为空");
+    ErrorCode PUBLICATION_NOTIFICATION_CANDIDATE_INVALID = new ErrorCode(1_080_000_334,
+            "通知候选用户当前不可发送");
+    ErrorCode PUBLICATION_FOLLOWUP_FILTER_INVALID = new ErrorCode(1_080_000_335,
+            "发布后续筛选条件不合法");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_INVALID = new ErrorCode(1_080_000_302,
             "关联文件必须属于当前 DCC 项目代码");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_DUPLICATE = new ErrorCode(1_080_000_303,

@@ -38,6 +38,8 @@ class DccPublicationImpactAssessmentControllerTest extends BaseMockitoUnitTest {
                 "createRevision", Long.class, DccPublicationImpactCreateRevisionReqVO.class);
         assertTrue(createRevision.getAnnotation(PreAuthorize.class).value()
                 .contains("dcc:controlled-file:submit"));
+        Method revisionOptions = controller.getClass().getDeclaredMethod("getRevisionOptions", Long.class);
+        assertTrue(revisionOptions.getAnnotation(PreAuthorize.class).value().contains("isAuthenticated"));
     }
 
     @Test

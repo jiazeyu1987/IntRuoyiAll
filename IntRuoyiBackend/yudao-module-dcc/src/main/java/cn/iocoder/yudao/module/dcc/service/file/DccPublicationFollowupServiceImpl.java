@@ -81,6 +81,7 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
     @Resource private AdminUserApi adminUserApi;
     @Resource private DeptApi deptApi;
     @Resource private DccRelatedFileImpactAssessmentService impactAssessmentService;
+    @Resource private DccPublicationNotificationService publicationNotificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -135,6 +136,7 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
         insertRelationSnapshots(batch, relationDrafts, userDirectory, frozenAt);
         impactAssessmentService.materializeForPublicationBatch(batch.getId());
         insertNotificationCandidates(batch, candidateReasons, userDirectory);
+        publicationNotificationService.materializeForPublicationBatch(batch.getId());
         impactAssessmentService.resolveLinkedRevisionAfterPublication(publishedFile);
     }
 

@@ -17,11 +17,13 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactRevisionOptionsRespVO;
 
 @Tag(name = "管理后台 - DCC 发布关联文件影响评估")
 @RestController
@@ -40,6 +42,15 @@ public class DccPublicationImpactAssessmentController {
                                        @Valid @RequestBody DccPublicationImpactVersionReqVO reqVO) {
         service.startTask(SecurityFrameworkUtils.getLoginUserId(), id, reqVO.getExpectedVersion());
         return success(true);
+    }
+
+    @GetMapping("/{id}/revision-options")
+    @Operation(summary = "查询影响评估可用小版本来源和唯一开放大版本")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<DccPublicationImpactRevisionOptionsRespVO> getRevisionOptions(
+            @PathVariable("id") Long id) {
+        return success(DccPublicationImpactRevisionOptionsRespVO.from(
+                service.getRevisionOptions(SecurityFrameworkUtils.getLoginUserId(), id)));
     }
 
     @PostMapping("/{id}/decision")

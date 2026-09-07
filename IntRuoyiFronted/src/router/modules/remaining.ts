@@ -1080,6 +1080,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'controlled-file/publication-followup',
+        component: () => import('@/views/dcc/controlled-file/publication-followup/index.vue'),
+        name: 'DccControlledFilePublicationFollowup',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '发布后续',
+          activeMenu: '/dcc/controlled-file/publication-followup',
+          permission: ['dcc:controlled-file:publication-followup:manage']
+        }
+      },
+      {
         path: 'controlled-file/admin',
         component: () => import('@/views/dcc/controlled-file/admin/index.vue'),
         name: 'DccControlledFileAdmin',

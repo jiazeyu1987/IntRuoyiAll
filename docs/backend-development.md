@@ -570,11 +570,20 @@
 ### PQC 检验项目事实必须来自发布规程和结构化 itemResults
 
 - Trigger: PQC 填写、PQC 组长复核、QA 检验规程、检验设备、设备编号、无设备检验项目、`equipmentRequired=false`、接收标准、检验方法、参数上下限、`itemResults`、`rawPayload.pqcPieceValues`、`pqcItemDetails`、固定 `length/appearance/seal/pressure` 字段。
-- Preflight check: 修改 PQC 链路前先核对发布 QA 规程项目、`equipmentRequired`、项目级设备表、设备台账编号归属、接收标准上下限、单位和精度字段；提交契约必须以结构化 `itemResults[]` 为业务事实，后端在提交时从发布规程冻结设备、编号、方法、标准、上下限、单位、精度、实测值和判定。设备是否必填必须按单个 QA 项目判断：`equipmentRequired=true` 才强制 `selectedEquipmentId/selectedEquipmentNumber` 并校验项目设备归属；`equipmentRequired=false` 且无设备选项是正式无设备项目，应允许设备字段为空并保存空设备快照。一线弹框、卡片摘要、组长列或提交快照若展示“接收标准/检验方法”，必须使用显式 QA 工序列字段或别名（例如 `acceptanceStandard/processInspectionMethod`），不能直接让默认首检摘要、判定值、上下限合成文案或旧兼容字段成为可见来源。
-- Blocker: 客户端提交可改写接收标准或检验方法、后端仍把 `rawPayload.pqcPieceValues` 当权威、组长页仍按固定四项字段展示、设备编号未按项目设备归属校验、无设备项目仍被要求选择设备、缺发布规程项目或设备必填项目缺设备主数据时默认成功，必须停止。
-- Verification: 后端回归需覆盖 schema、项目设备 mapper、`itemResults` 提交、设备编号归属校验、设备必填项目明细冻结和无设备项目空设备快照；前端静态或真实路径需覆盖填写页每项目设备/编号/标准/方法入口、无设备项目显示“无需设备”、组长页读取 `pqcItemDetails/itemResults`，并复跑相邻 eDHR/PQC 布局合同和 `pnpm ts:check`。
+- Preflight check: 修改 PQC 链路前先核对发布 QA 规程项目、`equipmentRequired`、项目级设备表、设备台账编号归属、接收标准上下限、单位和精度字段；提交契约必须以结构化 `itemResults[]` 为业务事实，后端在提交时从发布规程冻结设备、编号、方法、标准、上下限、单位、精度、实测值和判定。检验设备在一线 PQC 提交时统一可选：未选择时保存空设备快照；选择正式设备时才要求 `selectedEquipmentId/selectedEquipmentNumber` 成对存在并校验项目设备归属；选择“其他”时允许空 ID 与非空手工文本。`equipmentRequired` 只表达当前项目是否配置设备候选，不得继续作为提交必选开关。一线弹框、卡片摘要、组长列或提交快照若展示“接收标准/检验方法”，必须使用显式 QA 工序列字段或别名（例如 `acceptanceStandard/processInspectionMethod`），不能直接让默认首检摘要、判定值、上下限合成文案或旧兼容字段成为可见来源。
+- Blocker: 客户端提交可改写接收标准或检验方法、后端仍把 `rawPayload.pqcPieceValues` 当权威、组长页仍按固定四项字段展示、已提交的正式设备编号未按项目设备归属校验、未选择设备仍被要求选择、或缺发布规程项目时默认成功，必须停止。
+- Verification: 后端回归需覆盖 schema、项目设备 mapper、`itemResults` 提交、空设备快照、正式设备编号归属校验和手工设备快照；前端静态或真实路径需覆盖填写页设备可选、设备/标准/方法入口、组长页读取 `pqcItemDetails/itemResults`，并复跑相邻 eDHR/PQC 布局合同和 `pnpm ts:check`。
 - Forbidden action: 禁止用整单设备替代项目级设备，禁止把所有 PQC 项目统一当作设备必填，禁止用固定四项字段、前端文案、默认上下限、默认首检规则、判定值、空标准、raw payload 或 API-only 展示替代正式项目级快照。
 - Evidence: `doc/tasks/20260803-pqc-equipment-standard-method-implementation/verification-report.md`；`doc/tasks/20260808-pqc-optional-equipment-items/verification-report.md`；`doc/tasks/20260808-pqc-qa-process-standard-method-source/verification-report.md`。
+
+### PQC 手工检验设备必须使用可审计快照而非伪造设备身份
+
+- Trigger: 一线 PQC 检验设备下拉允许选择“其他”并手工填写未在当前 QA 设备候选中的设备或检具。
+- Preflight check: 检验设备为空时允许保存空快照；正式候选继续要求 `selectedEquipmentId + selectedEquipmentNumber` 精确匹配当前发布 QA 规程；手工设备必须使用空 `selectedEquipmentId` 与非空、去首尾空格、受长度限制的设备文本，并将该文本写入设备编号快照，设备名称保持为空以免详情重复显示同一文本。现有设备快照列可表达该状态时不得新增伪设备主数据或哨兵 ID。
+- Blocker: 手工设备被赋予 0、负数或固定设备 ID，服务只校验前端文案、空白文本可提交、占位值落库、正式设备匹配被放宽，或下游详情仅依赖设备 ID 导致手工快照消失时必须停止。
+- Verification: 服务单测覆盖手工文本规范化和快照字段；相邻回归覆盖正式设备归属校验、无设备项目空快照、PQC 聚合及详情对名称/编号快照的读取。
+- Forbidden action: 禁止为通过校验自动选择第一台设备、把手工文本注册成设备台账、回查最新 QA 配置覆盖历史手工快照，或用 raw payload 代替结构化项目结果。
+- Evidence: `doc/tasks/20260907-frontline-dropdown-other-entry/verification-report.md`。
 
 ### QA 多工序正式发布与退役夹具唯一键必须隔离
 
@@ -941,6 +950,7 @@
 - Audience rule: 区分业务可见来源、硬范围约束和技术治理访问。业务关联方只能从正式授权来源解析，最终名单必须再经过项目分配等硬范围过滤；硬范围不能冒充授权来源，文控/管理员旁路也不能混入业务通知名单。查询与快照必须复用同一个可测试的范围服务，禁止复制查询层私有算法或逐用户调用详情接口并捕获异常试错。
 - Snapshot rule: 规则来源、解析用户、通知候选原因和关联方向使用结构化明细行及业务唯一键；项目、分类、目录等上下文身份与授权来源分列保存，不能塞入不可查询的大 JSON 或用上下文字段推断授权。
 - Projection concurrency rule: 生效事务内自动更新已有后续任务时，必须区分“技术失败”和“合法竞争”。交互命令继续用 `row_version` CAS 严格报冲突；自动投影 CAS 失败后只允许用租户和主键限定的数据库当前读复核，MySQL `REPEATABLE READ` 下使用 `SELECT ... FOR UPDATE` 或等价锁定读，不能用普通快照读。仅当任务已由另一执行者完成、已被正式更正而不再关联当前对象，或已改链时可幂等跳过且不重复写审计；记录缺失、身份不一致或仍保持同一待处理关系时必须 fail fast。合法投影竞争不得把已经满足生效条件的对象反向改成发布失败。
+- Work predicate rule: 列表中的“我的未完成工作”必须按整个后续跟踪是否终结判断，不能只看局部任务状态。人工决定已经完成但仍处于待创建修订、已关联修订待发布等后续状态时，必须继续出现在默认工作列表并提供下一步；只有无需后续动作或全部跟踪已解决才退出默认列表。显式查询历史完成项时仍保留原状态筛选语义。
 - Verification: 除单元和静态 migration 合同外，必须使用真实测试事务管理器与真实核心 Mapper，定点注入一条子快照写入失败；同时断言旧正式对象、当前对象、正式指针和所有账本子表均回滚，只有既有独立失败事务可以记录失败状态，完成事件不得发出。
 - Concurrency verification: 自动投影必须覆盖“另一 resolver 已完成”“管理员并发更正/改链”“同一关系出现无法解释的 CAS miss”三类分支，并用真实事务证明前两类不回滚 ACTIVE/正式指针且不重复审计，第三类仍显式失败。
 - Forbidden action: 禁止 catch 账本异常后继续标记发布成功，禁止把通知发送放进生效主事务，禁止用 mock TransactionTemplate 冒充数据库回滚证据，禁止用管理员权限或目录上下文扩大关联方名单。
@@ -949,8 +959,10 @@
 
 - Trigger: 业务 outbox 调用站内信 API、并发重试、消息已写入但领域 ACK 前进程中断、模板禁用返回空消息 ID、要求同一业务事件每个接收人最多一封。
 - Preflight check: 为平台消息提供租户内唯一的稳定业务键，幂等发送 API 必须在消息表唯一约束下“新建或返回同一 message ID”；领域 delivery 在调用前保存该键，并校验重放时接收人和模板一致。
+- Transaction boundary: 若要覆盖“平台消息已提交、领域 ACK 未提交”的真实故障窗口，领域发送协调器不能用一个外层事务包住平台发送和本地 ACK。应先用独立事务提交 attempt，再让平台幂等 API 自己提交，最后用另一个独立事务写 SENT/FAILED；本地 ACK 失败后必须保留可重放状态，并以同一业务键取回同一平台 message ID。事务注解必须通过独立 Bean 代理生效，禁止 self-invocation 假装 `REQUIRES_NEW`。
+- Post-commit rule: 正式对象的消息分发只能在生效事务提交后触发；无活动事务时调度入口必须 fail fast。after-commit 回调异常不得反向把已提交正式对象改为失败，未完成 delivery 必须保留为可查询、可重试状态并输出脱敏可观测日志。
 - Blocker: 只有领域 delivery 唯一键、平台 API 不接收业务键、发送成功后才标本地 `SENT`、空 message ID 被视为成功、或重放可能再次插入消息时必须阻塞上线并先改平台契约。
-- Verification: 注入“平台消息落库后、领域 ACK 前崩溃”，重启重放后断言平台消息数仍为 1且返回同一 message ID；并覆盖并发、模板禁用、同键不同接收人/模板冲突和跨租户同键隔离。
+- Verification: 注入“平台消息落库后、领域 ACK 前崩溃”，重启重放后断言平台消息数仍为 1且返回同一 message ID；并覆盖 attempt/ACK 的真实事务提交边界、并发、模板禁用、同键不同接收人/模板冲突和跨租户同键隔离。批次汇总状态还必须先锁父批次，再以锁定当前读聚合子 delivery/任务，证明并发全成功或部分失败不会因重复读旧快照永久停在处理中。
 - Forbidden action: 禁止用延时、查消息文案、内存标记、先发后标记或吞掉空 ID 代替平台数据库唯一约束。
 - Evidence: `doc/tasks/20260814-domestic-registration-certificate-lifecycle-design/verification-report.md`。
 

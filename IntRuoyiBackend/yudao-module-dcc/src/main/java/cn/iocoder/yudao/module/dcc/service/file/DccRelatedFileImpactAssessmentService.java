@@ -20,5 +20,7 @@ public interface DccRelatedFileImpactAssessmentService {
     void assertRevisionCreationAllowed(Long actorId, Long taskId, Integer expectedVersion,
                                        Long sourceControlledFileId, String reason);
 
+    DccPublicationImpactRevisionOptions getRevisionOptions(Long actorId, Long taskId);
+
     void resolveLinkedRevisionAfterPublication(DccControlledFileDO publishedRevision);
 }

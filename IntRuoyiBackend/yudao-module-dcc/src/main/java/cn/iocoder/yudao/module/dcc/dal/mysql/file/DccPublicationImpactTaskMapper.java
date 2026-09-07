@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 @Mapper
 public interface DccPublicationImpactTaskMapper extends BaseMapperX<DccPublicationImpactTaskDO> {
@@ -69,6 +70,42 @@ public interface DccPublicationImpactTaskMapper extends BaseMapperX<DccPublicati
             """)
     List<DccPublicationImpactTaskDO> selectListByLinkedRevisionId(@Param("tenantId") Long tenantId,
                                                                   @Param("revisionId") Long revisionId);
+
+    @Select("SELECT * FROM dcc_publication_impact_task WHERE tenant_id=#{tenantId} AND batch_id=#{batchId} AND deleted=0 ORDER BY id")
+    List<DccPublicationImpactTaskDO> selectListByBatchId(@Param("tenantId") Long tenantId, @Param("batchId") Long batchId);
+
+    @Select("<script>SELECT * FROM dcc_publication_impact_task WHERE tenant_id=#{tenantId} AND batch_id IN <foreach collection='batchIds' item='id' open='(' separator=',' close=')'>#{id}</foreach> AND deleted=0 ORDER BY id</script>")
+    List<DccPublicationImpactTaskDO> selectListByBatchIds(@Param("tenantId") Long tenantId,
+                                                           @Param("batchIds") List<Long> batchIds);
+
+    @Select("SELECT * FROM dcc_publication_impact_task WHERE tenant_id=#{tenantId} AND batch_id=#{batchId} AND deleted=0 ORDER BY id FOR UPDATE")
+    List<DccPublicationImpactTaskDO> selectListByBatchIdForUpdate(
+            @Param("tenantId") Long tenantId, @Param("batchId") Long batchId);
+
+    @Select("SELECT * FROM dcc_publication_impact_task WHERE tenant_id=#{tenantId} AND assignee_user_id=#{assigneeUserId} AND deleted=0 ORDER BY id")
+    List<DccPublicationImpactTaskDO> selectListByAssignee(@Param("tenantId") Long tenantId, @Param("assigneeUserId") Long assigneeUserId);
+
+    @Select("""
+            <script>
+            SELECT * FROM dcc_publication_impact_task
+            WHERE tenant_id=#{tenantId} AND assignee_user_id=#{assigneeUserId} AND deleted=0
+            <choose>
+              <when test='taskStatus != null and taskStatus != ""'>AND task_status=#{taskStatus}</when>
+              <otherwise>
+                AND (task_status &lt;&gt; 'COMPLETED'
+                  OR revision_tracking_status IN ('NOT_STARTED','REVISION_LINKED'))
+              </otherwise>
+            </choose>
+            <if test='trackingStatus != null and trackingStatus != ""'>
+              AND revision_tracking_status=#{trackingStatus}
+            </if>
+            ORDER BY id DESC
+            </script>
+            """)
+    Page<DccPublicationImpactTaskDO> selectAssigneePage(
+            Page<DccPublicationImpactTaskDO> page, @Param("tenantId") Long tenantId,
+            @Param("assigneeUserId") Long assigneeUserId, @Param("taskStatus") String taskStatus,
+            @Param("trackingStatus") String trackingStatus);
 
     @Update("""
             UPDATE dcc_publication_impact_task

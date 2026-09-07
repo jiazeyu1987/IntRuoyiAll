@@ -56,6 +56,7 @@ class DccImpactAssessmentTransactionIntegrationTest extends BaseDbUnitTest {
         set("adminUserApi", mock(AdminUserApi.class));
         set("permissionApi", mock(PermissionApi.class));
         set("controlledFileMapper", controlledFileMapper);
+        set("followupStatusService", mock(DccPublicationFollowupStatusService.class));
     }
 
     @Test

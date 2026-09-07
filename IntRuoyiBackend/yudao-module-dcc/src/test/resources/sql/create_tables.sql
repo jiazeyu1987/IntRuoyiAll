@@ -538,6 +538,56 @@ CREATE TABLE IF NOT EXISTS `dcc_publication_notification_candidate_reason` (
   UNIQUE (`tenant_id`, `candidate_id`, `reason_type`, `source_id`, `deleted`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_delivery` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `candidate_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `business_key` VARCHAR(255) NOT NULL,
+  `template_code` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `last_attempt_at` DATETIME NULL,
+  `sent_at` DATETIME NULL,
+  `system_message_id` BIGINT NULL,
+  `last_error_summary` VARCHAR(512) NULL,
+  `row_version` INT NOT NULL DEFAULT 0,
+  `creation_token` VARCHAR(36) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `candidate_id`, `deleted`),
+  UNIQUE (`tenant_id`, `business_key`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `delivery_id` BIGINT NOT NULL,
+  `batch_id` BIGINT NOT NULL,
+  `action_type` VARCHAR(32) NOT NULL,
+  `actor_id` BIGINT NULL,
+  `reason` VARCHAR(1000) NULL,
+  `status_before` VARCHAR(16) NULL,
+  `status_after` VARCHAR(16) NOT NULL,
+  `attempt_count` INT NOT NULL,
+  `system_message_id` BIGINT NULL,
+  `error_summary` VARCHAR(512) NULL,
+  `row_version_before` INT NOT NULL,
+  `row_version_after` INT NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_publication_relation_snapshot` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `batch_id` BIGINT NOT NULL,

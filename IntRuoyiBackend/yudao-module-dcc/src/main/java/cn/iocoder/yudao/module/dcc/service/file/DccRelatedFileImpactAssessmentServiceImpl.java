@@ -3,11 +3,13 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationFollowupBatchDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationRelationSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationFollowupBatchMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactTaskMapper;
@@ -60,6 +62,8 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
     @Resource private AdminUserApi adminUserApi;
     @Resource private PermissionApi permissionApi;
     @Resource private DccControlledFileMapper controlledFileMapper;
+    @Resource private DccControlledFileMasterMapper controlledFileMasterMapper;
+    @Resource private DccPublicationFollowupStatusService followupStatusService;
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -111,6 +115,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
             insertAudit(materialized, "MATERIALIZE", null, null, taskStatus, assignee,
                     null, null, 0, 0);
         }
+        followupStatusService.refreshBatchStatus(tenantId, batchId);
     }
 
     @Override
@@ -121,6 +126,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         if (!TASK_PENDING.equals(task.getTaskStatus())) {
             throw exception(PUBLICATION_IMPACT_TASK_STATE_INVALID);
         }
+        followupStatusService.lockBatch(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
         int updated = taskMapper.startTask(TenantContextHolder.getRequiredTenantId(), taskId,
                 expectedVersion, actorId);
         if (updated != 1) {
@@ -128,6 +134,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         }
         insertAudit(task, "START", actorId, null, TASK_IN_REVIEW, task.getAssigneeUserId(),
                 null, null, expectedVersion, expectedVersion + 1);
+        followupStatusService.refreshBatchStatus(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
     }
 
     @Override
@@ -147,6 +154,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
             throw exception(PUBLICATION_IMPACT_REASON_REQUIRED);
         }
         String tracking = DECISION_NONE.equals(decision) ? TRACKING_NOT_APPLICABLE : TRACKING_NOT_STARTED;
+        followupStatusService.lockBatch(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
         int updated = taskMapper.completeDecision(TenantContextHolder.getRequiredTenantId(), taskId,
                 expectedVersion, actorId, decision, normalizedReason, tracking);
         if (updated != 1) {
@@ -154,6 +162,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         }
         insertAudit(task, "DECIDE", actorId, normalizedReason, TASK_COMPLETED, task.getAssigneeUserId(),
                 decision, null, expectedVersion, expectedVersion + 1);
+        followupStatusService.refreshBatchStatus(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
     }
 
     @Override
@@ -167,6 +176,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         if (newAssignee == null || newAssignee.getId() == null || !Integer.valueOf(0).equals(newAssignee.getStatus())) {
             throw exception(PUBLICATION_IMPACT_ASSIGNEE_INVALID);
         }
+        followupStatusService.lockBatch(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
         int updated = taskMapper.reassignTask(TenantContextHolder.getRequiredTenantId(), taskId,
                 expectedVersion, newAssigneeId, newAssignee.getNickname(), normalizedReason);
         if (updated != 1) {
@@ -174,6 +184,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         }
         insertAudit(task, "REASSIGN", actorId, normalizedReason, TASK_PENDING, newAssigneeId,
                 null, null, expectedVersion, expectedVersion + 1);
+        followupStatusService.refreshBatchStatus(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
     }
 
     @Override
@@ -185,6 +196,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         if (!TASK_COMPLETED.equals(task.getTaskStatus())) {
             throw exception(PUBLICATION_IMPACT_TASK_STATE_INVALID);
         }
+        followupStatusService.lockBatch(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
         int updated = taskMapper.reopenTask(TenantContextHolder.getRequiredTenantId(), taskId,
                 expectedVersion, normalizedReason);
         if (updated != 1) {
@@ -194,6 +206,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                 task.getAssigneeUserId() == null ? TASK_UNASSIGNED : TASK_PENDING,
                 task.getAssigneeUserId(), task.getDecision(), task.getLinkedRevisionControlledFileId(),
                 expectedVersion, expectedVersion + 1);
+        followupStatusService.refreshBatchStatus(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -208,6 +221,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
             throw exception(PUBLICATION_IMPACT_TASK_STATE_INVALID);
         }
         DccControlledFileDO revision = requireRevision(task, revisionId, actorId);
+        followupStatusService.lockBatch(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
         int updated = taskMapper.linkRevision(TenantContextHolder.getRequiredTenantId(), taskId,
                 expectedVersion, revisionId, revision.getVersionNo(), normalizedReason);
         if (updated != 1) {
@@ -216,6 +230,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         insertAudit(task, "LINK_REVISION", actorId, normalizedReason, TASK_COMPLETED,
                 task.getAssigneeUserId(), DECISION_REQUIRED, revisionId,
                 expectedVersion, expectedVersion + 1);
+        followupStatusService.refreshBatchStatus(TenantContextHolder.getRequiredTenantId(), task.getBatchId());
     }
 
     @Override
@@ -231,11 +246,80 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                 || !TRACKING_NOT_STARTED.equals(task.getRevisionTrackingStatus())) {
             throw exception(PUBLICATION_IMPACT_TASK_STATE_INVALID);
         }
-        DccControlledFileDO source = controlledFileMapper.selectById(sourceControlledFileId);
-        if (source == null || !Objects.equals(source.getMasterId(), task.getRelatedMasterId())
-                || !Objects.equals(source.getRequesterId(), actorId)) {
+        DccPublicationImpactRevisionOptions options = resolveRevisionOptions(task, actorId);
+        if (options.openMajorRevision() != null || options.sourceIterations().stream()
+                .noneMatch(option -> Objects.equals(option.controlledFileId(), sourceControlledFileId))) {
             throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
         }
+    }
+
+    @Override
+    public DccPublicationImpactRevisionOptions getRevisionOptions(Long actorId, Long taskId) {
+        DccPublicationImpactTaskDO task = requireTask(taskId);
+        requireAssignee(task, actorId);
+        if (!TASK_COMPLETED.equals(task.getTaskStatus()) || !DECISION_REQUIRED.equals(task.getDecision())
+                || !TRACKING_NOT_STARTED.equals(task.getRevisionTrackingStatus())) {
+            throw exception(PUBLICATION_IMPACT_TASK_STATE_INVALID);
+        }
+        return resolveRevisionOptions(task, actorId);
+    }
+
+    private DccPublicationImpactRevisionOptions resolveRevisionOptions(
+            DccPublicationImpactTaskDO task, Long actorId) {
+        DccControlledFileMasterDO master = controlledFileMasterMapper.selectById(task.getRelatedMasterId());
+        if (master == null || !Objects.equals(master.getId(), task.getRelatedMasterId())
+                || master.getCurrentActiveControlledFileId() == null) {
+            throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
+        }
+        DccControlledFileDO active = controlledFileMapper.selectById(master.getCurrentActiveControlledFileId());
+        if (active == null || !Objects.equals(active.getMasterId(), task.getRelatedMasterId())
+                || !Objects.equals(active.getRequesterId(), actorId)
+                || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(active.getStatus())) {
+            throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
+        }
+        List<DccControlledFileDO> chain = Objects.requireNonNull(
+                controlledFileMapper.selectListByMasterId(task.getRelatedMasterId()),
+                "related controlled-file chain must not be null");
+        List<DccControlledFileDO> open = chain.stream()
+                .filter(file -> DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()))
+                .filter(file -> isOpenRevision(file.getStatus())).toList();
+        if (open.size() > 1) {
+            throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
+        }
+        if (open.size() == 1) {
+            if (!Objects.equals(open.get(0).getMasterId(), task.getRelatedMasterId())
+                    || !Objects.equals(open.get(0).getRequesterId(), actorId)) {
+                throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
+            }
+            return new DccPublicationImpactRevisionOptions(List.of(), toRevisionOption(open.get(0), false));
+        }
+        String revisionCode = DccWindchillVersionNumber.parse(active.getVersionNo()) == null
+                ? active.getRevisionCode() : DccWindchillVersionNumber.parse(active.getVersionNo()).revisionCode();
+        if (revisionCode == null) {
+            throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
+        }
+        List<DccPublicationImpactRevisionOption> sources = chain.stream()
+                .filter(file -> Objects.equals(file.getMasterId(), task.getRelatedMasterId()))
+                .filter(file -> Objects.equals(file.getRequesterId(), actorId))
+                .filter(file -> List.of(DccControlledFileStatusEnum.ACTIVE.getStatus(), "WORKING",
+                        DccControlledFileStatusEnum.REJECTED.getStatus()).contains(file.getStatus()))
+                .filter(file -> {
+                    DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(file.getVersionNo());
+                    return version != null && revisionCode.equals(version.revisionCode());
+                })
+                .sorted(java.util.Comparator.comparingInt(file ->
+                        DccWindchillVersionNumber.parse(file.getVersionNo()).iterationNo()))
+                .map(file -> toRevisionOption(file, Objects.equals(file.getId(), active.getId())))
+                .toList();
+        if (sources.isEmpty()) {
+            throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
+        }
+        return new DccPublicationImpactRevisionOptions(sources, null);
+    }
+
+    private DccPublicationImpactRevisionOption toRevisionOption(DccControlledFileDO file, boolean currentActive) {
+        return new DccPublicationImpactRevisionOption(
+                file.getId(), file.getVersionNo(), file.getStatus(), currentActive);
     }
 
     @Override
@@ -249,7 +333,10 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         List<DccPublicationImpactTaskDO> tasks = Objects.requireNonNull(
                 taskMapper.selectListByLinkedRevisionId(tenantId, publishedRevision.getId()),
                 "linked publication impact tasks must not be null");
+        java.util.Set<Long> affectedBatchIds = new java.util.LinkedHashSet<>();
         for (DccPublicationImpactTaskDO task : tasks) {
+            affectedBatchIds.add(task.getBatchId());
+            followupStatusService.lockBatch(tenantId, task.getBatchId());
             if (!Objects.equals(task.getRelatedMasterId(), publishedRevision.getMasterId())) {
                 throw new IllegalStateException("Linked impact task master does not match published revision");
             }
@@ -265,6 +352,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
                     task.getAssigneeUserId(), task.getDecision(), publishedRevision.getId(),
                     task.getRowVersion(), task.getRowVersion() + 1);
         }
+        affectedBatchIds.forEach(batchId -> followupStatusService.refreshBatchStatus(tenantId, batchId));
     }
 
     private boolean isLegitimateResolveRace(Long tenantId, DccPublicationImpactTaskDO selected,

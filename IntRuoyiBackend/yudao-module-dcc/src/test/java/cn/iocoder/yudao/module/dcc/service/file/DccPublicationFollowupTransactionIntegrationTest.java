@@ -127,6 +127,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(followupService, "adminUserApi", adminUserApi);
         set(followupService, "deptApi", mock(DeptApi.class));
         set(followupService, "impactAssessmentService", mock(DccRelatedFileImpactAssessmentService.class));
+        set(followupService, "publicationNotificationService", mock(DccPublicationNotificationService.class));
 
         PermissionApi permissionApi = mock(PermissionApi.class);
         when(permissionApi.hasAnyPermissions(9L, "dcc:controlled-file:approve")).thenReturn(true);
@@ -211,6 +212,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(impactService, "adminUserApi", mock(AdminUserApi.class));
         set(impactService, "permissionApi", mock(PermissionApi.class));
         set(impactService, "controlledFileMapper", controlledFileMapper);
+        set(impactService, "followupStatusService", mock(DccPublicationFollowupStatusService.class));
         set(followupService, "impactAssessmentService", impactService);
 
         finalizationService.applyApprovedPublishControlledFile(9L, 100L, "tx-resolve-lost-race");

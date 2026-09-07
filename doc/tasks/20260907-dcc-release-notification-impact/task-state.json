@@ -3,7 +3,7 @@
   "task_id": "20260907-dcc-release-notification-impact",
   "mode": "full",
   "status": "ready_for_execution",
-  "current_phase": "P3",
+  "current_phase": "P4",
   "phase_statuses": [
     {
       "phase_id": "P1",
@@ -210,40 +210,82 @@
         {
           "ac_id": "P3-AC1",
           "text": "实现当前里程碑目标：向责任明确的收件人发送站内通知，并提供工作台、详情和文控管理页面。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Executor-Pass",
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
+            "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+          ]
         },
         {
           "ac_id": "P3-AC2",
           "text": "交付物已落地：一人一消息、多个收件原因、PENDING/SENT/FAILED、只重试失败记录。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Executor-Pass",
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
+            "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+          ]
         },
         {
           "ac_id": "P3-AC3",
           "text": "交付物已落地：“我的影响评估”和“发布后续”页面。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Executor-Pass",
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
+            "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+          ]
         },
         {
           "ac_id": "P3-AC4",
           "text": "交付物已落地：通知链接继续经过当前 VIEW 权限校验，Long ID 无损。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Executor-Pass",
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
+            "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+          ]
         },
         {
           "ac_id": "P3-AC5",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Executor-Pass",
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
+            "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+          ]
         }
       ],
-      "evidence": [],
+      "evidence": [
+        "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Executor-Pass",
+        "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+        "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
+        "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
+        "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
+        "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+      ],
       "notes": [
         "Mapped test topics require main-agent review."
       ],
-      "last_reviewed_at": null,
-      "status": "pending"
+      "last_reviewed_at": "2026-09-07T13:45:39+00:00",
+      "status": "completed"
     },
     {
       "phase_id": "P4",
@@ -307,11 +349,11 @@
   "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 1,
-    "executor_loops": 3,
-    "test_loops": 4
+    "executor_loops": 6,
+    "test_loops": 6
   },
   "created_at": "2026-09-07T09:00:00+08:00",
-  "updated_at": "2026-09-07T06:48:04+00:00",
+  "updated_at": "2026-09-07T14:11:28+00:00",
   "branch": "int_main",
   "baseline_revision": "de8c6053f",
   "workspace_root": "E:\\IntRuoyi",

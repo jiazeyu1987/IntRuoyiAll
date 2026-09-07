@@ -77,6 +77,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
     @Mock private AdminUserApi adminUserApi;
     @Mock private DeptApi deptApi;
     @Mock private DccRelatedFileImpactAssessmentService impactAssessmentService;
+    @Mock private DccPublicationNotificationService publicationNotificationService;
 
     @InjectMocks
     private DccPublicationFollowupServiceImpl service;
@@ -196,6 +197,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
         assertEquals(Set.of("FORWARD", "REVERSE"), directionCaptor.getAllValues().stream()
                 .map(DccPublicationRelationDirectionSnapshotDO::getDirection).collect(java.util.stream.Collectors.toSet()));
         verify(impactAssessmentService).materializeForPublicationBatch(900L);
+        verify(publicationNotificationService).materializeForPublicationBatch(900L);
         verify(impactAssessmentService).resolveLinkedRevisionAfterPublication(published);
     }
 

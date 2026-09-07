@@ -18,7 +18,7 @@
 
 - P1 发布事件与通知对象快照：completed
 - P2 关联文件影响评估任务：completed
-- P3 站内通知、待办与处理页面：pending
+- P3 站内通知、待办与处理页面：completed
 - P4 审计、失败边界和真实验收：pending
 
 ## Expected Verification
@@ -38,7 +38,7 @@
 
 in_progress
 
-P1 发布后续账本和 P2 影响评估任务均已通过独立 tester；P2 相邻回归 286 项通过。当前阶段已推进到 P3，尚未开始通知与真实前端入口。
+P1 发布后续账本、P2 影响评估任务和 P3 幂等通知及真实前端入口均已通过独立 tester；P1-P3 相邻回归 316 项通过。当前阶段已推进到 P4，运行库迁移、服务重启和真实 Playwright 尚未执行。
 
 ## 设计约束检查
 

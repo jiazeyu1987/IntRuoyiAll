@@ -57,6 +57,8 @@ DELETE FROM `dcc_controlled_file_route_snapshot`;
 DELETE FROM `dcc_controlled_file_checkout`;
 DELETE FROM `dcc_publication_impact_audit`;
 DELETE FROM `dcc_publication_impact_task`;
+DELETE FROM `dcc_publication_notification_audit`;
+DELETE FROM `dcc_publication_notification_delivery`;
 DELETE FROM `dcc_publication_relation_direction_snapshot`;
 DELETE FROM `dcc_publication_relation_snapshot`;
 DELETE FROM `dcc_publication_notification_candidate_reason`;
