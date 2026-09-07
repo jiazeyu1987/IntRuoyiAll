@@ -580,6 +580,34 @@ CREATE TABLE IF NOT EXISTS `dcc_publication_relation_direction_snapshot` (
   UNIQUE (`tenant_id`, `batch_id`, `relation_snapshot_id`, `direction`, `source_relation_id`, `deleted`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_publication_impact_task` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT, `batch_id` BIGINT NOT NULL,
+  `publication_relation_snapshot_id` BIGINT NOT NULL, `published_controlled_file_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NOT NULL, `related_active_controlled_file_id` BIGINT NULL,
+  `related_file_number_snapshot` VARCHAR(128) NULL, `related_file_name_snapshot` VARCHAR(512) NULL,
+  `related_version_no_snapshot` VARCHAR(64) NULL, `assignee_user_id` BIGINT NULL,
+  `assignee_user_name_snapshot` VARCHAR(128) NULL, `task_status` VARCHAR(32) NOT NULL,
+  `decision` VARCHAR(32) NULL, `decision_reason` VARCHAR(1000) NULL, `decided_by` BIGINT NULL,
+  `decided_at` DATETIME NULL, `revision_tracking_status` VARCHAR(32) NOT NULL,
+  `linked_revision_controlled_file_id` BIGINT NULL, `linked_revision_version_snapshot` VARCHAR(64) NULL,
+  `resolved_at` DATETIME NULL, `row_version` INT NOT NULL DEFAULT 0, `creation_token` VARCHAR(36) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0, `create_time` DATETIME NULL, `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL, `updater` VARCHAR(64) NULL, `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), UNIQUE (`tenant_id`, `batch_id`, `related_master_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_impact_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT, `task_id` BIGINT NOT NULL, `batch_id` BIGINT NOT NULL,
+  `action_type` VARCHAR(32) NOT NULL, `actor_id` BIGINT NULL, `reason` VARCHAR(1000) NULL,
+  `status_before` VARCHAR(32) NULL, `status_after` VARCHAR(32) NOT NULL, `assignee_before` BIGINT NULL,
+  `assignee_after` BIGINT NULL, `decision_snapshot` VARCHAR(32) NULL,
+  `linked_revision_controlled_file_id` BIGINT NULL, `row_version_before` INT NOT NULL,
+  `row_version_after` INT NOT NULL, `occurred_at` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0, `create_time` DATETIME NULL, `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL, `updater` VARCHAR(64) NULL, `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `controlled_file_id` BIGINT NOT NULL,

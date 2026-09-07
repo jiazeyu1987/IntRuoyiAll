@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationVisibilityUserSnapshotDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryViewMatrixRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryDistributionRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
@@ -17,6 +18,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingAssig
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationFollowupBatchMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactAuditMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactTaskMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationCandidateMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationCandidateReasonMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationRelationDirectionSnapshotMapper;
@@ -76,9 +79,11 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
     @Resource private DccPublicationNotificationCandidateReasonMapper candidateReasonMapper;
     @Resource private DccPublicationRelationSnapshotMapper relationSnapshotMapper;
     @Resource private DccPublicationRelationDirectionSnapshotMapper relationDirectionMapper;
+    @Resource private DccPublicationImpactAuditMapper impactAuditMapper;
 
     private DccControlledContentAdapter platformAdapter;
     private DccControlledFileFinalizationServiceImpl finalizationService;
+    private DccPublicationFollowupServiceImpl followupService;
     private final AtomicReference<RuntimeException> capturedTransactionFailure = new AtomicReference<>();
 
     @BeforeEach
@@ -103,7 +108,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         when(relatedFileService.listForwardRelations(100L)).thenReturn(List.of());
         when(relatedFileService.listReverseCurrentActiveRelations(1L, 10L)).thenReturn(List.of());
 
-        DccPublicationFollowupServiceImpl followupService = new DccPublicationFollowupServiceImpl();
+        followupService = new DccPublicationFollowupServiceImpl();
         set(followupService, "batchMapper", batchMapper);
         set(followupService, "visibilityRuleMapper", visibilityRuleMapper);
         set(followupService, "visibilityUserMapper", failingVisibilityUserMapper);
@@ -121,6 +126,7 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(followupService, "controlledFileMapper", controlledFileMapper);
         set(followupService, "adminUserApi", adminUserApi);
         set(followupService, "deptApi", mock(DeptApi.class));
+        set(followupService, "impactAssessmentService", mock(DccRelatedFileImpactAssessmentService.class));
 
         PermissionApi permissionApi = mock(PermissionApi.class);
         when(permissionApi.hasAnyPermissions(9L, "dcc:controlled-file:approve")).thenReturn(true);
@@ -185,6 +191,42 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
     }
 
+    @Test
+    void applyApprovedPublishControlledFile_resolveLostRaceStillCommitsActivePublication() {
+        set(followupService, "visibilityUserMapper", visibilityUserMapper);
+        DccPublicationImpactTaskMapper raceTaskMapper = mock(DccPublicationImpactTaskMapper.class);
+        DccPublicationImpactTaskDO selected = linkedImpactTask("REVISION_LINKED", 3, 100L);
+        DccPublicationImpactTaskDO reopened = linkedImpactTask("NOT_APPLICABLE", 4, null);
+        reopened.setTaskStatus("PENDING");
+        reopened.setDecision(null);
+        when(raceTaskMapper.selectListByLinkedRevisionId(1L, 100L)).thenReturn(List.of(selected));
+        when(raceTaskMapper.resolveRevision(1L, 10L, 3, 100L)).thenReturn(0);
+        when(raceTaskMapper.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(reopened);
+        DccRelatedFileImpactAssessmentServiceImpl impactService =
+                new DccRelatedFileImpactAssessmentServiceImpl();
+        set(impactService, "batchMapper", batchMapper);
+        set(impactService, "relationMapper", relationSnapshotMapper);
+        set(impactService, "taskMapper", raceTaskMapper);
+        set(impactService, "auditMapper", impactAuditMapper);
+        set(impactService, "adminUserApi", mock(AdminUserApi.class));
+        set(impactService, "permissionApi", mock(PermissionApi.class));
+        set(impactService, "controlledFileMapper", controlledFileMapper);
+        set(followupService, "impactAssessmentService", impactService);
+
+        finalizationService.applyApprovedPublishControlledFile(9L, 100L, "tx-resolve-lost-race");
+
+        assertEquals(DccControlledFileStatusEnum.SUPERSEDED.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 99"));
+        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 100"));
+        assertEquals(100L, longValue(
+                "SELECT current_active_controlled_file_id FROM dcc_controlled_file_master WHERE id = 10"));
+        assertEquals(1L, longValue("SELECT COUNT(*) FROM dcc_publication_followup_batch"));
+        assertEquals(0L, longValue("SELECT COUNT(*) FROM dcc_publication_impact_audit"));
+        verify(platformAdapter).recordFinalized(any(), any(), any(),
+                org.mockito.ArgumentMatchers.eq("tx-resolve-lost-race"));
+    }
+
     private void seedPublicationRows() {
         jdbcTemplate.update("""
                 INSERT INTO dcc_file_category
@@ -213,6 +255,18 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
                    50, 0, 'CONTROLLED_FILE', 'REVISION', 'B/1', 'B', 1, 'READY_TO_PUBLISH', 1, 1,
                    NULL, 1, 0)
                 """);
+    }
+
+    private DccPublicationImpactTaskDO linkedImpactTask(String trackingStatus, int version, Long linkedRevisionId) {
+        DccPublicationImpactTaskDO task = DccPublicationImpactTaskDO.builder()
+                .id(10L).batchId(70L).publicationRelationSnapshotId(700L)
+                .publishedControlledFileId(90L).relatedMasterId(10L)
+                .relatedActiveControlledFileId(99L).assigneeUserId(1L).taskStatus("COMPLETED")
+                .decision("REVISION_REQUIRED").revisionTrackingStatus(trackingStatus)
+                .linkedRevisionControlledFileId(linkedRevisionId).rowVersion(version)
+                .creationToken("impact-race-token").build();
+        task.setTenantId(1L);
+        return task;
     }
 
     private String stringValue(String sql) {

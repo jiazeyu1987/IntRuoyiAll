@@ -336,6 +336,26 @@ public interface ErrorCodeConstants {
             "当前版本不允许检入");
     ErrorCode CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED = new ErrorCode(1_080_000_318,
             "当前版本不允许创建大版本");
+    ErrorCode PUBLICATION_IMPACT_TASK_NOT_EXISTS = new ErrorCode(1_080_000_319,
+            "关联文件影响评估任务不存在");
+    ErrorCode PUBLICATION_IMPACT_TASK_STATE_INVALID = new ErrorCode(1_080_000_320,
+            "关联文件影响评估任务状态不允许当前操作");
+    ErrorCode PUBLICATION_IMPACT_ASSIGNEE_DENIED = new ErrorCode(1_080_000_321,
+            "只有当前负责人可以处理关联文件影响评估");
+    ErrorCode PUBLICATION_IMPACT_DOC_CONTROL_DENIED = new ErrorCode(1_080_000_322,
+            "只有同时具备文控角色和批准权限的人员可以管理影响评估");
+    ErrorCode PUBLICATION_IMPACT_REASON_REQUIRED = new ErrorCode(1_080_000_323,
+            "影响评估操作原因不能为空");
+    ErrorCode PUBLICATION_IMPACT_DECISION_INVALID = new ErrorCode(1_080_000_324,
+            "影响评估结论不合法");
+    ErrorCode PUBLICATION_IMPACT_VERSION_CONFLICT = new ErrorCode(1_080_000_325,
+            "影响评估任务已被修改，请刷新后重试");
+    ErrorCode PUBLICATION_IMPACT_ASSIGNEE_INVALID = new ErrorCode(1_080_000_326,
+            "影响评估新负责人不存在或已停用");
+    ErrorCode PUBLICATION_IMPACT_REVISION_INVALID = new ErrorCode(1_080_000_327,
+            "关联的大版本不属于当前相关文件或不是唯一开放大版本");
+    ErrorCode PUBLICATION_IMPACT_REVISION_ALREADY_LINKED = new ErrorCode(1_080_000_328,
+            "影响评估任务已经关联大版本");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_INVALID = new ErrorCode(1_080_000_302,
             "关联文件必须属于当前 DCC 项目代码");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_DUPLICATE = new ErrorCode(1_080_000_303,

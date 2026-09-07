@@ -80,6 +80,7 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
     @Resource private DccControlledFileMapper controlledFileMapper;
     @Resource private AdminUserApi adminUserApi;
     @Resource private DeptApi deptApi;
+    @Resource private DccRelatedFileImpactAssessmentService impactAssessmentService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -132,7 +133,9 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
 
         insertVisibilitySnapshots(batch, publishedFile, visibilityRules, userDirectory);
         insertRelationSnapshots(batch, relationDrafts, userDirectory, frozenAt);
+        impactAssessmentService.materializeForPublicationBatch(batch.getId());
         insertNotificationCandidates(batch, candidateReasons, userDirectory);
+        impactAssessmentService.resolveLinkedRevisionAfterPublication(publishedFile);
     }
 
     private List<VisibilityRuleDraft> resolveVisibilityRules(DccControlledFileDO file) {

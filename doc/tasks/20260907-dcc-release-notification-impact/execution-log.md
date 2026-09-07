@@ -201,3 +201,127 @@ No P1 code or local test blocker remains. No Git, real database, E2E, or service
 Project experience consolidation: added the reusable publication-followup transaction and business-audience snapshot gate to `docs/backend-development.md`; no new long-term document was created.
 
 `GREEN: git commit/push -> PASS, P1 implementation, tests, migration, independent evidence, task state and consolidated experience committed as b1e08ba6b and pushed to origin/int_main; unrelated concurrent changes were excluded`
+
+## P2 Executor: 影响评估任务与升版跟踪
+
+`BDD: 发布事务物化唯一任务 -> Given 发布批次已冻结多个相关 Master，When P1 后续账本在发布事务内完成物化，Then 每个 batch + related Master 只有一个影响任务；有效 requester 为 PENDING，缺失或停用 requester 为 UNASSIGNED，任一任务或审计写入失败使发布事务回滚`
+
+`BDD: 负责人处理决定 -> Given 当前用户是任务负责人且 expectedVersion 匹配，When 开始任务并提交必填原因的 NO_REVISION_REQUIRED 或 REVISION_REQUIRED，Then 任务通过 CAS 完成并写不可变审计；无需升版不改变相关文件，需要升版只进入 NOT_STARTED 而不自动建版`
+
+`BDD: 文控转派与更正 -> Given 操作者同时具有 doc_control 角色和 approve 权限，When 以匹配版本转派有效用户或重新打开已完成任务并填写原因，Then 状态按规则更新且旧决定只保留在审计；缺任一权限、停用用户、空原因或旧版本均零副作用`
+
+`BDD: 复用正式大版本合同 -> Given REVISION_REQUIRED 任务的负责人也是相关文件 requester，When 关联同 Master 唯一开放大版本或调用现有 major-revision 创建后关联，Then 只保存显式版本链接；已有开放大版本时现有 workflow 阻止第二条，跨 Master 或越权关联失败`
+
+`BDD: 关联修订发布后解决 -> Given 任务已关联具体大版本，When 该版本正式发布为 ACTIVE，Then 跟踪状态以 CAS 变为 RESOLVED 并写审计；驳回、撤回或 FINALIZATION_FAILED 不解决任务`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccRelatedFileImpactAssessmentServiceTest,DccPublicationImpactAssessmentSchemaTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, expected P2 impact task/audit DO, Mapper, service methods, relation batch query and error contracts do not exist`
+
+`RED: python -X utf8 -m pytest script/tests/test_dcc_publication_impact_assessment_sql.py -q -> FAIL, 3 tests / 3 failures, expected migration 20260907_dcc_publication_impact_assessment.sql is missing`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccImpactRevisionCommandServiceTest,DccImpactAssessmentArchitectureTest,DccRelatedFileImpactAssessmentServiceTest#materializeForPublicationBatch_lostUniqueInsertRaceDoesNotDuplicateMaterializeAudit+linkExistingMajorRevision_activeOrFailedVersionIsNotAnOpenRevision' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, expected cycle-free revision coordinator did not exist`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationImpactAssessmentControllerTest#managementEndpointsRequireDocControlRoleAndApprovePermission' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, create-revision only required authentication and did not preserve the existing dcc:controlled-file:submit gate`
+
+### Scope And Contract
+
+P2 adds two structured entities: a versioned impact task unique by publication batch and related Master, and an append-only audit row for every materialize/start/decision/reassign/reopen/link/resolve action. Command endpoints expose start, decision, reassign, reopen, link-existing and create-through-existing-major-revision workflow. No message delivery, frontend page, scheduler or automatic version creation was added.
+
+The state contract is `PENDING/UNASSIGNED -> IN_REVIEW -> COMPLETED`; decisions are `NO_REVISION_REQUIRED/REVISION_REQUIRED`; revision tracking is `NOT_APPLICABLE/NOT_STARTED -> REVISION_LINKED -> RESOLVED`. Every mutation uses request `expectedVersion` plus an SQL CAS predicate.
+
+### Validation And Authorization
+
+- Materialization uses the immutable relation snapshot `responsibleUserIdSnapshot + responsibleUserStatusSnapshot`; it does not reread current user status or silently assign missing/disabled users.
+- Start, decision and link require the current task assignee in the service. Reassign/reopen require both formal `doc_control` role and `dcc:controlled-file:approve` permission in Controller and Service; the new assignee must currently exist and be enabled.
+- Create-revision preserves `dcc:controlled-file:submit`, uses a cycle-free coordinator, checks task/master/requester/version first, invokes the existing `createMajorRevision` contract, then explicitly links the concrete created revision.
+- Existing revision links accept exactly one open workflow revision for the same Master/requester. ACTIVE, REJECTED, WITHDRAWN, SUPERSEDED, OBSOLETE and FINALIZATION_FAILED are not linkable.
+
+### Data, Migration, Safety And Rollback
+
+`20260907_dcc_publication_impact_assessment.sql` is additive, depends on `20260907_dcc_publication_followup`, contains no historical DML, and defines `uk_dcc_pub_impact_master`, row-version CAS data and linked-revision lookup. The H2 fixture mirrors both tables and cleanup removes audit before tasks and tasks before the P1 ledger.
+
+Task materialization is invoked inside the P1 follow-up transaction. The unique insert uses an immutable creation token; only the transaction whose token survives the unique-key race writes the `MATERIALIZE` audit. Existing task identity is compared before idempotent return. Real H2 transaction tests prove audit failure rolls back both task materialization and start-state CAS. A separate real transaction harness proves link CAS failure rolls back the revision row created by the workflow participant. Recovery is rollback of the enclosing transaction; no fallback, compensation, historical backfill or partial-success path exists.
+
+### GREEN:
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationImpactAssessmentSchemaTest,DccRelatedFileImpactAssessmentServiceTest,DccImpactRevisionCommandServiceTest,DccImpactAssessmentArchitectureTest,DccImpactAssessmentTransactionIntegrationTest,DccPublicationFollowupServiceTest,DccPublicationFollowupTransactionIntegrationTest,DccPublicationImpactAssessmentControllerTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 36 tests / 0 failures`
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=DccControlledFileAssignmentScopeServiceTest,DccPublicationFollowupServiceTest,DccPublicationFollowupSchemaTest,DccPublicationFollowupTransactionIntegrationTest,DccControlledFileFinalizationServiceImplTest,DccControlledFileQueryServiceTest,DccControlledFileRelatedFileServiceTest,DccControlledFileWorkflowServiceImplTest,DccControlledFilePublicationFlowTest,DccPublicationImpactAssessmentSchemaTest,DccRelatedFileImpactAssessmentServiceTest,DccImpactRevisionCommandServiceTest,DccImpactAssessmentArchitectureTest,DccImpactAssessmentTransactionIntegrationTest,DccPublicationImpactAssessmentControllerTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 281 tests / 0 failures`
+
+`GREEN: python -X utf8 -m pytest script/tests/test_dcc_publication_followup_sql.py script/tests/test_dcc_publication_impact_assessment_sql.py -q -> PASS, 6 tests`
+
+`GREEN: release migration policy gate with complete dependency closure through 20260907_dcc_publication_impact_assessment.sql -> PASS, migrationCount=13`
+
+`GREEN: mvn -o -pl yudao-module-dcc -DskipTests compile -> PASS`
+
+### Verification
+
+P2 tests cover unique task materialization, duplicate/lost-race idempotence, snapshot-status assignment, assignee and doc-control authorization, invalid/blank decisions, stale CAS, both decisions, zero controlled-file writes for no-revision, no automatic version for revision-required, cross-Master and closed-version rejection, existing/new major revision linking, publish-only resolution, immutable audit and real transaction rollback.
+
+Task-owned implementation files include the new migration and SQL contract; impact task/audit DO and Mappers; impact state service/interface; cycle-free revision coordinator; command Controller and six request VOs; P1 follow-up/finalization hooks; error codes; H2 fixtures; schema, service, controller, architecture and transaction tests.
+
+### Blockers
+
+No P2 code or local verification blocker remains. The migration was not applied to a real database and no E2E, service restart, Git commit or push was performed under this executor authorization.
+
+Final P2 correction evidence:
+
+- Eliminated the Spring dependency cycle by keeping the impact state service independent of Workflow/Finalization and introducing `DccImpactRevisionCommandService` as the one-way coordinator for `Impact + Workflow`.
+- Added transactional annotations to every state/audit mutation and real H2 rollback tests for start/audit, materialize/audit, and workflow-created revision/link failure.
+- Materialization now assigns strictly from the frozen relation status and uses creation-token winner comparison before writing the single `MATERIALIZE` audit.
+- Closed revisions, including ACTIVE and FINALIZATION_FAILED, cannot be linked as future work; create-revision retains the existing submit permission plus requester/Master checks.
+
+`GREEN: final P1+P2 adjacent rerun -> PASS, 281 tests / 0 failures`
+
+`GREEN: backend-api evidence validator against execution-log.md -> PASS`
+
+`GREEN: database-schema evidence validator against execution-log.md -> PASS`
+
+`GREEN: tracked P2 diff-check and untracked trailing-whitespace scan -> PASS (line-ending warnings only)`
+
+## P2 Resolve Lost-Race Correction
+
+`BDD: 自动解决合法竞争不阻塞发布 -> Given 关联任务在 resolve 查询后被另一 resolver 抢先标记 RESOLVED，或被文控并发 reopen 后不再关联当前修订，When 当前大版本继续完成 ACTIVE 发布，Then CAS update=0 经 tenant-scoped 当前任务复核后视为合法竞争，不重复写 audit且发布事务正常提交；若任务仍原样 REVISION_LINKED 到同一修订则继续 fail fast`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccRelatedFileImpactAssessmentServiceTest#resolveLinkedRevisionAfterPublication_concurrentResolverWinnerDoesNotThrowOrDuplicateAudit+resolveLinkedRevisionAfterPublication_concurrentReopenDoesNotThrowOrWriteAudit+resolveLinkedRevisionAfterPublication_unexplainedCasMissStillFailsFast,DccPublicationFollowupTransactionIntegrationTest#applyApprovedPublishControlledFile_resolveLostRaceStillCommitsActivePublication' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, 4 tests: both legal CAS lost-races threw PUBLICATION_IMPACT_VERSION_CONFLICT and the real H2 outer publication rolled back into FINALIZATION_FAILED instead of committing ACTIVE`
+
+Root Cause: automatic resolution treated every conditional-update miss as a fatal stale command. Unlike an interactive command, this publication-side projection can legitimately lose to an already committed resolver or reopen. Propagating that expected race through `recordPublishedRevision` incorrectly converted a valid document publication into finalization failure.
+
+Correction: keep the conditional CAS update. On update count zero, perform one tenant-scoped current-task read. Return without audit only when the task is already `RESOLVED` for the same revision or no longer links that revision. A missing task, Master mismatch, or task still `REVISION_LINKED` to the same revision remains `PUBLICATION_IMPACT_VERSION_CONFLICT`; Mapper, database and audit exceptions continue to propagate.
+
+`GREEN: same focused lost-race command -> PASS, 4 tests / 0 failures; includes real H2 finalization showing A/1 SUPERSEDED, B/1 ACTIVE, Master -> B/1, follow-up batch committed and no duplicate impact audit`
+
+`GREEN: P1+P2 adjacent suite with lost-race coverage -> PASS, 285 tests / 0 failures`
+
+`GREEN: P1/P2 SQL contracts -> PASS, 6 tests; 13-file migration dependency closure -> PASS; DCC module compile -> PASS; scoped diff-check -> PASS`
+
+Risk and regression scope: the change applies only to automatic linked-revision resolution after a successful ACTIVE publication. Interactive stale CAS behavior for start, decision, reassign, reopen and link remains fail-fast. No notification, UI, schema, historical data or authorization behavior changed.
+
+Blockers: none at code/local-test level. No Git, real database, E2E or service restart action was performed.
+
+### MySQL Current-Read Hardening
+
+`BDD: 合法竞争复核读取最新已提交状态 -> Given MySQL 默认 REPEATABLE READ 下 resolve 的初次查询已建立事务快照，When CAS update=0 后复核并发 resolver/reopen 的结果，Then 必须使用 tenant-scoped SELECT ... FOR UPDATE 当前读看到最新已提交行；同一 REVISION_LINKED 且仍链接当前修订的异常 CAS miss 继续 fail fast`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationImpactAssessmentSchemaTest#resolveRaceCurrentReadUsesTenantScopedForUpdateQuery' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL, NoSuchMethodException: DccPublicationImpactTaskMapper.selectByIdAndTenantForUpdate; 普通 select 在 MySQL REPEATABLE READ 下不能证明会跳出旧快照`
+
+Correction: CAS update=0 后通过 `DccPublicationImpactTaskMapper.selectByIdAndTenantForUpdate` 执行带 `tenant_id + id + deleted = 0` 条件的 `SELECT ... FOR UPDATE` 当前读。仅已 RESOLVED、已 reopen 或已改链等可解释的更高 rowVersion 状态视为合法竞争；仍为同一 `REVISION_LINKED`、Master 不一致、记录缺失或 rowVersion 未推进均继续抛版本冲突。Mapper/数据库/audit 异常不吞并。
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationImpactAssessmentSchemaTest#resolveRaceCurrentReadUsesTenantScopedForUpdateQuery,DccRelatedFileImpactAssessmentServiceTest#resolveLinkedRevisionAfterPublication_concurrentResolverWinnerDoesNotThrowOrDuplicateAudit+resolveLinkedRevisionAfterPublication_concurrentReopenDoesNotThrowOrWriteAudit+resolveLinkedRevisionAfterPublication_unexplainedCasMissStillFailsFast,DccPublicationFollowupTransactionIntegrationTest#applyApprovedPublishControlledFile_resolveLostRaceStillCommitsActivePublication' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 5 tests / 0 failures`
+
+`GREEN: P1+P2 adjacent suite after locking-current-read correction -> PASS, 286 tests / 0 failures`
+
+Final correction-owned files: `DccPublicationImpactTaskMapper.java`, `DccRelatedFileImpactAssessmentServiceImpl.java`, `DccPublicationImpactAssessmentSchemaTest.java`, `DccRelatedFileImpactAssessmentServiceTest.java`, `DccPublicationFollowupTransactionIntegrationTest.java`, and this execution log. Blockers: none. No Git, real database, E2E or service restart action was performed.
+
+## P2 Independent Gate
+
+`GREEN: independent tester corrective rerun -> PASS, corrective suite 25 tests; P2 suite 41 tests; P1+P2 adjacent suite 286 tests; all 0 failures/errors`
+
+`GREEN: P1/P2 SQL contracts -> PASS, 6 tests; 13-file migration dependency closure -> PASS; DCC compile and scoped diff checks -> PASS`
+
+`GREEN: backend API evidence validator -> PASS; database schema evidence validator -> PASS`
+
+`GREEN: P2-AC1 through P2-AC5 and business AC-06 through AC-13 -> completed; current phase advanced to P3`
+
+Project experience consolidation: extended the existing publication-followup gate in `docs/backend-development.md` with automatic-projection CAS race classification and MySQL locking-current-read verification; no new long-term document was created.
+
+P2 runtime note: real MySQL first/repeat migration, E2E and service restart remain intentionally deferred to P4 and are not claimed here.

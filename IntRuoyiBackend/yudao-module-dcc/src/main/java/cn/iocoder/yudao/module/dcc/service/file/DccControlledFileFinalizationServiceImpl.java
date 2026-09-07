@@ -532,6 +532,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
         file.setPublishedTime(publishedAt);
+        file.setStatus(DccControlledFileStatusEnum.ACTIVE.getStatus());
         publicationFollowupService.recordPublishedRevision(file, previousActive);
         platformAdapter.recordFinalized(previousActive, file, actorId, eventKey);
     }

@@ -76,6 +76,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileMapper controlledFileMapper;
     @Mock private AdminUserApi adminUserApi;
     @Mock private DeptApi deptApi;
+    @Mock private DccRelatedFileImpactAssessmentService impactAssessmentService;
 
     @InjectMocks
     private DccPublicationFollowupServiceImpl service;
@@ -194,6 +195,8 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
         verify(relationDirectionMapper, times(3)).insert(directionCaptor.capture());
         assertEquals(Set.of("FORWARD", "REVERSE"), directionCaptor.getAllValues().stream()
                 .map(DccPublicationRelationDirectionSnapshotDO::getDirection).collect(java.util.stream.Collectors.toSet()));
+        verify(impactAssessmentService).materializeForPublicationBatch(900L);
+        verify(impactAssessmentService).resolveLinkedRevisionAfterPublication(published);
     }
 
     @Test
@@ -249,6 +252,27 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
 
         assertEquals("snapshot insert failed", error.getMessage());
         verifyNoInteractions(candidateMapper, candidateReasonMapper, relationSnapshotMapper, relationDirectionMapper);
+    }
+
+    @Test
+    void recordPublishedRevision_impactMaterializationFailurePropagatesBeforeNotificationCandidates() {
+        DccControlledFileDO published = publishedB1();
+        when(viewMatrixRuleMapper.selectActiveListByCategoryId(20L)).thenReturn(List.of());
+        when(distributionMapper.selectListByControlledFileId(100L)).thenReturn(List.of());
+        when(relatedFileService.listForwardRelations(100L)).thenReturn(List.of());
+        when(relatedFileService.listReverseCurrentActiveRelations(1L, 10L)).thenReturn(List.of());
+        when(assignmentScopeService.filterBusinessVisibleUserIds(Set.of(1L), 100L)).thenReturn(Set.of(1L));
+        when(adminUserApi.getUserList(Set.of(1L))).thenReturn(List.of(user(1L, "责任人", 10L)));
+        when(deptApi.getDeptList(Set.of(10L))).thenReturn(List.of(dept(10L, "质量部")));
+        doThrow(new IllegalStateException("impact materialization failed"))
+                .when(impactAssessmentService).materializeForPublicationBatch(900L);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.recordPublishedRevision(published, null));
+
+        assertEquals("impact materialization failed", error.getMessage());
+        verifyNoInteractions(candidateMapper, candidateReasonMapper);
+        verify(impactAssessmentService, never()).resolveLinkedRevisionAfterPublication(any());
     }
 
     @Test
