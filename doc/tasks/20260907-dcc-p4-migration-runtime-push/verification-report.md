@@ -11,6 +11,7 @@
 - P4 migration repeat run: exit `0`。
 - P4 static contract: `3 passed`。
 - Complete dependency closure: `status=passed, migrationCount=10`。
+- Database schema evidence validator: `Database schema evidence is valid.`
 - Post-migration read-only result: tenant 1 has one `DIRECT/PUBLISHED/DCC_PUBLISH` DCC publish policy; prior BPM policy is disabled.
 - Protected lifecycle data unchanged: A/1 `SUPERSEDED`, A/2 `WORKING`, B/1 `ACTIVE`, Master points to B/1, signatures `10/10 VALID`。
 
@@ -30,7 +31,7 @@
 ## Git
 
 - Existing implementation commit `94d1f6b7f` already contains the DCC lifecycle implementation and P4 migration.
-- This task's evidence commit `9c7de643b` was pushed to `origin/int_main`; final `HEAD` and `origin/int_main` are synchronized.
+- Evidence commits `9c7de643b` and final refresh `305808ac4` were pushed to `origin/int_main`; final `HEAD` and `origin/int_main` are synchronized.
 - Concurrent unrelated changes in `docs/worktree-memory.md` and registration acceptance files were excluded from staging and remain untouched.
 
 ## Residual Boundary
