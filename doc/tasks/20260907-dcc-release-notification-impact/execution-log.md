@@ -325,3 +325,5 @@ Final correction-owned files: `DccPublicationImpactTaskMapper.java`, `DccRelated
 Project experience consolidation: extended the existing publication-followup gate in `docs/backend-development.md` with automatic-projection CAS race classification and MySQL locking-current-read verification; no new long-term document was created.
 
 P2 runtime note: real MySQL first/repeat migration, E2E and service restart remain intentionally deferred to P4 and are not claimed here.
+
+`GREEN: Git implementation commit/push -> PASS, P2 implementation, migration, tests, independent evidence, task state and consolidated experience committed as 2d3149d70 and pushed to origin/int_main; unrelated working-tree changes were excluded`
