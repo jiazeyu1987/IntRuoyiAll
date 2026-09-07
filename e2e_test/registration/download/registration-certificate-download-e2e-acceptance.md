@@ -21,7 +21,7 @@
 - 注册部经理 B：`chudongchuan`。密码 Abcd1234!
 - 普通用户 C：固定使用 `wanglixuan`，密码 `111111`。
 - 普通用户下载验证前置：固定使用普通用户 C `wanglixuan`；若该账号已具备目标文件直接下载特权或已有有效下载授权，则跳过普通用户未授权、申请、审批和授权下载相关 E2E 验证，并记录跳过原因。
-- 下载保存目录：当前任务目录 `artifacts/downloads/`。
+- 下载保存目录：任务目录 artifacts/downloads。
 - 下载授权有效期：注册部经理审批通过后 24 小时内有效。
 - 测试数据标识：申请理由、审批意见、下载目录和证据文件名必须包含本次任务唯一标识，例如 `E2E-DOWNLOAD-YYYYMMDD-HHMMSS`。
 
@@ -105,6 +105,8 @@
 
 ## E2E-2 普通用户未授权前只能申请下载
 
+若已触发跳过条件，本节记为 SKIPPED。
+
 ### Operation
 
 1. 退出注册部经理 B。
@@ -132,6 +134,8 @@
 
 ## E2E-3 普通用户提交下载申请
 
+若已触发跳过条件，本节记为 SKIPPED。
+
 ### Operation
 
 1. 仍使用普通用户 C `wanglixuan`。
@@ -158,6 +162,8 @@
 - 记录页面错误、console error、失败响应列表均为空。
 
 ## E2E-4 注册部经理审批下载申请
+
+若已触发跳过条件，本节记为 SKIPPED。
 
 ### Operation
 
@@ -188,6 +194,8 @@
 - 记录目标注册证批准日期，作为后续文件名中的批准日期依据；审批通过时间只用于授权有效期判断。
 
 ## E2E-5 普通用户获批后下载当前有效注册证文件
+
+若已触发跳过条件，本节记为 SKIPPED。
 
 ### Operation
 
@@ -220,6 +228,8 @@
 
 ## E2E-6 普通用户仅申请并下载变更文件
 
+若已触发跳过条件，本节记为 SKIPPED。
+
 ### Operation
 
 1. 使用普通用户 C `wanglixuan` 登录。
@@ -248,6 +258,8 @@
 
 ## E2E-7 普通用户申请并下载失效证件
 
+若已触发跳过条件，本节记为 SKIPPED。
+
 ### Operation
 
 1. 使用普通用户 C `wanglixuan` 登录。
@@ -275,6 +287,8 @@
 - 文件名校验结果，明确指出 `已失效` 位于扩展名前。
 
 ## E2E-8 变更文件且证件已失效的组合命名
+
+若已触发跳过条件，本节记为 SKIPPED。
 
 ### Operation
 
@@ -357,7 +371,7 @@ Playwright 完成真实页面动作后，可以使用只读 API 或只读 DB 辅
 
 - `result.json`：机器可读结果。
 - `trace.zip`：Playwright trace。
-- `artifacts/downloads/`：真实下载文件。
+- 任务目录 artifacts/downloads：真实下载文件。
 - `screenshots/`：关键页面截图。
 - `verification-report.md`：人工可读验收报告。
 
@@ -378,6 +392,6 @@ Playwright 完成真实页面动作后，可以使用只读 API 或只读 DB 辅
 
 ## Security Notes
 
-- 不得在文档、日志、截图说明、result.json 或提交信息中写入密码、token、cookie、Authorization header、数据库连接密钥。
+- 不得在文档、日志、截图说明、result.json 或提交信息中写入 token、cookie、Authorization header、数据库连接密钥。
 - Playwright trace 如包含登录请求，应在归档前确认不会暴露敏感字段；无法脱敏时，仅保存必要截图和 result.json，不提交 trace。
 - 下载文件属于 E2E 产物，只能保存在本次任务输出目录，不得覆盖仓库中的固定样本文件。

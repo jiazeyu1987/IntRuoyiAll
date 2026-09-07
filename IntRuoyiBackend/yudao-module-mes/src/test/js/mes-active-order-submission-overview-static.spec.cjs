@@ -45,11 +45,13 @@ assert(
   'detail model must expose per-process frontline PQC submissions'
 )
 assert(
-  detailModel.includes('List<Long> pqcTaskIds') &&
+    detailModel.includes('List<Long> pqcTaskIds') &&
     detailModel.includes('List<Long> submittedEventIds') &&
     detailModel.includes('private Long qaProcessId') &&
-    detailModel.includes('private String qaProcessName'),
-  'detail model must expose merged PQC task/event id lists and formal PQC process identity'
+    detailModel.includes('private String qaProcessName') &&
+    detailModel.includes('private String submitterName') &&
+    detailModel.includes('private String reviewerName'),
+  'detail model must expose merged PQC task/event id lists, formal PQC process identity, and submit/review parties'
 )
 assert(
   detailService.includes('MesFrontlineProcessMaterialService') &&
@@ -82,8 +84,10 @@ assert(
     detailVo.includes('List<Long> pqcTaskIds') &&
     detailVo.includes('List<Long> submittedEventIds') &&
     detailVo.includes('private Long qaProcessId') &&
-    detailVo.includes('private String qaProcessName'),
-  'response VO must preserve input material, merged PQC submission sections, and PQC process identity'
+    detailVo.includes('private String qaProcessName') &&
+    detailVo.includes('private String submitterName') &&
+    detailVo.includes('private String reviewerName'),
+  'response VO must preserve input material, merged PQC submission sections, PQC process identity, and submit/review parties'
 )
 assert(
   controller.includes('toActiveOrderInputMaterialDetailRespVO') &&
@@ -92,7 +96,9 @@ assert(
     controller.includes('.setPqcTaskIds(submission.getPqcTaskIds())') &&
     controller.includes('.setSubmittedEventIds(submission.getSubmittedEventIds())') &&
     controller.includes('.setQaProcessId(submission.getQaProcessId())') &&
-    controller.includes('.setQaProcessName(submission.getQaProcessName())'),
+    controller.includes('.setQaProcessName(submission.getQaProcessName())') &&
+    controller.includes('.setSubmitterName(submission.getSubmitterName())') &&
+    controller.includes('.setReviewerName(submission.getReviewerName())'),
   'controller must map all new detail sections to the frontend contract'
 )
 assert(
@@ -102,16 +108,19 @@ assert(
     frontendApi.includes('pqcTaskIds?: number[]') &&
     frontendApi.includes('submittedEventIds?: number[]') &&
     frontendApi.includes('qaProcessId?: number') &&
-    frontendApi.includes('qaProcessName?: string'),
+    frontendApi.includes('qaProcessName?: string') &&
+    frontendApi.includes('submitterName?: string') &&
+    frontendApi.includes('reviewerName?: string'),
   'frontend API contract must include input materials and PQC submissions'
 )
 assert(
   frontend.includes('生产提交') &&
     frontend.includes('PQC提交') &&
     frontend.includes('领料单') &&
-    frontend.includes('formatActiveOrderPickListNos(material.sourcePickListNos)') &&
+    frontend.includes("renderActiveOrderDocumentLinks(material.sourcePickListNos, material.sourcePickListIds, 'pick')") &&
+    frontend.includes("renderActiveOrderDocumentLinks(material.sourceReplenishmentListNos, material.sourceReplenishmentListIds, 'replenishment')") &&
     !frontend.includes('formatActiveOrderSourceIds(material.sourcePickListIds)'),
-  'active order detail panel must show process production/PQC tabs and a final pick-list tab with exact bill numbers'
+  'active order detail panel must show process production/PQC tabs and source material tabs with exact bill number links'
 )
 assert(
   frontend.includes('data-team-leader-active-order-detail-main-tabs') &&

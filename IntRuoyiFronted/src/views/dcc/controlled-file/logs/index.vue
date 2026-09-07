@@ -241,6 +241,7 @@ const logTypeOptions = [
   { label: '放行', value: 'FILE_RELEASE' },
   { label: '分发', value: 'FILE_DISTRIBUTION' },
   { label: '升版', value: 'FILE_REVISION' },
+  { label: '检出/检入', value: 'FILE_CHECKOUT' },
   { label: '作废', value: 'FILE_OBSOLETE' },
   { label: '修正任务', value: 'PROJECT_CODE_ASSIGNMENT' },
   { label: '修正追溯', value: 'PROJECT_CODE_CHANGE' },

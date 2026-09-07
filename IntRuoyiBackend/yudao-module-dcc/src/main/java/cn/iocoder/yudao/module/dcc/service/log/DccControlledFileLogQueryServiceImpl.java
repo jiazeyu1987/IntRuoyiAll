@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.log.vo.DccControlledFileLogR
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAccessLogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMetadataChangeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMetadataChangeItemDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingProgressDO;
@@ -18,6 +19,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileAc
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAccessLogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
@@ -53,22 +55,24 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
     private static final String TYPE_FILE_RELEASE = "FILE_RELEASE";
     private static final String TYPE_FILE_DISTRIBUTION = "FILE_DISTRIBUTION";
     private static final String TYPE_FILE_REVISION = "FILE_REVISION";
+    private static final String TYPE_FILE_CHECKOUT = "FILE_CHECKOUT";
     private static final String TYPE_FILE_OBSOLETE = "FILE_OBSOLETE";
     private static final String TYPE_PROJECT_CODE_ASSIGNMENT = "PROJECT_CODE_ASSIGNMENT";
     private static final String TYPE_PROJECT_CODE_CHANGE = "PROJECT_CODE_CHANGE";
     private static final String TYPE_TRAINING_EXECUTION = "TRAINING_EXECUTION";
 
-    private static final Map<String, String> LOG_TYPE_LABELS = Map.of(
-            TYPE_CONTROLLED_FILE_AUDIT, "访问",
-            TYPE_FILE_SUBMISSION, "提交",
-            TYPE_FILE_APPROVAL, "审批",
-            TYPE_FILE_RELEASE, "放行",
-            TYPE_FILE_DISTRIBUTION, "分发",
-            TYPE_FILE_REVISION, "升版",
-            TYPE_FILE_OBSOLETE, "作废",
-            TYPE_PROJECT_CODE_ASSIGNMENT, "修正任务",
-            TYPE_PROJECT_CODE_CHANGE, "修正追溯",
-            TYPE_TRAINING_EXECUTION, "培训"
+    private static final Map<String, String> LOG_TYPE_LABELS = Map.ofEntries(
+            Map.entry(TYPE_CONTROLLED_FILE_AUDIT, "访问"),
+            Map.entry(TYPE_FILE_SUBMISSION, "提交"),
+            Map.entry(TYPE_FILE_APPROVAL, "审批"),
+            Map.entry(TYPE_FILE_RELEASE, "放行"),
+            Map.entry(TYPE_FILE_DISTRIBUTION, "分发"),
+            Map.entry(TYPE_FILE_REVISION, "升版"),
+            Map.entry(TYPE_FILE_CHECKOUT, "检出/检入"),
+            Map.entry(TYPE_FILE_OBSOLETE, "作废"),
+            Map.entry(TYPE_PROJECT_CODE_ASSIGNMENT, "修正任务"),
+            Map.entry(TYPE_PROJECT_CODE_CHANGE, "修正追溯"),
+            Map.entry(TYPE_TRAINING_EXECUTION, "培训")
     );
 
     private static final Map<String, String> ACCESS_ACTION_LABELS = Map.of(
@@ -152,6 +156,8 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
     @Resource
     private DccControlledFileMapper controlledFileMapper;
     @Resource
+    private DccControlledFileCheckoutMapper checkoutMapper;
+    @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private AdminUserApi adminUserApi;
@@ -164,7 +170,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
             candidates.addAll(buildControlledFileAuditCandidates());
         }
         if (matchesAnyRequestedType(reqVO, TYPE_FILE_SUBMISSION, TYPE_FILE_APPROVAL, TYPE_FILE_RELEASE,
-                TYPE_FILE_REVISION, TYPE_FILE_OBSOLETE)) {
+                TYPE_FILE_REVISION, TYPE_FILE_CHECKOUT, TYPE_FILE_OBSOLETE)) {
             candidates.addAll(buildControlledFileLifecycleCandidates(reqVO));
         }
         if (matchesRequestedType(reqVO, TYPE_FILE_DISTRIBUTION)) {
@@ -205,7 +211,52 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
             addFileApprovalCandidate(reqVO, candidates, file);
             addFileReleaseCandidate(reqVO, candidates, file);
         }
+        if (matchesRequestedType(reqVO, TYPE_FILE_CHECKOUT)) {
+            candidates.addAll(buildCheckoutCandidates());
+        }
         return candidates;
+    }
+
+    private List<LogCandidate> buildCheckoutCandidates() {
+        List<DccControlledFileCheckoutDO> checkouts = checkoutMapper.selectList();
+        Map<Long, DccControlledFileDO> fileMap = selectMap(checkouts,
+                DccControlledFileCheckoutDO::getBaseIterationId,
+                controlledFileMapper::selectBatchIds, DccControlledFileDO::getId);
+        Map<Long, AdminUserRespDTO> userMap = selectUserMap(checkouts.stream()
+                .map(DccControlledFileCheckoutDO::getActorId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        return checkouts.stream().map(checkout -> {
+            DccControlledFileDO file = fileMap.get(checkout.getBaseIterationId());
+            String status = StrUtil.blankToDefault(checkout.getStatus(), "UNKNOWN");
+            boolean checkedIn = "CHECKED_IN".equals(status);
+            boolean cancelled = "CANCELLED".equals(status);
+            String action = checkedIn ? "检入" : cancelled ? "撤销检出" : "检出";
+            String result = checkedIn ? "已生成新小版本" : cancelled ? "已撤销" : "进行中";
+            LocalDateTime occurredAt = checkedIn
+                    ? firstNonNull(checkout.getCheckedInTime(), checkout.getCreateTime())
+                    : cancelled ? firstNonNull(checkout.getCancelledTime(), checkout.getCreateTime())
+                    : checkout.getCreateTime();
+            DccControlledFileLogRespVO row = newRow(TYPE_FILE_CHECKOUT, checkout.getId(), occurredAt, action, result);
+            row.setMasterId(checkout.getMasterId());
+            row.setFileNumber(file == null ? null : file.getFileNumber());
+            row.setFileName(file == null ? null : resolveFileName(file));
+            row.setVersionNo(file == null ? null : file.getVersionNo());
+            row.setOperatorUserId(checkout.getActorId());
+            row.setOperatorName(resolveUserName(userMap, checkout.getActorId()));
+            row.setRelatedObject("版本 " + (file == null ? "-" : nullToDash(file.getVersionNo())));
+            row.setSummary(joinNotBlank(" / ", row.getFileNumber(), row.getFileName(), row.getVersionNo(), action, result));
+            row.setReason(firstNotBlank(checkout.getCancelReason(), checkout.getReason()));
+            row.setDetailJson(detailJson(Map.of(
+                    "masterId", checkout.getMasterId() == null ? "" : String.valueOf(checkout.getMasterId()),
+                    "baseIterationId", checkout.getBaseIterationId() == null ? "" : String.valueOf(checkout.getBaseIterationId()),
+                    "status", status,
+                    "cancelReason", blankToEmpty(checkout.getCancelReason()),
+                    "baseSourceSha256", blankToEmpty(checkout.getBaseSourceSha256()),
+                    "checkinIterationId", checkout.getCheckinIterationId() == null ? "" : String.valueOf(checkout.getCheckinIterationId()),
+                    "checkinSourceSha256", blankToEmpty(checkout.getCheckinSourceSha256())
+            )));
+            return new LogCandidate(row, TYPE_FILE_CHECKOUT, status, idSet(checkout.getBaseIterationId()),
+                    file == null ? null : file.getDccProjectCodeId(), null, checkout.getActorId(), null, keywordText(row));
+        }).toList();
     }
 
     private void addFileSubmissionLikeCandidate(DccControlledFileLogPageReqVO reqVO, List<LogCandidate> candidates,
@@ -250,6 +301,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
             return;
         }
         DccControlledFileLogRespVO row = newRow(logType, file.getId(), occurredAt, actionLabel, resultLabel);
+        row.setMasterId(file.getMasterId());
         row.setFileNumber(file.getFileNumber());
         row.setFileName(resolveFileName(file));
         row.setVersionNo(file.getVersionNo());
@@ -294,6 +346,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         String departmentText = distribution.getDepartmentId() == null ? null : "部门" + distribution.getDepartmentId();
         DccControlledFileLogRespVO row = newRow(TYPE_FILE_DISTRIBUTION, distribution.getId(), occurredAt,
                 "分发", statusLabel);
+        row.setMasterId(file == null ? null : file.getMasterId());
         row.setFileNumber(file != null ? file.getFileNumber() : null);
         row.setFileName(file != null ? resolveFileName(file) : null);
         row.setVersionNo(file != null ? file.getVersionNo() : null);
@@ -347,6 +400,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         String resultLabel = label(ACCESS_RESULT_LABELS, result);
         DccControlledFileLogRespVO row = newRow(TYPE_CONTROLLED_FILE_AUDIT, accessLog.getId(), occurredAt,
                 actionLabel, resultLabel);
+        row.setMasterId(file == null ? null : file.getMasterId());
         row.setFileNumber(file != null ? file.getFileNumber() : null);
         row.setFileName(file != null ? resolveFileName(file) : null);
         row.setVersionNo(firstNotBlank(file != null ? file.getVersionNo() : null, accessLog.getFileVersionNo(),
@@ -462,6 +516,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         LocalDateTime occurredAt = firstNonNull(item.getChangedTime(), change != null ? change.getChangedTime() : null);
         DccControlledFileLogRespVO row = newRow(TYPE_PROJECT_CODE_CHANGE, item.getId(), occurredAt,
                 "字段修改", "成功");
+        row.setMasterId(file == null ? null : file.getMasterId());
         row.setFileNumber(file != null ? file.getFileNumber() : null);
         row.setFileName(file != null ? resolveFileName(file) : null);
         row.setVersionNo(file != null ? file.getVersionNo() : null);
@@ -509,6 +564,7 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 progress.getFirstViewedAt(), progress.getCreateTime());
         DccControlledFileLogRespVO row = newRow(TYPE_TRAINING_EXECUTION, progress.getId(), occurredAt,
                 resolveTrainingActionLabel(progress), label(TRAINING_STATUS_LABELS, status));
+        row.setMasterId(file == null ? null : file.getMasterId());
         row.setFileNumber(file != null ? file.getFileNumber() : null);
         row.setFileName(file != null ? resolveFileName(file) : null);
         row.setVersionNo(file != null ? file.getVersionNo() : null);
@@ -544,6 +600,8 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         return matchesExact(reqVO.getActionType(), candidate.actionType())
                 && matchesExact(reqVO.getResult(), candidate.result())
                 && matchesIdSet(reqVO.getControlledFileId(), candidate.controlledFileIds())
+                && matchesLong(reqVO.getMasterId(), candidate.row().getMasterId())
+                && matchesExact(reqVO.getVersionNo(), candidate.row().getVersionNo())
                 && matchesLong(reqVO.getProjectCodeId(), candidate.projectCodeId())
                 && matchesLong(reqVO.getAssignmentId(), candidate.assignmentId())
                 && matchesLong(reqVO.getOperatorUserId(), candidate.operatorUserId())

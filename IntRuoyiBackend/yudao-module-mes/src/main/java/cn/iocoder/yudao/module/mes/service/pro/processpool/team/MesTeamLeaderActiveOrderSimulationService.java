@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -19,7 +20,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -27,13 +27,13 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackTypeEnum;
@@ -44,6 +44,8 @@ import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedback
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQuantityFragmentCreateDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentOption;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -98,13 +100,14 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private final MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
-    private final MesQaInspectionRegulationItemEquipmentMapper inspectionRegulationItemEquipmentMapper;
+    private final MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService;
     private final MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     private final MesProFeedbackMapper feedbackMapper;
     private final MesMdItemMapper itemMapper;
     private final MesProFeedbackMaterialBatchQueryService materialBatchQueryService;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
+    private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     private final MesProRouteProcessMapper routeProcessMapper;
     private final MesProFeedbackMaterialService feedbackMaterialService;
     private final MesProcessPoolEventService processPoolEventService;
@@ -121,13 +124,14 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesProcessPoolSubmissionReviewMapper submissionReviewMapper,
             MesPqcInspectionTaskMapper pqcInspectionTaskMapper,
             MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
-            MesQaInspectionRegulationItemEquipmentMapper inspectionRegulationItemEquipmentMapper,
+            MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService,
             MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
             MesProFeedbackMapper feedbackMapper,
             MesMdItemMapper itemMapper,
             MesProFeedbackMaterialBatchQueryService materialBatchQueryService,
             MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
             MesProcessPoolTeamDeviceMapper deviceMapper,
+            MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
             MesProRouteProcessMapper routeProcessMapper,
             MesProFeedbackMaterialService feedbackMaterialService,
             MesProcessPoolEventService processPoolEventService,
@@ -141,13 +145,14 @@ public class MesTeamLeaderActiveOrderSimulationService {
         this.submissionReviewMapper = submissionReviewMapper;
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
-        this.inspectionRegulationItemEquipmentMapper = inspectionRegulationItemEquipmentMapper;
+        this.pqcItemEquipmentConfigService = pqcItemEquipmentConfigService;
         this.pqcPieceDetailMapper = pqcPieceDetailMapper;
         this.feedbackMapper = feedbackMapper;
         this.itemMapper = itemMapper;
         this.materialBatchQueryService = materialBatchQueryService;
         this.processDeviceMapper = processDeviceMapper;
         this.deviceMapper = deviceMapper;
+        this.parameterRuleMapper = parameterRuleMapper;
         this.routeProcessMapper = routeProcessMapper;
         this.feedbackMaterialService = feedbackMaterialService;
         this.processPoolEventService = processPoolEventService;
@@ -328,8 +333,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 + "-" + snapshot.getProcessId();
         SimulationDevice defaultDevice = resolveDefaultSimulationDevice(leaderUserId, snapshot.getProcessId());
         Long workstationId = requireFormalWorkstation(activeOrder, snapshot);
+        List<Map<String, Object>> deviceParameterReadings =
+                resolveSimulationDeviceParameterReadings(snapshot, leaderUserId, defaultDevice);
         Map<String, Object> payload = buildSimulationMaterialPayload(activeOrder, routeVersion, snapshot, quantity,
-                defaultDevice);
+                defaultDevice, deviceParameterReadings);
         payload.put("simulated", true);
         payload.put("activeOrderId", activeOrder.getId());
         payload.put("routeProcessId", snapshot.getRouteProcessId());
@@ -343,7 +350,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
         Long feedbackId = createZeroLossProductionFeedback(activeOrder, snapshot, quantity, leaderUserId, now,
                 simulationStage, simulationRunId);
-        createSimulationOutputMaterialFacts(activeOrder, routeVersion, snapshot, feedbackId, quantity, defaultDevice);
+        createSimulationOutputMaterialFacts(activeOrder, routeVersion, snapshot, feedbackId, quantity, defaultDevice,
+                deviceParameterReadings);
         return processPoolEventService.createEvent(MesProcessPoolCreateEventReqDTO.builder()
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eventIdempotencyKey(idempotencyKey)
@@ -382,19 +390,22 @@ public class MesTeamLeaderActiveOrderSimulationService {
                                                                 MesProRouteVersionDO routeVersion,
                                                                 MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
                                                                 BigDecimal outputQuantity,
-                                                                SimulationDevice defaultDevice) {
+                                                                SimulationDevice defaultDevice,
+                                                                List<Map<String, Object>> deviceParameterReadings) {
         JSONObject routeSnapshot = parseRouteSnapshot(activeOrder, routeVersion);
         JSONObject processConfig = requireSingleProcessConfig(routeSnapshot, snapshot.getRouteProcessId());
         List<Long> inputMaterialIds = parseMaterialIds(processConfig, "inputMaterialIds");
         List<Long> outputMaterialIds = parseMaterialIds(processConfig, "outputMaterialIds");
         Map<Long, MesMdItemDO> materialsById = requireMaterialMasters(inputMaterialIds, outputMaterialIds);
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("deviceParameterReadings", deviceParameterReadings);
+        payload.put("clearanceConfirmations", simulationClearanceConfirmations());
         payload.put("inputMaterialDetails", inputMaterialIds.stream()
                 .map(materialId -> inputMaterialDetail(materialsById.get(materialId), activeOrder.getWorkOrderId()))
                 .toList());
         payload.put("materialDetails", outputMaterialIds.stream()
                 .map(materialId -> outputMaterialDetail(materialsById.get(materialId), outputQuantity,
-                        defaultDevice))
+                        defaultDevice, deviceParameterReadings))
                 .toList());
         return payload;
     }
@@ -414,7 +425,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                                                      MesProRouteVersionDO routeVersion,
                                                      MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
                                                      Long feedbackId, BigDecimal outputQuantity,
-                                                     SimulationDevice defaultDevice) {
+                                                     SimulationDevice defaultDevice,
+                                                     List<Map<String, Object>> deviceParameterReadings) {
         JSONObject processConfig = requireSingleProcessConfig(parseRouteSnapshot(activeOrder, routeVersion),
                 snapshot.getRouteProcessId());
         List<Long> outputMaterialIds = parseMaterialIds(processConfig, "outputMaterialIds");
@@ -423,7 +435,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
         Map<Long, MesMdItemDO> materials = requireMaterialMasters(List.of(), outputMaterialIds);
         List<MesProFeedbackMaterialCreateCommand.Entry> entries = outputMaterialIds.stream()
-                .map(materialId -> toSimulationMaterialEntry(materials.get(materialId), outputQuantity, defaultDevice))
+                .map(materialId -> toSimulationMaterialEntry(materials.get(materialId), outputQuantity, defaultDevice,
+                        deviceParameterReadings))
                 .toList();
         feedbackMaterialService.createMaterials(new MesProFeedbackMaterialCreateCommand(feedbackId,
                 activeOrder.getId(), activeOrder.getWorkOrderId(), activeOrder.getRouteId(),
@@ -432,12 +445,13 @@ public class MesTeamLeaderActiveOrderSimulationService {
 
     private MesProFeedbackMaterialCreateCommand.Entry toSimulationMaterialEntry(MesMdItemDO material,
                                                                                   BigDecimal outputQuantity,
-                                                                                  SimulationDevice defaultDevice) {
+                                                                                  SimulationDevice defaultDevice,
+                                                                                  List<Map<String, Object>> deviceParameterReadings) {
         return new MesProFeedbackMaterialCreateCommand.Entry(material.getId(), material.getCode(), material.getName(),
-                material.getSpecification(), null, outputQuantity, BigDecimal.ZERO, JsonUtils.toJsonString(List.of()),
-                defaultDevice == null ? null : JsonUtils.toJsonString(Map.of("deviceId", defaultDevice.deviceId(),
-                        "deviceCode", defaultDevice.deviceCode(), "deviceName", defaultDevice.deviceName())),
-                JsonUtils.toJsonString(List.of()));
+                material.getSpecification(), null, outputQuantity, BigDecimal.ZERO,
+                JsonUtils.toJsonString(deviceParameterReadings),
+                defaultDevice == null ? null : JsonUtils.toJsonString(selectedDevicePayload(defaultDevice)),
+                JsonUtils.toJsonString(deviceParameterReadings));
     }
 
     private SimulationDevice resolveDefaultSimulationDevice(Long leaderUserId, Long processId) {
@@ -577,17 +591,135 @@ public class MesTeamLeaderActiveOrderSimulationService {
     }
 
     private Map<String, Object> outputMaterialDetail(MesMdItemDO material, BigDecimal outputQuantity,
-                                                      SimulationDevice defaultDevice) {
+                                                      SimulationDevice defaultDevice,
+                                                      List<Map<String, Object>> deviceParameterReadings) {
         Map<String, Object> detail = materialIdentity(material, "OUTPUT");
         detail.put("outputQuantity", outputQuantity);
         detail.put("lossQuantity", BigDecimal.ZERO);
         detail.put("lossDetails", List.of());
-        detail.put("selectedDevice", defaultDevice == null ? null : Map.of(
-                "deviceId", defaultDevice.deviceId(),
-                "deviceCode", defaultDevice.deviceCode(),
-                "deviceName", defaultDevice.deviceName()));
-        detail.put("deviceParameterReadings", List.of());
+        detail.put("clearanceConfirmations", simulationClearanceConfirmations());
+        detail.put("selectedDevice", defaultDevice == null ? null : selectedDevicePayload(defaultDevice));
+        detail.put("selectedDevices", defaultDevice == null ? List.of() : List.of(selectedDevicePayload(defaultDevice)));
+        detail.put("deviceParameterReadings", deviceParameterReadings);
         return detail;
+    }
+
+    private Map<String, Object> selectedDevicePayload(SimulationDevice defaultDevice) {
+        Map<String, Object> selectedDevice = new LinkedHashMap<>();
+        selectedDevice.put("deviceId", defaultDevice.deviceId());
+        selectedDevice.put("deviceCode", defaultDevice.deviceCode());
+        selectedDevice.put("deviceName", defaultDevice.deviceName());
+        selectedDevice.put("inMeteringValidityPeriod", Boolean.TRUE);
+        return selectedDevice;
+    }
+
+    private List<Map<String, Object>> simulationClearanceConfirmations() {
+        return List.of(
+                clearanceConfirmation("workplace", "清场"),
+                clearanceConfirmation("material", "物料"),
+                clearanceConfirmation("cleaning", "清洁"));
+    }
+
+    private Map<String, Object> clearanceConfirmation(String key, String label) {
+        Map<String, Object> confirmation = new LinkedHashMap<>();
+        confirmation.put("key", key);
+        confirmation.put("label", label);
+        confirmation.put("confirmed", Boolean.TRUE);
+        return confirmation;
+    }
+
+    private List<Map<String, Object>> resolveSimulationDeviceParameterReadings(
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot, Long leaderUserId, SimulationDevice defaultDevice) {
+        if (defaultDevice == null) {
+            return List.of();
+        }
+        List<MesProcessPoolDeviceParameterRuleDO> rules = parameterRuleMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getLeaderUserId, leaderUserId)
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, snapshot.getRouteProcessId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getProcessId, snapshot.getProcessId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getDeviceId, defaultDevice.deviceId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getParameterCode)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getId));
+        if (rules == null || rules.isEmpty()) {
+            return List.of();
+        }
+        return rules.stream()
+                .filter(Objects::nonNull)
+                .map(rule -> buildSimulationDeviceParameterReading(defaultDevice, rule))
+                .toList();
+    }
+
+    private Map<String, Object> buildSimulationDeviceParameterReading(
+            SimulationDevice defaultDevice, MesProcessPoolDeviceParameterRuleDO rule) {
+        Map<String, Object> reading = new LinkedHashMap<>();
+        BigDecimal value = resolveSimulationParameterValue(rule);
+        reading.put("deviceId", defaultDevice.deviceId());
+        reading.put("deviceCode", defaultDevice.deviceCode());
+        reading.put("deviceName", defaultDevice.deviceName());
+        reading.put("parameterCode", rule.getParameterCode());
+        reading.put("parameterName", rule.getParameterName());
+        reading.put("unit", rule.getUnit());
+        reading.put("value", value);
+        reading.put("textValue", resolveSimulationParameterText(rule, value));
+        reading.put("lowerLimit", rule.getLowerLimit());
+        reading.put("upperLimit", rule.getUpperLimit());
+        reading.put("parameterStatus", resolveSimulationParameterStatus(rule, value));
+        return reading;
+    }
+
+    private BigDecimal resolveSimulationParameterValue(MesProcessPoolDeviceParameterRuleDO rule) {
+        if (rule.getDefaultValue() != null) {
+            return normalizeSimulationDecimal(rule.getDefaultValue(), rule.getDecimalScale());
+        }
+        if (!MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER.equals(rule.getValueType())
+                && !MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL.equals(rule.getValueType())) {
+            return null;
+        }
+        if (rule.getLowerLimit() == null || rule.getUpperLimit() == null) {
+            return null;
+        }
+        BigDecimal midpoint = rule.getLowerLimit().add(rule.getUpperLimit()).divide(BigDecimal.valueOf(2),
+                Math.max(0, rule.getDecimalScale() == null ? 2 : rule.getDecimalScale()), RoundingMode.HALF_UP);
+        return normalizeSimulationDecimal(midpoint, rule.getDecimalScale());
+    }
+
+    private BigDecimal normalizeSimulationDecimal(BigDecimal value, Integer decimalScale) {
+        if (value == null || decimalScale == null || decimalScale < 0) {
+            return value;
+        }
+        return value.setScale(decimalScale, RoundingMode.HALF_UP);
+    }
+
+    private String resolveSimulationParameterText(MesProcessPoolDeviceParameterRuleDO rule, BigDecimal value) {
+        if (value != null) {
+            return formatSimulationParameterValue(value);
+        }
+        if (StrUtil.isNotBlank(rule.getDefaultText())) {
+            return rule.getDefaultText();
+        }
+        if (StrUtil.isNotBlank(rule.getStandardText())) {
+            return rule.getStandardText();
+        }
+        return null;
+    }
+
+    private String formatSimulationParameterValue(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
+    private String resolveSimulationParameterStatus(MesProcessPoolDeviceParameterRuleDO rule, BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
+        if (rule.getLowerLimit() != null && value.compareTo(rule.getLowerLimit()) < 0) {
+            return "BELOW_LOWER";
+        }
+        if (rule.getUpperLimit() != null && value.compareTo(rule.getUpperLimit()) > 0) {
+            return "ABOVE_UPPER";
+        }
+        return "NORMAL";
     }
 
     private Map<String, Object> materialIdentity(MesMdItemDO material, String direction) {
@@ -856,34 +988,37 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private PqcEquipment resolveDefaultPqcEquipment(MesProcessPoolActiveOrderDO activeOrder,
                                                     MesPqcInspectionTaskDO task,
                                                     MesQaInspectionRegulationItemDO item) {
-        List<MesQaInspectionRegulationItemEquipmentDO> options = inspectionRegulationItemEquipmentMapper
-                .selectListByVersionId(task.getRegulationVersionId()).stream()
-                .filter(option -> option != null
-                        && Objects.equals(task.getRegulationVersionId(), option.getRegulationVersionId())
-                        && Objects.equals(normalizeInspectionType(task.getInspectionType()),
-                        normalizeInspectionType(option.getInspectionType()))
-                        && Objects.equals(normalizeQaItemCode(item.getItemCode()),
-                        normalizeQaItemCode(option.getItemCode())))
-                .sorted(Comparator.comparing((MesQaInspectionRegulationItemEquipmentDO option) ->
-                                Boolean.TRUE.equals(option.getDefaultFlag()) ? 0 : 1)
-                        .thenComparing(MesQaInspectionRegulationItemEquipmentDO::getSort,
+        if (activeOrder.getDccProjectCodeId() == null || activeOrder.getDccProjectCodeId() <= 0) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "PQC任务缺少项目编码，无法读取正式检验设备配置，taskId=" + task.getId());
+        }
+        String itemCode = item.getItemCode().trim();
+        List<MesPqcItemEquipmentOption> options = pqcItemEquipmentConfigService
+                .listEnabledEquipmentOptionsByProjectVersionAndItemCodes(activeOrder.getDccProjectCodeId(),
+                        task.getRegulationVersionId(), List.of(itemCode))
+                .getOrDefault(itemCode, List.of()).stream()
+                .sorted(Comparator.comparing((MesPqcItemEquipmentOption option) ->
+                                Boolean.TRUE.equals(option.defaultFlag()) ? 0 : 1)
+                        .thenComparing(MesPqcItemEquipmentOption::sort,
                                 Comparator.nullsLast(Integer::compareTo))
-                        .thenComparing(MesQaInspectionRegulationItemEquipmentDO::getId,
-                                Comparator.nullsLast(Long::compareTo)))
+                        .thenComparing(MesPqcItemEquipmentOption::equipmentId,
+                                Comparator.nullsLast(Long::compareTo))
+                        .thenComparing(MesPqcItemEquipmentOption::equipmentNumber,
+                                Comparator.nullsLast(String::compareTo)))
                 .toList();
         if (options.isEmpty()) {
             return null;
         }
-        MesQaInspectionRegulationItemEquipmentDO selected = options.get(0);
-        if (selected.getEquipmentId() == null || selected.getEquipmentId() <= 0
-                || StrUtil.isBlank(selected.getEquipmentCode())
-                || StrUtil.isBlank(selected.getEquipmentName())
-                || StrUtil.isBlank(selected.getEquipmentNumber())) {
+        MesPqcItemEquipmentOption selected = options.get(0);
+        if (selected.equipmentId() == null || selected.equipmentId() <= 0
+                || StrUtil.isBlank(selected.equipmentCode())
+                || StrUtil.isBlank(selected.equipmentName())
+                || StrUtil.isBlank(selected.equipmentNumber())) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "PQC任务检验设备配置不完整，taskId=" + task.getId());
         }
-        return new PqcEquipment(selected.getEquipmentId(), selected.getEquipmentCode().trim(),
-                selected.getEquipmentName().trim(), selected.getEquipmentNumber().trim(),
+        return new PqcEquipment(selected.equipmentId(), selected.equipmentCode().trim(),
+                selected.equipmentName().trim(), selected.equipmentNumber().trim(),
                 requirePqcWorkstation(activeOrder, task));
     }
 

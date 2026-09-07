@@ -393,7 +393,7 @@
                   已由 {{ getCheckoutDisplayName(getSelectedVersion(row)) }} 检出
                 </el-tag>
                 <el-button
-                  v-if="!getSelectedVersion(row).checkedOutBy"
+                  v-if="!getSelectedVersion(row).checkedOutBy && canEditVersion(getSelectedVersion(row))"
                   data-testid="dcc-controlled-browser-checkout"
                   link
                   type="primary"
@@ -413,6 +413,24 @@
                   检入
                 </el-button>
                 <el-button
+                  v-if="isCheckedOutByCurrentUser(getSelectedVersion(row))"
+                  data-testid="dcc-controlled-browser-cancel-checkout"
+                  link
+                  @click="handleCancelCheckout(getSelectedVersion(row))"
+                >
+                  撤销检出
+                </el-button>
+                <el-button
+                  v-if="canCreateMajorRevision(getSelectedVersion(row))"
+                  data-testid="dcc-controlled-browser-major-revision"
+                  link
+                  type="primary"
+                  :loading="majorRevisionLoadingId === getSelectedVersion(row).id"
+                  @click="handleCreateMajorRevision(getSelectedVersion(row))"
+                >
+                  升大版本
+                </el-button>
+                <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPreview"
                   link
                   type="primary"
@@ -428,6 +446,15 @@
                   @click="openDetail(getSelectedVersion(row).id)"
                 >
                   追溯
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).status === 'READY_TO_PUBLISH'"
+                  data-testid="dcc-controlled-browser-publish"
+                  link
+                  type="primary"
+                  @click="openManagement(getSelectedVersion(row).id)"
+                >
+                  发布
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).id"
@@ -904,6 +931,56 @@
     </template>
   </el-dialog>
 
+  <el-dialog
+    v-model="checkinDialogVisible"
+    title="检入新小版本"
+    width="520px"
+    destroy-on-close
+    @closed="resetCheckinDialog"
+  >
+    <el-form label-position="top">
+      <el-form-item label="修改后的源文件" required>
+        <el-upload
+          data-testid="dcc-controlled-browser-checkin-upload"
+          v-model:file-list="checkinFileList"
+          :limit="1"
+          :auto-upload="true"
+          :http-request="uploadCheckinSource"
+          :on-remove="clearCheckinUpload"
+        >
+          <el-button :loading="checkinUploadLoading">
+            <Icon icon="ep:upload" class="mr-5px" />
+            选择文件
+          </el-button>
+        </el-upload>
+        <div v-if="checkinUpload" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+          已上传：{{ checkinUpload.fileName }}
+        </div>
+      </el-form-item>
+      <el-form-item label="修改说明" required>
+        <el-input
+          v-model="checkinForm.changeDescription"
+          data-testid="dcc-controlled-browser-checkin-description"
+          type="textarea"
+          :rows="3"
+          maxlength="1000"
+          show-word-limit
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="checkinDialogVisible = false">取消</el-button>
+      <el-button
+        data-testid="dcc-controlled-browser-checkin-submit"
+        type="primary"
+        :loading="checkinSubmitting"
+        @click="submitCheckin"
+      >
+        检入并生成小版本
+      </el-button>
+    </template>
+  </el-dialog>
+
   <ControlledFileMetadataDialog
     v-if="metadataDialogMounted"
     v-model="metadataDialogVisible"
@@ -916,7 +993,12 @@
 </template>
 
 <script lang="ts" setup>
-import { ElMessageBox, type ElTree } from 'element-plus'
+import {
+  ElMessageBox,
+  type ElTree,
+  type UploadRequestOptions,
+  type UploadUserFile
+} from 'element-plus'
 import { useClipboard } from '@vueuse/core'
 import download from '@/utils/download'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
@@ -931,6 +1013,9 @@ import {
   confirmControlledFileRecognitionMigrationImport,
   checkoutControlledFile,
   checkinControlledFile,
+  cancelCheckoutControlledFile,
+  createControlledFileMajorRevision,
+  createControlledFileUploadSessionId,
   createControlledFileBatchRecognitionTask,
   exportControlledFileMetadataExcel,
   exportControlledFileRecognitionMigrationExcel,
@@ -943,6 +1028,7 @@ import {
   previewControlledFileMetadataImport,
   saveControlledFileBrowserExtensionBlacklist,
   triggerControlledFileDownload,
+  uploadControlledFilePreview,
   type ControlledFileBatchRecognitionCreateReqVO,
   type ControlledFileBatchRecognitionTaskRespVO,
   type ControlledFileMetadataImportPreviewRespVO,
@@ -950,6 +1036,7 @@ import {
   type ControlledFilePageReqVO,
   type ControlledFileRecognitionMigrationImportPreviewRespVO,
   type ControlledFileRecognitionMigrationImportRowRespVO,
+  type ControlledFileUploadRespVO,
   type ControlledFileVersionHistoryVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
@@ -1101,6 +1188,15 @@ const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
 const checkoutLoadingId = ref<number | string>()
+const majorRevisionLoadingId = ref<number | string>()
+const checkinDialogVisible = ref(false)
+const checkinSubmitting = ref(false)
+const checkinUploadLoading = ref(false)
+const checkinTarget = ref<ControlledFileBrowserVersion>()
+const checkinUploadSessionId = ref(createControlledFileUploadSessionId())
+const checkinUpload = ref<ControlledFileUploadRespVO>()
+const checkinFileList = ref<UploadUserFile[]>([])
+const checkinForm = reactive({ changeDescription: '' })
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1384,6 +1480,7 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
   status: row.status,
+  requesterId: row.requesterId,
   publishedArtifactAvailable: row.publishedArtifactAvailable,
   stampedArtifactAvailable: row.stampedArtifactAvailable,
   currentActiveVersionNo: row.currentActiveVersionNo,
@@ -1418,6 +1515,7 @@ const hydrateCurrentBrowserVersionActionState = (
     stampedArtifactAvailable:
       version.stampedArtifactAvailable ?? row.stampedArtifactAvailable,
     currentActiveVersionNo: version.currentActiveVersionNo ?? row.currentActiveVersionNo,
+    requesterId: version.requesterId ?? row.requesterId,
     canPreview: version.canPreview ?? row.canPreview,
     canDownload: version.canDownload ?? row.canDownload,
     canPrint: version.canPrint ?? row.canPrint,
@@ -1535,6 +1633,12 @@ const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
 const isCheckedOutByCurrentUser = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(file.checkedOutBy && String(file.checkedOutBy) === String(userStore.getUser.id))
 
+const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
+  Boolean(file.requesterId && String(file.requesterId) === String(userStore.getUser.id))
+
+const canCreateMajorRevision = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
+  Boolean(file.id && file.status === 'WORKING' && canEditVersion(file))
+
 const getCheckoutDisplayName = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   file.checkedOutByName || (file.checkedOutBy ? `用户 ${file.checkedOutBy}` : '')
 
@@ -1546,6 +1650,7 @@ const mergeCheckoutProjection = (
   target.checkedOutBy = source.checkedOutBy
   target.checkedOutByName = source.checkedOutByName
   target.checkedOutTime = source.checkedOutTime
+  target.checkedOutReason = source.checkedOutReason
 }
 
 const applyCheckoutProjection = (updatedFile: ControlledFileVO) => {
@@ -1580,7 +1685,13 @@ const handleCheckout = async (file: ControlledFileBrowserVersion) => {
   if (!isValidBrowserOptionId(id) || file.checkedOutBy) return
   checkoutLoadingId.value = id
   try {
-    const updatedFile = await checkoutControlledFile(id)
+    const { value: reason } = await ElMessageBox.prompt('请输入本次修改原因', '检出文件', {
+      inputPlaceholder: '例如：修订操作步骤',
+      inputValidator: (value) => value.trim() ? true : '请输入检出原因',
+      confirmButtonText: '检出',
+      cancelButtonText: '取消'
+    })
+    const updatedFile = await checkoutControlledFile(id, { reason: reason.trim() })
     applyCheckoutProjection(updatedFile)
     message.success('文件已检出')
     await getList()
@@ -1592,20 +1703,166 @@ const handleCheckout = async (file: ControlledFileBrowserVersion) => {
   }
 }
 
-const handleCheckin = async (file: ControlledFileBrowserVersion) => {
+const handleCheckin = (file: ControlledFileBrowserVersion) => {
   const id = file.id
   if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
-  checkoutLoadingId.value = id
+  resetCheckinDialog()
+  checkinTarget.value = file
+  checkinDialogVisible.value = true
+}
+
+const resetCheckinDialog = () => {
+  checkinTarget.value = undefined
+  checkinUpload.value = undefined
+  checkinFileList.value = []
+  checkinForm.changeDescription = ''
+  checkinUploadSessionId.value = createControlledFileUploadSessionId()
+}
+
+const clearCheckinUpload = () => {
+  checkinUpload.value = undefined
+}
+
+const findBrowserRowForVersion = (versionId: number | string | undefined) => {
+  if (!isValidBrowserOptionId(versionId)) return undefined
+  const normalizedId = String(versionId)
+  return list.value.find(
+    (row) => String(row.id) === normalizedId
+      || (row.versionHistory || []).some((version) => String(version.id) === normalizedId)
+  )
+}
+
+const uploadCheckinSource = async (options: UploadRequestOptions) => {
+  const target = checkinTarget.value
+  const row = findBrowserRowForVersion(target?.id)
+  if (!target || !row?.categoryId) {
+    const error = new Error('无法确定检入文件所属类别，请刷新列表后重试。')
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+    throw error
+  }
+  checkinUploadLoading.value = true
   try {
-    const updatedFile = await checkinControlledFile(id)
-    applyCheckoutProjection(updatedFile)
-    message.success('文件已检入')
+    const uploaded = await uploadControlledFilePreview(options.file, 'SOURCE', {
+      categoryId: row.categoryId,
+      sessionId: checkinUploadSessionId.value
+    })
+    if (!uploaded.uploadTicket) {
+      throw new Error('检入文件上传成功但未返回 uploadTicket。')
+    }
+    checkinUpload.value = uploaded
+    options.onSuccess(uploaded)
+  } catch (error) {
+    checkinUpload.value = undefined
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+    message.error(resolveBrowserErrorMessage(error, '检入文件上传失败，请稍后重试。'))
+  } finally {
+    checkinUploadLoading.value = false
+  }
+}
+
+const submitCheckin = async () => {
+  const target = checkinTarget.value
+  const uploaded = checkinUpload.value
+  const changeDescription = checkinForm.changeDescription.trim()
+  if (!target || !isValidBrowserOptionId(target.id)) return
+  if (!uploaded?.uploadTicket) {
+    message.warning('请先上传修改后的源文件。')
+    return
+  }
+  if (!changeDescription) {
+    message.warning('请输入修改说明。')
+    return
+  }
+  const baseId = target.id
+  checkinSubmitting.value = true
+  checkoutLoadingId.value = baseId
+  try {
+    const updatedFile = await checkinControlledFile(baseId, {
+      uploadTicket: uploaded.uploadTicket,
+      sessionId: checkinUploadSessionId.value,
+      changeDescription
+    })
+    checkinDialogVisible.value = false
     await getList()
-    applyCheckoutProjection(updatedFile)
+    mergeCheckinResult(updatedFile, baseId)
+    message.success(`文件已检入，新版本为 ${updatedFile.versionNo}`)
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '文件检入失败，请稍后重试。'))
   } finally {
+    checkinSubmitting.value = false
+    if (checkoutLoadingId.value === baseId) checkoutLoadingId.value = undefined
+  }
+}
+
+const mergeCheckinResult = (updatedFile: ControlledFileVO, baseId: number | string) => {
+  const targetRow = list.value.find(
+    (row) => String(row.id) === String(baseId)
+      || (row.versionHistory || []).some((version) => String(version.id) === String(baseId))
+  )
+  if (!targetRow) {
+    throw new Error('检入成功但刷新后未找到原逻辑文件，页面无法确认新版本。')
+  }
+  const existingHistory = targetRow.versionHistory || []
+  const history = existingHistory.filter((version) => String(version.id) !== String(updatedFile.id))
+  history.push({
+    ...updatedFile,
+    id: updatedFile.id,
+    title: updatedFile.title,
+    fileNumber: updatedFile.fileNumber || targetRow.fileNumber || '',
+    versionNo: updatedFile.versionNo,
+    status: updatedFile.status,
+    currentActiveVersionNo: targetRow.currentActiveVersionNo,
+    checkedOut: updatedFile.checkedOut,
+    checkedOutBy: updatedFile.checkedOutBy,
+    checkedOutByName: updatedFile.checkedOutByName,
+    checkedOutTime: updatedFile.checkedOutTime,
+    checkedOutReason: updatedFile.checkedOutReason
+  } as ControlledFileBrowserVersion)
+  targetRow.versionHistory = history
+  targetRow.selectedVersionId = updatedFile.id
+}
+
+const handleCancelCheckout = async (file: ControlledFileBrowserVersion) => {
+  const id = file.id
+  if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
+  const { value: reason } = await ElMessageBox.prompt('请输入撤销检出的原因', '撤销检出', {
+    inputValidator: (value) => value.trim() ? true : '请输入撤销原因',
+    confirmButtonText: '撤销检出',
+    cancelButtonText: '取消'
+  })
+  checkoutLoadingId.value = id
+  try {
+    const updatedFile = await cancelCheckoutControlledFile(id, { reason: reason.trim() })
+    await getList()
+    applyCheckoutProjection(updatedFile)
+    message.success('已撤销检出，未生成新版本')
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '撤销检出失败，请稍后重试。'))
+  } finally {
     if (checkoutLoadingId.value === id) checkoutLoadingId.value = undefined
+  }
+}
+
+const handleCreateMajorRevision = async (file: ControlledFileBrowserVersion) => {
+  if (!canCreateMajorRevision(file) || !isValidBrowserOptionId(file.id)) return
+  const { value: reason } = await ElMessageBox.prompt('请输入升大版本原因', '创建大版本', {
+    inputPlaceholder: '例如：工艺要求发生重大变化',
+    inputValidator: (value) => value.trim() ? true : '请输入升大版本原因',
+    confirmButtonText: '创建并送审',
+    cancelButtonText: '取消'
+  })
+  majorRevisionLoadingId.value = file.id
+  try {
+    const newId = await createControlledFileMajorRevision({
+      sourceControlledFileId: String(file.id),
+      reason: reason.trim()
+    })
+    await getList()
+    message.success(`大版本已创建并送审，版本记录编号 ${newId}`)
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '创建大版本失败，请稍后重试。'))
+  } finally {
+    if (majorRevisionLoadingId.value === file.id) majorRevisionLoadingId.value = undefined
   }
 }
 
@@ -2915,6 +3172,22 @@ const openPreview = (id: number | string) => {
 
 const openDetail = (id: number | string) => {
   openControlledFileTraceability(router, route, id, 'browser', 'trace')
+}
+
+const openManagement = (id: number | string) => {
+  const normalizedId = String(id || '').trim()
+  if (!normalizedId) {
+    message.error('文件处理缺少文件 ID，无法打开管理页。')
+    return
+  }
+  router.push({
+    path: `/dcc/controlled-file/detail/${normalizedId}`,
+    query: {
+      management: '1',
+      from: 'browser',
+      returnTo: buildBrowserReturnPath()
+    }
+  })
 }
 
 const openSignatureEvidence = (id: number | string) => {

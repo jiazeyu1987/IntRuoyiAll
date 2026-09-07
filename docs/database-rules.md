@@ -11,11 +11,18 @@
 - 优先使用 `SHOW TABLES`、`DESCRIBE <table>`、已有 migration、mapper XML、现有 SQL 模板或测试夹具作为证据。
 - 不得仅凭 DO 类名、字段猜测、历史记忆或旧项目文档编写运行 SQL。
 
+### 新生命周期数据迁移历史保护门禁
+
+- 新 DCC 生命周期只为新建逻辑文件提供身份、版本、检出和审计字段；迁移不得回填、重命名或更新历史 Master/Version 行来“对齐”新字段。
+- MySQL 幂等新增列必须使用 `information_schema.COLUMNS` 守护过程；不得使用 MySQL 运行库不接受的 `ADD COLUMN IF NOT EXISTS`。测试 H2 对 generated column 的语法可不同，必须同时保留 H2 夹具合同和 MySQL migration 合同。
+- 迁移验证至少包含：完整 `dependsOn` 闭包的 policy gate、首次/重复执行静态合同、历史数据零写入证据，以及运行后端实际连接库的 schema 复核。运行 Jar 未包含新接口或 schema 未执行时，禁止用 API/页面假设已部署。
+
 ### 运行态迁移漂移系统异常门禁
 
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
 - Generated-column check: 正式 MySQL 中的 `GENERATED ALWAYS` 列只能由数据库计算，业务 INSERT/UPDATE 不得显式写入。若测试 H2 schema 为普通列，必须用静态 SQL 合同或 MySQL 迁移合同补位，防止 H2 通过但运行库报 `The value specified for generated column ... is not allowed`。
+- MySQL DDL idempotence check: 本地/正式 MySQL 8.0 运行库不接受的 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 不能作为幂等迁移写法；新增列应复用项目既有 `information_schema.COLUMNS` 守护过程，并用真实 MySQL 首次/重复执行或静态合同证明可跑。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
 - Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表、个人中心聚合页或批记录建立链接的任一子请求返回业务码 500 且日志为缺列、字段过短或数据截断，先修复运行库迁移漂移和字段容量，再判断前端错误归属；不要通过隐藏该子请求错误、返回空数据或截断业务字段编码掩盖 schema 缺口。

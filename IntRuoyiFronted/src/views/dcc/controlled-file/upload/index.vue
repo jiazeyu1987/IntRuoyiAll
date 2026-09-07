@@ -314,7 +314,7 @@
             来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>
         </el-form-item>
-        <el-form-item label="版本号" prop="versionNo" :error="submitFieldErrors.versionNo">
+        <el-form-item v-if="isExternalReview" label="版本号" prop="versionNo" :error="submitFieldErrors.versionNo">
           <el-input v-model="formData.versionNo" class="!w-220px" placeholder="例如 V1.0" />
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
@@ -689,7 +689,7 @@ const formData = reactive<UploadFormDraft>({
   selectedSignoffUserIds: [],
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
-  versionNo: DEFAULT_MANUAL_VERSION_NO,
+  versionNo: isExternalReview.value ? DEFAULT_MANUAL_VERSION_NO : '',
   effectiveDate: resolveTodayDate(),
   remark: ''
 })
@@ -887,6 +887,10 @@ const formRules = reactive<FormRules>({
   versionNo: [
     {
       validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        if (!isExternalReview.value) {
+          callback()
+          return
+        }
         const versionNo = String(value || '').trim()
         if (!versionNo) {
           callback(new Error('请输入版本号'))
@@ -955,7 +959,11 @@ const resetUploadNameLinkage = (clearVersionNo: boolean) => {
   formData.changeType = 'NEW'
   clearRevisionTargetSelection()
   if (clearVersionNo) {
-    formData.versionNo = DEFAULT_MANUAL_VERSION_NO
+    if (isExternalReview.value) {
+      formData.versionNo = DEFAULT_MANUAL_VERSION_NO
+    } else {
+      formData.versionNo = ''
+    }
   }
   ensureEffectiveDateDefault()
 }
@@ -1342,16 +1350,24 @@ interface UploadPreflightCheck {
 const normalizePreflightVersionNo = (value?: string | null) => String(value || '').trim().toUpperCase()
 
 const isRequestedVersionDuplicate = computed(() => {
+  if (!isExternalReview.value) {
+    return false
+  }
   const currentVersionNo = normalizePreflightVersionNo(currentVersionInfo.value?.currentVersionNo)
   const requestedVersionNo = normalizePreflightVersionNo(formData.versionNo)
   return Boolean(currentVersionInfo.value?.matched && currentVersionNo && requestedVersionNo && currentVersionNo === requestedVersionNo)
 })
 const isVersionNoFormatValid = computed(() => {
+  if (!isExternalReview.value) {
+    return true
+  }
   const versionNo = formData.versionNo.trim()
   return Boolean(versionNo && isVersionNoTextValid(versionNo))
 })
 const versionFormatPreflightMessage = computed(() =>
-  formData.versionNo.trim() && !isVersionNoFormatValid.value ? VERSION_NO_FORMAT_MESSAGE : ''
+  isExternalReview.value && formData.versionNo.trim() && !isVersionNoFormatValid.value
+    ? VERSION_NO_FORMAT_MESSAGE
+    : ''
 )
 const versionDuplicatePreflightMessage = computed(() => {
   if (!isRequestedVersionDuplicate.value) {
@@ -1417,7 +1433,7 @@ const approvalChainPreflightText = computed(() => {
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasApprovalChain = routeReadiness.value?.ready === true
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
-  const versionReady = Boolean(formData.fileNumber.trim() && formData.versionNo.trim())
+  const versionReady = Boolean(formData.fileNumber.trim() && (isExternalReview.value || !formData.versionNo.trim()))
   const versionBlockingReason = versionFormatPreflightMessage.value ||
     currentVersionLookupError.value ||
     revisionTargetPreflightBlockReason.value ||

@@ -536,35 +536,50 @@ const mapShowroomAssignmentRow = (item: ShowroomAssignmentRecord): UnifiedTodoRo
 })
 
 const loadDccDistributionRows = async () => {
-  const page = await getMyDistributionTaskPage({
-    pageNo: 1,
-    pageSize: TODO_PAGE_SIZE,
-    status: 'READY_TO_ACKNOWLEDGE'
-  })
+  const page = await getMyDistributionTaskPage(
+    {
+      pageNo: 1,
+      pageSize: TODO_PAGE_SIZE,
+      status: 'READY_TO_ACKNOWLEDGE'
+    },
+    { ignoreErrorMessage: true }
+  )
   return requirePageList(page, '文控分发').map(mapDccDistributionRow)
 }
 
 const loadDccTrainingRows = async () => {
   const pages = await Promise.all([
-    getMyTrainingTaskPage({ pageNo: 1, pageSize: TODO_PAGE_SIZE, status: 'PENDING_VIEW' }),
-    getMyTrainingTaskPage({ pageNo: 1, pageSize: TODO_PAGE_SIZE, status: 'READY_TO_ACKNOWLEDGE' })
+    getMyTrainingTaskPage(
+      { pageNo: 1, pageSize: TODO_PAGE_SIZE, status: 'PENDING_VIEW' },
+      { ignoreErrorMessage: true }
+    ),
+    getMyTrainingTaskPage(
+      { pageNo: 1, pageSize: TODO_PAGE_SIZE, status: 'READY_TO_ACKNOWLEDGE' },
+      { ignoreErrorMessage: true }
+    )
   ])
   return pages.flatMap((page) => requirePageList(page, '文控培训').map(mapDccTrainingRow))
 }
 
 const loadEdhrRows = async () => {
-  const page = await getEdhrWorkTaskMyPage({ pageNo: 1, pageSize: TODO_PAGE_SIZE })
+  const page = await getEdhrWorkTaskMyPage(
+    { pageNo: 1, pageSize: TODO_PAGE_SIZE },
+    { ignoreErrorMessage: true }
+  )
   return requirePageList(page, 'eDHR 工作任务').map(mapEdhrWorkTaskRow)
 }
 
 const loadWorkOrderRows = async () => {
-  const page = await ProWorkOrderApi.getWorkOrderPage({
-    pageNo: 1,
-    pageSize: TODO_PAGE_SIZE,
-    status: MesProWorkOrderStatusEnum.CONFIRMED,
-    type: MesProWorkOrderTypeEnum.SELF,
-    temporaryFrozen: false
-  } as any)
+  const page = await ProWorkOrderApi.getWorkOrderPage(
+    {
+      pageNo: 1,
+      pageSize: TODO_PAGE_SIZE,
+      status: MesProWorkOrderStatusEnum.CONFIRMED,
+      type: MesProWorkOrderTypeEnum.SELF,
+      temporaryFrozen: false
+    } as any,
+    { ignoreErrorMessage: true }
+  )
   return requirePageList(page as PageResult<ProWorkOrderVO[]>, '排产工单').map(mapWorkOrderRow)
 }
 
@@ -574,6 +589,7 @@ const loadShowroomRows = async () => {
   }
   const page = await request.get({
     url: '/showroom/assignment/page',
+    ignoreErrorMessage: true,
     params: {
       status: 'OPEN',
       assigneeUserId: currentUserId.value,
@@ -585,7 +601,7 @@ const loadShowroomRows = async () => {
 }
 
 const loadHiddenTaskKeys = async () => {
-  const keys = await getProfileWorkbenchHiddenTaskKeys()
+  const keys = await getProfileWorkbenchHiddenTaskKeys({ ignoreErrorMessage: true })
   hiddenTaskKeys.value = new Set(keys)
 }
 

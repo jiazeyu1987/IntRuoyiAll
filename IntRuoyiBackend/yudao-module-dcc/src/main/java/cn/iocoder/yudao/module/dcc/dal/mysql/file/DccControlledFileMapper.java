@@ -31,6 +31,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             UPDATE dcc_controlled_file
             SET checked_out_by = #{actorId},
                 checked_out_time = CURRENT_TIMESTAMP,
+                checked_out_reason = #{reason},
                 updater = #{actorId},
                 update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId}
@@ -40,12 +41,14 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             """)
     int checkoutByIdAndTenantWhenAvailable(@Param("tenantId") Long tenantId,
                                            @Param("controlledFileId") Long controlledFileId,
-                                           @Param("actorId") Long actorId);
+                                           @Param("actorId") Long actorId,
+                                           @Param("reason") String reason);
 
     @Update("""
             UPDATE dcc_controlled_file
             SET checked_out_by = NULL,
                 checked_out_time = NULL,
+                checked_out_reason = NULL,
                 updater = #{actorId},
                 update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId}
@@ -56,6 +59,22 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
     int checkinByIdAndTenantWhenOwner(@Param("tenantId") Long tenantId,
                                       @Param("controlledFileId") Long controlledFileId,
                                       @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = NULL,
+                checked_out_time = NULL,
+                checked_out_reason = NULL,
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+              AND checked_out_by = #{actorId}
+            """)
+    int cancelCheckoutByIdAndTenantWhenOwner(@Param("tenantId") Long tenantId,
+                                             @Param("controlledFileId") Long controlledFileId,
+                                             @Param("actorId") Long actorId);
 
     @Select("""
             SELECT id,

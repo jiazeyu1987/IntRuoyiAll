@@ -190,17 +190,26 @@ import download from '@/utils/download'
 import { WmProductIssueApi, WmProductIssueVO } from '@/api/mes/wm/productissue'
 import ProductIssueForm from './ProductIssueForm.vue'
 import { MesWmProductIssueStatusEnum } from '@/views/mes/utils/constants'
+import { useRoute } from 'vue-router'
 
 defineOptions({ name: 'MesWmProductIssue' })
 
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
+const route = useRoute()
 
 const loading = ref(true) // 列表的加载中
 const list = ref<WmProductIssueVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
 const exportLoading = ref(false) // 导出的加载中
-const queryParams = reactive({
+const queryParams = reactive<{
+  pageNo: number
+  pageSize: number
+  code?: string
+  name?: string
+  status?: number
+  issueDate?: string[]
+}>({
   pageNo: 1,
   pageSize: 10,
   code: undefined,
@@ -210,6 +219,12 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const formRef = ref() // 表单弹窗
+
+const applyRouteQuery = () => {
+  if (route.query.code) {
+    queryParams.code = String(route.query.code)
+  }
+}
 
 /** 查询列表 */
 const getList = async () => {
@@ -289,6 +304,7 @@ const handleExport = async () => {
 
 /** 初始化 */
 onMounted(() => {
+  applyRouteQuery()
   getList()
 })
 </script>

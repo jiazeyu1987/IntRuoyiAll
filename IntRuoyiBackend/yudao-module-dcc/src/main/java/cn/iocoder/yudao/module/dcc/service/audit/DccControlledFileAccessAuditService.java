@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWaterma
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 public class DccControlledFileAccessAuditService {
@@ -107,6 +108,30 @@ public class DccControlledFileAccessAuditService {
                 .sourceIp(StrUtil.trim(command.sourceIp()))
                 .requestId(StrUtil.trim(command.requestId()))
                 .userAgent(StrUtil.trim(command.userAgent()))
+                .build();
+        accessLogMapper.insert(accessLog);
+        return accessLog;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public DccControlledFileAccessLogDO recordLifecycleLog(DccLifecycleLogCreateCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("lifecycle audit command is required");
+        }
+        requirePositive(command.fileId(), "fileId");
+        requirePositive(command.userId(), "userId");
+        requireNotBlank(command.actionType(), "actionType");
+        requireNotBlank(command.result(), "result");
+        DccControlledFileAccessLogDO accessLog = DccControlledFileAccessLogDO.builder()
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .controlledFileId(command.fileId())
+                .fileVersionNo(StrUtil.trimToNull(command.versionNo()))
+                .userId(command.userId())
+                .actionType(StrUtil.trim(command.actionType()))
+                .purpose("LIFECYCLE")
+                .result(StrUtil.trim(command.result()))
+                .failureCode(StrUtil.trimToNull(command.failureCode()))
+                .reason(StrUtil.trimToNull(command.reason()))
                 .build();
         accessLogMapper.insert(accessLog);
         return accessLog;

@@ -254,8 +254,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
         when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
-        when(permissionSupport.hasCategoryPermission(18L, 99L, DccFileCategoryPermissionActionEnum.APPROVE))
-                .thenReturn(true);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
         stubStampedArtifact(120L, 620L);
 
         finalizationService.applyApprovedPublishControlledFile(99L, 920L, "publish-effect-1");
@@ -273,6 +272,18 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
         verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
         assertEquals(920L, masterCaptor.getValue().getCurrentActiveControlledFileId());
+    }
+
+    @Test
+    void precheckPublishControlledFile_readyCandidateWithoutApprovePermissionThrows() {
+        DccControlledFileDO file = buildReadyToPublishCandidate(922L, 722L, 18L, 122L);
+        when(controlledFileMapper.selectById(922L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(false);
+
+        assertServiceException(() -> finalizationService.precheckPublishControlledFile(99L, 922L),
+                CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+
+        verify(pendingActionGuard, never()).assertNoPendingBusinessAction(any());
     }
 
     @Test

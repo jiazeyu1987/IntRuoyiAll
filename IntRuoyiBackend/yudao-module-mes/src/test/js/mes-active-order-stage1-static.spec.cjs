@@ -174,21 +174,9 @@ assert.doesNotMatch(workbench, /生产和检验进度均为100%/,
   'Stage1 success message must not hardcode 100%; it must display persisted response progress');
 assert.match(workbench, /formatActiveOrderProgressPercent\(result\.productionProgressPercent\)[\s\S]*formatActiveOrderProgressPercent\(result\.inspectionProgressPercent\)/,
   'Stage1 success message must display the recomputed persisted progress values');
-assert.match(workbench, /const generatedActiveOrderId = requirePositiveNumber\(\s*result\.activeOrderId[\s\S]*activeOrderDetailActiveOrderId\.value\s*=\s*generatedActiveOrderId[\s\S]*activeOrderDetailVisible\.value\s*=\s*true[\s\S]*await loadActiveOrderSubmissionDetail\(activeOrderDetailActiveOrderId\.value\)/,
-  'Stage1 completion must open the generated active order detail so PQC submissions are read from the order that Stage1 actually submitted');
-assert.match(workbench, /Stage1模拟详情[\s\S]*activeOrderDetailStage1SourceWorkOrderCode[\s\S]*→[\s\S]*activeOrderSubmissionDetail\.workOrderCode/,
-  'Stage1 generated detail dialog title must visibly show source to generated order mapping');
-assert.match(workbench, /activeOrderDetailStage1SourceWorkOrderCode\.value\s*=\s*row\.workOrderCode\s*\|\|\s*''/,
-  'Stage1 generated detail dialog must visibly show the clicked source order and the generated test order');
-assert.match(workbench, /stage1GeneratedDetailTargets\.value\.set\(\s*templateActiveOrderId,[\s\S]*activeOrderId:\s*generatedActiveOrderId[\s\S]*sourceWorkOrderCode:\s*row\.workOrderCode\s*\|\|\s*''/,
-  'Stage1 completion must remember the generated result for the clicked source order');
-assert.match(workbench, /const stage1GeneratedTarget = resolveStage1GeneratedDetailTarget\(row\)[\s\S]*activeOrderDetailActiveOrderId\.value = stage1GeneratedTarget\.activeOrderId[\s\S]*await loadActiveOrderSubmissionDetail\(stage1GeneratedTarget\.activeOrderId\)/,
-  'clicking detail on a just-simulated source order must open the generated Stage1 result detail');
-assert.match(workbench, /resolveStage1GeneratedDetailTarget\(row\)/,
-  'detail clicks must resolve a persisted Stage1 generated target from the refreshed active-order row');
-assert.match(workbench, /row\.stage1GeneratedActiveOrderId[\s\S]*stage1GeneratedDetailTargets\.value\.get\(sourceActiveOrderId\)/,
-  'the persisted Stage1 generated active-order id must be used after refresh, not only an in-memory Map');
-assert.match(workbench, /activeOrderDetailStage1SourceWorkOrderCode\.value = stage1GeneratedTarget\.sourceWorkOrderCode/,
-  'persistent Stage1 detail routing must keep the source work-order code visible in the dialog title');
+assert.match(workbench, /const activeOrderId = requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
+  'Stage1 completion must open the clicked active order detail so production and PQC submissions are read from the order that the user clicked');
+assert.doesNotMatch(workbench, /stage1GeneratedDetailTargets|resolveStage1GeneratedDetailTarget/,
+  'Stage1 detail routing must not redirect the clicked source order to a generated active order');
 
 console.log('mes-active-order-stage1-static: PASS');

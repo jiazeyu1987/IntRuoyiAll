@@ -22,14 +22,14 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*sourceActiveOrderId[\s\S]*resolveStage1GeneratedDetailTarget\(row\)[\s\S]*stage1GeneratedTarget\?\.activeOrderId\s*\?\?\s*sourceActiveOrderId/,
-  '点击列表行详情默认打开当前行自身详情；若该行已有 Stage1 生成目标，则必须打开同一生成测试订单详情。'
+  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*sourceActiveOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(sourceActiveOrderId\)/,
+  '点击列表行详情必须打开当前行自身详情，不能被 Stage1 生成订单替换。'
 )
 assert.doesNotMatch(page, /data-team-leader-active-order-detail-dialog|activeOrderDetailVisible/, '工作台不得继续渲染活跃订单详情弹窗。')
 assert.match(
   page,
-  /navigateActiveOrderSubmissionDetail\(generatedActiveOrderId, row\.workOrderCode \|\| ''\)/,
-  'Stage1 模拟完成后的自动跳转必须打开新生成测试订单，并保留来源订单提示。'
+  /navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
+  'Stage1 模拟完成后的自动跳转必须打开当前点击活跃订单。'
 )
 assert.match(
   routes,
@@ -43,16 +43,41 @@ assert.match(
   /v-for="\(process, processIndex\) in detail\.processes"[\s\S]*应提数量[\s\S]*已提交[\s\S]*提交记录/,
   '详情必须以生产工序为分组并显示应提数量、已提交合计和提交次数。'
 )
-for (const label of ['提交数量', '设备', '提交人', '审核人', '提交时间']) {
+for (const label of ['完成数量', '设备', '提交人', '审核人', '提交时间']) {
   assert.match(detailPanel, new RegExp(`label="${label}"`), `每次正式生产提交明细必须显示${label}。`)
 }
-assert.match(detailPanel, /submission\.reviewerName\s*\|\|\s*'未审核'/, '没有正式审核记录的提交必须明确显示未审核。')
+assert.match(
+  detailPanel,
+  /data-active-order-production-record-input-materials[\s\S]*输入物料批次号[\s\S]*selectedProductionInputMaterials/,
+  '生产记录表单必须在每个工序下显示输入物料批次号，且数据来自该工序 inputMaterials。'
+)
+assert.match(
+  detailPanel,
+  /formatProductionInputMaterialPickListEvidence[\s\S]*sourcePickListNos/,
+  '输入物料批次号展示必须同时保留命中的领料单业务编号，不能只展示批号。'
+)
+assert.match(detailPanel, /row\.reviewerName\s*\|\|\s*'未审核'/, '没有正式审核记录的提交必须明确显示未审核。')
 assert.match(detailPanel, /暂无一线生产提交/, '没有生产提交的工序必须保留并显示明确空态。')
 assert.match(detailPanel, /暂无一线PQC提交/, '没有 PQC 提交时必须显示明确空态。')
+assert.match(
+  detailPanel,
+  /resolvePqcInspectionTypeText\(pqcSubmission\)[\s\S]*PATROL_AM[\s\S]*上午巡检[\s\S]*PATROL_PM[\s\S]*下午巡检/,
+  'PQC 巡检标题必须按正式 inspectionRuleKey 显示上午巡检/下午巡检。'
+)
+assert.doesNotMatch(
+  detailPanel,
+  /resolvePqcInspectionTypeText\(pqcSubmission\.inspectionType\)/,
+  'PQC 标题不得只按 inspectionType 渲染，否则 PATROL_AM/PATROL_PM 会显示成同一个巡检。'
+)
 assert.match(
   api,
   /export interface TeamLeaderActiveOrderDetailRespVO[\s\S]*processes:\s*TeamLeaderActiveOrderProcessDetailRespVO\[\]/,
   '前端 API 必须声明按工序分组的详情响应。'
+)
+assert.match(
+  api,
+  /export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO[\s\S]*inspectionRuleKey\?:\s*string[\s\S]*inspectionType\?:\s*string/,
+  'PQC 提交响应类型必须暴露正式 inspectionRuleKey，供页面区分上午/下午巡检。'
 )
 assert.match(
   api,

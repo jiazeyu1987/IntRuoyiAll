@@ -91,8 +91,8 @@ assert.match(
 )
 assert.match(
   uploadPage,
-  /formData\.versionNo = DEFAULT_MANUAL_VERSION_NO/,
-  'Manual file name input path must reset version to V1.0'
+  /formData\.versionNo = isExternalReview\.value \? DEFAULT_MANUAL_VERSION_NO : ''|formData\.versionNo = ''/,
+  'Manual file name input path must clear server-owned version for controlled files'
 )
 
 console.log('PASS: DCC upload file name/version autofill static contract')

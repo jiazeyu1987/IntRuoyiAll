@@ -390,10 +390,10 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
         verify(pickListMapper).deleteById(9202L);
     }
 
-    private static MesStage1ActiveOrderCompleteSimulationCommand command(Long templateActiveOrderId) {
+    private static MesStage1ActiveOrderCompleteSimulationCommand command(Long activeOrderId) {
         return new MesStage1ActiveOrderCompleteSimulationCommand()
                 .setSimulationRunId("STAGE1-unit")
-                .setTemplateActiveOrderId(templateActiveOrderId)
+                .setActiveOrderId(activeOrderId)
                 .setActorUserId(3001L);
     }
 

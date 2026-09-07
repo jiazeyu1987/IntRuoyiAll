@@ -16,6 +16,6 @@ public class MesStage1ActiveOrderCompleteSimulationReqVO {
     private String simulationRunId;
 
     @NotNull
-    @Schema(description = "用于复制正式工单和工艺资料的活跃订单模板编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    private Long templateActiveOrderId;
+    @Schema(description = "当前点击的活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long activeOrderId;
 }

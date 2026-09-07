@@ -1166,7 +1166,16 @@ const remainingRouter: AppRouteRecordRaw[] = [
             String(to.query.traceability || '') === '1' &&
             String(to.query.from || '') === 'browser' &&
             Boolean(String(to.query.returnTo || ''))
-          if (String(to.query.viewer || '') === '1' || isApprovalHandling || isBrowserTraceability) {
+          const isBrowserManagement =
+            String(to.query.management || '') === '1' &&
+            String(to.query.from || '') === 'browser' &&
+            Boolean(String(to.query.returnTo || ''))
+          if (
+            String(to.query.viewer || '') === '1' ||
+            isApprovalHandling ||
+            isBrowserTraceability ||
+            isBrowserManagement
+          ) {
             return true
           }
           return { name: 'DccControlledFileBrowser' }

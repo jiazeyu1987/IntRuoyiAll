@@ -54,6 +54,7 @@ DELETE FROM `dcc_controlled_file_watermark_trace`;
 DELETE FROM `dcc_controlled_file_access_event`;
 DELETE FROM `dcc_controlled_file_stamp`;
 DELETE FROM `dcc_controlled_file_route_snapshot`;
+DELETE FROM `dcc_controlled_file_checkout`;
 DELETE FROM `dcc_controlled_file`;
 DELETE FROM `dcc_controlled_file_master`;
 DELETE FROM `dcc_category_approval_route_node`;

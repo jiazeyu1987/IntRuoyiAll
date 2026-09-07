@@ -47,6 +47,11 @@ public class DccControlledFileSubmitReqVO {
 
     private Long revisionTargetControlledFileId;
 
+    /** Explicit A/2 (or another iteration) selected as the source for a new major revision. */
+    private Long revisionSourceControlledFileId;
+
+    private String revisionSourceReason;
+
     private List<Long> relatedControlledFileIds;
 
     private Boolean needTraining;
@@ -67,7 +72,6 @@ public class DccControlledFileSubmitReqVO {
     @NotNull(message = "directoryId is required")
     private Long directoryId;
 
-    @NotBlank(message = "versionNo is required")
     private String versionNo;
 
     @NotNull(message = "effectiveDate is required")

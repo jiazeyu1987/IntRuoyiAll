@@ -186,6 +186,18 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getId, id));
     }
 
+    default int resetForStage1Rerun(Long id, String simulationStage, String simulationRunId) {
+        return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
+                .set(MesPqcInspectionTaskDO::getActualInspectionQuantity, null)
+                .set(MesPqcInspectionTaskDO::getSubmittedContentHash, null)
+                .set(MesPqcInspectionTaskDO::getSubmittedEventId, null)
+                .set(MesPqcInspectionTaskDO::getTaskStatus, MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
+                .set(MesPqcInspectionTaskDO::getSimulated, Boolean.TRUE)
+                .set(MesPqcInspectionTaskDO::getSimulationStage, simulationStage)
+                .set(MesPqcInspectionTaskDO::getSimulationRunId, simulationRunId)
+                .eq(MesPqcInspectionTaskDO::getId, id));
+    }
+
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);
     }

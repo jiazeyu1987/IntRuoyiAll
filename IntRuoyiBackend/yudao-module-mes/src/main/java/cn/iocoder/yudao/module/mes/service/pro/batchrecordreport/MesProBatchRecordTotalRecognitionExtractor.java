@@ -20,7 +20,9 @@ public class MesProBatchRecordTotalRecognitionExtractor {
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PROCESS_TITLE_PATTERN = Pattern.compile("(.+?工序)生产记录");
     private static final Pattern EQUIPMENT_CODE_PATTERN = Pattern.compile("[A-Z]\\d{5}");
-    private static final Pattern NAMED_EQUIPMENT_PATTERN = Pattern.compile("([^：:\\n]+)[：:]\\s*[□☑]?([A-Z]\\d{5})");
+    private static final Pattern NAMED_EQUIPMENT_PATTERN = Pattern.compile("([^：:\\n]+)[：:]\\s*[□☑☒(（]?([A-Z]\\d{5})");
+    private static final Pattern CRITICAL_PROCESS_PATTERN = Pattern.compile(
+            "([☑☒■√✓✔Rþ\\uF052(（□☐¨\\uF0A3])\\s*(非?关键/特殊工序)");
     private static final Pattern PARAMETER_NAME_PATTERN = Pattern.compile(
             "^(清洗|烘干|紫外灯|能量范围|传送带速度|运行次数|硅油|硅化|热合).*");
     private static final String ACTUAL_VALUE_PLACEHOLDER = "待填写";
@@ -55,6 +57,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                 throw new IllegalStateException("material mapping is missing for process: " + processName);
             }
             processes.add(new ProcessRecognition(processName,
+                    extractCriticalProcess(processName, table),
                     convertMaterials(materialMapping.inputMaterials()),
                     convertMaterials(materialMapping.outputMaterials()),
                     extractEquipmentGroups(processName, table)));
@@ -105,6 +108,45 @@ public class MesProBatchRecordTotalRecognitionExtractor {
             }
         }
         return List.copyOf(materials);
+    }
+
+    private Boolean extractCriticalProcess(String processName, MesProBatchRecordParsedTable table) {
+        Boolean critical = null;
+        Boolean nonCritical = null;
+        for (List<MesProBatchRecordParsedCell> row : safeRows(table)) {
+            String text = normalized(rowText(row)).replaceAll("\\s+", "");
+            if (!text.contains("关键/特殊工序")) {
+                continue;
+            }
+            Matcher matcher = CRITICAL_PROCESS_PATTERN.matcher(text);
+            while (matcher.find()) {
+                boolean checked = isCheckedMarker(matcher.group(1));
+                if ("关键/特殊工序".equals(matcher.group(2))) {
+                    critical = checked;
+                } else if ("非关键/特殊工序".equals(matcher.group(2))) {
+                    nonCritical = checked;
+                }
+            }
+            if (Boolean.TRUE.equals(critical) && !Boolean.TRUE.equals(nonCritical)) {
+                return true;
+            }
+            if (Boolean.TRUE.equals(nonCritical) && !Boolean.TRUE.equals(critical)) {
+                return false;
+            }
+            if (critical != null || nonCritical != null) {
+                throw new IllegalStateException("critical process checkbox state is ambiguous for process: "
+                        + processName);
+            }
+        }
+        throw new IllegalStateException("critical process checkbox state is missing for process: " + processName);
+    }
+
+    private boolean isCheckedMarker(String marker) {
+        return marker != null && !marker.isBlank()
+                && !"□".equals(marker)
+                && !"☐".equals(marker)
+                && !"¨".equals(marker)
+                && !"\uF0A3".equals(marker);
     }
 
     private List<EquipmentGroup> extractEquipmentGroups(String processName, MesProBatchRecordParsedTable table) {
@@ -447,9 +489,12 @@ public class MesProBatchRecordTotalRecognitionExtractor {
     public record Product(String name, String code) {
     }
 
-    public record ProcessRecognition(String name, List<Material> inputs, List<Material> outputs,
+    public record ProcessRecognition(String name, Boolean criticalProcess, List<Material> inputs, List<Material> outputs,
                                      List<EquipmentGroup> equipmentGroups) {
         public ProcessRecognition {
+            if (criticalProcess == null) {
+                throw new IllegalArgumentException("criticalProcess is required");
+            }
             inputs = List.copyOf(inputs);
             outputs = List.copyOf(outputs);
             equipmentGroups = List.copyOf(equipmentGroups);

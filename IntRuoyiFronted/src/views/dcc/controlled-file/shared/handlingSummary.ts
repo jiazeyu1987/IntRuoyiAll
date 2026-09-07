@@ -27,7 +27,7 @@ interface ControlledFileHandlingSummarySource {
   status?: string
   rejectReason?: string
   finalizationError?: string
-  supersededByFileId?: number | null
+  supersededByFileId?: number | string | null
   modifying?: boolean
   hasPendingTrainingAcknowledgement?: boolean
 }
@@ -38,9 +38,9 @@ interface ControlledFileVersionSummarySource {
   effectiveDate?: string | null
   status?: string
   modifying?: boolean
-  supersededByFileId?: number | null
+  supersededByFileId?: number | string | null
   versionHistory?: Array<{
-    id?: number
+    id?: number | string
     versionNo?: string
     status?: string
   }>
@@ -237,7 +237,7 @@ export const isControlledFileRowWithdrawable = (status: string | undefined) =>
 
 export const isControlledFileRowWithdrawnActionable = (
   status: string | undefined,
-  supersededByFileId?: number | null
+  supersededByFileId?: number | string | null
 ) => (status as DccControlledFileStatus | undefined) === 'WITHDRAWN' && !supersededByFileId
 
 export const isControlledFileRowPreviewable = (status: string | undefined) => {

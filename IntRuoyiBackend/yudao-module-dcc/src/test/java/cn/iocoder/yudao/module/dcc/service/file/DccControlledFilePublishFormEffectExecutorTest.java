@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalEffectResult;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
 import cn.iocoder.yudao.module.bpm.formcenter.model.BusinessActionContext;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormActionInstance;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormActionPolicy;
@@ -93,6 +96,30 @@ class DccControlledFilePublishFormEffectExecutorTest extends BaseMockitoUnitTest
         verify(finalizationService, never()).applyApprovedPublishControlledFile(99L, 920L, "IDEM-PUBLISH-1");
     }
 
+    @Test
+    void businessApprovalDirectExecutesTheSameApprovedPublishEffect() {
+        BusinessApprovalContext context = dccBusinessApprovalContext();
+        BusinessApprovalRequest request = BusinessApprovalRequest.builder()
+                .requestId(474L)
+                .context(context)
+                .build();
+
+        BusinessApprovalEffectResult result = executor.executeDirect(context, request);
+
+        assertEquals("ACTIVE", result.getResultState());
+        verify(finalizationService).applyApprovedPublishControlledFile(
+                99L, 920L, "BUSINESS_APPROVAL:474:DIRECT");
+    }
+
+    @Test
+    void businessApprovalPrecheckUsesTheDccPublishPrecondition() {
+        BusinessApprovalContext context = dccBusinessApprovalContext();
+
+        executor.precheck(context);
+
+        verify(finalizationService).precheckPublishControlledFile(99L, 920L);
+    }
+
     private FormActionInstance dccPublishInstance() {
         FormActionInstance instance = instance("DCC", "CONTROLLED_FILE", "PUBLISH",
                 "READY_TO_PUBLISH", "DCC_PUBLISH");
@@ -134,5 +161,20 @@ class DccControlledFilePublishFormEffectExecutorTest extends BaseMockitoUnitTest
         formData.put("controlledFileId", 920L);
         formData.put("publishReason", "release approved revision");
         return formData;
+    }
+
+    private BusinessApprovalContext dccBusinessApprovalContext() {
+        return BusinessApprovalContext.builder()
+                .tenantId(122L)
+                .dataDomain("DCC")
+                .systemCode("DCC")
+                .objectType("CONTROLLED_FILE")
+                .objectId("920")
+                .objectVersion("B/1")
+                .actionCode("PUBLISH")
+                .objectState("READY_TO_PUBLISH")
+                .applicantUserId(99L)
+                .reason("release approved revision")
+                .build();
     }
 }

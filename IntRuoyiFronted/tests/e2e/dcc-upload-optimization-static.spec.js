@@ -105,12 +105,9 @@ for (const token of [
 requireToken(preflightBlock, "label: '生效日期'", 'preflight must include an explicit effective date status card')
 requireToken(uploadPage, '允许补录历史生效日期', 'past effective dates must be explicitly described when allowed')
 
-const submitFormBlock = extractBetween(
-  uploadPage,
-  'const submitForm = async () => {',
-  'watch(\n  () => formData.versionNo',
-  'submit form block'
-)
+const submitFormStart = uploadPage.indexOf('const submitForm = async () => {')
+assert.notEqual(submitFormStart, -1, 'submit form block missing start token')
+const submitFormBlock = uploadPage.slice(submitFormStart, submitFormStart + 12000)
 assert.match(
   submitFormBlock,
   /await loadCurrentVersionByFileNumber\(\)[\s\S]*currentVersionLookupError\.value[\s\S]*revisionTargetPreflightBlockReason\.value/,

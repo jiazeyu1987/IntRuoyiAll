@@ -43,6 +43,13 @@ public class DccControlledFileRespVO {
     private Boolean needTraining;
     private String processType;
     private String versionNo;
+    private String revisionCode;
+    private Integer iterationNo;
+    private Long predecessorControlledFileId;
+    private Long revisionBaseActiveControlledFileId;
+    private String sourceSha256;
+    private String previousSourceSha256;
+    private String changeDescription;
     private String currentActiveVersionNo;
     private LocalDate effectiveDate;
     private String remark;
@@ -65,6 +72,7 @@ public class DccControlledFileRespVO {
     private Long checkedOutBy;
     private String checkedOutByName;
     private LocalDateTime checkedOutTime;
+    private String checkedOutReason;
     private Boolean canPreview;
     private Boolean canDownload;
     private Boolean canPrint;

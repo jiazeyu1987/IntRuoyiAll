@@ -17,6 +17,12 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     private Long activeOrderId;
     private Long workOrderId;
     private String workOrderCode;
+    private String batchCode;
+    private BigDecimal workOrderQuantity;
+    private String productCode;
+    private String productName;
+    private String productSpecification;
+    private LocalDateTime workOrderCreateTime;
     private String routeName;
     private List<ProcessDetail> processes;
 
@@ -81,6 +87,8 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private LocalDateTime submittedAt;
         private Boolean quantityConflict;
         private List<SubmissionDeviceDetail> devices;
+        private List<SubmissionDeviceParameterDetail> deviceParameters;
+        private List<ClearanceConfirmationDetail> clearanceConfirmations;
         private List<SubmissionMaterialDetail> materials;
     }
 
@@ -90,6 +98,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Long deviceId;
         private String deviceCode;
         private String deviceName;
+        private Boolean inMeteringValidityPeriod;
     }
 
     @Data
@@ -102,6 +111,33 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private BigDecimal outputQuantity;
         private BigDecimal lossQuantity;
         private List<SubmissionDeviceDetail> devices;
+        private List<SubmissionDeviceParameterDetail> deviceParameters;
+        private List<ClearanceConfirmationDetail> clearanceConfirmations;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SubmissionDeviceParameterDetail {
+        private Long deviceId;
+        private String deviceCode;
+        private String deviceName;
+        private String parameterCode;
+        private String parameterName;
+        private String unit;
+        private BigDecimal value;
+        private String textValue;
+        private BigDecimal lowerLimit;
+        private BigDecimal upperLimit;
+        private String parameterStatus;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class ClearanceConfirmationDetail {
+        private String key;
+        private String label;
+        private Boolean confirmed;
+        private String description;
     }
 
     @Data
@@ -114,12 +150,16 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Long qaProcessId;
         private String qaProcessCode;
         private String qaProcessName;
+        private String qaItemCode;
+        private String inspectionRuleKey;
         private String inspectionType;
         private LocalDate businessDate;
         private String shiftCode;
         private Integer roundNo;
         private Integer actualInspectionQuantity;
         private String taskStatus;
+        private String submitterName;
+        private String reviewerName;
         private List<PqcSubmissionItemDetail> items;
     }
 

@@ -83,7 +83,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
             }
             throw exception(CONTROLLED_FILE_TASK_PASSWORD_INVALID);
         }
-        LocalDateTime signedAt = LocalDateTime.now();
+        LocalDateTime signedAt = LocalDateTime.now().withNano(0);
         SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, meaningCode);
         DccElectronicSignatureImageSnapshot imageSnapshot = signatureImageService.requireActiveSnapshot(actorId);
         DccControlledFileSignatureEvidence evidence = signatureEvidenceService.createEvidence(

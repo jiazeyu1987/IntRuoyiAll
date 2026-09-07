@@ -314,7 +314,7 @@ export interface Stage6IdiSimulationRespVO {
 
 export interface Stage1ActiveOrderCompleteSimulationReqVO {
   simulationRunId: string
-  templateActiveOrderId: number
+  activeOrderId: number
 }
 
 export interface Stage1ActiveOrderCompleteSimulationRespVO {
@@ -467,6 +467,28 @@ export interface TeamLeaderActiveOrderSubmissionDeviceDetailRespVO {
   deviceId?: number
   deviceCode?: string
   deviceName?: string
+  inMeteringValidityPeriod?: boolean
+}
+
+export interface TeamLeaderActiveOrderSubmissionDeviceParameterRespVO {
+  deviceId?: number
+  deviceCode?: string
+  deviceName?: string
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  value?: number | string
+  textValue?: string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  parameterStatus?: string
+}
+
+export interface TeamLeaderActiveOrderClearanceConfirmationRespVO {
+  key: string
+  label: string
+  confirmed?: boolean
+  description?: string
 }
 
 export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
@@ -477,6 +499,8 @@ export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
   outputQuantity: number | string
   lossQuantity: number | string
   devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
+  deviceParameters: TeamLeaderActiveOrderSubmissionDeviceParameterRespVO[]
+  clearanceConfirmations?: TeamLeaderActiveOrderClearanceConfirmationRespVO[]
 }
 
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
@@ -487,6 +511,8 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   submittedAt: string | number
   quantityConflict?: boolean
   devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
+  deviceParameters: TeamLeaderActiveOrderSubmissionDeviceParameterRespVO[]
+  clearanceConfirmations: TeamLeaderActiveOrderClearanceConfirmationRespVO[]
   materials: TeamLeaderActiveOrderSubmissionMaterialDetailRespVO[]
 }
 
@@ -541,12 +567,16 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   qaProcessId?: number
   qaProcessCode?: string
   qaProcessName?: string
+  qaItemCode?: string
+  inspectionRuleKey?: string
   inspectionType?: string
   businessDate?: string
   shiftCode?: string
   roundNo?: number
   actualInspectionQuantity?: number
   taskStatus?: string
+  submitterName?: string
+  reviewerName?: string
   items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
 }
 
@@ -570,6 +600,12 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   activeOrderId: number
   workOrderId: number
   workOrderCode: string
+  batchCode?: string
+  productSpecification?: string
+  workOrderQuantity?: number | string
+  productCode?: string
+  productName?: string
+  workOrderCreateTime?: string | number
   routeName: string
   processes: TeamLeaderActiveOrderProcessDetailRespVO[]
 }

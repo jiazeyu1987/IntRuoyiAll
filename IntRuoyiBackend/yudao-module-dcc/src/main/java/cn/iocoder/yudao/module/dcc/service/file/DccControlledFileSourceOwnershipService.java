@@ -143,6 +143,19 @@ public class DccControlledFileSourceOwnershipService {
         }
     }
 
+    /** Remove a temporary isolated copy when the surrounding check-in transaction fails. */
+    public void cleanupPreparedSource(DccControlledFilePreparedSource preparedSource) {
+        if (preparedSource == null || !preparedSource.isolatedCopy()) {
+            return;
+        }
+        try {
+            fileService.deleteFile(preparedSource.sourceFileId());
+        } catch (Exception ex) {
+            throw new IllegalStateException(
+                    "Failed to remove isolated DCC check-in source fileId=" + preparedSource.sourceFileId(), ex);
+        }
+    }
+
     private void deleteFailedCopy(Long copiedFileId, RuntimeException cause) {
         cleanupFailedCopy(copiedFileId, cause);
     }

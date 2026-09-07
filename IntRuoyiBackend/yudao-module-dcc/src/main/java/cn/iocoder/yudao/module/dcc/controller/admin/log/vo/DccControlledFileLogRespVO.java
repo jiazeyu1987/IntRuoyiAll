@@ -18,6 +18,9 @@ public class DccControlledFileLogRespVO {
     @Schema(description = "来源记录编号")
     private Long sourceRecordId;
 
+    @Schema(description = "逻辑文件 Master 编号")
+    private Long masterId;
+
     @Schema(description = "发生时间")
     private LocalDateTime occurredAt;
 

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.log.vo.DccControlledFileLogR
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAccessLogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMetadataChangeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMetadataChangeItemDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingProgressDO;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileAc
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAccessLogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
@@ -47,6 +49,8 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
     private DccControlledFileLogQueryService logQueryService;
     @Resource
     private DccControlledFileMapper controlledFileMapper;
+    @Resource
+    private DccControlledFileCheckoutMapper checkoutMapper;
     @Resource
     private DccControlledFileDistributionMapper distributionMapper;
     @Resource
@@ -219,6 +223,29 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
         assertEquals("修正后类别", row.getNewValueText());
         assertTrue(row.getDetailJson().contains("\"assignmentNo\":\"\""));
         assertTrue(row.getDetailJson().contains("\"fieldName\":\"fileTypeLevel3\""));
+    }
+
+    @Test
+    void getLogPage_includesCheckoutCheckinAndCancelReasons() {
+        DccControlledFileDO file = insertLifecycleFile(1301L, "DOC-1301", "检出SOP", "A/1",
+                "NEW", "ACTIVE", LocalDateTime.of(2026, 8, 3, 9, 0), null, null, null, null);
+        checkoutMapper.insert(DccControlledFileCheckoutDO.builder()
+                .id(7301L).masterId(file.getMasterId()).baseIterationId(file.getId()).actorId(2201L)
+                .reason("更新步骤").baseSourceSha256("old-sha").status("CANCELLED")
+                .cancelReason("不再修改").cancelledTime(LocalDateTime.of(2026, 8, 3, 10, 0)).build());
+
+        DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
+        req.setLogType("FILE_CHECKOUT");
+        req.setControlledFileId(file.getId());
+        req.setMasterId(file.getMasterId());
+        req.setVersionNo("A/1");
+        PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
+
+        assertEquals(1L, page.getTotal());
+        DccControlledFileLogRespVO row = page.getList().get(0);
+        assertEquals("撤销检出", row.getActionLabel());
+        assertEquals("不再修改", row.getReason());
+        assertTrue(row.getDetailJson().contains("CANCELLED"));
     }
 
     private DccControlledFileDO insertControlledFile(Long id, String fileNumber, String fileName, String versionNo) {

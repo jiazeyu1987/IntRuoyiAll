@@ -14,6 +14,12 @@ public class MesTeamLeaderActiveOrderDetailReadDO {
     private Long activeOrderId;
     private Long workOrderId;
     private String workOrderCode;
+    private String batchCode;
+    private BigDecimal workOrderQuantity;
+    private String productCode;
+    private String productName;
+    private String productSpecification;
+    private LocalDateTime workOrderCreateTime;
     private String routeName;
     private Long routeProcessId;
     private Long processId;

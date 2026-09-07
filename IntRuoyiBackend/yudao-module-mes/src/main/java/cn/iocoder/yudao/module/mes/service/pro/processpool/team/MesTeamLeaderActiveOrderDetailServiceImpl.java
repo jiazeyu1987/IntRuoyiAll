@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
@@ -103,6 +104,12 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setActiveOrderId(activeOrderId)
                 .setWorkOrderId(first.getWorkOrderId())
                 .setWorkOrderCode(first.getWorkOrderCode())
+                .setBatchCode(first.getBatchCode())
+                .setWorkOrderQuantity(first.getWorkOrderQuantity())
+                .setProductCode(first.getProductCode())
+                .setProductName(first.getProductName())
+                .setProductSpecification(first.getProductSpecification())
+                .setWorkOrderCreateTime(first.getWorkOrderCreateTime())
                 .setRouteName(first.getRouteName())
                 .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList());
     }
@@ -253,10 +260,14 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         Map<Long, MesQaInspectionRegulationProcessDO> qaProcessesById = mapById(
                 qaProcessMapper.selectBatchIds(distinctIds(tasks, MesPqcInspectionTaskDO::getQaProcessId)),
                 MesQaInspectionRegulationProcessDO::getId, activeOrderId, "qaProcess");
+        Map<Long, MesTeamLeaderActiveOrderEventPartyReadDO> eventPartiesById =
+                loadEventParties(activeOrderId, tasks);
         Map<PqcSubmissionIdentity, PqcSubmissionAccumulator> pqcSubmissionAccumulators = new LinkedHashMap<>();
         for (MesPqcInspectionTaskDO task : tasks) {
             if (task == null || task.getId() == null || task.getRouteProcessId() == null
-                    || task.getProcessId() == null || task.getQaProcessId() == null) {
+                    || task.getProcessId() == null || task.getQaProcessId() == null
+                    || trimToNull(task.getQaItemCode()) == null
+                    || trimToNull(task.getInspectionRuleKey()) == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
             MesQaInspectionRegulationProcessDO qaProcess = qaProcessesById.get(task.getQaProcessId());
@@ -276,10 +287,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             PqcSubmissionIdentity submissionIdentity = new PqcSubmissionIdentity(
                     new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()),
-                    task.getQaProcessId(), task.getInspectionType(), task.getRoundNo());
+                    task.getQaProcessId(), trimToNull(task.getQaItemCode()), task.getInspectionRuleKey());
             pqcSubmissionAccumulators.computeIfAbsent(submissionIdentity,
                             ignored -> new PqcSubmissionAccumulator(task, qaProcess))
-                    .add(task, taskDetails);
+                    .add(task, taskDetails, eventPartiesById.get(task.getSubmittedEventId()), activeOrderId);
         }
         for (Map.Entry<PqcSubmissionIdentity, PqcSubmissionAccumulator> entry : pqcSubmissionAccumulators.entrySet()) {
             ProcessAccumulator accumulator = accumulators.get(entry.getKey().processIdentity());
@@ -288,6 +299,29 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             }
             accumulator.addPqcSubmission(entry.getValue().toDetail());
         }
+    }
+
+    private Map<Long, MesTeamLeaderActiveOrderEventPartyReadDO> loadEventParties(
+            Long activeOrderId, List<MesPqcInspectionTaskDO> tasks) {
+        List<Long> eventIds = tasks.stream()
+                .map(MesPqcInspectionTaskDO::getSubmittedEventId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (eventIds.isEmpty()) {
+            return Map.of();
+        }
+        List<MesTeamLeaderActiveOrderEventPartyReadDO> parties =
+                detailReadMapper.selectEventPartiesByEventIds(eventIds);
+        Map<Long, MesTeamLeaderActiveOrderEventPartyReadDO> partiesById = mapById(parties,
+                MesTeamLeaderActiveOrderEventPartyReadDO::getEventId, activeOrderId, "pqcEventParty");
+        if (!partiesById.keySet().containsAll(eventIds)) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        for (MesTeamLeaderActiveOrderEventPartyReadDO party : partiesById.values()) {
+            requireText(party.getSubmitterName(), activeOrderId);
+        }
+        return partiesById;
     }
 
     private static MesTeamLeaderActiveOrderDetail.InputMaterialDetail toInputMaterialDetail(
@@ -367,7 +401,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private record ProcessIdentity(Long routeProcessId, Long processId) {
     }
 
-    private record PqcSubmissionIdentity(ProcessIdentity processIdentity, Long qaProcessId, String inspectionType, Integer roundNo) {
+    private record PqcSubmissionIdentity(ProcessIdentity processIdentity, Long qaProcessId, String qaItemCode,
+                                         String inspectionRuleKey) {
     }
 
     private static final class SupplementAccumulator {
@@ -426,6 +461,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private final MesQaInspectionRegulationProcessDO qaProcess;
         private final LinkedHashSet<Long> pqcTaskIds = new LinkedHashSet<>();
         private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
+        private final LinkedHashSet<String> submitterNames = new LinkedHashSet<>();
+        private final LinkedHashSet<String> reviewerNames = new LinkedHashSet<>();
         private final List<MesTeamLeaderActiveOrderDetail.PqcSubmissionItemDetail> items = new ArrayList<>();
         private Integer actualInspectionQuantity;
 
@@ -435,10 +472,16 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             this.qaProcess = qaProcess;
         }
 
-        private void add(MesPqcInspectionTaskDO task, List<MesPqcProcessInspectionAggregateDetailDO> details) {
+        private void add(MesPqcInspectionTaskDO task, List<MesPqcProcessInspectionAggregateDetailDO> details,
+                         MesTeamLeaderActiveOrderEventPartyReadDO eventParty, Long activeOrderId) {
             pqcTaskIds.add(task.getId());
             if (task.getSubmittedEventId() != null) {
                 submittedEventIds.add(task.getSubmittedEventId());
+                if (eventParty == null) {
+                    throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+                }
+                submitterNames.add(trimToNull(eventParty.getSubmitterName()));
+                reviewerNames.add(trimToNull(eventParty.getReviewerName()));
             }
             if (actualInspectionQuantity == null
                     || (task.getActualInspectionQuantity() != null
@@ -468,14 +511,26 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setQaProcessId(qaProcess.getId())
                     .setQaProcessCode(qaProcess.getProcessCode())
                     .setQaProcessName(qaProcess.getProcessName())
+                    .setQaItemCode(firstTask.getQaItemCode())
+                    .setInspectionRuleKey(firstTask.getInspectionRuleKey())
                     .setInspectionType(firstTask.getInspectionType())
                     .setBusinessDate(firstTask.getBusinessDate())
                     .setShiftCode(firstTask.getShiftCode())
                     .setRoundNo(firstTask.getRoundNo())
                     .setActualInspectionQuantity(actualInspectionQuantity)
                     .setTaskStatus(firstTask.getTaskStatus())
+                    .setSubmitterName(joinDistinctTexts(submitterNames))
+                    .setReviewerName(joinDistinctTexts(reviewerNames))
                     .setItems(List.copyOf(items));
         }
+    }
+
+    private static String joinDistinctTexts(Set<String> values) {
+        String joined = values.stream()
+                .map(MesTeamLeaderActiveOrderDetailServiceImpl::trimToNull)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("、"));
+        return joined.isBlank() ? null : joined;
     }
 
     private static final class ProcessAccumulator {
@@ -513,6 +568,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setReviewerName(row.getReviewerName())
                     .setSubmittedAt(row.getSubmittedAt())
                     .setDevices(resolveSubmissionDevices(row, activeOrderId))
+                    .setDeviceParameters(resolveSubmissionDeviceParameters(row, activeOrderId))
+                    .setClearanceConfirmations(resolveClearanceConfirmations(row, activeOrderId))
                     .setMaterials(resolveSubmissionMaterials(row, activeOrderId)));
             submittedQuantity = submittedQuantity.add(row.getSubmittedQuantity());
         }
@@ -554,9 +611,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices = new LinkedHashMap<>();
         Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
         if (payload != null) {
+            addDevicesFromValue(devices, payload.get("selectedDevice"), activeOrderId);
             addDevicesFromValue(devices, payload.get("selectedDevices"), activeOrderId);
             addDevicesFromMaterialDetails(devices, payload.get("materialDetails"), activeOrderId);
             addDevicesFromValue(devices, payload.get("deviceParameterReadings"), activeOrderId);
+            addDeviceMeteringValidityFromValue(devices, payload.get("deviceMeteringValidity"), activeOrderId);
         }
         addDevice(devices, row.getEventDeviceId(), row.getEventDeviceCode(), row.getEventDeviceName());
         return List.copyOf(devices.values());
@@ -584,6 +643,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             addDevicesFromValue(devices, detail.get("selectedDevice"), activeOrderId);
             addDevicesFromValue(devices, detail.get("selectedDevices"), activeOrderId);
             addDevicesFromValue(devices, detail.get("deviceParameterReadings"), activeOrderId);
+            addDeviceMeteringValidityFromValue(devices, detail.get("deviceMeteringValidity"), activeOrderId);
             rows.add(new MesTeamLeaderActiveOrderDetail.SubmissionMaterialDetail()
                     .setMaterialId(requirePositiveLongValue(detail.get("materialId"), activeOrderId))
                     .setMaterialCode(requireStringValue(detail.get("materialCode"), activeOrderId))
@@ -591,7 +651,80 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setMaterialSpecification(stringValue(detail.get("materialSpecification")))
                     .setOutputQuantity(bigDecimalValue(detail.get("outputQuantity"), activeOrderId))
                     .setLossQuantity(bigDecimalValue(detail.get("lossQuantity"), activeOrderId))
-                    .setDevices(List.copyOf(devices.values())));
+                    .setDevices(List.copyOf(devices.values()))
+                    .setDeviceParameters(resolveSubmissionDeviceParameters(detail.get("deviceParameterReadings"),
+                            activeOrderId))
+                    .setClearanceConfirmations(resolveClearanceConfirmations(detail.get("clearanceConfirmations"),
+                            activeOrderId)));
+        }
+        return List.copyOf(rows);
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.SubmissionDeviceParameterDetail>
+    resolveSubmissionDeviceParameters(MesTeamLeaderActiveOrderDetailReadDO row, Long activeOrderId) {
+        Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+        if (payload == null) {
+            return List.of();
+        }
+        return resolveSubmissionDeviceParameters(payload.get("deviceParameterReadings"), activeOrderId);
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.SubmissionDeviceParameterDetail>
+    resolveSubmissionDeviceParameters(Object value, Long activeOrderId) {
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> readings)) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        List<MesTeamLeaderActiveOrderDetail.SubmissionDeviceParameterDetail> rows = new ArrayList<>();
+        for (Object reading : readings) {
+            if (!(reading instanceof Map<?, ?> detail)) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            rows.add(new MesTeamLeaderActiveOrderDetail.SubmissionDeviceParameterDetail()
+                    .setDeviceId(longValue(detail.get("deviceId"), activeOrderId))
+                    .setDeviceCode(stringValue(detail.get("deviceCode")))
+                    .setDeviceName(stringValue(detail.get("deviceName")))
+                    .setParameterCode(requireStringValue(detail.get("parameterCode"), activeOrderId))
+                    .setParameterName(stringValue(detail.get("parameterName")))
+                    .setUnit(stringValue(detail.get("unit")))
+                    .setValue(bigDecimalValueOrNull(detail.get("value"), activeOrderId))
+                    .setTextValue(firstNonBlankString(detail.get("textValue"), detail.get("value")))
+                    .setLowerLimit(bigDecimalValueOrNull(detail.get("lowerLimit"), activeOrderId))
+                    .setUpperLimit(bigDecimalValueOrNull(detail.get("upperLimit"), activeOrderId))
+                    .setParameterStatus(stringValue(detail.get("parameterStatus"))));
+        }
+        return List.copyOf(rows);
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.ClearanceConfirmationDetail> resolveClearanceConfirmations(
+            MesTeamLeaderActiveOrderDetailReadDO row, Long activeOrderId) {
+        Map<?, ?> payload = parseOriginalPayload(row.getOriginalPayloadJson(), activeOrderId);
+        if (payload == null) {
+            return List.of();
+        }
+        return resolveClearanceConfirmations(payload.get("clearanceConfirmations"), activeOrderId);
+    }
+
+    private static List<MesTeamLeaderActiveOrderDetail.ClearanceConfirmationDetail> resolveClearanceConfirmations(
+            Object value, Long activeOrderId) {
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> confirmations)) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        List<MesTeamLeaderActiveOrderDetail.ClearanceConfirmationDetail> rows = new ArrayList<>();
+        for (Object confirmation : confirmations) {
+            if (!(confirmation instanceof Map<?, ?> detail)) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+            }
+            rows.add(new MesTeamLeaderActiveOrderDetail.ClearanceConfirmationDetail()
+                    .setKey(requireStringValue(detail.get("key"), activeOrderId))
+                    .setLabel(requireStringValue(detail.get("label"), activeOrderId))
+                    .setConfirmed(booleanValue(detail.get("confirmed"), activeOrderId))
+                    .setDescription(stringValue(detail.get("description"))));
         }
         return List.copyOf(rows);
     }
@@ -622,7 +755,22 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         if (value instanceof Map<?, ?> row) {
             addDevice(devices, longValue(row.get("deviceId"), activeOrderId), stringValue(row.get("deviceCode")),
-                    stringValue(row.get("deviceName")));
+                    stringValue(row.get("deviceName")), optionalBooleanValue(row.get("inMeteringValidityPeriod"), activeOrderId));
+        }
+    }
+
+    private static void addDeviceMeteringValidityFromValue(
+            Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices, Object value,
+            Long activeOrderId) {
+        if (value instanceof List<?> rows) {
+            for (Object item : rows) {
+                addDeviceMeteringValidityFromValue(devices, item, activeOrderId);
+            }
+            return;
+        }
+        if (value instanceof Map<?, ?> row && row.get("inMeteringValidityPeriod") instanceof Boolean inPeriod) {
+            addDevice(devices, longValue(row.get("deviceId"), activeOrderId), stringValue(row.get("deviceCode")),
+                    stringValue(row.get("deviceName")), inPeriod);
         }
     }
 
@@ -639,11 +787,18 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             addDevicesFromValue(devices, detail.get("selectedDevice"), activeOrderId);
             addDevicesFromValue(devices, detail.get("selectedDevices"), activeOrderId);
             addDevicesFromValue(devices, detail.get("deviceParameterReadings"), activeOrderId);
+            addDeviceMeteringValidityFromValue(devices, detail.get("deviceMeteringValidity"), activeOrderId);
         }
     }
 
     private static void addDevice(Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices,
                                   Long deviceId, String deviceCode, String deviceName) {
+        addDevice(devices, deviceId, deviceCode, deviceName, null);
+    }
+
+    private static void addDevice(Map<String, MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail> devices,
+                                  Long deviceId, String deviceCode, String deviceName,
+                                  Boolean inMeteringValidityPeriod) {
         String normalizedCode = trimToNull(deviceCode);
         String normalizedName = trimToNull(deviceName);
         String key = deviceKey(deviceId, normalizedCode, normalizedName);
@@ -655,7 +810,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             devices.put(key, new MesTeamLeaderActiveOrderDetail.SubmissionDeviceDetail()
                     .setDeviceId(deviceId)
                     .setDeviceCode(normalizedCode)
-                    .setDeviceName(normalizedName));
+                    .setDeviceName(normalizedName)
+                    .setInMeteringValidityPeriod(inMeteringValidityPeriod));
             return;
         }
         if (existing.getDeviceCode() == null && normalizedCode != null) {
@@ -663,6 +819,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         if (existing.getDeviceName() == null && normalizedName != null) {
             existing.setDeviceName(normalizedName);
+        }
+        if (existing.getInMeteringValidityPeriod() == null && inMeteringValidityPeriod != null) {
+            existing.setInMeteringValidityPeriod(inMeteringValidityPeriod);
         }
     }
 
@@ -730,6 +889,55 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         } catch (NumberFormatException ex) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
         }
+    }
+
+    private static BigDecimal bigDecimalValueOrNull(Object value, Long activeOrderId) {
+        if (value == null) {
+            return null;
+        }
+        String text = trimToNull(value);
+        if (text == null || "true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text)) {
+            return null;
+        }
+        return bigDecimalValue(value, activeOrderId);
+    }
+
+    private static Boolean booleanValue(Object value, Long activeOrderId) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String text = trimToNull(value);
+        if (text == null) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+        }
+        if ("true".equalsIgnoreCase(text)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(text)) {
+            return false;
+        }
+        throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
+    }
+
+    private static Boolean optionalBooleanValue(Object value, Long activeOrderId) {
+        if (value == null) {
+            return null;
+        }
+        String text = trimToNull(value);
+        if (text == null) {
+            return null;
+        }
+        return booleanValue(value, activeOrderId);
+    }
+
+    private static String firstNonBlankString(Object... values) {
+        for (Object value : values) {
+            String text = trimToNull(value);
+            if (text != null) {
+                return text;
+            }
+        }
+        return null;
     }
 
     private static String trimToNull(Object value) {

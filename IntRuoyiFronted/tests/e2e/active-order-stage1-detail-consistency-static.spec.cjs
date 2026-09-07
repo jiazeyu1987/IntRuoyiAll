@@ -8,30 +8,17 @@ const page = fs.readFileSync(
   'utf8'
 )
 
+assert.doesNotMatch(page, /stage1GeneratedDetailTargets/, 'Stage1 不得再维护源订单到生成订单的详情跳转映射。')
+assert.doesNotMatch(page, /resolveStage1GeneratedDetailTarget/, '详情入口不得再解析 Stage1 生成订单。')
 assert.match(
   page,
-  /const\s+stage1GeneratedDetailTargets\s*=\s*ref\(\s*new Map<number,\s*\{\s*activeOrderId:\s*number;\s*sourceWorkOrderCode:\s*string\s*\}>/,
-  'Stage1 生成目标必须保存在当前页面状态中，供后续点击同一源订单详情复用。'
+  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*sourceActiveOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(sourceActiveOrderId\)/,
+  '手工点击源订单详情时，必须打开当前行自己的活跃订单详情。'
 )
 assert.match(
   page,
-  /const\s+resolveStage1GeneratedDetailTarget\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*row\.stage1GeneratedActiveOrderId[\s\S]*stage1GeneratedDetailTargets\.value\.get\(sourceActiveOrderId\)/,
-  '详情入口必须优先解析持久化或本次运行的 Stage1 生成目标。'
-)
-assert.match(
-  page,
-  /const\s+openActiveOrderSubmissionDetail\s*=\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*resolveStage1GeneratedDetailTarget\(row\)[\s\S]*stage1GeneratedTarget\?\.activeOrderId[\s\S]*sourceActiveOrderId[\s\S]*sourceWorkOrderCode/,
-  '手工点击源订单详情时，若存在 Stage1 生成目标，必须打开与模拟成功后一致的生成订单详情。'
-)
-assert.match(
-  page,
-  /stage1GeneratedDetailTargets\.value\.set\(templateActiveOrderId,\s*\{[\s\S]*activeOrderId:\s*generatedActiveOrderId[\s\S]*sourceWorkOrderCode:\s*row\.workOrderCode\s*\|\|\s*''[\s\S]*\}\)/,
-  'Stage1 模拟成功后必须记录源订单到生成订单的映射。'
-)
-assert.match(
-  page,
-  /navigateActiveOrderSubmissionDetail\(generatedActiveOrderId,\s*row\.workOrderCode\s*\|\|\s*''\)/,
-  'Stage1 模拟成功后的自动详情仍必须打开新生成测试订单。'
+  /const\s+activeOrderId\s*=\s*requirePositiveNumber\(row\.id[\s\S]*simulateStage1ActiveOrderCompletion\(\{[\s\S]*activeOrderId[\s\S]*navigateActiveOrderSubmissionDetail\(activeOrderId\)/,
+  'Stage1 模拟成功后的自动详情必须打开当前点击活跃订单。'
 )
 
 console.log('PASS: active-order Stage1 detail consistency static contract')

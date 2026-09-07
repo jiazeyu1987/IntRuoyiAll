@@ -338,6 +338,13 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `process_type` VARCHAR(32) NOT NULL DEFAULT 'CONTROLLED_FILE',
   `change_type` VARCHAR(32) NOT NULL DEFAULT 'NEW',
   `version_no` VARCHAR(64) NOT NULL,
+  `revision_code` VARCHAR(8) NULL,
+  `iteration_no` INT NULL,
+  `predecessor_controlled_file_id` BIGINT NULL,
+  `revision_base_active_controlled_file_id` BIGINT NULL,
+  `source_sha256` VARCHAR(64) NULL,
+  `previous_source_sha256` VARCHAR(64) NULL,
+  `change_description` VARCHAR(1000) NULL,
   `effective_date` DATE NULL,
   `remark` VARCHAR(1024) NULL,
   `status` VARCHAR(64) NOT NULL,
@@ -358,6 +365,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `finalization_error` VARCHAR(500) NULL,
   `checked_out_by` BIGINT NULL,
   `checked_out_time` DATETIME NULL,
+  `checked_out_reason` VARCHAR(500) NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
   `update_time` DATETIME NULL,
@@ -369,6 +377,35 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   KEY `idx_dcc_controlled_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`),
   KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
   KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_checkout` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `master_id` BIGINT NOT NULL,
+  `base_iteration_id` BIGINT NOT NULL,
+  `actor_id` BIGINT NOT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `base_source_sha256` VARCHAR(64) NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `active_master_id` BIGINT AS (CASE WHEN `status` = 'ACTIVE' THEN `master_id` ELSE NULL END),
+  `checkin_upload_ticket` VARCHAR(128) NULL,
+  `checkin_iteration_id` BIGINT NULL,
+  `checkin_source_file_id` BIGINT NULL,
+  `checkin_source_sha256` VARCHAR(64) NULL,
+  `checked_in_time` DATETIME NULL,
+  `cancel_reason` VARCHAR(500) NULL,
+  `cancelled_time` DATETIME NULL,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_checkout_active_master` (`tenant_id`, `active_master_id`),
+  UNIQUE KEY `uk_dcc_checkout_checkin_ticket` (`tenant_id`, `checkin_upload_ticket`),
+  KEY `idx_dcc_checkout_base_iteration` (`tenant_id`, `base_iteration_id`, `id`),
+  KEY `idx_dcc_checkout_actor` (`tenant_id`, `actor_id`, `status`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_related_file` (

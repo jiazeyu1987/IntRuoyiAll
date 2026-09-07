@@ -42,6 +42,7 @@ import cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -79,6 +80,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     static final String MESSAGE_TEMPLATE_DISTRIBUTION = "dcc_distribution";
     static final String MESSAGE_TEMPLATE_TRAINING = "dcc_training";
     private static final String MESSAGE_TEMPLATE_OBSOLETE = "dcc_obsolete";
+    private static final String APPROVE_PERMISSION = "dcc:controlled-file:approve";
 
     private static final Set<String> WITHDRAW_EVENT_STATUSES = Set.of(
             DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(),
@@ -124,6 +126,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     private DccDocumentPdfConversionService pdfConversionService;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private PermissionApi permissionApi;
     @Resource
     private DccControlledFileQueryService queryService;
     @Resource
@@ -279,8 +283,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
         if (!DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
-                || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.APPROVE)) {
+                || !permissionApi.hasAnyPermissions(userId, APPROVE_PERMISSION)) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         }
         if (enforcePendingActionGuard) {

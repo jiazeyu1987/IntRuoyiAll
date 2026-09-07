@@ -2,6 +2,9 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckoutReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckinReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCancelCheckoutReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileAccessExplanationRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
@@ -25,7 +28,16 @@ public interface DccControlledFileQueryService {
 
     DccControlledFileRespVO checkoutControlledFile(Long userId, Long id);
 
+    DccControlledFileRespVO checkoutControlledFile(Long userId, Long id,
+                                                   DccControlledFileCheckoutReqVO reqVO);
+
     DccControlledFileRespVO checkinControlledFile(Long userId, Long id);
+
+    DccControlledFileRespVO checkinControlledFile(Long userId, Long id,
+                                                  DccControlledFileCheckinReqVO reqVO);
+
+    DccControlledFileRespVO cancelCheckoutControlledFile(Long userId, Long id,
+                                                         DccControlledFileCancelCheckoutReqVO reqVO);
 
     DccControlledFileAccessExplanationRespVO explainControlledFileAccess(Long userId, Long id);
 

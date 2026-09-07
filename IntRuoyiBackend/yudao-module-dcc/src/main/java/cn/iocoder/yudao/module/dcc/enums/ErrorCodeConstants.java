@@ -324,6 +324,18 @@ public interface ErrorCodeConstants {
             "DCC 旧源文件迁移入口已停用，请使用已确认治理清单");
     ErrorCode CONTROLLED_FILE_SOURCE_GOVERNANCE_BATCH_SIZE_SPLITS_GROUP = new ErrorCode(1_080_000_312,
             "DCC 共享源治理组不能被批大小拆分：sharedGroupKey={}");
+    ErrorCode CONTROLLED_FILE_CHECKOUT_REASON_REQUIRED = new ErrorCode(1_080_000_313,
+            "检出原因不能为空");
+    ErrorCode CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED = new ErrorCode(1_080_000_314,
+            "当前版本不允许检出");
+    ErrorCode CONTROLLED_FILE_CHECKIN_REQUEST_INVALID = new ErrorCode(1_080_000_315,
+            "检入请求缺少真实文件或修改说明");
+    ErrorCode CONTROLLED_FILE_CHECKIN_NO_CHANGE = new ErrorCode(1_080_000_316,
+            "检入内容与检出基线没有差异");
+    ErrorCode CONTROLLED_FILE_CHECKIN_NOT_ALLOWED = new ErrorCode(1_080_000_317,
+            "当前版本不允许检入");
+    ErrorCode CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED = new ErrorCode(1_080_000_318,
+            "当前版本不允许创建大版本");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_INVALID = new ErrorCode(1_080_000_302,
             "关联文件必须属于当前 DCC 项目代码");
     ErrorCode CONTROLLED_FILE_RELATED_FILE_DUPLICATE = new ErrorCode(1_080_000_303,

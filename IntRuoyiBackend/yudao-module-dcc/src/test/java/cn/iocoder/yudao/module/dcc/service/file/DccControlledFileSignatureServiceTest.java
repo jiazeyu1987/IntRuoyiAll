@@ -17,8 +17,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -37,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -139,6 +142,36 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         assertEquals("VALID", signatureCaptor.getValue().getSignatureImageVerifiedStatus());
         assertEquals("VALID", signatureCaptor.getValue().getEvidenceStatus());
         verify(signatureImageService).markReferenced(501L);
+    }
+
+    @Test
+    void verifyPasswordAndCreateSignature_normalizesSignedAtToDatabaseSecondPrecision() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
+        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(
+                org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        when(signatureMapper.insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class))).thenReturn(1);
+        LocalDateTime clockValue = LocalDateTime.of(2026, 9, 7, 8, 15, 30, 987_654_321);
+
+        try (MockedStatic<LocalDateTime> clock = mockStatic(LocalDateTime.class)) {
+            clock.when(LocalDateTime::now).thenReturn(clockValue);
+            signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-db-precision",
+                    "MATRIX_REVIEW", "APPROVE", "secret", "looks good");
+        }
+
+        ArgumentCaptor<DccControlledFileSignatureEvidenceCreateReq> evidenceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureEvidenceCreateReq.class);
+        verify(signatureEvidenceService).createEvidence(evidenceCaptor.capture());
+        ArgumentCaptor<DccControlledFileSignatureDO> signatureCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        verify(signatureMapper).insert(signatureCaptor.capture());
+        LocalDateTime expectedDatabaseValue = clockValue.withNano(0);
+        assertEquals(expectedDatabaseValue, evidenceCaptor.getValue().getSignedAt());
+        assertEquals(expectedDatabaseValue, signatureCaptor.getValue().getSignedAt());
+        assertEquals(evidenceCaptor.getValue().getSignedAt(), signatureCaptor.getValue().getSignedAt());
     }
 
     @Test

@@ -82,46 +82,61 @@ const canViewShowroomAssignments = () => {
 
 const loadDccTrainingTodoTotal = async () => {
   const pages = await Promise.all([
-    getMyTrainingTaskPage({
-      pageNo: 1,
-      pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
-      status: 'PENDING_VIEW'
-    }),
-    getMyTrainingTaskPage({
-      pageNo: 1,
-      pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
-      status: 'READY_TO_ACKNOWLEDGE'
-    })
+    getMyTrainingTaskPage(
+      {
+        pageNo: 1,
+        pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
+        status: 'PENDING_VIEW'
+      },
+      { ignoreErrorMessage: true }
+    ),
+    getMyTrainingTaskPage(
+      {
+        pageNo: 1,
+        pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
+        status: 'READY_TO_ACKNOWLEDGE'
+      },
+      { ignoreErrorMessage: true }
+    )
   ])
   return pages.reduce((total, page) => total + normalizePageTotal(page, '文控培训'), 0)
 }
 
 const loadDccDistributionTodoTotal = async () => {
-  const page = await getMyDistributionTaskPage({
-    pageNo: 1,
-    pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
-    status: 'READY_TO_ACKNOWLEDGE'
-  })
+  const page = await getMyDistributionTaskPage(
+    {
+      pageNo: 1,
+      pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
+      status: 'READY_TO_ACKNOWLEDGE'
+    },
+    { ignoreErrorMessage: true }
+  )
   return normalizePageTotal(page, '文控分发')
 }
 
 const loadEdhrWorkTaskTodoTotal = async () => {
-  const page = await getEdhrWorkTaskMyPage({
-    pageNo: 1,
-    pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
-    status: EDHR_WORK_TASK_STATUS_TODO
-  })
+  const page = await getEdhrWorkTaskMyPage(
+    {
+      pageNo: 1,
+      pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
+      status: EDHR_WORK_TASK_STATUS_TODO
+    },
+    { ignoreErrorMessage: true }
+  )
   return normalizePageTotal(page, 'eDHR 工作任务')
 }
 
 const loadWorkOrderTodoTotal = async () => {
-  const page = await ProWorkOrderApi.getWorkOrderPage({
-    pageNo: 1,
-    pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
-    status: MesProWorkOrderStatusEnum.CONFIRMED,
-    type: MesProWorkOrderTypeEnum.SELF,
-    temporaryFrozen: false
-  } as any)
+  const page = await ProWorkOrderApi.getWorkOrderPage(
+    {
+      pageNo: 1,
+      pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
+      status: MesProWorkOrderStatusEnum.CONFIRMED,
+      type: MesProWorkOrderTypeEnum.SELF,
+      temporaryFrozen: false
+    } as any,
+    { ignoreErrorMessage: true }
+  )
   return normalizePageTotal(page as PageResult<unknown[]>, '排产工单')
 }
 
@@ -132,6 +147,7 @@ const loadShowroomAssignmentTodoTotal = async () => {
   }
   const page = await request.get<unknown[]>({
     url: '/showroom/assignment/page',
+    ignoreErrorMessage: true,
     params: {
       status: 'OPEN',
       assigneeUserId: currentUserId,

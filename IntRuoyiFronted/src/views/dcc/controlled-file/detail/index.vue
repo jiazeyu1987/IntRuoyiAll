@@ -912,7 +912,7 @@
         >
           <template #default="{ row }">
             <span data-testid="dcc-detail-version-history-change-reason">
-              {{ row.changeReasonText }}
+              {{ getVersionChangeReasonText(row) }}
             </span>
           </template>
         </el-table-column>
@@ -928,6 +928,34 @@
             {{ getDistributionMediumLabel(row.distributionMedium) }}
           </template>
         </el-table-column>
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('sourceTraceText')"
+          label="版本来源"
+          prop="sourceTraceText"
+          show-overflow-tooltip
+          :min-width="getVersionHistoryColumnMinWidthString('sourceTraceText', 220)"
+        />
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('operatorText')"
+          label="操作人/时间"
+          prop="operatorText"
+          show-overflow-tooltip
+          :min-width="getVersionHistoryColumnMinWidthString('operatorText', 210)"
+        />
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('hashText')"
+          label="内容哈希"
+          prop="hashText"
+          show-overflow-tooltip
+          :min-width="getVersionHistoryColumnMinWidthString('hashText', 220)"
+        />
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('approvalResultText')"
+          label="审批/发布结果"
+          prop="approvalResultText"
+          show-overflow-tooltip
+          :min-width="getVersionHistoryColumnMinWidthString('approvalResultText', 220)"
+        />
         <el-table-column
           v-if="isVersionHistoryColumnVisible('status')"
           label="状态"
@@ -2953,6 +2981,10 @@ const versionHistoryDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 100 },
   { key: 'changeReasonText', label: '升版原因/变更说明', minWidth: 220 },
   { key: 'distributionMedium', label: '发放方式', minWidth: 140 },
+  { key: 'sourceTraceText', label: '版本来源', minWidth: 220 },
+  { key: 'operatorText', label: '操作人/时间', minWidth: 210 },
+  { key: 'hashText', label: '内容哈希', minWidth: 220 },
+  { key: 'approvalResultText', label: '审批/发布结果', minWidth: 220 },
   { key: 'status', label: '状态', width: 120 },
   { key: 'publishedTime', label: '发布时间', width: 180 },
   { key: 'obsoletedTime', label: '作废时间', width: 180 },
@@ -3761,7 +3793,7 @@ const detailLifecycleTimelineItems = computed(() =>
   })
 )
 const versionHistoryById = computed(
-  () => new Map((fileDetail.value?.versionHistory || []).map((item) => [item.id, item]))
+  () => new Map((fileDetail.value?.versionHistory || []).map((item) => [String(item.id), item]))
 )
 const getVersionHistoryIdentityText = (version: ControlledFileVersionHistoryVO) => {
   const identityParts = [
@@ -3773,10 +3805,32 @@ const getVersionHistoryIdentityText = (version: ControlledFileVersionHistoryVO) 
 }
 const getVersionChangeReasonText = (version: ControlledFileVersionHistoryVO) => {
   const remark = String(version.remark || '').trim()
-  return remark || '-'
+  return String(version.changeDescription || '').trim() || remark || '-'
+}
+const shortVersionHash = (value?: string | null) => value ? String(value).slice(0, 12) : '-'
+const getVersionSourceTraceText = (version: ControlledFileVersionHistoryVO) => [
+  version.predecessorControlledFileId ? `直接来源 #${version.predecessorControlledFileId}` : '初始版本',
+  version.revisionBaseActiveControlledFileId
+    ? `创建时正式基线 #${version.revisionBaseActiveControlledFileId}`
+    : ''
+].filter(Boolean).join('；')
+const getVersionOperatorText = (version: ControlledFileVersionHistoryVO) => {
+  const actor = version.submitterId
+    ? userNameMap.value.get(version.submitterId) || `用户 #${version.submitterId}`
+    : '-'
+  return `${actor}；${formatControlledFileDateTime(version.submittedTime)}`
+}
+const getVersionHashText = (version: ControlledFileVersionHistoryVO) =>
+  `${shortVersionHash(version.previousSourceSha256)} -> ${shortVersionHash(version.sourceSha256)}`
+const getVersionApprovalResultText = (version: ControlledFileVersionHistoryVO) => {
+  if (version.finalizationError) return `发布失败：${version.finalizationError}`
+  if (version.rejectReason) return `审批驳回：${version.rejectReason}`
+  if (version.publishedTime) return `已发布：${formatControlledFileDateTime(version.publishedTime)}`
+  if (version.approvedTime) return `已批准：${formatControlledFileDateTime(version.approvedTime)}`
+  return getDetailStatusLabel(version.status)
 }
 const getSuccessorVersionSummary = (version: ControlledFileVersionHistoryVO) => {
-  const successorId = Number(version.supersededByFileId || 0)
+  const successorId = String(version.supersededByFileId || '').trim()
   if (!successorId) {
     return '无后继版本'
   }
@@ -3787,6 +3841,10 @@ const versionHistoryRows = computed(() =>
   (fileDetail.value?.versionHistory || []).map((version) => ({
     ...version,
     changeReasonText: getVersionChangeReasonText(version),
+    sourceTraceText: getVersionSourceTraceText(version),
+    operatorText: getVersionOperatorText(version),
+    hashText: getVersionHashText(version),
+    approvalResultText: getVersionApprovalResultText(version),
     successorVersionSummary: getSuccessorVersionSummary(version)
   }))
 )
@@ -3803,7 +3861,9 @@ const supersededPredecessorVersions = computed(() => {
     return []
   }
   return (fileDetail.value?.versionHistory || []).filter(
-    (version) => version.status === 'SUPERSEDED' && Number(version.supersededByFileId || 0) === currentId
+    (version) =>
+      version.status === 'SUPERSEDED' &&
+      String(version.supersededByFileId || '').trim() === String(currentId)
   )
 })
 const isPublishCompletionSummaryVisible = computed(() => {
@@ -3859,7 +3919,7 @@ const publishCompletionSummaryItems = computed(() => {
     {
       key: 'controlled-browser-landed',
       label: '受控浏览落位',
-      value: `目录：${controlledBrowserDirectoryPath.value}；发布件：${file.publishedArtifactAvailable ? '可用' : '缺失'}；盖章件：${file.stampedArtifactAvailable ? '可用' : '缺失'}`,
+      value: `目录：${controlledBrowserDirectoryPath.value}；发布件：${file.publishedArtifactAvailable ? '可用' : '缺失'}（publishedFileId 状态）；盖章件：${file.stampedArtifactAvailable ? '可用' : '缺失'}（stampedFileId 状态）`,
       description: '受控浏览最终目录、发布文件和盖章文件已在详情页可追溯。',
       ok: browserLanded
     },
@@ -5354,7 +5414,11 @@ const submitPublishDialog = async () => {
       startUserSelectAssignees: publishDialog.startUserSelectAssignees
     })
     activePublishAction.value = instance
-    message.success('发布申请已提交，等待审批通过后生效')
+    message.success(
+      instance.status === 'EFFECTIVE'
+        ? '当前版本已正式发布'
+        : '发布申请已提交，等待审批通过后生效'
+    )
     closePublishDialog()
     await reloadAll()
   } catch (error) {

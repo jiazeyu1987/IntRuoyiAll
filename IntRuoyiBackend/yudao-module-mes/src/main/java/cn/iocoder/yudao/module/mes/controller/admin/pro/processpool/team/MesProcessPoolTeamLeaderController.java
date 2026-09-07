@@ -506,7 +506,7 @@ public class MesProcessPoolTeamLeaderController {
             @Valid @RequestBody MesStage1ActiveOrderCompleteSimulationReqVO reqVO) {
         MesStage1ActiveOrderCompleteSimulationResult result = stage1SimulationService.simulate(
                 MesStage1ActiveOrderCompleteSimulationCommand.validate(
-                        reqVO.getSimulationRunId(), reqVO.getTemplateActiveOrderId(),
+                        reqVO.getSimulationRunId(), reqVO.getActiveOrderId(),
                         SecurityFrameworkUtils.getLoginUserId()));
         return success(new MesStage1ActiveOrderCompleteSimulationRespVO()
                 .setSimulationRunId(result.getSimulationRunId())
@@ -1196,6 +1196,12 @@ public class MesProcessPoolTeamLeaderController {
                 .setActiveOrderId(detail.getActiveOrderId())
                 .setWorkOrderId(detail.getWorkOrderId())
                 .setWorkOrderCode(detail.getWorkOrderCode())
+                .setBatchCode(detail.getBatchCode())
+                .setWorkOrderQuantity(detail.getWorkOrderQuantity())
+                .setProductCode(detail.getProductCode())
+                .setProductName(detail.getProductName())
+                .setProductSpecification(detail.getProductSpecification())
+                .setWorkOrderCreateTime(detail.getWorkOrderCreateTime())
                 .setRouteName(detail.getRouteName())
                 .setProcesses(detail.getProcesses().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderProcessDetailRespVO)
@@ -1274,6 +1280,12 @@ public class MesProcessPoolTeamLeaderController {
                 .setDevices(submission.getDevices().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceDetailRespVO)
                         .toList())
+                .setDeviceParameters(submission.getDeviceParameters().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceParameterDetailRespVO)
+                        .toList())
+                .setClearanceConfirmations(submission.getClearanceConfirmations().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderClearanceConfirmationDetailRespVO)
+                        .toList())
                 .setMaterials(toSubmissionMaterialDetailRespVOs(submission.getMaterials()));
     }
 
@@ -1289,8 +1301,38 @@ public class MesProcessPoolTeamLeaderController {
                         .setLossQuantity(material.getLossQuantity())
                         .setDevices(material.getDevices().stream()
                                 .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceDetailRespVO)
+                                .toList())
+                        .setDeviceParameters(material.getDeviceParameters().stream()
+                                .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceParameterDetailRespVO)
                                 .toList()))
                 .toList();
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceParameterDetail
+    toActiveOrderSubmissionDeviceParameterDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.SubmissionDeviceParameterDetail parameter) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceParameterDetail()
+                .setDeviceId(parameter.getDeviceId())
+                .setDeviceCode(parameter.getDeviceCode())
+                .setDeviceName(parameter.getDeviceName())
+                .setParameterCode(parameter.getParameterCode())
+                .setParameterName(parameter.getParameterName())
+                .setUnit(parameter.getUnit())
+                .setValue(parameter.getValue())
+                .setTextValue(parameter.getTextValue())
+                .setLowerLimit(parameter.getLowerLimit())
+                .setUpperLimit(parameter.getUpperLimit())
+                .setParameterStatus(parameter.getParameterStatus());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.ClearanceConfirmationDetail
+    toActiveOrderClearanceConfirmationDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.ClearanceConfirmationDetail confirmation) {
+        return new MesTeamLeaderActiveOrderDetailRespVO.ClearanceConfirmationDetail()
+                .setKey(confirmation.getKey())
+                .setLabel(confirmation.getLabel())
+                .setConfirmed(confirmation.getConfirmed())
+                .setDescription(confirmation.getDescription());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceDetail toActiveOrderSubmissionDeviceDetailRespVO(
@@ -1298,7 +1340,8 @@ public class MesProcessPoolTeamLeaderController {
         return new MesTeamLeaderActiveOrderDetailRespVO.SubmissionDeviceDetail()
                 .setDeviceId(device.getDeviceId())
                 .setDeviceCode(device.getDeviceCode())
-                .setDeviceName(device.getDeviceName());
+                .setDeviceName(device.getDeviceName())
+                .setInMeteringValidityPeriod(device.getInMeteringValidityPeriod());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionDetail toActiveOrderPqcSubmissionDetailRespVO(
@@ -1311,12 +1354,16 @@ public class MesProcessPoolTeamLeaderController {
                 .setQaProcessId(submission.getQaProcessId())
                 .setQaProcessCode(submission.getQaProcessCode())
                 .setQaProcessName(submission.getQaProcessName())
+                .setQaItemCode(submission.getQaItemCode())
+                .setInspectionRuleKey(submission.getInspectionRuleKey())
                 .setInspectionType(submission.getInspectionType())
                 .setBusinessDate(submission.getBusinessDate())
                 .setShiftCode(submission.getShiftCode())
                 .setRoundNo(submission.getRoundNo())
                 .setActualInspectionQuantity(submission.getActualInspectionQuantity())
                 .setTaskStatus(submission.getTaskStatus())
+                .setSubmitterName(submission.getSubmitterName())
+                .setReviewerName(submission.getReviewerName())
                 .setItems(submission.getItems().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
                         .toList());

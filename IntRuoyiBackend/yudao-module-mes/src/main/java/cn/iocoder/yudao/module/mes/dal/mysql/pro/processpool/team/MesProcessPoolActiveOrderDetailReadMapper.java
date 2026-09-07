@@ -10,4 +10,7 @@ public interface MesProcessPoolActiveOrderDetailReadMapper {
 
     List<MesTeamLeaderActiveOrderDetailReadDO> selectByActiveOrderId(
             @Param("activeOrderId") Long activeOrderId);
+
+    List<MesTeamLeaderActiveOrderEventPartyReadDO> selectEventPartiesByEventIds(
+            @Param("eventIds") List<Long> eventIds);
 }

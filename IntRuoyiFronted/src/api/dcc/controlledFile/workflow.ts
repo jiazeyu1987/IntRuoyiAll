@@ -57,7 +57,7 @@ export interface ControlledFileSubmitReqVO {
   selectedSignoffUserIds?: number[]
   processType?: string
   changeType: ControlledFileChangeType
-  versionNo: string
+  versionNo?: string
   effectiveDate: string
   remark?: string
 }
@@ -363,7 +363,21 @@ export interface ControlledFileVersionHistoryVO {
   id: number
   title: string
   fileNumber: string
-  versionNo: string
+  versionNo?: string
+  revisionCode?: string | null
+  iterationNo?: number | null
+  predecessorControlledFileId?: number | null
+  revisionBaseActiveControlledFileId?: number | null
+  sourceSha256?: string | null
+  previousSourceSha256?: string | null
+  changeDescription?: string | null
+  submitterId?: number | null
+  requesterId?: number | null
+  submittedTime?: number | null
+  approvedTime?: number | null
+  rejectedTime?: number | null
+  rejectReason?: string | null
+  finalizationError?: string | null
   status: string
   publishedArtifactAvailable?: boolean
   stampedArtifactAvailable?: boolean
@@ -371,12 +385,17 @@ export interface ControlledFileVersionHistoryVO {
   effectiveDate?: string
   publishedTime?: number
   obsoletedTime?: number
-  supersededByFileId?: number | null
+  supersededByFileId?: number | string | null
   remark?: string
   canPreview?: boolean
   previewUnavailableReason?: string
   canDownload?: boolean
   modifying?: boolean
+  checkedOut?: boolean
+  checkedOutBy?: number | null
+  checkedOutByName?: string | null
+  checkedOutTime?: number | null
+  checkedOutReason?: string | null
 }
 
 export interface ControlledFileDistributionStatusVO {
@@ -633,13 +652,14 @@ export interface ControlledFileVO {
   obsoletedBy?: number | null
   obsoletedTime?: number
   obsoleteReason?: string
-  supersededByFileId?: number | null
+  supersededByFileId?: number | string | null
   rejectReason?: string
   finalizationError?: string
   checkedOut?: boolean
   checkedOutBy?: number | null
   checkedOutByName?: string | null
   checkedOutTime?: number | null
+  checkedOutReason?: string | null
   canPreview?: boolean
   previewUnavailableReason?: string
   canDownload?: boolean
@@ -659,6 +679,26 @@ export interface ControlledFileVO {
   distributionStatuses?: ControlledFileDistributionStatusVO[]
   trainingStatuses?: ControlledFileTrainingStatusVO[]
   signatureSummaries?: ControlledFileSignatureSummaryVO[]
+}
+
+export interface ControlledFileCheckoutReqVO {
+  reason: string
+}
+
+export interface ControlledFileCheckinReqVO {
+  uploadTicket?: string
+  sessionId?: string
+  changeDescription: string
+  remark?: string
+}
+
+export interface ControlledFileCancelCheckoutReqVO {
+  reason: string
+}
+
+export interface ControlledFileMajorRevisionReqVO {
+  sourceControlledFileId: number | string
+  reason: string
 }
 
 export interface ControlledFileRelatedFileVO {
@@ -1675,11 +1715,24 @@ export const getControlledFileBrowserPage = async (
   return await request.get({ url: '/dcc/controlled-files/browser-page', params })
 }
 
-export const checkoutControlledFile = async (id: number | string) =>
-  await request.post({ url: `/dcc/controlled-files/${id}/checkout` })
+export const checkoutControlledFile = async (
+  id: number | string,
+  data: ControlledFileCheckoutReqVO
+) => await request.post({ url: `/dcc/controlled-files/${id}/checkout`, data })
 
-export const checkinControlledFile = async (id: number | string) =>
-  await request.post({ url: `/dcc/controlled-files/${id}/checkin` })
+export const checkinControlledFile = async (
+  id: number | string,
+  data: ControlledFileCheckinReqVO
+) => await request.post({ url: `/dcc/controlled-files/${id}/checkin`, data })
+
+export const cancelCheckoutControlledFile = async (
+  id: number | string,
+  data: ControlledFileCancelCheckoutReqVO
+) => await request.post({ url: `/dcc/controlled-files/${id}/checkout/cancel`, data })
+
+export const createControlledFileMajorRevision = async (
+  data: ControlledFileMajorRevisionReqVO
+): Promise<number | string> => await request.post({ url: '/dcc/controlled-files/major-revision', data })
 
 export const getControlledFileBrowserExtensionBlacklist = async (): Promise<ControlledFileBrowserExtensionBlacklistRespVO> => {
   return await request.get({ url: '/dcc/controlled-files/browser-extension-blacklist' })

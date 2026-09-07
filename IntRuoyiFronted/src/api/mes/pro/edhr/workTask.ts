@@ -1,5 +1,9 @@
 import request from '@/config/axios'
 
+interface EdhrWorkTaskRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export const EDHR_WORK_TASK_TYPE_FILL = 'FILL'
 export const EDHR_WORK_TASK_TYPE_REVIEW = 'REVIEW'
 export const EDHR_WORK_TASK_TYPE_APPROVE = 'APPROVE'
@@ -130,10 +134,14 @@ export interface EdhrWorkTaskAssignmentRuleRespVO {
   updateTime?: string
 }
 
-export const getEdhrWorkTaskMyPage = async (params: EdhrWorkTaskPageReqVO) => {
+export const getEdhrWorkTaskMyPage = async (
+  params: EdhrWorkTaskPageReqVO,
+  options: EdhrWorkTaskRequestOptions = {}
+) => {
   return await request.get<PageResult<EdhrWorkTaskRespVO[]>>({
     url: '/mes/pro/edhr-work-task/my-page',
-    params
+    params,
+    ...options
   })
 }
 

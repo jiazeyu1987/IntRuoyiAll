@@ -29,6 +29,40 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    directory_id,
                    file_name,
                    file_number,
+                   tenant_id,
+                   dcc_project_code_id,
+                   file_type_taxonomy_leaf_id,
+                   normalized_file_number,
+                   current_active_controlled_file_id,
+                   status,
+                   create_time,
+                   update_time,
+                   creator,
+                   updater,
+                   deleted
+            FROM dcc_controlled_file_master
+            WHERE tenant_id = #{tenantId}
+              AND dcc_project_code_id = #{dccProjectCodeId}
+              AND file_type_taxonomy_leaf_id = #{fileTypeTaxonomyLeafId}
+              AND normalized_file_number = #{normalizedFileNumber}
+              AND deleted = b'0'
+            LIMIT 1
+            """)
+    DccControlledFileMasterDO selectByNewLogicalIdentity(@Param("tenantId") Long tenantId,
+                                                         @Param("dccProjectCodeId") Long dccProjectCodeId,
+                                                         @Param("fileTypeTaxonomyLeafId") Long fileTypeTaxonomyLeafId,
+                                                         @Param("normalizedFileNumber") String normalizedFileNumber);
+
+    @Select("""
+            SELECT id,
+                   category_id,
+                   directory_id,
+                   file_name,
+                   file_number,
+                   tenant_id,
+                   dcc_project_code_id,
+                   file_type_taxonomy_leaf_id,
+                   normalized_file_number,
                    current_active_controlled_file_id,
                    status,
                    create_time,

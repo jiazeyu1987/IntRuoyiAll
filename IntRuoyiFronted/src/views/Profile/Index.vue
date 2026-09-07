@@ -30,7 +30,7 @@
           <MyNotifyMessageList
             class="profile-notify-message-tab"
             embedded
-            @read-status-change="refreshUnreadNotifyMessageCount"
+            @read-status-change="handleUnreadNotifyMessageRefresh"
           />
         </el-tab-pane>
         <el-tab-pane :label="t('profile.info.basicInfo')" name="basicInfo">
@@ -147,7 +147,18 @@ const unreadNotifyMessageCount = ref(0)
 const hasUnreadNotifyMessage = computed(() => unreadNotifyMessageCount.value > 0)
 
 const refreshUnreadNotifyMessageCount = async () => {
-  unreadNotifyMessageCount.value = await NotifyMessageApi.getUnreadNotifyMessageCount()
+  unreadNotifyMessageCount.value = await NotifyMessageApi.getUnreadNotifyMessageCount({
+    ignoreErrorMessage: true
+  })
+}
+
+const reportProfileNotifyMessageError = (error: unknown) => {
+  console.error('个人中心站内信未读数量加载失败', error)
+  unreadNotifyMessageCount.value = 0
+}
+
+const handleUnreadNotifyMessageRefresh = () => {
+  void refreshUnreadNotifyMessageCount().catch(reportProfileNotifyMessageError)
 }
 
 const reportProfileWorkbenchTodoBadgeError = (error: unknown) => {
@@ -210,7 +221,7 @@ watch(activeName, () => {
 })
 
 onMounted(() => {
-  refreshUnreadNotifyMessageCount()
+  refreshUnreadNotifyMessageCount().catch(reportProfileNotifyMessageError)
   refreshProfileWorkbenchTodoBadgeWhenVisible()
 })
 </script>

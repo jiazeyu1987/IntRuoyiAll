@@ -7,6 +7,7 @@ export type DccControlledFileLogType =
   | 'FILE_RELEASE'
   | 'FILE_DISTRIBUTION'
   | 'FILE_REVISION'
+  | 'FILE_CHECKOUT'
   | 'FILE_OBSOLETE'
   | 'PROJECT_CODE_ASSIGNMENT'
   | 'PROJECT_CODE_CHANGE'
@@ -18,6 +19,8 @@ export interface DccControlledFileLogPageReqVO extends PageParam {
   actionType?: string
   result?: string
   controlledFileId?: number
+  masterId?: number
+  versionNo?: string
   projectCodeId?: number
   assignmentId?: number
   operatorUserId?: number
@@ -29,6 +32,7 @@ export interface DccControlledFileLogRespVO {
   id: string
   logType: DccControlledFileLogType | string
   sourceRecordId?: number | null
+  masterId?: number | null
   occurredAt?: number | null
   actionLabel?: string | null
   resultLabel?: string | null

@@ -20,6 +20,8 @@ const extractBetween = (source, startNeedle, endNeedle, label) => {
 
 const packageJson = JSON.parse(readSource('package.json'))
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
+const workflowApi = readSource('src/api/dcc/controlledFile/workflow.ts')
+const handlingSummary = readSource('src/views/dcc/controlled-file/shared/handlingSummary.ts')
 const mainVersionSection = extractBetween(
   detailPage,
   '<ContentWrap v-if="isVersionHistoryVisibleToReader',
@@ -79,6 +81,31 @@ assert.match(
   'missing successor references must be explicitly surfaced'
 )
 assert.match(detailPage, /无后继版本/, 'rows without successor must be readable')
+assert.match(
+  workflowApi,
+  /supersededByFileId\?: number \| string \| null/,
+  'successor ids must allow lossless string transport for snowflake ids'
+)
+assert.match(
+  detailPage,
+  /const successorId = String\(version\.supersededByFileId \|\| ''\)\.trim\(\)/,
+  'successor lookup must not coerce snowflake ids through JavaScript Number'
+)
+assert.match(
+  detailPage,
+  /versionHistoryById\.value\.get\(successorId\)/,
+  'successor lookup must use the lossless string id'
+)
+assert.match(
+  handlingSummary,
+  /supersededByFileId\?: number \| string \| null/g,
+  'shared handling summaries must accept lossless string successor ids'
+)
+assert.doesNotMatch(
+  detailPage,
+  /Number\(version\.supersededByFileId \|\| 0\)/,
+  'lifecycle summary must not coerce successor snowflake ids through JavaScript Number'
+)
 assert.doesNotMatch(
   `${mainVersionSection}\n${versionDialogSection}`,
   /mock|placeholder|fallback|降级|吞异常/i,

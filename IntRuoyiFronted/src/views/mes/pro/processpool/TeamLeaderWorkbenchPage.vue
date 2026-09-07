@@ -4358,9 +4358,6 @@ const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const activeOrderRebuildSubmittingId = ref<number>()
 const activeOrderVersionUpgradeSubmittingId = ref<number>()
 const activeOrderSimulationSubmittingId = ref<number>()
-const stage1GeneratedDetailTargets = ref(
-  new Map<number, { activeOrderId: number; sourceWorkOrderCode: string }>()
-)
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
@@ -5635,25 +5632,9 @@ const navigateActiveOrderSubmissionDetail = (
   })
 }
 
-const resolveStage1GeneratedDetailTarget = (row: TeamLeaderActiveOrderRespVO) => {
-  const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const persistedGeneratedActiveOrderId = normalizePositiveNumber(row.stage1GeneratedActiveOrderId)
-  if (persistedGeneratedActiveOrderId !== undefined) {
-    return {
-      activeOrderId: persistedGeneratedActiveOrderId,
-      sourceWorkOrderCode: row.workOrderCode || row.stage1GeneratedWorkOrderCode || ''
-    }
-  }
-  return stage1GeneratedDetailTargets.value.get(sourceActiveOrderId)
-}
-
 const openActiveOrderSubmissionDetail = (row: TeamLeaderActiveOrderRespVO) => {
   const sourceActiveOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const stage1GeneratedTarget = resolveStage1GeneratedDetailTarget(row)
-  navigateActiveOrderSubmissionDetail(
-    stage1GeneratedTarget?.activeOrderId ?? sourceActiveOrderId,
-    stage1GeneratedTarget?.sourceWorkOrderCode
-  )
+  navigateActiveOrderSubmissionDetail(sourceActiveOrderId)
 }
 const resolveActiveOrderConflictProcesses = (
   detailResult?: TeamLeaderActiveOrderDetailRespVO
@@ -9703,29 +9684,25 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
   let writeCompleted = false
   try {
     await ElMessageBox.confirm(
-      '系统将从当前活跃订单创建一份可清理的测试订单，并通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会完工、回填、创建批次、上传资料或放行。',
+      '系统将按当前点击的活跃订单，通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会完工、回填、上传资料或放行。',
       '确认模拟生产和PQC',
       { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
     )
-    const templateActiveOrderId = requirePositiveNumber(row.id, '活跃订单模板ID不能为空')
+    const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
     const result = await simulateStage1ActiveOrderCompletion({
       simulationRunId: `STAGE1-${Date.now()}`,
-      templateActiveOrderId
+      activeOrderId
     })
     writeCompleted = true
     ElMessage.success(
-      `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
+      `Stage1 已完成：当前活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
     const generatedActiveOrderId = requirePositiveNumber(
       result.activeOrderId,
-      'Stage1 新活跃订单ID不能为空'
+      'Stage1测试活跃订单记录ID不能为空'
     )
-    stage1GeneratedDetailTargets.value.set(templateActiveOrderId, {
-      activeOrderId: generatedActiveOrderId,
-      sourceWorkOrderCode: row.workOrderCode || ''
-    })
     await loadActiveOrders()
-    navigateActiveOrderSubmissionDetail(generatedActiveOrderId, row.workOrderCode || '')
+    navigateActiveOrderSubmissionDetail(generatedActiveOrderId, row.workOrderCode)
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(

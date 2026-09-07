@@ -9,6 +9,8 @@ const workflowApi = readSource('src/api/dcc/controlledFile/workflow.ts')
 const lifecycle = readSource('src/views/dcc/controlled-file/shared/lifecycle.ts')
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
 const presentation = readSource('src/views/dcc/controlled-file/detail/presentation.ts')
+const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue')
+const remainingRoutes = readSource('src/router/modules/remaining.ts')
 
 assert.match(
   workflowApi,
@@ -73,18 +75,33 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /发布申请已提交，等待审批通过后生效/,
-  'DCC publish success copy must not claim immediate activation.'
+  /instance\.status === 'EFFECTIVE'[\s\S]*当前版本已正式发布[\s\S]*发布申请已提交，等待审批通过后生效/,
+  'DCC publish success copy must distinguish direct activation from BPM approval.'
 )
 assert.doesNotMatch(
   detailPage,
   /smokeappr1|smokeplan1|91451\d/,
   'DCC publish frontend must not hard-code E2E approver usernames or user ids.'
 )
-assert.doesNotMatch(
-  detailPage,
-  /当前版本已发布/,
-  'DCC publish submit must not show an active terminal result before approval.'
+assert.match(
+  browserPage,
+  /getSelectedVersion\(row\)\.status === 'READY_TO_PUBLISH'[\s\S]*data-testid="dcc-controlled-browser-publish"[\s\S]*@click="openManagement\(getSelectedVersion\(row\)\.id\)"[\s\S]*发布/,
+  'READY_TO_PUBLISH browser versions must expose a visible publish-management entry.'
+)
+assert.match(
+  browserPage,
+  /const openManagement = \(id: number \| string\)[\s\S]*management: '1'[\s\S]*from: 'browser'[\s\S]*returnTo:/,
+  'The browser publish entry must open an explicit management route with a safe return path.'
+)
+assert.match(
+  remainingRoutes,
+  /const isBrowserManagement =[\s\S]*String\(to\.query\.management \|\| ''\) === '1'[\s\S]*String\(to\.query\.from \|\| ''\) === 'browser'[\s\S]*Boolean\(String\(to\.query\.returnTo \|\| ''\)\)/,
+  'The hidden DCC detail route must explicitly allow browser management navigation.'
+)
+assert.match(
+  remainingRoutes,
+  /isApprovalHandling[\s\S]{0,100}\|\|[\s\S]{0,100}isBrowserTraceability[\s\S]{0,100}\|\|[\s\S]{0,100}isBrowserManagement/,
+  'The detail route guard must admit the explicit browser management mode.'
 )
 
 for (const file of [

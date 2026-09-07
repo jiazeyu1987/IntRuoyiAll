@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePag
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMajorRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
@@ -27,6 +28,8 @@ public interface DccControlledFileWorkflowService {
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber);
 
     Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
+
+    Long createMajorRevision(Long userId, DccControlledFileMajorRevisionReqVO reqVO);
 
     Long submitControlledFileWithoutApproval(Long userId, DccControlledFileSubmitReqVO reqVO);
 

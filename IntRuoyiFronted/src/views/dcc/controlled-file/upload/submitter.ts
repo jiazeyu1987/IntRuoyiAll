@@ -21,7 +21,7 @@ export interface UploadFormDraft {
   selectedSignoffUserIds: number[]
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
   changeType: ControlledFileChangeType
-  versionNo: string
+  versionNo?: string
   effectiveDate: string
   remark?: string
 }
@@ -47,7 +47,7 @@ export interface UploadSubmitFailureFeedback {
 }
 
 export interface UploadSubmitFieldErrors {
-  versionNo: string
+  versionNo?: string
 }
 
 interface UploadSubmitterServiceDeps {
@@ -344,7 +344,7 @@ export const buildSubmitPayload = (
   selectedSignoffUserIds: draft.selectedSignoffUserIds ?? [],
   processType: draft.processType,
   changeType: draft.changeType,
-  versionNo: trimText(draft.versionNo),
+  versionNo: draft.processType === 'EXTERNAL_REVIEW' ? trimText(draft.versionNo) : undefined,
   effectiveDate: draft.effectiveDate,
   remark: trimText(draft.remark) || undefined
 })

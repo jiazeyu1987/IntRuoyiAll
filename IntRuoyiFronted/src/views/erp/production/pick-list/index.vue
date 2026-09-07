@@ -166,6 +166,7 @@ import {
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
 import { formatDate } from '@/utils/formatTime'
+import { useRoute } from 'vue-router'
 
 defineOptions({ name: 'ErpProductionPickList' })
 
@@ -229,6 +230,7 @@ const pickListQuickFilterDefinitions: TableQuickFilterDefinition[] = [
 ]
 
 const message = useMessage()
+const route = useRoute()
 const loading = ref(true)
 const syncLoading = ref(false)
 const list = ref<ErpProductionPickListVO[]>([])
@@ -279,6 +281,12 @@ const {
   getList
 )
 
+const applyRouteQuery = () => {
+  if (route.query.sourceBillNo) {
+    queryParams.sourceBillNo = String(route.query.sourceBillNo)
+  }
+}
+
 const handleKingdeeSync = async () => {
   syncLoading.value = true
   try {
@@ -290,7 +298,10 @@ const handleKingdeeSync = async () => {
   }
 }
 
-onMounted(getList)
+onMounted(() => {
+  applyRouteQuery()
+  getList()
+})
 </script>
 
 <style scoped>

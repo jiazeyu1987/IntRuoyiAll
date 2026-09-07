@@ -248,20 +248,20 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         MesStage1ActiveOrderCompleteSimulationCommand validated =
                 MesStage1ActiveOrderCompleteSimulationCommand.validate(
                         command == null ? null : command.getSimulationRunId(),
-                        command == null ? null : command.getTemplateActiveOrderId(),
+                        command == null ? null : command.getActiveOrderId(),
                         command == null ? null : command.getActorUserId());
         requireTenant();
-        MesProcessPoolActiveOrderDO template = activeOrderMapper
-                .selectByIdForUpdate(validated.getTemplateActiveOrderId());
-        requireTemplate(template, validated.getActorUserId());
-        MesProWorkOrderDO templateWorkOrder = requireWorkOrder(template.getWorkOrderId());
-        List<MesProcessPoolActiveOrderPickListBindingDO> templateBindings = resolveTemplateBindings(template,
-                templateWorkOrder, validated);
-        MesProcessPoolActiveOrderDO fixture = createFixture(template, templateWorkOrder,
-                templateBindings, validated);
+        MesProcessPoolActiveOrderDO templateActiveOrder = activeOrderMapper
+                .selectByIdForUpdate(validated.getActiveOrderId());
+        requireTemplate(templateActiveOrder, validated.getActorUserId());
+        MesProWorkOrderDO templateWorkOrder = requireWorkOrder(templateActiveOrder.getWorkOrderId());
+        List<MesProcessPoolActiveOrderPickListBindingDO> sourceBindings = ensureActiveOrderPickListBindings(
+                templateActiveOrder, templateWorkOrder, validated);
+        MesProcessPoolActiveOrderDO activeOrder = createFixture(templateActiveOrder, templateWorkOrder, sourceBindings,
+                validated);
 
         MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
-                .simulateActiveOrderCompletion(validated.getActorUserId(), fixture.getId(), STAGE,
+                .simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(), STAGE,
                         validated.getSimulationRunId());
         if (simulation == null || simulation.getProductionProgressPercent() == null
                 || simulation.getInspectionProgressPercent() == null
@@ -269,24 +269,27 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 || simulation.getInspectionProgressPercent().compareTo(BigDecimal.valueOf(100)) != 0) {
             throw new IllegalStateException("STAGE1_DOUBLE_100_REQUIRED");
         }
-        verifyPersistedSimulationFacts(fixture, validated.getSimulationRunId());
-        assertFormalOrderProcessCompletionFacts(fixture, validated.getSimulationRunId());
-        assertNoDownstreamSideEffects(fixture);
-        Stage1Progress persistedProgress = calculateStage1PersistedProgress(fixture);
+        if (Boolean.TRUE.equals(activeOrder.getSimulated())
+                && Objects.equals(validated.getSimulationRunId(), activeOrder.getSimulationRunId())) {
+            verifyPersistedSimulationFacts(activeOrder, validated.getSimulationRunId());
+            assertFormalOrderProcessCompletionFacts(activeOrder, validated.getSimulationRunId());
+            assertNoDownstreamSideEffects(activeOrder);
+        }
+        Stage1Progress persistedProgress = calculateStage1PersistedProgress(activeOrder);
         if (!persistedProgress.complete()) {
             throw new IllegalStateException("STAGE1_PERSISTED_PROGRESS_NOT_100");
         }
         String cleanedRunId = cleanupOwnedRuns(validated.getActorUserId(), validated.getSimulationRunId());
-        List<MesProcessPoolActiveOrderPickListBindingDO> fixtureBindings = requireBindings(fixture);
-        Map<String, Object> snapshot = buildSnapshot(fixture, templateBindings, fixtureBindings, validated, simulation,
+        List<MesProcessPoolActiveOrderPickListBindingDO> activeOrderBindings = requireBindings(activeOrder);
+        Map<String, Object> snapshot = buildSnapshot(activeOrder, sourceBindings, activeOrderBindings, validated, simulation,
                 persistedProgress);
         return new MesStage1ActiveOrderCompleteSimulationResult()
                 .setSimulationRunId(validated.getSimulationRunId())
                 .setCleanedSimulationRunId(cleanedRunId)
-                .setActiveOrderId(fixture.getId())
-                .setWorkOrderId(fixture.getWorkOrderId())
-                .setPickListId(fixtureBindings.get(0).getPickListId())
-                .setPickListIds(fixtureBindings.stream()
+                .setActiveOrderId(activeOrder.getId())
+                .setWorkOrderId(activeOrder.getWorkOrderId())
+                .setPickListId(activeOrderBindings.get(0).getPickListId())
+                .setPickListIds(activeOrderBindings.stream()
                         .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList())
                 .setProductionSubmitCount(simulation.getProductionSubmitCount())
                 .setProductionReviewCount(simulation.getProductionReviewCount())
@@ -334,6 +337,16 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         cloneReplenishmentLists(templateWorkOrder.getCode(), workOrder.getCode(), command.getSimulationRunId());
         createFormalProductIssue(activeOrder, workOrder, command);
         return activeOrder;
+    }
+
+    private void ensureFormalProductIssue(MesProcessPoolActiveOrderDO activeOrder, MesProWorkOrderDO workOrder,
+                                          MesStage1ActiveOrderCompleteSimulationCommand command) {
+        List<MesWmProductIssueDO> issues = productIssueMapper
+                .selectListByWorkOrderIdForUpdate(workOrder.getId());
+        if (issues != null && !issues.isEmpty()) {
+            return;
+        }
+        createFormalProductIssue(activeOrder, workOrder, command);
     }
 
     private MesProWorkOrderDO createWorkOrder(MesProWorkOrderDO template, String runId, Long actorUserId,
@@ -419,6 +432,82 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             }
         }
         return createSimulationPickLists(workOrder, command);
+    }
+
+    private List<MesProcessPoolActiveOrderPickListBindingDO> ensureActiveOrderPickListBindings(
+            MesProcessPoolActiveOrderDO activeOrder, MesProWorkOrderDO workOrder,
+            MesStage1ActiveOrderCompleteSimulationCommand command) {
+        List<MesProcessPoolActiveOrderPickListBindingDO> existing = bindingMapper
+                .selectListByActiveOrderId(activeOrder.getId());
+        if (existing != null && !existing.isEmpty()) {
+            for (MesProcessPoolActiveOrderPickListBindingDO binding : existing) {
+                requireBinding(binding, activeOrder, workOrder);
+            }
+            return existing;
+        }
+        List<MesProcessPoolActiveOrderPickListBindingDO> formalSources = createSimulationPickLists(workOrder, command);
+        for (MesProcessPoolActiveOrderPickListBindingDO source : formalSources) {
+            bindFormalPickListSource(source, activeOrder, workOrder, command);
+        }
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = requireBindings(activeOrder);
+        for (MesProcessPoolActiveOrderPickListBindingDO binding : bindings) {
+            requireBinding(binding, activeOrder, workOrder);
+        }
+        return bindings;
+    }
+
+    private void bindFormalPickListSource(MesProcessPoolActiveOrderPickListBindingDO source,
+                                          MesProcessPoolActiveOrderDO activeOrder,
+                                          MesProWorkOrderDO workOrder,
+                                          MesStage1ActiveOrderCompleteSimulationCommand command) {
+        if (bindingMapper.selectByActiveOrderIdAndPickListId(activeOrder.getId(), source.getPickListId()) != null) {
+            return;
+        }
+        ErpKingdeeProductionPickListDO header = pickListMapper.selectById(source.getPickListId());
+        List<ErpKingdeeProductionPickListItemDO> items = pickListItemMapper
+                .selectListByPickListIds(List.of(source.getPickListId()));
+        if (header == null || items == null || items.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED);
+        }
+        MesProcessPoolActiveOrderPickListBindingDO binding = BeanUtils.toBean(source,
+                        MesProcessPoolActiveOrderPickListBindingDO.class)
+                .setId(IdUtil.getSnowflake().nextId())
+                .setActiveOrderId(activeOrder.getId())
+                .setWorkOrderId(workOrder.getId())
+                .setPickListId(header.getId())
+                .setSourceSnapshotHash(MesFormalProductionPickListSourceResolver.snapshotHash(header, items))
+                .setBoundBy(command.getActorUserId())
+                .setBoundAt(LocalDateTime.now())
+                .setIdempotencyKey("STAGE1-DIRECT-" + activeOrder.getId() + "-" + source.getPickListId())
+                .setBindingVersion(1)
+                .setSimulated(Boolean.TRUE)
+                .setSimulationStage(STAGE)
+                .setSimulationRunId(command.getSimulationRunId());
+        bindingMapper.insert(binding);
+        for (ErpKingdeeProductionPickListItemDO item : items) {
+            bindingItemMapper.insert(MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                    .id(IdUtil.getSnowflake().nextId())
+                    .bindingId(binding.getId())
+                    .pickListItemId(item.getId())
+                    .sourceEntryId(item.getSourceEntryId())
+                    .sourceLineKey(item.getSourceLineKey())
+                    .materialNumber(item.getMaterialNumber())
+                    .materialName(item.getMaterialName())
+                    .materialSpecification(item.getMaterialSpecification())
+                    .unitName(item.getUnitName())
+                    .requestedQuantity(item.getRequestedQuantity())
+                    .actualQuantity(item.getActualQuantity())
+                    .baseActualQuantity(item.getBaseActualQuantity())
+                    .lotNumber(item.getLotNumber())
+                    .productionOrderNo(item.getProductionOrderNo())
+                    .productionOrderLineNo(item.getProductionOrderLineNo())
+                    .sourceModifyTime(item.getSourceModifyTime())
+                    .itemSnapshotHash(hash(item))
+                    .simulated(Boolean.TRUE)
+                    .simulationStage(STAGE)
+                    .simulationRunId(command.getSimulationRunId())
+                    .build());
+        }
     }
 
     private List<MesProcessPoolActiveOrderPickListBindingDO> createSimulationPickLists(

@@ -14,6 +14,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileBat
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileBatchRecognitionTaskRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCreateSignTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckoutReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCheckinReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCancelCheckoutReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMajorRevisionReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMessageJobReplayReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataImportPreviewRespVO;
@@ -305,6 +309,14 @@ public class DccControlledFileController {
         return success(workflowService.submitControlledFile(getLoginUserId(), reqVO));
     }
 
+    @PostMapping("/major-revision")
+    @Operation(summary = "Create the next major revision from a selected iteration")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<Long> createMajorRevision(
+            @Valid @RequestBody DccControlledFileMajorRevisionReqVO reqVO) {
+        return success(workflowService.createMajorRevision(getLoginUserId(), reqVO));
+    }
+
     @PostMapping("/nas-transfer")
     @Operation(summary = "Transfer selected NAS directories into DCC controlled directories/files")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')")
@@ -412,15 +424,26 @@ public class DccControlledFileController {
     @PostMapping("/{id:\\d+}/checkout")
     @Operation(summary = "Check out one controlled file")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
-    public CommonResult<DccControlledFileRespVO> checkoutControlledFile(@PathVariable("id") Long id) {
-        return success(queryService.checkoutControlledFile(getLoginUserId(), id));
+    public CommonResult<DccControlledFileRespVO> checkoutControlledFile(@PathVariable("id") Long id,
+                                                                         @Valid @RequestBody DccControlledFileCheckoutReqVO reqVO) {
+        return success(queryService.checkoutControlledFile(getLoginUserId(), id, reqVO));
     }
 
     @PostMapping("/{id:\\d+}/checkin")
     @Operation(summary = "Check in one controlled file")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
-    public CommonResult<DccControlledFileRespVO> checkinControlledFile(@PathVariable("id") Long id) {
-        return success(queryService.checkinControlledFile(getLoginUserId(), id));
+    public CommonResult<DccControlledFileRespVO> checkinControlledFile(@PathVariable("id") Long id,
+                                                                        @Valid @RequestBody DccControlledFileCheckinReqVO reqVO) {
+        return success(queryService.checkinControlledFile(getLoginUserId(), id, reqVO));
+    }
+
+    @PostMapping("/{id:\\d+}/checkout/cancel")
+    @Operation(summary = "Cancel checkout without creating a new iteration")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<DccControlledFileRespVO> cancelCheckoutControlledFile(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody DccControlledFileCancelCheckoutReqVO reqVO) {
+        return success(queryService.cancelCheckoutControlledFile(getLoginUserId(), id, reqVO));
     }
 
     @GetMapping("/{id:\\d+}/access-explanation")

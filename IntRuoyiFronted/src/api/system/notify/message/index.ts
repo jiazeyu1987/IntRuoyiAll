@@ -1,6 +1,10 @@
 import request from '@/config/axios'
 import qs from 'qs'
 
+interface NotifyMessageRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export interface NotifyMessageVO {
   id: number
   userId: number
@@ -44,6 +48,6 @@ export const getUnreadNotifyMessageList = async () => {
 }
 
 // 获得当前用户的未读站内信数量
-export const getUnreadNotifyMessageCount = async () => {
-  return await request.get({ url: '/system/notify-message/get-unread-count' })
+export const getUnreadNotifyMessageCount = async (options: NotifyMessageRequestOptions = {}) => {
+  return await request.get({ url: '/system/notify-message/get-unread-count', ...options })
 }

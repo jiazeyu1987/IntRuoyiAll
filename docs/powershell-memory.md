@@ -219,12 +219,12 @@
 
 ### PowerShell Maven -D 参数引号门禁
 
-- Trigger: 在 PowerShell 中运行 Maven 且参数包含带点属性名的 `-D`，例如 `-Dsurefire.failIfNoSpecifiedTests=false`。
-- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。
-- Blocker: Maven 报 `Unknown lifecycle phase ".<property>=..."` 时必须停止并按 PowerShell 参数解析问题处理，不得改动测试范围或跳过目标 JUnit。
-- Verification: 复跑加引号后的 Maven 命令，记录原失败与复跑 PASS；若上游 reactor 模块不含目标测试类，同时记录 `surefire.failIfNoSpecifiedTests=false` 的依据。
-- Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
-- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN。
+- Trigger: 在 PowerShell 中运行 Maven 且参数包含带点属性名或方法选择符的 `-D`，例如 `-Dsurefire.failIfNoSpecifiedTests=false`、`-Dtest=ClassName#methodName`。
+- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'`、`"-Dtest=MesTeamLeaderActiveOrderSimulationServiceTest#numericSimulationParameterTextShouldUseGeneratedValueInsteadOfStandardRange"` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。
+- Blocker: Maven 报 `Unknown lifecycle phase ".<property>=..."`、未进入期望 Surefire 目标测试，或未加引号命令疑似造成 testCompile 误报时，必须先按 PowerShell 参数解析问题复跑，不得直接归因于 Java 代码、Mapper 缺失或业务逻辑。
+- Verification: 复跑加引号后的 Maven 命令，记录原失败与复跑 PASS、Surefire 实际执行的测试类/方法数量、Failures/Errors/Skipped 摘要；若上游 reactor 模块不含目标测试类，同时记录 `surefire.failIfNoSpecifiedTests=false` 的依据。
+- Forbidden action: 禁止把 PowerShell 参数拆分或 `#` 注释截断误判为产品编译失败；禁止移除 `-am`、跳过目标 JUnit 或改成更宽测试作为绕过。
+- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN；`doc/tasks/20260906-mes-testcompile-replenishment-mapper-blocker/execution-log.md`，Stage1 参数定向 Java 测试中未加引号的 `-Dtest=...#...` 造成误判，加引号后目标测试执行 1 个用例并 PASS。
 
 ### Maven 编译结论与行为测试失败分层门禁
 

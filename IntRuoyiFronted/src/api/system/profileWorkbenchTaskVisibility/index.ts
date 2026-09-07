@@ -1,5 +1,9 @@
 import request from '@/config/axios'
 
+interface ProfileWorkbenchTaskVisibilityRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export interface ProfileWorkbenchTaskVisibilitySaveReqVO {
   taskKey: string
   taskType: string
@@ -8,9 +12,12 @@ export interface ProfileWorkbenchTaskVisibilitySaveReqVO {
   detail?: string
 }
 
-export const getProfileWorkbenchHiddenTaskKeys = () => {
+export const getProfileWorkbenchHiddenTaskKeys = (
+  options: ProfileWorkbenchTaskVisibilityRequestOptions = {}
+) => {
   return request.get<string[]>({
-    url: '/system/profile-workbench-task-visibility/hidden-keys'
+    url: '/system/profile-workbench-task-visibility/hidden-keys',
+    ...options
   })
 }
 

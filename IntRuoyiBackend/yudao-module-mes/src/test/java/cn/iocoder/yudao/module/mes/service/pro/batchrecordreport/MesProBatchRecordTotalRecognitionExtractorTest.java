@@ -10,6 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,6 +20,10 @@ class MesProBatchRecordTotalRecognitionExtractorTest {
 
     private static final Path REAL_IDI_DOCX = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001",
             "RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.docx")
+            .toAbsolutePath()
+            .normalize();
+    private static final Path REAL_IDI_DOC = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001",
+            "RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.doc")
             .toAbsolutePath()
             .normalize();
     private static final Path EXPECTED_JSON = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001",
@@ -44,6 +50,50 @@ class MesProBatchRecordTotalRecognitionExtractorTest {
 
         JsonNode expectedJson = objectMapper.readTree(Files.readString(EXPECTED_JSON, StandardCharsets.UTF_8));
         assertJsonSemanticallyEquals(expectedJson, actualJson, "$");
+    }
+
+    @Test
+    void extractRealIdiDocxIncludesCriticalProcessFlags() throws Exception {
+        assertTrue(Files.exists(REAL_IDI_DOCX), "real IDI production record docx fixture is required");
+
+        String sourceFileName = REAL_IDI_DOCX.getFileName().toString();
+        List<MesProBatchRecordParsedTable> tables = new MesProBatchRecordDocParser().parseWord(
+                Files.readAllBytes(REAL_IDI_DOCX), sourceFileName);
+        MesProBatchRecordTotalRecognitionExtractor.RecognitionResult actual =
+                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, tables);
+
+        Map<String, MesProBatchRecordTotalRecognitionExtractor.ProcessRecognition> processes =
+                actual.processes().stream().collect(Collectors.toMap(
+                        MesProBatchRecordTotalRecognitionExtractor.ProcessRecognition::name,
+                        process -> process));
+
+        assertTrue(processes.values().stream().allMatch(process -> process.criticalProcess() != null),
+                "every process must include criticalProcess parsed from the Word title checkboxes");
+        assertEquals(false, processes.get("粗洗工序").criticalProcess());
+        assertEquals(true, processes.get("清洗工序").criticalProcess());
+        assertEquals(true, processes.get("光固工序").criticalProcess());
+    }
+
+    @Test
+    void extractRealIdiDocIncludesCriticalProcessFlags() throws Exception {
+        assertTrue(Files.exists(REAL_IDI_DOC), "real IDI production record doc fixture is required");
+
+        String sourceFileName = REAL_IDI_DOC.getFileName().toString();
+        List<MesProBatchRecordParsedTable> tables = new MesProBatchRecordDocParser().parseWord(
+                Files.readAllBytes(REAL_IDI_DOC), sourceFileName);
+        MesProBatchRecordTotalRecognitionExtractor.RecognitionResult actual =
+                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, tables);
+
+        Map<String, MesProBatchRecordTotalRecognitionExtractor.ProcessRecognition> processes =
+                actual.processes().stream().collect(Collectors.toMap(
+                        MesProBatchRecordTotalRecognitionExtractor.ProcessRecognition::name,
+                        process -> process));
+
+        assertTrue(processes.values().stream().allMatch(process -> process.criticalProcess() != null),
+                "every process must include criticalProcess parsed from the Word title checkboxes");
+        assertEquals(false, processes.get("粗洗工序").criticalProcess());
+        assertEquals(true, processes.get("清洗工序").criticalProcess());
+        assertEquals(true, processes.get("光固工序").criticalProcess());
     }
 
     @Test
