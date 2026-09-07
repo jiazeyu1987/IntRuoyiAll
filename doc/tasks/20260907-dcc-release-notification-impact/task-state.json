@@ -1,0 +1,257 @@
+{
+  "schema_version": 2,
+  "task_id": "20260907-dcc-release-notification-impact",
+  "mode": "full",
+  "status": "ready_for_execution",
+  "current_phase": "P1",
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "发布后续账本与冻结快照",
+      "objective": "发布成功时可靠建立唯一后续批次，冻结可见范围、通知候选与正反向关联事实。",
+      "owned_paths": [
+        "新 migration `20260907_dcc_publication_followup.sql` 及 SQL contract。",
+        "`DccControlledFileFinalizationServiceImpl` 的发布事务接入点。",
+        "新 publication-followup DO/Mapper/domain service、关系查询扩展和单元/集成测试。"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "每个 published controlled-file 唯一后续批次。",
+        "可见范围来源及解析用户明细快照、通知候选快照、正向/反向关系快照。",
+        "重复回调幂等；小版本检入零副作用。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：发布成功时可靠建立唯一后续批次，冻结可见范围、通知候选与正反向关联事实。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "交付物已落地：每个 published controlled-file 唯一后续批次。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "交付物已落地：可见范围来源及解析用户明细快照、通知候选快照、正向/反向关系快照。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC4",
+          "text": "交付物已落地：重复回调幂等；小版本检入零副作用。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "pending"
+    },
+    {
+      "phase_id": "P2",
+      "title": "影响评估任务与升版跟踪",
+      "objective": "按相关 Master 去重生成任务，支持分配、转派、决定、关联现有大版本和解决状态。",
+      "owned_paths": [
+        "新 impact assessment DO/Mapper/service/controller/VO 和错误码。",
+        "DCC project access、用户状态和 major-revision 服务的正式集成点。",
+        "影响任务审计与并发版本字段。"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "`PENDING/UNASSIGNED/IN_REVIEW/COMPLETED` 任务状态。",
+        "`NO_REVISION_REQUIRED/REVISION_REQUIRED` 决定和必填原因。",
+        "`NOT_STARTED/REVISION_LINKED/RESOLVED` 升版跟踪，禁止自动建版。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：按相关 Master 去重生成任务，支持分配、转派、决定、关联现有大版本和解决状态。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "交付物已落地：`PENDING/UNASSIGNED/IN_REVIEW/COMPLETED` 任务状态。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "交付物已落地：`NO_REVISION_REQUIRED/REVISION_REQUIRED` 决定和必填原因。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC4",
+          "text": "交付物已落地：`NOT_STARTED/REVISION_LINKED/RESOLVED` 升版跟踪，禁止自动建版。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "pending"
+    },
+    {
+      "phase_id": "P3",
+      "title": "幂等通知与真实前端入口",
+      "objective": "向责任明确的收件人发送站内通知，并提供工作台、详情和文控管理页面。",
+      "owned_paths": [
+        "扩展 DCC message job 的业务类型和幂等发送，新增消息模板/菜单/权限 migration。",
+        "publication-followup 查询 API、失败重试 API。",
+        "`controlled-file/detail`、`controlled-file/workbench`、新文控管理视图和前端 API。"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "一人一消息、多个收件原因、PENDING/SENT/FAILED、只重试失败记录。",
+        "“我的影响评估”和“发布后续”页面。",
+        "通知链接继续经过当前 VIEW 权限校验，Long ID 无损。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：向责任明确的收件人发送站内通知，并提供工作台、详情和文控管理页面。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "交付物已落地：一人一消息、多个收件原因、PENDING/SENT/FAILED、只重试失败记录。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "交付物已落地：“我的影响评估”和“发布后续”页面。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC4",
+          "text": "交付物已落地：通知链接继续经过当前 VIEW 权限校验，Long ID 无损。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "pending"
+    },
+    {
+      "phase_id": "P4",
+      "title": "审计、回归与真实验收",
+      "objective": "独立证明发布、通知、影响决定和升版跟踪完整，且不回归文件生效和权限边界。",
+      "owned_paths": [
+        "DCC lifecycle log/query projection、测试报告、Playwright E2E 和任务证据。",
+        "仅将测试发现回退到对应 P1-P3 owned paths 修复。"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "发布后续完整时间线。",
+        "后端、SQL、前端合同、类型检查和真实页面闭环全部通过。",
+        "独立 tester 放行。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：独立证明发布、通知、影响决定和升版跟踪完整，且不回归文件生效和权限边界。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "交付物已落地：发布后续完整时间线。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "交付物已落地：后端、SQL、前端合同、类型检查和真实页面闭环全部通过。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC4",
+          "text": "交付物已落地：独立 tester 放行。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "pending"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "not_started",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 1,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "created_at": "2026-09-07T09:00:00+08:00",
+  "updated_at": "2026-09-07T01:53:47+00:00",
+  "branch": "int_main",
+  "baseline_revision": "2b1f12304",
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact",
+  "goal": "新文件大版本发布后的站内通知、可见范围快照、关联文件影响评估与升版跟踪闭环",
+  "artifacts": {
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact\\test-report.md"
+  }
+}
