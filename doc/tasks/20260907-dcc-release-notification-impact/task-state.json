@@ -217,7 +217,8 @@
             "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
             "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
             "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
-            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md",
+            "commit:45817f5c0"
           ]
         },
         {
@@ -230,7 +231,8 @@
             "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
             "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
             "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
-            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md",
+            "commit:45817f5c0"
           ]
         },
         {
@@ -243,7 +245,8 @@
             "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
             "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
             "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
-            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md",
+            "commit:45817f5c0"
           ]
         },
         {
@@ -256,7 +259,8 @@
             "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
             "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
             "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
-            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md",
+            "commit:45817f5c0"
           ]
         },
         {
@@ -269,7 +273,8 @@
             "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
             "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
             "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
-            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md",
+            "commit:45817f5c0"
           ]
         }
       ],
@@ -279,12 +284,13 @@
         "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P3-Review-Correction",
         "doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md",
         "doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md",
-        "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md"
+        "doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md",
+        "commit:45817f5c0"
       ],
       "notes": [
         "Mapped test topics require main-agent review."
       ],
-      "last_reviewed_at": "2026-09-07T13:45:39+00:00",
+      "last_reviewed_at": "2026-09-07T14:38:45+00:00",
       "status": "completed"
     },
     {
@@ -353,7 +359,7 @@
     "test_loops": 6
   },
   "created_at": "2026-09-07T09:00:00+08:00",
-  "updated_at": "2026-09-07T14:11:28+00:00",
+  "updated_at": "2026-09-07T14:38:45+00:00",
   "branch": "int_main",
   "baseline_revision": "de8c6053f",
   "workspace_root": "E:\\IntRuoyi",

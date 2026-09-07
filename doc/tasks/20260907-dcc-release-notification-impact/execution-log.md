@@ -514,3 +514,5 @@ Default-work predicate blocker: none. No Git, database, E2E, restart, evidence-f
 Project experience consolidation: extended the existing publication-followup and station-message idempotency gates in `docs/backend-development.md` with end-to-end work predicates, attempt/platform/ACK transaction separation, post-commit failure isolation and locking batch-status aggregation; no new long-term document was created.
 
 P3 runtime note: real MySQL first/repeat migration, 48081 deployment and Playwright workflow remain P4 gates and are not claimed here. No Git operation was performed under the current authorization.
+
+`GREEN: P3 implementation commit/push -> PASS, P3 backend/frontend/migration/tests, independent evidence, task state and consolidated experience committed as 45817f5c0 and pushed to origin/int_main; unrelated working-tree changes were excluded`
