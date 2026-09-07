@@ -78,8 +78,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -141,6 +143,8 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     private DccControlledFilePendingActionGuard pendingActionGuard;
     @Mock
     private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
+    private DccPublicationFollowupService publicationFollowupService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     @InjectMocks
@@ -267,11 +271,49 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
                 updates.stream().filter(item -> item.getId().equals(820L)).findFirst().orElseThrow().getStatus());
         assertTrue(updates.stream().anyMatch(item -> item.getId().equals(920L)
                 && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(item.getStatus())));
+        DccControlledFileDO activeUpdate = updates.stream().filter(item -> item.getId().equals(920L)
+                && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(item.getStatus())).findFirst().orElseThrow();
+        assertEquals(activeUpdate.getPublishedTime(), file.getPublishedTime());
         verify(platformAdapter).recordPublishFinalizationStarted(file, 99L, "publish-effect-1");
+        org.mockito.InOrder completionOrder = org.mockito.Mockito.inOrder(
+                controlledFileMapper, controlledFileMasterMapper, publicationFollowupService, platformAdapter);
+        completionOrder.verify(publicationFollowupService).recordPublishedRevision(file, previousActive);
+        completionOrder.verify(platformAdapter).recordFinalized(previousActive, file, 99L, "publish-effect-1");
         verify(platformAdapter).recordFinalized(previousActive, file, 99L, "publish-effect-1");
         ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
         verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
         assertEquals(920L, masterCaptor.getValue().getCurrentActiveControlledFileId());
+    }
+
+    @Test
+    void applyApprovedPublishControlledFile_followupSnapshotFailureFailsPublicationBeforeCompletionEvent() throws Exception {
+        DccControlledFileDO file = buildReadyToPublishCandidate(923L, 723L, 18L, 123L);
+        file.setIterationNo(1);
+        file.setRevisionCode("B");
+        file.setVersionNo("B/1");
+        DccControlledFileDO previousActive = DccControlledFileDO.builder()
+                .id(823L).masterId(723L).categoryId(18L).status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(923L)).thenReturn(file, file);
+        when(controlledFileMapper.selectById(823L)).thenReturn(previousActive);
+        when(controlledFileMasterMapper.selectById(723L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(723L).categoryId(18L).currentActiveControlledFileId(823L)
+                .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode()).build());
+        when(categoryMapper.selectById(18L)).thenReturn(category(18L, false, false));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
+        stubStampedArtifact(123L, 623L);
+        doThrow(new IllegalStateException("follow-up snapshot insert failed"))
+                .when(publicationFollowupService).recordPublishedRevision(file, previousActive);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> finalizationService.applyApprovedPublishControlledFile(99L, 923L, "publish-effect-failure"));
+
+        assertTrue(error.getMessage().contains("follow-up snapshot insert failed"));
+        verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
+        verify(transactionTemplate, times(2)).executeWithoutResult(any());
+        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper, times(4)).updateById(updateCaptor.capture());
+        assertTrue(updateCaptor.getAllValues().stream().anyMatch(update -> update.getId().equals(923L)
+                && DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(update.getStatus())));
     }
 
     @Test

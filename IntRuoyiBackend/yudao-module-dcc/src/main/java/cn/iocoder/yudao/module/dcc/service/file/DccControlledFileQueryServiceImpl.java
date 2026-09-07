@@ -62,7 +62,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccExternalFileReviewMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessEventMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileDownloadRecordMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessResultEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum;
@@ -193,8 +192,6 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private static final String ACTION_UPLOAD_TRAINING_RECORD = "UPLOAD_TRAINING_RECORD";
     private static final String ACTION_ACKNOWLEDGE_TRAINING = "ACKNOWLEDGE_TRAINING";
     private static final String ACTION_RETRY_FINALIZATION = "RETRY_FINALIZATION";
-    private static final String FULL_FILE_SCOPE_PERMISSION = "dcc:controlled-file:scope:all";
-    private static final String ASSIGNMENT_EXECUTE_PERMISSION = "dcc:project-code-assignment:execute";
     private static final String APPROVE_PERMISSION = "dcc:controlled-file:approve";
 
     @Resource
@@ -272,7 +269,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     @Resource
     private DccControlledFileBrowserSettingsService browserSettingsService;
     @Resource
-    private DccProjectCodeAssignmentFileMapper projectCodeAssignmentFileMapper;
+    private DccControlledFileAssignmentScopeService assignmentScopeService;
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
@@ -404,20 +401,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private Set<Long> resolveActiveAssignedControlledFileIds(Long userId) {
-        if (userId == null) {
-            return null;
-        }
-        if (permissionApi.hasAnyPermissions(userId, FULL_FILE_SCOPE_PERMISSION)) {
-            return null;
-        }
-        if (!permissionApi.hasAnyPermissions(userId, ASSIGNMENT_EXECUTE_PERMISSION)) {
-            return null;
-        }
-        Set<Long> scopedFileIds = new HashSet<>(projectCodeAssignmentFileMapper
-                .selectActiveControlledFileIdsByAssigneeUserId(userId, LocalDateTime.now()));
-        scopedFileIds.addAll(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(
-                TenantContextHolder.getRequiredTenantId(), userId));
-        return scopedFileIds;
+        return assignmentScopeService.resolveActiveAssignedControlledFileIds(userId);
     }
 
     private boolean isActiveAssignedControlledFile(DccControlledFileDO file, Set<Long> activeAssignedControlledFileIds) {
@@ -1582,8 +1566,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private boolean isWithinAssignedFileScope(Long userId, DccControlledFileDO file) {
-        Set<Long> assignedFileIds = resolveActiveAssignedControlledFileIds(userId);
-        return assignedFileIds == null || file != null && assignedFileIds.contains(file.getId());
+        return assignmentScopeService.isWithinAssignedFileScope(userId, file == null ? null : file.getId());
     }
 
     private boolean hasDirectoryAccess(Long userId, DccControlledFileDO file, DccAccessTypeEnum accessType) {

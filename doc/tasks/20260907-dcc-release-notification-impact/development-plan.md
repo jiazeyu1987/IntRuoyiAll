@@ -27,6 +27,7 @@
 
   - 新 migration `20260907_dcc_publication_followup.sql` 及 SQL contract。
   - `DccControlledFileFinalizationServiceImpl` 的发布事务接入点。
+  - 从 `DccControlledFileQueryServiceImpl` 提取唯一的 assignment hard-scope 服务，并由查询与快照共同复用。
   - 新 publication-followup DO/Mapper/domain service、关系查询扩展和单元/集成测试。
 
 交付物：
@@ -109,6 +110,7 @@
 ## Rollback or Stop Conditions
 
 - 发布后续账本不能与 ACTIVE 状态同事务保存：停止 P1，不允许 catch 后继续发布。
+- 查询和快照无法复用同一 assignment hard-scope 合同：停止 P1，不复制私有算法或逐用户调用详情接口试错。
 - 无法确定相关 Master 当前正式版本或负责人：保存 UNASSIGNED/明确 blocker，不选择工作版本或默认用户。
 - 通知幂等接口、消息模板或权限缺失：停止 P3，不改用非幂等发送或外部渠道。
 - 需要升版路径只能绕过现有 OWNER/major-revision 规则：停止 P2，不新增特权入口。

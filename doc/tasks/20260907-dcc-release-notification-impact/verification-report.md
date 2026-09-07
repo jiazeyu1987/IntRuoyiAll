@@ -7,7 +7,7 @@
 
 ## Product Decision
 
-- 发布时冻结完整 VIEW 规则来源和解析用户清单，用于回答“谁能看到”。
+- 发布时冻结业务可见来源：requester、CURRENT_VIEW_MATRIX、PUBLIC_FOLDER 收件人，经唯一 assignment hard-scope 服务过滤；项目/分类/目录仅为上下文，技术治理访问不虚构为关联方授权。
 - 实际站内通知只发给新版本责任人、正式分发对象和影响任务负责人，同一用户合并原因并去重。
 - 正向关联和反向引用都创建影响任务，按相关 Master 去重。
 - 影响决定为无需升版或需要升版；需要升版不自动建版，只进入/关联现有大版本流程。
@@ -21,6 +21,15 @@
 - Roadmap node development plan validator: PASS.
 - Acceptance mapping audit: AC-01 through AC-18 all mapped to requirements, milestones, tests and task state.
 - Scoped `git diff --check`: PASS.
+
+## P1 Verification
+
+- Independent result: PASS after one corrective loop.
+- Transaction integration: 1 test passed using the real H2 transaction manager and real file/Master/follow-up Mappers.
+- P1 and adjacent DCC regression: 253 tests, 0 failures/errors.
+- SQL migration contract: 3 passed; complete 12-file dependency closure passed.
+- Verified rollback: A/1 remains ACTIVE, B/1 is marked FINALIZATION_FAILED only by the separate failure transaction, Master remains on A/1, all seven follow-up tables have zero residue, and the completion event is not emitted.
+- Runtime database migration, E2E and 48081 restart were not authorized and remain deferred to P4.
 
 ## Artifacts
 

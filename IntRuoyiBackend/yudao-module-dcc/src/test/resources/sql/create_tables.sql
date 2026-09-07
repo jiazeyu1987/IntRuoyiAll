@@ -294,6 +294,9 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_master` (
   `directory_id` BIGINT NULL,
   `file_name` VARCHAR(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `file_number` VARCHAR(64) NOT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `file_type_taxonomy_leaf_id` BIGINT NULL,
+  `normalized_file_number` VARCHAR(128) NULL,
   `current_active_controlled_file_id` BIGINT NULL,
   `status` VARCHAR(32) NOT NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
@@ -426,6 +429,155 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_related_file` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE (`tenant_id`, `controlled_file_id`, `related_controlled_file_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_followup_batch` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `published_controlled_file_id` BIGINT NOT NULL,
+  `published_master_id` BIGINT NOT NULL,
+  `previous_active_controlled_file_id` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `category_id` BIGINT NOT NULL,
+  `directory_id` BIGINT NULL,
+  `file_type_taxonomy_leaf_id` BIGINT NULL,
+  `file_number_snapshot` VARCHAR(128) NOT NULL,
+  `file_name_snapshot` VARCHAR(512) NOT NULL,
+  `version_no_snapshot` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `published_at` DATETIME NOT NULL,
+  `creation_token` VARCHAR(36) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `published_controlled_file_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_visibility_rule_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `source_type` VARCHAR(48) NOT NULL,
+  `source_rule_id` BIGINT NOT NULL,
+  `source_scope` VARCHAR(32) NULL,
+  `subject_type` VARCHAR(32) NOT NULL,
+  `subject_id` BIGINT NULL,
+  `dcc_project_code_id` BIGINT NULL,
+  `category_id` BIGINT NOT NULL,
+  `directory_id` BIGINT NULL,
+  `source_summary` VARCHAR(512) NOT NULL,
+  `resolution_status` VARCHAR(32) NOT NULL,
+  `resolution_message` VARCHAR(1000) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `source_type`, `source_rule_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_visibility_user_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `rule_snapshot_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `user_name_snapshot` VARCHAR(128) NULL,
+  `dept_id_snapshot` BIGINT NULL,
+  `dept_name_snapshot` VARCHAR(128) NULL,
+  `user_status_snapshot` INT NULL,
+  `resolution_reason` VARCHAR(512) NULL,
+  `assignment_scope_result` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `rule_snapshot_id`, `user_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_candidate` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `user_name_snapshot` VARCHAR(128) NULL,
+  `dept_id_snapshot` BIGINT NULL,
+  `dept_name_snapshot` VARCHAR(128) NULL,
+  `user_status_snapshot` INT NULL,
+  `resolution_status` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `user_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_notification_candidate_reason` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `candidate_id` BIGINT NOT NULL,
+  `reason_type` VARCHAR(48) NOT NULL,
+  `source_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NULL,
+  `reason_summary` VARCHAR(512) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `candidate_id`, `reason_type`, `source_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_relation_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `related_master_id` BIGINT NOT NULL,
+  `related_active_controlled_file_id` BIGINT NULL,
+  `related_file_number_snapshot` VARCHAR(128) NULL,
+  `related_file_name_snapshot` VARCHAR(512) NULL,
+  `related_version_no_snapshot` VARCHAR(64) NULL,
+  `responsible_user_id_snapshot` BIGINT NULL,
+  `responsible_user_name_snapshot` VARCHAR(128) NULL,
+  `responsible_user_status_snapshot` INT NULL,
+  `resolution_status` VARCHAR(32) NOT NULL,
+  `frozen_at` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `related_master_id`, `deleted`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_publication_relation_direction_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `batch_id` BIGINT NOT NULL,
+  `relation_snapshot_id` BIGINT NOT NULL,
+  `direction` VARCHAR(16) NOT NULL,
+  `source_relation_id` BIGINT NOT NULL,
+  `source_controlled_file_id` BIGINT NOT NULL,
+  `target_controlled_file_id` BIGINT NOT NULL,
+  `relation_source_snapshot` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE (`tenant_id`, `batch_id`, `relation_snapshot_id`, `direction`, `source_relation_id`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (

@@ -77,6 +77,20 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
                 .toList();
     }
 
+    @Override
+    public List<DccControlledFileRelatedFileDO> listForwardRelations(Long controlledFileId) {
+        return relatedFileMapper.selectListByControlledFileId(controlledFileId);
+    }
+
+    @Override
+    public List<DccControlledFileRelatedFileDO> listReverseCurrentActiveRelations(Long tenantId,
+                                                                                  Long relatedMasterId) {
+        if (tenantId == null || relatedMasterId == null) {
+            throw new IllegalArgumentException("tenantId and relatedMasterId are required for reverse relation lookup");
+        }
+        return relatedFileMapper.selectReverseCurrentActiveRelations(tenantId, relatedMasterId);
+    }
+
     private List<Long> normalizeRelatedFileIds(Long controlledFileId, Long projectCodeId,
                                                List<Long> relatedControlledFileIds) {
         if (relatedControlledFileIds == null || relatedControlledFileIds.isEmpty()) {

@@ -21,9 +21,9 @@
 
 ### BDD-02 可见范围与通知收件人分离
 
-- Given: 一名用户同时命中文件责任人、分发对象和 VIEW 规则。
+- Given: 一名用户同时命中新版本 requester、PUBLIC_FOLDER 分发对象和 CURRENT_VIEW_MATRIX。
 - When: 系统生成后续记录。
-- Then: 可见范围保留全部规则来源和发布时解析用户清单，但该用户只有一条通知并显示两个责任来源；消息不授予权限。
+- Then: 业务可见范围保留三类真实 VIEW 来源，最终用户先经过项目分配硬范围过滤，项目/分类/目录只作为上下文，技术治理访问不作为关联方；该用户只有一条通知并显示全部责任来源，消息不授予权限。
 - Covers: AC-03、AC-04、AC-05。
 
 ### BDD-03 正反向关系按 Master 去重
@@ -99,6 +99,7 @@
 
 - 发布后只有 ACTIVE/SUPERSEDED，没有后续批次。
 - 当前关系服务只列正向版本级关系，不能解析反向引用或按 Master 去重。
+- 当前 assignment hard scope 只在 QueryServiceImpl 私有方法中，尚无查询与快照共同复用的正式合同。
 - 当前消息服务没有发布/影响任务业务类型，也没有发布批次幂等键。
 - 当前工作台只有审批待办，没有影响评估页签。
 
@@ -115,6 +116,7 @@
 ## Refactor Checks
 
 - 发布事务只调用一个后续账本端口，不在 finalization 中展开收件人和任务细节。
+- QueryServiceImpl 和快照解析共同依赖唯一 assignment hard-scope 服务，原有浏览/详情过滤测试必须保持通过。
 - 影响评估服务复用现有 project OWNER 和 major-revision 合同，不复制权限逻辑。
 - 通知复用幂等系统 API，不新增直接写 `system_notify_message` 的旁路。
 - 所有分页一行对应一个批次或任务；一对多收件人/方向先聚合后查询，禁止前端去重。

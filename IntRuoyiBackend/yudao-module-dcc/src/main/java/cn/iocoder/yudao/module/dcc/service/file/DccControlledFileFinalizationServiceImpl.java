@@ -142,6 +142,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     private DccControlledFilePendingActionGuard pendingActionGuard;
     @Resource
     private DccControlledFileSignatureBindingService signatureBindingService;
+    @Resource
+    private DccPublicationFollowupService publicationFollowupService;
 
     @Override
     public void handleProcessInstanceStatusChanged(BpmProcessInstanceStatusEvent event) {
@@ -512,14 +514,15 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         createDistributionRecords(file, category, distributionPlans);
         DccControlledFileDO previousActive = resolvePreviousActiveRevision(master, file.getId());
         supersedePreviousActiveRevision(master, file.getId());
+        LocalDateTime publishedAt = LocalDateTime.now().withNano(0);
 
         controlledFileMapper.updateById(DccControlledFileDO.builder()
                 .id(file.getId())
                 .publishedFileId(publishedArtifact.publishedFileId())
                 .stampedFileId(publishedArtifact.stampedFileId())
                 .stampedTime(publishedArtifact.stampedTime())
-                .approvedTime(LocalDateTime.now())
-                .publishedTime(LocalDateTime.now())
+                .approvedTime(publishedAt)
+                .publishedTime(publishedAt)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .finalizationError("")
                 .build());
@@ -528,6 +531,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 .currentActiveControlledFileId(file.getId())
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
+        file.setPublishedTime(publishedAt);
+        publicationFollowupService.recordPublishedRevision(file, previousActive);
         platformAdapter.recordFinalized(previousActive, file, actorId, eventKey);
     }
 

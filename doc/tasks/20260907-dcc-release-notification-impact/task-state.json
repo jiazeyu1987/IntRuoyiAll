@@ -3,7 +3,7 @@
   "task_id": "20260907-dcc-release-notification-impact",
   "mode": "full",
   "status": "ready_for_execution",
-  "current_phase": "P1",
+  "current_phase": "P2",
   "phase_statuses": [
     {
       "phase_id": "P1",
@@ -12,6 +12,7 @@
       "owned_paths": [
         "新 migration `20260907_dcc_publication_followup.sql` 及 SQL contract。",
         "`DccControlledFileFinalizationServiceImpl` 的发布事务接入点。",
+        "从 `DccControlledFileQueryServiceImpl` 提取 assignment hard-scope 服务并由查询与快照复用。",
         "新 publication-followup DO/Mapper/domain service、关系查询扩展和单元/集成测试。"
       ],
       "dependencies": [],
@@ -25,40 +26,67 @@
         {
           "ac_id": "P1-AC1",
           "text": "实现当前里程碑目标：发布成功时可靠建立唯一后续批次，冻结可见范围、通知候选与正反向关联事实。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "test-report.md#Final Verdict",
+            "execution-log.md#P1 Executor Handoff",
+            "execution-log.md#P1 Independent Tester Transaction-Gate Correction"
+          ]
         },
         {
           "ac_id": "P1-AC2",
           "text": "交付物已落地：每个 published controlled-file 唯一后续批次。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "test-report.md#Final Verdict",
+            "execution-log.md#P1 Executor Handoff",
+            "execution-log.md#P1 Independent Tester Transaction-Gate Correction"
+          ]
         },
         {
           "ac_id": "P1-AC3",
           "text": "交付物已落地：可见范围来源及解析用户明细快照、通知候选快照、正向/反向关系快照。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "test-report.md#Final Verdict",
+            "execution-log.md#P1 Executor Handoff",
+            "execution-log.md#P1 Independent Tester Transaction-Gate Correction"
+          ]
         },
         {
           "ac_id": "P1-AC4",
           "text": "交付物已落地：重复回调幂等；小版本检入零副作用。",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "test-report.md#Final Verdict",
+            "execution-log.md#P1 Executor Handoff",
+            "execution-log.md#P1 Independent Tester Transaction-Gate Correction"
+          ]
         },
         {
           "ac_id": "P1-AC5",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "pending",
-          "evidence": []
+          "status": "completed",
+          "evidence": [
+            "test-report.md#Final Verdict",
+            "execution-log.md#P1 Executor Handoff",
+            "execution-log.md#P1 Independent Tester Transaction-Gate Correction"
+          ]
         }
       ],
-      "evidence": [],
-      "notes": [
-        "Mapped test topics require main-agent review."
+      "evidence": [
+        "test-report.md#Final Verdict",
+        "execution-log.md#P1 Executor Handoff",
+        "execution-log.md#P1 Independent Tester Transaction-Gate Correction"
       ],
-      "last_reviewed_at": null,
-      "status": "pending"
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Business audience is requester + CURRENT_VIEW_MATRIX + PUBLIC_FOLDER recipients filtered by the shared assignment hard scope; governance overrides are excluded from stakeholder snapshots.",
+        "Independent tester found one gap: no transaction-backed persistence proof that snapshot failure rolls back A/1/B/1/Master/follow-up rows.",
+        "Independent tester passed P1 after real H2 transaction rollback integration evidence."
+      ],
+      "last_reviewed_at": "2026-09-07T04:12:23+00:00",
+      "status": "completed"
     },
     {
       "phase_id": "P2",
@@ -232,17 +260,17 @@
     }
   ],
   "planner_review_status": "approved",
-  "test_status": "not_started",
+  "test_status": "running",
   "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 1,
-    "executor_loops": 0,
-    "test_loops": 0
+    "executor_loops": 1,
+    "test_loops": 2
   },
   "created_at": "2026-09-07T09:00:00+08:00",
-  "updated_at": "2026-09-07T01:53:47+00:00",
+  "updated_at": "2026-09-07T04:12:23+00:00",
   "branch": "int_main",
-  "baseline_revision": "2b1f12304",
+  "baseline_revision": "de8c6053f",
   "workspace_root": "E:\\IntRuoyi",
   "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
   "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260907-dcc-release-notification-impact",

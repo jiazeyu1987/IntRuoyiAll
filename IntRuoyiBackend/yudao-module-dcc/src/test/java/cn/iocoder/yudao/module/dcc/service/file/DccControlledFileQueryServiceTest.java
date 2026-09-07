@@ -257,6 +257,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUpDirectoryAccessDefaults() {
         TenantContextHolder.setTenantId(31L);
+        DccControlledFileAssignmentScopeService assignmentScopeService =
+                new DccControlledFileAssignmentScopeService();
+        ReflectionTestUtils.setField(assignmentScopeService, "permissionApi", permissionApi);
+        ReflectionTestUtils.setField(assignmentScopeService, "assignmentFileMapper", projectCodeAssignmentFileMapper);
+        ReflectionTestUtils.setField(assignmentScopeService, "distributionRecipientMapper", distributionRecipientMapper);
+        ReflectionTestUtils.setField(queryService, "assignmentScopeService", assignmentScopeService);
         lenient().when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
                 .thenReturn(Set.of(20L));
         lenient().when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))

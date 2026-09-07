@@ -14,7 +14,7 @@
 
 - AC-01：Given B/1 已批准，When 文控发布成功，Then B/1 ACTIVE、旧版 SUPERSEDED，且同一事务存在唯一发布后续批次和冻结快照。
 - AC-02：Given 后续账本无法保存，When 文控发布，Then 发布失败且旧版继续有效；Given 账本已提交但消息失败，Then B/1 保持 ACTIVE。
-- AC-03：Given 发布后 VIEW 规则或成员发生变化，When 审计人员查看该发布，Then 发布时规则来源和解析用户清单不变，当前访问仍按新规则判断。
+- AC-03：Given 发布后责任人、CURRENT_VIEW_MATRIX、PUBLIC_FOLDER 收件人或项目分配硬范围发生变化，When 审计人员查看该发布，Then 发布时三类业务授权来源、硬范围过滤结果和最终业务用户清单不变；项目/分类/目录上下文与技术治理访问不被误记成关联方授权，当前访问仍按新规则判断。
 - AC-04：Given 一名用户命中文件责任人和分发对象，When 生成通知，Then 只有一条发送记录并展示全部原因。
 - AC-05：Given 收件人后来失去 VIEW，When 从通知打开文件，Then 系统拒绝查看且不泄露正文。
 - AC-06：Given X 关联 Y 且 Z 当前正式版本反向引用 X，When X 发布，Then Y、Z 各一项任务；双向重复关系按 Master 合并。

@@ -98,6 +98,8 @@ class DccControlledFilePublicationFlowTest extends BaseMockitoUnitTest {
     private DccControlledContentAdapter platformAdapter;
     @Mock
     private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
+    private DccPublicationFollowupService publicationFollowupService;
 
     @InjectMocks
     private DccControlledFileFinalizationServiceImpl finalizationService;

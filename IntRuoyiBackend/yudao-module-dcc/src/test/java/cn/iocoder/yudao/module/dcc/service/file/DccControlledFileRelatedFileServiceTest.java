@@ -93,6 +93,32 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
         assertEquals("快照名称", result.get(1).getFileName());
     }
 
+    @Test
+    void listForwardRelations_returnsFrozenSourceRowsWithoutProjection() {
+        DccControlledFileRelatedFileDO relation = relation(1L, 100L, 201L,
+                "DOC-201", "关联文件", "A/1");
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(relation));
+
+        assertEquals(List.of(relation), service.listForwardRelations(100L));
+    }
+
+    @Test
+    void listReverseCurrentActiveRelations_usesTenantAndRelatedMasterBoundary() {
+        DccControlledFileRelatedFileDO relation = relation(2L, 200L, 100L,
+                "DOC-100", "被引用文件", "B/1");
+        when(relatedFileMapper.selectReverseCurrentActiveRelations(31L, 10L)).thenReturn(List.of(relation));
+
+        assertEquals(List.of(relation), service.listReverseCurrentActiveRelations(31L, 10L));
+        verify(relatedFileMapper).selectReverseCurrentActiveRelations(31L, 10L);
+    }
+
+    @Test
+    void listReverseCurrentActiveRelations_missingIdentityFailsFast() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.listReverseCurrentActiveRelations(null, 10L));
+        verify(relatedFileMapper, never()).selectReverseCurrentActiveRelations(any(), any());
+    }
+
     private DccControlledFileDO relatedFile(Long id, Long masterId, String fileNumber, String fileName,
                                              String versionNo) {
         return DccControlledFileDO.builder().id(id).masterId(masterId).fileNumber(fileNumber)
