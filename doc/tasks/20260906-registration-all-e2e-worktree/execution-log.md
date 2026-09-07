@@ -136,3 +136,10 @@
 - GREEN: round27-post-reminder-closure -> PASS. Re-ran the complete registration E2E runner after the upload script parameterization and supplemental reminder closure. Summary path: `doc/tasks/20260906-registration-all-e2e-worktree/artifacts/round27-post-reminder-closure/summary.json`.
 - RESULT: 15 PASS, 0 FAIL, 0 BLOCKED in Round 27: `action-panel`, `upload-admin-role-approval`, `change-continue-approval`, `change-submit-approval`, `change-remaining`, `change-ui-smoke`, `download-search-targeted`, `list-sort`, `real-flow`, `renewal-lifecycle`, `renewal-row-dialog`, `upload-button`, `upload-submit-repro`, `reminder-sort-runtime`, and `business-time-simulation`.
 - GREEN: project-experience-consolidation-reminder -> PASS. Added the reusable notification-message false-positive gate to `docs/e2e-rules.md`.
+
+## 2026-09-07 int_main Fusion
+
+- GREEN: worktree-task-commit -> PASS. Created source worktree commit `c8f4498da` with the verified registration E2E implementation, E2E scripts, document updates, and core task records.
+- GREEN: int_main-clean-partial-apply -> PASS. Applied the clean code/script/task-record portion into `E:\IntRuoyi` without touching unrelated unstaged MES/frontline changes.
+- GREEN: int_main-document-merge -> PASS. Manually merged the six document files that already had `int_main` local edits, preserving the current authorization notes and adding the missing registration E2E wording.
+- GREEN: int_main-commit -> PASS. Created `int_main` commit `acfcd7a39` for the fused registration E2E verification changes.

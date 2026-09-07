@@ -24,9 +24,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-Round 27 completed on 2026-09-07 with all 15 executable registration E2E checks passing in the dedicated worktree. Supplemental reminder document verification also passed for notification settings, threshold delivery, recipient reconfiguration, and config restore. Commit/push is not performed because no current-turn Git authorization was provided.
+Round 27 completed on 2026-09-07 with all 15 executable registration E2E checks passing in the dedicated worktree. Supplemental reminder document verification also passed for notification settings, threshold delivery, recipient reconfiguration, and config restore. The verified changes were fused into `int_main` in commit `acfcd7a39`.
 
 ## Runtime Allocation
 
