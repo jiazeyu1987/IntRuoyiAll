@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260513_dcc_base_schema; type=schema; riskLevel=medium
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_related_file` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `controlled_file_id` BIGINT NOT NULL COMMENT '上传的受控文件 ID',
