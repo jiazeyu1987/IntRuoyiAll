@@ -1510,25 +1510,25 @@
             placeholder="请输入复核备注（可选）"
           />
         </el-form-item>
-        <el-divider content-position="left">签名显示时间</el-divider>
-        <el-form-item label="签名时间">
+        <el-divider content-position="left">业务发生时间（可选）</el-divider>
+        <el-form-item label="业务时间">
           <el-date-picker
             v-model="formReviewSignatureTimeForm.selectedSignedAt"
             type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可选择人工签名时间"
+            placeholder="可填写实际业务发生时间"
             class="!w-1/1"
           />
         </el-form-item>
-        <el-form-item label="签名时区">
+        <el-form-item label="业务时区">
           <el-input v-model="formReviewSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
         </el-form-item>
-        <el-form-item label="时间原因">
+        <el-form-item label="填写原因">
           <el-input
             v-model="formReviewSignatureTimeForm.selectedTimeReason"
             type="textarea"
             :rows="2"
-            placeholder="选择人工签名时间时必须说明原因"
+            placeholder="填写业务发生时间时必须说明原因"
           />
         </el-form-item>
       </el-form>
@@ -4330,8 +4330,8 @@ const findSignatureCellRecord = (field: NormalizedSnapshotField) => {
     : signatureRows.value.filter((record) => record.actionType === actionType)
   return [...candidates].sort(
     (left, right) =>
-      toSignatureTime(left.signatureDisplayAt || left.selectedSignedAt || left.signedAt) -
-      toSignatureTime(right.signatureDisplayAt || right.selectedSignedAt || right.signedAt)
+      toSignatureTime(left.signedAt) -
+      toSignatureTime(right.signedAt)
   )[candidates.length - 1]
 }
 
@@ -4340,7 +4340,7 @@ const resolveSignatureCellDisplay = (field: NormalizedSnapshotField) => {
   if (!signature) return '未签名'
   const actor = signature.actorName || signature.actorNickname || String(signature.actorId || '未知签名人')
   const signedAt = formatSignatureCellTime(
-    signature.signatureDisplayAt || signature.selectedSignedAt || signature.signedAt
+    signature.signedAt
   )
   return `${actor} ${signedAt}`
 }

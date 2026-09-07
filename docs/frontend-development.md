@@ -900,3 +900,12 @@
 - Verification: 静态合同覆盖显式组身份、开启/关闭/删除确认、同槽位替换、其他槽位保留、组内修改、新增工序继承、复制表单保留全局组和非全局同模板独立；类型检查通过后，用草稿路线在至少两个桌面视口核对开关不重叠，并在包含当前后端代码与迁移的隔离运行态完成保存、刷新和关闭回读。
 - Forbidden action: 禁止用模板 ID、槽位、默认 `MAIN`、表单名称或 `formBindingKey` 猜测全局组；禁止在已发布版本写入，禁止用 API-only 或静态合同冒充保存后刷新证据。
 - Evidence: `doc/tasks/20260817-route-form-global-sync/verification-report.md`。
+
+## 可信时间证据与业务发生时间展示门禁
+
+- Trigger: eDHR 签名详情、签名列表、签名时间输入、运行控制台可信时间巡检或时间戳证据导出。
+- Preflight check: 用户可见正式签名时间只读取 `signedAt`；`selectedSignedAt` 必须标注为“业务发生时间”，时区和原因使用业务含义文案。运行控制台只导出当前已保存巡检 ID，无 ID 时禁用，BLOCKED/NO_GO 仍允许导出真实异常证据。
+- Blocker: 正式签名列表仍使用 `signatureDisplayAt || selectedSignedAt || signedAt`、业务时间仍标成可修改签名时间、导出按钮触发新巡检、下载失败提示成功，或 `backup` 人可见名称未映射为“审查服”时必须停止。
+- Verification: 静态合同完整截取导出函数并证明不调用巡检；覆盖时间源、Last/RMS 偏差、Leap、检查时间、状态、无 ID 禁用、异常可导出、真实错误提示和“审查服”口径；最后运行 `pnpm ts:check`。
+- Forbidden action: 禁止以当前时间、业务时间或旧展示字段回退正式签名时间；禁止因巡检异常隐藏导出入口；禁止把下载请求失败包装成成功。
+- Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。

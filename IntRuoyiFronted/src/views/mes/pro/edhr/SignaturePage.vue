@@ -90,15 +90,15 @@
                     <strong>{{ row.processInstanceId || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
-                    <span>系统签名时间</span>
+                    <span>正式签名时间</span>
                     <strong>{{ formatSignatureSignedAt(row.signedAt) || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
-                    <span>选择签名时间</span>
+                    <span>业务发生时间</span>
                     <strong>{{ formatSignatureSignedAt(row.selectedSignedAt) || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
-                    <span>显示签名时间</span>
+                    <span>历史显示时间证据</span>
                     <strong>{{ formatSignatureSignedAt(row.signatureDisplayAt) || '--' }}</strong>
                   </div>
                   <div class="edhr-signature-evidence__item">
@@ -206,15 +206,9 @@
               <div>
                 {{
                   formatSignatureSignedAt(
-                    row.signatureDisplayAt || row.selectedSignedAt || row.signedAt
+                    row.signedAt
                   ) || '--'
                 }}
-              </div>
-              <div
-                v-if="row.signedAt && row.signatureDisplayAt && row.signedAt !== row.signatureDisplayAt"
-                class="edhr-signature-muted"
-              >
-                系统：{{ formatSignatureSignedAt(row.signedAt) }}
               </div>
             </template>
           </el-table-column>
@@ -283,7 +277,7 @@ const SIGNATURE_TIME_MODE_LABELS: Record<
   string
 > = {
   SERVER_TIME: '服务端时间',
-  USER_SELECTED: '手动选择时间'
+  USER_SELECTED: '含业务发生时间'
 }
 const signatureDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'evidenceExpand', label: '审计证据', width: 40, hideable: false, business: false },

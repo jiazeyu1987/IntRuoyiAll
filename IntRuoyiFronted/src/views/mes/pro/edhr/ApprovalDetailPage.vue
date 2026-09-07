@@ -156,15 +156,15 @@
                     <div class="edhr-detail__evidence-title">签名时间证据</div>
                     <div class="edhr-detail__evidence-grid">
                       <div class="edhr-detail__evidence-item">
-                        <span>系统签名时间</span>
+                        <span>正式签名时间</span>
                         <strong>{{ formatApprovalDetailTime(row.signedAt) || '--' }}</strong>
                       </div>
                       <div class="edhr-detail__evidence-item">
-                        <span>选择签名时间</span>
+                        <span>业务发生时间</span>
                         <strong>{{ formatApprovalDetailTime(row.selectedSignedAt) || '--' }}</strong>
                       </div>
                       <div class="edhr-detail__evidence-item">
-                        <span>显示签名时间</span>
+                        <span>历史显示时间证据</span>
                         <strong>{{ formatApprovalDetailTime(row.signatureDisplayAt) || '--' }}</strong>
                       </div>
                       <div class="edhr-detail__evidence-item">
@@ -211,7 +211,7 @@
                 <template #default="{ row }">
                   {{
                     formatApprovalDetailTime(
-                      row.signatureDisplayAt || row.selectedSignedAt || row.signedAt
+                      row.signedAt
                     ) || '--'
                   }}
                 </template>
@@ -261,25 +261,25 @@
         <el-form-item :label="actionCommentLabel">
           <el-input v-model="actionForm.comment" type="textarea" :rows="3" />
         </el-form-item>
-        <el-divider content-position="left">签名显示时间</el-divider>
-        <el-form-item label="签名时间">
+        <el-divider content-position="left">业务发生时间（可选）</el-divider>
+        <el-form-item label="业务时间">
           <el-date-picker
             v-model="actionSignatureTimeForm.selectedSignedAt"
             type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可选择人工签名时间"
+            placeholder="可填写实际业务发生时间"
             class="!w-1/1"
           />
         </el-form-item>
-        <el-form-item label="签名时区">
+        <el-form-item label="业务时区">
           <el-input v-model="actionSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
         </el-form-item>
-        <el-form-item label="时间原因">
+        <el-form-item label="填写原因">
           <el-input
             v-model="actionSignatureTimeForm.selectedTimeReason"
             type="textarea"
             :rows="2"
-            placeholder="选择人工签名时间时必须说明原因"
+            placeholder="填写业务发生时间时必须说明原因"
           />
         </el-form-item>
       </el-form>
@@ -297,25 +297,25 @@
         <el-form-item label="归档备注">
           <el-input v-model="archiveForm.comment" type="textarea" :rows="3" />
         </el-form-item>
-        <el-divider content-position="left">签名显示时间</el-divider>
-        <el-form-item label="签名时间">
+        <el-divider content-position="left">业务发生时间（可选）</el-divider>
+        <el-form-item label="业务时间">
           <el-date-picker
             v-model="archiveSignatureTimeForm.selectedSignedAt"
             type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可选择人工签名时间"
+            placeholder="可填写实际业务发生时间"
             class="!w-1/1"
           />
         </el-form-item>
-        <el-form-item label="签名时区">
+        <el-form-item label="业务时区">
           <el-input v-model="archiveSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
         </el-form-item>
-        <el-form-item label="时间原因">
+        <el-form-item label="填写原因">
           <el-input
             v-model="archiveSignatureTimeForm.selectedTimeReason"
             type="textarea"
             :rows="2"
-            placeholder="选择人工签名时间时必须说明原因"
+            placeholder="填写业务发生时间时必须说明原因"
           />
         </el-form-item>
       </el-form>
@@ -393,7 +393,7 @@ const SIGNATURE_TIME_MODE_LABELS: Record<
   string
 > = {
   SERVER_TIME: '服务端时间',
-  USER_SELECTED: '手动选择时间'
+  USER_SELECTED: '含业务发生时间'
 }
 const APPROVAL_SNAPSHOT_STATUS_LABELS: Record<
   NonNullable<EdhrApprovalDetailVO['approvalSnapshotStatus']>,

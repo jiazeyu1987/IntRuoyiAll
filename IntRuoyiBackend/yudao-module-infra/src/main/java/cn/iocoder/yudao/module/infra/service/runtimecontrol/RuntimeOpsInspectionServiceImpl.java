@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -15,13 +16,17 @@ public class RuntimeOpsInspectionServiceImpl implements RuntimeOpsInspectionServ
     private final RuntimeOpsInspectionRunStore inspectionRunStore;
     private final RuntimeOpsBusinessHealthService businessHealthService;
     private final RuntimeOpsProbeService probeService;
+    private final RuntimeTrustedTimeCollector trustedTimeCollector;
+    private final RuntimeTimeEvidenceExporter timeEvidenceExporter = new RuntimeTimeEvidenceExporter();
 
     public RuntimeOpsInspectionServiceImpl(RuntimeOpsInspectionRunStore inspectionRunStore,
                                            RuntimeOpsBusinessHealthService businessHealthService,
-                                           RuntimeOpsProbeService probeService) {
+                                           RuntimeOpsProbeService probeService,
+                                           RuntimeTrustedTimeCollector trustedTimeCollector) {
         this.inspectionRunStore = inspectionRunStore;
         this.businessHealthService = businessHealthService;
         this.probeService = probeService;
+        this.trustedTimeCollector = trustedTimeCollector;
     }
 
     @Override
@@ -29,21 +34,26 @@ public class RuntimeOpsInspectionServiceImpl implements RuntimeOpsInspectionServ
         LocalDateTime startedAt = LocalDateTime.now();
         RuntimeControlBusinessHealthRespVO businessHealth = businessHealthService.getBusinessHealth();
         RuntimeControlProbeLatestRespVO probes = probeService.runProbes();
-        RuntimeOpsInspectionStatus releaseStatus = RuntimeOpsBusinessHealthServiceImpl.aggregate(List.of(
+        List<RuntimeControlInspectionCheckRespVO> trustedTimeChecks = trustedTimeCollector.collect();
+        List<RuntimeOpsInspectionStatus> releaseStatuses = new ArrayList<>(List.of(
                 businessHealth.getStatus(), probes.getStatus()));
-        List<RuntimeControlInspectionCheckRespVO> checks = List.of(
+        releaseStatuses.addAll(trustedTimeChecks.stream()
+                .map(RuntimeControlInspectionCheckRespVO::getStatus).toList());
+        RuntimeOpsInspectionStatus releaseStatus = RuntimeOpsBusinessHealthServiceImpl.aggregate(releaseStatuses);
+        List<RuntimeControlInspectionCheckRespVO> checks = new ArrayList<>(List.of(
                 check("business-health", "业务健康", businessHealth.getStatus(), true,
                         "items=" + businessHealth.getItems().size(), reasonOf(businessHealth.getStatus()),
                         businessHealth.getSampledAt()),
                 check("probe", "backend/frontend/website 探针", probes.getStatus(), true,
-                        "probes=" + probes.getProbes().size(), reasonOf(probes.getStatus()), probes.getSampledAt()),
-                check("pre-release-check", "发布前检查报告", releaseStatus, true,
-                        "入口=POST /infra/runtime-control/inspection-runs; 证据=business-health,probe",
-                        reasonOf(releaseStatus), LocalDateTime.now()),
-                check("post-release-observation", "发布后观察报告", releaseStatus, true,
-                        "入口=GET /infra/runtime-control/inspection-runs/{id}; 证据=business-health,probe",
-                        reasonOf(releaseStatus), LocalDateTime.now())
-        );
+                        "probes=" + probes.getProbes().size(), reasonOf(probes.getStatus()), probes.getSampledAt())
+        ));
+        checks.addAll(trustedTimeChecks);
+        checks.add(check("pre-release-check", "发布前检查报告", releaseStatus, true,
+                "入口=POST /infra/runtime-control/inspection-runs; 证据=business-health,probe,trusted-time",
+                reasonOf(releaseStatus), LocalDateTime.now()));
+        checks.add(check("post-release-observation", "发布后观察报告", releaseStatus, true,
+                "入口=GET /infra/runtime-control/inspection-runs/{id}; 证据=business-health,probe,trusted-time",
+                reasonOf(releaseStatus), LocalDateTime.now()));
         RuntimeControlInspectionRunRespVO run = new RuntimeControlInspectionRunRespVO();
         run.setStartedAt(startedAt);
         run.setCompletedAt(LocalDateTime.now());
@@ -57,6 +67,11 @@ public class RuntimeOpsInspectionServiceImpl implements RuntimeOpsInspectionServ
     @Override
     public RuntimeControlInspectionRunRespVO getInspectionRun(Long id) {
         return inspectionRunStore.get(id);
+    }
+
+    @Override
+    public byte[] exportTimeEvidence(Long id) {
+        return timeEvidenceExporter.export(inspectionRunStore.get(id));
     }
 
     private RuntimeControlInspectionCheckRespVO check(String code, String name, RuntimeOpsInspectionStatus status,

@@ -945,6 +945,15 @@
 - Concurrency verification: 自动投影必须覆盖“另一 resolver 已完成”“管理员并发更正/改链”“同一关系出现无法解释的 CAS miss”三类分支，并用真实事务证明前两类不回滚 ACTIVE/正式指针且不重复审计，第三类仍显式失败。
 - Forbidden action: 禁止 catch 账本异常后继续标记发布成功，禁止把通知发送放进生效主事务，禁止用 mock TransactionTemplate 冒充数据库回滚证据，禁止用管理员权限或目录上下文扩大关联方名单。
 
+## 可信时间与正式签名时间边界门禁
+
+- Trigger: 电子签名允许填写 `selectedSignedAt`，审计页面显示 `signatureDisplayAt`，或 Runtime Control 生成正式服、审查服时间戳审查证据。
+- Preflight check: `signedAt` 必须由服务端生成并作为正式签名展示时间；`selectedSignedAt` 只能表示独立业务发生时间并保留时区和原因。可信时间检查必须读取受控 chrony 的选中源、Stratum、Last/RMS offset、Leap、系统同步状态、服务器 UTC 和数据库 UTC，偏差阈值必须显式配置。
+- Blocker: chrony 命令失败、无选中源、Leap 非 Normal、系统未同步、NTP 未激活、Stratum/UTC 证据缺失或无效、Last/RMS 偏差超阈值，或阈值未配置时，检查必须为 BLOCKED/NO_GO，不能默认 PASS。
+- Verification: 后端测试分别覆盖签名展示不被业务时间覆盖、正式服/审查服固定目标、时间证据失败路径、巡检聚合、指定巡检三文件 ZIP、HTML 转义和 SHA-256；导出只读取已保存巡检 ID，不重新执行巡检。
+- Forbidden action: 禁止用 `selectedSignedAt`、`signatureDisplayAt` 旧值或客户端时间代替正式 `signedAt`；禁止导出时重新采集后覆盖历史巡检；禁止缺证据时返回默认成功。
+- Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
+
 ## 站内信领域幂等必须延伸到平台消息门禁
 
 - Trigger: 业务 outbox 调用站内信 API、并发重试、消息已写入但领域 ACK 前进程中断、模板禁用返回空消息 ID、要求同一业务事件每个接收人最多一封。

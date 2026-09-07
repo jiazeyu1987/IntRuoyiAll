@@ -5979,7 +5979,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals("BATCH_CLOSE", signature.getActionType());
         assertEquals("用户0", signature.getActorName());
         assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
-        assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
+        assertEquals(signature.getSignedAt(), signature.getSignatureDisplayAt());
+        assertNotEquals(selectedSignedAt, signature.getSignatureDisplayAt());
         assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
         assertEquals("Asia/Shanghai", signature.getSelectedTimeZone());
         assertEquals("批执行关闭按现场复核完成时间显示", signature.getSelectedTimeReason());
@@ -6159,7 +6160,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(188L, signature.getActorId());
         assertEquals("用户188", signature.getActorName());
         assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
-        assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
+        assertEquals(signature.getSignedAt(), signature.getSignatureDisplayAt());
+        assertNotEquals(selectedSignedAt, signature.getSignatureDisplayAt());
         assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
         assertEquals("Asia/Shanghai", signature.getSelectedTimeZone());
         assertEquals("质量拒收按纸面终判时间显示", signature.getSelectedTimeReason());

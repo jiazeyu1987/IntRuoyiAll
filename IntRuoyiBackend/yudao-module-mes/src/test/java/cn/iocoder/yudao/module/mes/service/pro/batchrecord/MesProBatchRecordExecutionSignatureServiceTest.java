@@ -32,6 +32,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -189,7 +190,8 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertEquals("SUBMIT", signature.getActionType());
             assertNotNull(signature.getSignedAt());
             assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
-            assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
+            assertEquals(signature.getSignedAt(), signature.getSignatureDisplayAt());
+            assertNotEquals(selectedSignedAt, signature.getSignatureDisplayAt());
             assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
             assertEquals("Asia/Shanghai", signature.getSelectedTimeZone());
             assertEquals("补录纸质记录签名时间", signature.getSelectedTimeReason());

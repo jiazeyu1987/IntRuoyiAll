@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class RuntimeInspectionServiceImplTest {
+class RuntimeOpsInspectionServiceImplTest {
 
     @TempDir
     private Path tempDir;
@@ -40,11 +41,12 @@ class RuntimeInspectionServiceImplTest {
             public RuntimeControlProbeLatestRespVO getLatestProbes() {
                 return probeLatestWithPassEvidence();
             }
-        });
+        }, () -> List.of(trustedTimeCheck("trusted-time-prod", "正式服"),
+                trustedTimeCheck("trusted-time-audit", "审查服")));
     }
 
     @Test
-    void runInspectionShouldPersistNoGoReportWhenCriticalEvidenceIsMissing() {
+    void runInspectionShouldPersistNoGoReportWhenCriticalEvidenceIsMissing() throws Exception {
         RuntimeControlInspectionRunRespVO run = inspectionService.runInspection();
 
         assertNotNull(run.getId());
@@ -53,6 +55,14 @@ class RuntimeInspectionServiceImplTest {
                 && RuntimeOpsInspectionStatus.NO_GO.equals(check.getStatus())));
         assertTrue(run.getChecks().stream().anyMatch(check -> "probe".equals(check.getCode())
                 && RuntimeOpsInspectionStatus.PASS.equals(check.getStatus())));
+        assertEquals(RuntimeOpsInspectionStatus.PASS,
+                checkByCode(run, "trusted-time-prod").getStatus());
+        assertEquals("172.30.30.57",
+                checkByCode(run, "trusted-time-prod").getTrustedTime().getServerHost());
+        assertEquals(RuntimeOpsInspectionStatus.PASS,
+                checkByCode(run, "trusted-time-audit").getStatus());
+        assertEquals("172.30.30.59",
+                checkByCode(run, "trusted-time-audit").getTrustedTime().getServerHost());
         RuntimeControlInspectionCheckRespVO preRelease = checkByCode(run, "pre-release-check");
         assertEquals(RuntimeOpsInspectionStatus.NO_GO, preRelease.getStatus());
         assertTrue(preRelease.getEvidence().contains("POST /infra/runtime-control/inspection-runs"));
@@ -63,6 +73,28 @@ class RuntimeInspectionServiceImplTest {
         RuntimeControlInspectionRunRespVO stored = inspectionService.getInspectionRun(run.getId());
         assertEquals(run.getId(), stored.getId());
         assertEquals(RuntimeOpsInspectionStatus.NO_GO, stored.getStatus());
+        assertEquals("ntp1.company.local",
+                checkByCode(stored, "trusted-time-prod").getTrustedTime().getSelectedSource());
+        assertTrue(Files.readString(tempDir.resolve("runtime-ops/inspection-runs.json"))
+                .contains("\"trustedTime\""));
+    }
+
+    private RuntimeControlInspectionCheckRespVO trustedTimeCheck(String code, String nodeName) {
+        RuntimeControlInspectionCheckRespVO check = new RuntimeControlInspectionCheckRespVO();
+        check.setCode(code);
+        check.setName(nodeName + "可信时间");
+        check.setStatus(RuntimeOpsInspectionStatus.PASS);
+        check.setRequired(true);
+        check.setSampledAt(LocalDateTime.of(2026, 9, 7, 10, 0));
+        var evidence = new cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlTrustedTimeRespVO();
+        evidence.setTargetEnvironment("trusted-time-prod".equals(code) ? "prod" : "backup");
+        evidence.setNodeName(nodeName);
+        evidence.setServerHost("trusted-time-prod".equals(code) ? "172.30.30.57" : "172.30.30.59");
+        evidence.setSelectedSource("ntp1.company.local");
+        evidence.setLastOffsetMillis(0.12D);
+        evidence.setLeapStatus("Normal");
+        check.setTrustedTime(evidence);
+        return check;
     }
 
     private RuntimeControlInspectionCheckRespVO checkByCode(RuntimeControlInspectionRunRespVO run, String code) {

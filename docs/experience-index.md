@@ -604,3 +604,4 @@
 - Keywords: Maven 目标单测, 同模块编译失败, 未跟踪 Java 文件, 无关源文件阻塞, LambdaUpdateWrapperX, 缺失符号, git status 归属确认, 不用 Maven excludes, 外部编译阻塞解除后复跑 -> `docs/backend-development.md#2026-09-03-maven-目标单测外部源文件编译阻塞门禁`
 
 - 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。
+- Keywords: 可信时间, 审计追踪时间戳, chrony, Last offset, RMS offset, Leap status, 系统签名时间, 业务发生时间, selectedSignedAt, signatureDisplayAt, inspection-runs.json, 时间戳证据 ZIP, 审查摘要, SHA256SUMS, 审查服 -> `docs/backend-development.md#可信时间与正式签名时间边界门禁`、`docs/frontend-development.md#可信时间证据与业务发生时间展示门禁`

@@ -717,8 +717,7 @@ public class MesProBatchRecordExecutionSignatureService {
         LocalDateTime selectedSignedAt = command == null ? null : command.getSelectedSignedAt();
         String signatureTimeMode = selectedSignedAt == null
                 ? SIGNATURE_TIME_MODE_SERVER : SIGNATURE_TIME_MODE_USER_SELECTED;
-        LocalDateTime displayAt = selectedSignedAt == null
-                ? signedAt : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS);
+        LocalDateTime displayAt = signedAt;
         String selectedTimeZone = DEFAULT_SIGNATURE_TIME_ZONE;
         String selectedTimeReason = "";
         if (selectedSignedAt != null) {
