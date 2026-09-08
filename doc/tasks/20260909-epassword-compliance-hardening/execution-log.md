@@ -44,6 +44,10 @@
 - GREEN: 新增 `docs/security/electronic-signature-periodic-compliance-review-sop.md` -> PASS, 明确定期/变更/事件触发、角色职责、证据包、审查步骤、判定规则、记录留存和发布门禁。
 - GREEN: 新增 `docs/security/security-privacy-compliance-review.md` -> PASS, 将 4.1-4.12 映射到代码/制度证据，并明确 4.10 的生产运营执行记录仍需实际归档。
 - GREEN: project-experience-consolidation -> PASS, 已将附加 worktree 补丁必须使用绝对路径并交叉复核主工作区无误落的经验合并到 docs/worktree-memory.md。
+- GREEN: `git rebase int_main` -> PASS, 主线推进后重新 rebase，当前 HEAD `3f7fa6caa`，分支已解除 cannot fast-forward blocker。
+- GREEN: rebase 后 `python C:\Users\BJB110\.codex\skills\security-privacy-compliance-review\scripts\validate_security_privacy_compliance.py --evidence docs/security/security-privacy-compliance-review.md` -> PASS。
+- GREEN: rebase 后 `git diff --check` -> PASS。
+- BLOCKED: rebase 后 `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260909-epassword-compliance-hardening --mode preview` -> BLOCKED, 仅剩主工作区 `E:\IntRuoyi` dirty，分支快进阻塞已解除。
 
 ## Implementation Notes
 
@@ -55,4 +59,4 @@
 
 ## Current Blockers
 
-- 主工作区 `E:\IntRuoyi` 存在与本任务无关的 tracked/untracked 改动，收尾脚本拒绝快进合并。需要先由对应任务/人工处理主工作区脏状态，之后再从 `D:\IntRuoyiWorktree\20260909_epassword` 继续 cleanup apply 和 merge。
+- 主工作区 `E:\IntRuoyi` 存在与本任务无关的 tracked/untracked 改动，收尾脚本拒绝接收 ff-only 合并。当前分支已可快进；需要先由对应任务/人工处理主工作区脏状态，之后再从 `D:\IntRuoyiWorktree\20260909_epassword` 继续 cleanup apply 和 merge。

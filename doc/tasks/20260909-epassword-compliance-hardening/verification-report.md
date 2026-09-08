@@ -47,6 +47,7 @@
 ## Merge Blocker
 
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260909-epassword-compliance-hardening --mode preview` 返回 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。主工作区存在多项与本任务无关的 tracked/untracked 改动；按 worktree closeout 规则，未执行 cleanup apply、未快进合并、未删除 worktree。
+- RESOLVED: 最新 `git rebase int_main` 后，`Current branch codex/20260909_epassword cannot be fast-forward merged into int_main` 已解除；当前阻塞仅剩主工作区 dirty。
 
 ## E2E Status
 
