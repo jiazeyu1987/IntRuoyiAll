@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID;
@@ -44,8 +46,12 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
 
     @Override
     public List<RuntimeControlBackupPointRespVO> listBackupPoints() {
-        return backupRepository.listBackupPointDirs().stream()
-                .map(this::buildBackupPoint)
+        List<RuntimeBackupNasRepository.BackupPointDir> directories = backupRepository.listBackupPointDirs();
+        Set<String> knownBackupIds = directories.stream()
+                .map(RuntimeBackupNasRepository.BackupPointDir::backupId)
+                .collect(Collectors.toSet());
+        return directories.stream()
+                .map(directory -> buildBackupPoint(directory, knownBackupIds))
                 .toList();
     }
 
@@ -63,7 +69,8 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
                 .orElseThrow(() -> exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "备份点不存在：" + backupId));
     }
 
-    private RuntimeControlBackupPointRespVO buildBackupPoint(RuntimeBackupNasRepository.BackupPointDir backupPointDir) {
+    private RuntimeControlBackupPointRespVO buildBackupPoint(RuntimeBackupNasRepository.BackupPointDir backupPointDir,
+                                                              Set<String> knownBackupIds) {
         String backupId = backupPointDir.backupId();
         String manifestPath = backupRepository.childPath(backupPointDir, "manifest", "manifest.json");
         String checksumPath = backupRepository.childPath(backupPointDir, "manifest", "checksums.txt");
@@ -72,7 +79,7 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
         String snapshotPath = backupRepository.childPath(backupPointDir, "manifest", "现场快照.md");
         List<String> reasons = new ArrayList<>();
 
-        JsonNode manifest = readManifest(backupId, manifestPath, reasons);
+        JsonNode manifest = readManifest(backupId, manifestPath, knownBackupIds, reasons);
         validateChecksum(checksumPath, reasons);
         LocalDateTime lastVerifiedAt = readOptionalRehearsalVerifiedAt(rehearsalReportPath);
         String rehearsalStatus = readOptionalRehearsalStatus(rehearsalReportPath);
@@ -87,12 +94,26 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
         backupPoint.setRehearsalStatus(rehearsalStatus);
         populateManifestSummary(backupPoint, manifest);
         populateDccManifestSummary(backupPoint, dccManifestPath, reasons);
+        if (manifest != null && backupPoint.getCompletedAt() == null) {
+            reasons.add("manifest completedAt 缺失或非法");
+        }
+        if (!"PASSED".equals(rehearsalStatus) || lastVerifiedAt == null) {
+            reasons.add("恢复演练未通过或证据缺失");
+        }
+        if (manifest != null) {
+            JsonNode validation = manifest.path("validation");
+            if (!"PASSED".equals(text(validation, "rehearsalStatus"))
+                    || StrUtil.isBlank(text(validation, "lastRehearsedAt"))) {
+                reasons.add("manifest 演练状态尚未原子标记为 PASSED");
+            }
+        }
         backupPoint.setUnrecoverableReasons(reasons);
         backupPoint.setRecoverabilityStatus(reasons.isEmpty() ? STATUS_RECOVERABLE : STATUS_UNRECOVERABLE);
         return backupPoint;
     }
 
-    private JsonNode readManifest(String backupId, String manifestPath, List<String> reasons) {
+    private JsonNode readManifest(String backupId, String manifestPath, Set<String> knownBackupIds,
+                                  List<String> reasons) {
         if (!backupRepository.isRegularFile(manifestPath)) {
             reasons.add("manifest.json 缺失");
             return null;
@@ -108,6 +129,17 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
             if (!"test".equals(targetEnvironment) || !"172.30.30.58".equals(targetHost)) {
                 reasons.add("manifest targetEnvironment/targetHost 缺少测试服证明，必须为 targetEnvironment=test 且 targetHost=172.30.30.58");
             }
+            if (!"test".equals(text(manifest, "repositoryEnvironment"))
+                    || !"172.30.30.58".equals(text(manifest, "repositoryHost"))) {
+                reasons.add("manifest repositoryEnvironment/repositoryHost 缺少测试备份仓库证明");
+            }
+            String sourceEnvironment = text(manifest, "sourceEnvironment");
+            String sourceHost = text(manifest, "sourceHost");
+            if (!("production".equals(sourceEnvironment) && "172.30.30.57".equals(sourceHost))
+                    && !("test".equals(sourceEnvironment) && "172.30.30.58".equals(sourceHost))) {
+                reasons.add("manifest sourceEnvironment/sourceHost 备份源证明无效");
+            }
+            validateChainIdentity(backupId, manifest, knownBackupIds, reasons);
             return manifest;
         } catch (ServiceException ex) {
             reasons.add("manifest.json 读取失败：" + ex.getMessage());
@@ -118,11 +150,44 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
         }
     }
 
+    private void validateChainIdentity(String backupId, JsonNode manifest, Set<String> knownBackupIds,
+                                       List<String> reasons) {
+        String backupKind = text(manifest, "backupKind");
+        String baseBackupId = text(manifest, "baseBackupId");
+        String parentBackupId = text(manifest, "parentBackupId");
+        String mysqlEvidenceSchema = text(manifest.path("mysqlEvidence"), "schemaVersion");
+        if ("FULL".equals(backupKind)) {
+            if (!backupId.equals(baseBackupId) || StrUtil.isNotBlank(parentBackupId)) {
+                reasons.add("FULL manifest baseBackupId/parentBackupId 链身份无效");
+            }
+            if (!"mysql-full-dump-v1".equals(mysqlEvidenceSchema)) {
+                reasons.add("FULL manifest MySQL 全量证据缺失或类型错误");
+            }
+            return;
+        }
+        if ("INCREMENTAL".equals(backupKind)) {
+            if (StrUtil.isBlank(baseBackupId) || !knownBackupIds.contains(baseBackupId)) {
+                reasons.add("INCREMENTAL manifest baseBackupId 缺失或基线不存在");
+            }
+            if (StrUtil.isBlank(parentBackupId) || !knownBackupIds.contains(parentBackupId)) {
+                reasons.add("INCREMENTAL manifest parentBackupId 缺失或父点不存在");
+            }
+            if (!"mysql-binlog-segment-v1".equals(mysqlEvidenceSchema)) {
+                reasons.add("INCREMENTAL manifest MySQL binlog 证据缺失或类型错误");
+            }
+            return;
+        }
+        reasons.add("manifest backupKind 必须为 FULL 或 INCREMENTAL");
+    }
+
     private void populateManifestSummary(RuntimeControlBackupPointRespVO backupPoint, JsonNode manifest) {
         if (manifest == null || manifest.isNull()) {
             return;
         }
         String deployImageTag = text(manifest.at("/deploy"), "imageTag");
+        backupPoint.setBackupKind(text(manifest, "backupKind"));
+        backupPoint.setBaseBackupId(text(manifest, "baseBackupId"));
+        backupPoint.setParentBackupId(StrUtil.emptyToNull(text(manifest, "parentBackupId")));
         backupPoint.setImageTag(StrUtil.blankToDefault(deployImageTag, text(manifest, "imageTag")));
         backupPoint.setCompletedAt(parseManifestCompletedAt(manifest));
         backupPoint.setBackupMode(text(manifest.at("/backupStrategy"), "mode"));
@@ -184,8 +249,20 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
             return;
         }
         try {
-            if (backupRepository.readText(checksumPath).isBlank()) {
+            String checksumText = backupRepository.readText(checksumPath);
+            if (checksumText.isBlank()) {
                 reasons.add("checksum 清单为空");
+                return;
+            }
+            boolean malformed = checksumText.lines().filter(line -> !line.isBlank()).anyMatch(line -> {
+                if (!line.matches("^[0-9a-fA-F]{64}  [^\\r\\n]+$")) {
+                    return true;
+                }
+                String relativePath = line.substring(66).replace('\\', '/');
+                return relativePath.startsWith("/") || relativePath.contains("../") || relativePath.equals("..");
+            });
+            if (malformed) {
+                reasons.add("checksum 清单格式或相对路径非法");
             }
         } catch (ServiceException ex) {
             reasons.add("checksum 清单读取失败：" + ex.getMessage());

@@ -656,7 +656,7 @@ function ConvertFrom-BackupOpsRemoteObjectMetadataJson {
         $items.Add([pscustomobject]@{
                 path = [string]$entry.key
                 etag = $etag
-                sha256 = $etag
+                sha256 = ''
                 size = [long]$entry.size
                 lastModified = [string]$entry.lastModified
                 status = 'active'
@@ -673,7 +673,8 @@ function Get-BackupOpsPreviousManifestObjects {
         [Parameter(Mandatory)]
         [string]$CurrentBackupId,
         [Parameter(Mandatory)]
-        [hashtable]$SshRequest
+        [hashtable]$SshRequest,
+        [switch]$Required
     )
 
     Import-BackupOpsSshDependency
@@ -685,25 +686,32 @@ function Get-BackupOpsPreviousManifestObjects {
         Command = $listCommand
         TimeoutSeconds = $listTimeoutSeconds
     })
-    foreach ($path in @($listResult.output -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
-        if ($path.TrimEnd('/').EndsWith("/$CurrentBackupId")) {
-            continue
+    $candidatePaths = @($listResult.output -split "`r?`n" | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_) -and -not $_.TrimEnd('/').EndsWith("/$CurrentBackupId")
+    })
+    if ($candidatePaths.Count -eq 0) {
+        if ($Required) {
+            throw (New-BackupOpsObjectException -Code 'INTBK-4001' -Message 'Object incremental backup requires a previous successful FULL or INCREMENTAL backup point.')
         }
-        $manifestPath = $path.TrimEnd('/') + '/manifest/manifest.json'
-        try {
-            $manifestText = (Invoke-BackupSshCommand -Request ($SshRequest + @{
-                Command = "cat {0}" -f (ConvertTo-BackupBashSingleQuotedString -Value $manifestPath)
-                TimeoutSeconds = $shortReadTimeoutSeconds
-            })).output
-            $manifest = $manifestText | ConvertFrom-Json
-            if ($manifest.PSObject.Properties['objects']) {
-                return @($manifest.objects)
-            }
-        } catch {
-            continue
-        }
+        return @()
     }
-    return @()
+    $manifestPath = ([string]$candidatePaths[0]).TrimEnd('/') + '/manifest/manifest.json'
+    try {
+        $manifestText = (Invoke-BackupSshCommand -Request ($SshRequest + @{
+            Command = "cat {0}" -f (ConvertTo-BackupBashSingleQuotedString -Value $manifestPath)
+            TimeoutSeconds = $shortReadTimeoutSeconds
+        })).output
+        $manifest = $manifestText | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw (New-BackupOpsObjectException -Code 'INTBK-4001' -Message "Object incremental latest parent manifest is unreadable: $manifestPath. $($_.Exception.Message)")
+    }
+    $manifestStatus = if ($manifest.PSObject.Properties['status']) { [string]$manifest.status } else { '' }
+    $manifestKind = if ($manifest.PSObject.Properties['backupKind']) { [string]$manifest.backupKind } else { '' }
+    if ($manifestStatus -ne 'success' -or $manifestKind -notin @('FULL', 'INCREMENTAL') -or
+        -not $manifest.PSObject.Properties['objects']) {
+        throw (New-BackupOpsObjectException -Code 'INTBK-4001' -Message "Object incremental latest parent manifest is not a valid chain point: $manifestPath.")
+    }
+    return @($manifest.objects)
 }
 
 function Merge-BackupOpsObjectInventory {
@@ -741,12 +749,17 @@ function Merge-BackupOpsObjectInventory {
         } elseif ([string]$previous.status -eq 'deleted') {
             $stats.addedCount++
             $changeType = 'added'
-        } elseif ([string]$previous.sha256 -eq [string]$current.sha256 -and [string]$previous.status -ne 'deleted') {
-            $stats.reusedCount++
-            $changeType = 'reused'
         } else {
-            $stats.modifiedCount++
-            $changeType = 'modified'
+            $previousIdentity = if ($previous.PSObject.Properties['etag'] -and -not [string]::IsNullOrWhiteSpace([string]$previous.etag)) { [string]$previous.etag } else { [string]$previous.repositoryKey }
+            $currentIdentity = if ($current.PSObject.Properties['etag'] -and -not [string]::IsNullOrWhiteSpace([string]$current.etag)) { [string]$current.etag } else { [string]$current.repositoryKey }
+            if ($previousIdentity -eq $currentIdentity -and [long]$previous.size -eq [long]$current.size -and [string]$previous.status -ne 'deleted') {
+                $stats.reusedCount++
+                $changeType = 'reused'
+                $current.sha256 = [string]$previous.sha256
+            } else {
+                $stats.modifiedCount++
+                $changeType = 'modified'
+            }
         }
         Add-Member -InputObject $current -MemberType NoteProperty -Name 'changeType' -Value $changeType -Force
         $objects.Add($current) | Out-Null
@@ -759,6 +772,7 @@ function Merge-BackupOpsObjectInventory {
         $stats.deletedCount++
         $objects.Add([pscustomobject]@{
                 path = [string]$previous.path
+                etag = if ($previous.PSObject.Properties['etag']) { [string]$previous.etag } else { '' }
                 sha256 = [string]$previous.sha256
                 size = if ($previous.PSObject.Properties['size']) { [long]$previous.size } else { 0 }
                 lastModified = if ($previous.PSObject.Properties['lastModified']) { [string]$previous.lastModified } else { '' }
@@ -787,6 +801,9 @@ function New-BackupOpsObjectCopyPlan {
         }
         $changeType = if ($item.PSObject.Properties['changeType']) { [string]$item.changeType } else { '' }
         if ($changeType -in @('added', 'modified')) {
+            if ([string]$item.repositoryKey -notmatch '^[A-Za-z0-9._-]+$' -or [string]$item.path -match "[`r`n`t]") {
+                throw (New-BackupOpsObjectException -Code 'INTBK-4001' -Message "Object copy plan contains an unsafe repository key or path: $($item.path).")
+            }
             $plan.Add([pscustomobject]@{
                     path = [string]$item.path
                     repositoryKey = [string]$item.repositoryKey
@@ -865,6 +882,10 @@ function Export-BackupObjectSnapshotToRemoteNas {
     $secretKey = Get-BackupObjectFieldValue -Request $Request -Name 'SecretKey'
     $clientImage = Get-BackupObjectFieldValue -Request $Request -Name 'ClientImage'
     $archiveImage = Get-BackupObjectFieldValue -Request $Request -Name 'ArchiveImage'
+    $backupKind = Get-BackupObjectFieldValue -Request $Request -Name 'BackupKind'
+    if ($backupKind -notin @('FULL', 'INCREMENTAL')) {
+        throw [System.ArgumentException]::new("INTBK-4001: BackupKind must be FULL or INCREMENTAL; actual=$backupKind.")
+    }
     if (-not $Request.ContainsKey('SshRequest') -or $null -eq $Request['SshRequest']) {
         throw [System.ArgumentException]::new("INTBK-4001: object request field 'SshRequest' cannot be empty.")
     }
@@ -883,7 +904,7 @@ function Export-BackupObjectSnapshotToRemoteNas {
     $remoteCopyPlanDir = $remotePath + ':/backup-point'
     $objectStoreVolumeArg = $objectStoreRoot + ':/object-store'
     $metadataCommand = 'set -eu; mc alias set src "$MC_ENDPOINT" "$MC_ACCESS_KEY" "$MC_SECRET_KEY" >/dev/null; mc ls --recursive --json src/' + $bucket
-    $copyCommand = 'set -eu; mc alias set src "$MC_ENDPOINT" "$MC_ACCESS_KEY" "$MC_SECRET_KEY" >/dev/null; mkdir -p /object-store; plan=/backup-point/' + $planFileName + '; if [ ! -s "$plan" ]; then exit 0; fi; while IFS= read -r line; do repo=$(printf ''%s'' "$line" | cut -f1); rel=$(printf ''%s'' "$line" | cut -f2-); [ -n "$repo" ] || continue; if [ -f "/object-store/$repo" ]; then continue; fi; mc cp "src/' + $bucket + '/$rel" "/object-store/$repo"; done < "$plan"'
+    $copyCommand = 'set -eu; mc alias set src "$MC_ENDPOINT" "$MC_ACCESS_KEY" "$MC_SECRET_KEY" >/dev/null; mkdir -p /object-store; plan=/backup-point/' + $planFileName + '; if [ ! -s "$plan" ]; then exit 0; fi; while IFS= read -r line; do repo=$(printf ''%s'' "$line" | cut -f1); rel=$(printf ''%s'' "$line" | cut -f2-); [ -n "$repo" ] || continue; incoming="/object-store/.incoming-$repo"; rm -f "$incoming"; mc cp "src/' + $bucket + '/$rel" "$incoming"; actual=$(sha256sum "$incoming" | cut -d '' '' -f1); if [ -f "/object-store/$actual" ]; then existing=$(sha256sum "/object-store/$actual" | cut -d '' '' -f1); [ "$existing" = "$actual" ]; rm -f "$incoming"; else mv "$incoming" "/object-store/$actual"; fi; printf ''%s\t%s\n'' "$repo" "$actual"; done < "$plan"'
     $command = "set -eu; mkdir -p {0}; mkdir -p {1}; docker run --rm --entrypoint /bin/sh -e MC_ENDPOINT={2} -e MC_ACCESS_KEY={3} -e MC_SECRET_KEY={4} {5} -c {6}; docker run --rm --entrypoint /bin/sh -e MC_ENDPOINT={2} -e MC_ACCESS_KEY={3} -e MC_SECRET_KEY={4} -v {7} -v {8} {5} -c {9}" -f `
         (ConvertTo-BackupBashSingleQuotedString -Value $remotePath),
         (ConvertTo-BackupBashSingleQuotedString -Value $objectStoreRoot),
@@ -930,7 +951,9 @@ function Export-BackupObjectSnapshotToRemoteNas {
         })
         [void][System.IO.Directory]::CreateDirectory($targetPath)
         $currentObjects = @(ConvertFrom-BackupOpsRemoteObjectMetadataJson -Output $metadataResult.output)
-        $previousObjects = @(Get-BackupOpsPreviousManifestObjects -BackupPointsRoot $backupPointsRoot -CurrentBackupId ((Split-Path $remoteBackupRoot -Leaf)) -SshRequest $sshRequest)
+        $previousObjects = if ($backupKind -eq 'FULL') { @() } else {
+            @(Get-BackupOpsPreviousManifestObjects -BackupPointsRoot $backupPointsRoot -CurrentBackupId ((Split-Path $remoteBackupRoot -Leaf)) -SshRequest $sshRequest -Required)
+        }
         $inventory = Merge-BackupOpsObjectInventory -CurrentObjects $currentObjects -PreviousObjects $previousObjects
         $copyPlan = @(New-BackupOpsObjectCopyPlan -Inventory $inventory)
         $markerPath = Write-BackupOpsObjectInventoryMarker -TargetPath $targetPath -Bucket $bucket -ObjectStoreRoot $objectStoreRoot -Inventory $inventory
@@ -941,11 +964,12 @@ function Export-BackupObjectSnapshotToRemoteNas {
                     (ConvertTo-BackupBashSingleQuotedString -Value $objectStoreRoot)
                 TimeoutSeconds = $shortSshTimeoutSeconds
             }) | Out-Null
+            $hashByRepositoryKey = @{}
             if ($copyPlan.Count -gt 0) {
                 $planLines = foreach ($item in $copyPlan) {
                     "{0}`t{1}" -f ([string]$item.repositoryKey), ([string]$item.path)
                 }
-                Write-BackupOpsUtf8LfFile -Path $localScriptPath -Lines $planLines
+                Write-BackupOpsUtf8LfFile -Path $localScriptPath -Lines @($planLines)
                 $copyScriptLines = @(
                     'set -eu',
                     'mc alias set src "$MC_ENDPOINT" "$MC_ACCESS_KEY" "$MC_SECRET_KEY" >/dev/null',
@@ -958,10 +982,18 @@ function Export-BackupObjectSnapshotToRemoteNas {
                     "  repo=`$(printf '%s' ""`$line"" | cut -f1)",
                     "  rel=`$(printf '%s' ""`$line"" | cut -f2-)",
                     '  [ -n "$repo" ] || continue',
-                    '  if [ -f "/object-store/$repo" ]; then',
-                    '    continue',
+                    '  incoming="/object-store/.incoming-$repo"',
+                    '  rm -f "$incoming"',
+                    ('  mc cp "src/' + $bucket + '/$rel" "$incoming"'),
+                    '  actual=$(sha256sum "$incoming" | cut -d '' '' -f1)',
+                    '  if [ -f "/object-store/$actual" ]; then',
+                    '    existing=$(sha256sum "/object-store/$actual" | cut -d '' '' -f1)',
+                    '    [ "$existing" = "$actual" ]',
+                    '    rm -f "$incoming"',
+                    '  else',
+                    '    mv "$incoming" "/object-store/$actual"',
                     '  fi',
-                    ('  mc cp "src/' + $bucket + '/$rel" "/object-store/$repo"'),
+                    '  printf ''%s\t%s\n'' "$repo" "$actual"',
                     'done < "$plan"'
                 )
                 Write-BackupOpsUtf8LfFile -Path $localCopyScriptPath -Lines $copyScriptLines
@@ -977,7 +1009,7 @@ function Export-BackupObjectSnapshotToRemoteNas {
                     Recursive = $false
                     TimeoutSeconds = $metadataUploadTimeoutSeconds
                 }) | Out-Null
-                Invoke-BackupSshCommand -Request ($sshRequest + @{
+                $copyResult = Invoke-BackupSshCommand -Request ($sshRequest + @{
                     Command = "docker run --rm --entrypoint /bin/sh -e MC_ENDPOINT={0} -e MC_ACCESS_KEY={1} -e MC_SECRET_KEY={2} -v {3} -v {4} {5} /backup-point/{6}" -f `
                         (ConvertTo-BackupBashSingleQuotedString -Value $endpoint),
                         (ConvertTo-BackupBashSingleQuotedString -Value $accessKey),
@@ -987,8 +1019,44 @@ function Export-BackupObjectSnapshotToRemoteNas {
                         (ConvertTo-BackupBashSingleQuotedString -Value $clientImage),
                         (ConvertTo-BackupBashSingleQuotedString -Value $copyScriptFileName)
                     TimeoutSeconds = $objectCopyTimeoutSeconds
-                }) | Out-Null
+                })
+                foreach ($line in @($copyResult.output -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+                    $parts = $line -split ([char]9), 2
+                    if ($parts.Count -eq 2 -and $parts[1] -match '^[0-9a-fA-F]{64}$') {
+                        $hashByRepositoryKey[[string]$parts[0]] = ([string]$parts[1]).ToLowerInvariant()
+                    }
+                }
             }
+            foreach ($item in @($inventory.objects | Where-Object { $_ -and [string]$_.status -ne 'deleted' })) {
+                $repositoryKey = [string]$item.repositoryKey
+                if ($hashByRepositoryKey.ContainsKey($repositoryKey)) {
+                    $item.sha256 = [string]$hashByRepositoryKey[$repositoryKey]
+                    $item.repositoryKey = [string]$hashByRepositoryKey[$repositoryKey]
+                }
+                if ([string]$item.sha256 -notmatch '^[0-9a-f]{64}$') {
+                    throw (New-BackupOpsObjectException -Code 'INTBK-4001' -Message (New-BackupOpsOperatorBlockedMessage -Reason "对象仓库缺少真实 SHA-256：$($item.path)" -Action '请重新执行对象复制和 hash 校验后再生成备份 manifest。'))
+                }
+            }
+            $validationLines = foreach ($item in @($inventory.objects | Where-Object { $_ -and [string]$_.status -ne 'deleted' })) {
+                "{0}`t{1}" -f ([string]$item.repositoryKey), ([string]$item.sha256)
+            }
+            Write-BackupOpsUtf8LfFile -Path $localScriptPath -Lines @($validationLines)
+            Send-BackupFileOverSsh -Request ($sshRequest + @{
+                LocalPath = $localScriptPath
+                RemotePath = $remoteCopyPlanPath
+                Recursive = $false
+                TimeoutSeconds = $metadataUploadTimeoutSeconds
+            }) | Out-Null
+            $validationCommand = 'set -eu; while IFS= read -r line; do repo=$(printf ''%s'' "$line" | cut -f1); expected=$(printf ''%s'' "$line" | cut -f2); [ -n "$repo" ] || continue; actual=$(sha256sum "/object-store/$repo" | cut -d '' '' -f1); [ "$actual" = "$expected" ]; done < /backup-point/' + $planFileName
+            Invoke-BackupSshCommand -Request ($sshRequest + @{
+                Command = "docker run --rm --entrypoint /bin/sh -v {0} -v {1} {2} -c {3}" -f `
+                    (ConvertTo-BackupBashSingleQuotedString -Value $remoteCopyPlanDir), `
+                    (ConvertTo-BackupBashSingleQuotedString -Value ($objectStoreRoot + ':/object-store:ro')), `
+                    (ConvertTo-BackupBashSingleQuotedString -Value $clientImage), `
+                    (ConvertTo-BackupBashSingleQuotedString -Value $validationCommand)
+                TimeoutSeconds = $objectCopyTimeoutSeconds
+            }) | Out-Null
+            $markerPath = Write-BackupOpsObjectInventoryMarker -TargetPath $targetPath -Bucket $bucket -ObjectStoreRoot $objectStoreRoot -Inventory $inventory
         } finally {
             Remove-Item -LiteralPath $localScriptPath -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $localCopyScriptPath -Force -ErrorAction SilentlyContinue
@@ -1096,6 +1164,7 @@ function Import-BackupObjectInventoryFromRemoteNas {
     param(
         [Parameter(Mandatory)]
         [hashtable]$Request,
+        [switch]$IntegrityOnly,
         [switch]$PlanOnly
     )
 
@@ -1133,7 +1202,11 @@ function Import-BackupObjectInventoryFromRemoteNas {
     $localPlanPath = Join-Path ([System.IO.Path]::GetTempPath()) ('backup-ops-restore-plan-' + [System.Guid]::NewGuid().ToString('N') + '.tsv')
     try {
         $planLines = foreach ($item in @($inventory.objects | Where-Object { $_ -and [string]$_.status -ne 'deleted' })) {
-            "{0}`t{1}" -f ([string]$item.repositoryKey), ([string]$item.path)
+            $expectedSha256 = ([string]$item.sha256).ToLowerInvariant()
+            if ($expectedSha256 -notmatch '^[0-9a-f]{64}$') {
+                throw (New-BackupOpsObjectException -Code 'INTBK-4002' -Message (New-BackupOpsOperatorBlockedMessage -Reason "对象清单 SHA-256 非法：$($item.path)" -Action '请重新生成包含真实 SHA-256 的对象清单后再恢复。'))
+            }
+            "{0}`t{1}`t{2}" -f ([string]$item.repositoryKey), $expectedSha256, ([string]$item.path)
         }
         Write-BackupOpsUtf8LfFile -Path $localPlanPath -Lines $planLines
         $remotePlanPath = ($remoteTempRoot.TrimEnd('/')) + '/restore-object-plan.tsv'
@@ -1141,7 +1214,11 @@ function Import-BackupObjectInventoryFromRemoteNas {
         $planVolumeArg = ($remoteTempRoot.TrimEnd('/')) + ':/restore-plan'
         $restoreVolumeArg = $remoteRestoreRoot + ':/restore'
         $objectStoreVolumeArg = $objectStoreRoot + ':/object-store:ro'
-        $restoreCommand = 'set -eu; rm -rf /restore/' + $bucket + '; mkdir -p /restore/' + $bucket + '; while IFS= read -r line; do sha=$(printf ''%s'' "$line" | cut -f1); rel=$(printf ''%s'' "$line" | cut -f2-); [ -n "$sha" ] || continue; dest="/restore/' + $bucket + '/$rel"; mkdir -p "$(dirname "$dest")"; cp "/object-store/$sha" "$dest"; done < /restore-plan/restore-object-plan.tsv; mc alias set dst "$MC_ENDPOINT" "$MC_ACCESS_KEY" "$MC_SECRET_KEY" && mc mb --ignore-existing dst/' + $bucket + ' && mc mirror --overwrite --remove /restore/' + $bucket + ' dst/' + $bucket + ' && rm -rf /restore/' + $bucket
+        $restoreCommand = if ($IntegrityOnly) {
+            'set -eu; while IFS= read -r line; do repo=$(printf ''%s'' "$line" | cut -f1); expected=$(printf ''%s'' "$line" | cut -f2); [ -n "$repo" ] || continue; actual=$(sha256sum "/object-store/$repo" | cut -d '' '' -f1); [ "$actual" = "$expected" ]; done < /restore-plan/restore-object-plan.tsv'
+        } else {
+            'set -eu; rm -rf /restore/' + $bucket + '; mkdir -p /restore/' + $bucket + '; while IFS= read -r line; do repo=$(printf ''%s'' "$line" | cut -f1); expected=$(printf ''%s'' "$line" | cut -f2); rel=$(printf ''%s'' "$line" | cut -f3-); [ -n "$repo" ] || continue; actual=$(sha256sum "/object-store/$repo" | cut -d '' '' -f1); [ "$actual" = "$expected" ]; dest="/restore/' + $bucket + '/$rel"; mkdir -p "$(dirname "$dest")"; cp "/object-store/$repo" "$dest"; done < /restore-plan/restore-object-plan.tsv; mc alias set dst "$MC_ENDPOINT" "$MC_ACCESS_KEY" "$MC_SECRET_KEY" && mc mb --ignore-existing dst/' + $bucket + ' && mc mirror --overwrite --remove /restore/' + $bucket + ' dst/' + $bucket + ' && rm -rf /restore/' + $bucket
+        }
         $command = "set -eu; mkdir -p {0}; mkdir -p {1}; test -s {2}; docker run --rm --entrypoint /bin/sh -e MC_ENDPOINT={3} -e MC_ACCESS_KEY={4} -e MC_SECRET_KEY={5} -v {6} -v {7} -v {8} {9} -c {10}" -f `
             (ConvertTo-BackupBashSingleQuotedString -Value $remoteTempRoot),
             (ConvertTo-BackupBashSingleQuotedString -Value $remoteRestoreRoot),
@@ -1156,7 +1233,7 @@ function Import-BackupObjectInventoryFromRemoteNas {
             (ConvertTo-BackupBashSingleQuotedString -Value $restoreCommand)
 
         $plan = [pscustomobject]@{
-            operation = 'object-restore-incremental-manifest'
+            operation = if ($IntegrityOnly) { 'object-restore-integrity-check' } else { 'object-restore-incremental-manifest' }
             status = 'planned'
             code = 'INTBK-0000'
             bucket = $bucket
@@ -1261,6 +1338,9 @@ function Backup-BackupOpsObjectBucket {
         [Parameter(Mandatory = $true)]
         [object]$Workspace,
         [Parameter(Mandatory = $true)]
+        [ValidateSet('FULL', 'INCREMENTAL')]
+        [string]$BackupKind,
+        [Parameter(Mandatory = $true)]
         [object]$LogSession
     )
 
@@ -1275,7 +1355,7 @@ function Backup-BackupOpsObjectBucket {
     $creds = Get-BackupOpsMinioCredentials -Config $Config -Environment $sourceEnvironment -Code 'INTBK-4001'
 
     $targetPath = $Workspace.ObjectsPath
-    $remoteObjectRoot = ($backupPointsRoot.TrimEnd('/')) + "/$($Workspace.BackupId)/objects"
+    $remoteObjectRoot = ($backupPointsRoot.TrimEnd('/')) + "/$($Workspace.BackupId).creating/objects"
     Write-BackupOpsLog -Session $LogSession -Message "Exporting object bucket $bucket from $sourceEnvironment directly to NAS path $remoteObjectRoot; remote command validates bucket access before mirroring."
     return Export-BackupObjectSnapshotToRemoteNas -Request @{
         Bucket = $bucket
@@ -1288,6 +1368,7 @@ function Backup-BackupOpsObjectBucket {
         SecretKey = $creds.SecretKey
         ClientImage = $clientImage
         ArchiveImage = $archiveImage
+        BackupKind = $BackupKind
         SshRequest = $testSshRequest
         EnvironmentLabel = $sourceLabel
     }
@@ -1347,4 +1428,30 @@ function Restore-BackupOpsObjectBucket {
     }
 }
 
-Export-ModuleMember -Function New-BackupObjectSyncPlan, Test-BackupObjectAccess, Export-BackupObjectSnapshot, Export-BackupObjectSnapshotToRemoteNas, Import-BackupObjectSnapshot, Import-BackupObjectInventoryFromRemoteNas, Merge-BackupOpsObjectInventory, New-BackupOpsObjectCopyPlan, Backup-BackupOpsObjectBucket, Restore-BackupOpsObjectBucket
+function Test-BackupOpsObjectBucketIntegrity {
+    param(
+        [Parameter(Mandatory = $true)][object]$Config,
+        [Parameter(Mandatory = $true)][string]$BackupId,
+        [Parameter(Mandatory = $true)][object]$LogSession
+    )
+
+    $bucket = [string](Get-BackupOpsRequiredObjectConfigValue -Config $Config -Path @('backup', 'objectBucket') -Code 'INTBK-4002' -Reason '缺少对象桶配置。' -Action '请补齐 backup.objectBucket。')
+    $backupPointsRoot = [string](Get-BackupOpsRequiredObjectConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -Code 'INTBK-4002' -Reason '缺少备份仓库根目录。' -Action '请补齐 servers.test.backupPointsRoot。')
+    $sshRequest = Get-BackupOpsObjectSshRequest -Config $Config -Environment 'test' -Code 'INTBK-4002' -Reason '缺少测试服务器 SSH 配置。' -Action '请补齐测试服务器 SSH 接线。'
+    $creds = Get-BackupOpsMinioCredentials -Config $Config -Environment 'production' -Code 'INTBK-4002'
+    $result = Import-BackupObjectInventoryFromRemoteNas -IntegrityOnly -Request @{
+        Bucket = $bucket
+        RemoteInventoryPath = "$($backupPointsRoot.TrimEnd('/'))/$BackupId/objects/manifest-object-inventory.json"
+        Endpoint = "http://$($Config.servers.production.host):9000"
+        AccessKey = $creds.AccessKey
+        SecretKey = $creds.SecretKey
+        ClientImage = (Get-BackupOpsMinioClientImage -Config $Config -Code 'INTBK-4002')
+        SshRequest = $sshRequest
+        RemoteTempRoot = "$($backupPointsRoot.TrimEnd('/'))/.restore-stage/$BackupId/preflight"
+        EnvironmentLabel = '测试演练'
+    }
+    Write-BackupOpsLog -Session $LogSession -Message "Verified object payload inventory for $BackupId before rehearsal reset."
+    return $result
+}
+
+Export-ModuleMember -Function New-BackupObjectSyncPlan, Test-BackupObjectAccess, Export-BackupObjectSnapshot, Export-BackupObjectSnapshotToRemoteNas, Import-BackupObjectSnapshot, Import-BackupObjectInventoryFromRemoteNas, Merge-BackupOpsObjectInventory, New-BackupOpsObjectCopyPlan, Backup-BackupOpsObjectBucket, Test-BackupOpsObjectBucketIntegrity, Restore-BackupOpsObjectBucket

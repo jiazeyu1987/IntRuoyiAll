@@ -20,14 +20,17 @@ def test_system_backup_plan_menu_sql_declares_simple_page_and_permissions() -> N
         "备份计划",
         "保存备份计划",
         "立即备份一次",
+        "导出备份审查证据",
         "system/backup-plan/index",
         "SystemBackupPlan",
         "system:backup-plan:query",
         "system:backup-plan:update",
         "system:backup-plan:execute",
+        "system:backup-plan:evidence-export",
         "901100",
         "901101",
         "901102",
+        "901103",
         "system_tenant_package",
         "JSON_VALID(`package`.`menu_ids`)",
         "JSON_CONTAINS(`package`.`menu_ids`, CAST('1' AS JSON), '$')",
@@ -43,5 +46,5 @@ def test_system_backup_plan_menu_sql_declares_simple_page_and_permissions() -> N
 def test_system_backup_plan_menu_sql_does_not_reuse_old_low_menu_ids() -> None:
     text = MIGRATION.read_text(encoding="utf-8")
 
-    for forbidden_id in ("5900", "5901", "5902", "5903"):
+    for forbidden_id in ("5900", "5901", "5902", "5903", "5904"):
         assert forbidden_id not in text

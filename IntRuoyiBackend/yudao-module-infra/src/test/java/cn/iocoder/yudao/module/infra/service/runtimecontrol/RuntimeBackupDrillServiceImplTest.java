@@ -63,7 +63,7 @@ class RuntimeBackupDrillServiceImplTest {
         when(nasBrowserService.readFile(any(), eq("Backup/20260526-010203/manifest/manifest.json")))
                 .thenReturn(textFile("manifest.json", "{\"backupId\":\"20260526-010203\"}"));
         when(nasBrowserService.readFile(any(), eq("Backup/20260526-010203/manifest/checksums.txt")))
-                .thenReturn(textFile("checksums.txt", "sha256  manifest.json"));
+                .thenReturn(textFile("checksums.txt", "a".repeat(64) + "  deploy/runtime.env"));
         when(nasBrowserService.readFile(any(), eq("Backup/20260526-010203/manifest/rehearsal-report.json")))
                 .thenReturn(textFile("rehearsal-report.json", "{\"status\":\"PASSED\",\"verifiedAt\":\"2026-05-26T01:02:03\"}"));
 
@@ -91,6 +91,9 @@ class RuntimeBackupDrillServiceImplTest {
         assertEquals("20260526_010203", backupPoint.getImageTag());
         assertEquals(LocalDateTime.of(2026, 5, 26, 1, 2, 3), backupPoint.getCompletedAt());
         assertEquals("incremental-manifest", backupPoint.getBackupMode());
+        assertEquals("FULL", backupPoint.getBackupKind());
+        assertEquals("20260526-010203", backupPoint.getBaseBackupId());
+        assertNull(backupPoint.getParentBackupId());
         assertEquals(5, backupPoint.getRetentionKeepLast());
         assertEquals(30, backupPoint.getRetentionKeepDays());
         assertEquals(90, backupPoint.getRetentionMaxNasUsedPercent());
@@ -120,17 +123,18 @@ class RuntimeBackupDrillServiceImplTest {
         RuntimeControlBackupPointRespVO backupPoint = backupDrillService.listBackupPoints().get(0);
 
         assertNull(backupPoint.getCompletedAt());
-        assertEquals("RECOVERABLE", backupPoint.getRecoverabilityStatus());
+        assertEquals("UNRECOVERABLE", backupPoint.getRecoverabilityStatus());
+        assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("completedAt")));
     }
 
     @Test
-    void listBackupPointsShouldNotRequireRehearsalEvidenceForRecoverability() throws Exception {
+    void listBackupPointsShouldRequirePassedRehearsalEvidenceForRecoverability() throws Exception {
         createBackupPoint("20260526-010203", true, true, false, false, false);
 
         RuntimeControlBackupPointRespVO backupPoint = backupDrillService.listBackupPoints().get(0);
 
-        assertEquals("RECOVERABLE", backupPoint.getRecoverabilityStatus());
-        assertTrue(backupPoint.getUnrecoverableReasons().isEmpty());
+        assertEquals("UNRECOVERABLE", backupPoint.getRecoverabilityStatus());
+        assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("恢复演练")));
     }
 
     @Test
@@ -144,7 +148,7 @@ class RuntimeBackupDrillServiceImplTest {
         assertEquals("UNRECOVERABLE", backupPoint.getRecoverabilityStatus());
         assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("manifest")));
         assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("checksum")));
-        assertFalse(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("演练")));
+        assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("演练")));
         assertFalse(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("现场快照")));
     }
 
@@ -173,6 +177,51 @@ class RuntimeBackupDrillServiceImplTest {
         assertTrue(exception.getMessage().contains("备份点"));
     }
 
+    @Test
+    void listBackupPointsShouldBlockIncrementalWhenParentIsMissing() throws Exception {
+        createBackupPoint("20260526-010203", true, true, true, true, true);
+        Path manifestPath = backupPointsRoot.resolve("20260526-010203").resolve("manifest").resolve("manifest.json");
+        Files.writeString(manifestPath, """
+                {"backupId":"20260526-010203","backupKind":"INCREMENTAL","baseBackupId":"20260525-010000",\
+                "parentBackupId":"20260526-000000","repositoryEnvironment":"test","repositoryHost":"172.30.30.58",\
+                "sourceEnvironment":"production","sourceHost":"172.30.30.57",\
+                "mysqlEvidence":{"schemaVersion":"mysql-binlog-segment-v1"},\
+                "time":{"completedAt":"2026-05-26T01:02:03"},"deploy":{"imageTag":"20260526_010203"},\
+                "backupStrategy":{"mode":"incremental-manifest"}}
+                """, StandardCharsets.UTF_8);
+
+        RuntimeControlBackupPointRespVO backupPoint = backupDrillService.listBackupPoints().get(0);
+
+        assertEquals("UNRECOVERABLE", backupPoint.getRecoverabilityStatus());
+        assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("parentBackupId")));
+    }
+
+    @Test
+    void listBackupPointsShouldNotTrustPassedReportWithoutAtomicManifestState() throws Exception {
+        createBackupPoint("20260526-010203", true, true, true, true, true);
+        Path manifestPath = backupPointsRoot.resolve("20260526-010203").resolve("manifest").resolve("manifest.json");
+        String manifest = Files.readString(manifestPath, StandardCharsets.UTF_8)
+                .replace("\"rehearsalStatus\":\"PASSED\"", "\"rehearsalStatus\":\"unverified\"");
+        Files.writeString(manifestPath, manifest, StandardCharsets.UTF_8);
+
+        RuntimeControlBackupPointRespVO backupPoint = backupDrillService.listBackupPoints().get(0);
+
+        assertEquals("UNRECOVERABLE", backupPoint.getRecoverabilityStatus());
+        assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("manifest 演练状态")));
+    }
+
+    @Test
+    void listBackupPointsShouldRejectMalformedChecksumInventory() throws Exception {
+        createBackupPoint("20260526-010203", true, true, true, true, true);
+        Files.writeString(backupPointsRoot.resolve("20260526-010203").resolve("manifest").resolve("checksums.txt"),
+                "not-a-sha  deploy/runtime.env", StandardCharsets.UTF_8);
+
+        RuntimeControlBackupPointRespVO backupPoint = backupDrillService.listBackupPoints().get(0);
+
+        assertEquals("UNRECOVERABLE", backupPoint.getRecoverabilityStatus());
+        assertTrue(backupPoint.getUnrecoverableReasons().stream().anyMatch(reason -> reason.contains("checksum 清单格式")));
+    }
+
     private void createBackupPoint(String backupId, boolean manifest, boolean checksum,
                                    boolean rehearsal, boolean snapshot, boolean rehearsalPassed) throws Exception {
         Path root = backupPointsRoot.resolve(backupId);
@@ -180,8 +229,12 @@ class RuntimeBackupDrillServiceImplTest {
         if (manifest) {
             Files.writeString(root.resolve("manifest").resolve("manifest.json"),
                     """
-                            {"backupId":"%s","targetEnvironment":"test","targetHost":"172.30.30.58","time":{"completedAt":"2026-05-26T01:02:03"},"deploy":{"imageTag":"20260526_010203"},"backupStrategy":{"mode":"incremental-manifest"},"retentionPolicy":{"keepLast":5,"keepDays":30,"maxNasUsedPercent":90},"objectDeltaStats":{"addedCount":1,"modifiedCount":2,"deletedCount":3,"reusedCount":4}}
-                            """.formatted(backupId), StandardCharsets.UTF_8);
+                            {"backupId":"%s","backupKind":"FULL","baseBackupId":"%s","parentBackupId":null,
+                             "targetEnvironment":"test","targetHost":"172.30.30.58","repositoryEnvironment":"test","repositoryHost":"172.30.30.58",
+                             "sourceEnvironment":"production","sourceHost":"172.30.30.57","mysqlEvidence":{"schemaVersion":"mysql-full-dump-v1"},
+                             "validation":{"rehearsalStatus":"%s","lastRehearsedAt":"2026-05-26T01:02:03"},
+                             "time":{"completedAt":"2026-05-26T01:02:03"},"deploy":{"imageTag":"20260526_010203"},"backupStrategy":{"mode":"incremental-manifest"},"retentionPolicy":{"keepLast":5,"keepDays":30,"maxNasUsedPercent":90},"objectDeltaStats":{"addedCount":1,"modifiedCount":2,"deletedCount":3,"reusedCount":4}}
+                            """.formatted(backupId, backupId, rehearsalPassed ? "PASSED" : "unverified"), StandardCharsets.UTF_8);
             Files.writeString(root.resolve("manifest").resolve("dcc-backup-manifest.json"),
                     """
                             {"schemaVersion":"dcc-backup-manifest-v1","backupId":"%s","targetEnvironment":"test","backupMode":"incremental","chainStatus":"COMPLETE","changeSummary":{"addedRecords":1,"changedRecords":2,"deletedRecords":3,"invalidatedRecords":4,"addedObjects":5,"changedObjects":6,"reusedObjects":7,"tombstoneObjects":8}}
@@ -189,7 +242,7 @@ class RuntimeBackupDrillServiceImplTest {
         }
         if (checksum) {
             Files.writeString(root.resolve("manifest").resolve("checksums.txt"),
-                    "sha256  manifest.json", StandardCharsets.UTF_8);
+                    "a".repeat(64) + "  deploy/runtime.env", StandardCharsets.UTF_8);
         }
         if (rehearsal) {
             Files.writeString(root.resolve("manifest").resolve("rehearsal-report.json"),

@@ -1,17 +1,21 @@
 import request from '@/config/axios'
 
-export type BackupPlanFrequency = 'DAILY' | 'WEEKLY'
 export type BackupPlanWeekday = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN'
+export type BackupKind = 'FULL' | 'INCREMENTAL'
 export type BackupPlanHealthStatus = '正常' | '已关闭' | '上次失败' | '配置异常'
 
 export interface BackupPlanScheduleReqVO {
-  frequency: BackupPlanFrequency
-  time: string
-  weekday?: BackupPlanWeekday
+  fullSchedule: string
+  incrementalSchedule: string
+  retentionSource: string
+  qualityApprovalRef: string
 }
 
 export interface BackupPlanBackupPointVO {
   backupId: string
+  backupKind?: 'FULL' | 'INCREMENTAL'
+  baseBackupId?: string
+  parentBackupId?: string
   manifestPath?: string
   checksumPath?: string
   rehearsalReportPath?: string
@@ -38,9 +42,10 @@ export interface BackupPlanBackupPointVO {
 export interface BackupPlanStatusVO {
   planStatus: '已开启' | '已关闭' | string
   healthStatus: BackupPlanHealthStatus | string
-  frequency: BackupPlanFrequency
-  time: string
-  weekday?: BackupPlanWeekday
+  fullSchedule: string
+  incrementalSchedule: string
+  retentionSource?: string
+  qualityApprovalRef?: string
   repositoryEnvironment?: 'test' | 'backup' | string
   maxFreshnessHours?: number
   nextRunTime?: string
@@ -72,8 +77,18 @@ export const disableBackupPlan = () => {
   return request.post<BackupPlanStatusVO>({ url: '/infra/backup-plan/disable' })
 }
 
-export const backupNow = () => {
-  return request.post<BackupPlanOperationVO>({ url: '/infra/backup-plan/backup-now' })
+export const backupNow = (backupKind: BackupKind) => {
+  return request.post<BackupPlanOperationVO>({
+    url: '/infra/backup-plan/backup-now',
+    params: { backupKind }
+  })
+}
+
+export const downloadBackupEvidence = () => {
+  return request.download<Blob>({
+    url: '/infra/backup-plan/evidence/export',
+    responseType: 'blob'
+  })
 }
 
 export const getBackupPlanHistoryPage = (params: PageParam) => {

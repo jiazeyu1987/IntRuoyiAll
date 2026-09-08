@@ -17,7 +17,7 @@ public interface BackupPlanService {
 
     BackupPlanStatusRespVO disable();
 
-    RuntimeControlOperationRespVO backupNow(Long loginUserId);
+    RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind);
 
     PageResult<RuntimeControlBackupPointRespVO> getHistoryPage(BackupPlanHistoryPageReqVO pageReqVO);
 }

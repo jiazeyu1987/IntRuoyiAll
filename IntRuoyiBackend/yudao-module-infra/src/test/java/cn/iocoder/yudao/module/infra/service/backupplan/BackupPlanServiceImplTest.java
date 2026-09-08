@@ -44,10 +44,11 @@ class BackupPlanServiceImplTest {
         writeBackupConfig("""
                 {
                   "backup": {
-                    "frequency": "DAILY",
-                    "schedule": "01:30",
-                    "weekday": "MON",
-                    "repositoryEnvironment": "backup",
+                    "fullSchedule": "SUN 01:00",
+                    "incrementalSchedule": "02:00",
+                    "repositoryEnvironment": "test",
+                    "retentionSource": "质量批准的记录保存期限矩阵 QA-RET-2026-01",
+                    "qualityApprovalRef": "QA-SIGN-20260907",
                     "maxFreshnessHours": 48,
                     "keepDaysRemote": 30,
                     "keepDaysLocal": 3
@@ -75,9 +76,11 @@ class BackupPlanServiceImplTest {
 
         BackupPlanStatusRespVO status = service.getStatus();
 
-        assertEquals("DAILY", status.getFrequency());
-        assertEquals("01:30", status.getTime());
-        assertEquals("backup", status.getRepositoryEnvironment());
+        assertEquals("SUN 01:00", status.getFullSchedule());
+        assertEquals("02:00", status.getIncrementalSchedule());
+        assertEquals("test", status.getRepositoryEnvironment());
+        assertEquals("质量批准的记录保存期限矩阵 QA-RET-2026-01", status.getRetentionSource());
+        assertEquals("QA-SIGN-20260907", status.getQualityApprovalRef());
         assertEquals(48, status.getMaxFreshnessHours());
         assertEquals("已开启", status.getPlanStatus());
         assertEquals("正常", status.getHealthStatus());
@@ -87,37 +90,40 @@ class BackupPlanServiceImplTest {
     }
 
     @Test
-    void saveDailyScheduleShouldWriteConfigAndRegisterRealTask() throws Exception {
+    void saveSchedulesShouldWriteConfigAndRegisterRealTasks() throws Exception {
         BackupPlanScheduleSaveReqVO reqVO = new BackupPlanScheduleSaveReqVO();
-        reqVO.setFrequency("DAILY");
-        reqVO.setTime("02:15");
+        reqVO.setFullSchedule("SAT 02:15");
+        reqVO.setIncrementalSchedule("03:05");
+        reqVO.setRetentionSource("质量批准的记录保存期限矩阵 QA-RET-2026-02");
+        reqVO.setQualityApprovalRef("QA-SIGN-20260908");
 
         BackupPlanStatusRespVO status = service.saveSchedule(reqVO);
 
         String config = Files.readString(configPath(), StandardCharsets.UTF_8);
-        assertTrue(config.contains("\"frequency\" : \"DAILY\""));
-        assertTrue(config.contains("\"schedule\" : \"02:15\""));
-        assertEquals("DAILY", schedulerGateway.registeredSchedule.getFrequency());
-        assertEquals("02:15", schedulerGateway.registeredSchedule.getTime());
-        assertEquals("backup", schedulerGateway.registeredSchedule.getRepositoryEnvironment());
-        assertEquals("02:15", status.getTime());
+        assertTrue(config.contains("\"fullSchedule\" : \"SAT 02:15\""));
+        assertTrue(config.contains("\"incrementalSchedule\" : \"03:05\""));
+        assertTrue(config.contains("\"retentionSource\" : \"质量批准的记录保存期限矩阵 QA-RET-2026-02\""));
+        assertTrue(config.contains("\"qualityApprovalRef\" : \"QA-SIGN-20260908\""));
+        assertEquals("SAT 02:15", schedulerGateway.registeredSchedule.getFullSchedule());
+        assertEquals("03:05", schedulerGateway.registeredSchedule.getIncrementalSchedule());
+        assertEquals("质量批准的记录保存期限矩阵 QA-RET-2026-02", schedulerGateway.registeredSchedule.getRetentionSource());
+        assertEquals("QA-SIGN-20260908", schedulerGateway.registeredSchedule.getQualityApprovalRef());
+        assertEquals("test", schedulerGateway.registeredSchedule.getRepositoryEnvironment());
+        assertEquals("03:05", status.getIncrementalSchedule());
     }
 
     @Test
-    void saveWeeklyScheduleShouldRequireWeekdayAndRegisterWeeklyTask() throws Exception {
+    void saveScheduleShouldNormalizeFullWeekday() throws Exception {
         BackupPlanScheduleSaveReqVO reqVO = new BackupPlanScheduleSaveReqVO();
-        reqVO.setFrequency("WEEKLY");
-        reqVO.setTime("03:05");
-        reqVO.setWeekday("SUN");
+        reqVO.setFullSchedule("sun 03:05");
+        reqVO.setIncrementalSchedule("04:10");
 
         service.saveSchedule(reqVO);
 
         String config = Files.readString(configPath(), StandardCharsets.UTF_8);
-        assertTrue(config.contains("\"frequency\" : \"WEEKLY\""));
-        assertTrue(config.contains("\"weekday\" : \"SUN\""));
-        assertEquals("WEEKLY", schedulerGateway.registeredSchedule.getFrequency());
-        assertEquals("SUN", schedulerGateway.registeredSchedule.getWeekday());
-        assertEquals("backup", schedulerGateway.registeredSchedule.getRepositoryEnvironment());
+        assertTrue(config.contains("\"fullSchedule\" : \"SUN 03:05\""));
+        assertEquals("SUN 03:05", schedulerGateway.registeredSchedule.getFullSchedule());
+        assertEquals("test", schedulerGateway.registeredSchedule.getRepositoryEnvironment());
     }
 
     @Test
@@ -125,9 +131,8 @@ class BackupPlanServiceImplTest {
         writeBackupConfig("""
                 {
                   "backup": {
-                    "frequency": "DAILY",
-                    "schedule": "01:30",
-                    "weekday": "MON",
+                    "fullSchedule": "SUN 01:00",
+                    "incrementalSchedule": "02:00",
                     "maxFreshnessHours": 48
                   }
                 }
@@ -143,9 +148,8 @@ class BackupPlanServiceImplTest {
         writeBackupConfig("""
                 {
                   "backup": {
-                    "frequency": "DAILY",
-                    "schedule": "01:30",
-                    "weekday": "MON",
+                    "fullSchedule": "SUN 01:00",
+                    "incrementalSchedule": "02:00",
                     "maxFreshnessHours": 48
                   }
                 }
@@ -165,10 +169,9 @@ class BackupPlanServiceImplTest {
         writeBackupConfig("""
                 {
                   "backup": {
-                    "frequency": "DAILY",
-                    "schedule": "01:30",
-                    "weekday": "MON",
-                    "repositoryEnvironment": "backup"
+                    "fullSchedule": "SUN 01:00",
+                    "incrementalSchedule": "02:00",
+                    "repositoryEnvironment": "test"
                   }
                 }
                 """);
@@ -183,6 +186,49 @@ class BackupPlanServiceImplTest {
 
         assertEquals("配置异常", status.getHealthStatus());
         assertTrue(status.getBlockedReason().contains("backup.maxFreshnessHours"));
+    }
+
+    @Test
+    void enableShouldFailFastWhenRetentionApprovalIsMissing() throws Exception {
+        writeBackupConfig("""
+                {
+                  "backup": {
+                    "fullSchedule": "SUN 01:00",
+                    "incrementalSchedule": "02:00",
+                    "repositoryEnvironment": "test",
+                    "maxFreshnessHours": 48
+                  }
+                }
+                """);
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.enable());
+
+        assertTrue(exception.getMessage().contains("backup.retentionSource"));
+    }
+
+    @Test
+    void getStatusShouldExposeBlockedWhenRetentionApprovalIsMissing() throws Exception {
+        writeBackupConfig("""
+                {
+                  "backup": {
+                    "fullSchedule": "SUN 01:00",
+                    "incrementalSchedule": "02:00",
+                    "repositoryEnvironment": "test",
+                    "maxFreshnessHours": 48
+                  }
+                }
+                """);
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+        RuntimeControlBackupPointRespVO point = backupPoint("20260725-020000");
+        point.setCompletedAt(LocalDateTime.now().minusHours(1));
+        backupDrillService.backupPoints.add(point);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("保存期限来源"));
     }
 
     @Test
@@ -299,14 +345,14 @@ class BackupPlanServiceImplTest {
     }
 
     @Test
-    void saveWeeklyScheduleShouldFailFastWhenWeekdayMissing() {
+    void saveScheduleShouldFailFastWhenFullWeekdayMissing() {
         BackupPlanScheduleSaveReqVO reqVO = new BackupPlanScheduleSaveReqVO();
-        reqVO.setFrequency("WEEKLY");
-        reqVO.setTime("03:05");
+        reqVO.setFullSchedule("03:05");
+        reqVO.setIncrementalSchedule("04:10");
 
         ServiceException exception = assertThrows(ServiceException.class, () -> service.saveSchedule(reqVO));
 
-        assertTrue(exception.getMessage().contains("weekday"));
+        assertTrue(exception.getMessage().contains("fullSchedule"));
     }
 
     @Test
@@ -335,9 +381,10 @@ class BackupPlanServiceImplTest {
 
     @Test
     void backupNowShouldDelegateToRuntimeOperationGateway() {
-        RuntimeControlOperationRespVO operation = service.backupNow(7L);
+        RuntimeControlOperationRespVO operation = service.backupNow(7L, "FULL");
 
         assertEquals(7L, operationGateway.operatorUserId);
+        assertEquals("FULL", operationGateway.backupKind);
         assertEquals("backup-now", operation.getAction());
     }
 
@@ -401,10 +448,12 @@ class BackupPlanServiceImplTest {
     private static class FakeBackupPlanOperationGateway implements BackupPlanOperationGateway {
 
         private Long operatorUserId;
+        private String backupKind;
 
         @Override
-        public RuntimeControlOperationRespVO backupNow(Long loginUserId) {
+        public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind) {
             operatorUserId = loginUserId;
+            this.backupKind = backupKind;
             RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
             operation.setAction("backup-now");
             return operation;

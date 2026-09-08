@@ -14,11 +14,28 @@
             <el-button
               plain
               type="primary"
-              :loading="backupNowLoading"
-              @click="handleBackupNow"
+              :loading="backupNowKind === 'FULL'"
+              @click="handleBackupNow('FULL')"
               v-hasPermi="['system:backup-plan:execute']"
             >
-              现在备份一次
+              立即全量备份
+            </el-button>
+            <el-button
+              plain
+              type="primary"
+              :loading="backupNowKind === 'INCREMENTAL'"
+              @click="handleBackupNow('INCREMENTAL')"
+              v-hasPermi="['system:backup-plan:execute']"
+            >
+              立即增量备份
+            </el-button>
+            <el-button
+              :loading="evidenceExportLoading"
+              @click="handleExportEvidence"
+              v-hasPermi="['system:backup-plan:evidence-export']"
+            >
+              <Icon icon="ep:download" class="mr-4px" />
+              导出审查证据
             </el-button>
           </div>
         </div>
@@ -34,12 +51,20 @@
           <span>{{ status?.planStatus || '已关闭' }}</span>
         </div>
         <div class="backup-plan-status-item">
-          <span class="backup-plan-status-item__label">多久备份一次</span>
-          <span>{{ formatFrequency(scheduleForm.frequency) }}</span>
+          <span class="backup-plan-status-item__label">每周全量备份</span>
+          <span>{{ formatFullSchedule(status?.fullSchedule) }}</span>
         </div>
         <div class="backup-plan-status-item">
-          <span class="backup-plan-status-item__label">几点备份</span>
-          <span>{{ scheduleForm.time || '--' }}</span>
+          <span class="backup-plan-status-item__label">周一至周六增量备份</span>
+          <span>{{ status?.incrementalSchedule || '--' }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">保存期限来源</span>
+          <span>{{ status?.retentionSource || '未配置' }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">质量批准引用</span>
+          <span>{{ status?.qualityApprovalRef || '未配置' }}</span>
         </div>
         <div class="backup-plan-status-item">
           <span class="backup-plan-status-item__label">备份仓库</span>
@@ -93,14 +118,8 @@
             打开后，系统会按下面设置的时间自动备份。
           </span>
         </el-form-item>
-        <el-form-item label="备份频率">
-          <el-radio-group v-model="scheduleForm.frequency">
-            <el-radio-button label="DAILY">每天</el-radio-button>
-            <el-radio-button label="WEEKLY">每周</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="scheduleForm.frequency === 'WEEKLY'" label="星期几">
-          <el-select v-model="scheduleForm.weekday" class="!w-180px" placeholder="请选择星期">
+        <el-form-item label="全量备份">
+          <el-select v-model="scheduleForm.fullWeekday" class="!w-140px" placeholder="请选择星期">
             <el-option
               v-for="item in weekdayOptions"
               :key="item.value"
@@ -108,16 +127,40 @@
               :value="item.value"
             />
           </el-select>
-        </el-form-item>
-        <el-form-item label="备份时间">
           <el-time-picker
-            v-model="scheduleForm.time"
+            v-model="scheduleForm.fullTime"
             class="!w-180px"
             format="HH:mm"
             value-format="HH:mm"
-            placeholder="请选择时间"
+            placeholder="全量时间"
           />
-          <span class="backup-plan-form__tip">建议选择业务低峰时间，例如 01:30。</span>
+        </el-form-item>
+        <el-form-item label="增量备份">
+          <el-time-picker
+            v-model="scheduleForm.incrementalTime"
+            class="!w-180px"
+            format="HH:mm"
+            value-format="HH:mm"
+            placeholder="增量时间"
+          />
+        </el-form-item>
+        <el-form-item label="保存期限来源">
+          <el-input
+            v-model="scheduleForm.retentionSource"
+            class="!w-520px"
+            maxlength="160"
+            placeholder="例如：质量批准的记录保存期限矩阵 QA-RET-2026-01"
+            v-hasPermi="['system:backup-plan:update']"
+          />
+        </el-form-item>
+        <el-form-item label="质量批准引用">
+          <el-input
+            v-model="scheduleForm.qualityApprovalRef"
+            class="!w-520px"
+            maxlength="120"
+            placeholder="例如：QA-SIGN-20260907"
+            v-hasPermi="['system:backup-plan:update']"
+          />
         </el-form-item>
         <el-form-item>
           <el-button
@@ -200,6 +243,9 @@
             <el-table-column label="类型" width="120">
               <template #default="{ row }">{{ formatBackupType(row) }}</template>
             </el-table-column>
+            <el-table-column label="备份链" min-width="300" show-overflow-tooltip>
+              <template #default="{ row }">{{ formatBackupChain(row) }}</template>
+            </el-table-column>
             <el-table-column label="结果" width="120">
               <template #default="{ row }">
                 <el-tag :type="row.recoverabilityStatus === 'RECOVERABLE' ? 'success' : 'warning'">
@@ -238,6 +284,12 @@
             detailDialog.item?.recoverabilityStatus === 'RECOVERABLE' ? '可恢复' : '不可恢复'
           }}
         </el-descriptions-item>
+        <el-descriptions-item label="备份类型">
+          {{ detailDialog.item ? formatBackupType(detailDialog.item) : '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="备份链">
+          {{ detailDialog.item ? formatBackupChain(detailDialog.item) : '--' }}
+        </el-descriptions-item>
         <el-descriptions-item label="保存位置">
           {{ detailDialog.item ? formatBackupStorageLabel(detailDialog.item) : '--' }}
         </el-descriptions-item>
@@ -262,17 +314,19 @@ import { ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { checkPermi } from '@/utils/permission'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { downloadByData } from '@/utils/filt'
 import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
 import {
   backupNow,
+  downloadBackupEvidence,
   disableBackupPlan,
   enableBackupPlan,
   getBackupPlanHistoryPage,
   getBackupPlanStatus,
   saveBackupPlanSchedule,
   type BackupPlanBackupPointVO,
-  type BackupPlanFrequency,
   type BackupPlanHealthStatus,
+  type BackupKind,
   type BackupPlanStatusVO,
   type BackupPlanWeekday
 } from '@/api/system/backupPlan'
@@ -297,6 +351,7 @@ const historyColumns: UserTableColumnState[] = [
   { key: 'backupId', label: '备份编号', visible: true, minWidth: 190 },
   { key: 'generatedTime', label: '生成时间', visible: true, width: 180, sortProp: 'backupId' },
   { key: 'backupMode', label: '类型', visible: true, width: 120, sortable: false },
+  { key: 'backupChain', label: '备份链', visible: true, minWidth: 300, sortable: false },
   { key: 'result', label: '结果', visible: true, width: 120, sortable: false },
   { key: 'recoverabilityStatus', label: '是否可恢复', visible: true, width: 130 },
   { key: 'manifestPath', label: '保存位置', visible: true, minWidth: 240 },
@@ -307,7 +362,8 @@ const statusLoading = ref(false)
 const historyLoading = ref(false)
 const saveLoading = ref(false)
 const toggleLoading = ref(false)
-const backupNowLoading = ref(false)
+const backupNowKind = ref<BackupKind>()
+const evidenceExportLoading = ref(false)
 const status = ref<BackupPlanStatusVO>()
 const historyList = ref<BackupPlanBackupPointVO[]>([])
 const total = ref(0)
@@ -318,9 +374,11 @@ const queryParams = reactive<PageParam & { pageNo: number; pageSize: number }>({
 })
 const scheduleForm = reactive({
   autoBackup: false,
-  frequency: 'DAILY' as BackupPlanFrequency,
-  time: '01:30',
-  weekday: 'MON' as BackupPlanWeekday
+  fullWeekday: 'SUN' as BackupPlanWeekday,
+  fullTime: '01:00',
+  incrementalTime: '02:00',
+  retentionSource: '',
+  qualityApprovalRef: ''
 })
 const canUpdateBackupPlan = computed(() => checkPermi(['system:backup-plan:update']))
 const detailDialog = reactive<{
@@ -350,7 +408,12 @@ const handleQuickFilterStateUpdate = (state: Record<string, unknown>) => {
 
 const formatDateTime = (value?: string) => formatDateTimeValue(value, '--')
 
-const formatFrequency = (frequency?: string) => (frequency === 'WEEKLY' ? '每周' : '每天')
+const formatFullSchedule = (value?: string) => {
+  if (!value) return '--'
+  const [weekday, time] = value.split(/\s+/, 2)
+  const label = weekdayOptions.find((item) => item.value === weekday)?.label || weekday
+  return (label + ' ' + (time || '')).trim()
+}
 
 const formatRepositoryEnvironment = (value?: string) => {
   if (value === 'backup') return '备份仓库'
@@ -377,6 +440,8 @@ const formatLastResult = (currentStatus?: BackupPlanStatusVO) => {
 }
 
 const formatBackupType = (row: BackupPlanBackupPointVO) => {
+  if (row.backupKind === 'FULL') return '全量备份'
+  if (row.backupKind === 'INCREMENTAL') return '增量备份'
   if (row.backupMode === 'full' || row.dccBackupMode === 'baseline') return '完整备份'
   if (row.backupMode === 'incremental' || row.dccBackupMode === 'incremental') return '增量备份'
   return row.backupMode || row.dccBackupMode || '备份包'
@@ -399,19 +464,35 @@ const formatBackupStorageLabel = (row: BackupPlanBackupPointVO) => {
 
 const syncScheduleForm = (data: BackupPlanStatusVO) => {
   scheduleForm.autoBackup = data.planStatus === '已开启'
-  scheduleForm.frequency = data.frequency === 'WEEKLY' ? 'WEEKLY' : 'DAILY'
-  scheduleForm.time = data.time || '01:30'
-  scheduleForm.weekday = data.weekday || 'MON'
+  const [weekday, time] = (data.fullSchedule || 'SUN 01:00').split(/\s+/, 2)
+  scheduleForm.fullWeekday = weekdayOptions.some((item) => item.value === weekday)
+    ? (weekday as BackupPlanWeekday)
+    : 'SUN'
+  scheduleForm.fullTime = time || '01:00'
+  scheduleForm.incrementalTime = data.incrementalSchedule || '02:00'
+  scheduleForm.retentionSource = data.retentionSource || ''
+  scheduleForm.qualityApprovalRef = data.qualityApprovalRef || ''
+}
+
+const formatBackupChain = (row: BackupPlanBackupPointVO) => {
+  if (row.backupKind === 'FULL') return `基线 ${row.backupId}`
+  if (row.backupKind === 'INCREMENTAL') {
+    const base = row.baseBackupId || '基线缺失'
+    const parent = row.parentBackupId || '父点缺失'
+    return `${base} -> ${row.backupId}（直接父点 ${parent}）`
+  }
+  return '链身份缺失'
 }
 
 const buildSchedulePayload = () => {
-  if (!scheduleForm.time) {
-    throw new Error('请选择备份时间')
+  if (!scheduleForm.fullTime || !scheduleForm.incrementalTime) {
+    throw new Error('请选择全量和增量备份时间')
   }
   return {
-    frequency: scheduleForm.frequency,
-    time: scheduleForm.time,
-    weekday: scheduleForm.frequency === 'WEEKLY' ? scheduleForm.weekday : undefined
+    fullSchedule: scheduleForm.fullWeekday + ' ' + scheduleForm.fullTime,
+    incrementalSchedule: scheduleForm.incrementalTime,
+    retentionSource: scheduleForm.retentionSource,
+    qualityApprovalRef: scheduleForm.qualityApprovalRef
   }
 }
 
@@ -479,21 +560,35 @@ const handleAutoBackupChange = async (enabled: string | number | boolean) => {
   }
 }
 
-const handleBackupNow = async () => {
-  await ElMessageBox.confirm('会立即备份正式服数据，可能需要几分钟，是否继续？', '立即备份确认', {
+const handleBackupNow = async (backupKind: BackupKind) => {
+  const label = backupKind === 'FULL' ? '全量' : '增量'
+  await ElMessageBox.confirm('会立即执行' + label + '备份并短暂停止系统写入，是否继续？', '立即' + label + '备份', {
     confirmButtonText: '继续备份',
     cancelButtonText: '取消',
     type: 'warning'
   })
-  backupNowLoading.value = true
+  backupNowKind.value = backupKind
   try {
-    const result = await backupNow()
-    message.success(result.operationId ? `已提交备份任务：${result.operationId}` : '已提交备份任务')
+    const result = await backupNow(backupKind)
+    message.success(result.operationId ? '已提交备份任务：' + result.operationId : '已提交备份任务')
     await loadAll()
   } catch (error: any) {
-    message.error(error?.message || '立即备份提交失败')
+    message.error(error?.message || '立即' + label + '备份提交失败')
   } finally {
-    backupNowLoading.value = false
+    backupNowKind.value = undefined
+  }
+}
+
+const handleExportEvidence = async () => {
+  evidenceExportLoading.value = true
+  try {
+    const blob = await downloadBackupEvidence()
+    downloadByData(blob, 'IntRuoyi-备份审查证据.zip', blob.type || 'application/zip')
+    message.success('备份审查证据已导出')
+  } catch (error: any) {
+    message.error(error?.message || '备份审查证据导出失败')
+  } finally {
+    evidenceExportLoading.value = false
   }
 }
 
@@ -512,7 +607,7 @@ onMounted(loadAll)
 }
 
 .backup-plan-card {
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .backup-plan-card__header {

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1",
+  "schemaVersion": "v2-minimal",
   "environment": "production",
   "servers": {
     "production": {
@@ -41,17 +41,22 @@
     "archiveImage": "alpine:3.20"
   },
   "backup": {
-    "frequency": "DAILY",
-    "schedule": "01:30",
-    "weekday": "MON",
-    "repositoryEnvironment": "backup",
+    "fullSchedule": "SUN 01:00",
+    "incrementalSchedule": "02:00",
+    "retentionSource": "质量批准的记录保存期限矩阵 QA-RET-2026-01",
+    "qualityApprovalRef": "QA-SIGN-20260907",
+    "repositoryEnvironment": "test",
+    "maxFreshnessHours": 25,
     "localWorkspaceRoot": "D:\\IntRuoyi-BackupOps\\tmp",
     "keepDaysRemote": 30,
     "keepLastPoints": 5,
+    "keepLastFullChains": 4,
+    "minimumRecoverableChains": 2,
     "maxNasUsedPercent": 90,
     "keepDaysLocal": 3,
     "mysqlDatabase": "ruoyi-vue-pro",
-    "mysqlBackupMode": "full-dump-baseline",
+    "mysqlBackupMode": "binlog",
+    "exclusiveWriterMode": "backend-container-stop",
     "objectBucket": "yudao"
   },
   "rehearsal": {

@@ -8,14 +8,23 @@ import lombok.Data;
 @Data
 public class BackupPlanScheduleSaveReqVO {
 
-    @Schema(description = "频率：DAILY 每天，WEEKLY 每周", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "备份频率不能为空")
-    private String frequency;
+    @Schema(description = "每周全量备份计划，格式 WEEKDAY HH:mm", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "SUN 01:00")
+    @NotBlank(message = "全量备份计划不能为空")
+    private String fullSchedule;
 
-    @Schema(description = "备份时间，HH:mm", requiredMode = Schema.RequiredMode.REQUIRED, example = "01:30")
-    @NotBlank(message = "备份时间不能为空")
-    private String time;
+    @Schema(description = "每日增量备份时间，格式 HH:mm", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "02:00")
+    @NotBlank(message = "增量备份计划不能为空")
+    private String incrementalSchedule;
 
-    @Schema(description = "每周星期：MON/TUE/WED/THU/FRI/SAT/SUN，仅 WEEKLY 必填", example = "SUN")
-    private String weekday;
+    @Schema(description = "保存期限来源说明，例如质量批准的记录保存期限矩阵", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "质量批准的记录保存期限矩阵 QA-RET-2026-01")
+    @NotBlank(message = "保存期限来源不能为空")
+    private String retentionSource;
+
+    @Schema(description = "质量批准引用编号", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "QA-SIGN-20260907")
+    @NotBlank(message = "质量批准引用不能为空")
+    private String qualityApprovalRef;
 }

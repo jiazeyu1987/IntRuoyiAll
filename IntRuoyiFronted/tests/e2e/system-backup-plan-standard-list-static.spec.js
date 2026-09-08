@@ -29,9 +29,10 @@ assert.match(
   '备份包历史必须使用稳定 tableKey 接入标准列表模板。'
 )
 assert.match(source, /自动备份/, '页面必须使用普通管理员能理解的“自动备份”文案。')
-assert.match(source, /每天/, '页面必须提供“每天”简单频率。')
-assert.match(source, /每周/, '页面必须提供“每周”简单频率。')
-assert.match(source, /现在备份一次/, '页面必须提供弱化的一键立即备份入口。')
+assert.match(source, /周一至周六增量备份/, '页面必须提供避开周日全量窗口的增量计划。')
+assert.match(source, /每周全量备份/, '页面必须提供每周全量计划。')
+assert.match(source, /立即全量备份/, '页面必须提供明确的全量备份入口。')
+assert.match(source, /立即增量备份/, '页面必须提供明确的增量备份入口。')
 assert.match(source, /正常[\s\S]*已关闭[\s\S]*上次失败[\s\S]*配置异常/, '页面必须暴露四类简单状态。')
 assert.match(source, /备份仓库/, '页面必须只读展示后端返回的备份仓库环境。')
 assert.match(source, /新鲜度阈值/, '页面必须只读展示已批准 RPO 对应的新鲜度阈值。')
@@ -51,7 +52,7 @@ assert.match(
   /当前账号只有查询权限/,
   'query-only 权限下必须明确展示只读提示，而不是保留不可保存的编辑控件。'
 )
-assert.match(source, /会立即备份正式服数据，可能需要几分钟，是否继续？/, '立即备份必须有白话确认。')
+assert.match(source, /会立即执行.*备份并短暂停止系统写入，是否继续？/, '立即备份必须明确停服影响。')
 assert.doesNotMatch(source, /Crontab|cron|CRON|表达式/, '低门槛页面不得暴露 Cron 或表达式。')
 assert.doesNotMatch(
   source,

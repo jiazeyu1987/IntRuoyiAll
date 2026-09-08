@@ -50,13 +50,19 @@ function Invoke-BackupScheduledUseCase {
         [Parameter(Mandatory = $true)]
         [object]$Config,
 
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('FULL', 'INCREMENTAL')]
+        [string]$BackupKind,
+
         [string]$OperatorName = 'scheduler'
     )
 
     $startedAt = Get-Date
     $logSession = $null
+    $servicesStopped = $false
     $resultContext = @{
         backupId = $null
+        backupKind = $BackupKind
         imageTag = $null
         cleanup = [ordered]@{
             localRetention = [ordered]@{
@@ -84,22 +90,39 @@ function Invoke-BackupScheduledUseCase {
         Show-BackupOpsProgress -Current 3 -Total 11 -Message '读取当前部署元数据...'
         $null = Save-BackupOpsDeployMetadata -Config $Config -Workspace $workspace -LogSession $logSession
 
-        Show-BackupOpsProgress -Current 4 -Total 11 -Message '导出 MySQL...'
-        $null = Export-BackupOpsMySqlDump -Config $Config -Workspace $workspace -LogSession $logSession
+        Show-BackupOpsProgress -Current 4 -Total 13 -Message '停止 frontend/backend，建立无写入窗口...'
+        try {
+            $servicesStopped = $true
+            $null = Stop-BackupOpsFrontendBackend -Config $Config -LogSession $logSession
+            $null = Assert-BackupOpsWriteWindowQuiesced -Config $Config -LogSession $logSession
+            Show-BackupOpsProgress -Current 5 -Total 13 -Message "导出 MySQL $BackupKind 数据..."
+            if ($BackupKind -eq 'FULL') {
+                $null = Export-BackupOpsMySqlDump -Config $Config -Workspace $workspace -LogSession $logSession
+            } else {
+                $null = Export-BackupOpsMySqlBinlogIncrement -Config $Config -Workspace $workspace -LogSession $logSession
+            }
 
-        Show-BackupOpsProgress -Current 5 -Total 11 -Message '备份 MinIO 对象...'
-        $null = Backup-BackupOpsObjectBucket -Config $Config -Workspace $workspace -LogSession $logSession
+            Show-BackupOpsProgress -Current 6 -Total 13 -Message '备份 MinIO 对象...'
+            $null = Backup-BackupOpsObjectBucket -Config $Config -Workspace $workspace -BackupKind $BackupKind -LogSession $logSession
+        } finally {
+            if ($servicesStopped) {
+                $null = Start-BackupOpsFrontendBackend -Config $Config -LogSession $logSession
+                $null = Test-BackupOpsFrontendBackendHealth -Config $Config -LogSession $logSession
+                $servicesStopped = $false
+            }
+        }
 
         Show-BackupOpsProgress -Current 6 -Total 11 -Message '生成 checksums 与 manifest...'
-        $null = New-BackupOpsDccBackupManifest -Config $Config -Workspace $workspace -LogSession $logSession
+        $null = New-BackupOpsDccBackupManifest -Config $Config -Workspace $workspace -BackupKind $BackupKind -LogSession $logSession
         $null = Assert-BackupOpsDccBackupManifestReady -Config $Config -Workspace $workspace -LogSession $logSession
         $null = New-BackupOpsChecksums -Config $Config -Workspace $workspace -LogSession $logSession
 
         Show-BackupOpsProgress -Current 7 -Total 11 -Message '同步到测试服务器...'
         $null = Sync-BackupOpsBackupToTestServer -Config $Config -Workspace $workspace -LogSession $logSession
 
-        $null = New-BackupOpsManifest -Config $Config -Workspace $workspace -BackupType 'scheduled' -Status 'success' -Validation @{
-            mysqlDumpCreated = $true
+        $null = New-BackupOpsManifest -Config $Config -Workspace $workspace -BackupType 'scheduled' -BackupKind $BackupKind -Status 'success' -Validation @{
+            mysqlDumpCreated = $BackupKind -eq 'FULL'
+            mysqlIncrementCreated = $BackupKind -eq 'INCREMENTAL'
             objectBackupCreated = $true
             checksumsGenerated = $true
             syncedToTestServer = $true
@@ -126,7 +149,11 @@ function Invoke-BackupScheduledUseCase {
                 -Summary ("清理任务失败；正式机临时副本={0}，测试机过期备份={1}。" -f $resultContext.cleanup.localRetention.status, $resultContext.cleanup.remoteRetention.status) `
                 -Context $resultContext `
                 -LogSession $logSession
-            Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupFailureNotification -Prefix 'cleanup'
+            if ((Get-Command -Name Set-BackupOpsNotificationContext).Parameters.ContainsKey('Prefix')) {
+                Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupFailureNotification -Prefix 'cleanup'
+            } else {
+                Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupFailureNotification
+            }
             throw
         }
 
@@ -150,7 +177,11 @@ function Invoke-BackupScheduledUseCase {
                 -Summary ("清理任务失败；正式机临时副本={0}，测试机过期备份={1}。" -f $resultContext.cleanup.localRetention.status, $resultContext.cleanup.remoteRetention.status) `
                 -Context $resultContext `
                 -LogSession $logSession
-            Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupFailureNotification -Prefix 'cleanup'
+            if ((Get-Command -Name Set-BackupOpsNotificationContext).Parameters.ContainsKey('Prefix')) {
+                Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupFailureNotification -Prefix 'cleanup'
+            } else {
+                Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupFailureNotification
+            }
             throw
         }
 
@@ -161,7 +192,11 @@ function Invoke-BackupScheduledUseCase {
             -Summary ("清理任务完成；正式机临时副本={0}，测试机过期备份={1}。" -f $resultContext.cleanup.localRetention.status, $resultContext.cleanup.remoteRetention.status) `
             -Context $resultContext `
             -LogSession $logSession
-        Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupNotification -Prefix 'cleanup'
+        if ((Get-Command -Name Set-BackupOpsNotificationContext).Parameters.ContainsKey('Prefix')) {
+            Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupNotification -Prefix 'cleanup'
+        } else {
+            Set-BackupOpsNotificationContext -Context $resultContext -NotificationResult $cleanupNotification
+        }
 
         Show-BackupOpsProgress -Current 10 -Total 11 -Message '生成报告...'
         $report = Publish-BackupOpsReport -Config $Config -Action 'backup-scheduled' -Status 'success' -StartedAt $startedAt -CompletedAt (Get-Date) -Summary '计划备份已完成并同步到测试服务器。' -Context $resultContext -LogSession $logSession

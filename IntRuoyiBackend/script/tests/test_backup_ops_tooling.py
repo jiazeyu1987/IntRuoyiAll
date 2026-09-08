@@ -35,6 +35,7 @@ def _run_backup_ops_mode(mode: str, *extra_args: str) -> subprocess.CompletedPro
                     "auth": {
                         "sshKeyPath": str(Path(temp_dir) / "missing_id_rsa"),
                         "knownHostsPath": str(Path(temp_dir) / "missing_known_hosts"),
+                        "productionBackupConfirmText": "PROD-BACKUP-172.30.30.57",
                     },
                     "rehearsal": {
                         "tenantName": "rehearsal-tenant",
@@ -187,6 +188,24 @@ def _write_dcc_backup_manifest(
             indent=2,
         )
         + "\n",
+        encoding="utf-8",
+    )
+    _write_full_mysql_evidence(manifest_dir.parent / "mysql")
+
+
+def _write_full_mysql_evidence(mysql_dir: Path) -> None:
+    mysql_dir.mkdir(parents=True, exist_ok=True)
+    (mysql_dir / "full-dump-manifest.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": "mysql-full-dump-v1",
+                "status": "exported",
+                "dumpPath": "mysql/ruoyi-vue-pro.sql.gz",
+                "sha256": "a" * 64,
+                "size": 4,
+                "endPosition": {"file": "mysql-bin.000001", "position": 100},
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -462,8 +481,10 @@ $config = [pscustomobject]@{{
     environment = 'test'
     servers = [pscustomobject]@{{
         production = [pscustomobject]@{{ host = '172.30.30.58'; appDir = '/opt/intruoyi/runtime' }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
         keepDaysRemote = 30
@@ -481,7 +502,7 @@ $workspace = [pscustomobject]@{{
     ObjectsPath = '{backup_root / "objects"}'
 }}
 $logSession = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Now }}
-$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{{
+$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -Status 'success' -Validation @{{
     mysqlDumpCreated = $true
     objectBackupCreated = $true
     checksumsGenerated = $true
@@ -511,7 +532,7 @@ $path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 
     assert payload["artifacts"]["dccBackupManifest"] == "manifest/dcc-backup-manifest.json"
     assert payload["backupStrategy"]["mode"] == "incremental-manifest"
     assert payload["backupStrategy"]["mysqlBaseline"] == "full-dump"
-    assert payload["backupStrategy"]["mysqlIncrementalPlan"]["binlog"]["status"] == "requires-prerequisite"
+    assert payload["backupStrategy"]["mysqlIncrementalPlan"]["binlog"]["status"] == "not-applicable"
     assert payload["backupStrategy"]["mysqlIncrementalPlan"]["xtrabackup"]["status"] == "requires-prerequisite"
     assert "silent full dump fallback" in payload["backupStrategy"]["mysqlIncrementalPlan"]["noFallbackRule"]
     assert payload["retentionPolicy"]["keepDays"] == 30
@@ -565,8 +586,10 @@ $config = [pscustomobject]@{{
     environment = 'test'
     servers = [pscustomobject]@{{
         production = [pscustomobject]@{{ host = '172.30.30.58'; appDir = '/opt/intruoyi/runtime' }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
         mysqlBackupMode = 'binlog-incremental'
@@ -582,7 +605,7 @@ $workspace = [pscustomobject]@{{
     ObjectsPath = '{backup_root / "objects"}'
 }}
 $logSession = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Now }}
-New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{{
+New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind INCREMENTAL -Status 'success' -Validation @{{
     mysqlDumpCreated = $true
     objectBackupCreated = $true
     checksumsGenerated = $true
@@ -593,8 +616,7 @@ New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual'
 
     output = completed.stdout + completed.stderr
     assert completed.returncode != 0, output
-    assert "mysqlBackupMode=binlog-incremental" in output
-    assert "No silent full dump fallback" in output
+    assert "MySQL INCREMENTAL 证据不存在" in output
 
 
 def test_backup_ops_manifest_blocks_success_without_dcc_backup_manifest() -> None:
@@ -616,6 +638,7 @@ def test_backup_ops_manifest_blocks_success_without_dcc_backup_manifest() -> Non
         )
         (deploy / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
         (mysql / "ruoyi-vue-pro.sql.gz").write_bytes(b"dump")
+        _write_full_mysql_evidence(mysql)
         (manifest / "checksums.txt").write_text("abc  deploy/runtime.env\n", encoding="utf-8")
         (objects / "manifest-object-inventory.json").write_text(
             json.dumps(
@@ -639,8 +662,10 @@ $config = [pscustomobject]@{{
     environment = 'test'
     servers = [pscustomobject]@{{
         production = [pscustomobject]@{{ host = '172.30.30.58'; appDir = '/opt/intruoyi/runtime' }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
     }}
@@ -656,7 +681,7 @@ $workspace = [pscustomobject]@{{
 }}
 $logSession = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Now }}
 try {{
-    New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{{
+    New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -Status 'success' -Validation @{{
         mysqlDumpCreated = $true
         objectBackupCreated = $true
         checksumsGenerated = $true
@@ -745,6 +770,7 @@ $config = [pscustomobject]@{{
     ssh = [pscustomobject]@{{ user = 'root'; port = 22 }}
     auth = [pscustomobject]@{{ sshKeyPath = 'D:/missing_id_rsa'; knownHostsPath = 'D:/missing_known_hosts' }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
     }}
@@ -760,7 +786,7 @@ $workspace = [pscustomobject]@{{
     RemoteMySqlDumpPath = '{remote_dump_path}'
 }}
 $logSession = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Now }}
-$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{{
+$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -Status 'success' -Validation @{{
     mysqlDumpCreated = $true
     objectBackupCreated = $true
     checksumsGenerated = $true
@@ -826,8 +852,10 @@ $config = [pscustomobject]@{{
     environment = 'production'
     servers = [pscustomobject]@{{
         production = [pscustomobject]@{{ host = '172.30.30.57'; appDir = '/opt/intruoyi/runtime' }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
     }}
@@ -842,7 +870,7 @@ $workspace = [pscustomobject]@{{
     ObjectsPath = '{objects}'
 }}
 $logSession = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Now }}
-$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{{
+$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -Status 'success' -Validation @{{
     mysqlDumpCreated = $true
     objectBackupCreated = $true
     checksumsGenerated = $true
@@ -854,8 +882,10 @@ $path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 
         assert completed.returncode == 0, completed.stdout + completed.stderr
         payload = json.loads(completed.stdout)
 
-    assert payload["targetEnvironment"] == "production"
-    assert payload["targetHost"] == "172.30.30.57"
+    assert payload["targetEnvironment"] == "test"
+    assert payload["targetHost"] == "172.30.30.58"
+    assert payload["sourceEnvironment"] == "production"
+    assert payload["sourceHost"] == "172.30.30.57"
     assert payload["recoverySet"]["status"] == "COMPLETE"
 
 
@@ -915,8 +945,10 @@ $config = [pscustomobject]@{{
     environment = 'test'
     servers = [pscustomobject]@{{
         production = [pscustomobject]@{{ host = '172.30.30.58'; appDir = '/opt/intruoyi/runtime' }}
+        test = [pscustomobject]@{{ host = '172.30.30.58' }}
     }}
     backup = [pscustomobject]@{{
+        repositoryEnvironment = 'test'
         mysqlDatabase = 'ruoyi-vue-pro'
         objectBucket = 'yudao'
     }}
@@ -931,7 +963,7 @@ $workspace = [pscustomobject]@{{
     ObjectsPath = '{objects}'
 }}
 $logSession = [pscustomobject]@{{ startedAt = [System.DateTimeOffset]::Now }}
-$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{{
+$path = New-BackupOpsManifest -Config $config -Workspace $workspace -BackupType 'manual' -BackupKind FULL -Status 'success' -Validation @{{
     mysqlDumpCreated = $true
     objectBackupCreated = $true
     checksumsGenerated = $true
@@ -1065,10 +1097,12 @@ $config = [pscustomobject]@{{
         sshKeyPath = 'D:/missing_id_rsa'
         knownHostsPath = 'D:/missing_known_hosts'
     }}
-    backup = [pscustomobject]@{{
-        keepDaysRemote = 30
-        keepLastPoints = 5
-        maxNasUsedPercent = 90
+        backup = [pscustomobject]@{{
+            keepDaysRemote = 30
+            keepLastPoints = 5
+            keepLastFullChains = 4
+            minimumRecoverableChains = 2
+            maxNasUsedPercent = 90
     }}
 }}
 $session = [pscustomobject]@{{}}
@@ -1254,15 +1288,15 @@ $result = Sync-BackupOpsBackupToTestServer -Config $config -Workspace $workspace
         assert completed.returncode == 0, completed.stdout + completed.stderr
         payload = json.loads(completed.stdout)
 
-    assert payload["result"]["remoteRoot"] == "/mnt/nas/Backup/BackupPackage/20260520-010203"
-    assert any("'/mnt/nas/Backup/BackupPackage/20260520-010203'" in command["command"] for command in payload["commands"])
+    assert payload["result"]["remoteRoot"] == "/mnt/nas/Backup/BackupPackage/20260520-010203.creating"
+    assert any("'/mnt/nas/Backup/BackupPackage/20260520-010203.creating'" in command["command"] for command in payload["commands"])
     assert payload["commands"], "expected remote mkdir commands to be issued"
     assert all(command["timeoutSeconds"] == 60 for command in payload["commands"])
     upload_paths = {upload["remotePath"] for upload in payload["uploads"]}
-    assert "/mnt/nas/Backup/BackupPackage/20260520-010203/deploy/" in upload_paths
-    assert "/mnt/nas/Backup/BackupPackage/20260520-010203/manifest/" in upload_paths
-    assert "/mnt/nas/Backup/BackupPackage/20260520-010203/mysql/" in upload_paths
-    assert "/mnt/nas/Backup/BackupPackage/20260520-010203/objects/manifest-object-inventory.json" in upload_paths
+    assert "/mnt/nas/Backup/BackupPackage/20260520-010203.creating/deploy/" in upload_paths
+    assert "/mnt/nas/Backup/BackupPackage/20260520-010203.creating/manifest/" in upload_paths
+    assert "/mnt/nas/Backup/BackupPackage/20260520-010203.creating/mysql/" in upload_paths
+    assert "/mnt/nas/Backup/BackupPackage/20260520-010203.creating/objects/manifest-object-inventory.json" in upload_paths
     assert any(upload["localPath"].endswith("checksums.txt") for upload in payload["uploads"])
     assert not any(upload["localPath"].endswith("manifest.json") for upload in payload["uploads"])
     metadata_uploads = [upload for upload in payload["uploads"] if not upload["remotePath"].endswith("/mysql/")]
@@ -1331,11 +1365,11 @@ $result = Sync-BackupOpsManifestToTestServer -Config $config -Workspace $workspa
         assert completed.returncode == 0, completed.stdout + completed.stderr
         payload = json.loads(completed.stdout)
 
-    assert payload["result"]["remoteRoot"] == "/mnt/nas/Backup/BackupPackage/20260520-010203/manifest/"
+    assert payload["result"]["remoteRoot"] == "/mnt/nas/Backup/BackupPackage/20260520-010203"
     assert payload["uploads"] == [
         {
             "localPath": str(manifest / "manifest.json"),
-            "remotePath": "/mnt/nas/Backup/BackupPackage/20260520-010203/manifest/",
+            "remotePath": "/mnt/nas/Backup/BackupPackage/20260520-010203.creating/manifest/",
             "timeoutSeconds": 300,
         }
     ]
@@ -1396,7 +1430,7 @@ function Invoke-BackupSshCommand {{
         return [pscustomobject]@{{ output = '/mnt/nas/Backup/BackupPackage/20260606-155715' }}
     }}
     if ($command.StartsWith('test -f ')) {{
-        if ($command -match 'mysql/ruoyi-vue-pro\\.sql\\.gz|deploy/image-tag\\.txt|manifest/manifest\\.json|manifest/checksums\\.txt|manifest/dcc-backup-manifest\\.json|objects/manifest-object-inventory\\.json') {{
+        if ($command -match 'mysql/ruoyi-vue-pro\\.sql\\.gz|mysql/full-dump-manifest\\.json|deploy/image-tag\\.txt|manifest/manifest\\.json|manifest/checksums\\.txt|manifest/dcc-backup-manifest\\.json|objects/manifest-object-inventory\\.json') {{
             return [pscustomobject]@{{ output = 'EXISTS' }}
         }}
         throw [System.InvalidOperationException]::new('missing file')
@@ -1517,7 +1551,7 @@ function Invoke-BackupSshCommand {{
         return [pscustomobject]@{{ output = '/mnt/nas/Backup/BackupPackage/20260606-155715' }}
     }}
     if ($command.StartsWith('test -f ')) {{
-        if ($command -match 'mysql/ruoyi-vue-pro\\.sql\\.gz|deploy/image-tag\\.txt|manifest/manifest\\.json|manifest/checksums\\.txt|manifest/dcc-backup-manifest\\.json|objects/manifest-object-inventory\\.json') {{
+        if ($command -match 'mysql/ruoyi-vue-pro\\.sql\\.gz|mysql/full-dump-manifest\\.json|deploy/image-tag\\.txt|manifest/manifest\\.json|manifest/checksums\\.txt|manifest/dcc-backup-manifest\\.json|objects/manifest-object-inventory\\.json') {{
             return [pscustomobject]@{{ output = 'EXISTS' }}
         }}
         throw [System.InvalidOperationException]::new('missing file')
@@ -2102,6 +2136,15 @@ def _run_rehearsal_candidate_fixture(
     root = _backup_root()
     docker_module = root / "scripts" / "modules" / "Infra" / "DockerOps.psm1"
     backup_id = manifest.get("backupId", "20260606-181538")
+    manifest = dict(manifest)
+    manifest.setdefault("backupKind", "FULL")
+    manifest.setdefault("baseBackupId", backup_id)
+    manifest.setdefault("parentBackupId", None)
+    manifest.setdefault("repositoryEnvironment", "test")
+    manifest.setdefault("repositoryHost", "172.30.30.58")
+    manifest.setdefault("sourceEnvironment", "production")
+    manifest.setdefault("sourceHost", "172.30.30.57")
+    manifest.setdefault("mysqlEvidence", {"schemaVersion": "mysql-full-dump-v1"})
     manifest_json = json.dumps(manifest, ensure_ascii=False)
     dcc_manifest_json = _dcc_backup_manifest_json(dcc_manifest)
     script = f"""
@@ -2119,7 +2162,7 @@ function Invoke-BackupSshCommand {{
     $script:commands += $Request.Command
     $command = [string]$Request.Command
     if ($command.StartsWith('test -f ')) {{
-        if ($command -match 'mysql/ruoyi-vue-pro\\.sql\\.gz|deploy/image-tag\\.txt|manifest/manifest\\.json|manifest/checksums\\.txt|manifest/dcc-backup-manifest\\.json|objects/manifest-object-inventory\\.json') {{
+        if ($command -match 'mysql/ruoyi-vue-pro\\.sql\\.gz|mysql/full-dump-manifest\\.json|deploy/image-tag\\.txt|manifest/manifest\\.json|manifest/checksums\\.txt|manifest/dcc-backup-manifest\\.json|objects/manifest-object-inventory\\.json') {{
             return [pscustomobject]@{{ output = 'EXISTS' }}
         }}
         throw [System.InvalidOperationException]::new('missing file')
@@ -2567,7 +2610,7 @@ function Write-BackupOpsLog {{
     param($Session, $Level, $Message)
     $Session.messages += $Message
 }}
-$path = New-BackupOpsDccBackupManifest -Config $config -Workspace $workspace -LogSession $logSession
+$path = New-BackupOpsDccBackupManifest -Config $config -Workspace $workspace -BackupKind FULL -LogSession $logSession
 $manifest = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 [pscustomobject]@{{
     path = $path
@@ -2706,7 +2749,7 @@ function Write-BackupOpsLog {{
     param($Session, $Level, $Message)
     $Session.messages += $Message
 }}
-$path = New-BackupOpsDccBackupManifest -Config $config -Workspace $workspace -LogSession $logSession
+$path = New-BackupOpsDccBackupManifest -Config $config -Workspace $workspace -BackupKind FULL -LogSession $logSession
 $manifest = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 [pscustomobject]@{{
     status = $manifest.status
@@ -2720,9 +2763,9 @@ $manifest = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) |
         payload = json.loads(completed.stdout)
 
     assert payload["status"] == "success"
-    assert payload["fullBaseline"] == "B1"
-    assert payload["lastIncrementFrom"] == "B1"
-    assert payload["lastIncrementTo"] == "20260609-030000"
+    assert payload["fullBaseline"] == "20260609-030000"
+    assert payload.get("lastIncrementFrom") is None
+    assert payload.get("lastIncrementTo") is None
 
 
 def test_dcc_chain_plan_restore_replays_baseline_incremental_states() -> None:
@@ -2919,7 +2962,7 @@ $workspace = [pscustomobject]@{{
     DeployPath = '{backup_root / "deploy"}'
 }}
 $logSession = [pscustomobject]@{{ messages = @() }}
-$path = New-BackupOpsDccBackupManifest -Config $config -Workspace $workspace -LogSession $logSession
+$path = New-BackupOpsDccBackupManifest -Config $config -Workspace $workspace -BackupKind FULL -LogSession $logSession
 $manifest = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 [pscustomobject]@{{
     status = $manifest.status
@@ -3049,7 +3092,8 @@ def test_backup_ops_launcher_projects_backup_now_and_restore_data_target_environ
     assert "[string]$ProductionBackupConfirmText" in text
     assert "Resolve-BackupOpsTargetEnvironmentConfig" in text
     assert "Assert-BackupOpsProductionBackupConfirmation" in text
-    assert "PROD-BACKUP-172.30.30.57" in text
+    assert '"PROD-BACKUP-$productionHost"' in text
+    assert "Expected confirmation: $expectedConfirmText" in text
     assert "Production backup confirmation is required" in text
     assert "$supportedTestTargetModes = @('backup-now', 'backup-scheduled', 'rollback-app', 'restore-data')" in text
     assert "TargetEnvironment test/backup is only supported for backup-now, backup-scheduled, rollback-app and restore-data" in text
@@ -3113,7 +3157,7 @@ function Invoke-BackupNowUseCase {{
         context = @{{}}
     }}
 }}
-. '{entry_script}' -Mode 'backup-now' -ConfigPath '{config_path}' -SecretsPath '{secrets_path}' -TargetEnvironment 'prod' -ProductionBackupConfirmText 'PROD-BACKUP-172.30.30.57' -NonInteractive
+. '{entry_script}' -Mode 'backup-now' -ConfigPath '{config_path}' -SecretsPath '{secrets_path}' -TargetEnvironment 'prod' -RepositoryEnvironment 'test' -BackupKind FULL -ProductionBackupConfirmText 'PROD-BACKUP-172.30.30.57' -NonInteractive
 """
     completed = subprocess.run(
         [
@@ -3259,7 +3303,7 @@ def test_backup_ops_stores_incremental_objects_in_remote_object_store() -> None:
     assert "etag" in object_ops_text
     assert "/backup/' + $bucket" not in object_ops_text
     assert "mc mirror --retry --max-workers 1 --overwrite" not in object_ops_text
-    assert "sha256sum" not in object_ops_text
+    assert "sha256sum" in object_ops_text
     assert "manifest-object-inventory.json" in file_ops_text
     assert "对象增量清单不存在" in file_ops_text
     assert "objectStoreRoot" in file_ops_text
@@ -3372,6 +3416,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module '{object_module}' -Force -DisableNameChecking
 $plan = Export-BackupObjectSnapshotToRemoteNas -PlanOnly -Request @{{
     Bucket = 'yudao'
+    BackupKind = 'INCREMENTAL'
     TargetPath = 'D:/tmp/objects'
     RemotePath = '/mnt/nas/Backup/BackupPackage/20260606-135859/objects'
     SourcePath = 'test'
@@ -3430,11 +3475,14 @@ def test_remote_nas_object_backup_short_ssh_steps_are_bounded() -> None:
     )
     previous_manifest = json.dumps(
         {
+            "status": "success",
+            "backupKind": "FULL",
             "objects": [
                 {
                     "path": "dcc/A.txt",
-                    "sha256": "repo-a",
-                    "repositoryKey": "repo-a",
+                    "etag": "repo-a",
+                    "sha256": "a" * 64,
+                    "repositoryKey": "a" * 64,
                     "status": "active",
                     "size": 10,
                     "lastModified": "2026-06-07T01:00:00Z",
@@ -3471,6 +3519,9 @@ function Invoke-BackupSshCommand {{
     if ([string]$Request.Command -like 'cat *manifest/manifest.json*') {{
         return [pscustomobject]@{{ output = $script:previousManifest }}
     }}
+    if ([string]$Request.Command -like '*manifest-object-copy.sh*') {{
+        return [pscustomobject]@{{ output = "repo-b`t{'b' * 64}" }}
+    }}
     [pscustomobject]@{{ output = '' }}
 }}
 function Send-BackupFileOverSsh {{
@@ -3487,6 +3538,7 @@ function Send-BackupFileOverSsh {{
 Import-Module '{object_module}' -Force -DisableNameChecking
 $result = Export-BackupObjectSnapshotToRemoteNas -Request @{{
     Bucket = 'yudao'
+    BackupKind = 'INCREMENTAL'
     TargetPath = '{target_path}'
     RemotePath = '/mnt/nas/Backup/BackupPackage/20260521-010203/objects'
     SourcePath = 'test'
@@ -3555,7 +3607,8 @@ def test_remote_manifest_restore_mounts_object_store_readonly() -> None:
             "objects": [
                 {
                     "path": "dcc/A.txt",
-                    "repositoryKey": "repo-a",
+                    "repositoryKey": "a" * 64,
+                    "sha256": "a" * 64,
                     "status": "active",
                 }
             ],
@@ -3599,8 +3652,8 @@ $plan | ConvertTo-Json -Depth 8
     payload = json.loads(completed.stdout)
 
     assert "/mnt/nas/Backup/BackupPackage/object-store:/object-store:ro" in payload["command"]
-    assert 'cp "/object-store/$sha" "$dest"' in payload["command"]
-    assert 'cp "/mnt/nas/Backup/BackupPackage/object-store/$sha"' not in payload["command"]
+    assert 'cp "/object-store/$repo" "$dest"' in payload["command"]
+    assert 'cp "/mnt/nas/Backup/BackupPackage/object-store/$repo"' not in payload["command"]
 
 
 def test_remote_manifest_restore_ssh_steps_are_bounded() -> None:
@@ -3614,7 +3667,8 @@ def test_remote_manifest_restore_ssh_steps_are_bounded() -> None:
             "objects": [
                 {
                     "path": "dcc/A.txt",
-                    "repositoryKey": "repo-a",
+                    "repositoryKey": "a" * 64,
+                    "sha256": "a" * 64,
                     "status": "active",
                 }
             ],
@@ -3691,7 +3745,7 @@ $result = Import-BackupObjectInventoryFromRemoteNas -Request @{{
     ]
     assert restore_plan_uploads
     restore_plan_bytes = base64.b64decode(restore_plan_uploads[0]["base64"])
-    assert restore_plan_bytes == b"repo-a\tdcc/A.txt\n"
+    assert restore_plan_bytes == (("a" * 64) + "\t" + ("a" * 64) + "\tdcc/A.txt\n").encode("utf-8")
     assert b"\r" not in restore_plan_bytes
 
 
@@ -4305,6 +4359,10 @@ function Show-BackupOpsProgress {{ }}
 function Assert-BackupOpsRemoteNasMounted {{ }}
 function New-BackupOpsBackupWorkspace {{ param($Config, $Action, $BackupType) [pscustomobject]@{{ BackupId = '20260520-010203'; ImageTag = 'unknown'; MySqlPath = 'mysql'; ObjectsPath = 'objects'; DeployPath = 'deploy'; ManifestPath = 'manifest' }} }}
 function Get-BackupOpsCurrentImageTag {{ param($Config, $LogSession) '20260520_000001' }}
+function Stop-BackupOpsFrontendBackend {{ param($Config, $LogSession) }}
+function Assert-BackupOpsWriteWindowQuiesced {{ param($Config, $LogSession) }}
+function Start-BackupOpsFrontendBackend {{ param($Config, $LogSession) }}
+function Test-BackupOpsFrontendBackendHealth {{ param($Config, $LogSession) }}
 function Export-BackupOpsMySqlDump {{
     $ex = [System.InvalidOperationException]::new('dump failed')
     $ex.Data['BackupOpsCode'] = 'INTBK-3001'
@@ -4323,7 +4381,7 @@ function Complete-BackupOpsOutcome {{
     [pscustomobject]@{{ status = $Status; code = $Code; message = $Message; context = $Context; notifications = @($script:notifications) }}
 }}
 Import-Module '{module_path}' -Force -DisableNameChecking
-$result = Invoke-BackupNowUseCase -Config ([pscustomobject]@{{}}) -NonInteractive
+$result = Invoke-BackupNowUseCase -Config ([pscustomobject]@{{}}) -BackupKind FULL -NonInteractive
 $result | ConvertTo-Json -Depth 8
 """
     completed = _run_powershell_script(script)
@@ -4669,6 +4727,10 @@ function Show-BackupOpsProgress {{ }}
 function Assert-BackupOpsRemoteNasMounted {{ }}
 function New-BackupOpsBackupWorkspace {{ param($Config, $Action, $BackupType) [pscustomobject]@{{ BackupId = '20260520-010203'; ImageTag = 'unknown'; MySqlPath = 'mysql'; ObjectsPath = 'objects'; DeployPath = 'deploy'; ManifestPath = 'manifest' }} }}
 function Get-BackupOpsCurrentImageTag {{ param($Config, $LogSession) '20260520_000001' }}
+function Stop-BackupOpsFrontendBackend {{ param($Config, $LogSession) }}
+function Assert-BackupOpsWriteWindowQuiesced {{ param($Config, $LogSession) }}
+function Start-BackupOpsFrontendBackend {{ param($Config, $LogSession) }}
+function Test-BackupOpsFrontendBackendHealth {{ param($Config, $LogSession) }}
 function Save-BackupOpsDeployMetadata {{ }}
 function Export-BackupOpsMySqlDump {{ }}
 function Backup-BackupOpsObjectBucket {{ }}
@@ -4698,7 +4760,7 @@ function New-BackupOpsResult {{
     [pscustomobject]@{{ status = $Status; code = $Code; message = $Message; context = $Context; notifications = @($script:notifications) }}
 }}
 Import-Module '{module_path}' -Force -DisableNameChecking
-$result = Invoke-BackupScheduledUseCase -Config ([pscustomobject]@{{}}) -OperatorName 'scheduler'
+$result = Invoke-BackupScheduledUseCase -Config ([pscustomobject]@{{}}) -BackupKind FULL -OperatorName 'scheduler'
 $result | ConvertTo-Json -Depth 10
 """
     completed = _run_powershell_script(script)
@@ -4723,6 +4785,10 @@ function Show-BackupOpsProgress {{ }}
 function Assert-BackupOpsRemoteNasMounted {{ }}
 function New-BackupOpsBackupWorkspace {{ param($Config, $Action, $BackupType) [pscustomobject]@{{ BackupId = '20260520-010203'; ImageTag = 'unknown'; MySqlPath = 'mysql'; ObjectsPath = 'objects'; DeployPath = 'deploy'; ManifestPath = 'manifest' }} }}
 function Get-BackupOpsCurrentImageTag {{ param($Config, $LogSession) '20260520_000001' }}
+function Stop-BackupOpsFrontendBackend {{ param($Config, $LogSession) }}
+function Assert-BackupOpsWriteWindowQuiesced {{ param($Config, $LogSession) }}
+function Start-BackupOpsFrontendBackend {{ param($Config, $LogSession) }}
+function Test-BackupOpsFrontendBackendHealth {{ param($Config, $LogSession) }}
 function Save-BackupOpsDeployMetadata {{ }}
 function Export-BackupOpsMySqlDump {{ }}
 function Backup-BackupOpsObjectBucket {{ }}
@@ -4745,7 +4811,7 @@ function Complete-BackupOpsOutcome {{
     [pscustomobject]@{{ status = $Status; code = $Code; message = $Message; context = $Context; notifications = @($script:notifications) }}
 }}
 Import-Module '{module_path}' -Force -DisableNameChecking
-$result = Invoke-BackupScheduledUseCase -Config ([pscustomobject]@{{}}) -OperatorName 'scheduler'
+$result = Invoke-BackupScheduledUseCase -Config ([pscustomobject]@{{}}) -BackupKind FULL -OperatorName 'scheduler'
 $result | ConvertTo-Json -Depth 10
 """
     completed = _run_powershell_script(script)

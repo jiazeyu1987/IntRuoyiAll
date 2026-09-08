@@ -4,5 +4,5 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 
 public interface BackupPlanOperationGateway {
 
-    RuntimeControlOperationRespVO backupNow(Long loginUserId);
+    RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind);
 }

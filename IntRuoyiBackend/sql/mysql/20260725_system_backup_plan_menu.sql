@@ -37,6 +37,10 @@ BEGIN
         `id` = 901102
         AND (`deleted` <> b'0' OR `permission` <> 'system:backup-plan:execute')
       )
+      OR (
+        `id` = 901103
+        AND (`deleted` <> b'0' OR `permission` <> 'system:backup-plan:evidence-export')
+      )
   ) THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Conflicting system_menu id exists for system backup plan menus';
@@ -103,6 +107,7 @@ BEGIN
   FROM (
     SELECT 901101 AS `id`, '保存备份计划' AS `name`, 'system:backup-plan:update' AS `permission`, 1 AS `sort`
     UNION ALL SELECT 901102, '立即备份一次', 'system:backup-plan:execute', 2
+    UNION ALL SELECT 901103, '导出备份审查证据', 'system:backup-plan:evidence-export', 3
   ) AS `seed`
   WHERE NOT EXISTS (
     SELECT 1
@@ -120,7 +125,11 @@ BEGIN
       `always_show` = b'1',
       `updater` = 'codex',
       `update_time` = NOW()
-  WHERE `permission` IN ('system:backup-plan:update', 'system:backup-plan:execute')
+  WHERE `permission` IN (
+      'system:backup-plan:update',
+      'system:backup-plan:execute',
+      'system:backup-plan:evidence-export'
+    )
     AND `deleted` = b'0';
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_system_backup_plan_menu_ids`;
@@ -134,12 +143,13 @@ BEGIN
   WHERE `permission` IN (
       'system:backup-plan:query',
       'system:backup-plan:update',
-      'system:backup-plan:execute'
+      'system:backup-plan:execute',
+      'system:backup-plan:evidence-export'
     )
     AND `status` = 0
     AND `deleted` = b'0';
 
-  IF (SELECT COUNT(*) FROM `tmp_system_backup_plan_menu_ids`) <> 3 THEN
+  IF (SELECT COUNT(*) FROM `tmp_system_backup_plan_menu_ids`) <> 4 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Missing or duplicated system backup plan permissions';
   END IF;
