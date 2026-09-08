@@ -40,3 +40,5 @@
 - 当前工作区存在无关脏改动：`doc/tasks/20260907-dcc-release-notification-impact/*` 和 `docs/e2e-rules.md`。本任务不修改、不暂存、不提交这些文件。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-gxp-audit-trail-implementation --mode preview` -> PASS，keep 5 个正式任务文件，delete/blocked/warnings 均为空。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-gxp-audit-trail-implementation --mode apply` -> PASS，deleted_paths 为空，当前为主工作区 `int_main`。
+- IMPLEMENTATION COMMIT: `5aac09672 feat: add gxp audit trail core`，包含统一 GxP 审计内核、SQL、策略登记、测试、evidence 和经验沉淀。
+- CLOSEOUT: 任务状态更新为 `completed`；closeout 提交待生成后推送 `int_main`。

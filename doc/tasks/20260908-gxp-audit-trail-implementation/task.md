@@ -13,7 +13,7 @@
 - [x] M2：先写 RED 测试，覆盖只追加 schema、策略登记和 append 服务失败关闭。
 - [x] M3：实现最小统一审计内核、迁移脚本和策略登记样例。
 - [x] M4：运行 GREEN 与回归验证，补充数据库和后端证据。
-- [ ] M5：按收尾规则清理、提交、推送，并记录最终结论。
+- [x] M5：按收尾规则清理、提交、推送，并记录最终结论。
 
 ## Expected Verification
 
@@ -35,7 +35,7 @@
 
 ## Current Status
 
-ready_for_closeout：统一 GxP 审计内核第一阶段代码、SQL、策略登记、目标测试、evidence validator 和经验沉淀均已完成；下一步执行 task-closeout-cleanup、提交和推送。
+completed：统一 GxP 审计内核第一阶段代码、SQL、策略登记、目标测试、evidence validator、经验沉淀、cleanup、实现提交和 closeout 推送均已完成。
 
 ## Cleanup Keep
 

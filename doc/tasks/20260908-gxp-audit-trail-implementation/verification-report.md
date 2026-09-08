@@ -49,3 +49,9 @@
 ## Verdict
 
 PASS FOR SOFTWARE - PHASE 1：统一 GxP 审计追踪内核第一阶段通过目标测试和 evidence 校验，可作为后续业务接入的基础。当前仍不能声明完整 `PASS FOR SOFTWARE`，也不能声明 `PASS FOR OPERATIONAL COMPLIANCE`。
+
+## Closeout
+
+- Implementation commit：`5aac09672 feat: add gxp audit trail core`。
+- Task status：`completed`。
+- Git push：closeout 提交后推送 `int_main`。
