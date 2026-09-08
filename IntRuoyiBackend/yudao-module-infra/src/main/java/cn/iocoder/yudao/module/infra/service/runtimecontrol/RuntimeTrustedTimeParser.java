@@ -31,10 +31,10 @@ class RuntimeTrustedTimeParser {
     private static final Pattern LEGACY_NTP_ENABLED = Pattern.compile(
             "(?im)^\\s*NTP enabled\\s*:\\s*(\\S+)\\s*$");
 
-    private final double maxOffsetMillis;
+    private final Double maxOffsetMillis;
 
-    RuntimeTrustedTimeParser(double maxOffsetMillis) {
-        if (!Double.isFinite(maxOffsetMillis) || maxOffsetMillis <= 0) {
+    RuntimeTrustedTimeParser(Double maxOffsetMillis) {
+        if (maxOffsetMillis != null && (!Double.isFinite(maxOffsetMillis) || maxOffsetMillis <= 0)) {
             throw new IllegalArgumentException("maxOffsetMillis must be positive");
         }
         this.maxOffsetMillis = maxOffsetMillis;
@@ -134,12 +134,12 @@ class RuntimeTrustedTimeParser {
         }
         if (evidence.getLastOffsetMillis() == null) {
             failures.add("缺少 Last offset");
-        } else if (Math.abs(evidence.getLastOffsetMillis()) > maxOffsetMillis) {
+        } else if (maxOffsetMillis != null && Math.abs(evidence.getLastOffsetMillis()) > maxOffsetMillis) {
             failures.add("时间偏差超过批准阈值 " + formatNumber(maxOffsetMillis) + " ms");
         }
         if (evidence.getRmsOffsetMillis() == null) {
             failures.add("缺少 RMS offset");
-        } else if (Math.abs(evidence.getRmsOffsetMillis()) > maxOffsetMillis) {
+        } else if (maxOffsetMillis != null && Math.abs(evidence.getRmsOffsetMillis()) > maxOffsetMillis) {
             failures.add("RMS 时间偏差超过批准阈值 " + formatNumber(maxOffsetMillis) + " ms");
         }
         if (StrUtil.isBlank(evidence.getServerTimeUtc())) {

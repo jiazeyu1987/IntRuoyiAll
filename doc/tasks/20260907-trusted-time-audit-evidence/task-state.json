@@ -306,6 +306,74 @@
       ],
       "last_reviewed_at": "2026-09-08T02:06:43+00:00",
       "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "测试阶段停用偏差阈值",
+      "objective": "未配置偏差阈值时仍完成可信时间采集和证据导出，不因 Last/RMS 数值大小阻断；正式环境配置正数阈值后恢复超限阻断。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeTrustedTimeCollectorImpl.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeTrustedTimeParser.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeCollectorImplTest.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeParserTest.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeDeploymentScriptContractTest.java`",
+        "`IntRuoyiBackend/script/deploy/int-ruoyi-test/docker-compose.yml`",
+        "`IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "可选偏差阈值，未配置时只停用数值超限判定。",
+        "现有“导出时间戳证据”按钮回归证据。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：未配置偏差阈值时仍完成可信时间采集和证据导出，不因 Last/RMS 数值大小阻断；正式环境配置正数阈值后恢复超限阻断。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "交付物已落地：可选偏差阈值，未配置时只停用数值超限判定。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "交付物已落地：现有“导出时间戳证据”按钮回归证据。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "用户要求测试阶段停用100ms偏差限制；现有导出按钮复用并回归。",
+        "P5独立验证PASS：32/32、36/36、前端合同/类型检查、真实巡检ID4和ZIP均通过。"
+      ],
+      "last_reviewed_at": "2026-09-08T03:07:17+00:00",
+      "status": "completed"
     }
   ],
   "planner_review_status": "approved",
@@ -317,7 +385,7 @@
     "test_loops": 5
   },
   "created_at": null,
-  "updated_at": "2026-09-08T02:07:11+00:00",
+  "updated_at": "2026-09-08T03:07:17+00:00",
   "branch": null,
   "baseline_revision": null,
   "workspace_root": "D:\\IntRuoyiWorktree\\timestamp_20260907",

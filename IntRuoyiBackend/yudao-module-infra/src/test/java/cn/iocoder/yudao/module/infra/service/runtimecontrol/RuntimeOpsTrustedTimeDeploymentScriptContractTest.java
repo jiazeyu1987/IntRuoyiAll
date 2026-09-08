@@ -41,8 +41,9 @@ class RuntimeOpsTrustedTimeDeploymentScriptContractTest {
         assertFalse(script.contains("Write-Host $MYSQL_ROOT_PASSWORD"));
         assertFalse(script.contains("Write-Output $MYSQL_ROOT_PASSWORD"));
         assertTrue(compose.contains("INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS: "
-                + "${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS:?"));
+                + "${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS-}"));
         assertFalse(compose.contains("${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS:-"));
+        assertFalse(compose.contains("${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS:?"));
     }
 
     @Test

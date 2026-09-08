@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlInspectionCheckRespVO;
-import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlTrustedTimeRespVO;
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,16 +38,11 @@ public class RuntimeTrustedTimeCollectorImpl implements RuntimeTrustedTimeCollec
                                     Double maxOffsetMillis) {
         this.properties = properties;
         this.commandExecutor = commandExecutor;
-        this.parser = maxOffsetMillis == null ? null : new RuntimeTrustedTimeParser(maxOffsetMillis);
+        this.parser = new RuntimeTrustedTimeParser(maxOffsetMillis);
     }
 
     @Override
     public List<RuntimeControlInspectionCheckRespVO> collect() {
-        if (parser == null) {
-            return TARGETS.entrySet().stream()
-                    .map(entry -> missingThreshold(entry.getKey(), entry.getValue()))
-                    .toList();
-        }
         List<RuntimeControlInspectionCheckRespVO> checks = new ArrayList<>();
         TARGETS.forEach((environment, target) -> checks.add(collect(environment, target)));
         return checks;
@@ -100,34 +93,27 @@ public class RuntimeTrustedTimeCollectorImpl implements RuntimeTrustedTimeCollec
         return result;
     }
 
-    private RuntimeControlInspectionCheckRespVO missingThreshold(String environmentKey, Target target) {
-        RuntimeControlTrustedTimeRespVO evidence = new RuntimeControlTrustedTimeRespVO();
-        evidence.setTargetEnvironment(environmentKey);
-        evidence.setNodeName(target.nodeName());
-        evidence.setServerHost(target.host());
-        RuntimeControlInspectionCheckRespVO check = new RuntimeControlInspectionCheckRespVO();
-        check.setCode("prod".equals(environmentKey) ? "trusted-time-prod" : "trusted-time-audit");
-        check.setName(target.nodeName() + "可信时间");
-        check.setRequired(true);
-        check.setStatus(RuntimeOpsInspectionStatus.BLOCKED);
-        check.setReason("缺少经批准的时间偏差阈值：请设置 " + MAX_OFFSET_ENV + " 为正数毫秒值");
-        check.setEvidence("host=" + target.host() + "; maxOffsetMillis=MISSING");
-        check.setSampledAt(LocalDateTime.now());
-        check.setTrustedTime(evidence);
-        return check;
+    private static Double configuredMaxOffsetMillis() {
+        return configuredMaxOffsetMillis(System.getenv(MAX_OFFSET_ENV));
     }
 
-    private static Double configuredMaxOffsetMillis() {
-        String raw = System.getenv(MAX_OFFSET_ENV);
+    static Double configuredMaxOffsetMillis(String raw) {
         if (StrUtil.isBlank(raw)) {
             return null;
         }
         try {
             double value = Double.parseDouble(raw.trim());
-            return Double.isFinite(value) && value > 0 ? value : null;
+            if (!Double.isFinite(value) || value <= 0) {
+                throw invalidThreshold(raw);
+            }
+            return value;
         } catch (NumberFormatException ex) {
-            return null;
+            throw invalidThreshold(raw);
         }
+    }
+
+    private static IllegalStateException invalidThreshold(String raw) {
+        return new IllegalStateException(MAX_OFFSET_ENV + " 必须为空或正数毫秒值，实际值：" + raw);
     }
 
     private record Target(String nodeName, String host) {

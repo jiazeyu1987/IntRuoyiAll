@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RuntimeOpsTrustedTimeParserTest {
@@ -47,6 +48,22 @@ class RuntimeOpsTrustedTimeParserTest {
         assertEquals(RuntimeOpsInspectionStatus.BLOCKED, check.getStatus());
         assertEquals(-1500D, check.getTrustedTime().getLastOffsetMillis());
         assertTrue(check.getReason().contains("1000"));
+    }
+
+    @Test
+    void parseShouldPreserveLargeOffsetsWithoutNumericLimitWhenThresholdIsDisabled() {
+        RuntimeTrustedTimeParser parserWithoutThreshold = new RuntimeTrustedTimeParser(null);
+        RuntimeTrustedTimeCommandOutput output = normalOutput("-1.500000 seconds");
+        output.setChronycTracking(output.getChronycTracking().replace(
+                "RMS offset      : 0.000200 seconds", "RMS offset      : 2.000000 seconds"));
+
+        RuntimeControlInspectionCheckRespVO check = parserWithoutThreshold.parse(
+                "prod", "正式服", "172.30.30.57", output);
+
+        assertEquals(RuntimeOpsInspectionStatus.PASS, check.getStatus());
+        assertEquals(-1500D, check.getTrustedTime().getLastOffsetMillis());
+        assertEquals(2000D, check.getTrustedTime().getRmsOffsetMillis());
+        assertNull(check.getTrustedTime().getMaxOffsetMillis());
     }
 
     @Test

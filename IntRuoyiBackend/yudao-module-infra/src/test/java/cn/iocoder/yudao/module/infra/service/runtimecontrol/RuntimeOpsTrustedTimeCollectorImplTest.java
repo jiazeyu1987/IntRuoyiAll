@@ -14,6 +14,8 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -89,17 +91,38 @@ class RuntimeOpsTrustedTimeCollectorImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void collectShouldBlockWithoutApprovedOffsetThresholdAndNotRunCommands() {
+    void collectShouldContinueWithoutOffsetThresholdAndPreserveMeasuredOffsets() {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
         RuntimeTrustedTimeCollector collectorWithoutThreshold =
                 new RuntimeTrustedTimeCollectorImpl(properties, commandExecutor, null);
+        when(commandExecutor.executeForOutput(argThat(command -> command != null
+                        && "prod".equals(command.getEnvironment())), any(Duration.class)))
+                .thenReturn(normalJson("prod", "172.30.30.57"));
+        when(commandExecutor.executeForOutput(argThat(command -> command != null
+                        && "backup".equals(command.getEnvironment())), any(Duration.class)))
+                .thenReturn(normalJson("backup", "172.30.30.59"));
 
         List<RuntimeControlInspectionCheckRespVO> checks = collectorWithoutThreshold.collect();
 
-        assertTrue(checks.stream().allMatch(item -> RuntimeOpsInspectionStatus.BLOCKED == item.getStatus()));
-        assertTrue(checks.stream().allMatch(item -> item.getReason().contains(
-                RuntimeTrustedTimeCollectorImpl.MAX_OFFSET_ENV)));
-        org.mockito.Mockito.verifyNoInteractions(commandExecutor);
+        assertTrue(checks.stream().allMatch(item -> RuntimeOpsInspectionStatus.PASS == item.getStatus()));
+        assertTrue(checks.stream().allMatch(item -> item.getTrustedTime().getLastOffsetMillis() != null));
+        assertTrue(checks.stream().allMatch(item -> item.getTrustedTime().getRmsOffsetMillis() != null));
+        assertTrue(checks.stream().allMatch(item -> item.getTrustedTime().getLastOffsetMillis() == 0.12D));
+        assertTrue(checks.stream().allMatch(item -> item.getTrustedTime().getRmsOffsetMillis() == 0.2D));
+        assertTrue(checks.stream().allMatch(item -> item.getTrustedTime().getMaxOffsetMillis() == null));
+    }
+
+    @Test
+    void configuredThresholdShouldTreatBlankAsDisabledAndRejectInvalidNonBlankValues() {
+        assertNull(RuntimeTrustedTimeCollectorImpl.configuredMaxOffsetMillis(null));
+        assertNull(RuntimeTrustedTimeCollectorImpl.configuredMaxOffsetMillis("  "));
+        assertEquals(100D, RuntimeTrustedTimeCollectorImpl.configuredMaxOffsetMillis("100"));
+        assertThrows(IllegalStateException.class,
+                () -> RuntimeTrustedTimeCollectorImpl.configuredMaxOffsetMillis("invalid"));
+        assertThrows(IllegalStateException.class,
+                () -> RuntimeTrustedTimeCollectorImpl.configuredMaxOffsetMillis("0"));
+        assertThrows(IllegalStateException.class,
+                () -> RuntimeTrustedTimeCollectorImpl.configuredMaxOffsetMillis("-1"));
     }
 
     private String normalJson(String environment, String host) {

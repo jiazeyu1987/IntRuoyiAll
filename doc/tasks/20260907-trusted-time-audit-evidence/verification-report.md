@@ -2,7 +2,7 @@
 
 ## Result
 
-PASS：P1-P4 实现、定向回归、远程只读核查和真实 Playwright E2E 均通过独立验证。
+PASS：P1-P5 实现、定向回归、远程只读核查和本地真实 Playwright E2E 均通过独立验证；远程移除阈值与重启尚待目标及 `PROD` 确认。
 
 ## Implemented
 
@@ -23,6 +23,9 @@ PASS：P1-P4 实现、定向回归、远程只读核查和真实 Playwright E2E 
 - 真实页面巡检 ID 3：正式服 Last/RMS `-0.312/0.571 ms`，审查服 `-0.232/0.186 ms`，两项时间源、Leap、服务器/数据库 UTC 和检查时间完整且均为 PASS。
 - 页面真实下载 ZIP：固定三文件、HTML/JSON SHA-256、两台主机和两项可信时间状态均校验通过；整体 `NO_GO` 原样保留。
 - 页面探针及最近操作区域不再显示 `Backup`、`备份服`、`备份服务器`、`备用服务器`；历史审计原值只做展示投影，不改写存储。
+- 测试阶段未配置偏差阈值时仍采集 Last/RMS，`maxOffsetMillis=null`，只跳过数值超限判断；其它可信时间门禁不变，配置正数阈值时仍恢复超限阻断。
+- P5 独立回归：后端 32/32 与完整相关 36/36 PASS，前端静态合同及 `pnpm ts:check` PASS。
+- 真实页面巡检 ID 4：正式服 Last/RMS `-1.225/0.630 ms`、审查服 `-0.820/0.302 ms`，两项 PASS；唯一导出按钮生成的 ZIP 三文件与 SHA-256 通过，JSON 两项 `maxOffsetMillis=null` 且 Last/RMS 完整。
 
 ## Real Environment Read-Only Evidence
 
@@ -39,3 +42,4 @@ PASS：P1-P4 实现、定向回归、远程只读核查和真实 Playwright E2E 
 - 初始实现提交 `34e915a29` 与真实环境/术语闭环提交 `3d6ea3ba4` 均已推送至 `origin/codex/timestamp_20260907`；未合并或删除 worktree。
 - task-closeout-cleanup preview 已通过删除范围识别：仅计划删除两个临时技能 evidence 文件；apply 因主工作区其它任务脏改动及非快进合并条件而安全阻断，未执行删除、合并或 worktree 移除。
 - 本任务本地 8161/48161 验收服务已按归属停止并释放端口；共享 MySQL、Redis、MinIO 依赖保持运行。
+- 用户请求的远程阈值移除和服务器重启未执行：目标环境尚未明确，且 `172.30.30.57/59` 的重启按项目规则必须取得 `PROD` 明文确认。

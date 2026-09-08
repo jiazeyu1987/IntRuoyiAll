@@ -556,3 +556,50 @@ P4 PASS：本节取代上一节 P4 FAIL。任务自有后端已按正确 `repo-r
 - P4-AC4：PASS，真实页面导出、固定三文件、SHA-256 和异常整体状态保留均已验证。
 
 最终结论：P4 PASS，可以进入主 Agent 的状态同步与收尾门禁。
+
+## P5 测试阶段停用偏差阈值独立复验
+
+P5 PASS：未配置偏差阈值的任务运行态仍采集完整 Last/RMS 偏差，正式服和审查服时间项均通过；页面保留唯一的“导出时间戳证据”按钮，下载证据包明确记录 `maxOffsetMillis=null`。
+
+### Runtime Preflight
+
+- 前端 `8161` PID `54240`，后端 `48161` PID `51308`；两者命令行均指向当前 worktree。
+- 后端命令行包含正确的 `repo-root/state-dir`，`/actuator/health` 为 `UP`，前端 HTTP 为 `200`。
+- Process/User/Machine 三个范围均未配置 `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS`。
+
+### Independent Regression
+
+1. P5 聚焦后端测试：PASS，`Tests run: 32, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`；覆盖 parser、collector 和部署合同。
+2. 完整可信时间后端定向回归：PASS，`Tests run: 36, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`；覆盖巡检、端点与 ZIP 导出。
+3. `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` 和静态合同执行：PASS。
+4. `pnpm ts:check`：PASS，退出码 `0`。
+5. `git diff --check`：PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+
+### Real Playwright Path
+
+- 使用全新 Playwright CLI session `timestamp-p5`，真实登录后从菜单搜索结果进入“基础设施 -> 监控中心 -> 运行控制台”。
+- 在页面点击“执行巡检”，生成巡检 ID `4`。整体因相邻的本地探针和日志目录问题保持 `NO_GO`，未伪装整体通过。
+- 正式服 `172.30.30.57`：时间源 `139.199.214.202`，Last `-1.225 ms`，RMS `0.630 ms`，Leap `Normal`，状态“通过”。
+- 审查服 `172.30.30.59`：时间源 `139.199.214.202`，Last `-0.820 ms`，RMS `0.302 ms`，Leap `Normal`，状态“通过”。
+- 页面快照中“导出时间戳证据”按钮计数为 `1`，不存在 `100 ms`、`maxOffset` 或“偏差阈值”启用文案。
+- 在同一页面点击该按钮，浏览器真实下载 `可信时间证据_巡检4.zip`；巡检和导出业务动作未使用 API、`fetch` 或 APIRequest 替代。
+
+### Downloaded Evidence Verification
+
+- ZIP 仅包含 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt`；HTML 和 JSON 的 SHA-256 重新计算后均与清单一致。
+- JSON 巡检 ID 为 `4`、整体状态为 `NO_GO`；`审查摘要.html` 同样保留 `NO_GO`。
+- `trusted-time-prod` 与 `trusted-time-audit` 均为 `PASS`，两项的主机、时间源、Last/RMS、Leap、同步状态和 NTP 状态完整。
+- 两项 `maxOffsetMillis` 均为 `null`，直接证明本次运行态未启用 `100 ms` 或其它数值偏差阈值。
+
+### Browser Diagnostics
+
+- Playwright console：`Errors: 0`、`Warnings: 0`；唯一 info 为系统欢迎日志。
+- 页面截图：`.playwright-cli/page-2026-09-08T03-03-15-041Z.png`；下载 ZIP 与快照位于本任务 worktree 的 `.playwright-cli` 临时目录。
+
+### Final Decision
+
+- P5-AC1：PASS，未配置阈值时不执行 Last/RMS 数值超限判定，但仍保留真实数值。
+- P5-AC2：PASS，chrony、同步、NTP、Leap、Stratum、UTC 和命令失败门禁回归通过。
+- P5-AC3：PASS，现有唯一导出按钮可用，证据包三文件与哈希合同成立。
+
+最终结论：P5 PASS，可以进入主 Agent 的状态同步与收尾门禁。

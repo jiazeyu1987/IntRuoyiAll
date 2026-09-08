@@ -134,3 +134,16 @@
 - CLOSEOUT PREVIEW: 正确保留八个正式任务记录并计划删除 `backend-api-evidence.md`、`frontend-feature-evidence.md`；因 `E:\IntRuoyi` 主工作区存在其它任务脏改动且当前分支不能 ff-only 合并到 `int_main`，apply 按规则 BLOCKED，未删除、未合并、未移除 worktree。
 - IMPLEMENTATION COMMIT: `3d6ea3ba4`（24 个任务自有文件）已通过分支端口门禁并推送到 `origin/codex/timestamp_20260907`；分支与远端实现提交一致。
 - RUNTIME CLOSEOUT: 经 PID 与命令行归属复核后停止本任务 8161/48161 前后端，端口均已释放；项目共享 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 保持运行且 MinIO healthy，未影响其它任务。
+- BDD: 测试阶段停用偏差阈值 -> Given `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS` 缺失或空白且 chrony、选中源、同步/NTP、Leap、Stratum、服务器 UTC、数据库 UTC 与检查时间均有效 / When 执行正式服和审查服可信时间巡检 / Then 仍执行远程采集，保存实际 Last/RMS，证据中的 `maxOffsetMillis` 为空，并且不因 Last/RMS 数值大小阻断。
+- BDD: 正式环境恢复偏差阈值 -> Given 配置正数偏差阈值 / When Last 或 RMS 超过阈值 / Then 仍按既有规则 BLOCKED；Given 阈值非空但不是正数 / When 应用读取配置 / Then fail fast，不把无效配置当作停用。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeCollectorImplTest,RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，测试编译明确显示旧 parser 只接受基本类型 `double`、collector 尚无可测试的空白/无效配置解析入口，复现“缺失阈值直接阻断且不采集”的旧合同。
+- P5 实现：collector 在阈值为空时仍创建 parser 并采集两台固定目标；parser 使用可空 `Double`，始终解析并校验 Last/RMS 是否存在，仅在阈值非空时执行数值超限判断，结构化证据保留实际偏差且 `maxOffsetMillis=null`。其它 chrony、选中源、同步/NTP、Leap、Stratum、目标主机、服务器/数据库/检查 UTC 和命令失败门禁未放宽。
+- P5 配置边界：缺失或空白阈值表示停用数值限制；正数正常启用；非空但非数字、非有限数或非正数抛出配置异常，不静默降级。部署 compose 改为 `${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS-}` 可选原样透传，不提供数值默认值。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeCollectorImplTest,RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，32 项测试、0 失败、0 错误；覆盖无阈值仍采集/保留偏差、正数阈值超限阻断、无效非空值 fail fast 和 compose 可选透传。
+- REGRESSION: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，41 项测试、0 失败、0 错误，既有可信时间、巡检聚合、导出三文件、接口和 Spring 装配合同未回归。
+- GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` 与 `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS；现有且唯一的“导出时间戳证据”按钮仍按已保存巡检 ID 下载，未新增第二入口。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- P5 边界：执行 Agent 未编辑 `task-state.json`、`test-report.md`，未提交 Git，未操作服务器或服务；远程清除环境变量、重启和真实页面复验由主 Agent按授权另行执行。
+- P5 最终独立验收：后端聚焦 32/32、完整相关 36/36、前端静态合同、`pnpm ts:check` 与 diff check 均 PASS；Playwright 页面巡检 ID 4 的正式服/审查服均保留实际 Last/RMS 且 PASS，导出 ZIP 固定三文件、SHA-256 正确、两项 `maxOffsetMillis=null`，console 0 error/0 warning。
+- P5 运维边界：本地任务运行态已按无阈值配置重建并复验；远程 `.env` 中先前的 `100 ms` 配置尚未删除，服务器未重启，等待用户明确目标及生产等级操作所需的 `PROD` 确认。
+- P5 本地运行态收尾：复核 8161/48161 PID 与当前 worktree 命令行后停止任务自有前后端并释放端口；共享 MySQL、Redis、MinIO 不停止。

@@ -142,7 +142,45 @@
 - 后端合同测试及真实页面均不得显示旧称 `Backup`、`备份服` 或 `备用服务器`。
 - 远程与 E2E 未获授权时明确记录为未执行，不能冒充完整环境闭环。
 
+### 里程碑 5：测试阶段停用偏差阈值
+
+目标：未配置偏差阈值时仍完成可信时间采集和证据导出，不因 Last/RMS 数值大小阻断；正式环境配置正数阈值后恢复超限阻断。
+
+涉及文件：
+
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeTrustedTimeCollectorImpl.java`
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeTrustedTimeParser.java`
+- `IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeCollectorImplTest.java`
+- `IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeParserTest.java`
+- `IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeDeploymentScriptContractTest.java`
+- `IntRuoyiBackend/script/deploy/int-ruoyi-test/docker-compose.yml`
+- `IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`
+- `doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`
+- `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`
+
+交付物：
+
+- 可选偏差阈值，未配置时只停用数值超限判定。
+- 现有“导出时间戳证据”按钮回归证据。
+
+### Implementation Steps
+
+1. 先写未配置阈值的 RED，证明旧实现会阻断。
+2. 最小修改 collector/parser 与 compose 透传，使空值表示不启用偏差限制。
+3. 保留 chrony、同步、NTP、Leap、Stratum、服务器/数据库 UTC 和命令失败门禁。
+4. 复验现有导出按钮，不新增重复入口。
+
+### Acceptance
+
+- AC-04、AC-05、AC-06、AC-07。
+
+### Verification Gates
+
+- 未配置阈值且其它证据正常时 PASS；证据继续包含实际 Last/RMS。
+- 配置正数阈值时 Last 或 RMS 超限仍 BLOCKED。
+- 现有页面按钮仍从指定已保存巡检导出固定三文件 ZIP。
+
 ## Rollback or Stop Conditions
 
-- chrony 输出契约不明确、远程执行配置缺失、阈值缺失或目标 worktree 发生非任务改动时停止。
+- chrony 输出契约不明确、远程执行配置缺失或目标 worktree 发生非任务改动时停止。
 - 不得添加 mock、客户端时间 fallback、默认 PASS 或第二套证据存储。

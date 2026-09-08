@@ -948,8 +948,8 @@
 ## 可信时间与正式签名时间边界门禁
 
 - Trigger: 电子签名允许填写 `selectedSignedAt`，审计页面显示 `signatureDisplayAt`，或 Runtime Control 生成正式服、审查服时间戳审查证据。
-- Preflight check: `signedAt` 必须由服务端生成并作为正式签名展示时间；`selectedSignedAt` 只能表示独立业务发生时间并保留时区和原因。可信时间检查必须读取受控 chrony 的选中源、Stratum、Last/RMS offset、Leap、系统同步状态、服务器 UTC 和数据库 UTC，偏差阈值必须显式配置。
-- Blocker: chrony 命令失败、无选中源、Leap 非 Normal、系统未同步、NTP 未激活、Stratum/UTC 证据缺失或无效、Last/RMS 偏差超阈值，或阈值未配置时，检查必须为 BLOCKED/NO_GO，不能默认 PASS。
+- Preflight check: `signedAt` 必须由服务端生成并作为正式签名展示时间；`selectedSignedAt` 只能表示独立业务发生时间并保留时区和原因。可信时间检查必须读取受控 chrony 的选中源、Stratum、Last/RMS offset、Leap、系统同步状态、服务器 UTC 和数据库 UTC。测试阶段允许用空阈值明确停用 Last/RMS 数值超限判断；正式上线必须显式配置经批准的正数阈值。
+- Blocker: chrony 命令失败、无选中源、Leap 非 Normal、系统未同步、NTP 未激活、Stratum/UTC 证据缺失或无效时，检查必须为 BLOCKED/NO_GO。阈值为正数时 Last/RMS 超限必须阻断；阈值非空但无效或非正数必须 fail fast，不能当作停用。空阈值只停用数值超限判断，Last/RMS 仍必须采集和保存。
 - Verification: 后端测试分别覆盖签名展示不被业务时间覆盖、正式服/审查服固定目标、时间证据失败路径、巡检聚合、指定巡检三文件 ZIP、HTML 转义和 SHA-256；导出只读取已保存巡检 ID，不重新执行巡检。
 - Forbidden action: 禁止用 `selectedSignedAt`、`signatureDisplayAt` 旧值或客户端时间代替正式 `signedAt`；禁止导出时重新采集后覆盖历史巡检；禁止缺证据时返回默认成功。
 - Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
