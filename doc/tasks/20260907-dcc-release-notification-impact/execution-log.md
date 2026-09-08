@@ -635,6 +635,12 @@ Detailed evidence: `p4-runtime-evidence.md`. P4 remains in progress; independent
 
 The independently owned restart was not stopped or replaced. Playwright was closed with no remaining browser session. P4 remains in progress and requires a stable exclusive 48081 window before resuming UI-only business writes.
 
+## P4 Resume: DCC-P4-20260908064319ZPS7
+
+`BDD: 已提交任务文件完成发布后续 -> Given 芋道源码租户中任务文件 DCC-P4-20260908064319ZPS7 已通过真实前端提交审批, When admin 仅通过 Playwright 可见页面完成其被正式分配的审批与发布动作, Then 页面显示正式发布状态、发布后续时间线和本人站内通知；若影响任务和责任账号在页面存在则继续完成决定与升版跟踪，否则精确记录缺失前置`
+
+`RED: Invoke-RestMethod http://127.0.0.1:48081/actuator/health -> FAIL, current int_main backend refuses connection while frontend 8081 remains HTTP 200; authenticated DCC page cannot be accepted until the owned 48081 runtime is restored`
+
 ## P4 Local Acceptance: 48081 Restart And Own Playwright E2E
 
 `BDD: 本地 P4 验收走真实前端 -> Given 48081/8081 均为本地 int_main 运行态且测试租户账号可登录，When 使用 Playwright 通过真实页面访问 DCC 发布后续、工作台影响评估和上传页并提交一份任务自有新文件，Then 页面入口、查询接口、上传预览和提交审批均成功；不得用 API 或数据库写入替代页面业务动作`
