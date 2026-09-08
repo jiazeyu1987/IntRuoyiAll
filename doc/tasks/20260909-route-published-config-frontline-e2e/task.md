@@ -20,7 +20,7 @@
 - 缺少发布后活跃订单、工序、设备或参数时，脚本必须 fail fast 并输出明确 blocker。
 
 ## Current Status
-ready_for_closeout：真实页面 E2E 已通过，等待任务收尾清理和提交推送。
+completed：真实页面 E2E 已通过，任务证据已提交并推送到 `origin/int_main`。
 
 ## Cleanup Keep
 - doc/tasks/20260909-route-published-config-frontline-e2e/task.md

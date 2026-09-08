@@ -25,4 +25,4 @@
 - Screenshot: `doc/tasks/20260909-route-published-config-frontline-e2e/e2e-artifacts/frontline-published-route-config-display.png`。
 
 ## Status
-- 当前验证结论：PASS，等待收尾清理、提交和推送。
+- 当前验证结论：PASS，任务证据已提交并推送到 `origin/int_main`，提交 `e9bd91bff`。

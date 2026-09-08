@@ -13,3 +13,7 @@ RED: `pnpm e2e:frontline-published-route-config-display:real` -> FAIL，expected
 GREEN: `node --check IntRuoyiFronted/tests/e2e/frontline-published-route-config-display-real.e2e.cjs` -> PASS，修正目标范围断言为读取参数行可见文本并归一化比较。
 GREEN: `pnpm e2e:frontline-published-route-config-display:real` -> PASS，使用真实页面登录 `芋道源码/admin`，进入一线生产，验证活跃订单 `KDMO-309748-1416202028` 的发布后 FROZEN 配置在页面正确显示。
 GREEN: `git diff --check -- IntRuoyiFronted/tests/e2e/frontline-published-route-config-display-real.e2e.cjs IntRuoyiFronted/package.json doc/tasks/20260909-route-published-config-frontline-e2e` -> PASS。
+CLOSEOUT: `task_closeout.py --task-id 20260909-route-published-config-frontline-e2e --mode preview` -> PASS，保留任务记录、E2E result JSON 和截图，删除临时 `frontend-feature-evidence.md`。
+CLOSEOUT: `task_closeout.py --task-id 20260909-route-published-config-frontline-e2e --mode apply` -> PASS，主工作区 `linked=False`，无 worktree 合并/删除。
+COMMIT: `git commit -m "test: verify published route config in frontline"` -> `e9bd91bff`，提交本任务 E2E 证据文件。
+PUSH: `git push origin int_main` -> PASS，`origin/int_main` 已更新到 `e9bd91bff`。
