@@ -52,6 +52,7 @@
 - COMMIT: `d33aae230 feat: complete backup recovery evidence closure`（rebase 后提交 ID），仅包含本任务代码、测试、迁移和任务证据；未 push。
 - REBASE: `git rebase int_main` -> PASS；当前 `int_main...codex/backup_20260907` 为 `0 1`，满足 fast-forward 历史条件。
 - CLOSEOUT PREVIEW AFTER REBASE: 仅因 `E:\IntRuoyi` 主工作区存在大量并行未提交改动而 BLOCKED；未执行 merge 或 worktree removal。
+- CLOSEOUT APPLY: 主干检查点先提交为 `31fc6ca21`，并行任务后续提交为 `a9cda5fe1`；备份分支 rebase 后通过 ff-only 合并，最终 `int_main` 包含 `c64490205` 和 `7d368381c`。Git worktree 注册已移除，`.pytest-temp` 已清理。
 - NOTE: task docs ignored by local Git exclude -> `doc/tasks/20260907-backup-minimal-closure-implementation/` 命中 `E:/IntRuoyi/.git/info/exclude:17:/doc/tasks/*/`，本地任务记录已写入但不会自动进入 Git。
 - BLOCKED: 真实备份 / 远程服务器 / 数据库写入 / Playwright E2E / Git commit / push -> 用户未授权；按任务边界不执行。
 

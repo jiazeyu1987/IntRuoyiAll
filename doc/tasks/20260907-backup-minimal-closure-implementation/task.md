@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 静态代码分析与缺陷修复已完成。相关 Python 回归 160 项、Java 定向测试 46 项、后端 package、PowerShell 解析、前端静态合同和目标文件 ESLint、迁移 policy gate 均通过。真实备份、数据库迁移执行、远程恢复和 E2E 仍未授权。
 
@@ -64,7 +64,7 @@ ready_for_closeout
 - 真实 MySQL binlog、NAS、MinIO、远程主机和演练槽位验证需要后续明确授权；本轮只完成代码和隔离测试。
 - 未授权 Git commit/push，完成代码验证后任务最多进入 `ready_for_closeout`。
 - 全仓 TypeScript 基线仍有 4 个 `src/views/dcc/controlled-file/upload/index.vue` 的 `versionNo` 可空错误；主工作区同样复现，本任务未修改该文件。
-- closeout preview 发现 `int_main` 已前进且主工作区有其它任务改动，无法安全 ff-only 合并；本轮未获 commit/merge/worktree removal 授权，因此不执行 cleanup apply。
+- closeout apply 已完成：任务提交已 ff-only 融合到 `int_main`，备份 worktree 已从 Git worktree 注册表移除，`.pytest-temp` 已清理。
 
 ## Milestone Evidence
 

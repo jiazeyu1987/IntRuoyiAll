@@ -45,4 +45,5 @@ The implementation now covers the minimum local closure: explicit FULL/INCREMENT
 - `int_main` 在本 worktree 创建后已前进且主工作区存在其它任务改动，当前无法安全 ff-only closeout；不得在本轮重置、合并或删除 worktree。
 - 用户随后授权融合；本任务将先提交并对齐当前 `int_main`。主工作区仍有大量并行改动时，不得绕过 clean-main closeout 门禁。
 - 任务提交已 rebase 到当前 `int_main`，分支只领先 1 个提交；最终 ff-only 合并仍因主工作区脏状态阻塞。
+- 最终收尾已完成：主干先提交并保持其它任务变更，备份提交 rebase 后以 ff-only 融合；未 push 远端。
 - 全仓 TypeScript 基线存在 4 个 DCC 上传页 `versionNo` 可空错误，不影响本任务目标文件静态合同和 ESLint 结果。
