@@ -19,7 +19,7 @@
 - P1 发布事件与通知对象快照：completed
 - P2 关联文件影响评估任务：completed
 - P3 站内通知、待办与处理页面：completed
-- P4 审计、失败边界和真实验收：pending
+- P4 审计、失败边界和真实验收：in_progress
 
 ## Expected Verification
 
@@ -38,7 +38,7 @@
 
 in_progress
 
-P1 发布后续账本、P2 影响评估任务和 P3 幂等通知及真实前端入口均已通过独立 tester；P1-P3 相邻回归 316 项通过。当前阶段已推进到 P4，运行库迁移、服务重启和真实 Playwright 尚未执行。
+P1 发布后续账本、P2 影响评估任务和 P3 幂等通知及真实前端入口均已通过独立 tester；P1-P3 相邻回归 316 项通过。P4 本地 48081 已重启并健康，真实 Playwright 已完成发布后续页面、工作台影响评估入口、上传页预检和新文件提交审批路径。当前已证明新文件可通过真实页面提交进入审批；审批通过、发布、发布后续批次、通知和影响任务闭环仍需后续真实页面验收。
 
 ## 设计约束检查
 
@@ -66,3 +66,6 @@ P1 发布后续账本、P2 影响评估任务和 P3 幂等通知及真实前端�
 - doc/tasks/20260907-dcc-release-notification-impact/task-state.json
 - doc/tasks/20260907-dcc-release-notification-impact/execution-log.md
 - doc/tasks/20260907-dcc-release-notification-impact/verification-report.md
+- doc/tasks/20260907-dcc-release-notification-impact/p4-local-page-e2e.cjs
+- doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-precheck.cjs
+- doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-submit-e2e.cjs
