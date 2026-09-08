@@ -1,0 +1,108 @@
+schemaVersion: gxp-audit-policy.v1
+policyVersion: 2026-09-approved-01
+approvalReference: CODEX-IMPLEMENTATION-20260908
+operations:
+  - operationId: edhr.execution.field.update
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveChanges
+    domain: EDHR
+    subjectType: EDHR_FIELD
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_BATCH_RECORD
+    testIds: [BDD-AT-01, BDD-AT-02, BDD-AT-05]
+    owner: mes-owner
+    applicability: GXP
+  - operationId: dcc.controlled-file.publish
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccControlledFilePublishServiceImpl#publishControlledFile
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: PUBLISH
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [BDD-AT-01, BDD-AT-03, BDD-AT-06]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: signature.record.create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl#sign
+    domain: SIGNATURE
+    subjectType: SIGNATURE_RECORD
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_ELECTRONIC_SIGNATURE
+    testIds: [BDD-AT-01, BDD-AT-04, BDD-AT-06]
+    owner: qa-owner
+    applicability: GXP
+  - operationId: system.permission.role-menu.assign
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignRoleMenu
+    domain: SYSTEM
+    subjectType: ROLE_PERMISSION
+    actionType: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SECURITY_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-07]
+    owner: system-owner
+    applicability: GXP
+  - operationId: system.permission.user-role.assign
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignUserRole
+    domain: SYSTEM
+    subjectType: USER_ROLE
+    actionType: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SECURITY_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-07]
+    owner: system-owner
+    applicability: GXP
+  - operationId: system.permission.role-data-scope.assign
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignRoleDataScope
+    domain: SYSTEM
+    subjectType: ROLE_DATA_SCOPE
+    actionType: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SECURITY_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-07]
+    owner: system-owner
+    applicability: GXP
+  - operationId: system.config-package.import
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.configpackage.SystemConfigPackageServiceImpl#importPackage
+    domain: SYSTEM
+    subjectType: SYSTEM_CONFIGURATION
+    actionType: IMPORT
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SYSTEM_CONFIGURATION
+    testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-08]
+    owner: system-owner
+    applicability: GXP
+  - operationId: release.migration.apply
+    sourceType: MIGRATION
+    sourceLocator: sql/mysql/20260908_gxp_audit_trail_core.sql
+    domain: RELEASE
+    subjectType: DATABASE_MIGRATION
+    actionType: APPLY
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_SYSTEM_CHANGE
+    testIds: [BDD-AT-08, BDD-AT-09]
+    owner: release-owner
+    applicability: GXP

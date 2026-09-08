@@ -26,5 +26,9 @@ jobs:
         java-version: ${{ matrix.java }}
         distribution: 'temurin'
         cache: maven
+    - name: GxP audit coverage gate
+      run: |
+        python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/gxp-audit-policy.yaml
+        python -X utf8 -m pytest script/tests/test_gxp_audit_core_contract.py -q
     - name: Build with Maven
       run: mvn -B package --file pom.xml -Dmaven.test.skip=true

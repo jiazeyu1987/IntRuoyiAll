@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.baomidou.dynamic.datasource.annotation.DSTransactional;
 import com.google.common.annotations.VisibleForTesting;
@@ -205,6 +206,7 @@ public class PermissionServiceImpl implements PermissionService {
             @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，主要一次更新涉及到的 menuIds 较多，反倒批量会更快
     })
+    @GxpWriteOperation(operationId = "system.permission.role-menu.assign")
     public void assignRoleMenu(Long roleId, Set<Long> menuIds) {
         // 获得角色拥有菜单编号
         Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectListByRoleId(roleId), RoleMenuDO::getMenuId);
@@ -277,6 +279,7 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
     @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
+    @GxpWriteOperation(operationId = "system.permission.user-role.assign")
     public void assignUserRole(Long userId, Set<Long> roleIds) {
         // 获得角色拥有角色编号
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectListByUserId(userId),
@@ -395,6 +398,7 @@ public class PermissionServiceImpl implements PermissionService {
     // ========== 用户-部门的相关方法  ==========
 
     @Override
+    @GxpWriteOperation(operationId = "system.permission.role-data-scope.assign")
     public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds) {
         roleService.updateRoleDataScope(roleId, dataScope, dataScopeDeptIds);
     }

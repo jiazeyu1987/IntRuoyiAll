@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "dcc.controlled-file.publish")
     public FormInstanceRespVO publishControlledFile(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
         DccControlledFileDO file = requirePublishRequest(userId, id, reqVO);
         Map<String, Object> formData = buildPublishFormData(file, reqVO);

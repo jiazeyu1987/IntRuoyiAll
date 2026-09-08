@@ -36,6 +36,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -157,6 +158,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "edhr.execution.field.update")
     public MesProBatchRecordExecutionFieldAuditSaveResult saveChanges(
             MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
         return saveChangesInternal(command, true);

@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectSnapshot;
 import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "signature.record.create")
     public ElectronicSignatureResult sign(ElectronicSignatureCommand command) {
         validateCommand(command);
         Long actorId = SecurityFrameworkUtils.getLoginUserId();

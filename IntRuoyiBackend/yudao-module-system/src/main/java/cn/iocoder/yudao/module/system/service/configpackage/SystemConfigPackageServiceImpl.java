@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantPackageMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.apache.poi.ss.usermodel.Cell;
@@ -210,6 +211,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "system.config-package.import")
     public SystemConfigPackageImportRespVO importPackage(byte[] content, Boolean confirmed,
                                                          String targetSnapshotSha256,
                                                          Collection<String> availableComponents) {
