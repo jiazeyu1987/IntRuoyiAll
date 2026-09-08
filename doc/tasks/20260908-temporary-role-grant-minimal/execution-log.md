@@ -11,3 +11,12 @@ GREEN: mvn.cmd -pl yudao-module-system '-Dtest=TemporaryRoleGrantServiceImplTest
 GREEN: python -X utf8 -m pytest script\tests\test_system_temporary_role_grant_sql.py -q -> PASS, 3 passed。
 GREEN: node tests\e2e\system-temporary-role-grant-static.spec.js -> PASS。
 GREEN: pnpm ts:check -> PASS。
+GREEN: pnpm exec eslint src/api/system/temporaryRoleGrant/index.ts src/views/system/temporary-role-grant/index.vue -> PASS。
+GREEN: pnpm exec stylelint "src/views/system/temporary-role-grant/index.vue" --cache --cache-location node_modules/.cache/stylelint/ -> PASS。
+GREEN: mvn.cmd -pl yudao-module-system -DskipTests compile -> PASS。
+
+## Static Analysis Follow-up
+
+- 修复前端新增页面 CSS 单行声明和 media query 写法，使 stylelint 通过。
+- 修复临时角色授权审计操作者名称，Controller 改为读取 `AdminUserService#getUser(loginUserId).getUsername()`，不再把用户 ID 字符串写入 username 字段。
+- 修正文档证据中审批/撤销接口方法，与当前最小实现 POST 接口保持一致。

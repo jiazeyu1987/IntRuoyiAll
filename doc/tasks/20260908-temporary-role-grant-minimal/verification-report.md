@@ -11,6 +11,8 @@
 - `python -X utf8 -m pytest script\tests\test_system_temporary_role_grant_sql.py -q` -> PASS，3 tests。
 - `node tests\e2e\system-temporary-role-grant-static.spec.js` -> PASS。
 - `pnpm ts:check` -> PASS。
+- `pnpm exec eslint src/api/system/temporaryRoleGrant/index.ts src/views/system/temporary-role-grant/index.vue` -> PASS。
+- `pnpm exec stylelint "src/views/system/temporary-role-grant/index.vue" --cache --cache-location node_modules/.cache/stylelint/` -> PASS。
 - `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260908-temporary-role-grant-minimal\database-schema-evidence.md` -> PASS。
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260908-temporary-role-grant-minimal\backend-api-evidence.md` -> PASS。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260908-temporary-role-grant-minimal\frontend-feature-evidence.md` -> PASS。

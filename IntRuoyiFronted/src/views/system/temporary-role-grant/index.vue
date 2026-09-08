@@ -225,8 +225,27 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.temporary-role-grant-toolbar { display: flex; flex-direction: column; gap: 12px; }
-.temporary-role-grant-toolbar__filters { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; }
-.temporary-role-grant-toolbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-@media (max-width: 768px) { .temporary-role-grant-toolbar__filters { grid-template-columns: 1fr; } }
+.temporary-role-grant-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.temporary-role-grant-toolbar__filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.temporary-role-grant-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (width <= 768px) {
+  .temporary-role-grant-toolbar__filters {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

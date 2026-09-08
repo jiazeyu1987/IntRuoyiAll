@@ -21,8 +21,8 @@
 
 - 列表：`GET /system/temporary-role-grant/page`
 - 创建：`POST /system/temporary-role-grant/create`
-- 审批：`PUT /system/temporary-role-grant/approve`
-- 撤销：`PUT /system/temporary-role-grant/revoke`
+- 审批：`POST /system/temporary-role-grant/approve`
+- 撤销：`POST /system/temporary-role-grant/revoke`
 - 审计：`GET /system/temporary-role-grant/audit-list`
 - 状态：`PENDING`、`ACTIVE`、`REVOKED`、`EXPIRED`。
 
