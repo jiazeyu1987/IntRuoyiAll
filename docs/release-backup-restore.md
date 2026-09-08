@@ -24,6 +24,14 @@
 - 缺少备份目标、恢复脚本、数据盘、MinIO 容器或数据库连接证据时必须 fail fast。
 - 不得删除、清空、重挂载或改写共享存储，除非用户明确授权且有回滚说明。
 
+### 备份计划与审查证据静态门禁
+
+- Trigger: 修改或评审备份计划页面、立即备份入口、运行控制台备份委托、审查证据导出或 `overallVerdict` 判定。
+- Preflight check: 跟踪前端按钮到后端运行控制请求的参数来源，确认目标环境只能来自已校验的备份计划配置；检查证据包 PASS 条件是否同时包含计划状态、最新备份点 recoverability、恢复演练报告、源 manifest 和 checksum 清单。
+- Blocker: 入口网关硬编码 `prod`、自动补 `PROD`、从页面/默认值推断目标环境，或证据包在 manifest、checksum、演练报告任一缺失时仍可能输出 PASS，必须停止并补回归测试。
+- Verification: 至少覆盖一个“页面立即备份不绕过生产确认”的委托测试，以及一个“最新备份点源 manifest/checksum 缺失时 `overallVerdict=BLOCKED`”的证据导出测试；证据文件校验通过后再提交。
+- Forbidden action: 禁止把运行控制台生产确认下沉为普通页面按钮默认值；禁止用历史状态、默认路径、空 manifest 或缺失 checksum 冒充可审查证据闭环。
+
 ### 本机数据迁移包恢复门禁
 
 - Trigger: 用户要求把当前电脑的本机 IntRuoyi 数据打包给另一台电脑、保持两台开发电脑数据一致、或生成给 Codex 使用的恢复 README。

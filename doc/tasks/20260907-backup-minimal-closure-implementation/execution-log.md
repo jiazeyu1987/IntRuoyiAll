@@ -140,3 +140,7 @@ Verification:
 - GREEN: static-analysis Java regression -> PASS，`mvn.cmd -pl yudao-module-infra '-Dtest=BackupPlanServiceImplTest,BackupPlanMinimalClosureTest,RuntimeControlBackupPlanOperationGatewayTest,BackupEvidenceExportServiceTest,WindowsBackupPlanSchedulerGatewayTest,RuntimeBackupDrillServiceImplTest,RuntimeControlOperationActionBackupConfirmTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`，46 tests。
 - GREEN: static-analysis Python regression -> PASS，`python -X utf8 -m pytest --basetemp .pytest-temp script\tests\test_backup_minimal_closure.py script\tests\test_backup_ops_manifest_tooling.py script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_backup_ops_tooling.py script\tests\test_system_backup_plan_menu_sql.py -q`，123 tests。
 - GREEN: static-analysis frontend checks -> PASS，`node tests\e2e\system-backup-minimal-closure-static.spec.js`、`node --check tests\e2e\system-backup-plan-real-readonly.e2e.js`、`pnpm ts:check`。
+- GREEN: static-analysis temp cleanup -> PASS，删除 `D:\IntRuoyiWorktree\tmp_auth_20260907\IntRuoyiBackend\.pytest-temp`；删除前确认目标位于当前 worktree 后端根目录内且目录名为 `.pytest-temp`。
+- GREEN: branch runtime port guard -> PASS，`.\scripts\preflight\branch-runtime-port-guard.ps1` 确认当前任务 worktree 端口归属。
+- GREEN: project experience consolidation -> PASS，按 `project-experience-consolidation` 将备份计划/审查证据静态门禁合并到 `docs/release-backup-restore.md`；未新建长期经验文档。
+- GREEN: static-analysis fix commit -> PASS，`git commit -m "fix: enforce backup plan evidence gates"` 创建提交 `70e150aa2` 并推送到 `origin/codex/tmp_auth_20260907`。
