@@ -378,7 +378,7 @@
   "planner_review_status": "approved",
   "test_status": "running",
   "blocking_prereqs": [
-    "P4 real frontend approval cannot continue: task-owned file DCC-P4-202609081528-NEW references a missing object-store source key; signature-evidence digest returns S3 NoSuchKey (404)."
+    "P4 runtime schema drift was repaired by applying existing official T3/T7/T8 electronic-signature migrations. Real frontend retry is blocked because the shared frontend contains unresolved Git conflict markers in ActiveOrderSubmissionDetailPanel.vue and Vite cannot compile; shared 48081 was subsequently stopped by another task and this turn did not authorize an int_main restart."
   ],
   "iteration_counts": {
     "planner_revisions": 1,

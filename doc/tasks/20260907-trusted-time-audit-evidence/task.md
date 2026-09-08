@@ -37,7 +37,7 @@
 
 ## Current Status
 
-ready_for_closeout：P6 静态代码分析已通过第三轮独立复审；可信时间分支已在 `int_main` 执行非快进合并预检并解决冲突，合并验证通过；远程重启仍等待目标及 `PROD` 确认。
+ready_for_closeout：P6 静态代码分析已通过第三轮独立复审；可信时间分支已融合到 `int_main`；已基于当前 `int_main` 提交 `e8f572f2e` 构建 E2E 运行包，48081 当前运行可信时间 Jar，并通过真实 Playwright 菜单路径完成运行控制台巡检与“导出时间戳证据”证据包下载校验。
 
 ## Cleanup Keep
 

@@ -72,7 +72,7 @@ export function formatDate(date: Date, format?: string): string {
   return date ? dayjs(date).format(format ?? 'YYYY-MM-DD HH:mm:ss') : ''
 }
 
-export type DateTimeDisplayValue = string | number | Date | null | undefined
+export type DateTimeDisplayValue = string | number | number[] | Date | null | undefined
 
 export function toDateTimeValue(value: DateTimeDisplayValue): Date | undefined {
   if (value === null || value === undefined || value === '') return undefined
@@ -82,6 +82,17 @@ export function toDateTimeValue(value: DateTimeDisplayValue): Date | undefined {
     const date = new Date(value)
     return Number.isNaN(date.getTime()) ? undefined : date
   }
+
+  if (Array.isArray(value)) {
+    const [year, month, day, hour = 0, minute = 0, second = 0, millisecond = 0] = value
+    if (![year, month, day, hour, minute, second, millisecond].every(Number.isFinite)) {
+      return undefined
+    }
+    const date = new Date(year, month - 1, day, hour, minute, second, millisecond)
+    return Number.isNaN(date.getTime()) ? undefined : date
+  }
+
+  if (typeof value !== 'string') return undefined
 
   const trimmedValue = value.trim()
   const date = /^\d+$/.test(trimmedValue) ? new Date(Number(trimmedValue)) : new Date(trimmedValue)

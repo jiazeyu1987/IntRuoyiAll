@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS "system_temporary_role_grant" (
     "approver_username" varchar(64) DEFAULT NULL,
     "effective_time" timestamp DEFAULT NULL,
     "expire_time" timestamp NOT NULL,
+    "remind_time" timestamp DEFAULT NULL,
     "revoke_time" timestamp DEFAULT NULL,
     "revoker_user_id" bigint DEFAULT NULL,
     "revoker_username" varchar(64) DEFAULT NULL,

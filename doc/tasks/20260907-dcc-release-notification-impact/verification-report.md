@@ -61,3 +61,10 @@
 - The real frontend approval path was exercised against `DCC-P4-202609081528-NEW`.
 - The approval dialog opened, but confirmation returned HTTP 500 because signature-evidence digesting could not read the referenced source object (`S3 NoSuchKey`, HTTP 404).
 - Approval, publication, notification and impact-task closure therefore remain unverified. No API or database write was used to bypass the failure.
+
+## P4 Approval Root-Cause Correction
+
+- The prior source-object diagnosis was incorrect for the new fixture. `DCC-P4-202609081528-NEW` has a readable MinIO source object and already advanced to `审核会签`.
+- The actual retry failure was runtime schema drift: `system_electronic_signature` did not exist in the MySQL database used by `48081`.
+- Existing official migrations `20260908_system_electronic_signature_t3.sql`, `t7.sql` and `t8.sql` were applied and repeated successfully. The six `system_electronic_signature*` tables now exist.
+- Runtime page re-verification is blocked by an unrelated unresolved Git conflict in the shared frontend, which causes a Vite compiler overlay. The approval transition is therefore not yet claimed as passing.

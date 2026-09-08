@@ -35,7 +35,8 @@ def test_stage1_pqc_simulation_normalizes_already_confirmed_pqc_events():
         "normalizeConfirmedPqcSimulationSubmission(activeOrder, task, simulationStage, simulationRunId);",
         "private void normalizeConfirmedPqcSimulationSubmission(",
         "processPoolEventMapper.selectByIdForUpdate(task.getSubmittedEventId())",
-        "normalizePqcSimulationPayload(event.getRawPayload(), scrapQuantity, inspectionResult)",
+        "normalizePqcSimulationPayload(event.getRawPayload(), scrapQuantity, inspectionResult,",
+        "simulationStage, simulationRunId);",
         ".setRawPayload(normalizedPayload)",
         ".setInspectionResult(inspectionResult)",
     ]

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS `system_temporary_role_grant` (
   `approver_username` varchar(64) DEFAULT NULL COMMENT '审批人',
   `effective_time` datetime DEFAULT NULL COMMENT '生效时间',
   `expire_time` datetime NOT NULL COMMENT '有效截止时间',
+  `remind_time` datetime DEFAULT NULL COMMENT '到期提醒时间',
   `revoke_time` datetime DEFAULT NULL COMMENT '撤销或过期时间',
   `revoker_user_id` bigint DEFAULT NULL COMMENT '撤销人编号',
   `revoker_username` varchar(64) DEFAULT NULL COMMENT '撤销人',
@@ -30,13 +31,47 @@ CREATE TABLE IF NOT EXISTS `system_temporary_role_grant` (
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
   PRIMARY KEY (`id`),
   KEY `idx_system_temp_role_grant_user_status` (`tenant_id`, `user_id`, `status`, `expire_time`),
-  KEY `idx_system_temp_role_grant_role_status` (`tenant_id`, `role_id`, `status`, `expire_time`)
+  KEY `idx_system_temp_role_grant_role_status` (`tenant_id`, `role_id`, `status`, `expire_time`),
+  KEY `idx_system_temp_role_grant_remind` (`tenant_id`, `status`, `remind_time`, `expire_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统临时角色授权';
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS `intruoyi_ensure_system_temp_role_grant_remind`$$
+CREATE PROCEDURE `intruoyi_ensure_system_temp_role_grant_remind`()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM `information_schema`.`columns`
+     WHERE `table_schema` = DATABASE()
+       AND `table_name` = 'system_temporary_role_grant'
+       AND `column_name` = 'remind_time'
+  ) THEN
+    ALTER TABLE `system_temporary_role_grant`
+      ADD COLUMN `remind_time` datetime DEFAULT NULL COMMENT '到期提醒时间' AFTER `expire_time`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM `information_schema`.`statistics`
+     WHERE `table_schema` = DATABASE()
+       AND `table_name` = 'system_temporary_role_grant'
+       AND `index_name` = 'idx_system_temp_role_grant_remind'
+  ) THEN
+    ALTER TABLE `system_temporary_role_grant`
+      ADD KEY `idx_system_temp_role_grant_remind` (`tenant_id`, `status`, `remind_time`, `expire_time`);
+  END IF;
+END$$
+
+DELIMITER ;
+
+CALL `intruoyi_ensure_system_temp_role_grant_remind`();
+DROP PROCEDURE IF EXISTS `intruoyi_ensure_system_temp_role_grant_remind`;
 
 CREATE TABLE IF NOT EXISTS `system_temporary_role_grant_audit` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '审计编号',
   `grant_id` bigint NOT NULL COMMENT '授权记录编号',
-  `event_type` varchar(64) NOT NULL COMMENT '事件：APPLY/APPROVE/REVOKE/EXPIRE/USE',
+  `event_type` varchar(64) NOT NULL COMMENT '事件：APPLY/APPROVE/REVOKE/EXPIRE/REMIND/USE',
   `user_id` bigint NOT NULL COMMENT '被授权用户编号',
   `role_id` bigint NOT NULL COMMENT '角色编号',
   `permission_code` varchar(150) DEFAULT NULL COMMENT '使用时命中的权限标识',
@@ -76,6 +111,51 @@ UPDATE `infra_job`
        `update_time` = NOW(),
        `deleted` = b'0'
  WHERE `handler_name` = 'temporaryRoleGrantExpireJob';
+
+INSERT INTO `infra_job`
+  (`name`, `status`, `handler_name`, `handler_param`, `cron_expression`,
+   `retry_count`, `retry_interval`, `monitor_timeout`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+SELECT '每小时提醒即将到期临时角色授权', 1, 'temporaryRoleGrantReminderJob', '{}', '0 0 * * * ?',
+       3, 60, 0, '1', NOW(), '1', NOW(), b'0'
+WHERE NOT EXISTS (
+    SELECT 1 FROM `infra_job` WHERE `handler_name` = 'temporaryRoleGrantReminderJob'
+);
+
+UPDATE `infra_job`
+   SET `name` = '每小时提醒即将到期临时角色授权',
+       `status` = 1,
+       `handler_name` = 'temporaryRoleGrantReminderJob',
+       `handler_param` = '{}',
+       `cron_expression` = '0 0 * * * ?',
+       `retry_count` = 3,
+       `retry_interval` = 60,
+       `monitor_timeout` = 0,
+       `updater` = '1',
+       `update_time` = NOW(),
+       `deleted` = b'0'
+ WHERE `handler_name` = 'temporaryRoleGrantReminderJob';
+
+INSERT INTO `system_notify_template`
+  (`name`, `code`, `type`, `nickname`, `content`, `params`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+SELECT '临时角色授权到期提醒', 'SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING', 2, '临时授权提醒',
+       '临时角色授权 #{grantId} 将在 {hoursBeforeExpire} 小时内到期；被授权用户：{userId}，角色：{roleId}，截止时间：{expireTime}。',
+       '["grantId","userId","roleId","expireTime","hoursBeforeExpire"]', 0, 'temporary role grant expiring reminder', 'temporary-role-grant', NOW(), 'temporary-role-grant', NOW(), b'0'
+WHERE NOT EXISTS (
+    SELECT 1 FROM `system_notify_template` WHERE `code` = 'SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING' AND `deleted` = b'0'
+);
+
+UPDATE `system_notify_template`
+   SET `name` = '临时角色授权到期提醒',
+       `type` = 2,
+       `nickname` = '临时授权提醒',
+       `content` = '临时角色授权 #{grantId} 将在 {hoursBeforeExpire} 小时内到期；被授权用户：{userId}，角色：{roleId}，截止时间：{expireTime}。',
+       `params` = '["grantId","userId","roleId","expireTime","hoursBeforeExpire"]',
+       `status` = 0,
+       `remark` = 'temporary role grant expiring reminder',
+       `updater` = 'temporary-role-grant',
+       `update_time` = NOW(),
+       `deleted` = b'0'
+ WHERE `code` = 'SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING';
 
 
 DROP TEMPORARY TABLE IF EXISTS `tmp_system_temporary_role_grant_menu`;

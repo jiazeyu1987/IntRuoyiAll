@@ -39,6 +39,7 @@ vm.runInNewContext(compiledFormatTime, formatTimeSandbox, { filename: formatTime
 assert.equal(formatTimeSandbox.exports.formatDateTimeValue(1784816552000), '2026-07-23 22:22:32')
 assert.equal(formatTimeSandbox.exports.formatDateTimeValue('1784816552000'), '2026-07-23 22:22:32')
 assert.equal(formatTimeSandbox.exports.formatDateTimeValue('2026-07-23 22:22:32'), '2026-07-23 22:22:32')
+assert.equal(formatTimeSandbox.exports.formatDateTimeValue([2026, 9, 8, 19, 49, 53]), '2026-09-08 19:49:53')
 assert.equal(formatTimeSandbox.exports.formatDateTimeValue('bad-time'), '时间格式异常')
 
 const sourceExpectations = [

@@ -675,3 +675,19 @@ Current P4 local blocker: none for page reachability, upload precheck or new-fil
 `BLOCKED: 审批/发布闭环 -> BLOCKED, 任务提交记录引用的源对象在对象存储中不存在，无法在不修改数据或绕过正式页面的前提下继续审批；未执行 API/DB 补对象或伪造成功。`
 
 Evidence: Playwright snapshot `output/playwright-p4/.playwright-cli/page-2026-09-08T08-15-41-910Z.yml`; page screenshot `output/playwright-p4/.playwright-cli/page-2026-09-08T07-57-16-857Z.png`; backend log evidence is the local runtime `output/runtime/int_main/logs/yudao-server.log` NoSuchKey stack at `DccControlledFileSignatureEvidenceServiceImpl.digestFile`.
+
+## P4 Approval Root-Cause Correction And Migration Repair
+
+`BDD: 统一电子签名表存在后会签可继续 -> Given 新文件 DCC-P4-202609081528-NEW 的源对象在 MinIO 可读且审批已进入审核会签，When 赵杰从真实审批中心确认电子签名，Then 系统应写入统一电子签名事实并推进流程；运行库缺表时必须明确失败，不得回退旧签名表。`
+
+`RED: 赵杰真实页面确认审核 -> FAIL, backend first database exception: Table ruoyi-vue-pro.system_electronic_signature doesn't exist; failure occurs in ElectronicSignatureServiceImpl.selectExisting before signature insert.`
+
+Root-cause correction: the earlier `S3 NoSuchKey` stack belongs to old file `DCC-P4-20260908064319ZPS7`. The new file `DCC-P4-202609081528-NEW` uses source file `9198354917269`, whose MinIO object `dcc/original/20260908/文控系统概要设计.docx` is readable. Its first admin review completed and moved the workflow to `审核会签`.
+
+`GREEN: execute official 20260908_system_electronic_signature_t3.sql, t7.sql and t8.sql against the database used by 48081 -> PASS, all 6 system_electronic_signature* tables created.`
+
+`GREEN: repeat the same T3/T7/T8 migrations -> PASS, idempotent second execution; system_electronic_signature row baseline remains 0 before the retried approval.`
+
+`BLOCKED: post-repair Playwright retry -> BLOCKED by unrelated working-tree conflict, ActiveOrderSubmissionDetailPanel.vue contains unresolved Git conflict markers and Vite error overlay intercepts all page actions. DCC migrations are repaired, but the actual approval transition is not yet claimed until the shared frontend compiles again.`
+
+`BLOCKED: final runtime health recheck -> FAIL, shared 48081 stopped listening after migration verification; current turn did not authorize restarting int_main, so no restart was attempted.`

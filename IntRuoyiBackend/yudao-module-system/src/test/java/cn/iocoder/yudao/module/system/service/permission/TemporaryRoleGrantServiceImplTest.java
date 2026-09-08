@@ -13,6 +13,9 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.TemporaryRoleGrantAuditMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.TemporaryRoleGrantMapper;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantPageReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantReviewSummaryRespVO;
+import cn.iocoder.yudao.module.system.service.notify.NotifySendService;
 import cn.iocoder.yudao.module.system.service.permission.bo.TemporaryRoleGrantCreateCommand;
 import jakarta.annotation.Resource;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
@@ -29,7 +32,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServic
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.TEMPORARY_ROLE_GRANT_EXPIRE_TIME_INVALID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @Import({TemporaryRoleGrantServiceImpl.class, PermissionServiceImpl.class})
 class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
@@ -64,6 +67,8 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
     private AdminUserService userService;
     @MockitoBean
     private SystemEntitlementService systemEntitlementService;
+    @MockitoBean
+    private NotifySendService notifySendService;
 
     @Test
     void createGrant_shouldRejectMissingOrPastExpireTime() {
@@ -119,6 +124,53 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
                 && PERMISSION.equals(audit.getPermissionCode())));
     }
 
+    @Test
+    void remindExpiringSoonGrants_shouldSendReminderWriteAuditAndNotRepeat() {
+        insertRoleAndMenu();
+        LocalDateTime now = LocalDateTime.now();
+        Long grantId = temporaryRoleGrantService.createGrant(createCommand(now.plusHours(2)));
+        temporaryRoleGrantService.approveGrant(grantId, 1L, "approver");
+
+        int reminded = temporaryRoleGrantService.remindExpiringSoonGrants(now, 24, 9L, "reminder-job");
+        int remindedAgain = temporaryRoleGrantService.remindExpiringSoonGrants(now.plusMinutes(1), 24, 9L, "reminder-job");
+
+        TemporaryRoleGrantDO grant = temporaryRoleGrantMapper.selectById(grantId);
+        assertEquals(1, reminded);
+        assertEquals(0, remindedAgain);
+        assertNotNull(grant.getRemindTime());
+        assertFalse(grant.getRemindTime().isBefore(now.minusSeconds(1)));
+        assertFalse(grant.getRemindTime().isAfter(now.plusSeconds(1)));
+        assertTrue(temporaryRoleGrantAuditMapper.selectListByGrantId(grantId).stream()
+                .anyMatch(audit -> "REMIND".equals(audit.getEventType())));
+        verify(notifySendService).sendSingleNotifyToAdminIdempotently(eq(USER_ID),
+                eq("SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING"), anyMap(), contains(":grantee:"));
+        verify(notifySendService).sendSingleNotifyToAdminIdempotently(eq(100L),
+                eq("SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING"), anyMap(), contains(":applicant:"));
+        verify(notifySendService).sendSingleNotifyToAdminIdempotently(eq(1L),
+                eq("SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING"), anyMap(), contains(":approver:"));
+        verifyNoMoreInteractions(notifySendService);
+    }
+
+    @Test
+    void getReviewSummaryAndPage_shouldAggregateActiveExpiringSoonAndOverdueGrants() {
+        LocalDateTime now = LocalDateTime.now();
+        insertActiveGrant(4101L, now.minusHours(1), now.plusHours(30));
+        insertActiveGrant(4102L, now.minusHours(1), now.plusHours(2));
+        insertActiveGrant(4103L, now.minusHours(2), now.minusMinutes(1));
+
+        TemporaryRoleGrantReviewSummaryRespVO summary = temporaryRoleGrantService.getReviewSummary(now, 24);
+        TemporaryRoleGrantPageReqVO reqVO = new TemporaryRoleGrantPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setReviewCategory("EXPIRING_SOON");
+
+        assertEquals(1L, summary.getActiveCount());
+        assertEquals(1L, summary.getExpiringSoonCount());
+        assertEquals(1L, summary.getOverdueCount());
+        assertEquals(1, temporaryRoleGrantService.getGrantPage(reqVO).getList().size());
+        assertEquals("EXPIRING_SOON", temporaryRoleGrantService.getGrantPage(reqVO).getList().get(0).getReviewCategory());
+    }
+
     private TemporaryRoleGrantCreateCommand createCommand(LocalDateTime expireTime) {
         return TemporaryRoleGrantCreateCommand.builder()
                 .userId(USER_ID)
@@ -156,6 +208,23 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
                 .setKeepAlive(true)
                 .setAlwaysShow(true));
         roleMenuMapper.insert(new RoleMenuDO().setRoleId(ROLE_ID).setMenuId(MENU_ID));
+    }
+
+    private void insertActiveGrant(Long id, LocalDateTime effectiveTime, LocalDateTime expireTime) {
+        temporaryRoleGrantMapper.insert(new TemporaryRoleGrantDO()
+                .setId(id)
+                .setUserId(USER_ID)
+                .setRoleId(ROLE_ID)
+                .setReason("审查归集测试")
+                .setStatus("ACTIVE")
+                .setApplyTime(effectiveTime.minusMinutes(10))
+                .setApplicantUserId(100L)
+                .setApplicantUsername("applicant")
+                .setApproveTime(effectiveTime)
+                .setApproverUserId(1L)
+                .setApproverUsername("approver")
+                .setEffectiveTime(effectiveTime)
+                .setExpireTime(expireTime));
     }
 
 }

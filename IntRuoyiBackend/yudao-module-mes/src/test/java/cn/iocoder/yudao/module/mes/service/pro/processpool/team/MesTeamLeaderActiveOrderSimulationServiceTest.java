@@ -17,6 +17,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -100,6 +102,10 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     @Mock
     private MesProcessPoolEventService processPoolEventService;
     @Mock
+    private MesProProcessPoolEventMapper processPoolEventMapper;
+    @Mock
+    private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
+    @Mock
     private MesReportAllocationCommandService reportAllocationCommandService;
     @Mock
     private MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService;
@@ -119,6 +125,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 parameterRuleMapper,
                 routeProcessMapper,
                 feedbackMaterialService, processPoolEventService,
+                processPoolEventMapper, pqcRecordMapper,
                 reportAllocationCommandService, pqcProcessInspectionAggregationService,
                 orderProcessCompletionService, signatureService);
     }

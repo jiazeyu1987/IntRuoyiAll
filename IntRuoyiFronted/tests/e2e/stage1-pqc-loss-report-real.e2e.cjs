@@ -162,6 +162,13 @@ async function main() {
   } catch (error) {
     evidence.status = 'FAIL'
     evidence.error = error.stack || error.message
+    try {
+      evidence.detailUrl = page.url()
+      evidence.lossReportText = await page.locator('body').innerText({ timeout: 5000 })
+      await page.screenshot({ path: SCREENSHOT_FILE, fullPage: true })
+    } catch (captureError) {
+      evidence.consoleErrors.push(`失败证据采集失败: ${captureError.message}`)
+    }
     persist()
     throw error
   } finally {

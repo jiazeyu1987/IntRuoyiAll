@@ -54,3 +54,13 @@ PASS：P1-P5 实现、定向回归、远程只读核查和本地真实 Playwrigh
 - PASS：前端可信时间导出静态合同、活动执行签名选择静态合同、`pnpm ts:check`。
 - PASS：`git diff --check` 与 branch runtime port guard。
 - 已知主线前置条件阻塞：`MesProEdhrBatchExecutionServiceTest` 全类会因 H2 测试表 `mes_pro_edhr_batch_execution_origin` 缺失失败；本次只按冲突方法与可信时间范围判断合并闭环。
+
+## Int Main Real E2E Verification
+
+- PASS：基于当前 `int_main` HEAD `e8f572f2e` 的干净 detached worktree 完整打包 `yudao-server` 成功，运行包 SHA-256 为 `64E795FD7D11771751AE5EDB9E72D3E9D81A7175D4E4408BFFD449D6029425A6`。
+- PASS：48081 后端当前活跃 PID `45676`，命令行 Jar 为 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260908-185534.jar`，SHA-256 `C27197556A7ABF822B9958F6AF234020E4DFBAF67E29AB46896D7E46C6811644`；nested jar 校验包含可信时间 collector/parser/exporter；健康检查 HTTP 200 且返回 `UP`；导出证据中 `maxOffsetMillis=null`，`100 ms` 限制未启用。
+- PASS：Playwright 真实页面从登录页进入，经“基础设施 > 监控中心 > 运行控制台”菜单点击进入页面，点击“执行巡检”生成巡检 ID `2`，再点击“导出时间戳证据”真实下载 ZIP。
+- PASS：页面显示“正式服”“审查服”，未显示“备份服”“备份服务器”“备用服务器”。
+- PASS：ZIP 包含 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt`，两份内容文件 SHA-256 与清单完全匹配。
+- PASS：`原始证据.json` 中 `trusted-time-prod` 与 `trusted-time-audit` 均为 PASS；正式服 Last/RMS `0.042953/0.59853 ms`，审查服 Last/RMS `-0.123604/0.380689 ms`，两项 `maxOffsetMillis=null`。
+- Boundary：巡检整体状态仍为 `NO_GO`，原因是运行控制台其它相邻检查不放行；本次目标“可信时间巡检 + 审查证据导出”链路通过，未把整体巡检伪造成 PASS。

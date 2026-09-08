@@ -42,6 +42,8 @@ public class TemporaryRoleGrantDO extends TenantBaseDO {
 
     private LocalDateTime expireTime;
 
+    private LocalDateTime remindTime;
+
     private LocalDateTime revokeTime;
 
     private Long revokerUserId;

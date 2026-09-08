@@ -14,6 +14,8 @@ export interface TemporaryRoleGrantVO {
   approverUsername?: string
   effectiveTime?: string
   expireTime: string
+  remindTime?: string
+  reviewCategory?: 'ACTIVE' | 'EXPIRING_SOON' | 'OVERDUE'
   revokeTime?: string
   revokerUserId?: number
   revokerUsername?: string
@@ -36,7 +38,7 @@ export interface TemporaryRoleGrantRevokeReqVO {
 export interface TemporaryRoleGrantAuditVO {
   id: number
   grantId: number
-  eventType: 'APPLY' | 'APPROVE' | 'REVOKE' | 'EXPIRE' | 'USE'
+  eventType: 'APPLY' | 'APPROVE' | 'REVOKE' | 'EXPIRE' | 'REMIND' | 'USE'
   userId: number
   roleId: number
   permissionCode?: string
@@ -46,8 +48,18 @@ export interface TemporaryRoleGrantAuditVO {
   createTime: string
 }
 
+export interface TemporaryRoleGrantReviewSummaryVO {
+  activeCount: number
+  expiringSoonCount: number
+  overdueCount: number
+}
+
 export const getTemporaryRoleGrantPage = async (params: PageParam) => {
   return await request.get({ url: '/system/temporary-role-grant/page', params })
+}
+
+export const getTemporaryRoleGrantReviewSummary = async () => {
+  return await request.get({ url: '/system/temporary-role-grant/review-summary' })
 }
 
 export const createTemporaryRoleGrant = async (data: TemporaryRoleGrantCreateReqVO) => {

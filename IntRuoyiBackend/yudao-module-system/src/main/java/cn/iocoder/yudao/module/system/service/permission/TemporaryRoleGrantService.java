@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.permission;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantReviewSummaryRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.TemporaryRoleGrantAuditDO;
 import cn.iocoder.yudao.module.system.service.permission.bo.TemporaryRoleGrantCreateCommand;
 
@@ -20,11 +21,15 @@ public interface TemporaryRoleGrantService {
 
     int expireOverdueGrants(LocalDateTime now, Long operatorUserId, String operatorUsername);
 
+    int remindExpiringSoonGrants(LocalDateTime now, int hoursBeforeExpire, Long operatorUserId, String operatorUsername);
+
     Set<Long> getActiveRoleIdsByUserId(Long userId, LocalDateTime now);
 
     void recordPermissionUse(Long userId, String permissionCode);
 
     PageResult<TemporaryRoleGrantRespVO> getGrantPage(TemporaryRoleGrantPageReqVO reqVO);
+
+    TemporaryRoleGrantReviewSummaryRespVO getReviewSummary(LocalDateTime now, int hoursBeforeExpire);
 
     List<TemporaryRoleGrantAuditDO> getAuditList(Long grantId);
 

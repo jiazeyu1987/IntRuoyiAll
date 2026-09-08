@@ -626,3 +626,29 @@ P6 修复轮 PASS：第二轮 reviewer 指出的三项阻塞均已按最小实�
 ### Boundary
 
 - P6 未新增真实 E2E 或远程服务器操作；P4/P5 已覆盖真实页面巡检与导出证据包。
+
+## int_main 七项审查要求最终映射
+
+本节补充 `int_main` 融合后的真实 E2E 证据。验证基于当前 `int_main` HEAD `e8f572f2e`，48081 当前活跃运行包包含可信时间 collector/parser/exporter，Playwright 通过真实登录页和真实菜单“基础设施 > 监控中心 > 运行控制台”进入页面后完成巡检与导出。
+
+| 序号 | 审查要求 | int_main 结论 | 证据 |
+| --- | --- | --- | --- |
+| 1 | 正式服、审查服 chrony 时间检查 | PASS | 巡检 ID `2` 中 `trusted-time-prod` 与 `trusted-time-audit` 均为 PASS；正式服 `172.30.30.57`，审查服 `172.30.30.59`，均有时间源、Last/RMS、Leap、同步状态和 UTC 证据。 |
+| 2 | `signedAt` 保持服务器生成 | PASS | MES 签名服务、执行归档和签名选择回归测试通过；正式签名展示只读取服务器 `signedAt`。 |
+| 3 | `selectedSignedAt` 仅作为业务发生时间，不覆盖正式签名展示 | PASS | P6 回归验证 PDF、XLSX、最终可打印批归档和活动执行表单不再用 `selectedSignedAt` 覆盖正式签名时间。 |
+| 4 | 复用现有 Runtime Control 巡检、存储和告警 | PASS | 真实页面点击现有“执行巡检”，自然触发 `POST /admin-api/infra/runtime-control/inspection-runs`，巡检 ID `2` 被保存并用于后续导出。 |
+| 5 | 运行控制台增加“导出时间戳证据”按钮 | PASS | Playwright 在现有运行控制台页面点击“导出时间戳证据”，自然触发 ZIP 下载 HTTP 200。 |
+| 6 | ZIP 只包含 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt` | PASS | 离线解包确认仅三文件；HTML 与 JSON 的 SHA-256 均与 `SHA256SUMS.txt` 匹配。 |
+| 7 | 异常、缺失或无法检查时，报告不能显示通过 | PASS | 导出逻辑要求双目标可信时间项完整且主机匹配；巡检整体 ID `2` 为 `NO_GO` 时，HTML/JSON 原样保留 `NO_GO`，未因时间项通过而伪装整体通过。 |
+
+### int_main E2E Artifacts
+
+- 浏览器执行记录：`E:\IntRuoyi\output\playwright\int-main-e2e-trusted-time-20260908-184158\browser-flow-result.json`
+- 页面截图：`E:\IntRuoyi\output\playwright\int-main-e2e-trusted-time-20260908-184158\runtime-control-inspection-2.png`
+- 下载 ZIP：`E:\IntRuoyi\output\playwright\int-main-e2e-trusted-time-20260908-184158\可信时间证据_巡检2.zip`
+
+### int_main Boundary
+
+- 48081 当前后端健康为 `UP`，当前运行 Jar 为 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260908-185534.jar`，SHA-256 `C27197556A7ABF822B9958F6AF234020E4DFBAF67E29AB46896D7E46C6811644`。
+- 本次 E2E 未启用 `100 ms` 阈值；证据 JSON 中正式服、审查服两项 `maxOffsetMillis=null`。
+- Playwright 记录 `pageErrors=0`；非目标 console/failure 仅为审批待办数量相邻异常与外部图片证书错误，不影响运行控制台巡检和证据包下载链路。

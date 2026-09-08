@@ -22,6 +22,8 @@ public class TemporaryRoleGrantRespVO {
     private String approverUsername;
     private LocalDateTime effectiveTime;
     private LocalDateTime expireTime;
+    private LocalDateTime remindTime;
+    private String reviewCategory;
     private LocalDateTime revokeTime;
     private Long revokerUserId;
     private String revokerUsername;

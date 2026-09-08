@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryro
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantRevokeReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantReviewSummaryRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.permission.TemporaryRoleGrantService;
 import cn.iocoder.yudao.module.system.service.permission.bo.TemporaryRoleGrantCreateCommand;
@@ -81,6 +82,13 @@ public class TemporaryRoleGrantController {
     @PreAuthorize("@ss.hasPermission('system:temporary-role-grant:query')")
     public CommonResult<PageResult<TemporaryRoleGrantRespVO>> getGrantPage(@Valid TemporaryRoleGrantPageReqVO reqVO) {
         return success(temporaryRoleGrantService.getGrantPage(reqVO));
+    }
+
+    @GetMapping("/review-summary")
+    @Operation(summary = "获得临时角色授权审查归集统计")
+    @PreAuthorize("@ss.hasPermission('system:temporary-role-grant:query')")
+    public CommonResult<TemporaryRoleGrantReviewSummaryRespVO> getReviewSummary() {
+        return success(temporaryRoleGrantService.getReviewSummary(java.time.LocalDateTime.now(), 24));
     }
 
     @GetMapping("/audit-list")

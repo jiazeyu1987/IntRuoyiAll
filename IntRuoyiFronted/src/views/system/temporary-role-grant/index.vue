@@ -23,6 +23,13 @@
             <el-option label="已过期" value="EXPIRED" />
           </el-select>
         </el-form-item>
+        <el-form-item label="审查分类" prop="reviewCategory">
+          <el-select v-model="queryParams.reviewCategory" clearable placeholder="请选择审查分类">
+            <el-option label="仍有效" value="ACTIVE" />
+            <el-option label="即将到期" value="EXPIRING_SOON" />
+            <el-option label="异常逾期" value="OVERDUE" />
+          </el-select>
+        </el-form-item>
       </div>
       <div class="temporary-role-grant-toolbar__actions">
         <el-button @click="handleQuery"><Icon class="mr-5px" icon="ep:search" />搜索</el-button>
@@ -32,6 +39,29 @@
         </el-button>
       </div>
     </el-form>
+  </ContentWrap>
+
+  <ContentWrap>
+    <el-row :gutter="12" class="temporary-role-grant-review">
+      <el-col :md="8" :sm="24">
+        <el-card shadow="never">
+          <div class="temporary-role-grant-review__label">仍有效</div>
+          <div class="temporary-role-grant-review__value">{{ reviewSummary.activeCount }}</div>
+        </el-card>
+      </el-col>
+      <el-col :md="8" :sm="24">
+        <el-card shadow="never">
+          <div class="temporary-role-grant-review__label">即将到期</div>
+          <div class="temporary-role-grant-review__value text-orange-500">{{ reviewSummary.expiringSoonCount }}</div>
+        </el-card>
+      </el-col>
+      <el-col :md="8" :sm="24">
+        <el-card shadow="never">
+          <div class="temporary-role-grant-review__label">异常逾期</div>
+          <div class="temporary-role-grant-review__value text-red-500">{{ reviewSummary.overdueCount }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
   </ContentWrap>
 
   <ContentWrap>
@@ -49,6 +79,10 @@
       <el-table-column label="申请时间" prop="applyTime" width="170" />
       <el-table-column label="生效时间" prop="effectiveTime" width="170" />
       <el-table-column label="有效截止时间" prop="expireTime" width="170" />
+      <el-table-column label="提醒时间" prop="remindTime" width="170" />
+      <el-table-column label="审查分类" prop="reviewCategory" width="110">
+        <template #default="{ row }">{{ reviewCategoryText(row.reviewCategory) }}</template>
+      </el-table-column>
       <el-table-column label="操作" fixed="right" width="230">
         <template #default="{ row }">
           <el-button v-if="row.status === 'PENDING'" v-hasPermi="['system:temporary-role-grant:approve']" link type="primary" @click="handleApprove(row)">审批通过</el-button>
@@ -120,6 +154,7 @@ const submitLoading = ref(false)
 const total = ref(0)
 const list = ref<TemporaryRoleGrantApi.TemporaryRoleGrantVO[]>([])
 const auditList = ref<TemporaryRoleGrantApi.TemporaryRoleGrantAuditVO[]>([])
+const reviewSummary = reactive<TemporaryRoleGrantApi.TemporaryRoleGrantReviewSummaryVO>({ activeCount: 0, expiringSoonCount: 0, overdueCount: 0 })
 const roleOptions = ref<RoleApi.RoleVO[]>([])
 const userOptions = ref<UserApi.UserVO[]>([])
 const queryFormRef = ref()
@@ -130,7 +165,14 @@ const revokeDialogVisible = ref(false)
 const auditDialogVisible = ref(false)
 const selectedGrant = ref<TemporaryRoleGrantApi.TemporaryRoleGrantVO>()
 
-const queryParams = reactive({ pageNo: 1, pageSize: 10, userId: undefined as number | undefined, roleId: undefined as number | undefined, status: undefined as string | undefined })
+const queryParams = reactive({
+  pageNo: 1,
+  pageSize: 10,
+  userId: undefined as number | undefined,
+  roleId: undefined as number | undefined,
+  status: undefined as string | undefined,
+  reviewCategory: undefined as string | undefined
+})
 const createForm = reactive({ userId: undefined as number | undefined, roleId: undefined as number | undefined, expireTime: '', reason: '' })
 const revokeForm = reactive({ id: undefined as number | undefined, reason: '' })
 
@@ -145,15 +187,23 @@ const revokeRules = { reason: [{ required: true, message: '请填写撤销原因
 const userNameMap = computed(() => new Map(userOptions.value.map((user) => [user.id, user.nickname || user.username])))
 const roleNameMap = computed(() => new Map(roleOptions.value.map((role) => [role.id, role.name])))
 
-const statusText = (status: string) => ({ PENDING: '待审批', ACTIVE: '有效中', REVOKED: '已撤销', EXPIRED: '已过期' }[status] || status)
-const statusTagType = (status: string) => ({ PENDING: 'warning', ACTIVE: 'success', REVOKED: 'info', EXPIRED: 'danger' }[status] || 'info')
+const statusTextMap: Record<string, string> = { PENDING: '待审批', ACTIVE: '有效中', REVOKED: '已撤销', EXPIRED: '已过期' }
+const statusTagTypeMap: Record<string, 'success' | 'warning' | 'info' | 'danger'> = { PENDING: 'warning', ACTIVE: 'success', REVOKED: 'info', EXPIRED: 'danger' }
+const reviewCategoryTextMap: Record<string, string> = { ACTIVE: '仍有效', EXPIRING_SOON: '即将到期', OVERDUE: '异常逾期' }
+const statusText = (status: string) => statusTextMap[status] || status
+const statusTagType = (status: string) => statusTagTypeMap[status] || 'info'
+const reviewCategoryText = (category?: string) => reviewCategoryTextMap[category || ''] || '-'
 
 const getList = async () => {
   loading.value = true
   try {
-    const data = await TemporaryRoleGrantApi.getTemporaryRoleGrantPage(queryParams)
+    const [data, summary] = await Promise.all([
+      TemporaryRoleGrantApi.getTemporaryRoleGrantPage(queryParams),
+      TemporaryRoleGrantApi.getTemporaryRoleGrantReviewSummary()
+    ])
     list.value = data.list
     total.value = data.total
+    Object.assign(reviewSummary, summary)
   } finally {
     loading.value = false
   }
@@ -233,7 +283,7 @@ onMounted(async () => {
 
 .temporary-role-grant-toolbar__filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 12px;
 }
 
@@ -241,6 +291,21 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.temporary-role-grant-review :deep(.el-card__body) {
+  min-height: 76px;
+}
+
+.temporary-role-grant-review__label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.temporary-role-grant-review__value {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 36px;
 }
 
 @media (width <= 768px) {

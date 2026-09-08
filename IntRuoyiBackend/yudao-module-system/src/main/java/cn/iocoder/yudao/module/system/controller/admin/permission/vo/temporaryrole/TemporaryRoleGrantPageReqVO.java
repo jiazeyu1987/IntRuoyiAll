@@ -19,4 +19,7 @@ public class TemporaryRoleGrantPageReqVO extends PageParam {
     @Schema(description = "状态：PENDING/ACTIVE/REVOKED/EXPIRED")
     private String status;
 
+    @Schema(description = "审查分类：ACTIVE/EXPIRING_SOON/OVERDUE")
+    private String reviewCategory;
+
 }

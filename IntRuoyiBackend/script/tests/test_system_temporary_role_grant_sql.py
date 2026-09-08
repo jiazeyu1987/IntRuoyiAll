@@ -17,10 +17,14 @@ def test_temporary_role_grant_migration_declares_schema_and_job() -> None:
         "system_temporary_role_grant",
         "system_temporary_role_grant_audit",
         "expire_time",
+        "remind_time",
         "PENDING/ACTIVE/REVOKED/EXPIRED",
-        "APPLY/APPROVE/REVOKE/EXPIRE/USE",
+        "APPLY/APPROVE/REVOKE/EXPIRE/REMIND/USE",
         "temporaryRoleGrantExpireJob",
+        "temporaryRoleGrantReminderJob",
+        "SYSTEM_TEMPORARY_ROLE_GRANT_EXPIRING",
         "idx_system_temp_role_grant_user_status",
+        "idx_system_temp_role_grant_remind",
         "idx_system_temp_role_grant_audit_use",
         "临时角色授权",
         "system/temporary-role-grant/index",
@@ -54,4 +58,5 @@ def test_h2_schema_contains_temporary_role_grant_tables() -> None:
     assert 'CREATE TABLE IF NOT EXISTS "system_temporary_role_grant"' in schema
     assert 'CREATE TABLE IF NOT EXISTS "system_temporary_role_grant_audit"' in schema
     assert '"expire_time" timestamp NOT NULL' in schema
+    assert '"remind_time" timestamp DEFAULT NULL' in schema
     assert '"permission_code" varchar(150) DEFAULT NULL' in schema

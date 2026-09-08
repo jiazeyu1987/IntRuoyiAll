@@ -874,9 +874,9 @@
 
 - Trigger: 并发页面改动后全量 `vue-tsc` 报错较多、类型检查长时间无输出或 OOM；静态合同因统一列表、严格 ID 解析或局部类型收窄重构而失败，但正式行为未退化。
 - Preflight check: 全量类型检查只启动一个任务自有进程，并使用项目既定 8 GB Node 堆；出现无输出时先按 PID 核对是否存在本任务重复 `vue-tsc`，不得继续叠加。静态合同必须锁定正式数据映射、成功/失败顺序和用户可观察行为；负向断言只截取目标函数或目标配置块，不扫描整页宽泛词汇。实现由旧输入框迁移到统一列表、由内联可空对象改为断言后的局部常量时，应更新合同到新的正式边界，不得为了旧正则恢复废弃函数或重复控件。新增虚拟来源字段或分组字段时，静态合同必须覆盖前端过滤条件和页面可见性条件，避免后端已返回正式字段但被旧物理身份校验吞掉。
-- Blocker: 同一工作区存在多个本任务 `vue-tsc` 争用内存、类型检查因 4 GB 堆 OOM、静态合同只因函数名/局部变量名/旧 DOM 结构变化而失败，或宽泛正则命中无关错误文案时，必须先消除验证噪声并收窄合同，不能把它记成源码回归。真实 E2E 出现接口载荷已有目标字段但页面文本缺失，例如 `real_device_group_not_visible`，必须先检查 computed/filter 是否仍要求旧字段形态，不得用后端接口通过替代页面断言。
-- Verification: 以单实例 `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit --pretty false` 的 exit 0 为严格类型证据；静态合同同时证明正式查询参数映射、请求成功后再提交 URL/缓存状态、失败继续抛出，以及无 fallback/默认成功/吞异常。虚拟/分组字段还必须证明前端过滤条件接受新字段正式身份，并用真实 Playwright 页面断言目标字段实际可见。最后运行 `git diff --check`。
-- Forbidden action: 禁止并行重复启动全量类型检查、用提高内存掩盖真实 TypeScript 错误、关闭严格规则、排除目录、引入 `any` 绕过、恢复不可达旧实现只为满足字符串正则，或用整页关键词扫描替代目标代码块合同。
+- Blocker: 同一工作区存在多个本任务 `vue-tsc` 争用内存、类型检查因 4 GB 堆 OOM、全量 `ts:check` 先失败在无关文件 Git 冲突标记/语法残片、静态合同只因函数名/局部变量名/旧 DOM 结构变化而失败，或宽泛正则命中无关错误文案时，必须先消除验证噪声并收窄合同，不能把它记成源码回归。真实 E2E 出现接口载荷已有目标字段但页面文本缺失，例如 `real_device_group_not_visible`，必须先检查 computed/filter 是否仍要求旧字段形态，不得用后端接口通过替代页面断言。
+- Verification: 以单实例 `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit --pretty false` 的 exit 0 为严格类型证据；若全量检查被明确无关冲突标记阻塞，可补充任务范围内的 `eslint <目标文件>` 与临时聚焦 `vue-tsc -p <任务内tsconfig>` 作为当前改动证据，但必须把全量 `ts:check` 记录为 BLOCKED 而非 PASS，临时 tsconfig 需显式包含项目全局 `types/**/*.d.ts` 和 Vite client 声明，避免 PageParam/Recordable/ImportMeta 误报。静态合同同时证明正式查询参数映射、请求成功后再提交 URL/缓存状态、失败继续抛出，以及无 fallback/默认成功/吞异常。虚拟/分组字段还必须证明前端过滤条件接受新字段正式身份，并用真实 Playwright 页面断言目标字段实际可见。最后运行 `git diff --check`。
+- Forbidden action: 禁止并行重复启动全量类型检查、用提高内存掩盖真实 TypeScript 错误、关闭严格规则、排除目录、引入 `any` 绕过、把聚焦 vue-tsc 冒充全量 `ts:check`、恢复不可达旧实现只为满足字符串正则，或用整页关键词扫描替代目标代码块合同。
 - Evidence: `doc/tasks/20260813-concurrent-regression-repair/verification-report.md`；`doc/tasks/20260830-dcc-process-device-type-parameter-catalog/verification-report.md`，`PROCESS_POOL_REPORT` 设备参数改为 `@deviceGroup` 后，后端静态和接口已正确返回设备组字段，但真实 E2E 先暴露前端旧过滤条件仍要求物理 `deviceId/deviceCode/deviceName`，最终补充静态合同和真实页面断言后通过。
 
 ### 空 SFC 与局部必填收窄门禁
