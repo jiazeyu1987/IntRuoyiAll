@@ -1,5 +1,5 @@
 # 项目经验索引
-- Keywords: CSV 验证最小包, 计算机化系统验证, GAMP 分类, IQ OQ PQ, URS FS 风险评估, CSV 追溯矩阵, 供应商评估, 周期回顾, 验证报告审批, 中文 Word 交付包, CSV 签字矩阵, 正式送审分册包, 药监现场核查 CSV 包, official-submission-package, 5.1 5.16 -> `docs/csv-validation/README.md`
+- Keywords: CSV 验证最小包, 计算机化系统验证, GAMP 分类, IQ OQ PQ, URS FS 风险评估, CSV 追溯矩阵, 供应商评估, 周期回顾, 验证报告审批, 中文 Word 交付包, CSV 签字矩阵, 00A 正式递交说明与签字责任矩阵, 正式送审分册包, 药监现场核查 CSV 包, 药监审核老师不代替企业内部批准签字, official-submission-package, 5.1 5.16 -> `docs/csv-validation/README.md`
 - Keywords: 表单解析 JSON 下载, parse-only, 上传 Word 下载 JSON, 不创建模板版本, 不触发表单模板升版审批, 禁止调用 import-doc, recognizedSchemaJson, jimuSchemaJson, FormTemplateRecognizer never insert -> `docs/system/shared-word-template-parser-design.md#parse-only-json-export-boundary`
 - Keywords: Element Plus 下拉 Escape 关闭弹窗, el-dialog 被 Escape 关闭, 远程下拉 data-testid, placeholder 定位不稳, 初始未筛选分页覆盖筛选 DOM, 注册证下载审批搜索, certificateNo 下载审批待办, el-table 省略号截断 -> `docs/e2e-rules.md#element-plus-下拉选择门禁` and `docs/e2e-rules.md#表格行定位`
 - Keywords: 账号标签, 页面显示名, 真实姓名审计, 上传人显示王立轩, wanglixuan 王立轩, 申请人审计姓名, 审批人显示名, 登录账号不等于审计姓名 -> `docs/e2e-rules.md#账号标签与页面显示名审计门禁`
