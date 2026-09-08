@@ -61,6 +61,12 @@ const backendStage1SimulationService = read(
     'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage1/MesStage1ActiveOrderCompleteSimulationServiceImpl.java'
   )
 )
+const backendStage2_5SimulationService = read(
+  path.join(
+    backendRoot,
+    'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage2_5/MesStage2_5BackfillBatchExecutionSimulationServiceImpl.java'
+  )
+)
 
 assert(
   backendResp.includes('private Long activeOrderId;'),
@@ -76,9 +82,9 @@ assert(
   '来源关系尚未捕获完成时，批次执行详情只能从同批次成功 OPEN 审计读取正式 activeOrderId'
 )
 assert(
-  backendService.includes('selectExistingBatchBeforeCompletion') &&
-    backendService.includes('batchExecutionMapper.selectByContext(') &&
-    backendService.includes('existingBatchResult(validated, existingBatch, cleanedRunId)'),
+  backendStage2_5SimulationService.includes('selectExistingBatchBeforeCompletion') &&
+    backendStage2_5SimulationService.includes('batchExecutionMapper.selectByContext(') &&
+    backendStage2_5SimulationService.includes('existingBatchResult(validated, existingBatch, cleanedRunId)'),
   'Stage2.5 打开批次表单前必须先按当前活跃订单正式上下文复用既有批次，不能二次完工导致幂等冲突'
 )
 assert(

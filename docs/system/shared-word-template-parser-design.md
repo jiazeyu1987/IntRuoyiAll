@@ -29,6 +29,15 @@
 
 因此，不能通过前端改 URL 或后端复用 MES Controller 来“一致”。正确的一致化边界是共享 Word 文档结构解析，再分别进入业务映射层。
 
+## Parse-only JSON Export Boundary
+
+- Trigger: 新增“上传 Word 后下载 JSON”、临时解析、预览解析、导入前识别检查等不需要创建正式模板版本的入口。
+- Preflight check: 先确认目标入口是否只需要 `recognizedSchemaJson`、`jimuSchemaJson`、字段清单或诊断 JSON；若不需要模板池版本、升版审批、Jimu 报表持久化或 MES 业务绑定，必须走 parse-only 服务方法。
+- Blocker: 若唯一可用接口是 `/form-center/templates/import-doc`、`/mes/pro/batch-record-report/recognize-uploaded` 或其它会 insert/update 模板版本、批记录版本、审批请求、Jimu 报表的入口，不能把它包装成“解析下载”入口。
+- Verification: 后端单测必须断言 parse-only 方法复用正式 recognizer/parser，同时 `templateVersionMapper.insert/updateById`、升版审批、MES 报表持久化等写入调用为 `never()`；前端合同必须断言下载内容来自 parse-only API 并以 `.json` 文件输出。
+- Forbidden action: 禁止为了省接口把 JSON 下载按钮直接调用模板导入、批记录导入或任何会写库的上传接口；禁止解析失败后返回空 JSON、mock JSON 或切换到另一个业务导入接口。
+- Evidence: `doc/tasks/20260908-form-parser-json-download/execution-log.md`。
+
 ## Target Architecture
 
 ```mermaid

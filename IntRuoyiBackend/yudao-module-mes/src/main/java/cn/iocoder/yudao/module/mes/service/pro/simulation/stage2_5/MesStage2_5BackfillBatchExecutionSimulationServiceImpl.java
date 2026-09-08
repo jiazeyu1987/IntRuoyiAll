@@ -919,6 +919,10 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         return batch.getWorkOrderId() + "|" + batch.getRouteId() + "|" + batch.getBatchCode();
     }
 
+    private String activeContextKey(MesProEdhrBatchExecutionDO batch) {
+        return batch.getWorkOrderId() + "|" + batch.getRouteId() + "|" + batch.getBatchCode();
+    }
+
     private List<Long> parseIds(String json) {
         if (blank(json)) {
             return List.of();
