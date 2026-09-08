@@ -147,3 +147,4 @@
 - P5 最终独立验收：后端聚焦 32/32、完整相关 36/36、前端静态合同、`pnpm ts:check` 与 diff check 均 PASS；Playwright 页面巡检 ID 4 的正式服/审查服均保留实际 Last/RMS 且 PASS，导出 ZIP 固定三文件、SHA-256 正确、两项 `maxOffsetMillis=null`，console 0 error/0 warning。
 - P5 运维边界：本地任务运行态已按无阈值配置重建并复验；远程 `.env` 中先前的 `100 ms` 配置尚未删除，服务器未重启，等待用户明确目标及生产等级操作所需的 `PROD` 确认。
 - P5 本地运行态收尾：复核 8161/48161 PID 与当前 worktree 命令行后停止任务自有前后端并释放端口；共享 MySQL、Redis、MinIO 不停止。
+- P5 IMPLEMENTATION COMMIT: `18a776ff9` 已通过分支端口门禁并推送到 `origin/codex/timestamp_20260907`；本地分支与远端一致。
