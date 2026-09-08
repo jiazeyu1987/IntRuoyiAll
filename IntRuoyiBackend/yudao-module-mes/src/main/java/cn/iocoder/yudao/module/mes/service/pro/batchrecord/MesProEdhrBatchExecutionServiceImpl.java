@@ -273,7 +273,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final Set<String> REQUIRED_FORM_SIGNATURES = Set.of("SUBMIT");
     private static final String DEFAULT_SIGNATURE_DISPLAY_FORMAT = "ACTOR_SIGNED_AT";
     private static final String SIGNATURE_TIME_MODE_SERVER = "SERVER_TIME";
-    private static final String SIGNATURE_TIME_MODE_USER_SELECTED = "USER_SELECTED";
     private static final String SIGNATURE_TIME_POLICY_VERSION = "EDHR_SIGNATURE_TIME_V1";
     private static final String DEFAULT_SIGNATURE_TIME_ZONE = "Asia/Shanghai";
     private static final String ARCHIVE_STATUS_SEALED = "SEALED";
@@ -8670,20 +8669,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             LocalDateTime signedAt,
             MesProBatchRecordExecutionSignatureTimeReqVO signatureTime) {
         LocalDateTime selectedSignedAt = signatureTime == null ? null : signatureTime.getSelectedSignedAt();
-        String signatureTimeMode = selectedSignedAt == null
-                ? SIGNATURE_TIME_MODE_SERVER : SIGNATURE_TIME_MODE_USER_SELECTED;
+        String signatureTimeMode = SIGNATURE_TIME_MODE_SERVER;
         LocalDateTime displayAt = signedAt;
         String selectedTimeZone = DEFAULT_SIGNATURE_TIME_ZONE;
         String selectedTimeReason = "";
-        if (selectedSignedAt != null) {
-            selectedTimeZone = StrUtil.trim(signatureTime.getSelectedTimeZone());
-            selectedTimeReason = StrUtil.trim(signatureTime.getSelectedTimeReason());
-            if (StrUtil.isBlank(selectedTimeZone) || StrUtil.isBlank(selectedTimeReason)) {
-                throw exception(BAD_REQUEST, "填写业务发生时间时必须填写时区和原因");
-            }
-        } else if (signatureTime != null && (StrUtil.isNotBlank(signatureTime.getSelectedTimeZone())
-                || StrUtil.isNotBlank(signatureTime.getSelectedTimeReason()))) {
-            throw exception(BAD_REQUEST, "业务发生时间、时区和原因必须同时填写");
+        if (selectedSignedAt != null || (signatureTime != null
+                && (StrUtil.isNotBlank(signatureTime.getSelectedTimeZone())
+                || StrUtil.isNotBlank(signatureTime.getSelectedTimeReason())))) {
+            throw exception(BAD_REQUEST, "正式电子签名时间必须由系统自动生成，不允许人工选择或回填");
         }
         String auditHash = DigestUtil.sha256Hex(String.join("|",
                 SIGNATURE_TIME_POLICY_VERSION,
@@ -8693,11 +8686,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 value(signedAt),
                 signatureTimeMode,
                 value(displayAt),
-                value(selectedSignedAt == null ? null : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS)),
+                value(null),
                 value(selectedTimeZone),
                 value(selectedTimeReason)));
         return new BatchSignatureTimeEvidence(
-                selectedSignedAt == null ? null : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS),
+                null,
                 displayAt,
                 signatureTimeMode,
                 selectedTimeZone,

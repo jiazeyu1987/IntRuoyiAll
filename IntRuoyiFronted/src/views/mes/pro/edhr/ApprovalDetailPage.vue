@@ -261,27 +261,12 @@
         <el-form-item :label="actionCommentLabel">
           <el-input v-model="actionForm.comment" type="textarea" :rows="3" />
         </el-form-item>
-        <el-divider content-position="left">业务发生时间（可选）</el-divider>
-        <el-form-item label="业务时间">
-          <el-date-picker
-            v-model="actionSignatureTimeForm.selectedSignedAt"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可填写实际业务发生时间"
-            class="!w-1/1"
-          />
-        </el-form-item>
-        <el-form-item label="业务时区">
-          <el-input v-model="actionSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
-        </el-form-item>
-        <el-form-item label="填写原因">
-          <el-input
-            v-model="actionSignatureTimeForm.selectedTimeReason"
-            type="textarea"
-            :rows="2"
-            placeholder="填写业务发生时间时必须说明原因"
-          />
-        </el-form-item>
+        <el-alert
+          title="正式电子签名时间由系统自动生成，不支持人工选择或回填。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
       </el-form>
       <template #footer>
         <el-button @click="actionDialogVisible = false">取 消</el-button>
@@ -297,27 +282,12 @@
         <el-form-item label="归档备注">
           <el-input v-model="archiveForm.comment" type="textarea" :rows="3" />
         </el-form-item>
-        <el-divider content-position="left">业务发生时间（可选）</el-divider>
-        <el-form-item label="业务时间">
-          <el-date-picker
-            v-model="archiveSignatureTimeForm.selectedSignedAt"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可填写实际业务发生时间"
-            class="!w-1/1"
-          />
-        </el-form-item>
-        <el-form-item label="业务时区">
-          <el-input v-model="archiveSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
-        </el-form-item>
-        <el-form-item label="填写原因">
-          <el-input
-            v-model="archiveSignatureTimeForm.selectedTimeReason"
-            type="textarea"
-            :rows="2"
-            placeholder="填写业务发生时间时必须说明原因"
-          />
-        </el-form-item>
+        <el-alert
+          title="正式电子签名时间由系统自动生成，不支持人工选择或回填。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
       </el-form>
       <template #footer>
         <el-button @click="archiveDialogVisible = false">取 消</el-button>
@@ -355,7 +325,7 @@ import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import ExecutionRenderer from './ExecutionRenderer.vue'
-import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from './signatureTime'
+import { buildSignatureTimePayload } from './signatureTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrApprovalDetail' })
 
@@ -393,7 +363,7 @@ const SIGNATURE_TIME_MODE_LABELS: Record<
   string
 > = {
   SERVER_TIME: '服务端时间',
-  USER_SELECTED: '含业务发生时间'
+  USER_SELECTED: '历史手动时间（已停用）'
 }
 const APPROVAL_SNAPSHOT_STATUS_LABELS: Record<
   NonNullable<EdhrApprovalDetailVO['approvalSnapshotStatus']>,
@@ -423,8 +393,6 @@ const archiveDialogVisible = ref(false)
 const actionMode = ref<'approve' | 'reject'>('approve')
 const actionForm = reactive({ password: '', comment: '', rejectReason: '' })
 const archiveForm = reactive({ sealPassword: '', comment: '' })
-const actionSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
-const archiveSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 
 const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || undefined)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
@@ -693,7 +661,6 @@ const openActionDialog = (mode: 'approve' | 'reject') => {
   actionForm.password = ''
   actionForm.comment = ''
   actionForm.rejectReason = ''
-  Object.assign(actionSignatureTimeForm, createSignatureTimeForm())
   actionDialogVisible.value = true
 }
 
@@ -727,7 +694,7 @@ const submitAction = async () => {
       bpmTaskId: detail.value.bpmTaskId!,
       password: actionForm.password.trim(),
       comment: actionForm.comment.trim() || undefined,
-      signatureTime: buildSignatureTimePayload(actionSignatureTimeForm)
+      signatureTime: buildSignatureTimePayload()
     }
     const result =
       actionMode.value === 'approve'
@@ -757,7 +724,6 @@ const openArchiveGenerateDialog = () => {
   }
   archiveForm.sealPassword = ''
   archiveForm.comment = ''
-  Object.assign(archiveSignatureTimeForm, createSignatureTimeForm())
   archiveDialogVisible.value = true
 }
 
@@ -777,7 +743,7 @@ const handleGenerateArchive = async () => {
       artifactType: EDHR_EXECUTION_ARCHIVE_ARTIFACT_PDF,
       sealPassword: archiveForm.sealPassword.trim(),
       comment: archiveForm.comment.trim() || undefined,
-      signatureTime: buildSignatureTimePayload(archiveSignatureTimeForm)
+      signatureTime: buildSignatureTimePayload()
     })
     archiveDialogVisible.value = false
     message.success('归档生成成功')

@@ -43,7 +43,7 @@ const REQUIRED_ENV = [
 
 const BDD_SCENARIOS = [
   'BDD: 内部记录表真实配置 -> Given 测试租户存在真实工艺路线、工序、报表模板和权限范围 When 用户在批处理路线配置页把目标报表设置为内部记录表 Then 保存接口返回真实成功且页面保留 INTERNAL_RECORD / INTERNAL_TRACE 元数据。',
-  'BDD: 内部记录表真实填写签名 -> Given 批次任务打开到内部记录表执行页 When 用户填写超出数值上下限的目标字段、输入变更原因、选择签名显示时间并签名 Then 字段审计保存成功，签名返回服务器签名时间、选择签名时间和显示签名时间证据。',
+  'BDD: 内部记录表真实填写签名 -> Given 批次任务打开到内部记录表执行页 When 用户填写超出数值上下限的目标字段、输入变更原因并输入签名密码 Then 字段审计保存成功，签名时间由服务端自动生成且请求不携带人工回填时间。',
   'BDD: eDHR 全操作审计真实可查 -> Given 已发生配置、打开、保存和签名操作 When 用户进入 eDHR 操作审计页按执行对象查询 Then 页面和 API 均返回成功事件、权限决策和审计事件 ID。',
   'BDD: 对象级权限真实拒绝 -> Given 另一个测试租户账号没有目标对象能力 When 该账号登录并打开同一 eDHR 执行对象 Then 页面显式展示无权限/403/404/拒绝结果，并且不通过前端隐藏或接口绕过实现。',
   'BDD: 缺少真实前置即阻塞 -> Given 真实账号、签名密码、目标路线、报表、工单、批次、字段或权限范围任一缺失 When 执行脚本 Then 脚本写入 BLOCKED 证据并退出非零，不使用 mock、默认成功或 API-only 替代。'
@@ -51,13 +51,6 @@ const BDD_SCENARIOS = [
 
 function envValue(name) {
   return (process.env[name] || '').trim()
-}
-
-function normalizeSelectedSignedAtForApi(value) {
-  return String(value || '').trim().replace(
-    /^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/,
-    '$1T$2'
-  )
 }
 
 function ensureDir(dir) {
@@ -103,11 +96,6 @@ function collectConfig() {
     deniedUserId: envValue('EDHR_TAIL_FOUR_E2E_DENIED_USER_ID'),
     deniedUsername: envValue('EDHR_TAIL_FOUR_E2E_DENIED_USERNAME'),
     deniedPassword: envValue('EDHR_TAIL_FOUR_E2E_DENIED_PASSWORD'),
-    selectedSignedAt: envValue('EDHR_TAIL_FOUR_E2E_SELECTED_SIGNED_AT') || '2026-06-15 09:30:00',
-    selectedTimeZone: envValue('EDHR_TAIL_FOUR_E2E_SELECTED_TIME_ZONE') || 'Asia/Shanghai',
-    selectedTimeReason:
-      envValue('EDHR_TAIL_FOUR_E2E_SELECTED_TIME_REASON') ||
-      'P8 real E2E selected signature time evidence',
     headed: envValue('EDHR_TAIL_FOUR_E2E_HEADED') === '1'
   }
 
@@ -204,19 +192,19 @@ async function firstVisible(locator, failureMessage) {
   throw new Error(failureMessage)
 }
 
+async function expectNoVisible(locator, failureMessage) {
+  const count = await locator.count()
+  for (let index = 0; index < count; index += 1) {
+    if (await locator.nth(index).isVisible().catch(() => false)) {
+      throw new Error(failureMessage)
+    }
+  }
+}
+
 async function fillFirstVisible(locator, value, failureMessage) {
   const item = await firstVisible(locator, failureMessage)
   await item.fill('')
   await item.fill(value)
-}
-
-async function fillDateTimePickerInput(locator, value, failureMessage) {
-  const item = await firstVisible(locator, failureMessage)
-  await item.click()
-  await item.fill('')
-  await item.fill(value)
-  await item.press('Enter')
-  await item.blur()
 }
 
 async function clickVisibleButton(scope, namePattern, failureMessage) {
@@ -526,13 +514,10 @@ async function saveFieldChangeWithSelectedTime(page, config, steps) {
   const signDialog = page.locator('.el-dialog:visible').filter({ hasText: '字段变更电子签名' }).first()
   await signDialog.waitFor({ state: 'visible', timeout: 30000 })
   await fillFirstVisible(signDialog.locator('input[type="password"]'), config.signaturePassword, '字段变更签名弹窗缺少签名密码输入框。')
-  await fillDateTimePickerInput(
-    signDialog.locator('input[placeholder="可选择人工签名时间"]'),
-    config.selectedSignedAt,
-    '字段变更签名弹窗缺少签名时间输入框。'
+  await expectNoVisible(
+    signDialog.locator('input[placeholder="可选择人工签名时间"], input[placeholder="例如 Asia/Shanghai"], textarea[placeholder="选择人工签名时间时必须说明原因"]'),
+    '字段变更签名弹窗不得再出现人工签名时间、时区或原因输入框。'
   )
-  await fillFirstVisible(signDialog.locator('input[placeholder="例如 Asia/Shanghai"]'), config.selectedTimeZone, '字段变更签名弹窗缺少签名时区输入框。')
-  await fillFirstVisible(signDialog.locator('textarea[placeholder="选择人工签名时间时必须说明原因"]'), config.selectedTimeReason, '字段变更签名弹窗缺少时间原因输入框。')
 
   const saveResponsePromise = page.waitForResponse(
       (response) =>
@@ -557,27 +542,20 @@ async function saveFieldChangeWithSelectedTime(page, config, steps) {
     throw new Error(`字段变更签名保存未发起或未成功：${saveWinner.message}`)
   }
   const saveData = await parseJsonResponse(saveWinner.response, '字段变更签名保存')
-  const expectedSelectedSignedAt = normalizeSelectedSignedAtForApi(config.selectedSignedAt)
-  const saveRequestBody = saveWinner.response.request().postData() || ''
-  assert.ok(
-    saveRequestBody.includes(expectedSelectedSignedAt),
-    `字段变更保存原始请求体必须携带用户实际选择的签名时间：${expectedSelectedSignedAt}`
-  )
   const savePayload = saveWinner.response.request().postDataJSON()
   assert.equal(
-    savePayload?.signature?.signatureTime?.selectedSignedAt,
-    expectedSelectedSignedAt,
-    '字段变更保存请求必须携带用户实际选择的签名时间。'
+    savePayload?.signature?.signatureTime,
+    undefined,
+    '字段变更保存请求不得携带人工签名时间载荷。'
   )
   assert.ok(Number(saveData?.signatureId), '字段变更保存必须返回真实 signatureId。')
   assert.ok(saveData?.auditBatchId, '字段变更保存必须返回 auditBatchId。')
   await page.getByText(/字段变更已写入|字段审计批次/).first().waitFor({ state: 'visible', timeout: 60000 })
   steps.push({
-    name: 'save field change with selected signature time',
+    name: 'save field change with server signature time',
     outcome: 'PASS',
     signatureId: String(saveData.signatureId),
-    auditBatchId: String(saveData.auditBatchId),
-    selectedSignedAt: expectedSelectedSignedAt
+    auditBatchId: String(saveData.auditBatchId)
   })
   return saveData
 }

@@ -6,21 +6,13 @@ const sourcePath = path.resolve(process.cwd(), 'src/views/mes/pro/edhr/signature
 const source = fs.readFileSync(sourcePath, 'utf8')
 
 assert(
-  source.includes("String(form.selectedSignedAt || '').trim()") &&
-    source.includes("String(form.selectedTimeZone || '').trim()") &&
-    source.includes("String(form.selectedTimeReason || '').trim()"),
-  '签名时间 payload 构造必须兼容 Element Plus 空日期 null，并先区分用户是否真正选择了人工签名时间。'
+  /buildSignatureTimePayload[\s\S]*return undefined/.test(source),
+  '正式电子签名 payload 必须始终省略人工选择时间，由后端系统时间生成。'
 )
 
 assert(
-  /if \(!selectedSignedAt && !selectedTimeReason\) \{\s*return undefined\s*\}/.test(source),
-  '仅有默认签名时区时，不得强制用户选择人工签名时间。'
+  !source.includes('normalizeSelectedSignedAt(selectedSignedAt)'),
+  '正式电子签名 payload 不得再携带 selectedSignedAt。'
 )
 
-assert(
-  /if \(selectedTimeReason && !selectedSignedAt\) \{[\s\S]*请选择签名时间/.test(source) &&
-    /if \(selectedSignedAt && !selectedTimeReason\) \{[\s\S]*签名时间原因不能为空/.test(source),
-  '用户填写签名时间或原因任一项时，必须要求签名时间和原因成对完整。'
-)
-
-console.log('PASS: eDHR signature time optional static contract')
+console.log('PASS: eDHR signature time compliance static contract')

@@ -277,7 +277,7 @@ const SIGNATURE_TIME_MODE_LABELS: Record<
   string
 > = {
   SERVER_TIME: '服务端时间',
-  USER_SELECTED: '含业务发生时间'
+  USER_SELECTED: '历史手动时间（已停用）'
 }
 const signatureDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'evidenceExpand', label: '审计证据', width: 40, hideable: false, business: false },

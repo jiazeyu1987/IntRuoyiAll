@@ -61,9 +61,9 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_SPECIAL_NODE_SKIP = "SPECIAL_NODE_SKIP";
     public static final String ACTION_ROUTE_FORM_OPTIONAL_SKIP = "ROUTE_FORM_OPTIONAL_SKIP";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
-    public static final String SIGNATURE_MODE_LOGIN_SESSION = "LOGIN_SESSION";
+    public static final String SIGNATURE_MODE_DRAFT_SESSION = "DRAFT_SESSION";
+    public static final String SIGNATURE_MODE_SIMULATION_SESSION = "SIMULATION_SESSION";
     public static final String SIGNATURE_TIME_MODE_SERVER = "SERVER_TIME";
-    public static final String SIGNATURE_TIME_MODE_USER_SELECTED = "USER_SELECTED";
     public static final String SIGNATURE_TIME_POLICY_VERSION = "EDHR_SIGNATURE_TIME_V1";
     public static final String DEFAULT_SIGNATURE_TIME_ZONE = "Asia/Shanghai";
     private static final String SNAPSHOT_STATUS_CAPTURED = "CAPTURED";
@@ -216,7 +216,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 .executionId(0L)
                 .actorId(actorId)
                 .actionType(actionType)
-                .signatureMode(SIGNATURE_MODE_LOGIN_SESSION)
+                .signatureMode(SIGNATURE_MODE_SIMULATION_SESSION)
                 .passwordVerified(Boolean.FALSE)
                 .comment(sourceName)
                 .signedAt(signedAt)
@@ -238,8 +238,8 @@ public class MesProBatchRecordExecutionSignatureService {
                 .actorPostNamesSnapshot(actorSnapshot.actorPostNamesSnapshot())
                 .actorRoleNamesSnapshot(actorSnapshot.actorRoleNamesSnapshot())
                 .signaturePurpose(actorSnapshot.signaturePurpose())
-                .authorizationBasis("Stage1模拟使用当前登录会话生成正式签名记录；未执行密码校验")
-                .authenticationMethod(SIGNATURE_MODE_LOGIN_SESSION)
+                .authorizationBasis("Stage1模拟使用当前登录会话生成非正式模拟审计记录；未执行密码校验")
+                .authenticationMethod(SIGNATURE_MODE_SIMULATION_SESSION)
                 .recordVersionSnapshot(actorSnapshot.recordVersionSnapshot())
                 .recordHashSnapshot(actorSnapshot.recordHashSnapshot())
                 .clientIpSnapshot(actorSnapshot.clientIpSnapshot())
@@ -370,6 +370,7 @@ public class MesProBatchRecordExecutionSignatureService {
         if (user == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
         }
+        rejectUserSelectedSignatureTime(command.getSignatureTimeCommand());
         adminUserApi.reauthenticateForSignature(actorId, command.getPassword());
         LocalDateTime signedAt = nowAtDatabasePrecision();
         SignatureTimeEvidence signatureTimeEvidence =
@@ -454,7 +455,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 .executionId(command.getExecutionId())
                 .actorId(actorId)
                 .actionType(ACTION_FIELD_CHANGE)
-                .signatureMode(SIGNATURE_MODE_LOGIN_SESSION)
+                .signatureMode(SIGNATURE_MODE_DRAFT_SESSION)
                 .passwordVerified(Boolean.FALSE)
                 .comment(StrUtil.blankToDefault(StrUtil.trim(command.getReasonText()), null))
                 .signedAt(signedAt)
@@ -474,7 +475,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 .actorRoleNamesSnapshot(actorSnapshot.actorRoleNamesSnapshot())
                 .signaturePurpose(actorSnapshot.signaturePurpose())
                 .authorizationBasis("登录会话保存；未执行电子签名")
-                .authenticationMethod(SIGNATURE_MODE_LOGIN_SESSION)
+                .authenticationMethod(SIGNATURE_MODE_DRAFT_SESSION)
                 .recordVersionSnapshot(actorSnapshot.recordVersionSnapshot())
                 .recordHashSnapshot(actorSnapshot.recordHashSnapshot())
                 .clientIpSnapshot(actorSnapshot.clientIpSnapshot())
@@ -592,6 +593,7 @@ public class MesProBatchRecordExecutionSignatureService {
         if (user == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
         }
+        rejectUserSelectedSignatureTime(signatureTimeCommand);
         adminUserApi.reauthenticateForSignature(actorId, password);
         LocalDateTime signedAt = nowAtDatabasePrecision();
         SignatureTimeEvidence signatureTimeEvidence =
@@ -814,19 +816,11 @@ public class MesProBatchRecordExecutionSignatureService {
             Long actorId,
             LocalDateTime signedAt,
             MesProBatchRecordExecutionSignatureTimeCommand command) {
-        LocalDateTime selectedSignedAt = command == null ? null : command.getSelectedSignedAt();
-        String signatureTimeMode = selectedSignedAt == null
-                ? SIGNATURE_TIME_MODE_SERVER : SIGNATURE_TIME_MODE_USER_SELECTED;
+        String signatureTimeMode = SIGNATURE_TIME_MODE_SERVER;
         LocalDateTime displayAt = signedAt;
         String selectedTimeZone = DEFAULT_SIGNATURE_TIME_ZONE;
         String selectedTimeReason = "";
-        if (selectedSignedAt != null) {
-            selectedTimeZone = StrUtil.trim(command.getSelectedTimeZone());
-            selectedTimeReason = StrUtil.trim(command.getSelectedTimeReason());
-            if (StrUtil.isBlank(selectedTimeZone) || StrUtil.isBlank(selectedTimeReason)) {
-                throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
-            }
-        }
+        rejectUserSelectedSignatureTime(command);
         String auditHash = DigestUtil.sha256Hex(String.join("|",
                 SIGNATURE_TIME_POLICY_VERSION,
                 value(executionId),
@@ -835,17 +829,28 @@ public class MesProBatchRecordExecutionSignatureService {
                 value(signedAt),
                 signatureTimeMode,
                 value(displayAt),
-                value(selectedSignedAt == null ? null : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS)),
+                value(null),
                 value(selectedTimeZone),
                 value(selectedTimeReason)));
         return new SignatureTimeEvidence(
-                selectedSignedAt == null ? null : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS),
+                null,
                 displayAt,
                 signatureTimeMode,
                 selectedTimeZone,
                 selectedTimeReason,
                 SIGNATURE_TIME_POLICY_VERSION,
                 auditHash);
+    }
+
+    private void rejectUserSelectedSignatureTime(MesProBatchRecordExecutionSignatureTimeCommand command) {
+        if (command == null) {
+            return;
+        }
+        if (command.getSelectedSignedAt() != null
+                || StrUtil.isNotBlank(command.getSelectedTimeZone())
+                || StrUtil.isNotBlank(command.getSelectedTimeReason())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
     }
 
     private String value(Object value) {

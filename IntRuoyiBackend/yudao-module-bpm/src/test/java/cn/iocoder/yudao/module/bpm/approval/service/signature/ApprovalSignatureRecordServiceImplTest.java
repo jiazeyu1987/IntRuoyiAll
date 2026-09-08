@@ -18,7 +18,9 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +66,7 @@ class ApprovalSignatureRecordServiceImplTest {
         when(electronicSignatureService.sign(org.mockito.ArgumentMatchers.any())).thenReturn(signatureResult(810002L));
 
         ApprovalSignatureRecordResult result = service.recordReviewSignature(ApprovalTaskReviewContext.of(101L,
-                ApprovalModuleCode.MES_FEEDBACK, "MES_PRO_FEEDBACK", "9001", "9001", null,
+                ApprovalModuleCode.MES_FEEDBACK, "MES_PRO_FEEDBACK", "9001", "9001", "pi-9001",
                 ApprovalTaskReviewResult.REJECT, "quality data missing", "secret", false));
 
         ElectronicSignatureCommand command = captureSignatureCommand();
@@ -72,8 +74,37 @@ class ApprovalSignatureRecordServiceImplTest {
         assertEquals("REJECT", command.actionCode());
         assertEquals("BPM_APPROVAL_TASK", command.subjectType());
         assertEquals("quality data missing", command.reason());
-        assertTrue(command.idempotencyKey().startsWith("BPM|MES_FEEDBACK|MES_PRO_FEEDBACK|9001|9001|null|101|REJECT|"));
+        assertTrue(command.idempotencyKey().startsWith("BPM|MES_FEEDBACK|MES_PRO_FEEDBACK|9001|9001|pi-9001|101|REJECT|"));
         assertEquals(810002L, result.getUnifiedSignatureId());
+        verify(signatureImageSnapshotProvider).markReferenced(9101L);
+    }
+
+    @Test
+    void recordReviewSignatureRejectsMissingProcessInstanceForOrderedApprovalEvidence() {
+        ApprovalSignatureRecordServiceImpl service = newService();
+
+        assertThrows(NullPointerException.class, () -> service.recordReviewSignature(ApprovalTaskReviewContext.of(101L,
+                ApprovalModuleCode.BPM, "BPM_TASK_TODO", "task-100", "pi-100", null,
+                ApprovalTaskReviewResult.APPROVE, "approved", "secret", false)));
+
+        verify(signatureImageSnapshotProvider, never()).requireActiveSnapshot(101L);
+        verify(electronicSignatureService, never()).sign(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void recordReviewSignatureAllowsSignatureRequiredDirectBusinessApprovalWithoutProcessInstance() {
+        ApprovalSignatureRecordServiceImpl service = newService();
+        when(signatureImageSnapshotProvider.requireActiveSnapshot(102L)).thenReturn(signatureImageSnapshot());
+        when(electronicSignatureService.sign(org.mockito.ArgumentMatchers.any())).thenReturn(signatureResult(810003L));
+
+        ApprovalSignatureRecordResult result = service.recordReviewSignature(ApprovalTaskReviewContext.of(102L,
+                ApprovalModuleCode.BPM, "BUSINESS_APPROVAL_POLICY_SWITCH", "policy-100", "MES:POLICY",
+                null, ApprovalTaskReviewResult.APPROVE, "SIGNATURE_REQUIRED", "secret", false));
+
+        ElectronicSignatureCommand command = captureSignatureCommand();
+        assertEquals(810003L, result.getUnifiedSignatureId());
+        assertTrue(command.idempotencyKey().startsWith(
+                "BPM|BPM|BUSINESS_APPROVAL_POLICY_SWITCH|policy-100|MES:POLICY|null|102|APPROVE|"));
         verify(signatureImageSnapshotProvider).markReferenced(9101L);
     }
 

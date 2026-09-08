@@ -236,7 +236,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals(601L, result.getSignatureId());
         assertEquals(1, result.getChangedFieldCount());
         MesProBatchRecordExecutionSignatureDO signature = signatureMapper.selectById(result.getSignatureId());
-        assertEquals(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_LOGIN_SESSION,
+        assertEquals(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_DRAFT_SESSION,
                 signature.getSignatureMode());
         assertEquals(Boolean.FALSE, signature.getPasswordVerified());
         verify(signatureService).recordFieldChangeDraftSave(any());
@@ -1574,7 +1574,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                             .executionId(command.getExecutionId())
                             .actorId(99L)
                             .actionType(MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE)
-                            .signatureMode(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_LOGIN_SESSION)
+                            .signatureMode(MesProBatchRecordExecutionSignatureService.SIGNATURE_MODE_DRAFT_SESSION)
                             .passwordVerified(Boolean.FALSE)
                             .comment(command.getReasonText())
                             .signedAt(signedAt)

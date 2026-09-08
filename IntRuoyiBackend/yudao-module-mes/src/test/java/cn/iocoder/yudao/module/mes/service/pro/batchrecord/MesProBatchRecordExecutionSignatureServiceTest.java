@@ -181,7 +181,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         assertEquals(0L, signature.getExecutionId());
         assertEquals(99L, signature.getActorId());
         assertEquals("PRODUCTION_SUBMIT", signature.getActionType());
-        assertEquals("LOGIN_SESSION", signature.getSignatureMode());
+        assertEquals("SIMULATION_SESSION", signature.getSignatureMode());
         assertTrue(Boolean.FALSE.equals(signature.getPasswordVerified()));
         assertEquals("MES_ACTIVE_ORDER_SIMULATION", signature.getReviewSourceType());
         assertEquals(8101L, signature.getReviewSourceId());
@@ -189,39 +189,31 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         assertEquals("operator", signature.getActorUsernameSnapshot());
         assertEquals("签名人", signature.getActorNicknameSnapshot());
         assertEquals("一线生产报工提交", signature.getSignaturePurpose());
-        assertEquals("LOGIN_SESSION", signature.getAuthenticationMethod());
+        assertEquals("SIMULATION_SESSION", signature.getAuthenticationMethod());
         assertTrue(signature.getAuthorizationBasis().contains("Stage1模拟"));
+        assertTrue(!signature.getAuthorizationBasis().contains("正式签名记录"));
         assertNotNull(signature.getSignedAt());
         verify(adminUserService, never()).isPasswordMatch(any(), any());
         verify(authorizationService, never()).isElectronicSignatureEnabled(any());
     }
 
     @Test
-    void recordSubmitSignature_withSelectedTimePersistsDualTimeAudit() {
+    void recordSubmitSignature_withSelectedTimeFailsFast() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
             when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
             when(adminUserService.getUser(99L)).thenReturn(snapshotUser("签名人"));
-            stubActorSnapshot();
-            when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
-                    .thenReturn(unifiedSignatureResult(7002L));
             LocalDateTime selectedSignedAt = LocalDateTime.of(2026, 6, 15, 9, 5, 30);
 
-            Long signatureId = signatureService.recordSubmitSignature(900L, "secret", "提交执行",
-                    new MesProBatchRecordExecutionSignatureTimeCommand()
-                            .setSelectedSignedAt(selectedSignedAt)
-                            .setSelectedTimeZone("Asia/Shanghai")
-                            .setSelectedTimeReason("补录纸质记录签名时间"));
+            assertServiceException(() -> signatureService.recordSubmitSignature(900L, "secret", "提交执行",
+                            new MesProBatchRecordExecutionSignatureTimeCommand()
+                                    .setSelectedSignedAt(selectedSignedAt)
+                                    .setSelectedTimeZone("Asia/Shanghai")
+                                    .setSelectedTimeReason("补录纸质记录签名时间")),
+                    PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
 
-            ArgumentCaptor<ElectronicSignatureCommand> captor =
-                    ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
-            verify(adminUserApi).reauthenticateForSignature(99L, "secret");
-            verify(electronicSignatureService).sign(captor.capture());
-            assertEquals(7002L, signatureId);
-            assertEquals("SUBMIT", captor.getValue().actionCode());
-            assertEquals("提交执行", captor.getValue().reason());
-            assertEquals("2026-06-15T09:05:30", captor.getValue().businessOccurredAt());
-            assertEquals("Asia/Shanghai", captor.getValue().businessTimeZone());
+            verify(adminUserApi, never()).reauthenticateForSignature(any(), any());
+            verify(electronicSignatureService, never()).sign(any(ElectronicSignatureCommand.class));
             verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
         }
     }

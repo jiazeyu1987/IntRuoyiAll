@@ -34,6 +34,13 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         if (context.getSourceTaskType() == null || context.getSourceTaskType().isBlank()) {
             throw new NullPointerException("APPROVAL_SOURCE_TASK_TYPE_REQUIRED");
         }
+        if (context.getSourceTaskId() == null || context.getSourceTaskId().isBlank()) {
+            throw new NullPointerException("APPROVAL_SOURCE_TASK_ID_REQUIRED");
+        }
+        if (isOrderedBpmApproval(context)
+                && (context.getProcessInstanceId() == null || context.getProcessInstanceId().isBlank())) {
+            throw new NullPointerException("APPROVAL_PROCESS_INSTANCE_REQUIRED");
+        }
         if (context.getLoginUserId() == null) {
             throw new NullPointerException("APPROVAL_LOGIN_USER_REQUIRED");
         }
@@ -70,6 +77,11 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
             return null;
         }
         return value.trim();
+    }
+
+    private static boolean isOrderedBpmApproval(ApprovalTaskReviewContext context) {
+        return MODULE_CODE.equals(context.getModuleCode().name())
+                && "BPM_TASK_TODO".equals(trimToNull(context.getSourceTaskType()));
     }
 
     private static String requireText(String value, String message) {

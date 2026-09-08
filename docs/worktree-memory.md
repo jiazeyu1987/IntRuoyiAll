@@ -1,5 +1,13 @@
 # Worktree Memory
 
+## Worktree 前端依赖与类型检查门禁
+
+- Trigger: 附加 worktree 需要运行前端 `pnpm ts:check`、构建或静态检查，但该 worktree 是新 checkout 或未曾安装前端依赖。
+- Preflight check: 先确认 `IntRuoyiFronted\pnpm-lock.yaml` 存在、`pnpm --version` 可用、`IntRuoyiFronted\node_modules\.bin\cross-env.cmd` 或对应脚本依赖存在；缺失时使用 `pnpm install --frozen-lockfile` 按锁文件补齐当前 worktree 依赖，再运行目标检查。
+- Blocker: `pnpm install --frozen-lockfile` 失败、锁文件缺失、依赖脚本需要额外 approval 但目标检查依赖该脚本产物，或类型检查仍失败且无法区分是否当前任务引入时，必须停止并记录影响；不得改用 API-only、跳过类型检查或把缺依赖写成代码通过。
+- Verification: 记录依赖安装命令退出码、`pnpm ts:check` 退出码、是否存在 build-script approval 警告及其影响；合并前再次确认 `node_modules` 为 ignored 产物且未进入提交清单。
+- Forbidden action: 禁止提交 `node_modules`、禁止静默降级到只跑 `node --check` 替代类型检查、禁止把主工作区已有依赖目录复制到附加 worktree。
+
 ## 同类需求 Worktree 复用门禁
 
 - Trigger: 用户要求在 worktree 中继续一个业务功能，且 `D:\IntRuoyiWorktree\` 下可能已有同类分支或半成品分支。

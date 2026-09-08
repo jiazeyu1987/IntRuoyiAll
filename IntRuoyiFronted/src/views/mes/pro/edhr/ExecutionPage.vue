@@ -1510,27 +1510,12 @@
             placeholder="请输入复核备注（可选）"
           />
         </el-form-item>
-        <el-divider content-position="left">业务发生时间（可选）</el-divider>
-        <el-form-item label="业务时间">
-          <el-date-picker
-            v-model="formReviewSignatureTimeForm.selectedSignedAt"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可填写实际业务发生时间"
-            class="!w-1/1"
-          />
-        </el-form-item>
-        <el-form-item label="业务时区">
-          <el-input v-model="formReviewSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
-        </el-form-item>
-        <el-form-item label="填写原因">
-          <el-input
-            v-model="formReviewSignatureTimeForm.selectedTimeReason"
-            type="textarea"
-            :rows="2"
-            placeholder="填写业务发生时间时必须说明原因"
-          />
-        </el-form-item>
+        <el-alert
+          title="正式电子签名时间由系统自动生成，不支持人工选择或回填。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
       </el-form>
       <template #footer>
         <el-button @click="closeFormReviewSignDialog">取 消</el-button>
@@ -1666,7 +1651,7 @@ import type {
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
 import EdhrExecutionTemplateEditableForm from './components/EdhrExecutionTemplateEditableForm.vue'
 import EdhrExecutionReadonlyForm from './components/EdhrExecutionReadonlyForm.vue'
-import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from './signatureTime'
+import { buildSignatureTimePayload } from './signatureTime'
 import { selectLatestSignature } from './signatureSelection'
 
 defineOptions({ name: 'MesProFeedbackEdhrExecutionForm' })
@@ -1957,7 +1942,6 @@ const formReviewSignForm = reactive({
   password: '',
   comment: ''
 })
-const formReviewSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 const archiveForm = reactive({
   sealPassword: '',
   comment: '',
@@ -2108,10 +2092,6 @@ const sharedFillScopeGateError = computed(() => {
   }
   return ''
 })
-
-const resetSignatureTimeForm = (form: EdhrSignatureTimeForm) => {
-  Object.assign(form, createSignatureTimeForm())
-}
 
 const slotContextBlockers = computed(() => {
   const current = execution.value
@@ -4844,7 +4824,6 @@ const handleSubmitExecution = async () => {
 const resetFormReviewSignForm = () => {
   formReviewSignForm.password = ''
   formReviewSignForm.comment = ''
-  resetSignatureTimeForm(formReviewSignatureTimeForm)
 }
 
 const closeFormReviewSignDialog = () => {
@@ -4887,7 +4866,7 @@ const handleFormReviewSign = async () => {
       workTaskId: workTaskId.value,
       password: formReviewSignForm.password.trim(),
       comment: formReviewSignForm.comment.trim() || undefined,
-      signatureTime: buildSignatureTimePayload(formReviewSignatureTimeForm)
+      signatureTime: buildSignatureTimePayload()
     })
     formReviewSignDialogVisible.value = false
     resetFormReviewSignForm()
