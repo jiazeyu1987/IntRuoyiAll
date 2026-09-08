@@ -1201,13 +1201,6 @@
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
           :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
-          @click="handleDownloadArchive"
-        >
-          下载打印版 PDF
-        </el-button>
-        <el-button
-          v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-          :disabled="isViewedReleaseStageReadonly || archiveGenerationLoading || !latestBatchArchive?.id"
           @click="handlePrintArchive"
         >
           打印
@@ -1468,7 +1461,6 @@ import {
   EDHR_BATCH_TASK_STATUS_WAITING,
   completeEdhrBatchSpecialNode,
   completeEdhrProductionReleaseReportNode,
-  downloadEdhrBatchArchive,
   generateEdhrBatchArchive,
   getLatestEdhrBatchArchive,
   getEdhrBatchExecution,
@@ -4781,17 +4773,6 @@ const handleGenerateArchive = async () => {
     message.error(resolveErrorMessage(error, '批次最终归档生成失败。'))
   } finally {
     archiveGenerationLoading.value = false
-  }
-}
-
-const handleDownloadArchive = async () => {
-  try {
-    const archive = await getLatestEdhrBatchArchive(assertBatchExecutionId())
-    if (!archive?.id) throw new Error('当前批次没有可下载的打印版 PDF 归档。')
-    await downloadEdhrBatchArchive(archive.id, archive.fileName, archive.artifactType)
-    message.success('打印版 PDF 下载已开始')
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '打印版 PDF 下载失败。'))
   }
 }
 

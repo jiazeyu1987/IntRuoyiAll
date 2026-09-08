@@ -91,10 +91,11 @@ def source_locator_exists(root: Path, operation: Operation) -> bool:
         class_name, _, method_name = locator.partition("#")
         if not class_name or not method_name:
             return False
-        java_file = root / (class_name.replace(".", "/") + ".java")
-        if not java_file.exists():
+        class_suffix = Path(*class_name.split(".")).with_suffix(".java")
+        candidates = list(root.glob(f"**/src/main/java/{class_suffix.as_posix()}"))
+        if not candidates:
             return False
-        text = java_file.read_text(encoding="utf-8")
+        text = candidates[0].read_text(encoding="utf-8")
         return re.search(rf"\b{re.escape(method_name)}\s*\(", text) is not None
     return (root / locator).exists()
 

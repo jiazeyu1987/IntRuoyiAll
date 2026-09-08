@@ -737,3 +737,11 @@ Root-cause correction: the earlier `S3 NoSuchKey` stack belongs to old file `DCC
 `GREEN: pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS, frontend type check completed with exit code 0.`
 
 `BLOCKED: fresh DCC approval/publish Playwright retry -> current command did not explicitly authorize a write-path E2E, database business writes, or an int_main restart; no approval, publish, notification, or impact-task business action was executed.`
+
+## P4 Read-Only Detail Route Diagnosis
+
+BDD: 审批中心打开 DCC 详情 -> Given DCC task row supplies detailRoute and process/task query, When approval-center calls openDecisionDetail/openModuleDetail, Then router adds handling=approval/from=approval-center/processInstanceId/taskId and detail onMounted reloadAll must issue GET /admin-api/dcc/controlled-files/{id}.
+
+GREEN: code inspection -> PASS, approval-center resolveDccApprovalDetailLocation at src/views/approval-center/index.vue:894-933 preserves DCC detail path and appends approval query; detail route beforeEnter at src/router/modules/remaining.ts:1193-1203 explicitly allows approval handling; detail index onMounted at src/views/dcc/controlled-file/detail/index.vue:6474-6476 invokes reloadAll; loadData at :4416-4430 calls getControlledFile(controlledFileId), and API workflow.ts:1747-1749 maps to /dcc/controlled-files/{id}.
+
+CONCLUSION: no obvious source-code defect explains a direct detail page with zero GET request. That symptom is consistent with Vite dynamic-import/runtime failure or navigation not mounting the detail component (previous sessions showed Failed to fetch dynamically imported module and connection-refused errors). When the component mounts normally, GET is unconditional before approval detail loading. No source files were changed.

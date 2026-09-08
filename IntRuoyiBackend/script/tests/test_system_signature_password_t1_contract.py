@@ -71,8 +71,17 @@ def test_unified_signature_subject_id_capacity_supports_encoded_business_identit
     test_schema = (ROOT / "yudao-module-signature/src/test/resources/sql/create_tables.sql").read_text(encoding="utf-8")
 
     assert "`subject_id` varchar(2048) NOT NULL" in base_migration
+    assert "`idempotency_key` varchar(512) NOT NULL" in base_migration
+    assert "UNIQUE KEY `uk_system_esign_idempotency` (`tenant_id`, `idempotency_key`(191), `deleted`)" in base_migration
+    assert "KEY `idx_system_esign_subject` (`tenant_id`, `module_code`, `subject_type`, `subject_id`(191), `deleted`)" in base_migration
+    assert "DROP INDEX `uk_system_esign_idempotency`" in repair_migration
+    assert "DROP INDEX `idx_system_esign_subject`" in repair_migration
     assert "MODIFY COLUMN `subject_id` varchar(2048) NOT NULL" in repair_migration
+    assert "MODIFY COLUMN `idempotency_key` varchar(512) NOT NULL" in repair_migration
+    assert "ADD UNIQUE INDEX `uk_system_esign_idempotency` (`tenant_id`, `idempotency_key`(191), `deleted`)" in repair_migration
+    assert "ADD INDEX `idx_system_esign_subject` (`tenant_id`, `module_code`, `subject_type`, `subject_id`(191), `deleted`)" in repair_migration
     assert '"subject_id" varchar(2048) not null' in test_schema
+    assert '"idempotency_key" varchar(512) not null' in test_schema
 
 
 def test_bpm_t5_approval_signatures_delegate_to_unified_kernel():

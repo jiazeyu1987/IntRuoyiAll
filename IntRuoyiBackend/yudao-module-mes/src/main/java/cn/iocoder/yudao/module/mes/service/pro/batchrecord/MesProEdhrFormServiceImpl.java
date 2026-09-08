@@ -30,20 +30,27 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_DATE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_ENUM_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_RANGE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_SCHEMA_EMPTY;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_SCHEMA_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_FIELD_TEXT_TOO_LONG;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_INSTANCE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_INSTANCE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFormErrorCodeConstants.PRO_EDHR_FORM_TEMPLATE_CODE_DUPLICATE;
@@ -69,6 +76,7 @@ public class MesProEdhrFormServiceImpl implements MesProEdhrFormService {
     private static final String EVENT_SUBMIT = "SUBMIT";
     private static final String EVENT_RESULT_SUCCESS = "SUCCESS";
     private static final DateTimeFormatter INSTANCE_CODE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+    private static final DateTimeFormatter DATE_VALUE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     @Resource
     private MesProEdhrFormTemplateMapper templateMapper;
@@ -162,6 +170,7 @@ public class MesProEdhrFormServiceImpl implements MesProEdhrFormService {
         MesProEdhrFormTemplateDO template = requireTemplate(instance.getTemplateId());
         List<MesProEdhrFormFieldSpec> fieldSpecs = parseFieldSchema(template.getFieldSchemaJson());
         Map<String, Object> values = valuesOrEmpty(reqVO.getValues());
+        validateDraftValues(fieldSpecs, values);
         replaceInstanceValues(instance.getId(), fieldSpecs, values);
         instance.setRemark(reqVO.getRemark());
         instanceMapper.updateById(instance);
@@ -236,33 +245,71 @@ public class MesProEdhrFormServiceImpl implements MesProEdhrFormService {
         if (fields.isEmpty()) {
             throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_EMPTY);
         }
+        Set<String> fieldKeys = new HashSet<>();
         for (MesProEdhrFormFieldSpec field : fields) {
             validateFieldSpec(field);
+            if (!fieldKeys.add(field.getKey())) {
+                throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, "字段 key 重复：" + field.getKey());
+            }
         }
         return fields;
     }
 
     private void validateFieldSpec(MesProEdhrFormFieldSpec field) {
-        if (field == null || StrUtil.isBlank(field.getKey()) || StrUtil.isBlank(field.getLabel())
-                || StrUtil.isBlank(field.getType())) {
+        if (field == null) {
             throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, "字段 key、label、type 必填");
         }
-        String type = field.getType().toLowerCase(Locale.ROOT);
+        String key = StrUtil.trim(field.getKey());
+        String label = StrUtil.trim(field.getLabel());
+        String type = StrUtil.trim(field.getType());
+        if (StrUtil.isBlank(key) || StrUtil.isBlank(label) || StrUtil.isBlank(type)) {
+            throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, "字段 key、label、type 必填");
+        }
+        type = type.toLowerCase(Locale.ROOT);
         if (!FIELD_TYPE_TEXT.equals(type) && !FIELD_TYPE_NUMBER.equals(type)
                 && !FIELD_TYPE_ENUM.equals(type) && !FIELD_TYPE_DATE.equals(type)) {
-            throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, field.getLabel());
+            throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, label);
         }
-        field.setKey(StrUtil.trim(field.getKey()));
-        field.setLabel(StrUtil.trim(field.getLabel()));
+        field.setKey(key);
+        field.setLabel(label);
         field.setType(type);
+        if (FIELD_TYPE_NUMBER.equals(type) && field.getMin() != null && field.getMax() != null
+                && field.getMin().compareTo(field.getMax()) > 0) {
+            throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, label + " 最小值不能大于最大值");
+        }
+        if (FIELD_TYPE_ENUM.equals(type)) {
+            field.setOptions(normalizeEnumOptions(field));
+        }
     }
 
     private void validateSubmissionValues(List<MesProEdhrFormFieldSpec> fieldSpecs, Map<String, Object> values) {
+        validateDraftValues(fieldSpecs, values);
         for (MesProEdhrFormFieldSpec fieldSpec : fieldSpecs) {
             Object value = values.get(fieldSpec.getKey());
             validateRequiredField(fieldSpec, value);
+        }
+    }
+
+    private void validateDraftValues(List<MesProEdhrFormFieldSpec> fieldSpecs, Map<String, Object> values) {
+        validateKnownFields(fieldSpecs, values);
+        for (MesProEdhrFormFieldSpec fieldSpec : fieldSpecs) {
+            Object value = values.get(fieldSpec.getKey());
             validateNumberRange(fieldSpec, value);
             validateEnumOptions(fieldSpec, value);
+            validateDateFormat(fieldSpec, value);
+            validateValueTextLength(fieldSpec, value);
+        }
+    }
+
+    private void validateKnownFields(List<MesProEdhrFormFieldSpec> fieldSpecs, Map<String, Object> values) {
+        Set<String> fieldKeys = new HashSet<>();
+        for (MesProEdhrFormFieldSpec fieldSpec : fieldSpecs) {
+            fieldKeys.add(fieldSpec.getKey());
+        }
+        for (String fieldKey : values.keySet()) {
+            if (!fieldKeys.contains(fieldKey)) {
+                throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, fieldKey);
+            }
         }
     }
 
@@ -298,6 +345,44 @@ public class MesProEdhrFormServiceImpl implements MesProEdhrFormService {
         if (options == null || options.isEmpty() || !options.contains(String.valueOf(value))) {
             throw exception(PRO_EDHR_FORM_FIELD_ENUM_INVALID, fieldSpec.getLabel());
         }
+    }
+
+    private void validateDateFormat(MesProEdhrFormFieldSpec fieldSpec, Object value) {
+        if (!FIELD_TYPE_DATE.equals(fieldSpec.getType()) || isBlankValue(value)) {
+            return;
+        }
+        try {
+            LocalDate.parse(String.valueOf(value), DATE_VALUE_FORMATTER);
+        } catch (DateTimeParseException ex) {
+            throw exception(PRO_EDHR_FORM_FIELD_DATE_INVALID, fieldSpec.getLabel());
+        }
+    }
+
+    private void validateValueTextLength(MesProEdhrFormFieldSpec fieldSpec, Object value) {
+        if (isBlankValue(value)) {
+            return;
+        }
+        if (String.valueOf(value).length() > 1000) {
+            throw exception(PRO_EDHR_FORM_FIELD_TEXT_TOO_LONG, fieldSpec.getLabel());
+        }
+    }
+
+    private List<String> normalizeEnumOptions(MesProEdhrFormFieldSpec field) {
+        List<String> options = field.getOptions();
+        if (options == null || options.isEmpty()) {
+            throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, field.getLabel() + " 枚举选项不能为空");
+        }
+        Set<String> normalizedOptionSet = new LinkedHashSet<>();
+        for (String option : options) {
+            String normalizedOption = StrUtil.trim(option);
+            if (StrUtil.isBlank(normalizedOption)) {
+                throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, field.getLabel() + " 枚举选项不能为空");
+            }
+            if (!normalizedOptionSet.add(normalizedOption)) {
+                throw exception(PRO_EDHR_FORM_FIELD_SCHEMA_INVALID, field.getLabel() + " 枚举选项重复：" + normalizedOption);
+            }
+        }
+        return List.copyOf(normalizedOptionSet);
     }
 
     private void replaceInstanceValues(Long instanceId, List<MesProEdhrFormFieldSpec> fieldSpecs,
@@ -370,8 +455,7 @@ public class MesProEdhrFormServiceImpl implements MesProEdhrFormService {
         if (value == null) {
             return null;
         }
-        String text = String.valueOf(value);
-        return text.length() > 1000 ? text.substring(0, 1000) : text;
+        return String.valueOf(value);
     }
 
     private LocalDateTime now() {

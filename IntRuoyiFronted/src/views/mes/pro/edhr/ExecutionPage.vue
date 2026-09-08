@@ -165,14 +165,6 @@
                     >
                       {{ archiveGenerateActionLabel }}
                     </el-button>
-                    <el-button
-                      v-hasPermi="['mes:pro-batch-record-execution-archive:download']"
-                      :loading="archiveDownloadLoading"
-                      :disabled="!canDownloadCurrentArchive"
-                      @click="handleDownloadArchive"
-                    >
-                      下载归档打印件
-                    </el-button>
                   </div>
                   <div v-if="archiveGateHint" class="edhr-page-shell__tracking-archive-hint">
                     {{ archiveGateHint }}
@@ -1571,7 +1563,6 @@ import {
   EDHR_EXECUTION_ARCHIVE_STATUS_FAILED,
   EDHR_EXECUTION_ARCHIVE_STATUS_GENERATING,
   EDHR_EXECUTION_ARCHIVE_STATUS_SEALED,
-  downloadEdhrExecutionArchive,
   generateEdhrExecutionArchive,
   getLatestEdhrExecutionArchive,
   isEdhrExecutionArchiveNotExistsMessage,
@@ -1828,7 +1819,6 @@ type BatchSharedFillScopeParseResult = {
 
 const ARCHIVE_QUERY_PERMISSION = 'mes:pro-batch-record-execution-archive:query'
 const ARCHIVE_CREATE_PERMISSION = 'mes:pro-batch-record-execution-archive:create'
-const ARCHIVE_DOWNLOAD_PERMISSION = 'mes:pro-batch-record-execution-archive:download'
 const EXECUTION_UPDATE_PERMISSION = 'mes:pro-batch-record-execution:update'
 const FIELD_AUDIT_UPDATE_PERMISSION = 'mes:pro-batch-record-execution:field-audit-update'
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
@@ -1888,7 +1878,6 @@ const formReviewSignLoading = ref(false)
 const submitLoading = ref(false)
 const archiveLoading = ref(false)
 const archiveGenerateLoading = ref(false)
-const archiveDownloadLoading = ref(false)
 const loadError = ref('')
 const recordbookGlobalEnabled = ref(true)
 const archiveError = ref('')
@@ -2667,7 +2656,6 @@ const resolveExecutionContextKey = () => {
 }
 const hasArchiveQueryPermission = computed(() => hasPermission([ARCHIVE_QUERY_PERMISSION]))
 const hasArchiveCreatePermission = computed(() => hasPermission([ARCHIVE_CREATE_PERMISSION]))
-const hasArchiveDownloadPermission = computed(() => hasPermission([ARCHIVE_DOWNLOAD_PERMISSION]))
 const hasExecutionUpdatePermission = computed(() => hasPermission([EXECUTION_UPDATE_PERMISSION]))
 const hasGoldenFingerPermission = computed(
   () => userStore.permissions.has(GOLDEN_FINGER_PERMISSION)
@@ -4571,14 +4559,6 @@ const canGenerateCurrentArchive = computed(() => {
   )
 })
 
-const canDownloadCurrentArchive = computed(
-  () =>
-    hasArchiveDownloadPermission.value &&
-    (execution.value?.canDownloadArchive === true || latestArchive.value?.canDownloadArchive === true) &&
-    latestArchive.value?.archiveStatus === EDHR_EXECUTION_ARCHIVE_STATUS_SEALED &&
-    Boolean(latestArchive.value?.id)
-)
-
 const archiveGenerateActionLabel = computed(() =>
   latestArchive.value?.archiveStatus === EDHR_EXECUTION_ARCHIVE_STATUS_SEALED
     ? '重新生成归档打印件'
@@ -4965,30 +4945,6 @@ const handleGenerateArchive = async () => {
     await loadLatestArchive()
   } finally {
     archiveGenerateLoading.value = false
-  }
-}
-
-const handleDownloadArchive = async () => {
-  const archive = latestArchive.value
-  if (!archive?.id || !canDownloadCurrentArchive.value) {
-    message.error('当前归档未封存或无下载权限，无法下载。')
-    return
-  }
-  archiveDownloadLoading.value = true
-  archiveError.value = ''
-  try {
-    await downloadEdhrExecutionArchive(
-      archive.id,
-      archive.fileName,
-      archive.artifactType,
-      archive.contentType
-    )
-    message.success('归档打印件下载已开始')
-  } catch (error) {
-    archiveError.value = resolveErrorMessage(error, '归档下载失败，请联系管理员。')
-    message.error(archiveError.value)
-  } finally {
-    archiveDownloadLoading.value = false
   }
 }
 

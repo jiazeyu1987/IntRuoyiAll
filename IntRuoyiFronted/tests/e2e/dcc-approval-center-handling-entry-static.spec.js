@@ -105,8 +105,18 @@ assert.match(
 )
 assert.match(
   detailRoute,
-  /String\(to\.query\.viewer \|\| ''\) === '1' \|\| isApprovalHandling/,
-  'controlled file detail route must allow viewer mode and the explicit approval handling gate only'
+  /String\(to\.query\.viewer \|\| ''\) === '1' \|\|\s*isApprovalHandling/,
+  'controlled file detail route must keep viewer mode and explicit approval handling as first-class gates'
+)
+assert.match(
+  detailRoute,
+  /isBrowserTraceability/,
+  'controlled file detail route must preserve browser traceability entry'
+)
+assert.match(
+  detailRoute,
+  /isBrowserManagement/,
+  'controlled file detail route must preserve browser management entry'
 )
 assert.match(
   detailRoute,

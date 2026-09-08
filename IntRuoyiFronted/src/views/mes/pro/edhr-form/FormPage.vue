@@ -359,11 +359,19 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <el-form label-width="112px" class="edhr-form-page__value-form">
+        <el-form
+          ref="detailValueFormRef"
+          :model="detailValues"
+          :rules="detailValueRules"
+          label-width="112px"
+          class="edhr-form-page__value-form"
+          status-icon
+        >
           <el-form-item
             v-for="field in detailFieldSchema"
             :key="field.key"
             :label="field.label"
+            :prop="field.key"
             :required="field.required"
           >
             <el-input-number
@@ -471,6 +479,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   EDHR_FORM_INSTANCE_STATUS_DRAFT,
   EDHR_FORM_INSTANCE_STATUS_SUBMITTED,
@@ -548,6 +557,7 @@ const eventTotal = ref(0)
 const detailRemark = ref('')
 
 const detailValues = reactive<Record<string, string | number | null | undefined>>({})
+const detailValueFormRef = ref<FormInstance>()
 
 const templateQueryParams = reactive({
   pageNo: 1,
@@ -624,6 +634,81 @@ const templateFieldRows = ref<TemplateFieldRow[]>(buildDefaultTemplateRows())
 const isDetailSubmitted = computed(
   () => detailInstance.value?.status === EDHR_FORM_INSTANCE_STATUS_SUBMITTED
 )
+
+const isBlankDetailValue = (value: string | number | null | undefined) => {
+  return value === undefined || value === null || String(value).trim() === ''
+}
+
+const validateEdhrFormFieldValue = (
+  field: EdhrFormFieldSpec,
+  value: string | number | null | undefined
+) => {
+  if (field.required && isBlankDetailValue(value)) {
+    return field.type === 'enum' ? `请选择${field.label}。` : `请输入${field.label}。`
+  }
+  if (isBlankDetailValue(value)) {
+    return ''
+  }
+  const textValue = String(value)
+  if (textValue.length > 1000) {
+    return `${field.label}字段值不能超过 1000 个字符。`
+  }
+  if (field.type === 'number') {
+    const numericValue = Number(value)
+    if (!Number.isFinite(numericValue)) {
+      return `${field.label}必须为数字。`
+    }
+    if (field.min != null && numericValue < field.min) {
+      return `${field.label}不能小于 ${field.min}。`
+    }
+    if (field.max != null && numericValue > field.max) {
+      return `${field.label}不能大于 ${field.max}。`
+    }
+  }
+  if (field.type === 'enum' && !(field.options || []).includes(textValue)) {
+    return `请选择${field.label}。`
+  }
+  if (field.type === 'date') {
+    const parsedDate = dayjs(textValue)
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(textValue) ||
+      !parsedDate.isValid() ||
+      parsedDate.format('YYYY-MM-DD') !== textValue
+    ) {
+      return `${field.label}日期格式必须为 YYYY-MM-DD。`
+    }
+  }
+  return ''
+}
+
+const buildDetailValueRules = (fields: EdhrFormFieldSpec[]): FormRules => {
+  const rules: FormRules = {}
+  for (const field of fields) {
+    rules[field.key] = [
+      {
+        validator: (_rule, value, callback) => {
+          const errorMessage = validateEdhrFormFieldValue(field, value)
+          if (errorMessage) {
+            callback(new Error(errorMessage))
+            return
+          }
+          callback()
+        },
+        trigger: ['blur', 'change']
+      }
+    ]
+  }
+  return rules
+}
+
+const detailValueRules = computed<FormRules>(() => buildDetailValueRules(detailFieldSchema.value))
+
+const validateDetailValues = async () => {
+  if (!detailValueFormRef.value) {
+    throw new Error('独立表单校验表单未初始化。')
+  }
+  await detailValueFormRef.value.validate()
+}
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
@@ -857,6 +942,9 @@ const buildFieldSchemaJson = () => {
     if (row.type === 'number') {
       field.min = parseOptionalNumber(row.min, `${label}最小值`)
       field.max = parseOptionalNumber(row.max, `${label}最大值`)
+      if (field.min != null && field.max != null && field.min > field.max) {
+        throw new Error(`${label}最大值不能小于最小值。`)
+      }
     }
     if (row.type === 'enum') {
       const options = row.optionsText
@@ -865,6 +953,9 @@ const buildFieldSchemaJson = () => {
         .filter(Boolean)
       if (!options.length) {
         throw new Error(`${label}必须维护枚举选项。`)
+      }
+      if (new Set(options).size !== options.length) {
+        throw new Error(`${label}枚举选项不能重复。`)
       }
       field.options = options
     }
@@ -988,6 +1079,7 @@ const submitSaveDraft = async () => {
   detailError.value = ''
   try {
     if (!detailInstance.value?.id) throw new Error('请先打开有效表单实例。')
+    await validateDetailValues()
     const data = await saveEdhrFormInstanceDraft({
       id: detailInstance.value.id,
       values: buildCurrentValues(),
@@ -1009,6 +1101,7 @@ const submitForm = async () => {
   detailError.value = ''
   try {
     if (!detailInstance.value?.id) throw new Error('请先打开有效表单实例。')
+    await validateDetailValues()
     const data = await submitEdhrFormInstance({
       id: detailInstance.value.id,
       values: buildCurrentValues(),

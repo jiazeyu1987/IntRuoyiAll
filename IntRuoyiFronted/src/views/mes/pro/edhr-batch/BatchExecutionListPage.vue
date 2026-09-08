@@ -630,14 +630,6 @@
       </el-descriptions>
       <template #footer>
         <el-button @click="archiveDialogVisible = false">关 闭</el-button>
-        <el-button
-          v-if="archivePreview"
-          v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-          type="primary"
-          @click="handleDownloadArchiveByPreview"
-        >
-          下载打印版 PDF
-        </el-button>
       </template>
     </Dialog>
 
@@ -730,7 +722,6 @@ import {
   EDHR_BATCH_STATUS_REJECTED,
   EDHR_BATCH_STATUS_VOIDED,
   goldenFingerBulkVoidEdhrBatchExecutions,
-  downloadEdhrBatchArchive,
   getEdhrRehearsalReadiness,
   getEdhrBatchReviewTimeline,
   getEdhrBatchExecutionRouteOptions,
@@ -1730,23 +1721,6 @@ const handleViewArchive = async (row: EdhrBatchExecutionRespVO) => {
     archivePreview.value = await getLatestEdhrBatchArchive(row.id)
   } catch (error) {
     archiveError.value = resolveErrorMessage(error, '批次最终归档加载失败。')
-  }
-}
-
-const handleDownloadArchiveByPreview = async () => {
-  if (!archivePreview.value?.id) {
-    archiveError.value = '当前批次没有可下载的打印版 PDF 归档。'
-    return
-  }
-  try {
-    await downloadEdhrBatchArchive(
-      archivePreview.value.id,
-      archivePreview.value.fileName,
-      archivePreview.value.artifactType
-    )
-    message.success('打印版 PDF 下载已开始')
-  } catch (error) {
-    archiveError.value = resolveErrorMessage(error, '打印版 PDF 下载失败。')
   }
 }
 

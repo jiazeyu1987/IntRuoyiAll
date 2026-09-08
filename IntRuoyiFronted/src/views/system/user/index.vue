@@ -39,7 +39,6 @@
               v-hasPermi="[
                 'system:user:create',
                 'system:user:import',
-                'system:user:export',
                 'system:user:delete',
                 'system:dept:delete'
               ]"
@@ -57,22 +56,6 @@
                   <el-dropdown-item command="import" v-hasPermi="['system:user:import']">
                     <Icon icon="ep:upload" />
                     <span class="ml-5px">导入</span>
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    command="export"
-                    :disabled="exportLoading"
-                    v-hasPermi="['system:user:export']"
-                  >
-                    <Icon icon="ep:download" />
-                    <span class="ml-5px">导出</span>
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    command="exportGenericAccounts"
-                    :disabled="genericAccountExportLoading"
-                    v-hasPermi="['system:user:export']"
-                  >
-                    <Icon icon="ep:warning" />
-                    <span class="ml-5px">导出通用账户清单</span>
                   </el-dropdown-item>
                   <el-dropdown-item command="dingTalkImport" v-hasPermi="['system:user:import']">
                     <Icon icon="ep:office-building" />
@@ -368,7 +351,6 @@
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { checkPermi } from '@/utils/permission'
 import { dateFormatter } from '@/utils/formatTime'
-import download from '@/utils/download'
 import { CommonStatusEnum } from '@/utils/constants'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -637,36 +619,6 @@ const handleStatusChange = async (row: UserApi.UserVO) => {
   }
 }
 
-/** 导出按钮操作 */
-const exportLoading = ref(false)
-const handleExport = async () => {
-  try {
-    // 导出的二次确认
-    await message.exportConfirm()
-    // 发起导出
-    exportLoading.value = true
-    const data = await UserApi.exportUser(queryParams)
-    download.excel(data, '用户数据.xls')
-  } catch {
-  } finally {
-    exportLoading.value = false
-  }
-}
-
-/** 导出通用账户不合规清单 */
-const genericAccountExportLoading = ref(false)
-const handleExportGenericAccounts = async () => {
-  try {
-    await message.exportConfirm()
-    genericAccountExportLoading.value = true
-    const data = await UserApi.exportGenericAccountUsers()
-    download.excel(data, '通用账户不合规清单.xls')
-  } catch {
-  } finally {
-    genericAccountExportLoading.value = false
-  }
-}
-
 /** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {
@@ -727,12 +679,6 @@ const handleAdvancedCommand = async (command: string) => {
       break
     case 'import':
       handleImport()
-      break
-    case 'export':
-      await handleExport()
-      break
-    case 'exportGenericAccounts':
-      await handleExportGenericAccounts()
       break
     case 'dingTalkImport':
       handleDingTalkImport()

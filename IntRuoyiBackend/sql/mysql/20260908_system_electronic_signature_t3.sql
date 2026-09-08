@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `system_electronic_signature` (
   `key_version` varchar(64) NOT NULL COMMENT '证据密钥版本',
   `policy_version` varchar(64) NOT NULL COMMENT '签名策略版本',
   `verification_status` varchar(32) NOT NULL COMMENT '验证状态',
-  `idempotency_key` varchar(128) NOT NULL COMMENT '幂等键',
+  `idempotency_key` varchar(512) NOT NULL COMMENT '幂等键',
   `command_hash` char(64) NOT NULL COMMENT '不含密码的命令摘要',
   `process_instance_id` varchar(128) DEFAULT NULL COMMENT '流程实例编号',
   `task_id` varchar(128) DEFAULT NULL COMMENT '流程任务编号',
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `system_electronic_signature` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_system_esign_idempotency` (`tenant_id`, `idempotency_key`, `deleted`),
-  KEY `idx_system_esign_subject` (`tenant_id`, `module_code`, `subject_type`, `subject_id`, `deleted`),
+  UNIQUE KEY `uk_system_esign_idempotency` (`tenant_id`, `idempotency_key`(191), `deleted`),
+  KEY `idx_system_esign_subject` (`tenant_id`, `module_code`, `subject_type`, `subject_id`(191), `deleted`),
   KEY `idx_system_esign_actor_time` (`tenant_id`, `actor_id`, `signed_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='统一电子签名记录';

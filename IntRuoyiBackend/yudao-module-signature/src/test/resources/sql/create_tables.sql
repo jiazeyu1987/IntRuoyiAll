@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS "system_electronic_signature" (
     "key_version" varchar(64) not null,
     "policy_version" varchar(64) not null,
     "verification_status" varchar(32) not null,
-    "idempotency_key" varchar(128) not null,
+    "idempotency_key" varchar(512) not null,
     "command_hash" char(64) not null,
     "process_instance_id" varchar(128),
     "task_id" varchar(128),

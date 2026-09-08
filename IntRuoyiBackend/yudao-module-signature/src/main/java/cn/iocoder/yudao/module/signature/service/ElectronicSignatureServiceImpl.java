@@ -14,6 +14,9 @@ import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectSnapshot;
 import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
@@ -24,7 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -42,6 +47,8 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     private AdminUserApi adminUserApi;
     @Resource
     private ElectronicSignatureRecordMapper signatureRecordMapper;
+    @Resource
+    private GxpAuditService gxpAuditService;
     @Resource
     private List<ElectronicSignatureSubjectAdapter> subjectAdapters;
 
@@ -108,6 +115,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 .build();
         record.setTenantId(TenantContextHolder.getRequiredTenantId());
         signatureRecordMapper.insert(record);
+        gxpAuditService.append(buildGxpAuditCommand(command, snapshot, record));
         return toResult(record);
     }
 
@@ -186,6 +194,60 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 StrUtil.nullToEmpty(snapshot.beforeContentJson()), StrUtil.nullToEmpty(snapshot.afterContentJson()),
                 StrUtil.nullToEmpty(snapshot.fieldDiffJson()), HASH_ALGORITHM, KEY_VERSION,
                 actionDefinition.policyVersion(), VERIFICATION_STATUS_VALID);
+    }
+
+    private GxpAuditCommand buildGxpAuditCommand(ElectronicSignatureCommand command,
+                                                 SignatureSubjectSnapshot snapshot,
+                                                 ElectronicSignatureRecordDO record) {
+        return GxpAuditCommand.builder()
+                .operationId("signature.record.create")
+                .subjectId(snapshot.subjectType() + ":" + snapshot.subjectId())
+                .subjectVersion(snapshot.subjectVersion())
+                .reason(command.reason())
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("NO_SIGNATURE_RECORD")
+                        .objectVersion(snapshot.subjectVersion())
+                        .canonicalJson("{}")
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("ELECTRONIC_SIGNATURE_RECORDED")
+                        .objectVersion(snapshot.subjectVersion())
+                        .canonicalJson(gxpAuditAfterStateJson(command, snapshot, record))
+                        .build())
+                .idempotencyKey(command.idempotencyKey())
+                .source("ElectronicSignatureServiceImpl.sign")
+                .signatureRecordId(String.valueOf(record.getId()))
+                .signatureContentHash(record.getContentHash())
+                .build();
+    }
+
+    private String gxpAuditAfterStateJson(ElectronicSignatureCommand command,
+                                          SignatureSubjectSnapshot snapshot,
+                                          ElectronicSignatureRecordDO record) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("signatureId", record.getId());
+        payload.put("moduleCode", command.moduleCode());
+        payload.put("actionCode", command.actionCode());
+        payload.put("subjectType", snapshot.subjectType());
+        payload.put("subjectId", snapshot.subjectId());
+        payload.put("subjectVersion", snapshot.subjectVersion());
+        payload.put("actorId", record.getActorId());
+        payload.put("meaningCode", record.getMeaningCode());
+        payload.put("meaningLabel", record.getMeaningLabel());
+        payload.put("reason", record.getReason());
+        payload.put("signedAt", record.getSignedAt());
+        payload.put("authenticationMethod", record.getAuthenticationMethod());
+        payload.put("contentHash", record.getContentHash());
+        payload.put("beforeContentHash", record.getBeforeContentHash());
+        payload.put("afterContentHash", record.getAfterContentHash());
+        payload.put("evidenceHash", record.getEvidenceHash());
+        payload.put("policyVersion", record.getPolicyVersion());
+        payload.put("verificationStatus", record.getVerificationStatus());
+        payload.put("processInstanceId", record.getProcessInstanceId());
+        payload.put("taskId", record.getTaskId());
+        payload.put("nodeCode", record.getNodeCode());
+        payload.put("nodeOrder", record.getNodeOrder());
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload);
     }
 
     private String hash(String payload) {

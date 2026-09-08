@@ -25,7 +25,11 @@ import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapp
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureSealMapper;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureTimeEvidenceMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -74,10 +78,13 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     private ElectronicSignatureArchiveRecoveryMapper archiveRecoveryMapper;
     @MockitoBean
     private AdminUserApi adminUserApi;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
 
     @Test
     public void testSign_successBindsActorServerTimeAndContentHash() {
         ElectronicSignatureCommand command = buildCommand("idem-001", "V1", "审批通过");
+        when(gxpAuditService.append(any())).thenReturn(new GxpAuditAppendResult(9001L, 1L, "a".repeat(64), false));
 
         try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
             mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
@@ -98,6 +105,38 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             assertEquals("SESSION_PLUS_PASSWORD", record.getAuthenticationMethod());
             assertEquals("{\"name\":\"record\",\"version\":\"V1\"}", record.getCanonicalContentJson());
             assertTrue(record.getTimeEvidenceId().startsWith("SERVER_CLOCK:"));
+
+            ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+            verify(gxpAuditService).append(auditCaptor.capture());
+            GxpAuditCommand auditCommand = auditCaptor.getValue();
+            assertEquals("signature.record.create", auditCommand.getOperationId());
+            assertEquals("TEST_RECORD:R001", auditCommand.getSubjectId());
+            assertEquals("V1", auditCommand.getSubjectVersion());
+            assertEquals("审批通过", auditCommand.getReason());
+            assertEquals("idem-001", auditCommand.getIdempotencyKey());
+            assertEquals(String.valueOf(result.signatureId()), auditCommand.getSignatureRecordId());
+            assertEquals(result.contentHash(), auditCommand.getSignatureContentHash());
+            assertEquals("NO_SIGNATURE_RECORD", auditCommand.getBeforeState().getState());
+            assertEquals("ELECTRONIC_SIGNATURE_RECORDED", auditCommand.getAfterState().getState());
+            assertEquals("{}", auditCommand.getBeforeState().getCanonicalJson());
+            assertTrue(auditCommand.getAfterState().getCanonicalJson().contains("\"signatureId\":" + result.signatureId()));
+            assertTrue(auditCommand.getAfterState().getCanonicalJson().contains("\"verificationStatus\":\"VALID\""));
+        }
+    }
+
+    @Test
+    public void testSign_auditAppendFailureRollsBackSignatureRecord() {
+        ElectronicSignatureCommand command = buildCommand("idem-audit-fail", "V1", "审批通过");
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+
+            assertThrows(IllegalStateException.class, () -> signatureService.sign(command));
+
+            assertEquals(0L, signatureRecordMapper.selectCount(null));
+            verify(adminUserApi).reauthenticateForSignature(101L, "Signer@2026");
+            verify(gxpAuditService).append(any());
         }
     }
 

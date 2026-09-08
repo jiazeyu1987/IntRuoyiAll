@@ -9,6 +9,12 @@
 | 覆盖范围 | eDHR/MES 批记录、DCC 文控、电子签名、GxP 审计追踪、注册证、PQC/放行、ERP 同步、备份恢复、表单中心 |
 | 质量结论 | 本包可作为 CSV 差距关闭和审计准备输入；不能单独替代 QA 批准、正式执行记录、培训记录或生产运行证据。 |
 
+## 正式送审分册包
+
+按用户要求，已另建中文 Word 分册目录：`docs/csv-validation/official-submission-package/`。
+
+该目录将原单文件汇总包拆分为 15 份可流转 Word 文件，覆盖送审导读、验证总计划、系统清单、GAMP 风险评估、URS、FS、IQ/OQ/PQ、RTM、偏差/CAPA、供应商评估、验证总结、持续验证和 QMS 培训审批。对外提交前仍必须补齐企业真实签章、执行记录、培训记录、供应商资料和生产运行证据。
+
 ## 使用边界
 
 本目录是计算机化系统验证（CSV, Computerized System Validation）最小可交付包，用于响应“第五章 基于风险评估的 CSV 验证策略”5.1 至 5.16 检查项。本文档基于当前仓库内产品、系统、安全、变更、测试和源码证据编制，不声称已经完成生产质量批准。
@@ -37,6 +43,28 @@
 | 10 | `10-validation-summary-report.md` | 验证总结报告草案与 5.1-5.16 判定 | 5.1-5.16 |
 | 11 | `11-periodic-review-change-revalidation-retirement.md` | 周期回顾、变更再验证、退役归档方案 | 5.4, 5.9, 5.15 |
 | 12 | `12-qms-training-approval.md` | QMS 整合、职责、培训和审批门禁 | 5.10, 5.11, 5.16 |
+| 13 | `13-training-manual-version-evidence.md` | 培训、操作手册、文档版本和岗位匹配现场证据，配套 `IntRuoyi-eDHR-CSV现场证据包.xlsx` | 7.1, 7.2, 7.3, 7.4 |
+
+## 7.1-7.4 审查交付包
+
+以下文件是面向审查人员的正式交付结构。文件中的“现场填写”“待补证”“待签署”必须由责任部门用真实记录完成，不能把模板状态作为已完成结论。
+
+| 文件 | 用途 |
+| --- | --- |
+| `CSV-INT-20260908-7.1-7.4现场证据包-正式交付版.docx` | 主文档：检查项结论、系统依据、证据目录、签字矩阵、现场记录页、最终批准与归档页 |
+| `CSV-INT-20260908-7.1-7.4签字与审批汇总表.docx` | 集中收集编制、业务、IT、QA、质量负责人和审查人员签字 |
+| `CSV-INT-20260908-7.1-7.4现场记录表单册.docx` | F-01 至 F-06：培训、权限授权前确认、手册审批、文件发放回收、现场抽查、CAPA有效性 |
+| `SOP-EDHR-090-文档培训版本控制-受控草案.docx` | 文档编号、版本状态、修订、发放回收、培训触发、权限前置和有效性检查 |
+| `TRN-EDHR-培训课程大纲与考核标准-受控草案.docx` | 7.1/7.4 培训课程、岗位组合、实操任务、考核标准和批准页 |
+| `SOP-EDHR-系统操作手册编写与批准模板.docx` | 7.2 操作手册的详细步骤、异常处理、版本匹配检查和批准页模板 |
+| `IntRuoyi-eDHR-CSV现场证据包.xlsx` | 15 个页签：矩阵、台账、签字批准矩阵、现场填报索引、发放回收、培训人员和附件索引 |
+
+### 审查使用顺序
+
+1. 先看主文档的“证据目录与交叉引用”和“现场补证与缺项清单”。
+2. 用 Excel 台账登记唯一证据编号，并将真实原始记录挂接到对应编号。
+3. 用表单册逐人、逐文件、逐权限填写；汇总表不能替代原始签到、考试、实操和发放回收记录。
+4. 完成真实记录和 QA 审核后，再使用签字汇总表和主文档最终批准页。
 
 ## 当前总体判定
 
@@ -65,6 +93,8 @@
 - `docs/product/frontline-process-material-batch-record-mvp-prd.md`
 - `docs/product/dcc-windchill-version-phase1-prd.md`
 - `docs/product/edhr-urs-template.md`
+- `docs/csv-validation/13-training-manual-version-evidence.md`
+- `docs/csv-validation/IntRuoyi-eDHR-CSV现场证据包.xlsx`
 - `docs/adr/ADR-0001-dcc-windchill-version-model.md`
 - `docs/adr/ADR-0002-unified-gxp-audit-trail.md`
 - `docs/adr/ADR-0003-unified-electronic-signature-kernel.md`

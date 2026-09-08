@@ -203,15 +203,6 @@
             <Icon icon="ep:circle-check" class="mr-5px" />
             执行巡检
           </el-button>
-          <el-button
-            type="primary"
-            :disabled="!inspectionRun?.id || timeEvidenceDownloading"
-            :loading="timeEvidenceDownloading"
-            @click="exportTimeEvidence"
-          >
-            <Icon icon="ep:download" class="mr-5px" />
-            导出时间戳证据
-          </el-button>
         </div>
       </div>
       <el-alert
@@ -744,7 +735,6 @@ import type {
 import { formatDate } from '@/utils/formatTime'
 import { checkPermi } from '@/utils/permission'
 import { useMessage } from '@/hooks/web/useMessage'
-import download from '@/utils/download'
 import OpsCandidatePicker from './components/OpsCandidatePicker.vue'
 import OpsIncidentDrawer from './components/OpsIncidentDrawer.vue'
 import OpsLogDiskRiskPanel from './components/OpsLogDiskRiskPanel.vue'
@@ -781,7 +771,6 @@ const remoteRootCleanupResult = ref<RuntimeControlApi.RuntimeControlRemoteRootCl
 const inspectionRun = ref<RuntimeControlApi.RuntimeControlInspectionRunVO>()
 const incidentDrawerVisible = ref(false)
 const remoteRootCleanupSubmitting = ref(false)
-const timeEvidenceDownloading = ref(false)
 let pollingTimer: number | undefined
 let logPollingTimer: number | undefined
 
@@ -1093,23 +1082,6 @@ const runInspection = async () => {
     reportActionError(error)
   } finally {
     opsLoading.inspection = false
-  }
-}
-
-const exportTimeEvidence = async () => {
-  const inspectionId = inspectionRun.value?.id
-  if (!inspectionId) {
-    message.error('当前没有已保存的巡检，无法导出时间戳证据')
-    return
-  }
-  timeEvidenceDownloading.value = true
-  try {
-    const data = await RuntimeControlApi.downloadRuntimeControlTimeEvidence(inspectionId)
-    download.zip(data, `可信时间证据_巡检${inspectionId}.zip`)
-  } catch (error) {
-    reportActionError(error)
-  } finally {
-    timeEvidenceDownloading.value = false
   }
 }
 

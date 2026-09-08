@@ -98,15 +98,6 @@
                 <el-tag type="success">{{ resolveBatchStatusLabel(selectedBatch.status) }}</el-tag>
                 <el-button
                   v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
-                  type="primary"
-                  plain
-                  :loading="archiveActionLoading"
-                  @click="handleDownloadArchive"
-                >
-                  下载打印版 PDF
-                </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']"
                   :loading="archiveActionLoading"
                   @click="handlePrintArchive"
                 >
@@ -415,7 +406,6 @@ import dayjs from 'dayjs'
 import {
   EDHR_BATCH_TASK_STATUS_SKIPPED,
   EDHR_BATCH_STATUS_ARCHIVED,
-  downloadEdhrBatchArchive,
   getEdhrBatchExecutionPage,
   getEdhrBatchReviewTimeline,
   getLatestEdhrBatchArchive,
@@ -905,19 +895,6 @@ const requireSelectedBatch = () => {
   const batch = selectedBatch.value
   if (!batch?.id) throw new Error('请选择一条已归档批记录。')
   return batch
-}
-
-const handleDownloadArchive = async () => {
-  archiveActionLoading.value = true
-  try {
-    const batch = requireSelectedBatch()
-    const archive = await getLatestEdhrBatchArchive(batch.id)
-    await downloadEdhrBatchArchive(archive.id, archive.fileName, archive.artifactType)
-  } catch (error) {
-    message.error(resolveErrorMessage(error, '打印版 PDF 下载失败。'))
-  } finally {
-    archiveActionLoading.value = false
-  }
 }
 
 const handlePrintArchive = async () => {

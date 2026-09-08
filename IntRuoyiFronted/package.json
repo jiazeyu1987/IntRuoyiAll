@@ -32,6 +32,7 @@
     "e2e:auth:refresh-token-business-failure:static": "node tests/e2e/auth-refresh-token-business-failure-static.spec.js",
     "test": "node scripts/run-named-test.mjs",
     "e2e:frontline-formal-submit:static": "node tests/e2e/frontline-formal-submit-static.spec.cjs",
+    "e2e:frontline-published-route-config-display:real": "node tests/e2e/frontline-published-route-config-display-real.e2e.cjs",
     "e2e:frontline-team-config:static": "node tests/e2e/frontline-team-config-static.spec.cjs",
     "e2e:team-leader-report-allocation:static": "node tests/e2e/team-leader-report-allocation-static.spec.cjs",
     "e2e:team-leader-workbench:static": "node tests/e2e/team-leader-workbench-static.spec.cjs",

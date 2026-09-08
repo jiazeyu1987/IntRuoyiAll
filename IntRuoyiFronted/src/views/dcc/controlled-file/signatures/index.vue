@@ -169,15 +169,6 @@
                 >
                   查看证据
                 </el-button>
-                <el-button
-                  v-hasPermi="['dcc:controlled-file:query', 'dcc:controlled-file:download']"
-                  link
-                  type="primary"
-                  :loading="isExportingControlledFile(row.controlledFileId)"
-                  @click="handleExportSignatureEvidence(row)"
-                >
-                  下载证据 PDF
-                </el-button>
               </div>
             </template>
           </el-table-column>
@@ -473,7 +464,6 @@ import {
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
 import {
-  downloadDccSignatureEvidenceExport,
   fetchDccSignatureEvidencePdfArtifact,
   getDccElectronicSignatureAuthorizationAuditPage,
   getDccElectronicSignatureAuthorizationPage,
@@ -623,7 +613,6 @@ const {
 const recordLoading = ref(false)
 const recordTotal = ref(0)
 const recordList = ref<DccElectronicSignatureVO[]>([])
-const exportingControlledFileIds = ref<number[]>([])
 const previewingControlledFileIds = ref<number[]>([])
 const recordQueryParams = reactive({
   pageNo: 1,
@@ -954,37 +943,6 @@ const openSignaturePdfPreview = async (signature: DccElectronicSignatureVO) => {
   } finally {
     signaturePdfPreviewDialog.loading = false
     setPreviewingControlledFile(controlledFileId, false)
-  }
-}
-
-const isExportingControlledFile = (controlledFileId: number) => {
-  return exportingControlledFileIds.value.includes(controlledFileId)
-}
-
-const setExportingControlledFile = (controlledFileId: number, loading: boolean) => {
-  if (loading) {
-    exportingControlledFileIds.value = [...exportingControlledFileIds.value, controlledFileId]
-    return
-  }
-  exportingControlledFileIds.value = exportingControlledFileIds.value.filter(
-    (item) => item !== controlledFileId
-  )
-}
-
-const handleExportSignatureEvidence = async (signature: DccElectronicSignatureVO) => {
-  const controlledFileId = signature.controlledFileId
-  if (!controlledFileId) {
-    message.error('签名证据导出缺少受控文件 ID')
-    return
-  }
-  setExportingControlledFile(controlledFileId, true)
-  try {
-    await downloadDccSignatureEvidenceExport(controlledFileId)
-    message.success('签名证据 PDF 已下载')
-  } catch (error) {
-    message.error(resolveSignaturePageErrorMessage(error, '签名证据导出失败，请查看错误提示后重试。'))
-  } finally {
-    setExportingControlledFile(controlledFileId, false)
   }
 }
 

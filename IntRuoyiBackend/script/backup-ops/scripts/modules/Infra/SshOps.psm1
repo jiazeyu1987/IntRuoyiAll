@@ -68,6 +68,24 @@ function Remove-BackupSshNoise {
         }) -join "`n"
 }
 
+function Protect-BackupSshSensitiveText {
+    param(
+        [string]$Text
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return ''
+    }
+
+    $redacted = $Text
+    $redacted = $redacted -replace "-p'[^']*'", "-p'<hidden>'"
+    $redacted = $redacted -replace '-p"[^"]*"', '-p"<hidden>"'
+    $redacted = $redacted -replace '(?i)(MYSQL_PWD=)[^\s;]+', '$1<hidden>'
+    $redacted = $redacted -replace '(?i)(password=)[^\s;]+', '$1<hidden>'
+    $redacted = $redacted -replace '(?i)(--password=)[^\s;]+', '$1<hidden>'
+    return $redacted
+}
+
 function Resolve-BackupSshPath {
     param(
         [string]$Path
@@ -328,7 +346,7 @@ function Test-BackupSshConnection {
     $result = Invoke-BackupNativeProcess -FilePath 'ssh' -ArgumentList $arguments -TimeoutSeconds $script:BackupOpsDefaultSshTimeoutSeconds
     $output = Remove-BackupSshNoise (($result.StdOut + "`n" + $result.StdErr).Trim())
     if ($result.ExitCode -ne 0 -or $output -notmatch 'SSH_OK') {
-        throw (New-BackupOpsSshException -Code 'INTBK-2001' -Status 'fail' -Message "SSH connectivity check failed for ${user}@${host}. $output")
+        throw (New-BackupOpsSshException -Code 'INTBK-2001' -Status 'fail' -Message (Protect-BackupSshSensitiveText -Text "SSH connectivity check failed for ${user}@${host}. $output"))
     }
 
     return [pscustomobject]([ordered]@{
@@ -376,7 +394,7 @@ function Invoke-BackupSshCommand {
 
     $output = Remove-BackupSshNoise (($result.StdOut + "`n" + $result.StdErr).Trim())
     if ($result.ExitCode -ne 0) {
-        throw (New-BackupOpsSshException -Code 'INTBK-2003' -Status 'fail' -Message "SSH command failed for ${user}@${host}: $command`n$output")
+        throw (New-BackupOpsSshException -Code 'INTBK-2003' -Status 'fail' -Message (Protect-BackupSshSensitiveText -Text "SSH command failed for ${user}@${host}: $command`n$output"))
     }
 
     return [pscustomobject]([ordered]@{
@@ -422,7 +440,7 @@ function Send-BackupFileOverSsh {
     $result = Invoke-BackupNativeProcess -FilePath 'scp' -ArgumentList $arguments -TimeoutSeconds $timeoutSeconds
     $output = Remove-BackupSshNoise (($result.StdOut + "`n" + $result.StdErr).Trim())
     if ($result.ExitCode -ne 0) {
-        throw (New-BackupOpsSshException -Code 'INTBK-2002' -Status 'fail' -Message "SCP upload failed for ${user}@${host}: $localPath -> $remotePath`n$output")
+        throw (New-BackupOpsSshException -Code 'INTBK-2002' -Status 'fail' -Message (Protect-BackupSshSensitiveText -Text "SCP upload failed for ${user}@${host}: $localPath -> $remotePath`n$output"))
     }
 
     return [pscustomobject]([ordered]@{
@@ -470,7 +488,7 @@ function Receive-BackupFileOverSsh {
     $result = Invoke-BackupNativeProcess -FilePath 'scp' -ArgumentList $arguments -TimeoutSeconds $timeoutSeconds
     $output = Remove-BackupSshNoise (($result.StdOut + "`n" + $result.StdErr).Trim())
     if ($result.ExitCode -ne 0) {
-        throw (New-BackupOpsSshException -Code 'INTBK-2002' -Status 'fail' -Message "SCP download failed for ${user}@${host}: $remotePath -> $localPath`n$output")
+        throw (New-BackupOpsSshException -Code 'INTBK-2002' -Status 'fail' -Message (Protect-BackupSshSensitiveText -Text "SCP download failed for ${user}@${host}: $remotePath -> $localPath`n$output"))
     }
 
     return [pscustomobject]([ordered]@{
@@ -485,4 +503,4 @@ function Receive-BackupFileOverSsh {
         })
 }
 
-Export-ModuleMember -Function Test-BackupSshConnection, Invoke-BackupSshCommand, Send-BackupFileOverSsh, Receive-BackupFileOverSsh
+Export-ModuleMember -Function Test-BackupSshConnection, Invoke-BackupSshCommand, Send-BackupFileOverSsh, Receive-BackupFileOverSsh, Protect-BackupSshSensitiveText

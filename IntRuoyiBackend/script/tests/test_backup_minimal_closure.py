@@ -21,6 +21,25 @@ def _run_powershell(script: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def test_ssh_error_messages_redact_inline_passwords() -> None:
+    module = BACKUP_ROOT / "scripts" / "modules" / "Infra" / "SshOps.psm1"
+    script = f"""
+$ErrorActionPreference = 'Stop'
+Import-Module '{module}' -Force -DisableNameChecking
+$text = "mysql -uroot -p'123456'; MYSQL_PWD=abc123 mysqldump --password=secret"
+Protect-BackupSshSensitiveText -Text $text
+"""
+    result = _run_powershell(script)
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "123456" not in result.stdout
+    assert "abc123" not in result.stdout
+    assert "secret" not in result.stdout
+    assert "-p'<hidden>'" in result.stdout
+    assert "MYSQL_PWD=<hidden>" in result.stdout
+    assert "--password=<hidden>" in result.stdout
+
+
 def test_payload_checksums_cover_all_local_recovery_files() -> None:
     module = BACKUP_ROOT / "scripts" / "modules" / "Infra" / "FileOps.psm1"
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -522,6 +541,32 @@ def test_full_and_incremental_object_snapshots_have_explicit_baseline_semantics(
     assert 'mv "$incoming" "/object-store/$actual"' in object_source
     assert "$validationCommand" in object_source
     assert "':/object-store:ro'" in object_source
+
+
+def test_remote_object_copy_suppresses_large_mc_progress_but_keeps_hash_receipts() -> None:
+    object_source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "ObjectOps.psm1").read_text(
+        encoding="utf-8"
+    )
+    remote_export = object_source.split("function Export-BackupObjectSnapshotToRemoteNas", 1)[1].split(
+        "function Import-BackupObjectSnapshotFromRemoteNas", 1
+    )[0]
+
+    assert 'mc cp "src/\' + $bucket + \'/$rel" "$incoming" >/dev/null' in remote_export
+    assert "printf ''%s\\t%s\\n'' \"$repo\" \"$actual\"" in remote_export
+
+
+def test_remote_object_copy_retries_transient_nas_write_errors_with_final_fail_fast() -> None:
+    object_source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "ObjectOps.psm1").read_text(
+        encoding="utf-8"
+    )
+    remote_export = object_source.split("function Export-BackupObjectSnapshotToRemoteNas", 1)[1].split(
+        "function Import-BackupObjectSnapshotFromRemoteNas", 1
+    )[0]
+
+    assert "attempt=1" in remote_export
+    assert 'if mc cp "src/\' + $bucket + \'/$rel" "$incoming" >/dev/null; then' in remote_export
+    assert '[ "$attempt" -ge 3 ]' in remote_export
+    assert 'attempt=$((attempt + 1))' in remote_export
 
 
 def test_full_dcc_manifest_does_not_reuse_a_previous_restore_point() -> None:
