@@ -71,3 +71,10 @@
 - GREEN: task-closeout-cleanup apply --worktree-closeout off -> PASS，已删除 `source-docx/A-01-PQC-CR-003.docx`、`source-docx/A-02-PQC-CR-004.docx`、`source-docx/B-01-PQC-MECR-001.docx` 和空目录 `source-docx/`。
 - BLOCKED: worktree closeout auto merge/remove -> 主工作区 `E:\IntRuoyi` 存在其它任务脏改动，且包含 `docs/backend-development.md` 同名文件改动；按 ff-only merge guard 不能合并或删除 `D:\IntRuoyiWorktree\qa_extra_2026`。
 
+## 2026-09-08 Main Baseline And Rebase
+
+- GREEN: 用户明确要求“先提交主干,然后合并”。
+- GREEN: 主工作区 `E:\IntRuoyi` -> `git diff --check` PASS，`scripts/preflight/branch-runtime-port-guard.ps1` PASS。
+- GREEN: 主工作区既有脏改动基线提交 -> `5c0310dd0 chore: 保存主干现有工作区基线`，并已推送 `origin/int_main`。
+- GREEN: `codex/qa_extra_2026` rebase 到 `int_main` 基线 `5c0310dd0` 之后 -> PASS，当前 QA 分支 HEAD `74bfc27de`。
+

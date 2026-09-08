@@ -37,6 +37,7 @@
 - PASS: DOC_GATE -> PASS，文档保留 A 多来源、B 单来源、条件标准、版本适用性、来源逐项追溯和 normalized fixture 断言。
 - PASS: git diff --check -> PASS。
 - PASS: task-closeout-cleanup preview/apply -> PASS，已清理任务目录下三份 Word 副本和 `source-docx/` 空目录，保留全部开发文档、验证报告和来源验证摘要。
-- BLOCKED: worktree ff-only merge/remove -> `E:\IntRuoyi` 主工作区存在其它任务脏改动，且包含 `docs/backend-development.md` 同名改动；为避免覆盖或混合无关任务变更，本 worktree 不能合并回主工作区，也不能删除。
-- Current closeout status: 验证完成、cleanup 完成；可提交并推送 `codex/qa_extra_2026` 保存证据，但任务不能标记 `completed`，需主工作区脏改动清理/合并后再执行最终 worktree closeout。
+- PASS: 主工作区基线 -> 用户明确要求“先提交主干,然后合并”，已将 `E:\IntRuoyi` 既有脏改动提交为 `5c0310dd0 chore: 保存主干现有工作区基线` 并推送 `origin/int_main`。
+- PASS: QA 分支 rebase -> `codex/qa_extra_2026` 已 rebase 到主干基线之后，当前 HEAD `74bfc27de`，可继续执行 ff-only 合并和 worktree closeout。
+- Current closeout status: 验证完成、cleanup 完成、主干基线完成；等待最终 ff-only 合并、worktree 删除和 completed 记录。
 
