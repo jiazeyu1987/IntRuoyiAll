@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `request_id` varchar(128) NULL COMMENT '请求编号',
     `signature_record_id` varchar(128) NULL COMMENT '电子签名记录编号',
     `signature_content_hash` varchar(128) NULL COMMENT '电子签名内容 Hash',
+    `idempotency_payload_hash` char(64) NOT NULL COMMENT '幂等载荷 Hash',
     `canonical_event_json` longtext NOT NULL COMMENT '规范化审计事件 JSON',
     `previous_event_hash` char(64) NULL COMMENT '前序事件 Hash',
     `event_hash` char(64) NOT NULL COMMENT '事件 Hash',
@@ -49,6 +50,31 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_policy_version` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_gxp_audit_policy_version` (`tenant_id`, `policy_version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计策略版本登记';
+
+CREATE TABLE IF NOT EXISTS `gxp_audit_policy_operation` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '策略操作登记编号',
+    `tenant_id` bigint NOT NULL COMMENT '租户编号',
+    `policy_version` varchar(128) NOT NULL COMMENT '策略版本',
+    `operation_id` varchar(128) NOT NULL COMMENT 'GxP 操作登记编号',
+    `source_type` varchar(64) NOT NULL COMMENT '入口类型 SERVICE_METHOD/JOB/MIGRATION/SCRIPT',
+    `source_locator` varchar(512) NOT NULL COMMENT '源码或受控命令定位',
+    `domain` varchar(64) NOT NULL COMMENT '业务域',
+    `subject_type` varchar(64) NOT NULL COMMENT '对象类型',
+    `action_type` varchar(64) NOT NULL COMMENT '操作类型',
+    `reason_policy` varchar(64) NOT NULL COMMENT '原因策略',
+    `signature_policy` varchar(64) NOT NULL COMMENT '签名策略',
+    `state_policy` varchar(64) NOT NULL COMMENT '状态快照策略',
+    `retention_class` varchar(64) NOT NULL COMMENT '保存分类',
+    `test_ids` varchar(512) NOT NULL COMMENT '覆盖测试编号',
+    `owner` varchar(128) NOT NULL COMMENT '业务 owner',
+    `applicability` varchar(64) NOT NULL COMMENT 'GXP/NOT_APPLICABLE',
+    `active` bit(1) NOT NULL DEFAULT b'1' COMMENT '是否当前有效',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_gxp_audit_policy_operation` (`tenant_id`, `operation_id`, `policy_version`),
+    KEY `idx_gxp_audit_policy_operation_source` (`tenant_id`, `source_type`, `source_locator`),
+    KEY `idx_gxp_audit_policy_operation_active` (`tenant_id`, `active`, `operation_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计策略操作登记';
 
 CREATE TABLE IF NOT EXISTS `gxp_audit_coverage_report` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '覆盖报告编号',
