@@ -16,14 +16,11 @@ public class BackupPlanStatusRespVO {
     @Schema(description = "健康状态：正常/已关闭/上次失败/配置异常")
     private String healthStatus;
 
-    @Schema(description = "频率：DAILY/WEEKLY")
-    private String frequency;
+    @Schema(description = "每周全量备份计划，格式 WEEKDAY HH:mm")
+    private String fullSchedule;
 
-    @Schema(description = "备份时间，HH:mm")
-    private String time;
-
-    @Schema(description = "每周星期")
-    private String weekday;
+    @Schema(description = "每日增量备份时间，格式 HH:mm")
+    private String incrementalSchedule;
 
     @Schema(description = "备份仓库环境：test/backup")
     private String repositoryEnvironment;

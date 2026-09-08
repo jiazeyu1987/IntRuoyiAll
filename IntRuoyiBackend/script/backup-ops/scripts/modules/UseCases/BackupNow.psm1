@@ -50,6 +50,10 @@ function Invoke-BackupNowUseCase {
         [Parameter(Mandatory = $true)]
         [object]$Config,
 
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('FULL', 'INCREMENTAL')]
+        [string]$BackupKind,
+
         [string]$OperatorName = $env:USERNAME,
 
         [switch]$NonInteractive
@@ -57,8 +61,10 @@ function Invoke-BackupNowUseCase {
 
     $startedAt = Get-Date
     $logSession = $null
+    $servicesStopped = $false
     $resultContext = @{
         backupId = $null
+        backupKind = $BackupKind
         imageTag = $null
     }
     $successMessage = '立即备份完成。'
@@ -97,30 +103,49 @@ function Invoke-BackupNowUseCase {
         $resultContext.backupId = $workspace.BackupId
         $resultContext.imageTag = $workspace.ImageTag
 
-        Show-BackupOpsProgress -Current 3 -Total 7 -Message '导出 MySQL...'
-        $null = Export-BackupOpsMySqlDump -Config $Config -Workspace $workspace -LogSession $logSession
+        Show-BackupOpsProgress -Current 3 -Total 9 -Message '停止 frontend/backend，建立无写入窗口...'
+        try {
+            $servicesStopped = $true
+            $null = Stop-BackupOpsFrontendBackend -Config $Config -LogSession $logSession
+            $null = Assert-BackupOpsWriteWindowQuiesced -Config $Config -LogSession $logSession
+            Show-BackupOpsProgress -Current 4 -Total 9 -Message "导出 MySQL $BackupKind 数据..."
+            $expectedParentBackupId = ''
+            if ($BackupKind -eq 'FULL') {
+                $null = Export-BackupOpsMySqlDump -Config $Config -Workspace $workspace -LogSession $logSession
+            } else {
+                $mysqlIncrement = Export-BackupOpsMySqlBinlogIncrement -Config $Config -Workspace $workspace -LogSession $logSession
+                $expectedParentBackupId = [string]$mysqlIncrement.parentBackupId
+            }
 
-        Show-BackupOpsProgress -Current 4 -Total 7 -Message '备份 MinIO 对象...'
-        $null = Backup-BackupOpsObjectBucket -Config $Config -Workspace $workspace -LogSession $logSession
+            Show-BackupOpsProgress -Current 5 -Total 9 -Message '备份 MinIO 对象...'
+            $null = Backup-BackupOpsObjectBucket -Config $Config -Workspace $workspace -BackupKind $BackupKind -ExpectedParentBackupId $expectedParentBackupId -LogSession $logSession
+            $null = New-BackupOpsDccBackupManifest -Config $Config -Workspace $workspace -BackupKind $BackupKind -ExpectedParentBackupId $expectedParentBackupId -LogSession $logSession
+            $null = Assert-BackupOpsDccBackupManifestReady -Config $Config -Workspace $workspace -LogSession $logSession
+        } finally {
+            if ($servicesStopped) {
+                $null = Start-BackupOpsFrontendBackend -Config $Config -LogSession $logSession
+                $null = Test-BackupOpsFrontendBackendHealth -Config $Config -LogSession $logSession
+                $servicesStopped = $false
+            }
+        }
 
-        Show-BackupOpsProgress -Current 5 -Total 7 -Message '生成 checksums 与 manifest...'
+        Show-BackupOpsProgress -Current 6 -Total 9 -Message '生成 checksums 与 manifest...'
         $null = Save-BackupOpsDeployMetadata -Config $Config -Workspace $workspace -LogSession $logSession
-        $null = New-BackupOpsDccBackupManifest -Config $Config -Workspace $workspace -LogSession $logSession
-        $null = Assert-BackupOpsDccBackupManifestReady -Config $Config -Workspace $workspace -LogSession $logSession
         $null = New-BackupOpsChecksums -Config $Config -Workspace $workspace -LogSession $logSession
 
-        Show-BackupOpsProgress -Current 6 -Total 7 -Message '同步到测试服务器...'
+        Show-BackupOpsProgress -Current 7 -Total 9 -Message '同步到测试服务器...'
         $null = Sync-BackupOpsBackupToTestServer -Config $Config -Workspace $workspace -LogSession $logSession
 
-        $null = New-BackupOpsManifest -Config $Config -Workspace $workspace -BackupType 'manual' -Status 'success' -Validation @{
-            mysqlDumpCreated = $true
+        $null = New-BackupOpsManifest -Config $Config -Workspace $workspace -BackupType 'manual' -BackupKind $BackupKind -Status 'success' -Validation @{
+            mysqlDumpCreated = $BackupKind -eq 'FULL'
+            mysqlIncrementCreated = $BackupKind -eq 'INCREMENTAL'
             objectBackupCreated = $true
             checksumsGenerated = $true
             syncedToTestServer = $true
         } -OperatorName $OperatorName -LogSession $logSession
         $null = Sync-BackupOpsManifestToTestServer -Config $Config -Workspace $workspace -LogSession $logSession
 
-        Show-BackupOpsProgress -Current 7 -Total 7 -Message '写入结果并发送通知...'
+        Show-BackupOpsProgress -Current 8 -Total 9 -Message '写入结果并发送通知...'
 
         $report = Publish-BackupOpsReport -Config $Config -Action 'backup-now' -Status 'success' -StartedAt $startedAt -CompletedAt (Get-Date) -Summary '备份已完成并同步到测试服务器。' -Context $resultContext -LogSession $logSession
         $logSession.LogPath = $report.LogPath

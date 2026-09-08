@@ -21,11 +21,14 @@ class RuntimeControlOperationActionBackupConfirmTest {
         RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setTargetEnvironment("prod");
+        reqVO.setBackupKind("FULL");
 
         List<String> args = RuntimeControlOperationAction.BACKUP_NOW.buildArguments(reqVO, "scheduler", properties);
 
         assertTrue(args.contains("-ProductionBackupConfirmText"));
         int index = args.indexOf("-ProductionBackupConfirmText");
         assertEquals("PROD-BACKUP-172.30.30.57", args.get(index + 1));
+        assertTrue(args.contains("-BackupKind"));
+        assertEquals("FULL", args.get(args.indexOf("-BackupKind") + 1));
     }
 }

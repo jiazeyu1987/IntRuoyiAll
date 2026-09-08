@@ -1,12 +1,13 @@
 package cn.iocoder.yudao.module.infra.service.backupplan;
 
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -19,10 +20,10 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CON
 @Component
 public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGateway {
 
-    private static final String TASK_NAME = "IntRuoyi Backup Scheduled";
-    private static final DateTimeFormatter SCHTASKS_DATE_TIME = DateTimeFormatter.ofPattern("yyyy/M/d H:mm:ss");
+    private static final List<String> TASK_NAMES = List.of("IntRuoyi Backup Full", "IntRuoyi Backup Incremental");
     private final CommandRunner commandRunner;
     private final BooleanSupplier windowsSupplier;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public WindowsBackupPlanSchedulerGateway() {
         this(WindowsBackupPlanSchedulerGateway::runProcessCommand,
@@ -40,8 +41,39 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
 
     @Override
     public BackupPlanSchedulerStatus getStatus() {
+        List<BackupPlanSchedulerStatus> statuses = TASK_NAMES.stream().map(this::getTaskStatus).toList();
+        BackupPlanSchedulerStatus result = new BackupPlanSchedulerStatus();
+        result.setEnabled(statuses.stream().allMatch(status -> Boolean.TRUE.equals(status.getEnabled())));
+        result.setNextRunTime(statuses.stream().map(BackupPlanSchedulerStatus::getNextRunTime)
+                .filter(java.util.Objects::nonNull).min(LocalDateTime::compareTo).orElse(null));
+        result.setLastRunTime(statuses.stream().map(BackupPlanSchedulerStatus::getLastRunTime)
+                .filter(java.util.Objects::nonNull).max(LocalDateTime::compareTo).orElse(null));
+        result.setQueryExitCode(statuses.stream().map(BackupPlanSchedulerStatus::getQueryExitCode)
+                .filter(java.util.Objects::nonNull).filter(code -> code != 0).findFirst().orElse(0));
+        result.setLastResultCode(statuses.stream().map(BackupPlanSchedulerStatus::getLastResultCode)
+                .filter(java.util.Objects::nonNull).filter(code -> code != 0).findFirst()
+                .orElseGet(() -> statuses.stream().map(BackupPlanSchedulerStatus::getLastResultCode)
+                        .filter(java.util.Objects::nonNull).findFirst().orElse(null)));
+        result.setTaskToRun(String.join(System.lineSeparator(), statuses.stream()
+                .map(BackupPlanSchedulerStatus::getTaskToRun).filter(StrUtil::isNotBlank).toList()));
+        result.setRawStatus(String.join(System.lineSeparator(), statuses.stream()
+                .map(BackupPlanSchedulerStatus::getRawStatus).filter(StrUtil::isNotBlank).toList()));
+        result.setBlockedReason(statuses.stream().map(BackupPlanSchedulerStatus::getBlockedReason)
+                .filter(StrUtil::isNotBlank).findFirst().orElse(null));
+        return result;
+    }
+
+    private BackupPlanSchedulerStatus getTaskStatus(String taskName) {
         assertWindows();
-        CommandResult commandResult = runCommandResult(List.of("schtasks", "/Query", "/TN", TASK_NAME, "/V", "/FO", "LIST"));
+        String escapedTaskName = taskName.replace("'", "''");
+        String script = "$task=Get-ScheduledTask -TaskName '" + escapedTaskName + "';"
+                + "$info=Get-ScheduledTaskInfo -TaskName '" + escapedTaskName + "';"
+                + "$next=if($info.NextRunTime -gt [datetime]::MinValue){$info.NextRunTime.ToString('o')}else{$null};"
+                + "$last=if($info.LastRunTime -gt [datetime]::MinValue){$info.LastRunTime.ToString('o')}else{$null};"
+                + "$run=(($task.Actions | ForEach-Object { $_.Execute + ' ' + $_.Arguments }) -join [Environment]::NewLine);"
+                + "[pscustomobject]@{enabled=($task.State -ne 'Disabled');nextRunTime=$next;lastRunTime=$last;"
+                + "lastResultCode=[int]$info.LastTaskResult;taskToRun=$run}|ConvertTo-Json -Compress";
+        CommandResult commandResult = runCommandResult(powerShellCommand(script));
         String output = commandResult.output();
         BackupPlanSchedulerStatus status = new BackupPlanSchedulerStatus();
         status.setRawStatus(output);
@@ -56,13 +88,21 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
             status.setBlockedReason("计划任务查询无输出");
             return status;
         }
-        status.setEnabled(!containsLineValue(output, "Status", "Disabled")
-                && !containsLineValue(output, "Scheduled Task State", "Disabled"));
-        status.setNextRunTime(parseDateTime(valueOf(output, "Next Run Time")));
-        status.setLastRunTime(parseDateTime(valueOf(output, "Last Run Time")));
-        status.setLastResultCode(parseInteger(valueOf(output, "Last Result")));
-        String taskToRun = valueOf(output, "Task To Run");
-        status.setTaskToRun(taskToRun);
+        String taskToRun;
+        try {
+            JsonNode task = objectMapper.readTree(output);
+            status.setEnabled(task.path("enabled").asBoolean(false));
+            status.setNextRunTime(parseDateTime(task.path("nextRunTime")));
+            status.setLastRunTime(parseDateTime(task.path("lastRunTime")));
+            status.setLastResultCode(task.path("lastResultCode").isInt()
+                    ? task.path("lastResultCode").asInt() : null);
+            taskToRun = task.path("taskToRun").asText("");
+            status.setTaskToRun(taskToRun);
+        } catch (IOException | RuntimeException ex) {
+            status.setEnabled(false);
+            status.setBlockedReason("计划任务状态 JSON 无法解析：" + ex.getMessage());
+            return status;
+        }
         if (!Boolean.TRUE.equals(status.getEnabled())) {
             status.setBlockedReason("计划任务已禁用");
             return status;
@@ -97,13 +137,15 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
     @Override
     public void enable() {
         assertWindows();
-        runCommand(List.of("schtasks", "/Change", "/TN", TASK_NAME, "/ENABLE"), true);
+        TASK_NAMES.forEach(taskName -> runCommand(powerShellCommand(
+                "Enable-ScheduledTask -TaskName '" + taskName.replace("'", "''") + "' | Out-Null"), true));
     }
 
     @Override
     public void disable() {
         assertWindows();
-        runCommand(List.of("schtasks", "/Change", "/TN", TASK_NAME, "/DISABLE"), true);
+        TASK_NAMES.forEach(taskName -> runCommand(powerShellCommand(
+                "Disable-ScheduledTask -TaskName '" + taskName.replace("'", "''") + "' | Out-Null"), true));
     }
 
     private void assertWindows() {
@@ -144,42 +186,17 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
         }
     }
 
-    private boolean containsLineValue(String output, String key, String expectedValue) {
-        return expectedValue.equalsIgnoreCase(valueOf(output, key));
+    private List<String> powerShellCommand(String script) {
+        return List.of("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script);
     }
 
-    private String valueOf(String output, String key) {
-        for (String line : output.split("\\R")) {
-            int index = line.indexOf(':');
-            if (index <= 0) {
-                continue;
-            }
-            String lineKey = line.substring(0, index).trim();
-            if (key.equalsIgnoreCase(lineKey)) {
-                return line.substring(index + 1).trim();
-            }
-        }
-        return "";
-    }
-
-    private LocalDateTime parseDateTime(String value) {
-        if (StrUtil.isBlank(value) || "N/A".equalsIgnoreCase(value)) {
+    private LocalDateTime parseDateTime(JsonNode value) {
+        if (value == null || value.isNull() || !value.isTextual() || StrUtil.isBlank(value.asText())) {
             return null;
         }
         try {
-            return LocalDateTime.parse(value, SCHTASKS_DATE_TIME);
-        } catch (RuntimeException ignored) {
-            return null;
-        }
-    }
-
-    private Integer parseInteger(String value) {
-        if (StrUtil.isBlank(value)) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException ex) {
+            return LocalDateTime.parse(value.asText());
+        } catch (RuntimeException ex) {
             return null;
         }
     }

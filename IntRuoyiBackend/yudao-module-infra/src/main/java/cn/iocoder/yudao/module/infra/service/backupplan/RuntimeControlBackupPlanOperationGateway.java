@@ -13,12 +13,13 @@ public class RuntimeControlBackupPlanOperationGateway implements BackupPlanOpera
     private RuntimeControlService runtimeControlService;
 
     @Override
-    public RuntimeControlOperationRespVO backupNow(Long loginUserId) {
+    public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind) {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("backup-now");
         reqVO.setReason("系统管理备份计划页面手动备份");
         reqVO.setTargetEnvironment("prod");
         reqVO.setProdConfirmText("PROD");
+        reqVO.setBackupKind(backupKind);
         return runtimeControlService.executeAction(reqVO, String.valueOf(loginUserId));
     }
 }

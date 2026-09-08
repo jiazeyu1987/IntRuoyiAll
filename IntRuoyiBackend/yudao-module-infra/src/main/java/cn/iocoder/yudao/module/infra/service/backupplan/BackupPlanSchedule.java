@@ -7,9 +7,8 @@ import java.nio.file.Path;
 @Data
 public class BackupPlanSchedule {
 
-    private String frequency;
-    private String time;
-    private String weekday;
+    private String fullSchedule;
+    private String incrementalSchedule;
     private String repositoryEnvironment;
     private Integer maxFreshnessHours;
     private Path repoRoot;

@@ -21,6 +21,9 @@ public class RuntimeControlActionReqVO {
     @Schema(description = "运维目标环境：backup-now 支持 test/prod，restore-data 支持 test/backup", example = "test")
     private String targetEnvironment;
 
+    @Schema(description = "备份类型：FULL/INCREMENTAL，仅 backup-now 使用", example = "FULL")
+    private String backupKind;
+
     @Schema(description = "发布范围：code-only 只发布代码，with-data 同步数据库和文件对象", example = "code-only")
     private String publishScope;
 

@@ -2,6 +2,8 @@
 param(
     [string]$ConfigPath = '',
     [string]$SecretsPath = '',
+    [ValidateSet('test', 'backup')]
+    [string]$RepositoryEnvironment = '',
     [switch]$PlanOnly
 )
 
@@ -91,11 +93,33 @@ function Resolve-BackupOpsRepositoryEnvironment {
     }
 
     $repositoryEnvironment = $repositoryEnvironment.Trim().ToLowerInvariant()
-    if ($repositoryEnvironment -notin @('test', 'backup')) {
+    if ($repositoryEnvironment -ne 'test') {
         throw "Unsupported backup.repositoryEnvironment: $repositoryEnvironment"
     }
 
     return $repositoryEnvironment
+}
+
+function Resolve-BackupOpsFullTrigger {
+    param([Parameter(Mandatory)][object]$Config)
+    $schedule = [string]$Config.backup.fullSchedule
+    if ([string]::IsNullOrWhiteSpace($schedule)) {
+        throw 'backup.fullSchedule is required'
+    }
+    return ConvertTo-BackupOpsWeeklyTrigger -Schedule $schedule.Trim().ToUpperInvariant()
+}
+
+function Resolve-BackupOpsIncrementalTrigger {
+    param([Parameter(Mandatory)][object]$Config)
+    $schedule = [string]$Config.backup.incrementalSchedule
+    if ([string]::IsNullOrWhiteSpace($schedule)) {
+        throw 'backup.incrementalSchedule is required'
+    }
+    $hour, $minute = $schedule.Trim().Split(':')
+    $today = Get-Date
+    $startBoundary = Get-Date -Year $today.Year -Month $today.Month -Day $today.Day -Hour ([int]$hour) -Minute ([int]$minute) -Second 0
+    $incrementalDays = @('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+    return New-ScheduledTaskTrigger -Weekly -DaysOfWeek $incrementalDays -At $startBoundary
 }
 
 function Resolve-BackupOpsTaskPrincipalId {
@@ -296,6 +320,8 @@ function New-BackupOpsScheduledTaskPlan {
         [string]$repositoryEnvironment = '',
         [string]$OperatorName = '',
         [string]$TargetEnvironment = '',
+        [ValidateSet('FULL', 'INCREMENTAL')]
+        [string]$BackupKind = '',
         [string]$ProductionAuthorizationProof = ''
     )
 
@@ -314,6 +340,9 @@ function New-BackupOpsScheduledTaskPlan {
     }
     if (-not [string]::IsNullOrWhiteSpace($repositoryEnvironment)) {
         $argumentParts += @('-RepositoryEnvironment', $repositoryEnvironment)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($BackupKind)) {
+        $argumentParts += @('-BackupKind', $BackupKind)
     }
     if (-not [string]::IsNullOrWhiteSpace($OperatorName)) {
         $argumentParts += @('-OperatorName', ('"{0}"' -f $OperatorName))
@@ -336,7 +365,12 @@ function New-BackupOpsScheduledTaskPlan {
 $config = Import-BackupOpsConfiguration -ConfigPath $ConfigPath -SecretsPath $SecretsPath
 $resolvedConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { (Get-BackupOpsDefaultConfigPaths).configPath } else { $ConfigPath }
 $resolvedSecretsPath = if ([string]::IsNullOrWhiteSpace($SecretsPath)) { (Get-BackupOpsDefaultConfigPaths).secretsPath } else { $SecretsPath }
-$repositoryEnvironment = Resolve-BackupOpsRepositoryEnvironment -Config $config
+$configuredRepositoryEnvironment = Resolve-BackupOpsRepositoryEnvironment -Config $config
+if (-not [string]::IsNullOrWhiteSpace($RepositoryEnvironment) -and
+    -not $RepositoryEnvironment.Equals($configuredRepositoryEnvironment, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "RepositoryEnvironment does not match backup.repositoryEnvironment: $RepositoryEnvironment"
+}
+$repositoryEnvironment = $configuredRepositoryEnvironment
 $principalId = Resolve-BackupOpsTaskPrincipalId -Config $config
 $productionAuthorizationProof = Resolve-BackupOpsProductionAuthorizationProof -Config $config
 $backupOpsScriptPath = Resolve-BackupOpsScriptPath
@@ -345,15 +379,29 @@ Assert-BackupOpsBatchLogonRight -PrincipalId $principalId
 Assert-BackupOpsPrincipalAclIdentity -PrincipalId $principalId -Paths @($backupOpsScriptPath, $resolvedConfigPath, $resolvedSecretsPath)
 Assert-BackupOpsSecretsAcl -Path $resolvedSecretsPath -RejectOrdinaryUserWrite
 
-$backupPlan = New-BackupOpsScheduledTaskPlan `
-    -TaskName 'IntRuoyi Backup Scheduled' `
+$backupFullPlan = New-BackupOpsScheduledTaskPlan `
+    -TaskName 'IntRuoyi Backup Full' `
     -Mode 'backup-scheduled' `
     -ConfigPath $resolvedConfigPath `
     -SecretsPath $resolvedSecretsPath `
-    -Trigger (ConvertTo-BackupOpsBackupTrigger -BackupConfig $config.backup) `
+    -Trigger (Resolve-BackupOpsFullTrigger -Config $config) `
     -PrincipalId $principalId `
     -TargetEnvironment 'prod' `
     -RepositoryEnvironment $repositoryEnvironment `
+    -BackupKind FULL `
+    -ProductionAuthorizationProof $productionAuthorizationProof `
+    -OperatorName 'scheduler'
+
+$backupIncrementalPlan = New-BackupOpsScheduledTaskPlan `
+    -TaskName 'IntRuoyi Backup Incremental' `
+    -Mode 'backup-scheduled' `
+    -ConfigPath $resolvedConfigPath `
+    -SecretsPath $resolvedSecretsPath `
+    -Trigger (Resolve-BackupOpsIncrementalTrigger -Config $config) `
+    -PrincipalId $principalId `
+    -TargetEnvironment 'prod' `
+    -RepositoryEnvironment $repositoryEnvironment `
+    -BackupKind INCREMENTAL `
     -ProductionAuthorizationProof $productionAuthorizationProof `
     -OperatorName 'scheduler'
 
@@ -366,16 +414,27 @@ $rehearsalPlan = New-BackupOpsScheduledTaskPlan `
     -PrincipalId $principalId `
     -OperatorName 'scheduler'
 
-$plans = @($backupPlan, $rehearsalPlan)
+$plans = @($backupFullPlan, $backupIncrementalPlan, $rehearsalPlan)
 if ($PlanOnly) {
     $plans | Select-Object taskName, mode, executable, arguments, principalId, logonType, runLevel, productionAuthorizationProof | ConvertTo-Json -Depth 6
     exit 0
 }
 
 $principal = New-ScheduledTaskPrincipal -UserId $principalId -LogonType S4U -RunLevel Limited
-foreach ($plan in $plans) {
-    $action = New-ScheduledTaskAction -Execute $plan.executable -Argument $plan.arguments
-    Register-ScheduledTask -TaskName $plan.taskName -Action $action -Trigger $plan.trigger -Principal $principal -Description "IntRuoyi $($plan.mode)" -Force | Out-Null
+try {
+    foreach ($plan in $plans) {
+        $action = New-ScheduledTaskAction -Execute $plan.executable -Argument $plan.arguments
+        Register-ScheduledTask -TaskName $plan.taskName -Action $action -Trigger $plan.trigger -Principal $principal -Description "IntRuoyi $($plan.mode)" -Force | Out-Null
+    }
+} catch {
+    foreach ($plan in $plans) {
+        try {
+            Disable-ScheduledTask -TaskName $plan.taskName -ErrorAction Stop | Out-Null
+        } catch {
+            # Preserve the original registration failure; disabled or missing tasks remain blocked.
+        }
+    }
+    throw "Scheduled task registration failed; all backup tasks were disabled. Original error: $($_.Exception.Message)"
 }
 
 $plans | Select-Object taskName, mode, principalId, logonType, runLevel | Format-Table -AutoSize

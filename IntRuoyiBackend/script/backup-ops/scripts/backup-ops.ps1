@@ -19,6 +19,9 @@
     [ValidateSet('test', 'backup')]
     [string]$RepositoryEnvironment,
 
+    [ValidateSet('FULL', 'INCREMENTAL')]
+    [string]$BackupKind,
+
     [switch]$NonInteractive,
 
     [string]$OperatorName = $env:USERNAME
@@ -235,7 +238,7 @@ function Resolve-BackupOpsRepositoryEnvironment {
         throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：backup.repositoryEnvironment is required.')
     }
     $configuredRepositoryEnvironment = $configuredRepositoryEnvironment.Trim().ToLowerInvariant()
-    if ($configuredRepositoryEnvironment -notin @('test', 'backup')) {
+    if ($configuredRepositoryEnvironment -ne 'test') {
         throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：Unsupported backup.repositoryEnvironment: $configuredRepositoryEnvironment")
     }
 
@@ -330,24 +333,48 @@ function Invoke-BackupOpsMode {
         [object]$Config
     )
 
-    switch ($Mode) {
-        'backup-now' {
-            return Invoke-BackupNowUseCase -Config $Config -OperatorName $OperatorName -NonInteractive:$NonInteractive
+    $operationMutex = $null
+    $mutexAcquired = $false
+    if ($Mode -in @('backup-now', 'backup-scheduled', 'rehearsal', 'restore-data')) {
+        $operationMutex = [System.Threading.Mutex]::new($false, 'Global\IntRuoyi-BackupOps')
+        $mutexAcquired = $operationMutex.WaitOne(0)
+        if (-not $mutexAcquired) {
+            $operationMutex.Dispose()
+            throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message 'Another backup or rehearsal operation is already running; concurrent repository writes are blocked.')
         }
-        'backup-scheduled' {
-            return Invoke-BackupScheduledUseCase -Config $Config -OperatorName $OperatorName
+    }
+
+    try {
+        switch ($Mode) {
+            'backup-now' {
+                if ([string]::IsNullOrWhiteSpace($BackupKind)) {
+                    throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：backup-now requires explicit BackupKind FULL or INCREMENTAL.`n建议动作：请显式传入 -BackupKind FULL 或 -BackupKind INCREMENTAL。")
+                }
+                return Invoke-BackupNowUseCase -Config $Config -BackupKind $BackupKind -OperatorName $OperatorName -NonInteractive:$NonInteractive
+            }
+            'backup-scheduled' {
+                if ([string]::IsNullOrWhiteSpace($BackupKind)) {
+                    throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：backup-scheduled requires explicit BackupKind FULL or INCREMENTAL.`n建议动作：请显式传入 -BackupKind FULL 或 -BackupKind INCREMENTAL。")
+                }
+                return Invoke-BackupScheduledUseCase -Config $Config -BackupKind $BackupKind -OperatorName $OperatorName
+            }
+            'rollback-app' {
+                return Invoke-RollbackAppUseCase -Config $Config -SelectedImageTag $SelectedImageTag -OperatorName $OperatorName -NonInteractive:$NonInteractive
+            }
+            'restore-data' {
+                return Invoke-RestoreDataUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName -NonInteractive:$NonInteractive
+            }
+            'rehearsal' {
+                return Invoke-RehearsalUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName
+            }
+            default {
+                throw "Unsupported mode: $Mode"
+            }
         }
-        'rollback-app' {
-            return Invoke-RollbackAppUseCase -Config $Config -SelectedImageTag $SelectedImageTag -OperatorName $OperatorName -NonInteractive:$NonInteractive
-        }
-        'restore-data' {
-            return Invoke-RestoreDataUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName -NonInteractive:$NonInteractive
-        }
-        'rehearsal' {
-            return Invoke-RehearsalUseCase -Config $Config -SelectedBackupId $SelectedBackupId -OperatorName $OperatorName
-        }
-        default {
-            throw "Unsupported mode: $Mode"
+    } finally {
+        if ($mutexAcquired) {
+            $operationMutex.ReleaseMutex()
+            $operationMutex.Dispose()
         }
     }
 }

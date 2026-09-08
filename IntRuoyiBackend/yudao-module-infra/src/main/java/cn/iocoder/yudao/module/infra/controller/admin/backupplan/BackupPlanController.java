@@ -7,10 +7,14 @@ import cn.iocoder.yudao.module.infra.controller.admin.backupplan.vo.BackupPlanSc
 import cn.iocoder.yudao.module.infra.controller.admin.backupplan.vo.BackupPlanStatusRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlBackupPointRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlOperationRespVO;
+import cn.iocoder.yudao.module.infra.framework.file.core.utils.FileTypeUtils;
+import cn.iocoder.yudao.module.infra.service.backupplan.BackupEvidenceExportService;
 import cn.iocoder.yudao.module.infra.service.backupplan.BackupPlanService;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,12 +22,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.io.IOException;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED;
+import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
 
 @Tag(name = "管理后台 - 备份计划")
 @RestController
@@ -32,6 +40,8 @@ public class BackupPlanController {
 
     @Resource
     private BackupPlanService backupPlanService;
+    @Resource
+    private BackupEvidenceExportService backupEvidenceExportService;
 
     @GetMapping("/status")
     @Operation(summary = "获得备份计划状态")
@@ -64,8 +74,9 @@ public class BackupPlanController {
     @PostMapping("/backup-now")
     @Operation(summary = "立即备份一次")
     @PreAuthorize("@ss.hasPermission('system:backup-plan:execute')")
-    public CommonResult<RuntimeControlOperationRespVO> backupNow() {
-        return success(backupPlanService.backupNow(requireLoginUserId()));
+    public CommonResult<RuntimeControlOperationRespVO> backupNow(
+            @RequestParam("backupKind") String backupKind) {
+        return success(backupPlanService.backupNow(requireLoginUserId(), backupKind));
     }
 
     @GetMapping("/history/page")
@@ -74,6 +85,15 @@ public class BackupPlanController {
     public CommonResult<PageResult<RuntimeControlBackupPointRespVO>> getHistoryPage(
             @Valid BackupPlanHistoryPageReqVO pageReqVO) {
         return success(backupPlanService.getHistoryPage(pageReqVO));
+    }
+
+    @GetMapping("/evidence/export")
+    @Operation(summary = "导出备份审查证据")
+    @PreAuthorize("@ss.hasPermission('system:backup-plan:evidence-export')")
+    @ApiAccessLog(operateType = EXPORT)
+    public void exportEvidence(HttpServletResponse response) throws IOException {
+        BackupEvidenceExportService.ExportResult result = backupEvidenceExportService.exportLatest();
+        FileTypeUtils.writeAttachment(response, result.filename(), result.content());
     }
 
     private Long requireLoginUserId() {

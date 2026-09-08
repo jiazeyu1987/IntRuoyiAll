@@ -209,12 +209,16 @@ function Assert-BackupOpsConfiguration {
         @('containers', 'frontend'),
         @('tools', 'minioClientImage'),
         @('tools', 'archiveImage'),
-        @('backup', 'schedule'),
+        @('backup', 'fullSchedule'),
+        @('backup', 'incrementalSchedule'),
         @('backup', 'repositoryEnvironment'),
+        @('backup', 'maxFreshnessHours'),
         @('backup', 'localWorkspaceRoot'),
         @('backup', 'keepDaysRemote'),
         @('backup', 'keepDaysLocal'),
         @('backup', 'mysqlDatabase'),
+        @('backup', 'mysqlBackupMode'),
+        @('backup', 'exclusiveWriterMode'),
         @('backup', 'objectBucket'),
         @('rehearsal', 'schedule'),
         @('rehearsal', 'runtimeNamePrefix'),
@@ -236,8 +240,6 @@ function Assert-BackupOpsConfiguration {
     $requiredSecretPaths = @(
         @('ssh', 'user'),
         @('auth', 'sshKeyPath'),
-        @('auth', 'productionBackupConfirmText'),
-        @('taskPrincipal', 'principalId'),
         @('rehearsal', 'tenantName'),
         @('rehearsal', 'username'),
         @('rehearsal', 'password')
@@ -254,26 +256,31 @@ function Assert-BackupOpsConfiguration {
         Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.keepDaysRemote must be greater than or equal to backup.keepDaysLocal.' -Target 'backup.keepDaysRemote'
     }
 
-    $schedule = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'schedule'))
-    if ($schedule -notmatch '^(?:[01]\d|2[0-3]):[0-5]\d$') {
-        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.schedule must use HH:mm in 24-hour format.' -Target 'backup.schedule'
+    if ([string]$ConfigObject.schemaVersion -ne 'v2-minimal') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'schemaVersion must be v2-minimal.' -Target 'schemaVersion'
     }
 
-    $backupFrequency = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'frequency'))
-    if ([string]::IsNullOrWhiteSpace($backupFrequency)) {
-        $backupFrequency = 'DAILY'
+    $fullSchedule = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'fullSchedule'))
+    if ($fullSchedule -notmatch '^(?:MON|TUE|WED|THU|FRI|SAT|SUN)\s(?:[01]\d|2[0-3]):[0-5]\d$') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.fullSchedule must use WEEKDAY HH:mm format.' -Target 'backup.fullSchedule'
     }
-    $backupFrequency = $backupFrequency.Trim().ToUpperInvariant()
-    if ($backupFrequency -notin @('DAILY', 'WEEKLY')) {
-        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.frequency must be DAILY or WEEKLY.' -Target 'backup.frequency'
+
+    $incrementalSchedule = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'incrementalSchedule'))
+    if ($incrementalSchedule -notmatch '^(?:[01]\d|2[0-3]):[0-5]\d$') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.incrementalSchedule must use HH:mm format.' -Target 'backup.incrementalSchedule'
     }
     $repositoryEnvironment = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'repositoryEnvironment'))
-    if ($repositoryEnvironment -notin @('test', 'backup')) {
-        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.repositoryEnvironment must be test or backup.' -Target 'backup.repositoryEnvironment'
+    if ($repositoryEnvironment -ne 'test') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.repositoryEnvironment must be test in v2-minimal.' -Target 'backup.repositoryEnvironment'
     }
-    $backupWeekday = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'weekday'))
-    if ($backupFrequency -eq 'WEEKLY' -and $backupWeekday -notmatch '^(?:MON|TUE|WED|THU|FRI|SAT|SUN)$') {
-        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.weekday must be MON/TUE/WED/THU/FRI/SAT/SUN when backup.frequency is WEEKLY.' -Target 'backup.weekday'
+    if ([int]$ConfigObject.backup.maxFreshnessHours -le 0) {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.maxFreshnessHours must be positive.' -Target 'backup.maxFreshnessHours'
+    }
+    if ([string]$ConfigObject.backup.mysqlBackupMode -ne 'binlog') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.mysqlBackupMode must be binlog for v2-minimal.' -Target 'backup.mysqlBackupMode'
+    }
+    if ([string]$ConfigObject.backup.exclusiveWriterMode -ne 'backend-container-stop') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.exclusiveWriterMode must be backend-container-stop for v2-minimal.' -Target 'backup.exclusiveWriterMode'
     }
 
     $rehearsalSchedule = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('rehearsal', 'schedule'))

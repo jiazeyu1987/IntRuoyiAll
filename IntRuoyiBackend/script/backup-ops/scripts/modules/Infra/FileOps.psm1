@@ -554,12 +554,18 @@ if not root.is_dir():
 
 keep_days = int(os.environ["KEEP_DAYS"])
 keep_last = int(os.environ.get("KEEP_LAST_POINTS", "0") or "0")
+keep_last_full_chains = int(os.environ["KEEP_LAST_FULL_CHAINS"])
+minimum_recoverable_chains = int(os.environ["MINIMUM_RECOVERABLE_CHAINS"])
 max_nas_used_percent = int(os.environ.get("MAX_NAS_USED_PERCENT", "0") or "0")
 action = os.environ.get("RETENTION_ACTION", "delete")
 if keep_days < 0:
     blocked("KEEP_DAYS must be non-negative")
 if keep_last < 0:
     blocked("KEEP_LAST_POINTS must be non-negative")
+if keep_last_full_chains <= 0:
+    blocked("KEEP_LAST_FULL_CHAINS must be positive")
+if minimum_recoverable_chains <= 0:
+    blocked("MINIMUM_RECOVERABLE_CHAINS must be positive")
 if action not in {"plan", "delete"}:
     blocked(f"Unsupported RETENTION_ACTION: {action}")
 
@@ -623,6 +629,48 @@ def referenced_repository_keys(retained_points):
                     keys.add(key)
     return keys
 
+def build_chains(points):
+    point_by_name = {point.name: point for point in points}
+    manifests = {}
+    chains = {}
+    for point in points:
+        manifest = load_json(point / BACKUP_MANIFEST_RELATIVE_PATH)
+        if not isinstance(manifest, dict) or manifest.get("status") != "success":
+            blocked(f"Backup point has no successful manifest: {point.name}")
+        kind = manifest.get("backupKind")
+        base = manifest.get("baseBackupId")
+        parent = manifest.get("parentBackupId")
+        if kind == "FULL":
+            if base != point.name or parent:
+                blocked(f"Invalid FULL chain identity: {point.name}")
+        elif kind == "INCREMENTAL":
+            if not base or not parent or base not in point_by_name or parent not in point_by_name:
+                blocked(f"Broken INCREMENTAL chain identity: {point.name}")
+        else:
+            blocked(f"Unsupported backupKind in retention inventory: {point.name}")
+        manifests[point.name] = manifest
+        chains.setdefault(base, []).append(point)
+    for chain_id, chain_points in chains.items():
+        if chain_id not in manifests or manifests[chain_id].get("backupKind") != "FULL":
+            blocked(f"Backup chain FULL baseline is missing: {chain_id}")
+        for point in chain_points:
+            visited = set()
+            current = point.name
+            while current != chain_id:
+                if current in visited or current not in manifests:
+                    blocked(f"Backup chain is cyclic or disconnected: {point.name}")
+                visited.add(current)
+                current = manifests[current].get("parentBackupId")
+    return chains, manifests
+
+def chain_is_recoverable(chain_points, manifests):
+    for point in chain_points:
+        manifest_status = ((manifests[point.name].get("validation") or {}).get("rehearsalStatus"))
+        report = load_json(point / "manifest/rehearsal-report.json")
+        if manifest_status == "PASSED" and isinstance(report, dict) and report.get("status") == "PASSED":
+            return True
+    return False
+
 def state_snapshot():
     blobs = object_blobs()
     return {
@@ -634,12 +682,27 @@ def state_snapshot():
 before = state_snapshot()
 capacity_before = capacity_snapshot()
 points = backup_points()
-recent_retained = {p.name for p in points[:keep_last]} if keep_last > 0 else set()
+chains, manifests = build_chains(points)
+ordered_chain_ids = sorted(chains, key=lambda chain_id: max(point.name for point in chains[chain_id]), reverse=True)
+recent_chain_ids = set(ordered_chain_ids[:keep_last_full_chains])
 cutoff = datetime.now().timestamp() - (keep_days * 86400)
-time_retained = {p.name for p in points if p.stat().st_mtime >= cutoff}
-retained_names = recent_retained | time_retained
+time_retained_chain_ids = {
+    chain_id for chain_id, chain_points in chains.items()
+    if max(point.stat().st_mtime for point in chain_points) >= cutoff
+}
+recoverable_chain_ids = {
+    chain_id for chain_id, chain_points in chains.items()
+    if chain_is_recoverable(chain_points, manifests)
+}
+recoverable_ordered = [chain_id for chain_id in ordered_chain_ids if chain_id in recoverable_chain_ids]
+protected_recoverable_chain_ids = set(recoverable_ordered[:minimum_recoverable_chains])
+retained_chain_ids = recent_chain_ids | time_retained_chain_ids | protected_recoverable_chain_ids
+delete_chains = [chain_id for chain_id in ordered_chain_ids if chain_id not in retained_chain_ids]
+retained_names = {
+    point.name for chain_id in retained_chain_ids for point in chains[chain_id]
+}
 retained_points = [p for p in points if p.name in retained_names]
-delete_points = [p for p in points if p.name not in retained_names]
+delete_points = [point for chain_id in delete_chains for point in chains[chain_id]]
 referenced = referenced_repository_keys(retained_points)
 store = root / "object-store"
 delete_blobs = []
@@ -671,12 +734,17 @@ emit({
     "rootPath": str(root),
     "keepDays": keep_days,
     "keepLast": keep_last,
+    "keepLastFullChains": keep_last_full_chains,
+    "minimumRecoverableChains": minimum_recoverable_chains,
     "maxNasUsedPercent": max_nas_used_percent,
     "before": before,
     "after": after,
     "capacityBefore": capacity_before,
     "capacityAfter": capacity_after,
     "retainedBackupPoints": sorted(retained_names, reverse=True),
+    "retainedChainIds": sorted(retained_chain_ids, reverse=True),
+    "recoverableChainIds": sorted(recoverable_chain_ids, reverse=True),
+    "deletedChainIds": delete_chains,
     "deletedBackupPoints": [p.name for p in delete_points],
     "deletedObjectBlobCount": len(deleted_object_blob_names),
     "deletedObjectBlobSample": deleted_object_blob_names[:50],
@@ -723,6 +791,19 @@ function New-BackupOpsBackupWorkspace {
     }
 }
 
+function ConvertTo-BackupOpsRedactedRuntimeEnv {
+    param([Parameter(Mandatory = $true)][string[]]$Lines)
+
+    $secretKeyPattern = '(?i)(PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE|ACCESS_KEY|API_KEY|CLIENT_SECRET|CREDENTIAL|ENCRYPT|SIGNING)'
+    return @($Lines | ForEach-Object {
+        if ($_ -match '^\s*([^#=]+)=(.*)$' -and $Matches[1].Trim() -match $secretKeyPattern) {
+            '{0}=<redacted>' -f $Matches[1].Trim()
+        } else {
+            $_
+        }
+    })
+}
+
 function Save-BackupOpsDeployMetadata {
     param(
         [Parameter(Mandatory = $true)]
@@ -743,10 +824,24 @@ function Save-BackupOpsDeployMetadata {
         RemotePath = $composePath
         LocalPath = (Join-Path $Workspace.DeployPath 'docker-compose.yml')
     }) | Out-Null
-    Receive-BackupFileOverSsh -Request ($prodRequest + @{
-        RemotePath = $envPath
-        LocalPath = (Join-Path $Workspace.DeployPath 'runtime.env')
-    }) | Out-Null
+    $runtimeEnvBackupPath = Join-Path $Workspace.DeployPath 'runtime.env'
+    $rawRuntimeEnvPath = Join-Path ([System.IO.Path]::GetTempPath()) ("raw-runtime-env-$([System.Guid]::NewGuid().ToString('N')).tmp")
+    try {
+        Receive-BackupFileOverSsh -Request ($prodRequest + @{
+            RemotePath = $envPath
+            LocalPath = $rawRuntimeEnvPath
+        }) | Out-Null
+        $runtimeEnvLines = [System.IO.File]::ReadAllLines($rawRuntimeEnvPath, [System.Text.Encoding]::UTF8)
+        [System.IO.File]::WriteAllLines(
+            $runtimeEnvBackupPath,
+            (ConvertTo-BackupOpsRedactedRuntimeEnv -Lines $runtimeEnvLines),
+            [System.Text.UTF8Encoding]::new($false)
+        )
+    } finally {
+        if (Test-Path -LiteralPath $rawRuntimeEnvPath) {
+            Remove-Item -LiteralPath $rawRuntimeEnvPath -Force -ErrorAction Stop
+        }
+    }
 
     [System.IO.File]::WriteAllText((Join-Path $Workspace.DeployPath 'image-tag.txt'), $Workspace.ImageTag + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     Write-BackupOpsLog -Session $LogSession -Message "Fetched deploy metadata from production runtime into $($Workspace.DeployPath)."
@@ -834,6 +929,9 @@ function New-BackupOpsManifest {
         [object]$Workspace,
         [Parameter(Mandatory = $true)]
         [string]$BackupType,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('FULL', 'INCREMENTAL')]
+        [string]$BackupKind,
         [string]$Status = 'success',
         [hashtable]$Validation = $null,
         [string]$OperatorName = '',
@@ -859,14 +957,17 @@ function New-BackupOpsManifest {
         }
     }
 
-    $targetEnvironment = if ($Config.PSObject.Properties['environment']) { [string]$Config.environment } else { '' }
-    $targetHost = if ($Config.PSObject.Properties['servers'] -and $Config.servers.PSObject.Properties['production'] -and $Config.servers.production.PSObject.Properties['host']) {
+    $sourceEnvironment = if ($Config.PSObject.Properties['environment']) { [string]$Config.environment } else { '' }
+    $sourceHost = if ($Config.PSObject.Properties['servers'] -and $Config.servers.PSObject.Properties['production'] -and $Config.servers.production.PSObject.Properties['host']) {
         [string]$Config.servers.production.host
     } else {
         ''
     }
+    $repositoryEnvironment = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'repositoryEnvironment') -Code 'INTBK-6001' -Reason '缺少备份仓库环境证明。' -Action '请补齐 backup.repositoryEnvironment。')
+    $repositoryHost = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('servers', $repositoryEnvironment, 'host') -Code 'INTBK-6001' -Reason '缺少备份仓库主机证明。' -Action '请补齐对应 servers 环境的 host。')
     if ($Status -eq 'success') {
-        Assert-BackupOpsKnownBackupTarget -Environment $targetEnvironment -Host $targetHost -Code 'INTBK-1003' -Scope '成功 manifest'
+        Assert-BackupOpsKnownBackupTarget -Environment $sourceEnvironment -Host $sourceHost -Code 'INTBK-1003' -Scope '成功 manifest 备份源'
+        Assert-BackupOpsKnownBackupTarget -Environment $repositoryEnvironment -Host $repositoryHost -Code 'INTBK-1003' -Scope '成功 manifest 备份仓库'
     }
 
     $runtimeEnvPath = Join-Path $Workspace.DeployPath 'runtime.env'
@@ -879,8 +980,34 @@ function New-BackupOpsManifest {
     }
     $databaseName = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'mysqlDatabase') -Code 'INTBK-6001' -Reason '缺少 MySQL 数据库配置，无法生成恢复集 manifest。' -Action '请先补齐 backup.mysqlDatabase 后再生成 manifest。')
     $bucket = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'objectBucket') -Code 'INTBK-6001' -Reason '缺少对象桶配置，无法生成恢复集 manifest。' -Action '请先补齐 backup.objectBucket 后再生成 manifest。')
-    $mysqlBackupMode = Assert-BackupOpsMySqlBackupModeSupported -Config $Config -Status $Status
+    $mysqlBackupMode = if ($BackupKind -eq 'FULL') { 'logical-full-dump' } else { 'binlog-incremental' }
     $mysqlDumpRelativePath = "mysql/$databaseName.sql.gz"
+    $mysqlEvidenceRelativePath = if ($BackupKind -eq 'FULL') { 'mysql/full-dump-manifest.json' } else { 'mysql/binlog-segment-manifest.json' }
+    $mysqlEvidenceFullPath = Join-Path $backupRoot $mysqlEvidenceRelativePath
+    if ($Status -eq 'success' -and -not (Test-Path -LiteralPath $mysqlEvidenceFullPath -PathType Leaf)) {
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message (New-BackupOpsOperatorBlockedMessage -Reason "MySQL $BackupKind 证据不存在：$mysqlEvidenceFullPath。" -Action '请先完成对应 MySQL 数据导出并生成证据 manifest。'))
+    }
+    $mysqlEvidence = if (Test-Path -LiteralPath $mysqlEvidenceFullPath -PathType Leaf) {
+        [System.IO.File]::ReadAllText($mysqlEvidenceFullPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+    } else {
+        $null
+    }
+    $baseBackupId = $Workspace.BackupId
+    $parentBackupId = $null
+    if ($BackupKind -eq 'FULL') {
+        if ($Status -eq 'success' -and [string]$mysqlEvidence.schemaVersion -ne 'mysql-full-dump-v1') {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'MySQL FULL evidence schemaVersion must be mysql-full-dump-v1.')
+        }
+    } else {
+        if ($Status -eq 'success' -and [string]$mysqlEvidence.schemaVersion -ne 'mysql-binlog-segment-v1') {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'MySQL INCREMENTAL evidence schemaVersion must be mysql-binlog-segment-v1.')
+        }
+        $baseBackupId = [string]$mysqlEvidence.baseBackupId
+        $parentBackupId = [string]$mysqlEvidence.parentBackupId
+        if ($Status -eq 'success' -and ([string]::IsNullOrWhiteSpace($baseBackupId) -or [string]::IsNullOrWhiteSpace($parentBackupId))) {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'MySQL INCREMENTAL evidence requires baseBackupId and parentBackupId.')
+        }
+    }
     $objectInventoryRelativePath = 'objects/manifest-object-inventory.json'
     $dccBackupManifestRelativePath = 'manifest/dcc-backup-manifest.json'
     $minioSnapshotRelativePath = $objectInventoryRelativePath
@@ -892,6 +1019,7 @@ function New-BackupOpsManifest {
         $configurationManifestRelativePath,
         $configurationComposeRelativePath,
         $dccBackupManifestRelativePath,
+        $mysqlEvidenceRelativePath,
         $checksumsRelativePath
     )
     $dccBackupManifestFullPath = Join-Path $backupRoot $dccBackupManifestRelativePath
@@ -908,17 +1036,24 @@ function New-BackupOpsManifest {
     }
     $incrementalObjectSnapshotComplete = $false
     if ($null -ne $objectInventory) {
-        try {
-            $inventoryObjects = @($objectInventory.objects)
-            if ($objectInventory.PSObject.Properties['stats'] -and $null -ne $objectInventory.stats) {
-                $objectDeltaStats = $objectInventory.stats
-            }
-            $incrementalObjectSnapshotComplete = [string]$objectInventory.mode -eq 'incremental-manifest' `
-                -and [string]$objectInventory.bucket -eq $bucket `
-                -and -not [string]::IsNullOrWhiteSpace([string]$objectInventory.objectStoreRoot)
-        } catch {
-            $incrementalObjectSnapshotComplete = $false
+        $inventoryBackupKind = if ($objectInventory.PSObject.Properties['backupKind']) { [string]$objectInventory.backupKind } else { '' }
+        $inventoryParentBackupId = if ($objectInventory.PSObject.Properties['parentBackupId']) { [string]$objectInventory.parentBackupId } else { '' }
+        if ($inventoryBackupKind -ne $BackupKind) {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'Object inventory backupKind does not match MySQL backupKind.')
         }
+        if ($BackupKind -eq 'INCREMENTAL' -and $inventoryParentBackupId -ne $parentBackupId) {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'Object inventory parentBackupId does not match MySQL parentBackupId.')
+        }
+        if ($BackupKind -eq 'FULL' -and -not [string]::IsNullOrWhiteSpace($inventoryParentBackupId)) {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'FULL object inventory parentBackupId must be empty.')
+        }
+        $inventoryObjects = @($objectInventory.objects)
+        if ($objectInventory.PSObject.Properties['stats'] -and $null -ne $objectInventory.stats) {
+            $objectDeltaStats = $objectInventory.stats
+        }
+        $incrementalObjectSnapshotComplete = [string]$objectInventory.mode -eq 'incremental-manifest' `
+            -and [string]$objectInventory.bucket -eq $bucket `
+            -and -not [string]::IsNullOrWhiteSpace([string]$objectInventory.objectStoreRoot)
     }
     $recoverySetComplete = $true
     foreach ($relativePath in $requiredRecoveryFiles) {
@@ -926,31 +1061,34 @@ function New-BackupOpsManifest {
             $recoverySetComplete = $false
         }
     }
-    if (-not (Test-BackupOpsMySqlDumpAvailable -Config $Config -Workspace $Workspace -LocalRelativePath $mysqlDumpRelativePath)) {
+    if ($BackupKind -eq 'FULL' -and -not (Test-BackupOpsMySqlDumpAvailable -Config $Config -Workspace $Workspace -LocalRelativePath $mysqlDumpRelativePath)) {
         $recoverySetComplete = $false
     }
     if (-not $incrementalObjectSnapshotComplete) {
         $recoverySetComplete = $false
     }
+    if ($Status -eq 'success' -and -not $recoverySetComplete) {
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'Successful backup manifest requires a COMPLETE recoverySet.')
+    }
     $checksumsHash = ''
     $checksumsFullPath = Join-Path $backupRoot $checksumsRelativePath
     if (Test-Path -LiteralPath $checksumsFullPath -PathType Leaf) {
-        $checksumsHash = (Get-FileHash -LiteralPath $checksumsFullPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $checksumsHash = Get-BackupOpsFileSha256 -Path $checksumsFullPath
     }
 
     $model = New-BackupManifestModel -Request @{
         BackupId      = $Workspace.BackupId
         BackupType    = $BackupType
-        Environment   = $targetEnvironment
-        TargetEnvironment = $targetEnvironment
-        TargetHost    = $targetHost
+        Environment   = $sourceEnvironment
+        TargetEnvironment = $repositoryEnvironment
+        TargetHost    = $repositoryHost
         Status        = $Status
         ObjectSnapshotPath = $objectInventoryRelativePath
         DccBackupManifestPath = $dccBackupManifestRelativePath
         StartedAt     = ([System.DateTimeOffset]$LogSession.startedAt).ToString('o')
         CompletedAt   = ([System.DateTimeOffset]::Now).ToString('o')
         Source        = [pscustomobject]@{
-            serverHost = $targetHost
+            serverHost = $sourceHost
             appDir     = $Config.servers.production.appDir
             minioBucket = $Config.backup.objectBucket
         }
@@ -966,7 +1104,9 @@ function New-BackupOpsManifest {
                 imageTag = $Workspace.ImageTag
             }
             mysql = [pscustomobject]@{
-                dumpPath = $mysqlDumpRelativePath
+                mode = $mysqlBackupMode
+                dumpPath = if ($BackupKind -eq 'FULL') { $mysqlDumpRelativePath } else { $null }
+                evidencePath = $mysqlEvidenceRelativePath
             }
             minio = [pscustomobject]@{
                 bucket = $bucket
@@ -996,14 +1136,11 @@ function New-BackupOpsManifest {
             mysqlBaseline = 'full-dump'
             mysqlIncrementalPlan = [pscustomobject]@{
                 binlog = [pscustomobject]@{
-                    status = 'requires-prerequisite'
-                    required = @('log_bin=ON', 'ROW binlog_format', 'REPLICATION CLIENT or equivalent binlog read permission', 'mysqlbinlog available')
-                    failFastRule = 'Do not claim binlog incremental backup until every prerequisite is proven on the target environment.'
+                    status = if ($BackupKind -eq 'INCREMENTAL') { [string]$mysqlEvidence.status } else { 'not-applicable' }
+                    evidencePath = if ($BackupKind -eq 'INCREMENTAL') { $mysqlEvidenceRelativePath } else { $null }
                 }
                 xtrabackup = [pscustomobject]@{
                     status = 'requires-prerequisite'
-                    required = @('Percona XtraBackup installed', 'physical backup volume path available', 'backup user has required privileges', 'restore rehearsal storage sized for physical backup')
-                    failFastRule = 'Do not claim physical incremental backup until dependency and privilege checks pass.'
                 }
                 noFallbackRule = 'No silent full dump fallback is allowed for an incremental MySQL backup request.'
             }
@@ -1019,6 +1156,14 @@ function New-BackupOpsManifest {
         OperatorMode  = 'system'
         OperatorName  = $(if ([string]::IsNullOrWhiteSpace($OperatorName)) { 'operator' } else { $OperatorName })
     }
+    $model | Add-Member -NotePropertyName backupKind -NotePropertyValue $BackupKind -Force
+    $model | Add-Member -NotePropertyName baseBackupId -NotePropertyValue $baseBackupId -Force
+    $model | Add-Member -NotePropertyName parentBackupId -NotePropertyValue $parentBackupId -Force
+    $model | Add-Member -NotePropertyName mysqlEvidence -NotePropertyValue $mysqlEvidence -Force
+    $model | Add-Member -NotePropertyName sourceEnvironment -NotePropertyValue $sourceEnvironment -Force
+    $model | Add-Member -NotePropertyName sourceHost -NotePropertyValue $sourceHost -Force
+    $model | Add-Member -NotePropertyName repositoryEnvironment -NotePropertyValue $repositoryEnvironment -Force
+    $model | Add-Member -NotePropertyName repositoryHost -NotePropertyValue $repositoryHost -Force
     $manifestPath = Join-Path $Workspace.ManifestPath 'manifest.json'
     $encoding = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($manifestPath, ($model | ConvertTo-Json -Depth 8), $encoding)
@@ -1119,41 +1264,36 @@ function Resolve-BackupOpsPreviousDccBackupManifestPath {
         [Parameter(Mandatory = $true)]
         [object]$Config,
         [Parameter(Mandatory = $true)]
-        [object]$Workspace
+        [object]$Workspace,
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedParentBackupId
     )
 
-    $explicitPath = Get-BackupOpsFileConfigValueSafe -InputObject $Config -Path @('backup', 'dccPreviousManifestPath')
-    if (-not [string]::IsNullOrWhiteSpace([string]$explicitPath)) {
-        if (-not (Test-Path -LiteralPath ([string]$explicitPath) -PathType Leaf)) {
-            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message (New-BackupOpsOperatorBlockedMessage -Reason "显式指定的上一份 DCC backup manifest 不存在：$explicitPath。" -Action '请修正 backup.dccPreviousManifestPath，或移除该配置让备份流程自动从本地备份根目录查找上一恢复点。'))
-        }
-        if (-not (Test-BackupOpsDccPreviousManifestUsable -Path ([string]$explicitPath))) {
-            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message (New-BackupOpsOperatorBlockedMessage -Reason "显式指定的上一份 DCC backup manifest 不可作为增量链起点：$explicitPath。" -Action '请提供 schemaVersion=dcc-backup-manifest-v1、status=success 且包含 fullBaseline 或 incrementalChain 恢复点的 manifest。'))
-        }
-        return [string]$explicitPath
+    if ($ExpectedParentBackupId -notmatch '^\d{8}-\d{6}$') {
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message "DCC INCREMENTAL expected parent backup ID is invalid: $ExpectedParentBackupId.")
     }
-
-    $workspaceRoot = Get-BackupOpsFileConfigValueSafe -InputObject $Config -Path @('backup', 'localWorkspaceRoot')
-    if ($null -eq $workspaceRoot -or [string]::IsNullOrWhiteSpace([string]$workspaceRoot) -or -not (Test-Path -LiteralPath ([string]$workspaceRoot) -PathType Container)) {
-        return ''
-    }
-
-    $currentBackupId = [string]$Workspace.BackupId
-    $previousCandidates = @(
-        Get-ChildItem -LiteralPath ([string]$workspaceRoot) -Directory -ErrorAction SilentlyContinue |
-            Where-Object {
-                $_.Name -match '^\d{8}-\d{6}$' -and $_.Name -lt $currentBackupId
-            } |
-            Sort-Object Name -Descending
-    )
-    foreach ($candidate in $previousCandidates) {
-        $candidateManifest = Join-Path $candidate.FullName 'manifest\dcc-backup-manifest.json'
-        if ((Test-Path -LiteralPath $candidateManifest -PathType Leaf) -and (Test-BackupOpsDccPreviousManifestUsable -Path $candidateManifest)) {
-            return $candidateManifest
+    Import-BackupOpsSshDependency
+    $backupPointsRoot = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -Code 'INTBK-6001' -Reason '缺少测试服务器备份点根目录。' -Action '请补齐 servers.test.backupPointsRoot。')
+    $testRequest = Get-BackupOpsFileSshRequest -Config $Config -Environment 'test' -Code 'INTBK-6001'
+    $remotePath = $backupPointsRoot.TrimEnd('/') + "/$ExpectedParentBackupId/manifest/dcc-backup-manifest.json"
+    $localPath = Join-Path ([System.IO.Path]::GetTempPath()) ("backup-ops-dcc-parent-$ExpectedParentBackupId-$([System.Guid]::NewGuid().ToString('N')).json")
+    $resolved = $false
+    try {
+        Receive-BackupFileOverSsh -Request ($testRequest + @{
+            RemotePath = $remotePath
+            LocalPath = $localPath
+            TimeoutSeconds = 300
+        }) | Out-Null
+        if (-not (Test-BackupOpsDccPreviousManifestUsable -Path $localPath)) {
+            throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message "DCC expected parent manifest is unusable: $ExpectedParentBackupId.")
+        }
+        $resolved = $true
+        return $localPath
+    } finally {
+        if (-not $resolved -and (Test-Path -LiteralPath $localPath)) {
+            Remove-Item -LiteralPath $localPath -Force -ErrorAction Stop
         }
     }
-
-    return ''
 }
 
 function Get-BackupOpsDccMySqlRootPassword {
@@ -1288,6 +1428,11 @@ function New-BackupOpsDccBackupManifest {
         [Parameter(Mandatory = $true)]
         [object]$Workspace,
         [Parameter(Mandatory = $true)]
+        [ValidateSet('FULL', 'INCREMENTAL')]
+        [string]$BackupKind,
+        [AllowEmptyString()]
+        [string]$ExpectedParentBackupId = '',
+        [Parameter(Mandatory = $true)]
         [object]$LogSession
     )
 
@@ -1314,29 +1459,47 @@ function New-BackupOpsDccBackupManifest {
         throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message (New-BackupOpsOperatorBlockedMessage -Reason "DCC 数据库快照导出失败，诊断已写入：$snapshotPath。" -Action '请按 dcc-database-snapshot.json 中的 errors 修复测试租户 DCC 数据、对象路径或查询配置后再执行备份。'))
     }
 
-    $previousManifestPath = Resolve-BackupOpsPreviousDccBackupManifestPath -Config $Config -Workspace $Workspace
-    if ([string]::IsNullOrWhiteSpace($previousManifestPath)) {
-        $buildResult = Invoke-DccBackupManifestBuild `
-            -BackupId ([string]$Workspace.BackupId) `
-            -RestorePointId ([string]$Workspace.BackupId) `
-            -TargetEnvironment ([string]$targetEnvironment) `
-            -TargetHost $targetHost `
-            -DccSnapshotPath $snapshotPath `
-            -ObjectInventoryPath $objectInventoryPath `
-            -OutputPath $manifestPath
-    } else {
-        $buildResult = Invoke-DccBackupManifestBuild `
-            -BackupId ([string]$Workspace.BackupId) `
-            -RestorePointId ([string]$Workspace.BackupId) `
-            -TargetEnvironment ([string]$targetEnvironment) `
-            -TargetHost $targetHost `
-            -DccSnapshotPath $snapshotPath `
-            -ObjectInventoryPath $objectInventoryPath `
-            -PreviousManifestPath $previousManifestPath `
-            -OutputPath $manifestPath
+    $previousManifestPath = ''
+    try {
+        if ($BackupKind -eq 'INCREMENTAL') {
+            $previousManifestPath = Resolve-BackupOpsPreviousDccBackupManifestPath -Config $Config -Workspace $Workspace -ExpectedParentBackupId $ExpectedParentBackupId
+        }
+        if ([string]::IsNullOrWhiteSpace($previousManifestPath)) {
+            $buildResult = Invoke-DccBackupManifestBuild `
+                -BackupId ([string]$Workspace.BackupId) `
+                -RestorePointId ([string]$Workspace.BackupId) `
+                -TargetEnvironment ([string]$targetEnvironment) `
+                -TargetHost $targetHost `
+                -DccSnapshotPath $snapshotPath `
+                -ObjectInventoryPath $objectInventoryPath `
+                -OutputPath $manifestPath
+        } else {
+            $buildResult = Invoke-DccBackupManifestBuild `
+                -BackupId ([string]$Workspace.BackupId) `
+                -RestorePointId ([string]$Workspace.BackupId) `
+                -TargetEnvironment ([string]$targetEnvironment) `
+                -TargetHost $targetHost `
+                -DccSnapshotPath $snapshotPath `
+                -ObjectInventoryPath $objectInventoryPath `
+                -PreviousManifestPath $previousManifestPath `
+                -OutputPath $manifestPath
+        }
+    } finally {
+        if (-not [string]::IsNullOrWhiteSpace($previousManifestPath) -and (Test-Path -LiteralPath $previousManifestPath)) {
+            Remove-Item -LiteralPath $previousManifestPath -Force -ErrorAction Stop
+        }
     }
     if ([int]$buildResult.ExitCode -ne 0) {
         throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message (New-BackupOpsOperatorBlockedMessage -Reason "DCC 备份 manifest 构建失败，诊断已写入：$manifestPath。" -Action '请按 dcc-backup-manifest.json 中的 errors 修复对象 inventory、上一恢复点 manifest 或 DCC 数据快照后再执行备份。'))
+    }
+    try {
+        $dccManifest = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message "Generated DCC manifest is unreadable: $($_.Exception.Message)")
+    }
+    $dccPreviousBackupId = if ($dccManifest.PSObject.Properties['previousBackupId']) { [string]$dccManifest.previousBackupId } else { '' }
+    if ($BackupKind -eq 'INCREMENTAL' -and $dccPreviousBackupId -ne $ExpectedParentBackupId) {
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6001' -Message 'DCC manifest previousBackupId does not match MySQL parentBackupId.')
     }
 
     Write-BackupOpsLog -Session $LogSession -Message "Generated DCC backup manifest at $manifestPath."
@@ -1353,30 +1516,54 @@ function New-BackupOpsChecksums {
         [object]$LogSession
     )
 
-    $entries = @()
-    foreach ($relativePath in @(
-        'deploy/docker-compose.yml',
-        'deploy/runtime.env',
-        'deploy/image-tag.txt',
-        'manifest/dcc-backup-manifest.json'
-    )) {
-        $fullPath = Join-Path $Workspace.BackupRoot $relativePath
-        if (Test-Path -LiteralPath $fullPath) {
-            $entries += [pscustomobject]@{
-                Sha256 = (Get-FileHash -LiteralPath $fullPath -Algorithm SHA256).Hash.ToLowerInvariant()
-                RelativePath = $relativePath.Replace('/', '\')
+    $backupRoot = [System.IO.Path]::GetFullPath([string]$Workspace.BackupRoot).TrimEnd('\', '/')
+    $checksumPath = [System.IO.Path]::GetFullPath((Join-Path $Workspace.ManifestPath 'checksums.txt'))
+    $entries = @(
+        Get-ChildItem -LiteralPath $backupRoot -Recurse -File |
+            Where-Object {
+                $fullPath = [System.IO.Path]::GetFullPath($_.FullName)
+                $fullPath -ne $checksumPath -and $_.Name -ne 'manifest.json'
+            } |
+            Sort-Object FullName |
+            ForEach-Object {
+                $fullPath = [System.IO.Path]::GetFullPath($_.FullName)
+                $relativePath = $fullPath.Substring($backupRoot.Length).TrimStart('\', '/').Replace('\', '/')
+                $stream = [System.IO.File]::OpenRead($fullPath)
+                $sha256 = [System.Security.Cryptography.SHA256]::Create()
+                try {
+                    $hash = [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+                } finally {
+                    $sha256.Dispose()
+                    $stream.Dispose()
+                }
+                [pscustomobject]@{
+                    Sha256 = $hash
+                    RelativePath = $relativePath
+                }
             }
-        }
-    }
+    )
     if ($entries.Count -eq 0) {
-        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6002' -Message 'No checksum entries were available for phase-1 backup metadata.')
+        throw (New-BackupOpsInfraBlockedException -Code 'INTBK-6002' -Message 'No recovery payload files were available for checksums.txt.')
     }
     $file = New-BackupChecksumsFile -Request @{
-        Path = (Join-Path $Workspace.ManifestPath 'checksums.txt')
+        Path = $checksumPath
         Entries = $entries
     }
     Write-BackupOpsLog -Session $LogSession -Message "Generated checksums.txt at $($file.path)."
     return $file
+}
+
+function Get-BackupOpsFileSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return [System.BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
 }
 
 function Sync-BackupOpsBackupToTestServer {
@@ -1393,7 +1580,7 @@ function Sync-BackupOpsBackupToTestServer {
     $testRequest = Get-BackupOpsFileSshRequest -Config $Config -Environment 'test' -Code 'INTBK-2003'
     $backupPointsRoot = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -Code 'INTBK-2003' -Reason '缺少测试服务器备份根目录配置。' -Action '请先补齐 servers.test.backupPointsRoot 后再执行备份。')
     $remoteTargetRoot = $backupPointsRoot.TrimEnd('/')
-    $remoteBackupRoot = $remoteTargetRoot + '/' + $Workspace.BackupId
+    $remoteBackupRoot = $remoteTargetRoot + '/' + $Workspace.BackupId + '.creating'
     $remoteDirectoryTimeoutSeconds = 60
     $metadataUploadTimeoutSeconds = 300
     $mysqlUploadTimeoutSeconds = 7200
@@ -1479,7 +1666,9 @@ function Sync-BackupOpsManifestToTestServer {
     Import-BackupOpsSshDependency
     $testRequest = Get-BackupOpsFileSshRequest -Config $Config -Environment 'test' -Code 'INTBK-2003'
     $backupPointsRoot = [string](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -Code 'INTBK-2003' -Reason '缺少测试服务器备份根目录配置。' -Action '请先补齐 servers.test.backupPointsRoot 后再同步 manifest。')
-    $remoteManifestRoot = $backupPointsRoot.TrimEnd('/') + '/' + $Workspace.BackupId + '/manifest/'
+    $remoteCreatingRoot = $backupPointsRoot.TrimEnd('/') + '/' + $Workspace.BackupId + '.creating'
+    $remoteFinalRoot = $backupPointsRoot.TrimEnd('/') + '/' + $Workspace.BackupId
+    $remoteManifestRoot = $remoteCreatingRoot + '/manifest/'
     $manifestPath = Join-Path $Workspace.ManifestPath 'manifest.json'
     $manifestUploadTimeoutSeconds = 300
 
@@ -1492,12 +1681,18 @@ function Sync-BackupOpsManifestToTestServer {
         RemotePath = $remoteManifestRoot
         TimeoutSeconds = $manifestUploadTimeoutSeconds
     }) | Out-Null
-    Write-BackupOpsLog -Session $LogSession -Message "Synced manifest.json to $remoteManifestRoot."
+    Invoke-BackupSshCommand -Request ($testRequest + @{
+        Command = "test -d {0}; test ! -e {1}; mv -- {0} {1}" -f `
+            (ConvertTo-BackupBashSingleQuotedString -Value $remoteCreatingRoot), `
+            (ConvertTo-BackupBashSingleQuotedString -Value $remoteFinalRoot)
+        TimeoutSeconds = 60
+    }) | Out-Null
+    Write-BackupOpsLog -Session $LogSession -Message "Published backup point atomically: $remoteFinalRoot."
     return [pscustomobject]@{
         operation = 'sync-manifest'
         status = 'success'
         code = 'INTBK-0000'
-        remoteRoot = $remoteManifestRoot
+        remoteRoot = $remoteFinalRoot
         backupId = $Workspace.BackupId
     }
 }
@@ -1547,6 +1742,8 @@ function Invoke-BackupOpsRemoteRetentionInternal {
     Assert-BackupOpsRemoteRetentionRoot -RootPath $backupPointsRoot
     $keepDays = [int](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'keepDaysRemote') -Code 'INTBK-2003' -Reason '缺少远端保留天数配置。' -Action '请先补齐 backup.keepDaysRemote 后再执行远端清理。')
     $keepLast = if ($Config.backup.PSObject.Properties['keepLastPoints']) { [int]$Config.backup.keepLastPoints } else { 0 }
+    $keepLastFullChains = [int](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'keepLastFullChains') -Code 'INTBK-2003' -Reason '缺少全量链保留数量。' -Action '请补齐 backup.keepLastFullChains。')
+    $minimumRecoverableChains = [int](Get-BackupOpsRequiredFileConfigValue -Config $Config -Path @('backup', 'minimumRecoverableChains') -Code 'INTBK-2003' -Reason '缺少最小可恢复链数量。' -Action '请补齐 backup.minimumRecoverableChains。')
     $maxNasUsedPercent = if ($Config.backup.PSObject.Properties['maxNasUsedPercent']) { [int]$Config.backup.maxNasUsedPercent } else { 0 }
     $action = if ($PlanOnly) { 'plan' } else { 'delete' }
     $pythonScript = New-BackupOpsRemoteRetentionPythonScript
@@ -1559,6 +1756,8 @@ function Invoke-BackupOpsRemoteRetentionInternal {
         "export BACKUP_ROOT=$backupPointsRoot",
         "export KEEP_DAYS=$keepDays",
         "export KEEP_LAST_POINTS=$keepLast",
+        "export KEEP_LAST_FULL_CHAINS=$keepLastFullChains",
+        "export MINIMUM_RECOVERABLE_CHAINS=$minimumRecoverableChains",
         "export MAX_NAS_USED_PERCENT=$maxNasUsedPercent",
         "export RETENTION_ACTION=$action",
         "printf %s $encodedScript | base64 -d | python3 -"

@@ -1215,6 +1215,36 @@ function Stop-BackupOpsFrontendBackend {
         })
 }
 
+function Assert-BackupOpsWriteWindowQuiesced {
+    param(
+        [Parameter(Mandatory = $true)][object]$Config,
+        [Parameter(Mandatory = $true)][object]$LogSession
+    )
+
+    $runtime = Get-BackupOpsRuntimeFileMap -AppDir ([string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('servers', 'production', 'appDir') -Code 'INTBK-5002' -Reason '缺少正式运行目录配置。' -Action '请补齐 servers.production.appDir。'))
+    $sshRequest = Get-BackupOpsProductionSshRequest -Config $Config -Code 'INTBK-5002'
+    $envLines = Get-BackupOpsRuntimeEnvLines -SshRequest $sshRequest -EnvFile $runtime.EnvFile -Code 'INTBK-5002' -MissingReason '无法读取正式运行时 .env。' -MissingAction '请恢复正式运行配置后重试。'
+    $rootPassword = Get-BackupOpsDotEnvValue -Lines $envLines -Key 'MYSQL_ROOT_PASSWORD'
+    if ([string]::IsNullOrWhiteSpace($rootPassword)) {
+        throw (New-BackupOpsDockerException -Code 'INTBK-5002' -Status 'blocked' -Message '无法验证无写入窗口：MYSQL_ROOT_PASSWORD 缺失。')
+    }
+    $backend = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'backend') -Code 'INTBK-5002' -Reason '缺少 backend 容器名。' -Action '请补齐 containers.backend。')
+    $frontend = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'frontend') -Code 'INTBK-5002' -Reason '缺少 frontend 容器名。' -Action '请补齐 containers.frontend。')
+    $mysql = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'mysql') -Code 'INTBK-5002' -Reason '缺少 MySQL 容器名。' -Action '请补齐 containers.mysql。')
+    $command = 'set -euo pipefail; test "$(docker inspect -f ''{{.State.Running}}'' {0})" = "false"; test "$(docker inspect -f ''{{.State.Running}}'' {1})" = "false"; active=$(docker exec {2} mysql -uroot -p{3} -N -B -e {4}); test "$active" = "0"; printf ''QUIESCED\n''' -f
+        (ConvertTo-BackupBashSingleQuotedString -Value $backend),
+        (ConvertTo-BackupBashSingleQuotedString -Value $frontend),
+        (ConvertTo-BackupBashSingleQuotedString -Value $mysql),
+        (ConvertTo-BackupBashSingleQuotedString -Value $rootPassword),
+        (ConvertTo-BackupBashSingleQuotedString -Value 'SELECT COUNT(*) FROM information_schema.innodb_trx;')
+    $result = Invoke-BackupSshCommand -Request ($sshRequest + @{ Command = "bash -lc {0}" -f (ConvertTo-BackupBashSingleQuotedString -Value $command); TimeoutSeconds = 60 })
+    if (([string]$result.output).Trim() -ne 'QUIESCED') {
+        throw (New-BackupOpsDockerException -Code 'INTBK-5002' -Status 'blocked' -Message '无法证明 frontend/backend 已停止且 MySQL 活动事务为 0。')
+    }
+    Write-BackupOpsLog -Session $LogSession -Message 'Write window quiesced: frontend/backend stopped and active MySQL transactions=0.'
+    return [pscustomobject]@{ status = 'passed'; activeTransactions = 0 }
+}
+
 function Restore-BackupOpsDependentAssets {
     param(
         [Parameter(Mandatory = $true)]
@@ -1397,18 +1427,19 @@ function Ensure-BackupOpsRehearsalImageAvailable {
     $productionSshRequest = Get-BackupOpsProductionSshRequest -Config $Config -Code 'INTBK-7001'
     $backendImage = "intruoyi-backend:$($Metadata.ImageTag)"
     $frontendImage = "intruoyi-frontend:$($Metadata.ImageTag)"
-    $inspectCommand = "docker image inspect {0} >/dev/null 2>&1 && docker image inspect {1} >/dev/null 2>&1 && echo READY" -f $backendImage, $frontendImage
+    $inspectCommand = "docker image inspect {0} >/dev/null 2>&1 && docker image inspect {1} >/dev/null 2>&1" -f $backendImage, $frontendImage
 
-    try {
-        $inspectResult = Invoke-BackupSshCommand -Request ($testSshRequest + @{ Command = $inspectCommand })
-        if ($inspectResult.output -match 'READY') {
-            Write-BackupOpsLog -Session $LogSession -Message "Rehearsal IMAGE_TAG $($Metadata.ImageTag) already exists on test server."
-            return
-        }
+    $probeCommand = "set -e; command -v docker >/dev/null; if $inspectCommand; then printf 'READY\n'; else printf 'MISSING\n'; fi"
+    $inspectResult = Invoke-BackupSshCommand -Request ($testSshRequest + @{ Command = $probeCommand })
+    $probeStatus = ([string]$inspectResult.output).Trim()
+    if ($probeStatus -eq 'READY') {
+        Write-BackupOpsLog -Session $LogSession -Message "Rehearsal IMAGE_TAG $($Metadata.ImageTag) already exists on test server."
+        return
     }
-    catch {
-        Write-BackupOpsLog -Session $LogSession -Level 'WARN' -Message "Rehearsal IMAGE_TAG $($Metadata.ImageTag) not found on test server. Preparing transfer from production."
+    if ($probeStatus -ne 'MISSING') {
+        throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message "演练镜像探测返回未知结果：$probeStatus")
     }
+    Write-BackupOpsLog -Session $LogSession -Level 'WARN' -Message "Rehearsal IMAGE_TAG $($Metadata.ImageTag) not found on test server. Preparing transfer from production."
 
     $prodTmpRoot = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('servers', 'production', 'tmpRoot') -Code 'INTBK-7001' -Reason '缺少正式环境临时目录配置。' -Action '请先补齐 servers.production.tmpRoot 后再执行恢复演练。')
     $remoteProdDir = ($prodTmpRoot.TrimEnd('/')) + '/rehearsal-images'
@@ -1465,7 +1496,8 @@ function Initialize-BackupOpsRehearsalRuntime {
     $testSshRequest = Get-BackupOpsTestSshRequest -Config $Config -Code 'INTBK-7001'
     $backupPointsRoot = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('servers', 'test', 'backupPointsRoot') -Code 'INTBK-7001' -Reason '缺少测试服务器备份点根目录配置。' -Action '请先补齐 servers.test.backupPointsRoot 后再执行恢复演练。')
     $remoteComposePath = "$($backupPointsRoot.TrimEnd('/'))/$($Metadata.BackupId)/deploy/docker-compose.yml"
-    $remoteEnvPath = "$($backupPointsRoot.TrimEnd('/'))/$($Metadata.BackupId)/deploy/runtime.env"
+    $testRuntimeDir = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('servers', 'test', 'runtimeDir') -Code 'INTBK-7001' -Reason '缺少测试环境当前运行目录，无法安全注入演练凭据。' -Action '请补齐 servers.test.runtimeDir。')
+    $remoteEnvPath = $testRuntimeDir.TrimEnd('/') + '/.env'
     $localStageDir = Get-BackupOpsTempPath -Segments @('rehearsal', $Metadata.BackupId, 'runtime')
     $localComposePath = Join-Path $localStageDir 'docker-compose.yml'
     $localEnvPath = Join-Path $localStageDir '.env'
@@ -1473,7 +1505,7 @@ function Initialize-BackupOpsRehearsalRuntime {
     Receive-BackupFileOverSsh -Request ($testSshRequest + @{
             RemotePath = $remoteComposePath
             LocalPath = $localComposePath
-        }) | Out-Null
+    }) | Out-Null
     Receive-BackupFileOverSsh -Request ($testSshRequest + @{
             RemotePath = $remoteEnvPath
             LocalPath = $localEnvPath
@@ -1740,7 +1772,6 @@ function Get-BackupOpsRehearsalCandidate {
     $databaseName = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('backup', 'mysqlDatabase') -Code 'INTBK-7001' -Reason '缺少 MySQL 数据库名配置。' -Action '请先补齐 backup.mysqlDatabase 后再执行演练。')
     $sshRequest = Get-BackupOpsTestSshRequest -Config $Config -Code 'INTBK-7001'
     $backupDirectory = "$($backupPointsRoot.TrimEnd('/'))/$BackupId"
-    $mysqlDumpPath = "$backupDirectory/mysql/$databaseName.sql.gz"
     $objectInventoryPath = "$backupDirectory/objects/manifest-object-inventory.json"
     $imageTagPath = "$backupDirectory/deploy/image-tag.txt"
     $manifestPath = "$backupDirectory/manifest/manifest.json"
@@ -1748,7 +1779,6 @@ function Get-BackupOpsRehearsalCandidate {
     $checksumsPath = "$backupDirectory/manifest/checksums.txt"
 
     foreach ($item in @(
-            @{ Path = $mysqlDumpPath; Kind = 'file' },
             @{ Path = $objectInventoryPath; Kind = 'file' },
             @{ Path = $imageTagPath; Kind = 'file' },
             @{ Path = $manifestPath; Kind = 'file' },
@@ -1767,16 +1797,61 @@ function Get-BackupOpsRehearsalCandidate {
         throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点 manifest 无法解析：$BackupId" -Action '请先修复 manifest.json 后再执行恢复演练。'))
     }
 
+    $backupKind = if ($manifestObject.PSObject.Properties['backupKind']) { [string]$manifestObject.backupKind } else { '' }
+    $baseBackupId = if ($manifestObject.PSObject.Properties['baseBackupId']) { [string]$manifestObject.baseBackupId } else { '' }
+    $parentBackupId = if ($manifestObject.PSObject.Properties['parentBackupId']) { [string]$manifestObject.parentBackupId } else { '' }
+    if ($backupKind -notin @('FULL', 'INCREMENTAL') -or [string]::IsNullOrWhiteSpace($baseBackupId)) {
+        throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点缺少 FULL/INCREMENTAL 链身份：$BackupId" -Action '请使用 v2-minimal 备份点执行恢复演练。'))
+    }
+    if ($backupKind -eq 'FULL') {
+        if ($baseBackupId -ne $BackupId -or -not [string]::IsNullOrWhiteSpace($parentBackupId)) {
+            throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message "FULL 备份点链身份无效：$BackupId")
+        }
+    } elseif ([string]::IsNullOrWhiteSpace($parentBackupId)) {
+        throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message "INCREMENTAL 备份点缺少 parentBackupId：$BackupId")
+    }
+    $baseDumpPath = "$($backupPointsRoot.TrimEnd('/'))/$baseBackupId/mysql/$databaseName.sql.gz"
+    $mysqlEvidencePath = if ($backupKind -eq 'FULL') {
+        "$backupDirectory/mysql/full-dump-manifest.json"
+    } else {
+        "$backupDirectory/mysql/binlog-segment-manifest.json"
+    }
+    foreach ($item in @(
+            @{ Path = $baseDumpPath; Kind = 'file' },
+            @{ Path = $baseDumpPath + '.sha256'; Kind = 'file' },
+            @{ Path = $mysqlEvidencePath; Kind = 'file' }
+        )) {
+        if (-not (Get-BackupOpsRemotePathExists -SshRequest $sshRequest -Path $item.Path -Kind $item.Kind)) {
+            throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点 MySQL 链不完整：$BackupId" -Action '请确认 FULL dump、checksum 和当前 MySQL evidence 均存在。'))
+        }
+    }
     if (-not $manifestObject.PSObject.Properties['validation'] -or $null -eq $manifestObject.validation) {
         throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点缺少 validation 元数据：$BackupId" -Action '请先补齐 manifest.validation 后再执行恢复演练。'))
     }
-    if (-not $manifestObject.validation.mysqlDumpCreated -or -not $manifestObject.validation.objectBackupCreated -or -not $manifestObject.validation.checksumsGenerated) {
+    $mysqlValidationPassed = if ($backupKind -eq 'FULL') {
+        [bool]$manifestObject.validation.mysqlDumpCreated
+    } else {
+        [bool]$manifestObject.validation.mysqlIncrementCreated
+    }
+    if (-not $mysqlValidationPassed -or -not $manifestObject.validation.objectBackupCreated -or -not $manifestObject.validation.checksumsGenerated) {
         throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点 validation 标记不完整：$BackupId" -Action '请先修复 manifest.validation 标记后再执行恢复演练。'))
     }
     $manifestTargetEnvironment = if ($manifestObject.PSObject.Properties['targetEnvironment']) { [string]$manifestObject.targetEnvironment } else { '' }
     $manifestTargetHost = if ($manifestObject.PSObject.Properties['targetHost']) { [string]$manifestObject.targetHost } else { '' }
     if ($manifestTargetEnvironment -ne 'test' -or $manifestTargetHost -ne '172.30.30.58') {
         throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点缺少测试服目标证明：$BackupId。" -Action '请确认 manifest.targetEnvironment=test 且 targetHost=172.30.30.58 后再执行恢复演练。'))
+    }
+    $repositoryEnvironment = if ($manifestObject.PSObject.Properties['repositoryEnvironment']) { [string]$manifestObject.repositoryEnvironment } else { '' }
+    $repositoryHost = if ($manifestObject.PSObject.Properties['repositoryHost']) { [string]$manifestObject.repositoryHost } else { '' }
+    if ($repositoryEnvironment -ne 'test' -or $repositoryHost -ne '172.30.30.58') {
+        throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message "指定的演练恢复点缺少测试备份仓库证明：$BackupId。")
+    }
+    $sourceEnvironment = if ($manifestObject.PSObject.Properties['sourceEnvironment']) { [string]$manifestObject.sourceEnvironment } else { '' }
+    $sourceHost = if ($manifestObject.PSObject.Properties['sourceHost']) { [string]$manifestObject.sourceHost } else { '' }
+    $sourceProofValid = ($sourceEnvironment -eq 'production' -and $sourceHost -eq '172.30.30.57') -or
+        ($sourceEnvironment -eq 'test' -and $sourceHost -eq '172.30.30.58')
+    if (-not $sourceProofValid) {
+        throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message "指定的演练恢复点备份源证明无效：$BackupId。")
     }
     if (-not $manifestObject.PSObject.Properties['backupStrategy'] -or $null -eq $manifestObject.backupStrategy) {
         throw (New-BackupOpsDockerException -Code 'INTBK-7001' -Status 'blocked' -Message (New-BackupOpsOperatorBlockedMessage -Reason "指定的演练恢复点缺少 backupStrategy：$BackupId。" -Action '请重新生成包含 backupStrategy.mode 和 backupStrategy.mysqlBackupMode 的完整备份 manifest 后再执行恢复演练。'))
@@ -1819,6 +1894,9 @@ function Get-BackupOpsRehearsalCandidate {
 
     return [pscustomobject]([ordered]@{
             backupId = $BackupId
+            backupKind = $backupKind
+            baseBackupId = $baseBackupId
+            parentBackupId = $parentBackupId
             backupType = if ($manifestObject.PSObject.Properties['backupType']) { [string]$manifestObject.backupType } else { 'scheduled' }
             status = if ($manifestObject.PSObject.Properties['status']) { [string]$manifestObject.status } else { 'success' }
             imageTag = $imageTag
@@ -1899,12 +1977,16 @@ function Restore-BackupOpsRehearsalRuntime {
     $rehearsalConfig = New-BackupOpsRehearsalConfig -Config $Config -Metadata $metadata
     $rehearsalSshRequest = Get-BackupOpsProductionSshRequest -Config $rehearsalConfig -Code 'INTBK-7001'
 
+    Test-BackupOpsMySqlDumpIntegrity -Config $rehearsalConfig -BackupId $candidate.baseBackupId -LogSession $LogSession | Out-Null
+    Test-BackupOpsMySqlRestoreChainIntegrity -Config $rehearsalConfig -BaseBackupId $candidate.baseBackupId -TargetBackupId $BackupId -LogSession $LogSession | Out-Null
+    Test-BackupOpsObjectBucketIntegrity -Config $rehearsalConfig -BackupId $BackupId -LogSession $LogSession | Out-Null
+
     Ensure-BackupOpsRehearsalImageAvailable -Config $Config -Metadata $metadata -LogSession $LogSession
     Initialize-BackupOpsRehearsalRuntime -Config $Config -Metadata $metadata -LogSession $LogSession
 
     Write-BackupOpsLog -Session $LogSession -Message "Resetting rehearsal runtime stack under $($metadata.RuntimeRoot)."
     Invoke-BackupSshCommand -Request ($rehearsalSshRequest + @{
-            Command = "cd {0} && docker compose down -v --remove-orphans || true" -f (ConvertTo-BackupBashSingleQuotedString -Value $metadata.RuntimeRoot)
+            Command = "cd {0} && docker compose down -v --remove-orphans" -f (ConvertTo-BackupBashSingleQuotedString -Value $metadata.RuntimeRoot)
         }) | Out-Null
 
     Write-BackupOpsLog -Session $LogSession -Message 'Starting rehearsal mysql/redis services.'
@@ -1921,7 +2003,8 @@ function Restore-BackupOpsRehearsalRuntime {
             RootPassword = $rootPassword
         }) -LogSession $LogSession
 
-    Import-BackupOpsMySqlDump -Config $rehearsalConfig -BackupId $BackupId -LogSession $LogSession | Out-Null
+    Import-BackupOpsMySqlDump -Config $rehearsalConfig -BackupId $candidate.baseBackupId -LogSession $LogSession | Out-Null
+    $replay = Replay-BackupOpsMySqlBinlogChain -Config $rehearsalConfig -BaseBackupId $candidate.baseBackupId -TargetBackupId $BackupId -LogSession $LogSession
     Restore-BackupOpsRehearsalObjectBucket -Config $Config -Metadata $metadata -LogSession $LogSession | Out-Null
     Update-BackupOpsRehearsalFileMetadata -RehearsalConfig $rehearsalConfig -Metadata $metadata -LogSession $LogSession
     Start-BackupOpsFrontendBackend -Config $rehearsalConfig -LogSession $LogSession | Out-Null
@@ -1930,6 +2013,8 @@ function Restore-BackupOpsRehearsalRuntime {
             status = 'success'
             code = 'INTBK-0000'
             backupId = $BackupId
+            baseBackupId = $candidate.baseBackupId
+            replayStatus = $replay.replayStatus
             imageTag = $metadata.ImageTag
             runtimeRoot = $metadata.RuntimeRoot
         })
@@ -1971,4 +2056,4 @@ function Test-BackupOpsRehearsalValidation {
         })
 }
 
-Export-ModuleMember -Function Get-BackupDockerComposeStatus, Get-BackupDockerImageTag, Invoke-BackupDockerCompose, Stop-BackupAppServices, Start-BackupAppServices, Restart-BackupAppServices, Get-BackupOpsCurrentImageTag, Get-BackupOpsRollbackTags, Save-BackupOpsRuntimeEnvBackup, Set-BackupOpsImageTag, Restart-BackupOpsFrontendBackend, Test-BackupOpsFrontendBackendHealth, Get-BackupOpsRestoreCandidates, New-BackupOpsPreRestoreSnapshot, Stop-BackupOpsFrontendBackend, Restore-BackupOpsDependentAssets, Start-BackupOpsFrontendBackend, Test-BackupOpsRestoreValidation, Get-BackupOpsLatestBackup, Get-BackupOpsRehearsalCandidate, Set-BackupOpsRehearsalVerificationState, Restore-BackupOpsRehearsalRuntime, Test-BackupOpsRehearsalValidation
+Export-ModuleMember -Function Get-BackupDockerComposeStatus, Get-BackupDockerImageTag, Invoke-BackupDockerCompose, Stop-BackupAppServices, Start-BackupAppServices, Restart-BackupAppServices, Get-BackupOpsCurrentImageTag, Get-BackupOpsRollbackTags, Save-BackupOpsRuntimeEnvBackup, Set-BackupOpsImageTag, Restart-BackupOpsFrontendBackend, Test-BackupOpsFrontendBackendHealth, Get-BackupOpsRestoreCandidates, New-BackupOpsPreRestoreSnapshot, Stop-BackupOpsFrontendBackend, Assert-BackupOpsWriteWindowQuiesced, Restore-BackupOpsDependentAssets, Start-BackupOpsFrontendBackend, Test-BackupOpsRestoreValidation, Get-BackupOpsLatestBackup, Get-BackupOpsRehearsalCandidate, Set-BackupOpsRehearsalVerificationState, Restore-BackupOpsRehearsalRuntime, Test-BackupOpsRehearsalValidation

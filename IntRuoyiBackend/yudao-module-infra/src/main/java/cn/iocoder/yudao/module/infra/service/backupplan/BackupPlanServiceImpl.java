@@ -35,9 +35,8 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CON
 @Service
 public class BackupPlanServiceImpl implements BackupPlanService {
 
-    private static final String DAILY = "DAILY";
-    private static final String WEEKLY = "WEEKLY";
     private static final List<String> WEEKDAYS = List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
+    private static final List<String> BACKUP_KINDS = List.of("FULL", "INCREMENTAL");
 
     private final ObjectMapper objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
@@ -73,8 +72,14 @@ public class BackupPlanServiceImpl implements BackupPlanService {
     public BackupPlanStatusRespVO saveSchedule(BackupPlanScheduleSaveReqVO reqVO) {
         BackupPlanSchedule schedule = normalizeSchedule(reqVO);
         assertBackupScriptsExist(schedule);
-        writeSchedule(schedule);
-        schedulerGateway.registerOrUpdate(schedule);
+        byte[] originalConfig = readConfigBytes(schedule.getConfigPath());
+        try {
+            writeSchedule(schedule);
+            schedulerGateway.registerOrUpdate(schedule);
+        } catch (RuntimeException ex) {
+            restoreConfig(schedule.getConfigPath(), originalConfig, ex);
+            throw ex;
+        }
         return getStatus();
     }
 
@@ -94,8 +99,12 @@ public class BackupPlanServiceImpl implements BackupPlanService {
     }
 
     @Override
-    public RuntimeControlOperationRespVO backupNow(Long loginUserId) {
-        return operationGateway.backupNow(loginUserId);
+    public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind) {
+        String normalizedKind = StrUtil.trimToEmpty(backupKind).toUpperCase(Locale.ROOT);
+        if (!BACKUP_KINDS.contains(normalizedKind)) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "backupKind");
+        }
+        return operationGateway.backupNow(loginUserId, normalizedKind);
     }
 
     @Override
@@ -109,9 +118,8 @@ public class BackupPlanServiceImpl implements BackupPlanService {
     private BackupPlanStatusRespVO buildStatus(BackupPlanSchedule schedule, BackupPlanSchedulerStatus schedulerStatus,
                                                RuntimeControlBackupPointRespVO latestBackupPoint) {
         BackupPlanStatusRespVO respVO = new BackupPlanStatusRespVO();
-        respVO.setFrequency(schedule.getFrequency());
-        respVO.setTime(schedule.getTime());
-        respVO.setWeekday(schedule.getWeekday());
+        respVO.setFullSchedule(schedule.getFullSchedule());
+        respVO.setIncrementalSchedule(schedule.getIncrementalSchedule());
         respVO.setRepositoryEnvironment(schedule.getRepositoryEnvironment());
         respVO.setMaxFreshnessHours(schedule.getMaxFreshnessHours());
         respVO.setNextRunTime(schedulerStatus.getNextRunTime());
@@ -151,8 +159,8 @@ public class BackupPlanServiceImpl implements BackupPlanService {
 
     private String scheduleConfigBlockedReason(BackupPlanSchedule schedule) {
         String repositoryEnvironment = schedule.getRepositoryEnvironment();
-        if (!"test".equals(repositoryEnvironment) && !"backup".equals(repositoryEnvironment)) {
-            return "backup.repositoryEnvironment 必须显式配置为 test 或 backup";
+        if (!"test".equals(repositoryEnvironment)) {
+            return "v2-minimal 的 backup.repositoryEnvironment 必须显式配置为 test";
         }
         if (schedule.getMaxFreshnessHours() == null || schedule.getMaxFreshnessHours() <= 0) {
             return "backup.maxFreshnessHours 必须配置为正整数";
@@ -197,44 +205,54 @@ public class BackupPlanServiceImpl implements BackupPlanService {
     }
 
     private BackupPlanSchedule normalizeSchedule(BackupPlanScheduleSaveReqVO reqVO) {
-        String frequency = StrUtil.trimToEmpty(reqVO.getFrequency()).toUpperCase(Locale.ROOT);
-        if (!DAILY.equals(frequency) && !WEEKLY.equals(frequency)) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "frequency");
-        }
-        String time = StrUtil.trim(reqVO.getTime());
-        if (StrUtil.isBlank(time) || !time.matches("^(?:[01]\\d|2[0-3]):[0-5]\\d$")) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "time");
-        }
-        String weekday = StrUtil.trimToEmpty(reqVO.getWeekday()).toUpperCase(Locale.ROOT);
-        if (WEEKLY.equals(frequency) && !WEEKDAYS.contains(weekday)) {
-            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "weekday");
-        }
+        String fullSchedule = normalizeFullSchedule(reqVO.getFullSchedule());
+        String incrementalSchedule = normalizeTime(reqVO.getIncrementalSchedule(), "incrementalSchedule");
         BackupPlanSchedule schedule = readSchedule(true);
-        schedule.setFrequency(frequency);
-        schedule.setTime(time);
-        schedule.setWeekday(WEEKLY.equals(frequency) ? weekday : null);
+        schedule.setFullSchedule(fullSchedule);
+        schedule.setIncrementalSchedule(incrementalSchedule);
         return schedule;
+    }
+
+    private String normalizeFullSchedule(String value) {
+        String normalized = StrUtil.trimToEmpty(value).toUpperCase(Locale.ROOT);
+        String[] parts = normalized.split("\\s+");
+        if (parts.length != 2 || !WEEKDAYS.contains(parts[0])) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "fullSchedule");
+        }
+        return parts[0] + " " + normalizeTime(parts[1], "fullSchedule");
+    }
+
+    private String normalizeTime(String value, String fieldName) {
+        String normalized = StrUtil.trim(value);
+        if (StrUtil.isBlank(normalized) || !normalized.matches("^(?:[01]\\d|2[0-3]):[0-5]\\d$")) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, fieldName);
+        }
+        return normalized;
     }
 
     private BackupPlanSchedule readSchedule(boolean strict) {
         Path configPath = resolveConfigPath();
         JsonNode root = readConfig(configPath);
         JsonNode backup = root.path("backup");
-        String frequency = StrUtil.blankToDefault(backup.path("frequency").asText(null), DAILY);
-        String scheduleTime = StrUtil.blankToDefault(backup.path("schedule").asText(null), "01:30");
-        String weekday = StrUtil.blankToDefault(backup.path("weekday").asText(null), "MON");
         BackupPlanSchedule schedule = baseSchedule();
-        schedule.setFrequency(frequency);
-        schedule.setTime(scheduleTime);
-        schedule.setWeekday(weekday);
+        schedule.setFullSchedule(readRequiredText(backup, "fullSchedule", strict));
+        schedule.setIncrementalSchedule(readRequiredText(backup, "incrementalSchedule", strict));
         schedule.setRepositoryEnvironment(readRepositoryEnvironment(backup, strict));
         schedule.setMaxFreshnessHours(readMaxFreshnessHours(backup, strict));
         return schedule;
     }
 
+    private String readRequiredText(JsonNode node, String fieldName, boolean strict) {
+        String value = StrUtil.trim(node.path(fieldName).asText(null));
+        if (StrUtil.isBlank(value) && strict) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "backup." + fieldName);
+        }
+        return value;
+    }
+
     private String readRepositoryEnvironment(JsonNode backup, boolean strict) {
         String repositoryEnvironment = StrUtil.trimToEmpty(backup.path("repositoryEnvironment").asText(null)).toLowerCase(Locale.ROOT);
-        if (!List.of("test", "backup").contains(repositoryEnvironment)) {
+        if (!"test".equals(repositoryEnvironment)) {
             if (strict) {
                 throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "backup.repositoryEnvironment");
             }
@@ -274,19 +292,32 @@ public class BackupPlanServiceImpl implements BackupPlanService {
         ObjectNode backup = existingBackup instanceof ObjectNode existingObject
                 ? existingObject
                 : objectMapper.createObjectNode();
-        backup.put("frequency", schedule.getFrequency());
-        backup.put("schedule", schedule.getTime());
-        if (WEEKLY.equals(schedule.getFrequency())) {
-            backup.put("weekday", schedule.getWeekday());
-        } else {
-            backup.put("weekday", "MON");
-        }
+        backup.put("fullSchedule", schedule.getFullSchedule());
+        backup.put("incrementalSchedule", schedule.getIncrementalSchedule());
         root.set("backup", backup);
         try {
             Files.writeString(configPath, objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root) + "\n",
                     StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw exception(RUNTIME_CONTROL_OPERATION_STORE_FAILED, ex.getMessage());
+        }
+    }
+
+    private byte[] readConfigBytes(Path configPath) {
+        try {
+            return Files.readAllBytes(configPath);
+        } catch (IOException ex) {
+            throw exception(RUNTIME_CONTROL_OPERATION_STORE_FAILED, ex.getMessage());
+        }
+    }
+
+    private void restoreConfig(Path configPath, byte[] originalConfig, RuntimeException originalFailure) {
+        try {
+            Files.write(configPath, originalConfig);
+        } catch (IOException restoreFailure) {
+            originalFailure.addSuppressed(restoreFailure);
+            throw exception(RUNTIME_CONTROL_OPERATION_STORE_FAILED,
+                    "计划任务注册失败，且备份计划配置回滚失败：" + restoreFailure.getMessage());
         }
     }
 

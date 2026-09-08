@@ -14,6 +14,15 @@ public class RuntimeControlBackupPointRespVO {
     @Schema(description = "备份点编号")
     private String backupId;
 
+    @Schema(description = "备份类型：FULL/INCREMENTAL")
+    private String backupKind;
+
+    @Schema(description = "所属全量基线备份点")
+    private String baseBackupId;
+
+    @Schema(description = "直接父备份点；FULL 为空")
+    private String parentBackupId;
+
     @Schema(description = "manifest 路径")
     private String manifestPath;
 
