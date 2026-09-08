@@ -26,61 +26,71 @@ for (const entrypoint of [
     id: 'dcc-signature-evidence',
     label: 'DCC签名证据PDF',
     path: '/signature-governance/signature-records',
-    permission: 'dcc:controlled-file:signature:manage'
+    permission: 'dcc:controlled-file:signature:manage',
+    actionType: 'export'
   },
   {
     id: 'trusted-time-evidence',
     label: '可信时间戳证据ZIP',
     path: '/infra/runtime-control',
-    permission: 'infra:runtime-control:operate'
+    permission: 'infra:runtime-control:operate',
+    actionType: 'export'
   },
   {
     id: 'backup-review-evidence',
     label: '备份审查证据ZIP',
     path: '/system/backup-plan',
-    permission: 'system:backup-plan:evidence-export'
+    permission: 'system:backup-plan:evidence-export',
+    actionType: 'export'
   },
   {
     id: 'account-security-evidence',
     label: '账号安全与通用账号证据',
     path: '/system/user',
-    permission: 'system:user:export'
+    permission: 'system:user:export',
+    actionType: 'export'
   },
   {
     id: 'edhr-signature-records',
     label: 'eDHR签名记录',
     path: '/mes/pro/feedback/edhr-signatures',
-    permission: 'mes:pro-batch-record-execution:signature-query'
+    permission: 'mes:pro-batch-record-execution:signature-query',
+    actionType: 'view'
   },
   {
     id: 'edhr-field-audit-evidence',
     label: 'eDHR字段审计证据',
     path: '/mes/pro/feedback/edhr-field-audit',
-    permission: 'mes:pro-batch-record-execution:field-audit-query'
+    permission: 'mes:pro-batch-record-execution:field-audit-query',
+    actionType: 'export'
   },
   {
     id: 'approval-sequence-evidence',
     label: '审批中心顺序证据',
     path: '/approval-center/done',
-    permission: 'bpm:task:query'
+    permission: 'bpm:task:query',
+    actionType: 'view'
   },
   {
     id: 'edhr-archive-evidence',
     label: 'eDHR批记录归档',
     path: '/mes/pro/feedback/edhr-batch-history',
-    permission: 'mes:pro-edhr-batch-execution:query'
+    permission: 'mes:pro-edhr-batch-execution:query',
+    actionType: 'export'
   },
   {
     id: 'edhr-permission-matrix-evidence',
     label: 'eDHR权限矩阵证据',
     path: '/mes/pro/feedback/edhr-permission-matrix',
-    permission: 'mes:pro-edhr-permission-scope:evaluate'
+    permission: 'mes:pro-edhr-permission-scope:evaluate',
+    actionType: 'view'
   }
 ]) {
   assert.match(entrypointBlock, new RegExp(`id:\\s*'${entrypoint.id}'`), `${entrypoint.label} 必须有稳定入口ID。`)
   assert.match(entrypointBlock, new RegExp(`label:\\s*'${entrypoint.label}'`), `${entrypoint.label} 必须显示在CSV页签。`)
   assert.match(entrypointBlock, new RegExp(`routePath:\\s*'${entrypoint.path}'`), `${entrypoint.label} 必须跳转到正式页面。`)
   assert.match(entrypointBlock, new RegExp(`permission:\\s*'${entrypoint.permission}'`), `${entrypoint.label} 必须保留正式权限说明。`)
+  assert.match(entrypointBlock, new RegExp(`actionType:\\s*'${entrypoint.actionType}'`), `${entrypoint.label} 必须声明统一入口动作类型。`)
 }
 
 assert.match(
@@ -95,16 +105,62 @@ assert.match(
 )
 assert.match(
   csvPane,
-  /openApprovalEvidenceEntrypoint\(entrypoint\)/,
+  /handleApprovalEvidenceEntrypoint\(entrypoint\)/,
   '统一入口点击必须走明确处理函数。'
 )
 assert.match(
   csvPane,
-  /router\.push\(\{ path: entrypoint\.routePath \}\)/,
-  '统一入口只能跳转正式页面执行导出，不得在CSV页签伪造导出。'
+  /downloadApprovalEvidenceEntrypoint\(entrypoint\)/,
+  'CSV质量包必须承接真实导出动作，不再依赖旧页面导出按钮。'
 )
 assert.doesNotMatch(
   csvPane,
-  /approvalEvidenceEntrypoints[\s\S]*request\.download|approvalEvidenceEntrypoints[\s\S]*axios\.get|approvalEvidenceEntrypoints[\s\S]*fetch\(/,
-  '统一入口不得绕过正式页面直接下载或模拟导出。'
+  /fetch\(|mock|模拟导出/,
+  '统一入口不得使用 fetch、mock 或模拟导出绕过正式 API。'
 )
+
+const forbiddenPreviousEntrypoints = [
+  {
+    file: 'src/views/dcc/controlled-file/signatures/index.vue',
+    patterns: [/下载证据 PDF/, /handleExportSignatureEvidence/]
+  },
+  {
+    file: 'src/views/infra/runtime-control/index.vue',
+    patterns: [/导出时间戳证据/, /exportTimeEvidence/]
+  },
+  {
+    file: 'src/views/system/backup-plan/index.vue',
+    patterns: [/导出审查证据/, /handleExportEvidence/]
+  },
+  {
+    file: 'src/views/system/user/index.vue',
+    patterns: [/导出通用账户清单/, /handleExportGenericAccounts/]
+  },
+  {
+    file: 'src/views/mes/pro/edhr/FieldAuditPage.vue',
+    patterns: [/责任证明导出/, /导出审计链/, /handleResponsibilityExport/, /handleExport\s*=\s*async/]
+  },
+  {
+    file: 'src/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue',
+    patterns: [/handleDownloadArchive/]
+  },
+  {
+    file: 'src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue',
+    patterns: [/handleDownloadArchiveByPreview/]
+  },
+  {
+    file: 'src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue',
+    patterns: [/handleDownloadArchive/]
+  },
+  {
+    file: 'src/views/mes/pro/edhr/ExecutionPage.vue',
+    patterns: [/handleDownloadArchive/]
+  }
+]
+
+for (const target of forbiddenPreviousEntrypoints) {
+  const source = fs.readFileSync(path.join(root, target.file), 'utf8').replace(/\r\n/g, '\n')
+  for (const pattern of target.patterns) {
+    assert.doesNotMatch(source, pattern, `旧导出入口必须从 ${target.file} 清理：${pattern}`)
+  }
+}
