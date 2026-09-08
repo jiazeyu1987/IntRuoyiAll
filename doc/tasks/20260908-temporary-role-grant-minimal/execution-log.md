@@ -1,0 +1,13 @@
+# Execution Log
+
+BDD: 临时角色申请必须有有效期 -> Given 管理员为用户申请临时角色 When 缺少有效期或有效期不晚于当前时间 Then 后端拒绝创建，不生成可用授权。
+BDD: 临时角色审批后才生效 -> Given 存在 PENDING 临时角色申请 When 审批通过且仍在有效期内 Then 权限判断把该角色纳入有效角色集合。
+BDD: 临时角色到期或撤销后失效 -> Given 用户曾通过临时角色拥有菜单权限 When 授权过期或被撤销 Then 权限判断不再放行。
+BDD: 临时权限使用可追溯 -> Given 接口权限由临时角色放行 When 权限判断命中该临时角色 Then 记录 USE 审计事件，包含用户、角色、权限和授权记录。
+BDD: 前端闭环 -> Given 管理员进入临时角色授权页面 When 创建、审批、撤销或查看 Then 页面能显示状态、有效期、原因和审计入口。
+
+RED: mvn.cmd -pl yudao-module-system '-Dtest=TemporaryRoleGrantServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' test -> FAIL, expected reason: TemporaryRoleGrantServiceImplTest 引用的临时角色授权服务、表结构与行为尚未实现。
+GREEN: mvn.cmd -pl yudao-module-system '-Dtest=TemporaryRoleGrantServiceImplTest,PermissionServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test -> PASS, 35 tests, Failures: 0, Errors: 0, Skipped: 0。
+GREEN: python -X utf8 -m pytest script\tests\test_system_temporary_role_grant_sql.py -q -> PASS, 3 passed。
+GREEN: node tests\e2e\system-temporary-role-grant-static.spec.js -> PASS。
+GREEN: pnpm ts:check -> PASS。

@@ -111,6 +111,13 @@ public interface ErrorCodeConstants {
     ErrorCode ESIGN_IDENTITY_DISABLED = new ErrorCode(1_002_003_037, "电子签名账号已禁用");
     ErrorCode USER_UNLOCK_REASON_REQUIRED = new ErrorCode(1_002_003_038, "管理员解锁原因不能为空");
 
+    // ========== 临时角色授权 1-002-003-100 ==========
+    ErrorCode TEMPORARY_ROLE_GRANT_EXPIRE_TIME_INVALID = new ErrorCode(1_002_003_100, "临时角色授权有效期必须晚于当前时间");
+    ErrorCode TEMPORARY_ROLE_GRANT_REASON_REQUIRED = new ErrorCode(1_002_003_101, "临时角色授权原因不能为空");
+    ErrorCode TEMPORARY_ROLE_GRANT_NOT_EXISTS = new ErrorCode(1_002_003_102, "临时角色授权记录不存在");
+    ErrorCode TEMPORARY_ROLE_GRANT_STATUS_INVALID = new ErrorCode(1_002_003_103, "临时角色授权状态不允许当前操作：{}");
+    ErrorCode TEMPORARY_ROLE_GRANT_ACTIVE_DUPLICATE = new ErrorCode(1_002_003_104, "用户已存在相同角色的待审批或有效临时授权");
+
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");
     ErrorCode DEPT_PARENT_NOT_EXITS = new ErrorCode(1_002_004_001,"父级部门不存在");

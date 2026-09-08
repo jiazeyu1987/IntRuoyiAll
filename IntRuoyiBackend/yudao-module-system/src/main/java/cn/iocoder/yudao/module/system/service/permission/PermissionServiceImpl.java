@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.Resource;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -66,6 +67,8 @@ public class PermissionServiceImpl implements PermissionService {
     private AdminUserService userService;
     @Resource
     private SystemEntitlementService systemEntitlementService;
+    @Resource
+    private TemporaryRoleGrantService temporaryRoleGrantService;
 
     @Override
     public boolean hasAnyPermissions(Long userId, String... permissions) {
@@ -81,21 +84,32 @@ public class PermissionServiceImpl implements PermissionService {
             }
         }
 
-        // 获得当前登录的角色。如果为空，说明没有静态角色权限
-        List<RoleDO> roles = getEnableUserRoleListByUserIdFromCache(userId);
-        if (CollUtil.isEmpty(roles)) {
-            return false;
-        }
-
-        // 情况二：遍历判断每个权限，如果有一满足，说明有权限
+        // 情况二：先判断用户永久角色，永久角色可放行时不记录临时权限使用
+        List<RoleDO> permanentRoles = getEnablePermanentRoleListByUserIdFromCache(userId);
         for (String permission : permissions) {
-            if (hasAnyPermission(roles, permission)) {
+            if (hasAnyPermission(permanentRoles, permission)) {
                 return true;
             }
         }
 
-        // 情况三：如果是超管，也说明有权限
-        return roleService.hasAnySuperAdmin(convertSet(roles, RoleDO::getId));
+        // 情况三：如果永久角色是超管，也说明有权限
+        if (CollUtil.isNotEmpty(permanentRoles)
+                && roleService.hasAnySuperAdmin(convertSet(permanentRoles, RoleDO::getId))) {
+            return true;
+        }
+
+        // 情况四：永久角色无法放行时，才判断临时角色并记录使用审计
+        List<RoleDO> temporaryRoles = getEnableTemporaryRoleListByUserId(userId);
+        if (CollUtil.isEmpty(temporaryRoles)) {
+            return false;
+        }
+        for (String permission : permissions) {
+            if (hasAnyPermission(temporaryRoles, permission)) {
+                temporaryRoleGrantService.recordPermissionUse(userId, permission);
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -354,12 +368,28 @@ public class PermissionServiceImpl implements PermissionService {
      */
     @VisibleForTesting
     List<RoleDO> getEnableUserRoleListByUserIdFromCache(Long userId) {
+        List<RoleDO> roles = getEnablePermanentRoleListByUserIdFromCache(userId);
+        roles.addAll(getEnableTemporaryRoleListByUserId(userId));
+        return roles;
+    }
+
+    private List<RoleDO> getEnablePermanentRoleListByUserIdFromCache(Long userId) {
         // 获得用户拥有的角色编号
-        Set<Long> roleIds = getSelf().getUserRoleIdListByUserIdFromCache(userId);
+        Set<Long> roleIds = new LinkedHashSet<>(getSelf().getUserRoleIdListByUserIdFromCache(userId));
         // 获得角色数组，并移除被禁用的
-        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        List<RoleDO> roles = new ArrayList<>(roleService.getRoleListFromCache(roleIds));
         roles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
         return roles;
+    }
+
+    private List<RoleDO> getEnableTemporaryRoleListByUserId(Long userId) {
+        Set<Long> temporaryRoleIds = temporaryRoleGrantService.getActiveRoleIdsByUserId(userId, LocalDateTime.now());
+        if (CollUtil.isEmpty(temporaryRoleIds)) {
+            return new ArrayList<>();
+        }
+        List<RoleDO> temporaryRoles = new ArrayList<>(roleService.getRoleListFromCache(temporaryRoleIds));
+        temporaryRoles.removeIf(role -> !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()));
+        return temporaryRoles;
     }
 
     // ========== 用户-部门的相关方法  ==========

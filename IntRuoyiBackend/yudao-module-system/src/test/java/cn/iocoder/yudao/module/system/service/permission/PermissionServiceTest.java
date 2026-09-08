@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -36,6 +37,7 @@ import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static java.util.Collections.singleton;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -60,6 +62,13 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private AdminUserService userService;
     @MockitoBean
     private SystemEntitlementService systemEntitlementService;
+    @MockitoBean
+    private TemporaryRoleGrantService temporaryRoleGrantService;
+
+    @BeforeEach
+    public void setUpTemporaryRoleGrantMock() {
+        when(temporaryRoleGrantService.getActiveRoleIdsByUserId(any(), any())).thenReturn(Set.of());
+    }
 
     @Test
     public void testHasAnyPermissions_superAdmin() {
@@ -105,6 +114,55 @@ public class PermissionServiceTest extends BaseDbUnitTest {
 
             // 调用，并断言
             assertTrue(permissionService.hasAnyPermissions(userId, roles));
+            verify(temporaryRoleGrantService, never()).recordPermissionUse(any(), any());
+        }
+    }
+
+    @Test
+    public void testHasAnyPermissions_temporaryRoleRecordsUse() {
+        try (MockedStatic<SpringUtil> springUtilMockedStatic = mockStatic(SpringUtil.class)) {
+            springUtilMockedStatic.when(() -> SpringUtil.getBean(eq(PermissionServiceImpl.class)))
+                    .thenReturn(permissionService);
+
+            Long userId = 1L;
+            Long temporaryRoleId = 300L;
+            String permission = "system:user:create";
+            RoleDO temporaryRole = randomPojo(RoleDO.class, o -> o.setId(temporaryRoleId)
+                    .setStatus(CommonStatusEnum.ENABLE.getStatus()));
+            when(roleService.getRoleListFromCache(eq(Set.of()))).thenReturn(new java.util.ArrayList<>());
+            when(roleService.getRoleListFromCache(eq(Set.of(temporaryRoleId)))).thenReturn(toList(temporaryRole));
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(userId), any())).thenReturn(Set.of(temporaryRoleId));
+            Long menuId = 1000L;
+            when(menuService.getMenuIdListByPermissionFromCache(eq(permission))).thenReturn(singletonList(menuId));
+            roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(temporaryRoleId).setMenuId(menuId));
+
+            assertTrue(permissionService.hasAnyPermissions(userId, permission));
+            verify(temporaryRoleGrantService).recordPermissionUse(eq(userId), eq(permission));
+        }
+    }
+
+    @Test
+    public void testHasAnyPermissions_permanentRoleDoesNotRecordTemporaryUse() {
+        try (MockedStatic<SpringUtil> springUtilMockedStatic = mockStatic(SpringUtil.class)) {
+            springUtilMockedStatic.when(() -> SpringUtil.getBean(eq(PermissionServiceImpl.class)))
+                    .thenReturn(permissionService);
+
+            Long userId = 1L;
+            Long permanentRoleId = 100L;
+            Long temporaryRoleId = 300L;
+            String permission = "system:user:create";
+            userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(permanentRoleId));
+            RoleDO permanentRole = randomPojo(RoleDO.class, o -> o.setId(permanentRoleId)
+                    .setStatus(CommonStatusEnum.ENABLE.getStatus()));
+            when(roleService.getRoleListFromCache(eq(Set.of(permanentRoleId)))).thenReturn(toList(permanentRole));
+            when(temporaryRoleGrantService.getActiveRoleIdsByUserId(eq(userId), any())).thenReturn(Set.of(temporaryRoleId));
+            Long menuId = 1000L;
+            when(menuService.getMenuIdListByPermissionFromCache(eq(permission))).thenReturn(singletonList(menuId));
+            roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(permanentRoleId).setMenuId(menuId));
+            roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(temporaryRoleId).setMenuId(menuId));
+
+            assertTrue(permissionService.hasAnyPermissions(userId, permission));
+            verify(temporaryRoleGrantService, never()).recordPermissionUse(any(), any());
         }
     }
 
