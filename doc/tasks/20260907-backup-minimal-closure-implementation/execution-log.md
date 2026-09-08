@@ -105,3 +105,13 @@ BLOCKED: task-closeout-cleanup preview -> `python C:\Users\BJB110\.codex\skills\
 - GREEN: real read-only E2E final -> PASS，`SYSTEM_BACKUP_PLAN_E2E_BASE_URL=http://127.0.0.1:8164` + 项目测试租户/账号运行 `node tests\e2e\system-backup-plan-real-readonly.e2e.js` 通过；覆盖登录、备份计划页面、`/status`、`/history/page`、新增保存期限来源/质量批准引用回显。测试密码未写入任务记录。
 - GREEN: task-owned runtime stop -> PASS，已停止本轮启动的 `8164` 前端和 `48164` 后端；端口仅剩 `TIME_WAIT`，无 LISTEN。
 - NOTE: 真实只读 E2E 会触发登录、权限、消息和备份状态/历史读取请求；本轮未点击立即备份、恢复演练、保存计划或导出证据，未执行真实备份写入。
+
+## 2026-09-08 Rebase And Reverification
+
+- BLOCKED: closeout preview after E2E push -> `task_closeout.py --mode preview` 返回 blocked：当前分支不能 fast-forward 到本地 `int_main`，且主工作区 `E:\IntRuoyi` dirty。
+- GREEN: ancestry check -> PASS，确认本地 `int_main` 为 `ebb2b6c1`，任务分支原基线为 `2668149d4`；`git merge-base --is-ancestor int_main HEAD` 返回 1，需 rebase。
+- GREEN: rebase -> PASS，`git rebase int_main` 成功，无冲突。
+- GREEN: post-rebase Java regression -> PASS，`mvn.cmd -pl yudao-module-infra '-Dtest=BackupPlanServiceImplTest,WindowsBackupPlanSchedulerGatewayTest,BackupEvidenceExportServiceTest,BackupPlanMinimalClosureTest,RuntimeBackupDrillServiceImplTest,RuntimeControlOperationActionBackupConfirmTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` 通过，44 tests。
+- GREEN: post-rebase Python regression -> PASS，`python -X utf8 -m pytest --basetemp .pytest-temp script\tests\test_backup_minimal_closure.py script\tests\test_backup_ops_manifest_tooling.py script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_backup_ops_tooling.py script\tests\test_system_backup_plan_menu_sql.py -q` 通过，123 tests。
+- GREEN: post-rebase frontend regression -> PASS，`node --check tests\e2e\system-backup-plan-real-readonly.e2e.js`、`node tests\e2e\system-backup-plan-standard-list-static.spec.js`、`node tests\e2e\system-backup-minimal-closure-static.spec.js`、`pnpm ts:check` 通过。
+- GREEN: post-rebase cleanup temp artifact -> PASS，删除 `D:\IntRuoyiWorktree\tmp_auth_20260907\IntRuoyiBackend\.pytest-temp`；删除前确认目标位于当前 worktree 后端根目录内且目录名为 `.pytest-temp`。

@@ -16,6 +16,7 @@
 | Frontend minimal closure static contract | `node tests\e2e\system-backup-minimal-closure-static.spec.js` | PASS |
 | Frontend type check | `pnpm ts:check` | PASS |
 | Frontend real read-only E2E | `node tests\e2e\system-backup-plan-real-readonly.e2e.js` against `http://127.0.0.1:8164` | PASS，覆盖登录、页面进入、status/history API、保存期限来源和质量批准引用回显 |
+| Post-rebase regression | Java 44 tests + Python 123 tests + frontend static/type checks after `git rebase int_main` | PASS |
 
 ## Coverage Notes
 

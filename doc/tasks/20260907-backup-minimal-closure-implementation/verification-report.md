@@ -48,6 +48,9 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 - worktree runtime startup -> PASS，后端 `48164` health HTTP 200，前端 `8164` ready；运行时显式使用当前 worktree `INTRUOYI_RUNTIME_CONTROL_REPO_ROOT`。
 - `node tests\e2e\system-backup-plan-real-readonly.e2e.js` with `SYSTEM_BACKUP_PLAN_E2E_BASE_URL=http://127.0.0.1:8164` and project test account -> PASS，真实前端只读闭环覆盖登录、页面进入、status/history API、保存期限来源和质量批准引用回显；测试密码未写入报告。
 - task-owned runtime stop -> PASS，`8164` / `48164` 无 LISTEN。
+- `git rebase int_main` -> PASS，任务分支已基于本地 `int_main` `ebb2b6c1` 重放，无冲突。
+- post-rebase regression -> PASS，Java 44 tests、Python 123 tests、真实 E2E 脚本语法、标准列表静态 E2E、最小闭环静态 E2E、`pnpm ts:check` 全部通过。
+- post-rebase `.pytest-temp` cleanup -> PASS。
 
 ## Updated Development Document Reanalysis
 
@@ -57,5 +60,5 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 
 ## Remaining Blockers
 
-- Git commit/push has completed, but cleanup preview is still blocked by dirty main worktree `E:\IntRuoyi`, so the task remains `ready_for_closeout` instead of `completed`.
+- Git commit/push has completed and the task branch has been rebased onto local `int_main`; cleanup preview is still blocked by dirty main worktree `E:\IntRuoyi`, so the task remains `ready_for_closeout` instead of `completed`.
 - Playwright real read-only E2E has completed. Real backup write, restore rehearsal against remote/test/prod targets, and production-grade evidence still require target environment preconditions and, for production-grade actions, explicit `PROD` confirmation.
