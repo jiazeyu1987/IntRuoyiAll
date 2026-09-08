@@ -44,6 +44,9 @@
 - Stage1 clicked-order identity extension: 若用户口径明确为“点击哪条活跃订单就模拟/查看哪条活跃订单的数据”，Stage1 不属于“生成对象详情”入口；前端请求字段必须使用 `activeOrderId`，模拟成功后和普通详情入口都必须打开当前点击行自身，禁止读取 `stage1GeneratedActiveOrderId` 或维护源订单到 `STAGE1-WO-*` 的跳转映射。后端可清理历史内部承载对象，但响应给前端的 `activeOrderId` 必须是被点击活跃订单。Evidence: 任务 `doc/tasks/20260906-stage1-simulate-clicked-order-identity/`。
 - Detail source tab extension: 详情页新增正式来源类主 tab（如领料单、补料单、批号来源、生产工单）时，必须同时锁定后端 VO 字段、Controller 映射、前端 API 类型、可见 tab 标识和空态；若展示来源单据编号，编号必须来自正式返回的单据编号字段并可点击跳转到对应列表，目标列表要从 URL query 回填筛选条件，不能只显示不可追溯文本；若展示对象已由详情接口直接承载，可复用详情正式字段但必须用独立静态合同锁定主 tab、字段列和布局不横向溢出。静态合同脚本应使用脚本自身目录解析源码根，避免只能在某一个 cwd 下通过。Evidence: 任务 `doc/tasks/20260905-stage1-supplement-pick-list-tab/`、`doc/tasks/20260906-active-order-detail-ui-links/`、`doc/tasks/20260906-active-order-detail-work-order-tab/`。
 - Detail generated-form extension: 详情页从正式提交事实生成只读表单时，入口必须绑定当前可见对象和当前分组身份，表单字段必须直接读取详情接口或原始提交 payload 的正式快照；一线生产的清场/物料/清洁等固定确认项应按业务项独立展示，不得把多个 checkbox 压成不可核对的一串文本，也不得用空值、默认是、设备参数规则或物料主数据推断提交事实。生产记录表单展示数量时必须统一为整数，损耗缺失按 0 展示，总数量按生产数量加损耗数量计算，不得显示横杠或三位小数。生产记录表单展示设备参数时，应按“输出物料 -> 设备 -> 参数”嵌套归属，每个设备独立显示设备名称、编号、计量状态和参数表；计量状态只能来自提交事实中的设备字段，缺失时显示未记录；输出物料没有正式设备身份时必须隐藏设备信息块，不得生成“未记录设备/暂无设备参数”伪设备分组；超出范围的提交值必须在对应参数值处标红，不得脱离物料做跨物料扁平汇总。Evidence: 任务 `doc/tasks/20260906-active-order-production-record-form-button/`、`doc/tasks/20260906-active-order-production-record-device-parameters/`、`doc/tasks/20260906-production-record-hide-empty-device-info/`、`doc/tasks/20260906-production-record-integer-quantities/`、`doc/tasks/20260906-stage1-device-clearance-status/`。
+- Detail generated-form summary extension: 详情页新增批记录“总表”或类似汇总 tab 时，应只聚合当前详情接口已承载的正式事实：产品/工单展示取当前详情工单字段，零配件批号取正式领料单输入物料集合，工序人员和日期取一线生产提交事实；业务来源未确认的字段必须显式留空并在任务文档记录，不得用产品 BOM、相邻字段、当前时间或默认文案推断。
+- Batch detail embedded submission-form extension: 批次执行详情页若要在生产表单或过程检验记录槽位嵌入一线提交详情，必须由批次执行正式来源关系向响应透传 `activeOrderId`，再按该活跃订单读取一线工序详情；不得按 `workOrderId`、`workOrderCode`、工序名称或数组位置反推来源。`MAIN` 槽位只展示生产提交表单，`PROCESS_INSPECTION` 槽位只展示 PQC 过程检验记录，页面级嵌入与 eDHR `cellValues`/归档物化是两层能力；若后续要求进入审核、归档或打印证据，必须另做后端物化并补独立验证。Evidence: 任务 `doc/tasks/20260907-batch-execution-inline-submission-forms/`。
+- Detail form signature link extension: 详情页只读表单展示电子签名时，单元格内应显示可核对的基础信息 `签名人（签名时间）`，点击跳转正式签名记录/治理入口并带可定位筛选；链接目标必须绑定签名行为记录 ID，不得跳人员档案。缺少签名 ID 时显示 `未签名` 并禁用点击；缺少签名人或签名时间时必须明确显示未记录，不能用提交人、审核人或当前时间伪造。PQC 聚合记录可能包含多条提交/复核签名，应在同一单元格内逐条显示。Evidence: 任务 `doc/tasks/20260907-submission-form-signature-link/`。
 
 ## 前端源码目录与 .gitignore 门禁
 
@@ -178,6 +181,15 @@
 - Verification: 先补 RED 静态契约覆盖“复制不替代选择”和空点击加载契约，GREEN 后运行目标合同、相邻标题栏/页签合同、`git diff --check`；若改动触及类型、接口参数或运行态逻辑，再运行 `pnpm ts:check`、目标后端参数绑定单测或记录无关 blocker。
 - Forbidden action: 禁止为了让内容可复制而把正式选择控件改成 disabled/read-only 输入框、隐藏候选下拉、移除远程搜索、只靠前端传空字符串而后端仍把 `keyword` 设为必填、用 API-only 或截图目测替代控件交互验证。
 - Evidence: 任务 `doc/tasks/20260806-qa-project-selector-dropdown-copy/`，QA 规程项目代码字段在支持上次选择恢复和复制后，补充 `automatic-dropdown`、`remote-show-suffix` 和 `data-qa-regulation-project-dropdown`，静态契约锁定仍是可搜索下拉 `el-select`；任务 `doc/tasks/20260806-pqc-personnel-permission-candidates/`，PQC 新增人员空下拉加载候选时，后端 `keyword` 必填导致参数绑定异常，修复为 `required=false` 并用控制器单测和静态合同锁定。
+
+### 一线下拉框“其他”手工值必须形成正式提交事实
+
+- Trigger: 一线生产设备枚举参数、一线 PQC 检验设备或其它下拉字段要求在候选末尾提供“其他”并允许手工输入保存。
+- Preflight check: “其他”必须是显式可见选项；选中后原位切换为带业务标签的输入控件，并提供返回正式候选的入口。前端要区分临时占位值、正式候选值和手工文本，提交前禁止临时占位值进入 payload；重新进入修改或详情时，非候选手工值必须按手工值回显。一线 PQC 检验设备为可选项，未选择或选择“其他”后留空均按空设备快照提交，不得阻断检验结果。
+- Blocker: 仅设置 `allow-create` 而没有可见“其他”选项、选择其他后仍把占位编码提交、手工文本只保存在组件临时状态、PQC 页面允许输入但后端仍强制正式设备 ID、PQC 空设备被前端提交准备校验拦截，或详情无法显示手工快照时必须停止。
+- Verification: 静态或组件合同同时覆盖选项顺序、手工输入状态、返回候选、PQC 空设备放行和 payload；涉及 PQC 设备时必须再用后端单测证明空设备允许、空设备 ID 与非空手工文本可形成正式设备快照，同时正式 ID+编号仍按 QA 配置严格匹配。
+- Forbidden action: 禁止伪造设备 ID、把“其他”文本当作正式候选 ID、静默替换为第一项、只改页面不改提交契约，或因为设备为空拒绝已完整填写的 PQC 检验结果。
+- Evidence: `doc/tasks/20260907-frontline-dropdown-other-entry/verification-report.md`。
 
 ### 远程多选搜索必须替换旧候选并以最新输入为准
 

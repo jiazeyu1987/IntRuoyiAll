@@ -1518,22 +1518,29 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return details;
     }
 
-    private MesFrontlinePqcInspectionItem.EquipmentOption resolveSelectedEquipment(
+    static MesFrontlinePqcInspectionItem.EquipmentOption resolveSelectedEquipment(
             MesFrontlinePqcInspectionItem item, MesFrontlinePqcSubmitCommand.ItemResult itemResult) {
         boolean hasSelectedEquipment = itemResult.getSelectedEquipmentId() != null
                 || StrUtil.isNotBlank(itemResult.getSelectedEquipmentNumber());
-        if (Boolean.TRUE.equals(item.equipmentRequired()) && (!hasSelectedEquipment
-                || itemResult.getSelectedEquipmentId() == null
-                || StrUtil.isBlank(itemResult.getSelectedEquipmentNumber()))) {
-            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
-                    item.itemCode() + ".selectedEquipment");
-        }
         if (!Boolean.TRUE.equals(item.equipmentRequired()) && hasSelectedEquipment) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     item.itemCode() + ".selectedEquipment");
         }
         if (!hasSelectedEquipment) {
             return null;
+        }
+        if (itemResult.getSelectedEquipmentId() == null) {
+            String customEquipmentText = StrUtil.trim(itemResult.getSelectedEquipmentNumber());
+            if (StrUtil.isBlank(customEquipmentText) || customEquipmentText.length() > 64) {
+                throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                        item.itemCode() + ".selectedEquipment");
+            }
+            return new MesFrontlinePqcInspectionItem.EquipmentOption(
+                    null, null, null, customEquipmentText, false, Integer.MAX_VALUE);
+        }
+        if (StrUtil.isBlank(itemResult.getSelectedEquipmentNumber())) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    item.itemCode() + ".selectedEquipment");
         }
         if (CollUtil.isNotEmpty(item.equipmentOptions())) {
             Optional<MesFrontlinePqcInspectionItem.EquipmentOption> configuredEquipment =

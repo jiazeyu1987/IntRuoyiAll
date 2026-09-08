@@ -160,6 +160,16 @@ function monthDistance(from, to) {
   return (to.year - from.year) * 12 + (to.month - from.month)
 }
 
+async function clickDatePanelMonthButton(panel, direction) {
+  const names =
+    direction === 'next'
+      ? /^(下个月|Next Month)$/
+      : /^(上个月|Previous Month)$/
+  const button = panel.getByRole('button', { name: names }).first()
+  await expect(button, `${direction} month button must be visible`).toBeVisible()
+  await button.click()
+}
+
 async function readVisibleDatePanelMonth(page) {
   const panel = page.locator('.el-picker-panel:visible').last()
   await expect(panel).toBeVisible()
@@ -190,9 +200,9 @@ async function pickDateValue(page, field, value) {
     const distance = monthDistance(current, target)
     if (distance === 0) break
     if (distance > 0) {
-      await current.panel.getByRole('button', { name: '下个月' }).click()
+      await clickDatePanelMonthButton(current.panel, 'next')
     } else {
-      await current.panel.getByRole('button', { name: '上个月' }).click()
+      await clickDatePanelMonthButton(current.panel, 'previous')
     }
     await page.waitForTimeout(100)
   }

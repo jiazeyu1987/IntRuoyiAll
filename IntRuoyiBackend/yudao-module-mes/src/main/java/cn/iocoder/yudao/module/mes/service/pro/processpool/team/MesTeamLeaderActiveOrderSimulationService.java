@@ -41,6 +41,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventSe
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialBatchQueryService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialCreateCommand;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFeedbackMaterialService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQuantityFragmentCreateDTO;
@@ -65,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -114,7 +114,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private final MesReportAllocationCommandService reportAllocationCommandService;
     private final MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService;
     private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
-    private final AtomicLong simulationSequence = new AtomicLong();
+    private final MesProBatchRecordExecutionSignatureService signatureService;
 
     public MesTeamLeaderActiveOrderSimulationService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -137,7 +137,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesProcessPoolEventService processPoolEventService,
             MesReportAllocationCommandService reportAllocationCommandService,
             MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService,
-            MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService) {
+            MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService,
+            MesProBatchRecordExecutionSignatureService signatureService) {
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
@@ -159,6 +160,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         this.reportAllocationCommandService = reportAllocationCommandService;
         this.pqcProcessInspectionAggregationService = pqcProcessInspectionAggregationService;
         this.orderProcessCompletionService = orderProcessCompletionService;
+        this.signatureService = signatureService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -352,6 +354,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 simulationStage, simulationRunId);
         createSimulationOutputMaterialFacts(activeOrder, routeVersion, snapshot, feedbackId, quantity, defaultDevice,
                 deviceParameterReadings);
+        Long signatureId = recordStage1SimulationSignature(leaderUserId,
+                MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, activeOrder.getId(),
+                simulationStage, simulationRunId);
         return processPoolEventService.createEvent(MesProcessPoolCreateEventReqDTO.builder()
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eventIdempotencyKey(idempotencyKey)
@@ -368,10 +373,11 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .feedbackSourceId(feedbackId)
                 .rawPayload(JsonUtils.toJsonString(payload))
                 .clientSubmitTime(now)
-                .signatureId(nextSimulationSignatureId())
+                .signatureId(signatureId)
                 .signatureUserId(leaderUserId)
-                .signatureSnapshot(simulationSignatureSnapshot(leaderUserId, "PRODUCTION_SUBMIT",
-                        activeOrder.getId(), now, simulationStage, simulationRunId))
+                .signatureSnapshot(buildStage1SimulationSignatureSnapshot(signatureId, leaderUserId,
+                        MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, activeOrder.getId(),
+                        now, simulationStage, simulationRunId))
                 .simulated(simulationStage != null && !simulationStage.isBlank())
                 .simulationStage(simulationStage)
                 .simulationRunId(simulationRunId)
@@ -896,6 +902,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
         if (simulationRunId != null && !simulationRunId.isBlank()) {
             pqcIdempotencyKey = pqcIdempotencyKey + "-" + simulationRunId;
         }
+        Long signatureId = recordStage1SimulationSignature(leaderUserId,
+                MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, activeOrder.getId(),
+                simulationStage, simulationRunId);
         Long eventId = processPoolEventService.createPqcInspectionEvent(MesProcessPoolCreatePqcInspectionReqDTO
                 .builder()
                 .workOrderId(task.getWorkOrderId())
@@ -917,10 +926,11 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .rawPayload(buildPqcRawPayload(activeOrder, task, actualInspectionQuantity, pieceDetails,
                         pieceBuildResult.selectedEquipment(), simulationStage, simulationRunId))
                 .clientSubmitTime(now)
-                .signatureId(nextSimulationSignatureId())
+                .signatureId(signatureId)
                 .signatureUserId(leaderUserId)
-                .signatureSnapshot(simulationSignatureSnapshot(leaderUserId, "PQC_SUBMIT",
-                        activeOrder.getId(), now, simulationStage, simulationRunId))
+                .signatureSnapshot(buildStage1SimulationSignatureSnapshot(signatureId, leaderUserId,
+                        MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT, activeOrder.getId(),
+                        now, simulationStage, simulationRunId))
                 .simulated(simulationStage != null && !simulationStage.isBlank())
                 .simulationStage(simulationStage)
                 .simulationRunId(simulationRunId)
@@ -1134,6 +1144,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview.status");
         }
         LocalDateTime now = LocalDateTime.now();
+        Long signatureId = recordStage1SimulationSignature(leaderUserId,
+                MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW, eventId,
+                simulationStage, simulationRunId);
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(eventId)
                 .leaderUserId(leaderUserId)
@@ -1141,10 +1154,11 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
                 .reviewRemark(withSimulationMetadata(remark, simulationStage, simulationRunId))
                 .reviewedAt(now)
-                .reviewSignatureId(nextSimulationSignatureId())
+                .reviewSignatureId(signatureId)
                 .reviewSignatureUserId(leaderUserId)
-                .reviewSignatureSnapshotJson(simulationSignatureSnapshot(leaderUserId, leaderType + "_REVIEW",
-                        eventId, now, simulationStage, simulationRunId))
+                .reviewSignatureSnapshotJson(buildStage1SimulationSignatureSnapshot(signatureId, leaderUserId,
+                        MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW, eventId,
+                        now, simulationStage, simulationRunId))
                 .simulated(simulationStage != null && !simulationStage.isBlank())
                 .simulationStage(simulationStage)
                 .simulationRunId(simulationRunId)
@@ -1344,15 +1358,18 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return "OK";
     }
 
-    private Long nextSimulationSignatureId() {
-        return System.currentTimeMillis() * 100_000 + simulationSequence.incrementAndGet() % 100_000;
+    private Long recordStage1SimulationSignature(Long actorId, String actionType, Long objectId,
+                                                 String simulationStage, String simulationRunId) {
+        return signatureService.recordStage1SimulationSignature(actorId, actionType, objectId,
+                simulationStage, simulationRunId);
     }
 
-    private String simulationSignatureSnapshot(Long actorId, String actionType, Long objectId,
-                                               LocalDateTime occurredAt, String simulationStage,
-                                               String simulationRunId) {
+    private String buildStage1SimulationSignatureSnapshot(Long signatureId, Long actorId, String actionType,
+                                                          Long objectId, LocalDateTime occurredAt,
+                                                          String simulationStage, String simulationRunId) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("simulated", true);
+        payload.put("signatureId", signatureId);
         payload.put("actorId", actorId);
         payload.put("actionType", actionType);
         payload.put("objectId", objectId);

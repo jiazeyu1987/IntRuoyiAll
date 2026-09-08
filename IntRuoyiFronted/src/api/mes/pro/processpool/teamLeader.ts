@@ -14,6 +14,8 @@ export type DeviceParameterValueType =
   | 'SELECT'
   | 'BOOLEAN'
 
+const STAGE1_SIMULATION_REQUEST_TIMEOUT = 120000
+
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
   leaderType: TeamLeaderType
   pqcFormView?: 'CURRENT' | 'HISTORY'
@@ -491,6 +493,13 @@ export interface TeamLeaderActiveOrderClearanceConfirmationRespVO {
   description?: string
 }
 
+export interface TeamLeaderActiveOrderSignatureDetailRespVO {
+  signatureId?: number
+  signerName?: string
+  signedAt?: string | number
+  role: string
+}
+
 export interface TeamLeaderActiveOrderSubmissionMaterialDetailRespVO {
   materialId: number
   materialCode: string
@@ -509,6 +518,8 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   submitterName: string
   reviewerName?: string
   submittedAt: string | number
+  submitterSignature?: TeamLeaderActiveOrderSignatureDetailRespVO
+  reviewerSignature?: TeamLeaderActiveOrderSignatureDetailRespVO
   quantityConflict?: boolean
   devices: TeamLeaderActiveOrderSubmissionDeviceDetailRespVO[]
   deviceParameters: TeamLeaderActiveOrderSubmissionDeviceParameterRespVO[]
@@ -574,9 +585,12 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   shiftCode?: string
   roundNo?: number
   actualInspectionQuantity?: number
+  scrapQuantity?: number
   taskStatus?: string
   submitterName?: string
   reviewerName?: string
+  submitterSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
+  reviewerSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
   items: TeamLeaderActiveOrderPqcSubmissionItemDetailRespVO[]
 }
 
@@ -585,6 +599,7 @@ export interface TeamLeaderActiveOrderProcessDetailRespVO {
   processId: number
   processCode?: string
   processName: string
+  keyFlag?: boolean
   requiredQuantity: number | string
   submittedQuantity: number | string
   submissionCount: number
@@ -598,11 +613,13 @@ export interface TeamLeaderActiveOrderProcessDetailRespVO {
 
 export interface TeamLeaderActiveOrderDetailRespVO {
   activeOrderId: number
+  version: number
   workOrderId: number
   workOrderCode: string
   batchCode?: string
   productSpecification?: string
   workOrderQuantity?: number | string
+  drawingNumber?: string
   productCode?: string
   productName?: string
   workOrderCreateTime?: string | number
@@ -1054,6 +1071,7 @@ export const simulateStage1ActiveOrderCompletion = async (
   return await request.post<Stage1ActiveOrderCompleteSimulationRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/stage1',
     data,
+    timeout: STAGE1_SIMULATION_REQUEST_TIMEOUT,
     ignoreErrorMessage: true
   })
 }

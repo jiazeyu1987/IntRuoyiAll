@@ -6,7 +6,9 @@ import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeP
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import org.springframework.stereotype.Component;
 
@@ -22,14 +24,17 @@ import java.util.stream.Collectors;
 public class MesFormalProductionPickListSourceResolver {
 
     private final MesProWorkOrderMapper workOrderMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final ErpKingdeeProductionPickListMapper pickListMapper;
     private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
 
     public MesFormalProductionPickListSourceResolver(
             MesProWorkOrderMapper workOrderMapper,
+            MesProcessPoolActiveOrderMapper activeOrderMapper,
             ErpKingdeeProductionPickListMapper pickListMapper,
             ErpKingdeeProductionPickListItemMapper pickListItemMapper) {
         this.workOrderMapper = workOrderMapper;
+        this.activeOrderMapper = activeOrderMapper;
         this.pickListMapper = pickListMapper;
         this.pickListItemMapper = pickListItemMapper;
     }
@@ -39,7 +44,7 @@ public class MesFormalProductionPickListSourceResolver {
         if (workOrder == null || StrUtil.isBlank(workOrder.getCode())) {
             throw invalid("WORK_ORDER_CODE_REQUIRED:" + workOrderId);
         }
-        String productionOrderNo = StrUtil.trim(workOrder.getCode());
+        String productionOrderNo = resolveProductionOrderNo(workOrder);
         List<ErpKingdeeProductionPickListItemDO> discovered =
                 pickListItemMapper.selectListByProductionOrderNo(productionOrderNo);
         if (discovered == null || discovered.isEmpty()) {
@@ -57,6 +62,44 @@ public class MesFormalProductionPickListSourceResolver {
         String resolutionHash = DigestUtil.sha256Hex(productionOrderNo + "|" + sources.stream()
                 .map(Source::hash).collect(Collectors.joining("|")));
         return new Resolution(workOrder, productionOrderNo, sources, resolutionHash);
+    }
+
+    private String resolveProductionOrderNo(MesProWorkOrderDO workOrder) {
+        Long sourceActiveOrderId = sourceActiveOrderIdFromMarker(workOrder.getRemark());
+        if (sourceActiveOrderId == null) {
+            return StrUtil.trim(workOrder.getCode());
+        }
+        if (activeOrderMapper == null) {
+            throw invalid("SOURCE_ACTIVE_ORDER_RESOLVER_REQUIRED:" + sourceActiveOrderId);
+        }
+        MesProcessPoolActiveOrderDO sourceActiveOrder = activeOrderMapper.selectById(sourceActiveOrderId);
+        if (sourceActiveOrder == null || sourceActiveOrder.getWorkOrderId() == null
+                || !Objects.equals(workOrder.getTenantId(), sourceActiveOrder.getTenantId())) {
+            throw invalid("SOURCE_ACTIVE_ORDER_INVALID:" + sourceActiveOrderId);
+        }
+        MesProWorkOrderDO sourceWorkOrder = workOrderMapper.selectById(sourceActiveOrder.getWorkOrderId());
+        if (sourceWorkOrder == null || StrUtil.isBlank(sourceWorkOrder.getCode())
+                || !Objects.equals(sourceActiveOrder.getTenantId(), sourceWorkOrder.getTenantId())) {
+            throw invalid("SOURCE_WORK_ORDER_INVALID:" + sourceActiveOrder.getWorkOrderId());
+        }
+        return StrUtil.trim(sourceWorkOrder.getCode());
+    }
+
+    private Long sourceActiveOrderIdFromMarker(String value) {
+        String token = "[sourceActiveOrderId=";
+        if (StrUtil.isBlank(value) || !value.contains(token)) {
+            return null;
+        }
+        int start = value.indexOf(token) + token.length();
+        int end = value.indexOf(']', start);
+        if (end <= start) {
+            throw invalid("SOURCE_ACTIVE_ORDER_MARKER_INVALID");
+        }
+        try {
+            return Long.parseLong(value.substring(start, end).trim());
+        } catch (NumberFormatException ex) {
+            throw invalid("SOURCE_ACTIVE_ORDER_MARKER_INVALID");
+        }
     }
 
     private Source validateSource(String productionOrderNo, Long pickListId,

@@ -1361,11 +1361,11 @@ const isVersionNoFormatValid = computed(() => {
   if (!isExternalReview.value) {
     return true
   }
-  const versionNo = formData.versionNo.trim()
+  const versionNo = normalizePreflightVersionNo(formData.versionNo)
   return Boolean(versionNo && isVersionNoTextValid(versionNo))
 })
 const versionFormatPreflightMessage = computed(() =>
-  isExternalReview.value && formData.versionNo.trim() && !isVersionNoFormatValid.value
+  isExternalReview.value && normalizePreflightVersionNo(formData.versionNo) && !isVersionNoFormatValid.value
     ? VERSION_NO_FORMAT_MESSAGE
     : ''
 )
@@ -1376,7 +1376,7 @@ const versionDuplicatePreflightMessage = computed(() => {
   if (normalizePreflightVersionNo(formData.versionNo) === 'V1.0') {
     return '文件编号已存在，不能重复创建 V1.0 原版，请改用升版流程或更换文件编号。'
   }
-  return `文件编号 ${formData.fileNumber.trim()} 的版本 ${formData.versionNo.trim()} 已存在，请调整升版版本号。`
+  return `文件编号 ${formData.fileNumber.trim()} 的版本 ${normalizePreflightVersionNo(formData.versionNo)} 已存在，请调整升版版本号。`
 })
 
 const revisionTargetPreflightBlockReason = computed(() => {
@@ -1433,7 +1433,7 @@ const approvalChainPreflightText = computed(() => {
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasApprovalChain = routeReadiness.value?.ready === true
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
-  const versionReady = Boolean(formData.fileNumber.trim() && (isExternalReview.value || !formData.versionNo.trim()))
+  const versionReady = Boolean(formData.fileNumber.trim() && (isExternalReview.value || !normalizePreflightVersionNo(formData.versionNo)))
   const versionBlockingReason = versionFormatPreflightMessage.value ||
     currentVersionLookupError.value ||
     revisionTargetPreflightBlockReason.value ||

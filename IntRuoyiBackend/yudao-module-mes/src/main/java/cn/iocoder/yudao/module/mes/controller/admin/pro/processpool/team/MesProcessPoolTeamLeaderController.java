@@ -1194,10 +1194,12 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderDetail detail) {
         return new MesTeamLeaderActiveOrderDetailRespVO()
                 .setActiveOrderId(detail.getActiveOrderId())
+                .setVersion(detail.getVersion())
                 .setWorkOrderId(detail.getWorkOrderId())
                 .setWorkOrderCode(detail.getWorkOrderCode())
                 .setBatchCode(detail.getBatchCode())
                 .setWorkOrderQuantity(detail.getWorkOrderQuantity())
+                .setDrawingNumber(detail.getDrawingNumber())
                 .setProductCode(detail.getProductCode())
                 .setProductName(detail.getProductName())
                 .setProductSpecification(detail.getProductSpecification())
@@ -1276,6 +1278,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
                 .setSubmittedAt(submission.getSubmittedAt())
+                .setSubmitterSignature(toActiveOrderSignatureDetailRespVO(submission.getSubmitterSignature()))
+                .setReviewerSignature(toActiveOrderSignatureDetailRespVO(submission.getReviewerSignature()))
                 .setQuantityConflict(submission.getQuantityConflict())
                 .setDevices(submission.getDevices().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDeviceDetailRespVO)
@@ -1361,12 +1365,31 @@ public class MesProcessPoolTeamLeaderController {
                 .setShiftCode(submission.getShiftCode())
                 .setRoundNo(submission.getRoundNo())
                 .setActualInspectionQuantity(submission.getActualInspectionQuantity())
+                .setScrapQuantity(submission.getScrapQuantity())
                 .setTaskStatus(submission.getTaskStatus())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
+                .setSubmitterSignatures(submission.getSubmitterSignatures().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderSignatureDetailRespVO)
+                        .toList())
+                .setReviewerSignatures(submission.getReviewerSignatures().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderSignatureDetailRespVO)
+                        .toList())
                 .setItems(submission.getItems().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionItemDetailRespVO)
                         .toList());
+    }
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.SignatureDetail toActiveOrderSignatureDetailRespVO(
+            MesTeamLeaderActiveOrderDetail.SignatureDetail signature) {
+        if (signature == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.SignatureDetail()
+                .setSignatureId(signature.getSignatureId())
+                .setSignerName(signature.getSignerName())
+                .setSignedAt(signature.getSignedAt())
+                .setRole(signature.getRole());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcSubmissionItemDetail toActiveOrderPqcSubmissionItemDetailRespVO(

@@ -2545,6 +2545,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             return Collections.emptyMap();
         }
         return scheduleOrderMapper.selectEffectiveListByWorkOrderIds(workOrderIds).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, order -> order,
                         (left, right) -> left, LinkedHashMap::new));
     }
@@ -2730,6 +2731,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             return Collections.emptySet();
         }
         return scheduleOrderMapper.selectEffectiveListByWorkOrderIds(workOrderIds).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
                 .map(MesProScheduleOrderDO::getWorkOrderId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));

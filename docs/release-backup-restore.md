@@ -2,15 +2,15 @@
 
 ## 触发场景
 
-- 构建发布、测试服发布、正式服发布、备用服发布、备份、恢复、回滚或发布排障前，必须先读取本文件。
+- 构建发布、测试服发布、正式服发布、审查服发布、备份、恢复、回滚或发布排障前，必须先读取本文件。
 - 远端服务器操作还必须读取 `docs/server-access.md`。
 - worktree 发布隔离还必须读取 `docs/worktree-restrictions.md`。
 
 ## 发布授权
 
-- 默认不得操作测试服务器、正式服务器、备用服务器或共享存储。
+- 默认不得操作测试服务器、正式服务器、审查服务器或共享存储。
 - 用户明确授权后，必须记录目标环境、目标主机、发布范围、releaseTag、回滚或恢复路径。
-- 正式服和备用服按生产等级处理，必须显式确认生产操作。
+- 正式服和审查服按生产等级处理，必须显式确认生产操作。
 
 ## 发布链路
 
@@ -23,6 +23,33 @@
 - 涉及备份、恢复或回滚时，必须记录数据范围、存储位置、保留策略和验证方式。
 - 缺少备份目标、恢复脚本、数据盘、MinIO 容器或数据库连接证据时必须 fail fast。
 - 不得删除、清空、重挂载或改写共享存储，除非用户明确授权且有回滚说明。
+
+### 灾备备份保留与法规记录归档分离门禁
+
+- Trigger: 调整 `keepDaysRemote`、全量/增量备份保留、长期记录保存、Object Lock/Retention/legal hold 或到期销毁。
+- Preflight check: 必须先区分灾备备份与法规长期归档。灾备备份按完整恢复链和 RTO/RPO 滚动保留；法规归档按记录类别、策略版本、起算事件和 `retainUntil` 保留完整业务记录、附件、审计追踪和电子签名证据。MinIO/S3 支持 Object Lock 不等于目标 bucket 已启用，必须逐 bucket、逐对象版本真实读取 versioning、Object Lock、retention 和 legal hold 证据。
+- Blocker: 记录保存期限矩阵、质量/法规负责人、起算事件、目标 bucket 证据、对象 versionId、retain-until、legal hold 状态或完整归档包任一缺失时，不得宣称长期留存就绪；灾备链清理范围可能触及法规归档 bucket 或未到期记录时必须停止。
+- Verification: 灾备侧验证全量基线与增量段按链保留、恢复演练和过期清理不破坏可恢复链；归档侧验证业务记录、附件、审计、签名、hash、策略版本和保存截止时间闭合，未到期或 hold 中对象无法删除。到期记录先生成 hash 固定的待处置清单，经质量电子签名和职责分离审批后按精确对象版本销毁，并永久保留处置审计。
+- Forbidden action: 禁止仅把全部数据库备份延长到最长记录保存期来替代记录归档；禁止让 30 天等灾备清理策略删除仍在法规保存期的记录；禁止到期自动静默删除；禁止用配置声明、测试 bucket 或历史报告冒充正式目标 bucket 的 WORM 证据。
+- Evidence: `doc/tasks/20260907-backup-full-incremental-recovery-plan/development-plan.md` 与 `test-plan.md`。
+
+### 恢复一致性、秘密恢复与归档可用性门禁
+
+- Trigger: 设计或实施跨 MySQL/对象存储备份、增量链、受保护归档副本、secret/key 恢复、归档故障切换或长期格式迁移。
+- Preflight check: 建立覆盖 HTTP、Quartz/TenantJob、MQ/worker、外部集成、直接数据库账号和对象写凭据的 writer registry；备份 epoch 只能在全部 writer drained/fenced、数据库活动事务为 0 且数据库/对象测试写均被拒绝后建立。秘密不进入备份包，但 SSH、MySQL、MinIO、归档、签名、TLS、调度和通知 secret 必须有独立故障域 escrow、owner、历史 key 生命周期和隔离恢复证据。WORM 主存储还必须有独立故障域副本、源/副本 versionId 映射、内容 hash、retention/hold 等价和复制 RPO。
+- Blocker: writer 清单或 storage fence 不完整、历史 signing key 不可恢复、归档副本缺失或保护语义弱化、failover 未经 preview/approval、旧归档缺独立 reader/格式验证时，必须停止备份封存、恢复、归档放行或处置。
+- Verification: 故障注入证明遗漏 writer 时屏障不能 ACTIVE，隔离 secret recovery 能完成当前连接和历史验签，主/副本 hash 相同且目标 retainUntil 不早于源、legal hold 不弱化，显式 failover/failback 后记录/附件/审计/签名可读；年度抽检覆盖旧 schema、呈现件、原始文件和受控格式迁移，迁移不得覆盖原对象。
+- Forbidden action: 禁止只拦 HTTP 就宣称跨存储一致，禁止把 secret store 与生产/NAS 放在同一故障域，禁止把 Object Lock 当成备份，禁止静默切换归档读取源，禁止因 reader 下线而把 hash 正确等同于长期可读，禁止格式迁移覆盖原始归档。
+- Evidence: `doc/tasks/20260907-backup-full-incremental-recovery-plan/docs/system/` 与 `docs/security/security-privacy-compliance-review.md`。
+
+### 紧急交付下的最小备份审查闭环
+
+- Trigger: 交付窗口不足，需要先完成老师或审查方当前明确要求的全量、增量、恢复证明和证据导出。
+- Preflight check: 最小闭环仍必须包含真实 FULL、真实 MySQL binlog/对象 INCREMENTAL、全载荷 SHA-256、连续恢复链、测试演练槽位真实恢复和后端生成的审查证据 ZIP。若当前项目所有 HTTP、Quartz/TenantJob 和应用内 consumer 都在同一后端进程，且能证明不存在外部直接 DB/MinIO writer，可用“停止 frontend/backend + 活动事务为 0”替代首版通用 writer registry；不能证明唯一 writer 时必须阻断。
+- Blocker: binlog 不可用、对象删除 tombstone 不完整、停服窗口不可接受、外部 writer 未盘点、演练槽位缺失或老师不接受文本/JSON 证据包时，最小闭环不能实施，必须回到对应完整设计。
+- Verification: 至少恢复 `FULL`、`FULL+I1`、`FULL+I1+I2`，验证数据库关键行数、对象新增/修改/删除、真实登录和 DCC 文件 hash；审查 ZIP 固定包含计划、调度、链、完整性、演练、操作和 evidence manifest，包内 hash 可重算且不含载荷或 secret。导出成功只表示证据包生成成功，摘要 PASS 仍要求调度健康、备份未过期、链完整和演练通过。
+- Forbidden action: 禁止把每日全量改名为增量，禁止只停前端冒充无写入窗口，禁止用 API-only/mock 代替恢复演练，禁止为了赶时间省略载荷校验，禁止生成空 ZIP、默认 PASS、明文 secret 或把完整长期归档平台预埋成首版 fallback。
+- Evidence: `docs/changes/20260907-backup-minimal-closure.md` 与 `doc/tasks/20260907-backup-full-incremental-recovery-plan/minimal-development-plan.md`。
 
 ### 本机数据迁移包恢复门禁
 
@@ -61,9 +88,9 @@
 - Forbidden action: 禁止把维护仓副本、`schtasks` 错误/空输出、旧路径、禁用任务、默认仓库、当前用户/SYSTEM/最高权限、命令行明文凭据、仅有历史备份文件或缺少恢复/新鲜度证据包装成“定时备份正常”。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260813-production-operations-hardening-plan\` 规划包及其独立复审报告。
 
-## 备用服运行承载对齐门禁
+## 审查服运行承载对齐门禁
 
-- Trigger: 将备用服或备份服运行环境改成与正式服一致，尤其涉及 `/var/lib/docker/intruoyi-data/runtime-data`、`/var/lib/docker/intruoyi-releases`、`/var/lib/docker`、`/dev/vdb`、MinIO 容器名、运行数据目录或 `/etc/fstab`。
+- Trigger: 将审查服运行环境改成与正式服一致，尤其涉及 `/var/lib/docker/intruoyi-data/runtime-data`、`/var/lib/docker/intruoyi-releases`、`/var/lib/docker`、`/dev/vdb`、MinIO 容器名、运行数据目录或 `/etc/fstab`。
 - Preflight check: 停服或迁移前必须只读证明目标块设备存在、目标挂载点落在目标设备、目标目录存在或可创建且非冲突目录、目标可用容量大于当前 `/opt/intruoyi/runtime/data` 与 release 包数据并保留增长空间；同时记录当前 `df/findmnt/lsblk/du`、运行容器、health、前端和展厅 HTTP、MinIO 桶可读性、当前 fstab 和回滚路径。
 - Blocker: `/dev/vdb` 不存在、`/var/lib/docker` 落在根分区且容量不足、当前数据量大于目标可用空间、目标目录已有无法归属数据、MinIO 容器名不匹配、Docker/SSH/health 前置检查失败、或无法形成回滚路径时必须停止，不得停服迁移。
 - Verification: 迁移后必须复核 `/opt/intruoyi/runtime/data`、`/var/lib/docker/intruoyi-data/runtime-data`、`/var/lib/docker/intruoyi-releases` 均落在目标设备；后端 health、前端、展厅、MySQL、Redis、MinIO、OnlyOffice 和容器状态通过，并记录迁移前后数据量和 fstab 变更。

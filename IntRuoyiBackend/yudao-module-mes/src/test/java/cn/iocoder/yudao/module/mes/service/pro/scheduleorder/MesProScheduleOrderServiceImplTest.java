@@ -14,6 +14,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrderReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteImpactRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightIssueRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightRespVO;
@@ -31,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionOrderSyncRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
@@ -39,6 +42,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleC
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarRuleDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProTaskScheduleExtDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.task.MesProTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -47,6 +52,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationWorkerMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
@@ -60,6 +66,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdg
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProTaskScheduleExtMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderOperationLogMapper;
@@ -73,6 +81,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaultCompatibilityPolicy;
@@ -90,6 +99,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -140,6 +150,10 @@ class MesProScheduleOrderServiceImplTest {
     @Mock
     private MesProFeedbackMapper feedbackMapper;
     @Mock
+    private MesProTaskScheduleExtMapper taskScheduleExtMapper;
+    @Mock
+    private MesProTaskMapper taskMapper;
+    @Mock
     private MesProWorkOrderMapper workOrderMapper;
     @Mock
     private MesMdItemMapper itemMapper;
@@ -177,6 +191,8 @@ class MesProScheduleOrderServiceImplTest {
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Mock
     private MesProProcessMapper processMapper;
+    @Mock
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     @org.junit.jupiter.api.BeforeEach
     void setUpRouteFlowContext() {
@@ -3044,30 +3060,132 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void deleteScheduleOrders_shouldRejectRowsWithReportedProgress() {
+    void deleteScheduleOrders_shouldRemoveFrozenFinishedOrderAndCancelOnlyPrepareTasks() {
+        LocalDateTime updateTime = LocalDateTime.of(2026, 9, 7, 10, 30, 15);
         MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
                 .id(900L)
                 .code("SCH-900")
-                .status(MesProScheduleOrderStatusEnum.PREPARE.getStatus())
-                .frozen(Boolean.FALSE)
+                .workOrderId(500L)
+                .status(MesProScheduleOrderStatusEnum.FINISHED.getStatus())
+                .frozen(Boolean.TRUE)
+                .removedFromSchedule(Boolean.FALSE)
                 .build();
-        MesProScheduleOrderProcessDO process = MesProScheduleOrderProcessDO.builder()
-                .id(1000L)
-                .scheduleOrderId(900L)
-                .reportedQuantity(new BigDecimal("1.000000"))
-                .build();
-        MesProScheduleOrderBatchReqVO reqVO = new MesProScheduleOrderBatchReqVO();
-        reqVO.setIds(List.of(900L));
+        scheduleOrder.setUpdateTime(updateTime);
+        MesProScheduleOrderDeleteReqVO reqVO = deleteRequest(900L, updateTime);
         reqVO.setReason("清理错误入池");
-        when(scheduleOrderMapper.selectListByIds(List.of(900L))).thenReturn(List.of(scheduleOrder));
-        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(900L))).thenReturn(List.of(process));
+        when(scheduleOrderMapper.selectByIdForUpdate(900L)).thenReturn(scheduleOrder);
+        when(taskScheduleExtMapper.selectListByScheduleOrderIds(List.of(900L))).thenReturn(List.of(
+                MesProTaskScheduleExtDO.builder().scheduleOrderId(900L).taskId(1001L).build(),
+                MesProTaskScheduleExtDO.builder().scheduleOrderId(900L).taskId(1002L).build()));
+        when(taskMapper.selectListByIdsForUpdate(List.of(1001L, 1002L))).thenReturn(List.of(
+                MesProTaskDO.builder().id(1001L).status(MesProTaskStatusEnum.PREPARE.getStatus()).build(),
+                MesProTaskDO.builder().id(1002L).status(MesProTaskStatusEnum.IN_PROGRESS.getStatus()).build()));
+        when(feedbackMapper.selectProgressListByScheduleOrderId(900L)).thenReturn(List.of(
+                MesProFeedbackDO.builder().id(2001L).scheduleOrderId(900L).build()));
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(500L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder().id(3001L).simulated(Boolean.FALSE).build()));
+        when(scheduleOrderMapper.updateById(any(MesProScheduleOrderDO.class))).thenReturn(1);
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = org.mockito.Mockito.mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(7L);
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("排产员");
+            scheduleOrderService.deleteScheduleOrders(reqVO);
+        }
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesProTaskDO>> tasksCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(taskMapper).updateBatch(tasksCaptor.capture());
+        List<MesProTaskDO> canceledTasks = List.copyOf(tasksCaptor.getValue());
+        assertEquals(1, canceledTasks.size());
+        assertEquals(1001L, canceledTasks.get(0).getId());
+        assertEquals(MesProTaskStatusEnum.CANCELED.getStatus(), canceledTasks.get(0).getStatus());
+        ArgumentCaptor<MesProScheduleOrderDO> updateCaptor = ArgumentCaptor.forClass(MesProScheduleOrderDO.class);
+        verify(scheduleOrderMapper).updateById(updateCaptor.capture());
+        MesProScheduleOrderDO update = updateCaptor.getValue();
+        assertTrue(Boolean.TRUE.equals(update.getRemovedFromSchedule()));
+        assertTrue(Boolean.TRUE.equals(update.getReentryBlocked()));
+        assertEquals(MesProScheduleOrderStatusEnum.FINISHED.getStatus(), update.getRemovedFromScheduleStatus());
+        assertEquals(7L, update.getRemovedFromScheduleBy());
+        verify(scheduleOrderMapper, never()).deleteById(900L);
+        ArgumentCaptor<MesProScheduleOrderOperationLogDO> logCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderOperationLogDO.class);
+        verify(scheduleOrderOperationLogMapper).insert(logCaptor.capture());
+        assertEquals("DELETE", logCaptor.getValue().getOperationType());
+    }
+
+    @Test
+    void deleteScheduleOrders_shouldBeIdempotentForAlreadyRemovedOrder() {
+        LocalDateTime updateTime = LocalDateTime.of(2026, 9, 7, 11, 0);
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(901L).code("SCH-901").removedFromSchedule(Boolean.TRUE).build();
+        scheduleOrder.setUpdateTime(updateTime.plusMinutes(1));
+        when(scheduleOrderMapper.selectByIdForUpdate(901L)).thenReturn(scheduleOrder);
+
+        scheduleOrderService.deleteScheduleOrders(deleteRequest(901L, updateTime));
+
+        verify(taskScheduleExtMapper, never()).selectListByScheduleOrderIds(any());
+        verify(scheduleOrderMapper, never()).updateById(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderOperationLogMapper, never()).insert(any(MesProScheduleOrderOperationLogDO.class));
+    }
+
+    @Test
+    void deleteScheduleOrders_shouldRejectChangedOrderBeforeAnyMutation() {
+        LocalDateTime updateTime = LocalDateTime.of(2026, 9, 7, 11, 30);
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(902L).code("SCH-902").removedFromSchedule(Boolean.FALSE).build();
+        scheduleOrder.setUpdateTime(updateTime.plusSeconds(1));
+        when(scheduleOrderMapper.selectByIdForUpdate(902L)).thenReturn(scheduleOrder);
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> scheduleOrderService.deleteScheduleOrders(reqVO));
+                () -> scheduleOrderService.deleteScheduleOrders(deleteRequest(902L, updateTime)));
 
-        assertTrue(exception.getMessage().contains("SCH-900"));
-        verify(scheduleOrderMapper, never()).deleteById(900L);
-        verify(scheduleOrderOperationLogMapper, never()).insert(any(MesProScheduleOrderOperationLogDO.class));
+        assertTrue(exception.getMessage().contains("请刷新后重新确认删除"));
+        verify(taskScheduleExtMapper, never()).selectListByScheduleOrderIds(any());
+        verify(scheduleOrderMapper, never()).updateById(any(MesProScheduleOrderDO.class));
+    }
+
+    @Test
+    void getDeleteImpact_shouldReportCanceledAndRetainedProductionCounts() {
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(903L).code("SCH-903").workOrderId(500L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .progressPercent(new BigDecimal("25.000000")).frozen(Boolean.FALSE).build();
+        scheduleOrder.setUpdateTime(LocalDateTime.of(2026, 9, 7, 12, 0));
+        when(scheduleOrderMapper.selectById(903L)).thenReturn(scheduleOrder);
+        when(taskScheduleExtMapper.selectListByScheduleOrderIds(List.of(903L))).thenReturn(List.of(
+                MesProTaskScheduleExtDO.builder().scheduleOrderId(903L).taskId(1101L).build(),
+                MesProTaskScheduleExtDO.builder().scheduleOrderId(903L).taskId(1102L).build(),
+                MesProTaskScheduleExtDO.builder().scheduleOrderId(903L).taskId(1103L).build()));
+        when(taskMapper.selectListByIds(List.of(1101L, 1102L, 1103L))).thenReturn(List.of(
+                MesProTaskDO.builder().id(1101L).status(MesProTaskStatusEnum.PREPARE.getStatus()).build(),
+                MesProTaskDO.builder().id(1102L).status(MesProTaskStatusEnum.IN_PROGRESS.getStatus()).build(),
+                MesProTaskDO.builder().id(1103L).status(MesProTaskStatusEnum.FINISHED.getStatus()).build()));
+        when(feedbackMapper.selectProgressListByScheduleOrderId(903L)).thenReturn(List.of(
+                MesProFeedbackDO.builder().id(2101L).build(), MesProFeedbackDO.builder().id(2102L).build()));
+        when(activeOrderMapper.selectHistoryByWorkOrderId(500L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder().id(3101L).activeStatus("ACTIVE")
+                        .simulated(Boolean.FALSE).build(),
+                MesProcessPoolActiveOrderDO.builder().id(3102L).simulated(Boolean.TRUE).build()));
+
+        MesProScheduleOrderDeleteImpactRespVO impact = scheduleOrderService.getDeleteImpact(903L);
+
+        assertEquals(1, impact.getPendingTaskCount());
+        assertEquals(1, impact.getInProgressTaskCount());
+        assertEquals(1, impact.getFinishedTaskCount());
+        assertEquals(2, impact.getFeedbackCount());
+        assertEquals(1, impact.getActiveOrderCount());
+        assertTrue(impact.getProductionFactsRetained());
+        assertTrue(impact.getReentryBlockedAfterRemoval());
+    }
+
+    private MesProScheduleOrderDeleteReqVO deleteRequest(Long id, LocalDateTime expectedUpdateTime) {
+        MesProScheduleOrderDeleteReqVO.Item item = new MesProScheduleOrderDeleteReqVO.Item();
+        item.setId(id);
+        item.setExpectedUpdateTime(expectedUpdateTime);
+        MesProScheduleOrderDeleteReqVO reqVO = new MesProScheduleOrderDeleteReqVO();
+        reqVO.setItems(List.of(item));
+        reqVO.setReason("撤出排产");
+        return reqVO;
     }
 
     @Test

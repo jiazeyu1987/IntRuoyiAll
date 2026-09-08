@@ -420,6 +420,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 .setAuxiliaryCode(StrUtil.trimToNull(productionOrder.getAuxiliaryCode()))
                 .setBusinessStatus(StrUtil.trimToNull(productionOrder.getBusinessStatus()))
                 .setDrawingNumber(StrUtil.trimToNull(productionOrder.getDrawingNumber()))
+                .setRefNo(StrUtil.trimToNull(productionOrder.getRefNo()))
                 .setScheduleStatus(StrUtil.trimToNull(productionOrder.getScheduleStatus()))
                 .setPlannedStartTime(productionOrder.getPlannedStartDate())
                 .setPlannedEndTime(productionOrder.getPlannedEndDate())
@@ -442,6 +443,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 .setAuxiliaryCode(StrUtil.trimToNull(productionOrder.getAuxiliaryCode()))
                 .setBusinessStatus(StrUtil.trimToNull(productionOrder.getBusinessStatus()))
                 .setDrawingNumber(StrUtil.trimToNull(productionOrder.getDrawingNumber()))
+                .setRefNo(StrUtil.trimToNull(productionOrder.getRefNo()))
                 .setScheduleStatus(StrUtil.trimToNull(productionOrder.getScheduleStatus()))
                 .setPlannedStartTime(productionOrder.getPlannedStartDate())
                 .setPlannedEndTime(productionOrder.getPlannedEndDate());
@@ -460,6 +462,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 || !Objects.equals(existingWorkOrder.getAuxiliaryCode(), updatedWorkOrder.getAuxiliaryCode())
                 || !Objects.equals(existingWorkOrder.getBusinessStatus(), updatedWorkOrder.getBusinessStatus())
                 || !Objects.equals(existingWorkOrder.getDrawingNumber(), updatedWorkOrder.getDrawingNumber())
+                || !Objects.equals(existingWorkOrder.getRefNo(), updatedWorkOrder.getRefNo())
                 || !Objects.equals(existingWorkOrder.getScheduleStatus(), updatedWorkOrder.getScheduleStatus())
                 || !Objects.equals(existingWorkOrder.getPlannedStartTime(), updatedWorkOrder.getPlannedStartTime())
                 || !Objects.equals(existingWorkOrder.getPlannedEndTime(), updatedWorkOrder.getPlannedEndTime())
@@ -515,6 +518,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         payload.put("auxiliaryCode", workOrder.getAuxiliaryCode());
         payload.put("businessStatus", workOrder.getBusinessStatus());
         payload.put("drawingNumber", workOrder.getDrawingNumber());
+        payload.put("refNo", workOrder.getRefNo());
         payload.put("scheduleStatus", workOrder.getScheduleStatus());
         payload.put("plannedStartTime", workOrder.getPlannedStartTime());
         payload.put("plannedEndTime", workOrder.getPlannedEndTime());

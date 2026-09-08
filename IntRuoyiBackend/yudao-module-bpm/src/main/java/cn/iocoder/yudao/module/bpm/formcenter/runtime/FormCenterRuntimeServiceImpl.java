@@ -50,6 +50,7 @@ import org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -96,6 +97,9 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     private static final String BUSINESS_KEY_PREFIX = "FORM_ACTION:";
     private static final String TEMPLATE_IMPORT_ACTION_CREATE = "CREATE";
     private static final String TEMPLATE_IMPORT_ACTION_UPGRADE = "UPGRADE";
+    private static final String TEMPLATE_PARSE_ONLY_VERSION_NO = "PARSE_ONLY";
+    private static final String TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD = "PRODUCTION_BATCH_RECORD";
+    private static final String TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD_NAME = "生产批记录";
     private static final String TEMPLATE_ACTION_OBSOLETE = "OBSOLETE";
     private static final String FORM_TEMPLATE_APPROVAL_DATA_DOMAIN = "FORM_CENTER";
     private static final String FORM_TEMPLATE_APPROVAL_SYSTEM_CODE = "FORM_CENTER";
@@ -246,6 +250,33 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             }
         }
         respVO.setRecognizedFields(recognition.getFields());
+        respVO.setWarnings(List.of());
+        return respVO;
+    }
+
+    @Override
+    public FormCenterTemplateParseJsonRespVO parseProductionBatchRecordJson(FormCenterTemplateParseJsonReqVO reqVO) {
+        MultipartFile file = reqVO.getFile();
+        String sourceFileName = resolveSourceFileName(file);
+        byte[] sourceBytes = readSourceBytes(file);
+        FormTemplateImportCommand command = FormTemplateImportCommand.of(resolveParseTemplateName(sourceFileName),
+                TEMPLATE_PARSE_ONLY_VERSION_NO, sourceFileName, sourceBytes,
+                TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD_NAME + "解析");
+        validateDocSource(command);
+        FormTemplateRecognition recognition = templateRecognizer.recognize(command);
+        if (!recognition.isSuccess() || recognition.getFields().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template recognition failed: " + recognition.getFailureReason());
+        }
+        String recognizedJimuSchemaJson = requireRecognizedVisualSchema(recognition.getJimuSchemaJson());
+
+        FormCenterTemplateParseJsonRespVO respVO = new FormCenterTemplateParseJsonRespVO();
+        respVO.setParseType(TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD);
+        respVO.setParseTypeName(TEMPLATE_PARSE_PRODUCTION_BATCH_RECORD_NAME);
+        respVO.setSourceFileName(sourceFileName);
+        respVO.setRecognizedFields(recognition.getFields());
+        respVO.setRecognizedSchemaJson(JsonUtils.toJsonString(recognition.getFields()));
+        respVO.setJimuSchemaJson(recognizedJimuSchemaJson);
         respVO.setWarnings(List.of());
         return respVO;
     }
@@ -744,12 +775,28 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     }
 
     private byte[] readSourceBytes(FormCenterTemplateImportReqVO reqVO) {
+        return readSourceBytes(reqVO.getFile());
+    }
+
+    private byte[] readSourceBytes(MultipartFile file) {
+        if (file == null) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source file is required");
+        }
         try {
-            return reqVO.getFile().getBytes();
+            return file.getBytes();
         } catch (IOException ex) {
             throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
                     "Template source file cannot be read: " + ex.getMessage());
         }
+    }
+
+    private String resolveSourceFileName(MultipartFile file) {
+        if (file == null || file.getOriginalFilename() == null || file.getOriginalFilename().trim().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template source filename cannot be blank");
+        }
+        return file.getOriginalFilename().trim();
     }
 
     private void validateDocSource(FormTemplateImportCommand command) {
@@ -770,6 +817,20 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
                     "Template name cannot be blank");
         }
         return templateName.trim();
+    }
+
+    private String resolveParseTemplateName(String sourceFileName) {
+        String fileName = sourceFileName;
+        int slashIndex = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        if (slashIndex >= 0) {
+            fileName = fileName.substring(slashIndex + 1);
+        }
+        if (fileName.endsWith(".docx")) {
+            fileName = fileName.substring(0, fileName.length() - ".docx".length());
+        } else if (fileName.endsWith(".doc")) {
+            fileName = fileName.substring(0, fileName.length() - ".doc".length());
+        }
+        return normalizeTemplateName(fileName);
     }
 
     private FormTemplateVersionDO resolveImportTargetTemplate(Long tenantId, String templateName,

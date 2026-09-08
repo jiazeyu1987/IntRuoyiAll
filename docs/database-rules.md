@@ -29,7 +29,7 @@
 - Shared-layout attribution: 进入业务页面时看到全局“系统异常”，必须先用浏览器网络记录定位第一个失败请求。顶部待办、消息角标或权限初始化等公共布局请求失败时，不得按当前页面路由归因给业务模块；例如一线生产目标接口全部成功而 `/approval-center/tasks/page` 因 DCC 表缺列失败，应修复对应 DCC 迁移并同时复验公共接口与一线页面，不能修改 MES 或隐藏全局错误。
 - Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。
 - Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
-- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`；`doc/tasks/20260826-schedule-order-system-exception/verification-report.md`；`doc/tasks/20260830-dcc-process-device-type-parameter-catalog/verification-report.md`；`doc/tasks/20260904-frontline-production-system-exception-regression/verification-report.md`。
+- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`；`doc/tasks/20260826-schedule-order-system-exception/verification-report.md`；`doc/tasks/20260830-dcc-process-device-type-parameter-catalog/verification-report.md`；`doc/tasks/20260904-frontline-production-system-exception-regression/verification-report.md`；`doc/tasks/20260907-active-order-pool-system-error/verification-report.md`，实体新增字段已存在正式迁移但运行库未执行时，公共待办和目标页面可同时报 `系统异常`，应先只读证明目标列缺失并执行既有正式迁移，不得改业务读取兼容旧库。
 
 ### 一对多读模型聚合门禁
 

@@ -66,7 +66,9 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FUnitId.FName",
             "FLot.FNumber",
             "FWorkShopID.FName",
-            "FBomId.FNumber");
+            "FBomId.FNumber",
+            "FMaterialId.F_PAEZ_TUHAO",
+            "FMaterialId.F_PAEZ_REFNO");
     private static final String BILL_LOOKUP_FIELD_KEYS = String.join(",",
             "FID",
             "FBillNo",
@@ -98,12 +100,9 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
     private static final int INDEX_BATCH_NUMBER = 14;
     private static final int INDEX_WORKSHOP_NAME = 15;
     private static final int INDEX_BOM_VERSION = 16;
-    private static final int INDEX_PICK_MODE = 17;
-    private static final int INDEX_AUXILIARY_CODE = 18;
-    private static final int INDEX_BUSINESS_STATUS = 19;
-    private static final int INDEX_DRAWING_NUMBER = 20;
-    private static final int INDEX_SCHEDULE_STATUS = 21;
-    private static final int INDEX_SOURCE_MODIFY_TIME = 22;
+    private static final int INDEX_DRAWING_NUMBER = 17;
+    private static final int INDEX_REF_NO = 18;
+    private static final int INDEX_SOURCE_MODIFY_TIME = 19;
     private static final int MIN_REQUIRED_FIELD_COUNT = 12;
     private static final int PAGE_LIMIT = 1000;
     private static final int BILL_NO_QUERY_BATCH_SIZE = 50;
@@ -540,11 +539,8 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         order.setBatchNumber(optionalText(row, INDEX_BATCH_NUMBER));
         order.setWorkshopName(optionalText(row, INDEX_WORKSHOP_NAME));
         order.setBomVersion(optionalText(row, INDEX_BOM_VERSION));
-        order.setPickMode(optionalText(row, INDEX_PICK_MODE));
-        order.setAuxiliaryCode(optionalText(row, INDEX_AUXILIARY_CODE));
-        order.setBusinessStatus(optionalText(row, INDEX_BUSINESS_STATUS));
         order.setDrawingNumber(optionalText(row, INDEX_DRAWING_NUMBER));
-        order.setScheduleStatus(optionalText(row, INDEX_SCHEDULE_STATUS));
+        order.setRefNo(optionalText(row, INDEX_REF_NO));
         if (row.size() > INDEX_SOURCE_MODIFY_TIME) {
             order.setSourceModifyTime(parseDateTime(optionalText(row, INDEX_SOURCE_MODIFY_TIME), "FModifyDate"));
         }

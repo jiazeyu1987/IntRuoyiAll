@@ -55,6 +55,11 @@
                 <div
                   class="schedule-order-pool__toolbar-group schedule-order-pool__toolbar-group--primary"
                 >
+                  <el-switch
+                    v-model="showRemovedScheduleOrders"
+                    active-text="查看已删除工单"
+                    @change="handleRemovedScheduleOrdersChange"
+                  />
                   <el-button
                     v-hasPermi="['mes:pro-schedule-order:export']"
                     :loading="scheduleOrderExporting"
@@ -399,10 +404,27 @@
                   align="center"
                   v-bind="sortColumnAttrs('createTime')"
                 />
-                <el-table-column label="操作" width="140" align="center" fixed="right">
+                <el-table-column
+                  v-if="showRemovedScheduleOrders"
+                  label="删除信息"
+                  min-width="240"
+                >
                   <template #default="{ row }">
-                    <div v-if="row.frozen" class="schedule-order-pool__row-actions">
+                    <div class="schedule-order-pool__removed-info">
+                      <span>{{ formatDateTime(row.removedFromScheduleTime) }}</span>
+                      <span>{{ row.removedFromScheduleReason || '-' }}</span>
+                      <el-tag v-if="row.reentryBlocked" type="warning" effect="light">
+                        已有生产记录，不可直接重新入池
+                      </el-tag>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="190" align="center" fixed="right">
+                  <template #default="{ row }">
+                    <div class="schedule-order-pool__row-actions">
+                      <el-button link type="primary" @click="openProcessDialog(row)">查看</el-button>
                       <el-button
+                        v-if="!row.removedFromSchedule && row.frozen"
                         v-hasPermi="['mes:pro-schedule-order:update']"
                         link
                         type="primary"
@@ -410,12 +432,8 @@
                       >
                         解冻
                       </el-button>
-                    </div>
-                    <div v-else class="schedule-order-pool__row-actions">
-                      <el-button link type="primary" @click="openProcessDialog(row)">
-                        查看
-                      </el-button>
                       <el-button
+                        v-if="!row.removedFromSchedule && !row.frozen"
                         v-hasPermi="['mes:pro-schedule-order:update']"
                         link
                         type="primary"
@@ -424,6 +442,7 @@
                         调整
                       </el-button>
                       <el-button
+                        v-if="!row.removedFromSchedule && !row.frozen"
                         v-hasPermi="['mes:pro-schedule-order:update']"
                         link
                         type="primary"
@@ -432,6 +451,7 @@
                         交期
                       </el-button>
                       <el-button
+                        v-if="!row.removedFromSchedule && !row.frozen"
                         v-hasPermi="['mes:pro-schedule-order:update']"
                         link
                         type="warning"
@@ -440,7 +460,12 @@
                         冻结
                       </el-button>
                       <el-button
-                        v-if="!row.manualFinished && row.status !== SCHEDULE_ORDER_STATUS_FINISHED"
+                        v-if="
+                          !row.removedFromSchedule &&
+                          !row.frozen &&
+                          !row.manualFinished &&
+                          row.status !== SCHEDULE_ORDER_STATUS_FINISHED
+                        "
                         v-hasPermi="['mes:pro-schedule-order:manual-finish']"
                         link
                         type="success"
@@ -449,7 +474,7 @@
                         完成
                       </el-button>
                       <el-button
-                        v-if="row.manualFinished"
+                        v-if="!row.removedFromSchedule && !row.frozen && row.manualFinished"
                         v-hasPermi="['mes:pro-schedule-order:revoke-complete']"
                         link
                         type="danger"
@@ -457,6 +482,16 @@
                         @click="openRevokeManualFinishDialog(row)"
                       >
                         撤销完成
+                      </el-button>
+                      <el-button
+                        v-if="!row.removedFromSchedule"
+                        v-hasPermi="['mes:pro-schedule-order:delete']"
+                        data-testid="schedule-order-row-delete"
+                        link
+                        type="danger"
+                        @click="openDeleteDialog(row)"
+                      >
+                        删除
                       </el-button>
                     </div>
                   </template>
@@ -973,18 +1008,52 @@
       </template>
     </Dialog>
 
-    <Dialog v-model="deleteDialogVisible" title="删除排产工单" width="460px">
-      <el-form label-width="88px">
+    <Dialog v-model="deleteDialogVisible" title="删除排产工单" width="520px">
+      <el-form v-loading="deleteImpactLoading" label-width="104px">
         <el-form-item label="排产工单号">
           <span>{{ batchActionRows.map((item) => item.code).join('，') || '-' }}</span>
         </el-form-item>
+        <el-form-item label="当前状态">
+          <span>{{ getScheduleOrderStatusText(deleteImpact?.status) }}</span>
+        </el-form-item>
+        <el-form-item label="生产进度">
+          <span>{{ formatPercent(deleteImpact?.progressPercent) }}%</span>
+        </el-form-item>
+        <el-form-item label="影响范围">
+          <span>
+            待取消任务 {{ deleteImpact?.pendingTaskCount ?? 0 }} 个，生产中任务
+            {{ deleteImpact?.inProgressTaskCount ?? 0 }} 个，已完成任务
+            {{ deleteImpact?.finishedTaskCount ?? 0 }} 个，正式报工
+            {{ deleteImpact?.feedbackCount ?? 0 }} 条，活跃订单
+            {{ deleteImpact?.activeOrderCount ?? 0 }} 个
+          </span>
+        </el-form-item>
+        <el-alert
+          class="mb-12px"
+          type="warning"
+          :closable="false"
+          show-icon
+          :title="`未开始的排产任务将被取消（${deleteImpact?.pendingTaskCount ?? 0} 个）`"
+        />
+        <el-alert
+          class="mb-12px"
+          type="info"
+          :closable="false"
+          show-icon
+          title="当前生产、报工、质检和批记录将继续保留"
+        />
         <el-form-item label="删除原因">
           <el-input v-model="batchActionReason" type="textarea" :rows="3" maxlength="500" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" :loading="batchActionSaving" @click="submitScheduleOrderDelete">
+        <el-button
+          type="danger"
+          :loading="batchActionSaving"
+          :disabled="deleteImpactLoading || !deleteImpact?.updateTime"
+          @click="submitScheduleOrderDelete"
+        >
           删除
         </el-button>
       </template>
@@ -2086,6 +2155,7 @@ import {
   type MesProScheduleOrderPreflightRespVO,
   type MesProScheduleOrderOperationLogVO,
   type MesProScheduleOrderProcessVO,
+  type MesProScheduleOrderDeleteImpactVO,
   type MesProScheduleOrderVO
 } from '@/api/mes/pro/scheduleorder'
 import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
@@ -2372,13 +2442,19 @@ const scheduleOrderQueryParams = reactive({
   pageSize: 10,
   code: undefined as string | undefined,
   erpWorkOrderCode: undefined as string | undefined,
+  productCode: undefined as string | undefined,
+  productName: undefined as string | undefined,
   currentProcessId: undefined as number | undefined,
+  currentProcessKeyword: undefined as string | undefined,
+  status: undefined as number | undefined,
+  removedFromSchedule: false,
   completionFilter: undefined as 'INCOMPLETE' | 'ALL' | 'COMPLETED' | undefined,
   promiseDate: undefined as string[] | undefined,
   sortField: undefined as string | undefined,
   sortOrder: undefined as 'asc' | 'desc' | undefined,
   quickFilter: undefined as any
 })
+const showRemovedScheduleOrders = ref(false)
 const scheduleOrderSortState = ref<{
   key?: string
   prop?: string
@@ -2388,6 +2464,13 @@ const scheduleOrderCompletionFilterOptions = [
   { label: '未完成', value: 'INCOMPLETE' },
   { label: '全部', value: 'ALL' },
   { label: '已完成', value: 'COMPLETED' }
+]
+const scheduleOrderStatusOptions = [
+  { label: '待排产', value: 0 },
+  { label: '已排产', value: 1 },
+  { label: '生产中', value: 2 },
+  { label: '已完成', value: 3 },
+  { label: '已取消', value: 4 }
 ]
 const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'code', label: '排产工单号', type: 'text', placeholder: '请输入排产工单号' },
@@ -2404,7 +2487,21 @@ const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     type: 'text',
     placeholder: '请输入来源生产工单号'
   },
-  { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
+  { key: 'productCode', label: '物料编码', type: 'text', placeholder: '请输入物料编码' },
+  { key: 'productName', label: '物料名称', type: 'text', placeholder: '请输入物料名称' },
+  {
+    key: 'currentProcessKeyword',
+    label: '当前工序',
+    type: 'text',
+    placeholder: '请输入工序编码或名称'
+  },
+  {
+    key: 'status',
+    label: '订单状态',
+    type: 'select',
+    queryParamKey: 'status',
+    options: scheduleOrderStatusOptions
+  },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   { key: 'promiseDate', label: '承诺交期', type: 'dateRange' }
 ]
@@ -2422,6 +2519,34 @@ const scheduleOrderMultiFilterDefinitions: ListMultiFilterDefinition[] = [
     type: 'text',
     queryParamKey: 'erpWorkOrderCode',
     placeholder: '请输入来源生产工单号'
+  },
+  {
+    key: 'productCode',
+    label: '物料编码',
+    type: 'text',
+    queryParamKey: 'productCode',
+    placeholder: '请输入物料编码'
+  },
+  {
+    key: 'productName',
+    label: '物料名称',
+    type: 'text',
+    queryParamKey: 'productName',
+    placeholder: '请输入物料名称'
+  },
+  {
+    key: 'currentProcessKeyword',
+    label: '当前工序',
+    type: 'text',
+    queryParamKey: 'currentProcessKeyword',
+    placeholder: '请输入工序编码或名称'
+  },
+  {
+    key: 'status',
+    label: '订单状态',
+    type: 'select',
+    queryParamKey: 'status',
+    options: scheduleOrderStatusOptions
   },
   {
     key: 'completionFilter',
@@ -2493,6 +2618,8 @@ const promiseDateForm = reactive({
 const freezeDialogVisible = ref(false)
 const unfreezeDialogVisible = ref(false)
 const deleteDialogVisible = ref(false)
+const deleteImpactLoading = ref(false)
+const deleteImpact = ref<MesProScheduleOrderDeleteImpactVO>()
 const batchActionSaving = ref(false)
 const batchActionRows = ref<MesProScheduleOrderVO[]>([])
 const batchActionReason = ref('')
@@ -3633,10 +3760,17 @@ const submitScheduleOrderDelete = async () => {
     message.warning('删除原因不能为空')
     return
   }
+  if (!deleteImpact.value?.updateTime) {
+    message.error('排产工单缺少最后更新时间，请刷新后重试')
+    return
+  }
   batchActionSaving.value = true
   try {
     await MesProScheduleOrderApi.deleteScheduleOrders({
-      ids: batchActionRows.value.map((item) => item.id),
+      items: batchActionRows.value.map((item) => ({
+        id: item.id,
+        expectedUpdateTime: deleteImpact.value!.updateTime
+      })),
       reason: batchActionReason.value
     })
     message.success('排产工单已删除')
@@ -3644,6 +3778,19 @@ const submitScheduleOrderDelete = async () => {
     await getScheduleOrderList()
   } finally {
     batchActionSaving.value = false
+  }
+}
+
+const openDeleteDialog = async (row: MesProScheduleOrderVO) => {
+  batchActionRows.value = [row]
+  batchActionReason.value = ''
+  deleteImpact.value = undefined
+  deleteDialogVisible.value = true
+  deleteImpactLoading.value = true
+  try {
+    deleteImpact.value = await MesProScheduleOrderApi.getDeleteImpact(row.id)
+  } finally {
+    deleteImpactLoading.value = false
   }
 }
 
@@ -3860,6 +4007,7 @@ const getScheduleOrderRowClassName = ({ row }: { row: MesProScheduleOrderVO }) =
 }
 
 const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
+  if (row.removedFromSchedule) return '排产工单已删除'
   if (row.frozen) return '已冻结'
   const sourceWorkOrderStatus = Number(row.sourceWorkOrderStatus)
   if (sourceWorkOrderStatus === MesProWorkOrderStatusEnum.FINISHED) return '生产工单已完成'
@@ -3869,10 +4017,18 @@ const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
   return '不满足重排条件'
 }
 
+const handleRemovedScheduleOrdersChange = async (value: string | number | boolean) => {
+  scheduleOrderQueryParams.removedFromSchedule = Boolean(value)
+  scheduleOrderQueryParams.pageNo = 1
+  selectedScheduleOrders.value = []
+  await getScheduleOrderList()
+}
+
 const isScheduleOrderReplanable = (row: MesProScheduleOrderVO) => {
   const status = Number(row.status)
   const sourceWorkOrderStatus = Number(row.sourceWorkOrderStatus)
   return (
+    !row.removedFromSchedule &&
     !row.frozen &&
     status !== SCHEDULE_ORDER_STATUS_FINISHED &&
     status !== SCHEDULE_ORDER_STATUS_CANCELED &&
@@ -4596,6 +4752,10 @@ const getAdmissionStatusText = (status: string) => {
   )
 }
 
+const getScheduleOrderStatusText = (status?: number) => {
+  return scheduleOrderStatusOptions.find((item) => item.value === Number(status))?.label || '-'
+}
+
 const getAdmissionStatusTag = (status: string, severity?: string) => {
   if (severity === 'BLOCKED') return 'danger'
   if (severity === 'WARN') return 'warning'
@@ -5028,6 +5188,15 @@ onMounted(async () => {
   justify-content: center;
   margin-left: 0;
   padding: 0;
+}
+
+.schedule-order-pool__removed-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.4;
+  white-space: normal;
 }
 
 .schedule-order-pool__main-table-text {

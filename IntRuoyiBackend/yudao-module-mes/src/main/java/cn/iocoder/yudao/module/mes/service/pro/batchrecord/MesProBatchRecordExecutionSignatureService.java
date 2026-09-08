@@ -194,6 +194,72 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public Long recordStage1SimulationSignature(Long actorId, String actionType, Long objectId,
+                                                String simulationStage, String simulationRunId) {
+        if (actorId == null || objectId == null || !isStage1SimulationAction(actionType)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        LocalDateTime signedAt = nowAtDatabasePrecision();
+        SignatureTimeEvidence signatureTimeEvidence =
+                buildSignatureTimeEvidence(0L, actionType, actorId, signedAt, null);
+        SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, actionType, null, null);
+        String sourceName = "Stage1模拟";
+        if (StrUtil.isNotBlank(simulationStage) || StrUtil.isNotBlank(simulationRunId)) {
+            sourceName = sourceName + "[stage=" + StrUtil.blankToDefault(StrUtil.trim(simulationStage), "-")
+                    + "][run=" + StrUtil.blankToDefault(StrUtil.trim(simulationRunId), "-") + "]";
+        }
+        MesProBatchRecordExecutionSignatureDO signature = MesProBatchRecordExecutionSignatureDO.builder()
+                .executionId(0L)
+                .actorId(actorId)
+                .actionType(actionType)
+                .signatureMode(SIGNATURE_MODE_LOGIN_SESSION)
+                .passwordVerified(Boolean.FALSE)
+                .comment(sourceName)
+                .signedAt(signedAt)
+                .selectedSignedAt(signatureTimeEvidence.selectedSignedAt())
+                .signatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
+                .signatureTimeMode(signatureTimeEvidence.signatureTimeMode())
+                .selectedTimeZone(signatureTimeEvidence.selectedTimeZone())
+                .selectedTimeReason(signatureTimeEvidence.selectedTimeReason())
+                .selectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
+                .selectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
+                .reviewSourceType("MES_ACTIVE_ORDER_SIMULATION")
+                .reviewSourceId(objectId)
+                .reviewSourceName(sourceName)
+                .actorName(user.getNickname())
+                .actorUsernameSnapshot(actorSnapshot.actorUsernameSnapshot())
+                .actorNicknameSnapshot(actorSnapshot.actorNicknameSnapshot())
+                .actorDeptIdSnapshot(actorSnapshot.actorDeptIdSnapshot())
+                .actorDeptNameSnapshot(actorSnapshot.actorDeptNameSnapshot())
+                .actorPostNamesSnapshot(actorSnapshot.actorPostNamesSnapshot())
+                .actorRoleNamesSnapshot(actorSnapshot.actorRoleNamesSnapshot())
+                .signaturePurpose(actorSnapshot.signaturePurpose())
+                .authorizationBasis("Stage1模拟使用当前登录会话生成正式签名记录；未执行密码校验")
+                .authenticationMethod(SIGNATURE_MODE_LOGIN_SESSION)
+                .recordVersionSnapshot(actorSnapshot.recordVersionSnapshot())
+                .recordHashSnapshot(actorSnapshot.recordHashSnapshot())
+                .clientIpSnapshot(actorSnapshot.clientIpSnapshot())
+                .userAgentSnapshot(actorSnapshot.userAgentSnapshot())
+                .snapshotStatus(actorSnapshot.snapshotStatus())
+                .build();
+        int inserted = signatureMapper.insert(signature);
+        if (inserted <= 0 || signature.getId() == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        return signature.getId();
+    }
+
+    private boolean isStage1SimulationAction(String actionType) {
+        return ACTION_PRODUCTION_SUBMIT.equals(actionType)
+                || ACTION_PQC_SUBMIT.equals(actionType)
+                || ACTION_TEAM_LEADER_REVIEW.equals(actionType);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public Long recordSubmitSignature(Long executionId, String password, String comment,
                                       MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand) {
         return recordSignature(executionId, password, comment, ACTION_SUBMIT, signatureTimeCommand);

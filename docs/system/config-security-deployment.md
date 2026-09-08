@@ -79,5 +79,5 @@
 
 - 没有可用 Runner token、Codex CLI、Playwright 模块或浏览器 executable path 时，执行入口必须阻塞。
 - 没有目标租户登录凭据映射时，Runner 必须返回阻塞结果并说明缺失凭据标签。
-- 未经当前任务授权，Runner 配置不得指向测试服务器、正式服务器或备份服务器。
+- 未经当前任务授权，Runner 配置不得指向测试服务器、正式服务器或审查服务器。
 

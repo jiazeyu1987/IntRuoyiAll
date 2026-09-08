@@ -5,7 +5,7 @@
 - Keywords: 标准后端重启, 构建失败后48081离线, restart-int-ruoyi-local, testCompile失败, 完整Reactor, BUILD SUCCESS, 旧后端已停止 -> `docs/local-runtime.md#标准后端重启构建失败离线门禁`
 - Keywords: 登录页默认 admin, 无浏览记录默认用户名, 默认管理员账号, 默认登录密码, VITE_APP_DEFAULT_LOGIN_USERNAME, VITE_APP_DEFAULT_LOGIN_PASSWORD, login-default-credentials-static -> `docs/login-access.md#登录页默认凭据禁止门禁`
 - Keywords: 后台用户密码复杂度, 密码强度, 改密规则, 注册密码, 忘记密码, 个人中心改密, 管理员重置密码, 缺特殊字符探针, 运行态旧 Jar, AdminUserPasswordPolicy, systemPasswordPolicy, USER_PASSWORD_STRENGTH_INVALID, 登录页只做必填 -> `docs/login-access.md#后台用户密码复杂度变更门禁`
-- Keywords: 备用服运行承载对齐, 备份服改成正式服一致, /dev/vdb missing, DEV_VDB_MISSING, /var/lib/docker 容量不足, runtime-data 迁移, MinIO 容器名不匹配 -> `docs/release-backup-restore.md#备用服运行承载对齐门禁`
+- Keywords: 审查服运行承载对齐, 审查服改成正式服一致, /dev/vdb missing, DEV_VDB_MISSING, /var/lib/docker 容量不足, runtime-data 迁移, MinIO 容器名不匹配 -> `docs/release-backup-restore.md#审查服运行承载对齐门禁`
 - Keywords: rollback-migration、回滚专用 SQL、release manifest、migration policy gate、rollback-only migrations -> docs/release-build-preflight-lessons.md#2026-08-26-rollback-migration-不得进入正常-release-manifest
 - Keywords: 5 次锁定账号, 第5次错误返回账号已锁定, login_failure_count, login_locked, resetUserLoginFailure, unlockUser, 15 分钟自动退出, useIdleLogout, lockStore.resetLockInfo -> `docs/login-access.md#账号锁定解锁与空闲退出门禁`
 - Keywords: 离职账号停用, 转岗账号停用, 账号生命周期, lifecycle_document_type, lifecycle_document_no, lifecycle_effective_time, lifecycle_deactivated_time, userLifecycleDeactivateJob, HR/BPM 单据, 任务参数缺失, explicit limit -> `docs/login-access.md#离职转岗账号联动停用门禁`
@@ -195,7 +195,7 @@
 - 发布 / 备份 / 恢复 / 服务器容量：`E:\IntRuoyi\docs\release-backup-restore.md`
 - Keywords: 本机数据迁移包, 另一台电脑复原, 两台电脑数据一致, MySQL dump, MinIO data, Redis dump.rdb, IntAuth auth.db, SHA256SUMS, 恢复 README -> `docs/release-backup-restore.md#本机数据迁移包恢复门禁`
 - 备份计划任务 / IntRuoyi Backup Scheduled / NextRunTime N/A / schtasks 查询失败 / Task To Run 旧路径 / 定时备份恢复判断：`E:\IntRuoyi\docs\release-backup-restore.md#正式服备份计划任务状态门禁`
-- 正式服 backup-now + 备份服 rehearsal / production source -> backup repository / same backupId / TargetEnvironment prod backup mismatch / backup-source NAS 未就绪 / INTBK-2003 / MySQL 恢复 dump 不在受保护 BackupPackage / INTBK-3002 / source temp dump / MinIO 对象备份 / INTBK-4001 / Invalid JSON primitive: Unable / Docker pull status lines / mc --json / DCC manifest / INTBK-6001 / dcc_object_inventory_missing / 对象 inventory 覆盖率 / checksums / Get-FileHash 缺失 / INTBK-6003 / rehearsalStatus verified PASSED 冲突 / backendHealth frontendHttp200 loginReachable fileDownloadSample / rehearsal bucket runtime 隔离：`E:\IntRuoyi\docs\release-backup-restore.md#正式源备份到备份服隔离演练仓库门禁`
+- 正式服 backup-now + 审查服 rehearsal / production source -> backup repository / same backupId / TargetEnvironment prod backup mismatch / backup-source NAS 未就绪 / INTBK-2003 / MySQL 恢复 dump 不在受保护 BackupPackage / INTBK-3002 / source temp dump / MinIO 对象备份 / INTBK-4001 / Invalid JSON primitive: Unable / Docker pull status lines / mc --json / DCC manifest / INTBK-6001 / dcc_object_inventory_missing / 对象 inventory 覆盖率 / checksums / Get-FileHash 缺失 / INTBK-6003 / rehearsalStatus verified PASSED 冲突 / backendHealth frontendHttp200 loginReachable fileDownloadSample / rehearsal bucket runtime 隔离：`E:\IntRuoyi\docs\release-backup-restore.md#正式源备份到审查服隔离演练仓库门禁`
 - 服务器访问 / 重启 / 远端联调：`E:\IntRuoyi\docs\server-access.md`
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
@@ -602,5 +602,8 @@
 - Keywords: 批记录物料发布丢失, frontlineReportMaterialIds, batchUseConfigs, 发布刷新快照, 路线候选版本, routeProcessId, 旧BATCH工序配置表, 精确保留候选字段, 正式批记录表单绑定重建, 不得用BOM或formBindings补齐 -> `docs/backend-development.md#当前配置与发布快照边界`
 - Keywords: GeneratedKeyHolder, RETURN_GENERATED_KEYS, JDBC 自增主键, GENERATED_KEY, H2 多列 generated keys, 注册证变更历史冲突 -> `docs/backend-development.md#2026-09-02-jdbc-generatedkeyholder-自增主键读取门禁`
 - Keywords: Maven 目标单测, 同模块编译失败, 未跟踪 Java 文件, 无关源文件阻塞, LambdaUpdateWrapperX, 缺失符号, git status 归属确认, 不用 Maven excludes, 外部编译阻塞解除后复跑 -> `docs/backend-development.md#2026-09-03-maven-目标单测外部源文件编译阻塞门禁`
+- Keywords: 一线下拉其他, 其他手动输入, allow-create 不足, 下拉占位值禁止提交, 手工值回显, 返回正式候选 -> `docs/frontend-development.md#一线下拉框其他手工值必须形成正式提交事实`
+- Keywords: PQC 手工检验设备, PQC设备可选, 空设备快照, equipmentRequired不代表提交必选, 空设备ID, 手工设备快照, 禁止伪造设备ID, 正式设备严格匹配, selectedEquipmentNumber -> `docs/backend-development.md#pqc-手工检验设备必须使用可审计快照而非伪造设备身份`
 
 - 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。
+- Keywords: GxP审计追踪, 统一审计内核, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`

@@ -259,6 +259,7 @@ defineOptions({ name: 'SignatureGovernanceRecordsPane' })
 const tableKey = 'signature.governance.records'
 const message = useMessage()
 const router = useRouter()
+const route = useRoute()
 
 const sourceOptions = [
   { label: '文件', value: 'FILE' },
@@ -462,6 +463,21 @@ const recordQuickFilter = useTableQuickFilter(
   queryParams,
   async () => loadRecordPage()
 )
+
+const applyRouteQuickFilter = async () => {
+  const quickFilterField = String(route.query.quickFilterField || '').trim()
+  const quickFilterValue = String(route.query.quickFilterValue || '').trim()
+  if (!quickFilterField || !quickFilterValue) return false
+  const matchedDefinition = recordQuickFilterDefinitions.find((item) => item.key === quickFilterField)
+  if (!matchedDefinition) return false
+  queryParams.quickFilter = {
+    fieldKey: quickFilterField,
+    operator: 'contains',
+    value: quickFilterValue
+  }
+  await recordQuickFilter.applyQuickFilter()
+  return true
+}
 
 const loadRecordPage = async () => {
   recordLoading.value = true
@@ -679,7 +695,12 @@ const openRecordDetail = (row: SignatureGovernanceRecordRespVO) => {
   void router.push(row.detailPath)
 }
 
-onMounted(loadRecordPage)
+onMounted(async () => {
+  const routeQuickFilterApplied = await applyRouteQuickFilter()
+  if (!routeQuickFilterApplied) {
+    await loadRecordPage()
+  }
+})
 
 onBeforeUnmount(() => {
   revokeRecordPdfPreviewUrl()

@@ -115,6 +115,14 @@ public class FormCenterController {
         return success(formCenterRuntimeService.importDoc(reqVO, WebFrameworkUtils.getLoginUserId()));
     }
 
+    @PostMapping("/parser/production-batch-record/json")
+    @Operation(summary = "解析生产批记录 Word 为 JSON")
+    @PreAuthorize("@ss.hasPermission('form:parser:production-batch-record')")
+    public CommonResult<FormCenterTemplateParseJsonRespVO> parseProductionBatchRecordJson(
+            @Valid FormCenterTemplateParseJsonReqVO reqVO) {
+        return success(formCenterRuntimeService.parseProductionBatchRecordJson(reqVO));
+    }
+
     @PutMapping("/templates/{templateId}/versions/{versionNo}/jimu-schema")
     @Operation(summary = "保存模板 Jimu 调整结果")
     @PreAuthorize("@ss.hasPermission('form:template:update')")

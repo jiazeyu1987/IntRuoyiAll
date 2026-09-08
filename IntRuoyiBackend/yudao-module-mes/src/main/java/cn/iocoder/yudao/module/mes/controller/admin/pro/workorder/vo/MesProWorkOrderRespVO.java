@@ -126,6 +126,10 @@ public class MesProWorkOrderRespVO {
     @ExcelProperty("图号")
     private String drawingNumber;
 
+    @Schema(description = "REF.NO.", example = "REF-2026-001")
+    @ExcelProperty("REF.NO.")
+    private String refNo;
+
     @Schema(description = "排产状态", example = "未排产")
     @ExcelProperty("排产状态")
     private String scheduleStatus;

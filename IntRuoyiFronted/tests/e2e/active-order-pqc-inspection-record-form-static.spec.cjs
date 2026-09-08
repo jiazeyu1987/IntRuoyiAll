@@ -10,20 +10,20 @@ const panel = fs.readFileSync(
 
 assert.match(
   panel,
-  /data-active-order-pqc-inspection-record-form-button/,
-  'PQC提交页签必须提供过程检验记录表单按钮。'
+  /<el-tab-pane label="PQC提交" name="pqcSubmissions">[\s\S]*class="team-leader-workbench__pqc-inspection-record-form"/,
+  'PQC提交页签必须直接内嵌过程检验记录表单。'
+)
+
+assert.doesNotMatch(
+  panel,
+  /<el-tab-pane label="PQC提交" name="pqcSubmissions">[\s\S]*data-active-order-pqc-inspection-record-form-button[\s\S]*<el-tab-pane[\s\S]*label="领料单"/,
+  'PQC提交页签不得再显示过程检验记录表单按钮。'
 )
 
 assert.match(
   panel,
-  /openPqcInspectionRecordForm/,
-  'PQC过程检验记录按钮必须打开独立表单弹框。'
-)
-
-assert.match(
-  panel,
-  /data-active-order-pqc-inspection-record-form-dialog/,
-  'PQC过程检验记录必须使用独立弹框展示。'
+  /data-pqc-inspection-record-form-table/,
+  'PQC过程检验记录必须使用正式表单表格展示。'
 )
 
 assert.match(
@@ -34,8 +34,8 @@ assert.match(
 
 assert.match(
   panel,
-  /const normalizePqcInspectionJudgement[\s\S]*negativeKeywords[\s\S]*不合格[\s\S]*不通过[\s\S]*否[\s\S]*positiveKeywords[\s\S]*合格[\s\S]*通过[\s\S]*是/,
-  'PQC枚举类结果必须统一归一为合格/不合格。'
+  /const normalizePqcPassFailText[\s\S]*negativeKeywords[\s\S]*不合格[\s\S]*不通过[\s\S]*否[\s\S]*positiveKeywords[\s\S]*合格[\s\S]*通过[\s\S]*是/,
+  'PQC枚举类结果必须统一归一为通过/不通过。'
 )
 
 assert.match(
@@ -53,7 +53,7 @@ assert.match(
 assert.match(
   panel,
   /<th>判定<\/th>[\s\S]*row\.judgementText/,
-  'PQC过程检验记录必须显示统一后的合格/不合格判定。'
+  'PQC过程检验记录必须显示统一后的通过/不通过判定。'
 )
 
 assert.match(

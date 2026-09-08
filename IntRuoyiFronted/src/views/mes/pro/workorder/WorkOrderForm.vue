@@ -169,12 +169,17 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="备注1助记码">
-              <el-input v-model="formData.auxiliaryCode" disabled />
+            <el-form-item label="REF.NO.">
+              <el-input v-model="formData.refNo" disabled />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row>
+          <el-col :span="8">
+            <el-form-item label="备注1助记码">
+              <el-input v-model="formData.auxiliaryCode" disabled />
+            </el-form-item>
+          </el-col>
           <el-col :span="8">
             <el-form-item label="排产状态">
               <el-input v-model="formData.scheduleStatus" disabled />
@@ -185,6 +190,8 @@
               <el-input v-model="formData.plannedStartTime" disabled />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row>
           <el-col :span="8">
             <el-form-item label="计划完工时间">
               <el-input v-model="formData.plannedEndTime" disabled />
@@ -326,6 +333,7 @@ const formData = ref<WorkOrderFormData>({
   auxiliaryCode: undefined,
   businessStatus: undefined,
   drawingNumber: undefined,
+  refNo: undefined,
   scheduleStatus: undefined,
   plannedStartTime: undefined,
   plannedEndTime: undefined,
@@ -509,6 +517,7 @@ const resetForm = () => {
     auxiliaryCode: undefined,
     businessStatus: undefined,
     drawingNumber: undefined,
+    refNo: undefined,
     scheduleStatus: undefined,
     plannedStartTime: undefined,
     plannedEndTime: undefined,

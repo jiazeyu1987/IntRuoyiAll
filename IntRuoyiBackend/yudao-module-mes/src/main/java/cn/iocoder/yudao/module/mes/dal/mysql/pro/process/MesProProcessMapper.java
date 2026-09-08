@@ -133,6 +133,18 @@ public interface MesProProcessMapper extends BaseMapperX<MesProProcessDO> {
                 .likeRight(MesProProcessDO::getCode, codePrefix));
     }
 
+    default List<MesProProcessDO> selectListByKeywordLike(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return List.of();
+        }
+        String searchText = keyword.trim();
+        return selectList(new LambdaQueryWrapperX<MesProProcessDO>()
+                .and(wrapper -> wrapper.like(MesProProcessDO::getCode, searchText)
+                        .or()
+                        .like(MesProProcessDO::getName, searchText))
+                .orderByAsc(MesProProcessDO::getId));
+    }
+
     default List<MesProProcessDO> selectListByStatus(Integer status) {
         return selectList(MesProProcessDO::getStatus, status);
     }

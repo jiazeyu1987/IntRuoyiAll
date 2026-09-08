@@ -19,7 +19,7 @@
 1. 唯一发布源头：所有发布链路只认一个维护仓发布入口和产物来源，本机源码通过不等于发布已通过。
 2. 配置必须代码化：发布相关的环境变量、路径、参数、菜单权限、脚本和构建开关优先写入仓库和发布脚本，不把服务器手工改动当最终方案。
 3. 验证发布产物：每次构建都要检查发布包、manifest、打包内容和关键文件是否与本次变更一致，不能只看编译成功。
-4. 环境差异显式检查：本机、构建机、测试服、备份服、正式服的镜像 tag、目录、挂载、数据库和账号基线都要明确核对，不能默认一致。
+4. 环境差异显式检查：本机、构建机、测试服、审查服、正式服的镜像 tag、目录、挂载、数据库和账号基线都要明确核对，不能默认一致。
 5. 目标环境真实运行态：到服务器必须看真实运行中的镜像、进程、健康、页面和权限响应，不能只验健康检查或接口单点。
 6. 故障补成门禁：凡是本机正常、服务器失败、发布后暴露、或构建后才发现的问题，都要补成 preflight、测试或脚本门禁，不能只修一次就结束。
 
@@ -84,8 +84,8 @@
    - 禁止先手工改测试库、手工补菜单或手工改角色来“帮助发布过关”。
    - 这类问题要么回到 SQL 契约修复，要么回到发布脚本 / manifest / migration 门禁修复。
 
-10. 测试服远端参数不能照搬备份服或正式服。
-   - 测试服发布前，至少只读核对一次目标主机的真实数据盘挂载、release/data 目录和 MinIO 容器名；不要按备份服 `/mnt/intruoyi-data` 或 `intruoyi-minio` 经验直接覆盖测试服参数。
+10. 测试服远端参数不能照搬审查服或正式服。
+   - 测试服发布前，至少只读核对一次目标主机的真实数据盘挂载、release/data 目录和 MinIO 容器名；不要按审查服 `/mnt/intruoyi-data` 或 `intruoyi-minio` 经验直接覆盖测试服参数。
    - 2026-07-01 已验证：测试服 `172.30.30.58` 当前仍使用 `/var/lib/docker`、设备 `/dev/vdb`、MinIO 容器 `ragflow_compose-minio-1`；若维护控制台、脚本或文档漂移到其他参数，必须先修正契约再重新发起发布。
 
 ## 发布完成判定
@@ -128,8 +128,8 @@
 - SQL 要按“可发布”而不是“能执行”编写：`release-migration` 元数据、`dependsOn`、环境变量前置、tenant 上下文和动态菜单字面量规则都必须提前通过门禁或测试，不要等到页面 `build-release` 或 `promote-prod` 才暴露。
 - 维护仓发布脚本必须和业务仓产物合同同步维护；后端 jar 命名、Docker build context、required SQL 排序、空集合处理、prod/backup 变量注入等，只要业务仓契约改了，维护仓脚本和测试必须一起改。
 - 测试服不是形式流程，而是正式服唯一前置筛选器；正式服前至少要先在测试服确认：manifest 正确、`.env IMAGE_TAG` 正确、backend/frontend 镜像 tag 正确、health `UP`、前端 `200`、required SQL/operation 最终 `SUCCESS`。
-- 正式服 / 备份服发布前必须先看预览参数，不允许靠默认值猜：至少逐项确认 `ServerHost`、`RemoteAppDir`、`RemoteReleaseRoot`、`RemoteDataRoot`、`RemoteDataDiskMount`、`RemoteDataDiskDevice`、`RemoteMinioContainer`、`RequireTested`、`ConfirmText=PROD`。
-- 备份服固定要显式核对 `172.30.30.59`、`/mnt/intruoyi-data`、`/mnt/intruoyi-data/runtime-data`、`/mnt/intruoyi-data/intruoyi-releases`、`/dev/mapper/cl-home`、`intruoyi-minio`；任何继承正式服默认值或 Docker 根目录路径的情况都要 fail fast。
+- 正式服 / 审查服发布前必须先看预览参数，不允许靠默认值猜：至少逐项确认 `ServerHost`、`RemoteAppDir`、`RemoteReleaseRoot`、`RemoteDataRoot`、`RemoteDataDiskMount`、`RemoteDataDiskDevice`、`RemoteMinioContainer`、`RequireTested`、`ConfirmText=PROD`。
+- 审查服固定要显式核对 `172.30.30.59`、`/mnt/intruoyi-data`、`/mnt/intruoyi-data/runtime-data`、`/mnt/intruoyi-data/intruoyi-releases`、`/dev/mapper/cl-home`、`intruoyi-minio`；任何继承正式服默认值或 Docker 根目录路径的情况都要 fail fast。
 - 正式服问题必须拆成三类证据分别验证：脚本参数是否正确、SQL/迁移是否真实通过、环境前提是否满足。像 `/mnt/nas`、MinIO、数据盘、`.env IMAGE_TAG`、容器镜像和 Docker bind mount 都属于环境契约，不能把环境坏状态误判成业务代码回归。
 - 发布成功判定必须同时看 operation、manifest、`.env`、运行镜像、health 和前端入口；只看 HTTP 200 或只看页面显示成功都不够。
 
@@ -152,14 +152,14 @@
 
 ## 2026-07-01 三环境发布前置门禁沉淀
 
-- 每轮完整发布必须从同一个 `releaseTag` 开始闭环；修复任意 blocker 后必须重新 `build-release` 得到新的 `releaseTag`，不得把旧失败包、旧测试服成功结果和新正式服/备份服结果拼成一次完成记录。
+- 每轮完整发布必须从同一个 `releaseTag` 开始闭环；修复任意 blocker 后必须重新 `build-release` 得到新的 `releaseTag`，不得把旧失败包、旧测试服成功结果和新正式服/审查服结果拼成一次完成记录。
 - 发布输入门禁必须前后各查一次：构建前确认维护仓、后端仓、前端仓目标提交与临时发布 worktree；构建后立即读取 manifest，确认 backend/frontend `commit` 是本轮计划值且 `dirty=false`。任一 dirty、commit 漂移或 manifest 缺失时，该包只能作为排障证据。
 - `publish-test` 失败先按真实日志分层定位：manifest / required SQL / migration / 脚本契约优先，其次才查 SSH、Docker、磁盘、MinIO 等环境问题；不要先假设测试服坏。
-- 测试服参数必须按 `server-access.md` 的真实基线预检，不能套用正式服或备份服口径。测试服当前已确认基线包括 `/var/lib/docker`、`/dev/vdb`、`ragflow_compose-minio-1`、`/opt/intruoyi/runtime`；预览参数不一致必须先修脚本或配置后再发布。
+- 测试服参数必须按 `server-access.md` 的真实基线预检，不能套用正式服或审查服口径。测试服当前已确认基线包括 `/var/lib/docker`、`/dev/vdb`、`ragflow_compose-minio-1`、`/opt/intruoyi/runtime`；预览参数不一致必须先修脚本或配置后再发布。
 - required SQL 必须按“真实库可重复发布”设计：`ADD COLUMN`、菜单插入、角色绑定、租户包写入、数据准备和 DCC 分类修复都必须具备幂等保护、依赖声明和真实库前置校验；不能依赖测试库当前只执行一次。
 - 角色、菜单、租户基线不能凭历史记忆硬编码。发布前若 SQL 依赖关键角色或菜单，必须只读核验真实库中角色编码、启用状态、菜单 ID、租户绑定和账号归属；例如旧 `wenkong` 与真实 `doc_control` / `wenkong_download` 漂移必须在 SQL 契约中兼容或明确阻塞。
 - DCC 数据质量要前移为 promote 前预检：正式服或测试服 live data 中的分类重复、编码缺失、字段长度超限、必填关系缺失，都应在 promote 前通过只读 SQL 检出；发现数据不满足契约时阻塞并修根因，不手工绕过。
-- 测试服成功不等于完整发布成功；继续正式服和备份服前必须先完成 `mark-tested`，并在每个环境分别核 operation、manifest、远端 `.env IMAGE_TAG`、backend/frontend 实际镜像 tag、backend health、frontend HTTP。
+- 测试服成功不等于完整发布成功；继续正式服和审查服前必须先完成 `mark-tested`，并在每个环境分别核 operation、manifest、远端 `.env IMAGE_TAG`、backend/frontend 实际镜像 tag、backend health、frontend HTTP。
 - 运行控制台在 `build-release`、`publish-test`、`mark-tested`、`promote-prod`、`promote-backup` 完成后，会自动把发布经验候选追加到 `runtime/runtime-control/release-experience-candidates.md`；任务收口时必须读取该候选文件，把可复用项正式前移到本文或 `release-agent-checklist.md`。
 - 自动经验候选生成是发布闭环的一部分；如果候选文件无法写入，operation 必须 fail fast，不允许静默跳过经验沉淀。
 
@@ -225,7 +225,7 @@
 
 - 触发条件：promote-prod 后执行远端健康检查。
 - 失败现象：直接访问宿主 `127.0.0.1:48080` 和 `127.0.0.1:80` 返回拒绝连接，但 `docker compose ps` 显示正式服实际映射为 `48081->48080`、`8081->80`，容器内服务已正常启动。
-- 前置门禁：正式服/备份服验收不得硬编码宿主端口；必须先以 `docker compose ps` 或发布配置为准确认宿主端口，再验证 backend health、frontend HTTP 和 PDF worker。
+- 前置门禁：正式服/审查服验收不得硬编码宿主端口；必须先以 `docker compose ps` 或发布配置为准确认宿主端口，再验证 backend health、frontend HTTP 和 PDF worker。
 - 处理要求：先冻结错误端口的失败证据，再使用真实端口重验；不得把端口映射差异误判为发布失败。
 
 ## 2026-07-05 发布 manifest sourceRepos 校验入口
@@ -248,9 +248,9 @@
 
 ## 2026-07-06 build-release 目标主机参数必须一次性显式传齐
 
-- 触发场景：code-only `build-release` 生成测试服和备份服 runtime env / 包 URL / 存储检查配置。
+- 触发场景：code-only `build-release` 生成测试服和审查服 runtime env / 包 URL / 存储检查配置。
 - 失败现象：仅传 `-TestServerHost` 时脚本返回 [FAIL] Missing -BackupServerHost; release target host for environment 'backup' must be configured and passed explicitly so package URLs and storage checks are bound to the selected publish target.
-- 前置门禁：`build-release` 即使尚未部署备份服，也必须显式传入 `-TestServerHost 172.30.30.58` 与 `-BackupServerHost 172.30.30.59`；涉及三环境闭环时同时传入 `-ProdServerHost 172.30.30.57`，避免后续 runtime env 和发布目标不一致。
+- 前置门禁：`build-release` 即使尚未部署审查服，也必须显式传入 `-TestServerHost 172.30.30.58` 与 `-BackupServerHost 172.30.30.59`；涉及三环境闭环时同时传入 `-ProdServerHost 172.30.30.57`，避免后续 runtime env 和发布目标不一致。
 - 处理要求：缺少目标主机参数时先冻结 stdout/stderr/preflight/summary；不得复用失败 releaseTag，补齐主机参数后用新的 releaseTag 重新构建。
 ## 2026-07-06 publish-int-ruoyi NasConfigPath 必须是 NAS JSON
 
@@ -273,7 +273,7 @@
 
 ## 2026-07-08 排序类 code-only 正式发布经验
 
-- 用户授权完整三环境发布时，产品列表、管理列表、排序规则这类看似纯后端逻辑的 code-only 发布，仍必须按完整发布闭环执行：干净发布输入 `build-release`、测试服 `publish-test`、`mark-release-tested`、正式服 `promote-prod`，不得因为“不改数据”跳过测试服或 mark-tested；仅测试服授权时不得执行 `mark-release-tested` 或正式服/备份服动作。
+- 用户授权完整三环境发布时，产品列表、管理列表、排序规则这类看似纯后端逻辑的 code-only 发布，仍必须按完整发布闭环执行：干净发布输入 `build-release`、测试服 `publish-test`、`mark-release-tested`、正式服 `promote-prod`，不得因为“不改数据”跳过测试服或 mark-tested；仅测试服授权时不得执行 `mark-release-tested` 或正式服/审查服动作。
 - 如果主工作区存在无关 dirty SQL、草稿脚本或其它模块改动，必须使用临时干净后端/前端 release worktree 出包，并在构建预览中确认 `repo-root` / `frontend-root` 指向该干净路径；发布完成后必须恢复 `runtime-control.local.yaml` 到稳定主路径。
 - 构建或发布过程中 required SQL 暴露的 `release-migration` 元数据、`dependsOn`、collation 或可重复执行问题，即使不是本次业务目标，也属于发布契约阻塞；修复后必须提交、重建 releaseTag、重新 `publish-test`，不能复用失败包继续 promote。
 - 测试服页面 E2E 如果被账号密码或租户数据为空阻塞，应把阻塞原因写入执行日志，并改用可重复的只读证据补强：运行镜像 tag、健康检查、真实库目标租户数据分布、目标排序 SQL 查询结果；不得把空测试租户页面当成业务通过证据。
@@ -289,7 +289,7 @@
 - 发布 worktree 必须记录路径、目标提交、是否产生新提交、是否已合回主工作区、最终删除结果；一次发布只允许使用单一 `releaseTag` 的闭环结果。
 - Node/pnpm 必须与 `packageManager` 声明一致；本次维护控制台前端需要 `corepack pnpm@10.25.0`，发现 pnpm 11 生成的 `pnpm-workspace.yaml` 或 `ERR_PNPM_IGNORED_BUILDS` 必须 fail fast 并清理后重装。
 - 后端 SQL 发布前必须跑 release migration metadata gate；SQL metadata 必须包含并符合 `allowedEnvironments`、`dependsOn`、`type`、`riskLevel` 等契约，禁止构建阶段才发现格式错误。
-- build-release 预检必须区分“构建配置包含 BackupServerHost”和“执行备份服发布动作”；不得因配置字段存在误判为备份发布。
+- build-release 预检必须区分“构建配置包含 BackupServerHost”和“执行审查服发布动作”；不得因配置字段存在误判为备份发布。
 - Smart Release report-only 模式必须显式提供 baseline manifest、candidate manifest 和 smart-release config；缺任一输入必须 fail fast，不得继续构建不可确认来源的包。
 
 ### 可自动化项
@@ -318,7 +318,7 @@
 ### 必须 fail fast 的条件
 
 - manifest 缺失、releaseTag 不一致、sourceRepos commit 与目标 HEAD 不一致、dirty 不是 false、changeSet/版本说明无法确认。
-- build-release 预览无法确认仅构建、不发布正式服/备份服，或 Smart Release report-only 缺少必要输入。
+- build-release 预览无法确认仅构建、不发布正式服/审查服，或 Smart Release report-only 缺少必要输入。
 - SQL 发布契约检查失败，或数据库迁移风险级别/环境范围不可判定。
 - 测试服发布后任一项失败：operation != SUCCESS、远端 `.env IMAGE_TAG` 不等于 releaseTag、实际镜像 tag 不一致、容器未运行、后端 health 不是 UP、前端 HTTP 不是 200、运行控制台版本号或变更说明不匹配。
 - 发现 PowerShell 编码、数组匹配或 API 路径造成误判时，必须改为结构化/原始 UTF-8 校验后再下结论，不得降级跳过验证。
@@ -373,7 +373,7 @@
 - Preflight check: build-release 命令必须显式传入 `-Component intruoyi`，manifest `sourceRepos` 只能包含 `ruoyi-vue-pro` 与 `yudao-ui-admin-vue3`，不得包含 dirty Website 仓或生成 `website/` 包目录。
 - Blocker: 若 manifest 包含 Website、`website/` 顶层目录或任一 sourceRepos dirty=true，当前 releaseTag 判废，必须重新构建新 releaseTag。
 - Verification: `build-release-<tag>-manifest-validation.json` 中 `manifestPublishScope=code-only`、后端/前端 dirty=false、无 Website sourceRepo、无 `website/` 顶层目录。
-- Forbidden action: 不得把含脏 Website 的包继续发布到测试服、正式服或备份服；不得用后续验证拼接该 releaseTag。
+- Forbidden action: 不得把含脏 Website 的包继续发布到测试服、正式服或审查服；不得用后续验证拼接该 releaseTag。
 - Evidence: `doc/tasks/20260709-codeonly-three-env-head-release/evidence/build-release-v7-manifest-scope-failure-freeze.json`。
 
 

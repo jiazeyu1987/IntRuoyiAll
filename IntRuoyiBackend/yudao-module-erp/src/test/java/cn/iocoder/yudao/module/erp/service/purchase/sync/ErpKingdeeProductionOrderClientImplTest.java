@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -43,9 +44,10 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("%22Limit%22%3A500")))
                 .andExpect(content().string(containsString("FWorkShopID.FName")))
                 .andExpect(content().string(containsString("FBomId.FNumber")))
+                .andExpect(content().string(containsString("FMaterialId.F_PAEZ_TUHAO")))
+                .andExpect(content().string(containsString("FMaterialId.F_PAEZ_REFNO")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_Remark1"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FBizStatus"))))
-                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_TuHao"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_PaiChanStatus"))))
                 .andExpect(content().string(containsString("FBillNo+%3C%3E+%27%27")))
                 .andExpect(content().string(containsString("FMaterialId.FNumber+%3C%3E+%27%27")))
@@ -54,7 +56,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
                 .andRespond(withSuccess("""
-                        [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01"]]
+                        [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01","255ACSXXXX","REF-2026-001"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
@@ -69,11 +71,12 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("BATCH-001", orders.get(0).getBatchNumber());
         assertEquals("组装车间", orders.get(0).getWorkshopName());
         assertEquals("BOM-2026-01", orders.get(0).getBomVersion());
-        assertEquals("", orders.get(0).getPickMode());
-        assertEquals("", orders.get(0).getAuxiliaryCode());
-        assertEquals("", orders.get(0).getBusinessStatus());
-        assertEquals("", orders.get(0).getDrawingNumber());
-        assertEquals("", orders.get(0).getScheduleStatus());
+        assertNull(orders.get(0).getPickMode());
+        assertNull(orders.get(0).getAuxiliaryCode());
+        assertNull(orders.get(0).getBusinessStatus());
+        assertEquals("255ACSXXXX", orders.get(0).getDrawingNumber());
+        assertEquals("REF-2026-001", orders.get(0).getRefNo());
+        assertNull(orders.get(0).getScheduleStatus());
         server.verify();
     }
 
@@ -147,7 +150,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FBillNo+%3C%3E+%27%27")))
                 .andExpect(content().string(containsString("FMaterialId.FNumber+%3C%3E+%27%27")))
                 .andRespond(withSuccess("""
-                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","","","","","","2026-06-12T08:30:00"]]
+                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","DRAWING-001","REF-001","2026-06-12T08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersModifiedBetween(properties,

@@ -56,4 +56,16 @@ assert.match(
   'restoring a material draft with empty device keys must re-apply default device selection.'
 )
 
+const syncMaterialsStart = panel.indexOf('const syncProductionMaterialDrafts =')
+assert.notEqual(syncMaterialsStart, -1, 'syncProductionMaterialDrafts must exist.')
+const syncMaterialsEndMatch = /\r?\n\r?\nconst resetProductionMaterialDrafts =/.exec(panel.slice(syncMaterialsStart))
+const syncMaterialsEnd = syncMaterialsEndMatch ? syncMaterialsStart + syncMaterialsEndMatch.index : -1
+assert.notEqual(syncMaterialsEnd, -1, 'syncProductionMaterialDrafts block must be extractable.')
+const syncMaterialsBlock = panel.slice(syncMaterialsStart, syncMaterialsEnd)
+assert.match(
+  syncMaterialsBlock,
+  /if \(!materials\.length\)[\s\S]*clearProductionMaterialDrafts\(\)[\s\S]*ensureProductionDefaultDeviceSelection\(visibleDeviceCards\.value\)[\s\S]*return/,
+  'when a process has devices but no output material draft yet, material sync must not leave device selection empty.'
+)
+
 console.log('PASS: frontline production defaults to one selected device when devices exist')

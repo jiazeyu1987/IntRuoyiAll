@@ -15,10 +15,12 @@ import java.util.List;
 public class MesTeamLeaderActiveOrderDetailRespVO {
 
     private Long activeOrderId;
+    private Integer version;
     private Long workOrderId;
     private String workOrderCode;
     private String batchCode;
     private BigDecimal workOrderQuantity;
+    private String drawingNumber;
     private String productCode;
     private String productName;
     private String productSpecification;
@@ -33,6 +35,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private Long processId;
         private String processCode;
         private String processName;
+        private Boolean keyFlag;
         private BigDecimal requiredQuantity;
         private BigDecimal submittedQuantity;
         private Integer submissionCount;
@@ -85,6 +88,8 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String submitterName;
         private String reviewerName;
         private LocalDateTime submittedAt;
+        private SignatureDetail submitterSignature;
+        private SignatureDetail reviewerSignature;
         private Boolean quantityConflict;
         private List<SubmissionDeviceDetail> devices;
         private List<SubmissionDeviceParameterDetail> deviceParameters;
@@ -157,10 +162,22 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String shiftCode;
         private Integer roundNo;
         private Integer actualInspectionQuantity;
+        private Integer scrapQuantity;
         private String taskStatus;
         private String submitterName;
         private String reviewerName;
+        private List<SignatureDetail> submitterSignatures;
+        private List<SignatureDetail> reviewerSignatures;
         private List<PqcSubmissionItemDetail> items;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SignatureDetail {
+        private Long signatureId;
+        private String signerName;
+        private LocalDateTime signedAt;
+        private String role;
     }
 
     @Data

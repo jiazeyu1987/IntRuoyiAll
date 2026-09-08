@@ -160,6 +160,42 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
+    void recordStage1SimulationSignature_persistsFormalLoginSessionSignatureRecord() {
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("签名人"));
+        stubActorSnapshot();
+        when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class).setId(10001L);
+            return 1;
+        });
+
+        Long signatureId = signatureService.recordStage1SimulationSignature(99L,
+                MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT, 8101L,
+                "stage1", "run-001");
+
+        assertEquals(10001L, signatureId);
+        ArgumentCaptor<MesProBatchRecordExecutionSignatureDO> captor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionSignatureDO.class);
+        verify(signatureMapper).insert(captor.capture());
+        MesProBatchRecordExecutionSignatureDO signature = captor.getValue();
+        assertEquals(0L, signature.getExecutionId());
+        assertEquals(99L, signature.getActorId());
+        assertEquals("PRODUCTION_SUBMIT", signature.getActionType());
+        assertEquals("LOGIN_SESSION", signature.getSignatureMode());
+        assertTrue(Boolean.FALSE.equals(signature.getPasswordVerified()));
+        assertEquals("MES_ACTIVE_ORDER_SIMULATION", signature.getReviewSourceType());
+        assertEquals(8101L, signature.getReviewSourceId());
+        assertEquals("签名人", signature.getActorName());
+        assertEquals("operator", signature.getActorUsernameSnapshot());
+        assertEquals("签名人", signature.getActorNicknameSnapshot());
+        assertEquals("一线生产报工提交", signature.getSignaturePurpose());
+        assertEquals("LOGIN_SESSION", signature.getAuthenticationMethod());
+        assertTrue(signature.getAuthorizationBasis().contains("Stage1模拟"));
+        assertNotNull(signature.getSignedAt());
+        verify(adminUserService, never()).isPasswordMatch(any(), any());
+        verify(authorizationService, never()).isElectronicSignatureEnabled(any());
+    }
+
+    @Test
     void recordSubmitSignature_withSelectedTimePersistsDualTimeAudit() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);

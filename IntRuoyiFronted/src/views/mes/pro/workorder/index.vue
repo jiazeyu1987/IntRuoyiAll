@@ -165,6 +165,7 @@
       />
       <el-table-column v-if="isWorkOrderColumnVisible('businessStatus')" label="业务状态" align="center" prop="businessStatus" :width="getWorkOrderColumnWidthString('businessStatus', 100)" v-bind="sortColumnAttrs('businessStatus')" />
       <el-table-column v-if="isWorkOrderColumnVisible('drawingNumber')" label="图号" align="center" prop="drawingNumber" :width="getWorkOrderColumnWidthString('drawingNumber', 140)" v-bind="sortColumnAttrs('drawingNumber')" />
+      <el-table-column v-if="isWorkOrderColumnVisible('refNo')" label="REF.NO." align="center" prop="refNo" :width="getWorkOrderColumnWidthString('refNo', 140)" v-bind="sortColumnAttrs('refNo')" />
       <el-table-column v-if="isWorkOrderColumnVisible('auxiliaryCode')" label="备注1助记码" align="center" prop="auxiliaryCode" :width="getWorkOrderColumnWidthString('auxiliaryCode', 140)" v-bind="sortColumnAttrs('auxiliaryCode')" />
       <el-table-column v-if="isWorkOrderColumnVisible('scheduleStatus')" label="排产状态" align="center" prop="scheduleStatus" :width="getWorkOrderColumnWidthString('scheduleStatus', 110)" v-bind="sortColumnAttrs('scheduleStatus')" />
       <el-table-column v-if="isWorkOrderColumnVisible('quantityProduced')" label="已生产数量" align="center" prop="quantityProduced" :width="getWorkOrderColumnWidthString('quantityProduced', 110)" v-bind="sortColumnAttrs('quantityProduced')" />
@@ -273,6 +274,7 @@ const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'plannedEndTime', label: '计划完工时间', width: 180 },
   { key: 'businessStatus', label: '业务状态', width: 100 },
   { key: 'drawingNumber', label: '图号', width: 140 },
+  { key: 'refNo', label: 'REF.NO.', width: 140 },
   { key: 'auxiliaryCode', label: '备注1助记码', width: 140 },
   { key: 'scheduleStatus', label: '排产状态', width: 110 },
   { key: 'quantityProduced', label: '已生产数量', width: 110 },

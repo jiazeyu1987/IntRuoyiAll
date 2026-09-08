@@ -18,6 +18,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffSummaryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteImpactRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderIssueActionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightIssueRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightReqVO;
@@ -38,12 +40,14 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMachineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationWorkerMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -92,6 +96,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderDiffStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderRiskStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderRouteStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaultCompatibilityPolicy;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.RouteProcessIdentity;
@@ -253,6 +258,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     @Resource
     private MesProProcessMapper processMapper;
     @Resource
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Resource
     private ScheduleDefaultCompatibilityPolicy scheduleDefaultCompatibilityPolicy;
 
     @Override
@@ -270,7 +277,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             throw exception(PRO_WORK_ORDER_NOT_EXISTS);
         }
         validateWorkOrderSchedulable(workOrder);
-        if (CollUtil.isNotEmpty(scheduleOrderMapper.selectListByWorkOrderIds(List.of(workOrder.getId())))) {
+        if (scheduleOrderMapper.selectListByWorkOrderIds(List.of(workOrder.getId())).stream()
+                .anyMatch(this::blocksScheduleOrderAdmission)) {
             throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE);
         }
         validateFormalErpSyncIdentity(workOrder);
@@ -328,6 +336,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         Map<Long, MesProScheduleOrderDO> existingScheduleOrderMap = scheduleOrderMapper
                 .selectListByWorkOrderIds(workOrderIds)
                 .stream()
+                .filter(this::blocksScheduleOrderAdmission)
                 .filter(item -> item.getWorkOrderId() != null)
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
                         (left, right) -> left, LinkedHashMap::new));
@@ -536,36 +545,161 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteScheduleOrders(MesProScheduleOrderBatchReqVO reqVO) {
-        validateBatchRequest(reqVO);
-        List<MesProScheduleOrderDO> scheduleOrders = getRequiredScheduleOrders(reqVO.getIds());
-        List<String> frozenCodes = scheduleOrders.stream()
-                .filter(item -> Boolean.TRUE.equals(item.getFrozen()))
-                .map(this::getScheduleOrderCode)
-                .toList();
-        if (CollUtil.isNotEmpty(frozenCodes)) {
-            throw exception0(PRO_SCHEDULE_ORDER_FROZEN.getCode(), "排产工单已冻结，不能删除: {}", frozenCodes);
+    public void deleteScheduleOrders(MesProScheduleOrderDeleteReqVO reqVO) {
+        if (reqVO == null || CollUtil.isEmpty(reqVO.getItems())) {
+            throw exception(PRO_SCHEDULE_ORDER_BATCH_REQUIRED);
         }
-        List<MesProScheduleOrderProcessDO> processes = scheduleOrderProcessMapper.selectListByScheduleOrderIds(reqVO.getIds());
-        Set<Long> reportedScheduleOrderIds = processes.stream()
-                .filter(process -> normalizeQuantity(process.getReportedQuantity()).compareTo(BigDecimal.ZERO) > 0)
-                .map(MesProScheduleOrderProcessDO::getScheduleOrderId)
-                .collect(Collectors.toSet());
-        List<String> blockedCodes = scheduleOrders.stream()
-                .filter(item -> ObjUtil.equal(item.getStatus(), MesProScheduleOrderStatusEnum.FINISHED.getStatus())
-                        || reportedScheduleOrderIds.contains(item.getId()))
-                .map(this::getScheduleOrderCode)
-                .toList();
-        if (CollUtil.isNotEmpty(blockedCodes)) {
+        if (StrUtil.isBlank(reqVO.getReason())) {
+            throw exception(PRO_SCHEDULE_ORDER_REASON_REQUIRED);
+        }
+        if (reqVO.getItems().stream().anyMatch(item -> item == null || item.getId() == null
+                || item.getExpectedUpdateTime() == null)) {
             throw exception0(PRO_SCHEDULE_ORDER_DELETE_BLOCKED.getCode(),
-                    "排产工单存在已报工或已完成记录，不能删除: {}", blockedCodes);
+                    "排产工单删除请求缺少编号或最后更新时间");
+        }
+        Map<Long, LocalDateTime> expectedUpdateTimeById = reqVO.getItems().stream()
+                .collect(Collectors.toMap(MesProScheduleOrderDeleteReqVO.Item::getId,
+                        MesProScheduleOrderDeleteReqVO.Item::getExpectedUpdateTime, (left, right) -> {
+                            throw exception0(PRO_SCHEDULE_ORDER_DELETE_BLOCKED.getCode(), "排产工单删除请求包含重复编号");
+                        }, LinkedHashMap::new));
+        List<MesProScheduleOrderDO> scheduleOrders = expectedUpdateTimeById.keySet().stream()
+                .sorted()
+                .map(scheduleOrderMapper::selectByIdForUpdate)
+                .toList();
+        if (scheduleOrders.stream().anyMatch(Objects::isNull)) {
+            throw exception(PRO_SCHEDULE_ORDER_NOT_EXISTS);
         }
         for (MesProScheduleOrderDO scheduleOrder : scheduleOrders) {
-            MesProScheduleOrderDO after = copyForSnapshot(scheduleOrder);
-            after.setDeleted(Boolean.TRUE);
-            insertOperationLog(scheduleOrder, after, "DELETE", reqVO.getReason());
-            scheduleOrderMapper.deleteById(scheduleOrder.getId());
+            if (Boolean.TRUE.equals(scheduleOrder.getRemovedFromSchedule())) {
+                continue;
+            }
+            LocalDateTime expectedUpdateTime = expectedUpdateTimeById.get(scheduleOrder.getId());
+            if (!sameSecond(expectedUpdateTime, scheduleOrder.getUpdateTime())) {
+                throw exception0(PRO_SCHEDULE_ORDER_DELETE_BLOCKED.getCode(),
+                        "排产工单状态已变化，请刷新后重新确认删除: {}", getScheduleOrderCode(scheduleOrder));
+            }
         }
+
+        List<Long> activeRemovalIds = scheduleOrders.stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
+                .map(MesProScheduleOrderDO::getId)
+                .toList();
+        if (CollUtil.isEmpty(activeRemovalIds)) {
+            return;
+        }
+        List<MesProTaskScheduleExtDO> taskExts = taskScheduleExtMapper.selectListByScheduleOrderIds(activeRemovalIds);
+        List<Long> taskIds = taskExts.stream().map(MesProTaskScheduleExtDO::getTaskId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, MesProTaskDO> taskById = taskMapper.selectListByIdsForUpdate(taskIds).stream()
+                .collect(Collectors.toMap(MesProTaskDO::getId, item -> item));
+        Map<Long, List<MesProTaskDO>> tasksByScheduleOrderId = taskExts.stream()
+                .filter(ext -> taskById.containsKey(ext.getTaskId()))
+                .collect(Collectors.groupingBy(MesProTaskScheduleExtDO::getScheduleOrderId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(ext -> taskById.get(ext.getTaskId()), Collectors.toList())));
+        LocalDateTime now = LocalDateTime.now();
+        List<MesProTaskDO> canceledTasks = taskById.values().stream()
+                .filter(task -> ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.PREPARE.getStatus()))
+                .map(task -> new MesProTaskDO().setId(task.getId())
+                        .setStatus(MesProTaskStatusEnum.CANCELED.getStatus()).setCancelDate(now))
+                .toList();
+        if (CollUtil.isNotEmpty(canceledTasks)) {
+            taskMapper.updateBatch(canceledTasks);
+        }
+
+        Long operatorId = SecurityFrameworkUtils.getLoginUserId();
+        for (MesProScheduleOrderDO scheduleOrder : scheduleOrders) {
+            if (Boolean.TRUE.equals(scheduleOrder.getRemovedFromSchedule())) {
+                continue;
+            }
+            List<MesProTaskDO> orderTasks = tasksByScheduleOrderId.getOrDefault(
+                    scheduleOrder.getId(), Collections.emptyList());
+            List<MesProcessPoolActiveOrderDO> activeOrderHistory =
+                    activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(scheduleOrder.getWorkOrderId());
+            boolean hasProductionFacts = CollUtil.isNotEmpty(
+                    feedbackMapper.selectProgressListByScheduleOrderId(scheduleOrder.getId()))
+                    || orderTasks.stream().anyMatch(task -> ObjUtil.equal(task.getStatus(),
+                    MesProTaskStatusEnum.IN_PROGRESS.getStatus()) || ObjUtil.equal(task.getStatus(),
+                    MesProTaskStatusEnum.FINISHED.getStatus()))
+                    || activeOrderHistory.stream().anyMatch(item -> !Boolean.TRUE.equals(item.getSimulated()));
+            MesProScheduleOrderDO update = new MesProScheduleOrderDO().setId(scheduleOrder.getId())
+                    .setRemovedFromSchedule(Boolean.TRUE)
+                    .setRemovedFromScheduleTime(now)
+                    .setRemovedFromScheduleBy(operatorId)
+                    .setRemovedFromScheduleReason(reqVO.getReason().trim())
+                    .setRemovedFromScheduleStatus(scheduleOrder.getStatus())
+                    .setReentryBlocked(hasProductionFacts);
+            if (scheduleOrderMapper.updateById(update) != 1) {
+                throw exception0(PRO_SCHEDULE_ORDER_DELETE_BLOCKED.getCode(),
+                        "排产工单删除发生并发冲突，请刷新后重试: {}", getScheduleOrderCode(scheduleOrder));
+            }
+            MesProScheduleOrderDO after = copyForSnapshot(scheduleOrder);
+            after.setRemovedFromSchedule(Boolean.TRUE);
+            after.setRemovedFromScheduleTime(now);
+            after.setRemovedFromScheduleBy(operatorId);
+            after.setRemovedFromScheduleReason(reqVO.getReason().trim());
+            after.setRemovedFromScheduleStatus(scheduleOrder.getStatus());
+            after.setReentryBlocked(hasProductionFacts);
+            insertOperationLog(scheduleOrder, after, "DELETE", reqVO.getReason().trim());
+        }
+    }
+
+    private boolean sameSecond(LocalDateTime left, LocalDateTime right) {
+        return left != null && right != null && left.withNano(0).equals(right.withNano(0));
+    }
+
+    @Override
+    public MesProScheduleOrderDeleteImpactRespVO getDeleteImpact(Long id) {
+        MesProScheduleOrderDO scheduleOrder = validateScheduleOrderExists(id);
+        List<MesProTaskScheduleExtDO> taskExts = taskScheduleExtMapper.selectListByScheduleOrderIds(List.of(id));
+        List<Long> taskIds = taskExts.stream().map(MesProTaskScheduleExtDO::getTaskId)
+                .filter(Objects::nonNull).distinct().toList();
+        List<MesProTaskDO> tasks = taskMapper.selectListByIds(taskIds);
+        List<MesProFeedbackDO> feedback = feedbackMapper.selectProgressListByScheduleOrderId(id);
+        List<MesProcessPoolActiveOrderDO> activeOrderHistory = activeOrderMapper
+                .selectHistoryByWorkOrderId(scheduleOrder.getWorkOrderId()).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getSimulated()))
+                .toList();
+        int pendingTaskCount = countTasksByStatus(tasks, MesProTaskStatusEnum.PREPARE.getStatus());
+        int inProgressTaskCount = countTasksByStatus(tasks, MesProTaskStatusEnum.IN_PROGRESS.getStatus());
+        int finishedTaskCount = countTasksByStatus(tasks, MesProTaskStatusEnum.FINISHED.getStatus());
+        boolean hasProductionFacts = CollUtil.isNotEmpty(feedback) || inProgressTaskCount > 0
+                || finishedTaskCount > 0 || CollUtil.isNotEmpty(activeOrderHistory);
+        MesProScheduleOrderDeleteImpactRespVO result = new MesProScheduleOrderDeleteImpactRespVO();
+        result.setId(scheduleOrder.getId());
+        result.setCode(scheduleOrder.getCode());
+        result.setStatus(scheduleOrder.getStatus());
+        result.setFrozen(scheduleOrder.getFrozen());
+        result.setProgressPercent(scheduleOrder.getProgressPercent());
+        result.setUpdateTime(scheduleOrder.getUpdateTime());
+        result.setPendingTaskCount(pendingTaskCount);
+        result.setInProgressTaskCount(inProgressTaskCount);
+        result.setFinishedTaskCount(finishedTaskCount);
+        result.setFeedbackCount(feedback.size());
+        result.setActiveOrderCount((int) activeOrderHistory.stream()
+                .filter(item -> "ACTIVE".equals(item.getActiveStatus())).count());
+        result.setProductionFactsRetained(hasProductionFacts);
+        result.setReentryBlockedAfterRemoval(hasProductionFacts);
+        return result;
+    }
+
+    private int countTasksByStatus(List<MesProTaskDO> tasks, Integer status) {
+        return (int) tasks.stream().filter(task -> ObjUtil.equal(task.getStatus(), status)).count();
+    }
+
+    private boolean blocksScheduleOrderAdmission(MesProScheduleOrderDO scheduleOrder) {
+        if (scheduleOrder == null) {
+            return false;
+        }
+        if (!Boolean.TRUE.equals(scheduleOrder.getRemovedFromSchedule())
+                || Boolean.TRUE.equals(scheduleOrder.getReentryBlocked())) {
+            return true;
+        }
+        if (CollUtil.isNotEmpty(feedbackMapper.selectProgressListByScheduleOrderId(scheduleOrder.getId()))) {
+            return true;
+        }
+        return activeOrderMapper.selectHistoryByWorkOrderId(scheduleOrder.getWorkOrderId()).stream()
+                .anyMatch(item -> !Boolean.TRUE.equals(item.getSimulated()));
     }
 
     private Long createMissingRouteScheduleOrder(MesProScheduleOrderCreateFromWorkOrderReqVO reqVO,
@@ -583,12 +717,17 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     @Override
     public PageResult<MesProScheduleOrderDO> getScheduleOrderPage(MesProScheduleOrderPageReqVO pageReqVO) {
         normalizeCurrentProcessFilter(pageReqVO);
-        if (pageReqVO.getCurrentProcessId() != null) {
+        List<Long> currentProcessFilterIds = resolveCurrentProcessFilterIds(pageReqVO);
+        if (CollUtil.isEmpty(currentProcessFilterIds) && hasCurrentProcessFilter(pageReqVO)) {
+            return new PageResult<>(Collections.emptyList(), 0L);
+        }
+        if (CollUtil.isNotEmpty(currentProcessFilterIds)) {
             pageReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
         }
-        List<Long> productIds = resolveScheduleQuickFilterProductIds(pageReqVO.getQuickFilter());
+        List<Long> quickFilterProductIds = resolveScheduleQuickFilterProductIds(pageReqVO.getQuickFilter());
+        List<Long> productIds = resolveSchedulePageProductIds(pageReqVO, quickFilterProductIds);
         QuickFilter originalQuickFilter = pageReqVO.getQuickFilter();
-        if (isScheduleProductQuickFilter(originalQuickFilter)) {
+        if (isServiceResolvedScheduleQuickFilter(originalQuickFilter)) {
             pageReqVO.setQuickFilter(null);
         }
         PageResult<MesProScheduleOrderDO> pageResult;
@@ -597,10 +736,10 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         } finally {
             pageReqVO.setQuickFilter(originalQuickFilter);
         }
-        if (pageReqVO.getCurrentProcessId() == null || CollUtil.isEmpty(pageResult.getList())) {
+        if (CollUtil.isEmpty(currentProcessFilterIds) || CollUtil.isEmpty(pageResult.getList())) {
             return pageResult;
         }
-        List<MesProScheduleOrderDO> filteredList = filterByCurrentProcess(pageResult.getList(), pageReqVO.getCurrentProcessId());
+        List<MesProScheduleOrderDO> filteredList = filterByCurrentProcess(pageResult.getList(), currentProcessFilterIds);
         return new PageResult<>(filteredList, (long) filteredList.size());
     }
 
@@ -616,20 +755,36 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
         String value = quickFilter.getValue().trim();
         return switch (StrUtil.blankToDefault(quickFilter.getFieldKey(), "")) {
+            case "productCode" -> toProductIds(itemMapper.selectListByCodeLike(value));
             case "productName" -> toProductIds(itemMapper.selectListByNameLike(value));
             case "productSpecification" -> toProductIds(itemMapper.selectListBySpecificationLike(value));
             default -> Collections.emptyList();
         };
     }
 
-    private boolean isScheduleProductQuickFilter(QuickFilter quickFilter) {
+    private boolean isServiceResolvedScheduleQuickFilter(QuickFilter quickFilter) {
         if (quickFilter == null) {
             return false;
         }
         return switch (StrUtil.blankToDefault(quickFilter.getFieldKey(), "")) {
-            case "productName", "productSpecification" -> true;
+            case "productCode", "productName", "productSpecification", "currentProcessKeyword" -> true;
             default -> false;
         };
+    }
+
+    private List<Long> resolveSchedulePageProductIds(MesProScheduleOrderPageReqVO pageReqVO,
+                                                     List<Long> quickFilterProductIds) {
+        List<List<Long>> productIdFilters = new ArrayList<>();
+        if (CollUtil.isNotEmpty(quickFilterProductIds)) {
+            productIdFilters.add(quickFilterProductIds);
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getProductCode())) {
+            productIdFilters.add(toProductIds(itemMapper.selectListByCodeLike(pageReqVO.getProductCode())));
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getProductName())) {
+            productIdFilters.add(toProductIds(itemMapper.selectListByNameLike(pageReqVO.getProductName())));
+        }
+        return intersectLongFilters(productIdFilters);
     }
 
     private List<Long> toProductIds(List<MesMdItemDO> matchedProducts) {
@@ -641,8 +796,52 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 .toList();
     }
 
+    private boolean hasCurrentProcessFilter(MesProScheduleOrderPageReqVO pageReqVO) {
+        return pageReqVO.getCurrentProcessId() != null
+                || StrUtil.isNotBlank(pageReqVO.getCurrentProcessKeyword())
+                || (pageReqVO.getQuickFilter() != null
+                && "currentProcessKeyword".equals(pageReqVO.getQuickFilter().getFieldKey())
+                && StrUtil.isNotBlank(pageReqVO.getQuickFilter().getValue()));
+    }
+
+    private List<Long> resolveCurrentProcessFilterIds(MesProScheduleOrderPageReqVO pageReqVO) {
+        List<List<Long>> processIdFilters = new ArrayList<>();
+        if (pageReqVO.getCurrentProcessId() != null) {
+            processIdFilters.add(List.of(pageReqVO.getCurrentProcessId()));
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getCurrentProcessKeyword())) {
+            processIdFilters.add(toProcessIds(processMapper.selectListByKeywordLike(pageReqVO.getCurrentProcessKeyword())));
+        }
+        QuickFilter quickFilter = pageReqVO.getQuickFilter();
+        if (quickFilter != null && "currentProcessKeyword".equals(quickFilter.getFieldKey())
+                && StrUtil.isNotBlank(quickFilter.getValue())) {
+            processIdFilters.add(toProcessIds(processMapper.selectListByKeywordLike(quickFilter.getValue())));
+        }
+        return intersectLongFilters(processIdFilters);
+    }
+
+    private List<Long> toProcessIds(List<MesProProcessDO> matchedProcesses) {
+        if (CollUtil.isEmpty(matchedProcesses)) {
+            return List.of(-1L);
+        }
+        return matchedProcesses.stream()
+                .map(MesProProcessDO::getId)
+                .toList();
+    }
+
+    private List<Long> intersectLongFilters(List<List<Long>> filters) {
+        if (CollUtil.isEmpty(filters)) {
+            return Collections.emptyList();
+        }
+        Set<Long> intersection = new LinkedHashSet<>(filters.get(0));
+        for (int i = 1; i < filters.size(); i++) {
+            intersection.retainAll(filters.get(i));
+        }
+        return new ArrayList<>(intersection);
+    }
+
     private List<MesProScheduleOrderDO> filterByCurrentProcess(List<MesProScheduleOrderDO> scheduleOrders,
-                                                               Long currentProcessId) {
+                                                               List<Long> currentProcessIds) {
         Set<Long> scheduleOrderIds = scheduleOrders.stream()
                 .map(MesProScheduleOrderDO::getId)
                 .collect(Collectors.toSet());
@@ -652,19 +851,19 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 .collect(Collectors.groupingBy(MesProScheduleOrderProcessDO::getScheduleOrderId));
         return scheduleOrders.stream()
                 .filter(order -> hasWorkbenchWipProcess(processMap.getOrDefault(order.getId(), Collections.emptyList()),
-                        order, currentProcessId))
+                        order, currentProcessIds))
                 .toList();
     }
 
     private boolean hasWorkbenchWipProcess(List<MesProScheduleOrderProcessDO> processes,
                                            MesProScheduleOrderDO scheduleOrder,
-                                           Long currentProcessId) {
+                                           List<Long> currentProcessIds) {
         return processes.stream()
                 .filter(this::isProcessWip)
                 .filter(process -> hasResolvableWorkbenchWipIdentity(scheduleOrder, process))
                 .map(process -> routeProcessService.resolveFrozenRouteProcess(
                         process.getRouteProcessId(), scheduleOrder.getRouteId(), process.getProcessId()).getProcessId())
-                .anyMatch(currentProcessId::equals);
+                .anyMatch(currentProcessIds::contains);
     }
 
     private boolean hasResolvableWorkbenchWipIdentity(MesProScheduleOrderDO scheduleOrder,
@@ -696,6 +895,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         Map<Long, MesProScheduleOrderDO> scheduleOrderMap = scheduleOrderMapper
                 .selectListByWorkOrderIds(workOrderIds)
                 .stream()
+                .filter(this::blocksScheduleOrderAdmission)
                 .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
                         (left, right) -> left, LinkedHashMap::new));
 
@@ -740,6 +940,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             Map<Long, MesProScheduleOrderDO> scheduleOrderMap = scheduleOrderMapper
                     .selectListByWorkOrderIds(workOrderIds)
                     .stream()
+                    .filter(this::blocksScheduleOrderAdmission)
                     .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
                             (left, right) -> left, LinkedHashMap::new));
             for (MesProWorkOrderDO workOrder : workOrders) {
@@ -2365,6 +2566,10 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private MesProScheduleOrderDO validateWritableScheduleOrder(Long scheduleOrderId) {
         MesProScheduleOrderDO scheduleOrder = validateScheduleOrderExists(scheduleOrderId);
+        if (Boolean.TRUE.equals(scheduleOrder.getRemovedFromSchedule())) {
+            throw exception0(PRO_SCHEDULE_ORDER_DELETE_BLOCKED.getCode(),
+                    "排产工单已删除，仅允许查看历史记录: {}", getScheduleOrderCode(scheduleOrder));
+        }
         if (Boolean.TRUE.equals(scheduleOrder.getFrozen())) {
             throw exception0(PRO_SCHEDULE_ORDER_FROZEN.getCode(), "排产工单已冻结，禁止写入操作: {}",
                     getScheduleOrderCode(scheduleOrder));

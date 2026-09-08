@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -102,10 +103,12 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         attachPqcSubmissions(activeOrderId, accumulators);
         return new MesTeamLeaderActiveOrderDetail()
                 .setActiveOrderId(activeOrderId)
+                .setVersion(activeOrder.getVersion())
                 .setWorkOrderId(first.getWorkOrderId())
                 .setWorkOrderCode(first.getWorkOrderCode())
                 .setBatchCode(first.getBatchCode())
                 .setWorkOrderQuantity(first.getWorkOrderQuantity())
+                .setDrawingNumber(first.getDrawingNumber())
                 .setProductCode(first.getProductCode())
                 .setProductName(first.getProductName())
                 .setProductSpecification(first.getProductSpecification())
@@ -463,8 +466,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
         private final LinkedHashSet<String> submitterNames = new LinkedHashSet<>();
         private final LinkedHashSet<String> reviewerNames = new LinkedHashSet<>();
+        private final List<MesTeamLeaderActiveOrderDetail.SignatureDetail> submitterSignatures = new ArrayList<>();
+        private final List<MesTeamLeaderActiveOrderDetail.SignatureDetail> reviewerSignatures = new ArrayList<>();
         private final List<MesTeamLeaderActiveOrderDetail.PqcSubmissionItemDetail> items = new ArrayList<>();
         private Integer actualInspectionQuantity;
+        private Integer scrapQuantity;
 
         private PqcSubmissionAccumulator(MesPqcInspectionTaskDO firstTask,
                                          MesQaInspectionRegulationProcessDO qaProcess) {
@@ -482,6 +488,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 }
                 submitterNames.add(trimToNull(eventParty.getSubmitterName()));
                 reviewerNames.add(trimToNull(eventParty.getReviewerName()));
+                addSignature(submitterSignatures, eventParty.getSubmitterSignatureId(),
+                        eventParty.getSubmitterName(), eventParty.getSubmitterSignedAt(), "PQC_SUBMIT");
+                addSignature(reviewerSignatures, eventParty.getReviewerSignatureId(),
+                        eventParty.getReviewerName(), eventParty.getReviewerSignedAt(), "FORM_REVIEW");
+                scrapQuantity = addScrapQuantity(scrapQuantity, eventParty.getScrapQuantity());
             }
             if (actualInspectionQuantity == null
                     || (task.getActualInspectionQuantity() != null
@@ -518,11 +529,46 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setShiftCode(firstTask.getShiftCode())
                     .setRoundNo(firstTask.getRoundNo())
                     .setActualInspectionQuantity(actualInspectionQuantity)
+                    .setScrapQuantity(scrapQuantity)
                     .setTaskStatus(firstTask.getTaskStatus())
                     .setSubmitterName(joinDistinctTexts(submitterNames))
                     .setReviewerName(joinDistinctTexts(reviewerNames))
+                    .setSubmitterSignatures(List.copyOf(submitterSignatures))
+                    .setReviewerSignatures(List.copyOf(reviewerSignatures))
                     .setItems(List.copyOf(items));
         }
+    }
+
+    private static Integer addScrapQuantity(Integer current, Integer next) {
+        if (next == null) {
+            return current;
+        }
+        return (current == null ? 0 : current) + next;
+    }
+
+    private static void addSignature(List<MesTeamLeaderActiveOrderDetail.SignatureDetail> signatures,
+                                     Long signatureId, String signerName, LocalDateTime signedAt, String role) {
+        if (signatureId == null) {
+            return;
+        }
+        boolean existed = signatures.stream()
+                .anyMatch(signature -> Objects.equals(signature.getSignatureId(), signatureId));
+        if (existed) {
+            return;
+        }
+        signatures.add(toSignatureDetail(signatureId, signerName, signedAt, role));
+    }
+
+    private static MesTeamLeaderActiveOrderDetail.SignatureDetail toSignatureDetail(
+            Long signatureId, String signerName, LocalDateTime signedAt, String role) {
+        if (signatureId == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetail.SignatureDetail()
+                .setSignatureId(signatureId)
+                .setSignerName(trimToNull(signerName))
+                .setSignedAt(signedAt)
+                .setRole(role);
     }
 
     private static String joinDistinctTexts(Set<String> values) {
@@ -547,6 +593,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setProcessId(row.getProcessId())
                     .setProcessCode(row.getProcessCode())
                     .setProcessName(row.getProcessName())
+                    .setKeyFlag(Boolean.TRUE.equals(row.getKeyFlag()))
                     .setRequiredQuantity(row.getRequiredQuantity());
         }
 
@@ -567,6 +614,10 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
                     .setSubmittedAt(row.getSubmittedAt())
+                    .setSubmitterSignature(toSignatureDetail(row.getSubmitterSignatureId(),
+                            row.getSubmitterName(), row.getSubmitterSignedAt(), "PRODUCTION_SUBMIT"))
+                    .setReviewerSignature(toSignatureDetail(row.getReviewerSignatureId(),
+                            row.getReviewerName(), row.getReviewerSignedAt(), "FORM_REVIEW"))
                     .setDevices(resolveSubmissionDevices(row, activeOrderId))
                     .setDeviceParameters(resolveSubmissionDeviceParameters(row, activeOrderId))
                     .setClearanceConfirmations(resolveClearanceConfirmations(row, activeOrderId))

@@ -565,6 +565,17 @@
                     :image-size="52"
                   />
                 </section>
+                <component
+                  v-else-if="selectedInlineSubmissionFormMode"
+                  :is="ActiveOrderSubmissionDetailPanel"
+                  :detail="inlineActiveOrderSubmissionDetail"
+                  :loading="inlineActiveOrderSubmissionDetailLoading"
+                  :error="inlineActiveOrderSubmissionDetailError"
+                  embedded
+                  :display-mode="selectedInlineSubmissionFormMode"
+                  :production-route-process-id="selectedInlineProductionRouteProcessId"
+                  @retry="reloadInlineActiveOrderSubmissionDetail"
+                />
                 <EdhrExecutionReadonlyForm
                   v-else-if="selectedPreviewFormViewModel"
                   :form-view-model="selectedPreviewFormViewModel"
@@ -1503,7 +1514,11 @@ import {
   submitEdhrRelease,
   type EdhrReleaseCheckItemVO
 } from '@/api/mes/pro/edhr/release'
-import { simulateStage6IdiData } from '@/api/mes/pro/processpool/teamLeader'
+import {
+  getTeamLeaderActiveOrderDetail,
+  simulateStage6IdiData,
+  type TeamLeaderActiveOrderDetailRespVO
+} from '@/api/mes/pro/processpool/teamLeader'
 import dayjs from 'dayjs'
 import { requestReopenBatch } from '@/api/mes/pro/edhr/change'
 import {
@@ -1512,6 +1527,7 @@ import {
 } from '@/api/common/filePreview'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
+import ActiveOrderSubmissionDetailPanel from '@/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import DomainTraceListPane from '@/views/mes/pro/edhr/components/DomainTraceListPane.vue'
 import OperationAuditListPane from '@/views/mes/pro/edhr/components/OperationAuditListPane.vue'
 import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventListPane.vue'
@@ -1602,6 +1618,9 @@ const RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000
 let releaseActionErrorAutoHideTimer: number | undefined
 let routeFormAutoOpenKey = ''
 const detail = ref<EdhrBatchExecutionRespVO>()
+const inlineActiveOrderSubmissionDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
+const inlineActiveOrderSubmissionDetailLoading = ref(false)
+const inlineActiveOrderSubmissionDetailError = ref('')
 const workbench = ref<EdhrBatchWorkbenchRespVO>()
 type Stage4SimulationNodeView = {
   nodeType: string
@@ -2399,6 +2418,20 @@ const selectedOpenableTask = computed(() => {
 })
 const selectedProcessContext = computed(
   () => selectedExecution.value || selectedTaskForEvidence.value
+)
+const selectedInlineSubmissionFormMode = computed<'production' | 'pqc' | undefined>(() => {
+  if (isReleaseProcessSelected.value) return undefined
+  const task = selectedTaskForEvidence.value
+  if (!task) return undefined
+  if (task.formSlotType === 'MAIN') return 'production'
+  if (task.formSlotType === 'PROCESS_INSPECTION') return 'pqc'
+  return undefined
+})
+const selectedInlineProductionRouteProcessId = computed(
+  () =>
+    selectedInlineSubmissionFormMode.value === 'production'
+      ? selectedTaskForEvidence.value?.routeProcessId
+      : undefined
 )
 const routeFormInitialInstanceId = computed(
   () =>
@@ -4276,12 +4309,17 @@ watch(actualReleaseStageKey, (_nextStageKey, previousStageKey) => {
 const resolveRouteQueryTaskSelection = () => {
   const queryBatchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
   const queryWorkTaskId = parsePositiveRouteQueryId(route.query.workTaskId)
+  const queryRouteProcessId = parsePositiveRouteQueryId(route.query.routeProcessId)
+  const queryFormSlotType = parseRouteQueryText(route.query.formSlotType)
   const processCode = parseRouteQueryText(route.query.processCode)
   const processName = parseRouteQueryText(route.query.processName)
   return sortedTasks.value.find(
     (task) =>
       (queryBatchTaskId && sameRouteQueryId(task.id, queryBatchTaskId)) ||
       (queryWorkTaskId && sameRouteQueryId(task.activeWorkTaskId, queryWorkTaskId)) ||
+      (queryFormSlotType &&
+        task.formSlotType === queryFormSlotType &&
+        (!queryRouteProcessId || sameRouteQueryId(task.routeProcessId, queryRouteProcessId))) ||
       (processCode && task.processCode === processCode) ||
       (processName && task.processName === processName)
   )
@@ -4438,6 +4476,43 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
   }
 }
 
+const loadInlineActiveOrderSubmissionDetail = async (
+  batch: EdhrBatchExecutionRespVO | undefined,
+  requestSerial = batchDetailRequestSerial
+) => {
+  inlineActiveOrderSubmissionDetail.value = undefined
+  inlineActiveOrderSubmissionDetailError.value = ''
+  if (!batch?.activeOrderId) {
+    inlineActiveOrderSubmissionDetailError.value =
+      '批次执行缺少正式活跃订单来源，无法展示一线提交表单'
+    return
+  }
+  inlineActiveOrderSubmissionDetailLoading.value = true
+  try {
+    const nextDetail = await getTeamLeaderActiveOrderDetail(batch.activeOrderId)
+    if (isStaleBatchDetailRequest(requestSerial)) return
+    if (!nextDetail.processes?.length) {
+      throw new Error('活跃订单缺少正式工序目标，无法展示一线提交表单')
+    }
+    inlineActiveOrderSubmissionDetail.value = nextDetail
+  } catch (error) {
+    if (isStaleBatchDetailRequest(requestSerial)) return
+    inlineActiveOrderSubmissionDetail.value = undefined
+    inlineActiveOrderSubmissionDetailError.value = resolveErrorMessage(
+      error,
+      '一线提交表单加载失败。'
+    )
+  } finally {
+    if (!isStaleBatchDetailRequest(requestSerial)) {
+      inlineActiveOrderSubmissionDetailLoading.value = false
+    }
+  }
+}
+
+const reloadInlineActiveOrderSubmissionDetail = () => {
+  void loadInlineActiveOrderSubmissionDetail(detail.value)
+}
+
 const deferInitialBatchDetailSecondaryLoad = (id: string | number, requestSerial: number) => {
   cancelDeferredBatchDetailSecondaryLoad()
   batchDetailSecondaryFrameId = requestAnimationFrame(() => {
@@ -4517,6 +4592,7 @@ const loadDetail = async () => {
     const nextDetail = await getEdhrBatchExecution(id)
     if (isStaleBatchDetailRequest(requestSerial)) return
     detail.value = nextDetail
+    void loadInlineActiveOrderSubmissionDetail(nextDetail, requestSerial)
     syncSpecialNodePendingAttachmentsFromDetail(nextDetail)
     applyInitialBatchTaskSelection()
     void loadProductionReleaseReportCandidates(id, requestSerial)
@@ -4524,6 +4600,9 @@ const loadDetail = async () => {
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     detail.value = undefined
+    inlineActiveOrderSubmissionDetail.value = undefined
+    inlineActiveOrderSubmissionDetailLoading.value = false
+    inlineActiveOrderSubmissionDetailError.value = ''
     productionReleaseReportWorkTasks.value = []
     productionReleaseReportCandidateError.value = ''
     syncSpecialNodePendingAttachmentsFromDetail()
@@ -4544,6 +4623,7 @@ const handleSync = async () => {
   syncLoading.value = true
   try {
     detail.value = await syncEdhrBatchExecutionStatus(assertBatchExecutionId())
+    await loadInlineActiveOrderSubmissionDetail(detail.value)
     syncSpecialNodePendingAttachmentsFromDetail(detail.value)
     await loadProductionReleaseReportCandidates(assertBatchExecutionId())
     message.success('批次状态已同步')

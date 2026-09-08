@@ -10,6 +10,7 @@
                work_order.code AS workOrderCode,
                work_order.batch_code AS batchCode,
                work_order.quantity AS workOrderQuantity,
+               work_order.drawing_number AS drawingNumber,
                product_item.code AS productCode,
                product_item.name AS productName,
                product_item.specification AS productSpecification,
@@ -19,6 +20,7 @@
                process_snapshot.process_id AS processId,
                process.code AS processCode,
                process.name AS processName,
+               route_process.key_flag AS keyFlag,
                process_snapshot.planned_quantity_snapshot AS requiredQuantity,
                allocation.event_id AS eventId,
                allocation.allocated_quantity AS submittedQuantity,
@@ -29,6 +31,10 @@
                         NULLIF(reviewer_profile_by_id.display_name, ''),
                         NULLIF(reviewer_profile_by_id.employee_name, ''), NULLIF(reviewer.username, '')) AS reviewerName,
                pool_event.server_submit_time AS submittedAt,
+               pool_event.signature_id AS submitterSignatureId,
+               pool_event.server_submit_time AS submitterSignedAt,
+               latest_review.review_signature_id AS reviewerSignatureId,
+               latest_review.reviewed_at AS reviewerSignedAt,
                CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
                pool_event.device_id AS eventDeviceId,
                event_device.device_code AS eventDeviceCode,
@@ -51,6 +57,11 @@
         INNER JOIN mes_pro_process process
           ON process.id = process_snapshot.process_id
          AND process.deleted = 0
+        LEFT JOIN mes_pro_route_process route_process
+          ON route_process.id = process_snapshot.route_process_id
+         AND route_process.route_id = process_snapshot.route_id
+         AND route_process.process_id = process_snapshot.process_id
+         AND route_process.deleted = 0
         LEFT JOIN mes_pro_process_pool_report_allocation allocation
           ON allocation.active_order_id = process_snapshot.active_order_id
          AND allocation.route_process_id = process_snapshot.route_process_id
@@ -76,11 +87,13 @@
          AND submitter_profile.tenant_id = pool_event.tenant_id
          AND submitter_profile.deleted = 0
         LEFT JOIN (
-            SELECT tenant_id, event_id, leader_user_id
+            SELECT tenant_id, event_id, leader_user_id, review_signature_id, reviewed_at
             FROM (
                 SELECT review_log.tenant_id,
                        review_log.event_id,
                        review_log.leader_user_id,
+                       review_log.review_signature_id,
+                       review_log.reviewed_at,
                        ROW_NUMBER() OVER (
                            PARTITION BY review_log.tenant_id, review_log.event_id
                            ORDER BY review_log.reviewed_at DESC, review_log.id DESC
@@ -132,7 +145,16 @@
                COALESCE(NULLIF(reviewer.nickname, ''), NULLIF(reviewer_profile_by_user.display_name, ''),
                         NULLIF(reviewer_profile_by_user.employee_name, ''),
                         NULLIF(reviewer_profile_by_id.display_name, ''),
-                        NULLIF(reviewer_profile_by_id.employee_name, ''), NULLIF(reviewer.username, '')) AS reviewerName
+                        NULLIF(reviewer_profile_by_id.employee_name, ''), NULLIF(reviewer.username, '')) AS reviewerName,
+               pool_event.signature_id AS submitterSignatureId,
+               pool_event.server_submit_time AS submitterSignedAt,
+               latest_review.review_signature_id AS reviewerSignatureId,
+               latest_review.reviewed_at AS reviewerSignedAt,
+               CASE
+                   WHEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.scrapQuantity')) REGEXP '^[0-9]+$'
+                       THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.scrapQuantity')) AS SIGNED)
+                   ELSE NULL
+               END AS scrapQuantity
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN system_users submitter
           ON submitter.id = pool_event.actual_employee_id
@@ -143,11 +165,13 @@
          AND submitter_profile.tenant_id = pool_event.tenant_id
          AND submitter_profile.deleted = 0
         LEFT JOIN (
-            SELECT tenant_id, event_id, leader_user_id
+            SELECT tenant_id, event_id, leader_user_id, review_signature_id, reviewed_at
             FROM (
                 SELECT review_log.tenant_id,
                        review_log.event_id,
                        review_log.leader_user_id,
+                       review_log.review_signature_id,
+                       review_log.reviewed_at,
                        ROW_NUMBER() OVER (
                            PARTITION BY review_log.tenant_id, review_log.event_id
                            ORDER BY review_log.reviewed_at DESC, review_log.id DESC

@@ -59,10 +59,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionArchiveDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchDossierItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrFlowEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
@@ -90,10 +92,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordAp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionArchiveMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchDossierItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrFlowEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
@@ -361,6 +365,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    @Resource
     private MesProEdhrBatchExecutionVisibilityService batchExecutionVisibilityService;
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
@@ -424,6 +430,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
+    @Resource
+    private MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
     @Resource
     private MesProEdhrPermissionGateService permissionGateService;
     @Resource
@@ -640,6 +648,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBatchExecutionCode(latest.getBatchExecutionCode())
                 .setWorkOrderId(latest.getWorkOrderId())
                 .setWorkOrderCode(latest.getWorkOrderCode())
+                .setActiveOrderId(resolveBatchActiveOrderId(latest.getId()))
                 .setBatchCode(latest.getBatchCode())
                 .setCreateTime(latest.getCreateTime())
                 .setUpdateTime(latest.getUpdateTime())
@@ -6617,6 +6626,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBatchExecutionCode(latest.getBatchExecutionCode())
                 .setWorkOrderId(latest.getWorkOrderId())
                 .setWorkOrderCode(latest.getWorkOrderCode())
+                .setActiveOrderId(resolveBatchActiveOrderId(latest.getId()))
                 .setBatchCode(latest.getBatchCode())
                 .setCreateTime(latest.getCreateTime())
                 .setUpdateTime(latest.getUpdateTime())
@@ -6689,6 +6699,59 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRejectedAt(latest.getRejectedAt())
                 .setRejectReason(latest.getRejectReason())
                 .setAggregateHash(latest.getAggregateHash());
+    }
+
+    private Long resolveBatchActiveOrderId(Long batchExecutionId) {
+        if (batchExecutionId == null) {
+            return null;
+        }
+        List<Long> activeOrderIds = batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId).stream()
+                .map(MesProEdhrBatchExecutionOriginDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (activeOrderIds.size() > 1) {
+            throw new IllegalStateException("批次执行存在多个不同的活跃订单来源：" + batchExecutionId);
+        }
+        if (!activeOrderIds.isEmpty()) {
+            return activeOrderIds.get(0);
+        }
+        List<Long> auditActiveOrderIds = operationAuditEventMapper
+                .selectSuccessfulListByBatchExecutionIdAndOperation(batchExecutionId, "OPEN")
+                .stream()
+                .map(this::activeOrderIdFromProvisionAudit)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (auditActiveOrderIds.size() > 1) {
+            throw new IllegalStateException("批次执行存在多个不同的活跃订单审计来源：" + batchExecutionId);
+        }
+        return auditActiveOrderIds.isEmpty() ? null : auditActiveOrderIds.get(0);
+    }
+
+    private Long activeOrderIdFromProvisionAudit(MesProEdhrOperationAuditEventDO audit) {
+        if (audit == null || StrUtil.isBlank(audit.getMetadataJson())) {
+            return null;
+        }
+        JSONObject metadata = JSON.parseObject(audit.getMetadataJson());
+        Object raw = metadata == null ? null : metadata.get("activeOrderId");
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number number) {
+            long value = number.longValue();
+            return value > 0 ? value : null;
+        }
+        String text = String.valueOf(raw).trim();
+        if (StrUtil.isBlank(text)) {
+            return null;
+        }
+        try {
+            long value = Long.parseLong(text);
+            return value > 0 ? value : null;
+        } catch (NumberFormatException ex) {
+            throw new IllegalStateException("批次执行活跃订单审计来源格式无效：" + audit.getId());
+        }
     }
 
     private void requireReleaseActionUnlocked(Long batchExecutionId) {

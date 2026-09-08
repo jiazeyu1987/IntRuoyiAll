@@ -92,6 +92,16 @@ export interface FormTemplateImportRespVO {
   warnings: string[]
 }
 
+export interface FormTemplateParseJsonRespVO {
+  parseType: 'PRODUCTION_BATCH_RECORD'
+  parseTypeName: string
+  sourceFileName: string
+  recognizedSchemaJson: string
+  jimuSchemaJson: string
+  recognizedFields: FormRecognizedFieldVO[]
+  warnings: string[]
+}
+
 export interface FormTemplateObsoleteReqVO {
   reason: string
   startUserSelectAssignees?: Record<string, number[]>
@@ -152,6 +162,13 @@ export const ensureTemplateEditableDraft = (templateId: number, versionNo: strin
 export const importTemplateDoc = (data: FormData) => {
   return request.upload<FormTemplateImportRespVO>({
     url: '/form-center/templates/import-doc',
+    data
+  })
+}
+
+export const parseProductionBatchRecordJson = (data: FormData) => {
+  return request.upload<FormTemplateParseJsonRespVO>({
+    url: '/form-center/parser/production-batch-record/json',
     data
   })
 }

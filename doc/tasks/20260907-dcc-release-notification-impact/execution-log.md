@@ -602,3 +602,35 @@ Correction:
 `GREEN: pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS; targeted P4 frontend ESLint -> PASS; mvn -o -pl yudao-module-dcc -DskipTests compile -> PASS`
 
 Regression risk is limited to the read-only timeline projection and shared rendering component. No schema change was needed because the formal audit rows already contain the facts. Runtime Playwright acceptance and independent tester re-review remain the P4 gates; no Git, database write, restart or E2E action was performed.
+
+## P4 Runtime Attempt: Shared Runtime Conflict
+
+`BDD: 真实页面验收必须绑定精确构建 -> Given P4 指定 revision ebb2b6c1e 且 48081 是共享 int_main 端口, When 执行数据库迁移、重启和 Playwright 验收, Then 只有精确 clean-build Jar 持续承载 48081 时才允许页面业务写入；其它并发 Jar 替换运行态时立即停止业务动作并保留证据`
+
+`GREEN: clean detached build -> PASS, HEAD=ebb2b6c1e, clean worktree, 30-module BUILD SUCCESS, fat Jar SHA256=BB10AE4E48E263D428AE34BB663313861F92078EC78544BD60B13C0BE42FF057`
+
+`GREEN: Jar content gate -> PASS, STORED nested DCC module contains FollowupController, TimelineEventRespVO and notification services`
+
+`GREEN: database preflight and exact backup -> PASS, target=127.0.0.2:23306/ruoyi-vue-pro, no concurrent active migration connection, four scoped recoverable dumps with SHA-256`
+
+`GREEN: official P1-P3 SQL first/repeat execution -> PASS, eleven empty target tables, schema/indexes present, menu/template/package counts stable at 1/1/2, no role-menu duplicate, controlled-file master/version/related baselines unchanged at 18223/18075/0`
+
+Migration execution note: the repository `apply-test-db-sql.ps1` is hard-bound to remote host `172.30.30.58` and cannot target local `127.0.0.2`. The official migration SQL files were therefore executed directly with the MySQL client; the official release-ledger schema and `publish-int-ruoyi.ps1` status semantics were used. This is not claimed as execution through the remote apply script.
+
+`E2E: fresh admin login preflight -> INVALIDATED, tenant lookup was attempted after the required foreground listener exited; no business write occurred and the result is not attributed to product authentication`
+
+`BLOCKED: exact-runtime gate -> FAIL, concurrent task replaced shared 48081 with backend-runtime-control-20260908-110039.jar (SHA256 B0FD91395BF8EFEA9A6AA5F77B8BBD3EE5F60ED94BD756AC7100A61D9AB6BCAE), not the required clean Jar; PID 58204 was preserved and no UI business action was run`
+
+Detailed evidence: `p4-runtime-evidence.md`. P4 remains in progress; independent tester has not run.
+
+## P4 Runtime Resume: Second Shared Resource Conflict
+
+`GREEN: authorized exact runtime restore -> PASS, verified conflict PID58204/parent57252 stopped; target backend-runtime-control-20260908-105030.jar started as PID23612 with required SHA256, health UP, E repo-root and 127.0.0.2 database target`
+
+`GREEN: fresh UI authentication and navigation -> PASS, tenant 芋道源码 admin logged in through the real login page; 文控中心 visibly contained 文件上传 and 发布后续; real upload page opened`
+
+`E2E: DCC project selection -> INTERRUPTED, selected 血管指引导丝（导引导丝） on the real page, but related-file candidate loading returned HTTP 500 during a concurrent 48081 stop; no submit action and no DCC business write occurred`
+
+`BLOCKED: second shared runtime conflict -> another active PQC表单 task stopped exact PID23612 and began its own int_main rebuild/restart with a different 112146 Jar; the failed candidate request did not reach the target backend log, so it is runtime-downtime evidence rather than a DCC product defect`
+
+The independently owned restart was not stopped or replaced. Playwright was closed with no remaining browser session. P4 remains in progress and requires a stable exclusive 48081 window before resuming UI-only business writes.

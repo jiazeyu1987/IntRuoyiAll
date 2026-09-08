@@ -21,7 +21,8 @@ const validateBlock = panel.slice(
   panel.indexOf('function buildPqcInspectionSubmitPayloads')
 )
 assert.match(validateBlock, /hasPqcEquipmentOptions\(item\)/)
-assert.match(validateBlock, /未选择检验设备/)
+assert.doesNotMatch(validateBlock, /未选择检验设备/)
+assert.match(validateBlock, /if \(!selection\.selectedEquipmentId && \(!customEquipmentText[\s\S]*selectedOption: undefined/)
 assert.match(validateBlock, /selectedEquipmentId/)
 assert.match(validateBlock, /selectedEquipmentNumber/)
 
