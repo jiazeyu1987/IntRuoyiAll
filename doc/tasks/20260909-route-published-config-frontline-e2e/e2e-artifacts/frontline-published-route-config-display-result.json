@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-09-08T17:09:50.073Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "identity": "芋道源码/admin",
+  "target": {},
+  "naturalRequests": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/feedback/frontline/device-account/active-orders"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/feedback/frontline/device-account/active-order/processes?activeOrderId=150"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/feedback/frontline/device-account/runtime-config?activeOrderId=150&routeId=922119&routeProcessId=9908090160&processId=922985"
+    }
+  ],
+  "mesWriteRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "activeOrder": {
+    "workOrderId": 903081,
+    "workOrderCode": "KDMO-309748-1416202028",
+    "routeId": 922119
+  },
+  "runtimeConfig": {
+    "routeId": 922119,
+    "routeProcessId": 9908090160,
+    "processId": 922985,
+    "deviceCount": 1,
+    "materialCount": 0,
+    "parameterSnapshotState": "FROZEN",
+    "targetDeviceCode": "B09393",
+    "targetParameterCount": 5
+  },
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260909-route-published-config-frontline-e2e\\e2e-artifacts\\frontline-published-route-config-display.png"
+}
