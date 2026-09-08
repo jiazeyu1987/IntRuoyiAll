@@ -21,15 +21,15 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-中文 Word 分册式送审包已完成并通过 OfficeCLI 结构与有效性验证。当前未获当轮 Git 提交/推送授权，因此不执行提交或推送；若严格执行项目 Git 完成门禁，本任务不能标记为 completed。
+中文 Word 分册式送审包已完成并通过 OfficeCLI 结构与有效性验证。本任务实现提交已完成，收尾记录正在随最终提交归档。
 
 ## Design Constraint Checks
 
 - 遵守严格无 fallback：不使用 Python Office 库伪造 Office 输出，不把未执行验证写成已通过。
 - Office 文档使用 `officecli` 生成和验证。
-- 不执行 Git commit/push，除非用户在当前轮明确授权。
+- 用户已在当前轮回复“授权继续”，允许执行本任务 Git commit/push 收尾。
 - 中文文档使用 UTF-8 文本源或 OfficeCLI 写入，避免编码降级。
 
 ## Cleanup Candidates
