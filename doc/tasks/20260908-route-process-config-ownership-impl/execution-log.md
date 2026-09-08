@@ -82,3 +82,9 @@
 - GREEN: `git diff --check` -> PASS。
 - GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260908-route-process-config-ownership-impl/int_main` 使用 frontend 8209、backend 48209。
 - EXPERIENCE: 已按 project-experience-consolidation 检查长期经验归宿；`docs\e2e-rules.md` 已有“任务目录下 E2E 脚本必须显式从 IntRuoyiFronted/node_modules/playwright 加载”的规则，本次不新增长期经验文档。
+
+## 2026-09-08 Commit Push And Cleanup Preview
+- COMMIT: `53668905fad0fb32daecf5ccaaba176cee7092c8` / `feat: migrate production process config to route version`，包含路线版本生产配置迁移实现、前后端测试、静态 E2E 合同和保留任务文档。
+- PUSH: `git push origin codex/20260908-route-process-config-ownership-impl` -> PASS，远端 `refs/heads/codex/20260908-route-process-config-ownership-impl` 指向 `53668905fad0fb32daecf5ccaaba176cee7092c8`。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-route-process-config-ownership-impl --mode preview` -> BLOCKED；保留 `task.md`、`execution-log.md`、`verification-report.md`，候选删除 task-local evidence / E2E 临时脚本 / e2e-artifacts。
+- BLOCKER: cleanup apply 暂不执行，因为主工作区 `E:\IntRuoyi` 有其它任务脏改动，且当前分支不能 fast-forward merge 到 `int_main`；为避免影响并行任务，保持当前 worktree 和端口槽位不清理。

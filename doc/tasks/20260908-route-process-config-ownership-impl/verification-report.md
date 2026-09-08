@@ -24,4 +24,5 @@
 
 ## Result
 - 定向静态、单元、编译、证据校验、运行库迁移、端口守卫和真实页面 E2E 均通过。
-- 任务可进入 closeout cleanup、提交和推送。
+- 实现提交 `53668905fad0fb32daecf5ccaaba176cee7092c8` 已推送到 `origin/codex/20260908-route-process-config-ownership-impl`。
+- closeout cleanup preview 已执行但 apply 被阻塞：主工作区 `E:\IntRuoyi` 有其它任务脏改动，且当前分支不能 fast-forward merge 到 `int_main`；未清理 worktree，避免影响并行任务。
