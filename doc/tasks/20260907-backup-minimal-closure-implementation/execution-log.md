@@ -49,6 +49,9 @@
 - CLOSEOUT PREVIEW: `task_closeout.py --task-id 20260907-backup-minimal-closure-implementation --mode preview` -> BLOCKED；删除集合仅为 `IntRuoyiBackend/.pytest-temp`，但脚本同时要求 ff-only 合并和移除 linked worktree。当前分支无法快进到已前进的 `int_main`，主工作区有其它任务改动，且本轮未授权 Git commit/merge/worktree removal，因此未运行 apply、未删除任何文件。
 - INTEGRATION: 用户明确要求融合进 `int_main`；允许本任务提交与合并，不包含 push。主工作区与本任务唯一重叠脏文件为 `docs/release-backup-restore.md`，主版本已有更完整规则，因此本任务旧基线上的重复追加不进入提交。
 - CLEANUP: `IntRuoyiBackend/.pytest-temp` 已由 preview 锁定为唯一删除项，但递归删除命令被执行策略拒绝；该目录不暂存，保留到 worktree 可安全移除时处理。
+- COMMIT: `d33aae230 feat: complete backup recovery evidence closure`（rebase 后提交 ID），仅包含本任务代码、测试、迁移和任务证据；未 push。
+- REBASE: `git rebase int_main` -> PASS；当前 `int_main...codex/backup_20260907` 为 `0 1`，满足 fast-forward 历史条件。
+- CLOSEOUT PREVIEW AFTER REBASE: 仅因 `E:\IntRuoyi` 主工作区存在大量并行未提交改动而 BLOCKED；未执行 merge 或 worktree removal。
 - NOTE: task docs ignored by local Git exclude -> `doc/tasks/20260907-backup-minimal-closure-implementation/` 命中 `E:/IntRuoyi/.git/info/exclude:17:/doc/tasks/*/`，本地任务记录已写入但不会自动进入 Git。
 - BLOCKED: 真实备份 / 远程服务器 / 数据库写入 / Playwright E2E / Git commit / push -> 用户未授权；按任务边界不执行。
 
