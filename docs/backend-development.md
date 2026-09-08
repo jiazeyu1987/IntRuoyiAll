@@ -291,6 +291,15 @@
 - Forbidden action: 禁止用 `@Disabled`、Maven excludes、assumptions、空夹具、合成 workbook 或桌面候选文件冒充权威真实 fixture；禁止把真实样本覆盖取消解释成业务 fallback。
 - Evidence: `doc/tasks/20260727-edhr-notify-all-valid-candidates/verification-report.md`，用户明确取消 Sheet1 Excel 真实样本覆盖后，保留 `Sheet1RouteExcelParserTest` 合成 fail-fast 测试并通过完整 `mvn -pl yudao-module-mes test`。
 
+### Word 源文件直读验证与文件锁门禁
+
+- Trigger: QA/批记录/路线/表单中心使用用户指定 Word 源路径做开发验证、哈希核验、`officecli view/get` 解析，且源文件可能正被 WPS/Word 打开。
+- Preflight check: 先对用户指定源路径运行 `Get-FileHash` 与 `officecli view/get`；如果使用任务副本，必须证明副本与源路径 SHA256 一致，并记录副本只用于留存证据，不得替代本轮源路径直读门禁。
+- Blocker: 源文件被 WPS/Word 锁定、哈希无法读取、源路径 `officecli view/get` 失败、或任务副本哈希与源路径不一致时，必须标记阻塞并要求关闭占用文件后重跑。
+- Verification: 通过后同时记录源路径 SHA256、任务副本 SHA256、`officecli view ... text` 章节/表格命中、`officecli get ... /body/tbl[N] --depth 2 --json` 关键表头和字段命中；历史 OpenXML schema warning 可单独分级记录，但不能掩盖内容表解析失败。
+- Forbidden action: 禁止把旧任务副本、WPS 临时副本、历史解析日志或只读缓存冒充为本轮指定源路径验证通过；禁止在文件锁定时静默跳过哈希核验。
+- Evidence: `doc/tasks/20260908-common-qa-regulation-product-binding/verification-report.md`，B 源文件被 WPS 占用时先阻塞，关闭后重跑源路径哈希和 `officecli view/get` 才恢复 `ready_for_closeout`。
+
 ### 旧版本 JSON 的 fillForm/edhrCellRule 读时刷新门禁
 
 - Trigger: 批记录截图或只读预览仍显示已修复过的错位 checkbox、V14/V14.0 等既有版本复验、`sheetLayoutJson` 的 `text` 坐标正确但页面仍渲染旧控件。
