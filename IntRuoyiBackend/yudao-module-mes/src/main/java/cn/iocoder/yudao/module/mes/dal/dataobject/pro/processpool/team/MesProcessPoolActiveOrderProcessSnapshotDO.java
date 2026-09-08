@@ -13,6 +13,7 @@ import lombok.ToString;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @TableName("mes_pro_process_pool_active_order_process_snapshot")
 @KeySequence("mes_pro_process_pool_active_order_process_snapshot_seq")
@@ -44,6 +45,13 @@ public class MesProcessPoolActiveOrderProcessSnapshotDO extends TenantBaseDO {
     private String deviceSelectionSnapshotSha256;
     private String parameterSnapshotSha256;
     private String parameterSnapshotState;
+    private String lossReasonSnapshotJson;
+    private String lossReasonSnapshotSha256;
+    private BigDecimal overagePercentSnapshot;
+    private String productionConfigSnapshotJson;
+    private String productionConfigSnapshotSha256;
+    private String productionConfigMigrationSource;
+    private LocalDateTime productionConfigMigratedAt;
     private Boolean simulated;
     private String simulationStage;
     private String simulationRunId;

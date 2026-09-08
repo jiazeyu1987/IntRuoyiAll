@@ -250,6 +250,8 @@ public class MesProRouteSnapshotCanonicalizer {
                 routeProcessIds, blockers);
         validateConfigCollection(configSnapshots.get("scheduleUseConfigs"), "scheduleUseConfigs",
                 routeProcessIds, blockers);
+        validateConfigCollection(configSnapshots.get("productionProcessConfigs"), "productionProcessConfigs",
+                routeProcessIds, blockers);
     }
 
     private void validateConfigCollection(JsonNode configs, String name, Set<Long> routeProcessIds,

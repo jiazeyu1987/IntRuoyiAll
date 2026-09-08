@@ -886,44 +886,36 @@ export const createTeamDefectReason = async (data: TeamDefectReasonSaveReqVO) =>
 }
 
 export const createTeamLeaderLossReason = async (data: TeamLeaderLossReasonSaveReqVO) => {
-  return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/loss-reasons',
-    data
-  })
+  void data
+  throw new Error('损耗原因已迁移到工艺路线候选版本维护')
 }
 
 export const updateTeamLeaderLossReason = async (
   id: number,
   data: TeamLeaderLossReasonUpdateReqVO
 ) => {
-  return await request.put<boolean>({
-    url: `/mes/pro/process-pool/team-leader/loss-reasons/${id}`,
-    data
-  })
+  void id
+  void data
+  throw new Error('损耗原因已迁移到工艺路线候选版本维护')
 }
 
 export const deleteTeamLeaderLossReason = async (id: number) => {
-  return await request.delete<boolean>({
-    url: `/mes/pro/process-pool/team-leader/loss-reasons/${id}`
-  })
+  void id
+  throw new Error('损耗原因已迁移到工艺路线候选版本维护')
 }
 
 export const getTeamLeaderProcessConfigList = async (
   params: TeamLeaderProcessConfigListReqVO = {}
 ) => {
-  return await request.get<TeamLeaderProcessConfigRowRespVO[]>({
-    url: '/mes/pro/process-pool/team-leader/process-config/list',
-    params
-  })
+  void params
+  throw new Error('工序配置已迁移到工艺路线候选版本维护')
 }
 
 export const saveTeamLeaderProcessOverageLimit = async (
   data: TeamLeaderProcessOverageLimitSaveReqVO
 ) => {
-  return await request.post<TeamLeaderProcessConfigRowRespVO>({
-    url: '/mes/pro/process-pool/team-leader/process-config/overage-limit/save',
-    data
-  })
+  void data
+  throw new Error('允许超量比例已迁移到工艺路线候选版本维护')
 }
 
 export const getTeamLeaderResponsibleRouteList = async () => {
@@ -1231,19 +1223,15 @@ export const updateTeamDeviceStatus = async (data: TeamDeviceStatusUpdateReqVO) 
 export const saveTeamProcessConfigDeviceBinding = async (
   data: TeamProcessDeviceBindingSaveReqVO
 ) => {
-  return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/process-config/device-binding/save',
-    data
-  })
+  void data
+  throw new Error('设备映射已迁移到工艺路线候选版本维护')
 }
 
 export const saveTeamProcessConfigDeviceParameterRule = async (
   data: TeamDeviceParameterRuleSaveReqVO
 ) => {
-  return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/process-config/device-parameter-rule/save',
-    data
-  })
+  void data
+  throw new Error('设备参数标准已迁移到工艺路线候选版本维护')
 }
 
 export const saveTeamProcessDefectReason = async (data: TeamProcessDefectReasonSaveReqVO) => {

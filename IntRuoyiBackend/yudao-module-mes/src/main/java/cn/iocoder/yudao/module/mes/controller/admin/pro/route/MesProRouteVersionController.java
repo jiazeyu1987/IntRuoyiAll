@@ -5,8 +5,15 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionBlockerRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteVersionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.version.MesProRouteProductionProcessConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionBusinessApprovalSubmitService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionWorkflowService;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,8 +29,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS;
 
 @Tag(name = "管理后台 - MES 工艺路线版本")
 @RestController
@@ -35,6 +45,10 @@ public class MesProRouteVersionController {
     private MesProRouteVersionBusinessApprovalSubmitService businessApprovalSubmitService;
     @Resource
     private MesProRouteVersionWorkflowService workflowService;
+    @Resource
+    private MesProRouteCandidateConfigService candidateConfigService;
+    @Resource
+    private MesProRouteVersionMapper routeVersionMapper;
 
     @GetMapping("/list-by-route")
     @Operation(summary = "查询工艺路线版本列表")
@@ -52,6 +66,27 @@ public class MesProRouteVersionController {
         return success(BeanUtils.toBean(workflowService.getVersion(id), MesProRouteVersionRespVO.class));
     }
 
+    @GetMapping("/production-process-config")
+    @Operation(summary = "查询工艺路线版本生产工序配置")
+    @Parameter(name = "id", description = "路线版本编号", required = true)
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:version-query')")
+    public CommonResult<Map<String, Object>> getProductionProcessConfig(@RequestParam("id") Long id) {
+        MesProRouteVersionDO version = routeVersionMapper.selectById(id);
+        if (version == null) {
+            throw exception(PRO_ROUTE_VERSION_NOT_EXISTS);
+        }
+        JSONObject snapshot = JSON.parseObject(version.getRouteSnapshotJson());
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
+        Integer schemaVersion = configSnapshots == null
+                ? null : configSnapshots.getInteger("productionProcessConfigSchemaVersion");
+        JSONArray configs = configSnapshots == null
+                ? null : configSnapshots.getJSONArray("productionProcessConfigs");
+        return success(Map.of(
+                "routeVersionId", id,
+                "schemaVersion", schemaVersion == null ? 1 : schemaVersion,
+                "productionProcessConfigs", configs == null ? new JSONArray() : configs));
+    }
+
     @GetMapping("/blockers")
     @Operation(summary = "查询工艺路线候选版本发布阻断")
     @Parameter(name = "id", description = "候选路线版本编号", required = true)
@@ -65,6 +100,17 @@ public class MesProRouteVersionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-route:version-create')")
     public CommonResult<MesProRouteVersionRespVO> createCandidate(@Valid @RequestBody MesProRouteVersionCreateReqVO reqVO) {
         return success(BeanUtils.toBean(workflowService.createCandidate(reqVO), MesProRouteVersionRespVO.class));
+    }
+
+    @PostMapping("/production-process-config/save")
+    @Operation(summary = "保存工艺路线候选版本生产工序配置")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:version-update')")
+    public CommonResult<Boolean> saveProductionProcessConfig(
+            @Valid @RequestBody MesProRouteProductionProcessConfigSaveReqVO reqVO) {
+        candidateConfigService.saveConfigSnapshots(reqVO.getRouteVersionId(), Map.of(
+                "productionProcessConfigSchemaVersion", reqVO.getSchemaVersion(),
+                "productionProcessConfigs", reqVO.getProductionProcessConfigs()));
+        return success(Boolean.TRUE);
     }
 
     @PostMapping("/submit")

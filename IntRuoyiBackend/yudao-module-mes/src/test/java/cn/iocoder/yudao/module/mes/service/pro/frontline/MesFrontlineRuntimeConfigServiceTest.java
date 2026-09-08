@@ -238,13 +238,11 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
                         "当前组长人员", "当前组长人员", "FORMAL", true)));
-        when(processDeviceMapper.selectList(any())).thenReturn(List.of(processDevice(LOGIN_USER_ID, 7001L)));
         when(deviceMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
                 teamDevice(7001L, LOGIN_USER_ID, "D-001", "压力泵", "ENABLED", true)));
         lenient().when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
                 parameterRule(7001L, ROUTE_PROCESS_ID, "pressure", "压力", "MPa",
                         "0", "12", "6", "DECIMAL")));
-        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
         String frozenJson = JsonUtils.toJsonString(List.of(MesDeviceParameterSnapshotRule.builder()
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
@@ -284,6 +282,66 @@ class MesFrontlineRuntimeConfigServiceTest {
     }
 
     @Test
+    void getRuntimeConfig_usesFrozenActiveOrderDeviceAndLossReasonSnapshotsWithoutCurrentProcessConfig() {
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        301L, "WS-301", "精洗工位",
+                        new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        when(deviceMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
+                teamDevice(7001L, 9999L, "D-001", "冻结设备", "ENABLED", true)));
+        String frozenJson = JsonUtils.toJsonString(List.of(MesDeviceParameterSnapshotRule.builder()
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力")
+                .unit("MPa")
+                .lowerLimit(BigDecimal.ZERO)
+                .upperLimit(new BigDecimal("10"))
+                .defaultValue(new BigDecimal("5"))
+                .valueType("DECIMAL")
+                .standardText("0-10MPa，目标5MPa")
+                .build()));
+        String deviceSelectionJson = MesDeviceSelectionSnapshotCodec.canonicalize(
+                List.of(processDevice(LOGIN_USER_ID, 7001L)), PROCESS_ID);
+        String lossReasonJson = """
+                [{"id":8301,"reasonType":"LOSS","reasonCode":"LOSS-FROZEN","reasonName":"冻结损耗"}]
+                """;
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(8101L, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setId(5101L)
+                        .setActiveOrderId(8101L)
+                        .setRouteId(ROUTE_ID)
+                        .setRouteProcessId(ROUTE_PROCESS_ID)
+                        .setProcessId(PROCESS_ID)
+                        .setParameterSnapshotJson(frozenJson)
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(frozenJson))
+                        .setDeviceSelectionSnapshotJson(deviceSelectionJson)
+                        .setDeviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionJson))
+                        .setLossReasonSnapshotJson(lossReasonJson)
+                        .setLossReasonSnapshotSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(lossReasonJson))
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN));
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, 8101L, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(1, config.devices().size());
+        assertEquals("冻结设备", config.devices().get(0).deviceName());
+        assertEquals("DEFAULT", config.devices().get(0).deviceGroupKey());
+        assertEquals(1, config.devices().get(0).parameters().size());
+        assertEquals(1, config.defectReasons().size());
+        assertEquals(8301L, config.defectReasons().get(0).reasonId());
+        assertEquals("冻结损耗", config.defectReasons().get(0).reasonName());
+        verify(processDeviceMapper, never()).selectList(any());
+        verify(parameterRuleMapper, never()).selectList(any());
+        verify(defectReasonMapper, never()).selectList(any());
+    }
+
+    @Test
     void getRuntimeConfig_usesFrozenActiveOrderProcessInsteadOfCurrentRouteAuthorization() {
         Long activeOrderId = 8101L;
         Long frozenRouteProcessId = 980645L;
@@ -295,11 +353,9 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(templateResolver.resolve(new MesFrontlineTemplateRequest(LOGIN_USER_ID, 10001L, ROUTE_ID,
                 frozenRouteProcessId, PROCESS_ID, Boolean.FALSE))).thenReturn(new MesFrontlineTemplateDescriptor(
                 "PRODUCTION_SIMPLIFIED", "PRODUCTION", frozenRouteProcessId, PROCESS_ID, 10001L));
-        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
                         "当前组长人员", "当前组长人员", "FORMAL", true)));
-        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
         when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, frozenRouteProcessId, PROCESS_ID))
                 .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
                         .setId(5101L)

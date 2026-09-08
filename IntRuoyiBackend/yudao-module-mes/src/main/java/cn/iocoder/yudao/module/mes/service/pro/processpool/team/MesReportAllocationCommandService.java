@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationStateDO;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
@@ -43,6 +45,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_MODE_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH;
@@ -59,6 +62,7 @@ public class MesReportAllocationCommandService {
     private final MesTeamLeaderScopeService scopeService;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesProcessPoolReportAllocationStateMapper stateMapper;
@@ -72,8 +76,6 @@ public class MesReportAllocationCommandService {
     private final MesReportAllocationQuantityFragmentService quantityFragmentService;
     private final MesTeamLeaderOrderProcessCompletionService completionService;
     private final MesProductionReportManagementSummaryService reportManagementSummaryService;
-
-    private final MesTeamLeaderOverageLimitService overageLimitService;
 
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -95,10 +97,11 @@ public class MesReportAllocationCommandService {
             MesReportAllocationQuantityFragmentService quantityFragmentService,
             MesTeamLeaderOrderProcessCompletionService completionService,
             MesProductionReportManagementSummaryService reportManagementSummaryService,
-            MesTeamLeaderOverageLimitService overageLimitService) {
+            MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
         this.activeOrderMapper = activeOrderMapper;
+        this.activeOrderProcessSnapshotMapper = activeOrderProcessSnapshotMapper;
         this.workOrderMapper = workOrderMapper;
         this.allocationMapper = allocationMapper;
         this.stateMapper = stateMapper;
@@ -112,7 +115,6 @@ public class MesReportAllocationCommandService {
         this.quantityFragmentService = quantityFragmentService;
         this.completionService = completionService;
         this.reportManagementSummaryService = reportManagementSummaryService;
-        this.overageLimitService = overageLimitService;
     }
 
     public MesReportAllocationSnapshot getCurrent(Long eventId, Long leaderUserId, String leaderType) {
@@ -461,8 +463,8 @@ public class MesReportAllocationCommandService {
             targets.put(order.getId(), target);
             BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO)
                     .add(entry.getValue());
-            overageLimitService.assertWithinLimit(order.getLeaderUserId(), target.routeProcessId(),
-                    target.processId(), target.plannedQuantity(), totalForOrder);
+            assertWithinFrozenOverageLimit(order.getId(), target.routeProcessId(), target.processId(),
+                    target.plannedQuantity(), totalForOrder, true);
             BigDecimal overage = totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO);
             overageByActiveOrderId.put(order.getId(), overage);
         }
@@ -632,10 +634,40 @@ public class MesReportAllocationCommandService {
                     activeOrder, event.getProcessId());
             BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(activeOrderId, BigDecimal.ZERO)
                     .add(currentByActiveOrder.getOrDefault(activeOrderId, BigDecimal.ZERO));
+            assertWithinFrozenOverageLimit(activeOrderId, target.routeProcessId(), target.processId(),
+                    target.plannedQuantity(), totalForOrder, false);
             result.put(activeOrderId,
                     totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO));
         }
         return result;
+    }
+
+    private void assertWithinFrozenOverageLimit(Long activeOrderId, Long routeProcessId, Long processId,
+                                                BigDecimal plannedQuantity, BigDecimal submittedQuantity,
+                                                boolean forUpdate) {
+        BigDecimal percent = requireFrozenOveragePercent(activeOrderId, routeProcessId, processId, forUpdate);
+        BigDecimal limit = plannedQuantity.multiply(BigDecimal.ONE.add(percent.movePointLeft(2)));
+        if (submittedQuantity.compareTo(limit) > 0) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED,
+                    submittedQuantity, limit, routeProcessId, processId);
+        }
+    }
+
+    private BigDecimal requireFrozenOveragePercent(Long activeOrderId, Long routeProcessId, Long processId,
+                                                   boolean forUpdate) {
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot = forUpdate
+                ? activeOrderProcessSnapshotMapper.selectListByActiveOrderAndProcessForUpdate(activeOrderId, processId)
+                .stream()
+                .filter(row -> Objects.equals(row.getRouteProcessId(), routeProcessId))
+                .findFirst()
+                .orElse(null)
+                : activeOrderProcessSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, processId);
+        if (snapshot == null || snapshot.getOveragePercentSnapshot() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "reportAllocation.overagePercentSnapshot activeOrderId=" + activeOrderId
+                            + ", routeProcessId=" + routeProcessId + ", processId=" + processId);
+        }
+        return snapshot.getOveragePercentSnapshot();
     }
 
     private Map<Long, MesProWorkOrderDO> loadWorkOrders(List<MesProcessPoolActiveOrderDO> orders) {

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationStateDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
@@ -51,7 +52,7 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
     @Mock private MesReportAllocationQuantityFragmentService quantityFragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
     @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
-    @Mock private MesTeamLeaderOverageLimitService overageLimitService;
+    @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
 
     private MesReportAllocationCommandService service;
 
@@ -60,7 +61,7 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
         service = new MesReportAllocationCommandService(scopeService, eventMapper, activeOrderMapper, workOrderMapper,
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
-                completionService, reportManagementSummaryService, overageLimitService);
+                completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
     }
 
     @Test

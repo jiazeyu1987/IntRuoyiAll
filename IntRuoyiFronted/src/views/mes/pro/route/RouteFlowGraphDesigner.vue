@@ -1299,6 +1299,36 @@
                         </div>
                       </div>
                     <div
+                      v-else-if="selectedProcessDetailField.key === 'productionProcessConfig'"
+                      class="route-flow-graph-designer__record-binding-list"
+                      data-flow-panel="route-production-process-config-editor"
+                    >
+                      <div class="route-flow-graph-designer__record-binding-toolbar">
+                        <span>路线版本生产配置</span>
+                        <el-button
+                          data-flow-action="save-route-production-process-config"
+                          :disabled="recordBindingEditorDisabled || !selectedNode"
+                          link
+                          size="small"
+                          type="primary"
+                          @click="saveSelectedProductionProcessConfig"
+                        >
+                          保存
+                        </el-button>
+                      </div>
+                      <el-input
+                        :model-value="ensureProductionProcessConfigJsonDraft(selectedNode)"
+                        data-route-process-setting-field="production-process-config-json"
+                        :disabled="recordBindingEditorDisabled"
+                        type="textarea"
+                        :autosize="{ minRows: 12, maxRows: 24 }"
+                        @update:model-value="(value) => updateProductionProcessConfigJsonDraft(selectedNode, String(value))"
+                      />
+                      <span class="route-flow-graph-designer__selected-detail-note">
+                        这里维护会随路线升版冻结的损耗原因、超产比例、设备选择组和设备参数标准；保存后写入候选路线版本。
+                      </span>
+                    </div>
+                    <div
                       v-else-if="selectedProcessDetailField.key === 'batchRecordFormNames'"
                       class="route-flow-graph-designer__record-binding-list"
                       data-batch-record-report-editor="true"
@@ -1716,6 +1746,7 @@ import {
 import {
   ProRouteApi,
   type MesRouteId,
+  type ProRouteProductionProcessConfigVO,
   type ProRouteVO,
   type ProRouteScheduleConfigVO,
   type ProRouteVersionLifecycleStatus,
@@ -2054,6 +2085,7 @@ type SelectedProcessRouteConfigCache = {
   scheduleConfigs: ProRouteFlowProcessConfigVO[]
   batchConfigs: ProRouteFlowProcessConfigVO[]
   routeScheduleConfigs: ProRouteScheduleConfigVO[]
+  productionProcessConfigs: ProRouteProductionProcessConfigVO[]
 }
 type RouteNodeBindingStatus = 'none' | 'bound' | 'missing'
 type CapacityWorkstationRepairMode = 'reuse' | 'create'
@@ -2099,6 +2131,7 @@ const PROCESS_DETAIL_HIDDEN_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>([
 ])
 const PROCESS_DETAIL_EDITABLE_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>([
   'productionQuantityFactor',
+  'productionProcessConfig',
   'predecessor',
   'successors',
   'keyFlag',
@@ -2110,6 +2143,7 @@ const ROUTE_NODE_BINDING_STATUS_FIELD_KEYS = new Set<RouteProcessSettingColumnKe
   FORM_SLOT_AGGREGATE_FIELD_KEY,
   'batchRecordFormNames',
   'productionQuantityFactor',
+  'productionProcessConfig',
   'keyFlag',
   'checkFlag',
   'workstation'
@@ -2179,6 +2213,7 @@ const DEFAULT_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
   'processCode',
   'processName',
   'workstation',
+  'productionProcessConfig',
   'batchRecordFormNames',
   'inputMaterialIds',
   'outputMaterialIds'
@@ -2254,6 +2289,8 @@ const processFormBindingCopyPopoverVisible = ref(false)
 const processFormBindingCopySourceRouteProcessId = ref<number | null>(null)
 const selectedProcessAttributeDrafts = reactive<Record<number, SelectedProcessAttributesDraft>>({})
 const selectedProcessAttributeBaselines = reactive<Record<number, string>>({})
+const productionProcessConfigJsonDrafts = reactive<Record<number, string>>({})
+const productionProcessConfigJsonBaselines = reactive<Record<number, string>>({})
 const selectedProcessRouteConfigCache = ref<SelectedProcessRouteConfigCache>()
 const routeProcessKeyFlagBaselines = reactive<Record<number, boolean>>({})
 const routeProcessCheckFlagBaselines = reactive<Record<number, boolean>>({})
@@ -4437,6 +4474,116 @@ const formatRouteProcessSuccessors = (row?: ProRouteProcessVO) => {
 const formatRouteProcessWorkstation = (row?: ProRouteProcessVO) =>
   row?.workstationCode || row?.workstationName || '-'
 
+const findProductionProcessConfig = (routeProcessId?: number | null) =>
+  selectedProcessRouteConfigCache.value?.productionProcessConfigs.find(
+    (item) => Number(item.routeProcessId) === Number(routeProcessId)
+  )
+
+const buildDefaultProductionProcessConfig = (
+  node: RouteFlowNodeVO
+): ProRouteProductionProcessConfigVO => ({
+  routeProcessId: node.routeProcessId,
+  processId: node.processId,
+  processCode: node.processCode,
+  processName: node.processName,
+  sort: node.sort,
+  overagePercent: null,
+  lossReasons: [],
+  deviceSelectionGroups: [],
+  parameterRules: []
+})
+
+const normalizeProductionProcessConfig = (
+  config: ProRouteProductionProcessConfigVO
+): ProRouteProductionProcessConfigVO => ({
+  ...config,
+  routeProcessId: Number(config.routeProcessId),
+  processId: Number(config.processId),
+  lossReasons: Array.isArray(config.lossReasons) ? config.lossReasons : [],
+  deviceSelectionGroups: Array.isArray(config.deviceSelectionGroups)
+    ? config.deviceSelectionGroups
+    : [],
+  parameterRules: Array.isArray(config.parameterRules) ? config.parameterRules : []
+})
+
+const formatProductionProcessConfigJson = (config: ProRouteProductionProcessConfigVO) =>
+  JSON.stringify(normalizeProductionProcessConfig(config), null, 2)
+
+const ensureProductionProcessConfigJsonDraft = (node?: RouteFlowNodeVO) => {
+  if (!node) return ''
+  const routeProcessId = Number(node.routeProcessId)
+  if (!productionProcessConfigJsonDrafts[routeProcessId]) {
+    const config = findProductionProcessConfig(routeProcessId) || buildDefaultProductionProcessConfig(node)
+    const text = formatProductionProcessConfigJson(config)
+    productionProcessConfigJsonDrafts[routeProcessId] = text
+    productionProcessConfigJsonBaselines[routeProcessId] = text
+  }
+  return productionProcessConfigJsonDrafts[routeProcessId]
+}
+
+const updateProductionProcessConfigJsonDraft = (node: RouteFlowNodeVO | undefined, value: string) => {
+  if (!node) return
+  productionProcessConfigJsonDrafts[Number(node.routeProcessId)] = value
+}
+
+const buildProductionProcessConfigSummary = () => {
+  const node = selectedNode.value
+  if (!node) return '未选择工序'
+  const config = findProductionProcessConfig(node.routeProcessId)
+  if (!config) return '未配置'
+  const lossCount = config.lossReasons?.length || 0
+  const deviceGroupCount = config.deviceSelectionGroups?.length || 0
+  const parameterCount = config.parameterRules?.length || 0
+  return `损耗${lossCount}项；设备组${deviceGroupCount}组；参数${parameterCount}项`
+}
+
+const parseProductionProcessConfigDraft = (
+  routeProcessId: number
+): ProRouteProductionProcessConfigVO => {
+  const rawText = productionProcessConfigJsonDrafts[routeProcessId]
+  if (!rawText || !rawText.trim()) {
+    throw new Error('生产配置不能为空。')
+  }
+  const parsed = JSON.parse(rawText) as ProRouteProductionProcessConfigVO
+  if (Number(parsed.routeProcessId) !== Number(routeProcessId)) {
+    throw new Error('生产配置保存失败：routeProcessId 必须等于当前路线工序。')
+  }
+  if (!Number(parsed.processId)) {
+    throw new Error('生产配置保存失败：processId 不能为空。')
+  }
+  return normalizeProductionProcessConfig(parsed)
+}
+
+const saveSelectedProductionProcessConfig = async () => {
+  const node = selectedNode.value
+  if (!node) return
+  const routeVersionId = requireCandidateRouteVersionId('生产配置保存')
+  const routeProcessId = Number(node.routeProcessId)
+  const parsedConfig = parseProductionProcessConfigDraft(routeProcessId)
+  const existingConfigs = selectedProcessRouteConfigCache.value?.productionProcessConfigs || []
+  const replaced = new Set<number>()
+  const productionProcessConfigs = existingConfigs.map((item) => {
+    if (Number(item.routeProcessId) !== routeProcessId) return normalizeProductionProcessConfig(item)
+    replaced.add(routeProcessId)
+    return parsedConfig
+  })
+  if (!replaced.has(routeProcessId)) {
+    productionProcessConfigs.push(parsedConfig)
+  }
+  await ProRouteApi.saveRouteProductionProcessConfig({
+    routeVersionId,
+    schemaVersion: 1,
+    productionProcessConfigs
+  })
+  if (selectedProcessRouteConfigCache.value) {
+    selectedProcessRouteConfigCache.value.productionProcessConfigs = productionProcessConfigs
+  }
+  const formatted = formatProductionProcessConfigJson(parsedConfig)
+  productionProcessConfigJsonDrafts[routeProcessId] = formatted
+  productionProcessConfigJsonBaselines[routeProcessId] = formatted
+  message.success('生产配置已保存')
+}
+
 function formatRouteProcessIdList(routeProcessIds: number[]) {
   const names = routeProcessIds
     .map((routeProcessId) => routeNodes.value.find((node) => node.routeProcessId === routeProcessId))
@@ -4486,6 +4633,18 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
       ),
       loading: attributeLoading,
       coverageStatus: attributeLoading ? undefined : getSelectedProductionQuantityFactorCoverageStatus()
+    },
+    {
+      key: 'productionProcessConfig',
+      label: getRouteProcessSettingColumnLabel('productionProcessConfig', '生产配置'),
+      value: buildProductionProcessConfigSummary(),
+      links: [],
+      loading: attributeLoading,
+      coverageStatus: attributeLoading
+        ? undefined
+        : findProductionProcessConfig(node?.routeProcessId)?.parameterRules?.length
+          ? 'covered'
+          : 'missing'
     },
     {
       key: 'shiftCapacity',
@@ -4960,6 +5119,12 @@ const buildSelectedProcessRouteConfigCacheKey = () =>
 const clearSelectedProcessRouteConfigCache = () => {
   selectedProcessRouteConfigCache.value = undefined
   selectedProcessRouteConfigCachePromise = undefined
+  Object.keys(productionProcessConfigJsonDrafts).forEach((key) => {
+    delete productionProcessConfigJsonDrafts[Number(key)]
+  })
+  Object.keys(productionProcessConfigJsonBaselines).forEach((key) => {
+    delete productionProcessConfigJsonBaselines[Number(key)]
+  })
 }
 
 const clearSelectedProcessAttributeDrafts = () => {
@@ -5238,15 +5403,18 @@ const loadSelectedProcessRouteConfigCache = async (
   if (!readableRouteVersionId) {
     throw new Error('加载工序属性失败：当前路线缺少激活版本。')
   }
-  const routeScheduleConfigs =
-    await ProRouteApi.getScheduleConfigListByRouteVersion(readableRouteVersionId)
+  const [routeScheduleConfigs, productionProcessConfigSnapshot] = await Promise.all([
+    ProRouteApi.getScheduleConfigListByRouteVersion(readableRouteVersionId),
+    ProRouteApi.getRouteProductionProcessConfig(readableRouteVersionId)
+  ])
   const cache = {
     key,
     routeInfo,
     readableRouteVersionId,
     scheduleConfigs,
     batchConfigs,
-    routeScheduleConfigs
+    routeScheduleConfigs,
+    productionProcessConfigs: productionProcessConfigSnapshot.productionProcessConfigs || []
   }
   selectedProcessRouteConfigCache.value = cache
   return cache

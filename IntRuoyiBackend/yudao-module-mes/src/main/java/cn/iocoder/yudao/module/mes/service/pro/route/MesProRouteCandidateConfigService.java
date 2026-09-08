@@ -13,4 +13,12 @@ public interface MesProRouteCandidateConfigService {
      * @param configSnapshot 配置快照对象
      */
     void saveConfigSnapshot(Long candidateRouteVersionId, String configKey, Object configSnapshot);
+
+    /**
+     * 原子保存候选版本的多个配置快照。
+     *
+     * @param candidateRouteVersionId 候选路线版本编号
+     * @param configSnapshots 配置快照键值
+     */
+    void saveConfigSnapshots(Long candidateRouteVersionId, java.util.Map<String, Object> configSnapshots);
 }

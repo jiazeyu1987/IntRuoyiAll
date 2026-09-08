@@ -93,6 +93,43 @@ class MesProRouteCandidateConfigServiceTest {
     }
 
     @Test
+    void saveConfigSnapshots_shouldPersistProductionProcessSchemaAndConfigsInOneUpdate() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2002L)
+                .routeId(9001L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .sourceRouteVersionId(2001L)
+                .routeSnapshotJson("{\"routeId\":9001,\"routeCode\":\"R-001\",\"configSnapshots\":{}}")
+                .build();
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(2001L)
+                .routeId(9001L)
+                .versionNo("V1")
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE)
+                .build());
+
+        service.saveConfigSnapshots(candidate.getId(), Map.of(
+                "productionProcessConfigSchemaVersion", 1,
+                "productionProcessConfigs", List.of(Map.of(
+                        "routeProcessId", 10L,
+                        "processId", 20L,
+                        "lossReasons", List.of(),
+                        "deviceSelectionGroups", List.of(),
+                        "parameterRules", List.of()))));
+
+        ArgumentCaptor<MesProRouteVersionDO> updateCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(updateCaptor.capture());
+        JSONObject configSnapshots = JSON.parseObject(updateCaptor.getValue().getRouteSnapshotJson())
+                .getJSONObject("configSnapshots");
+        assertEquals(1, configSnapshots.getIntValue("productionProcessConfigSchemaVersion"));
+        assertEquals(1, configSnapshots.getJSONArray("productionProcessConfigs").size());
+    }
+
+    @Test
     void saveConfigSnapshot_shouldRejectWhenSourceActiveVersionDrifted() {
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .id(2002L)

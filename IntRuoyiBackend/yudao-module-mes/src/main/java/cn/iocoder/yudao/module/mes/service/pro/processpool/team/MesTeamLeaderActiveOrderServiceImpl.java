@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
@@ -124,6 +125,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS;
@@ -174,6 +176,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private static final BigDecimal PERCENT_DIVISOR = BigDecimal.valueOf(100);
     private static final BigDecimal DEFAULT_PRODUCTION_QUANTITY_FACTOR =
             BigDecimal.ONE.setScale(6, RoundingMode.HALF_UP);
+    private static final String PRODUCTION_CONFIG_MIGRATION_SOURCE_ROUTE_VERSION = "ROUTE_VERSION";
+    private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderService workOrderService;
@@ -2257,16 +2261,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private void insertProcessSnapshots(MesProcessPoolActiveOrderDO activeOrder, BigDecimal erpFixedQuantity,
                                         List<MesProScheduleOrderProcessDO> enabledProcesses) {
-        Set<Long> processIds = enabledProcesses.stream()
-                .map(MesProScheduleOrderProcessDO::getProcessId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<MesProcessPoolDeviceParameterRuleDO> parameterRules = processIds.isEmpty() ? List.of()
-                : parameterRuleMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
-                        .in(MesProcessPoolDeviceParameterRuleDO::getProcessId, processIds)
-                        .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE));
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = enabledProcesses.stream()
-                .map(process -> toProcessSnapshot(activeOrder, process, erpFixedQuantity, parameterRules))
+                .map(process -> toProcessSnapshot(activeOrder, process, erpFixedQuantity))
                 .toList();
         if (!Boolean.TRUE.equals(processSnapshotMapper.insertBatch(snapshots))) {
             throw new IllegalStateException("Failed to insert active order process snapshots");
@@ -2829,9 +2825,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private MesProcessPoolActiveOrderProcessSnapshotDO toProcessSnapshot(MesProcessPoolActiveOrderDO activeOrder,
                                                                          MesProScheduleOrderProcessDO process,
-                                                                         BigDecimal erpFixedQuantity,
-                                                                         List<MesProcessPoolDeviceParameterRuleDO>
-                                                                                 parameterRules) {
+                                                                         BigDecimal erpFixedQuantity) {
         if (process == null || process.getRouteProcessId() == null || process.getProcessId() == null) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
         }
@@ -2848,15 +2842,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         String processCode = requireSnapshotText(process.getProcessCode(), activeOrder.getId());
         String processName = requireSnapshotText(process.getProcessName(), activeOrder.getId());
-        String parameterSnapshotJson = MesDeviceParameterSnapshotCodec.canonicalize(parameterRules,
-                process.getRouteProcessId(), process.getProcessId());
-        List<MesProcessPoolTeamProcessDeviceDO> deviceBindings = processDeviceMapper.selectList(
-                new LambdaQueryWrapperX<MesProcessPoolTeamProcessDeviceDO>()
-                        .eq(MesProcessPoolTeamProcessDeviceDO::getProcessId, process.getProcessId())
-                        .eq(MesProcessPoolTeamProcessDeviceDO::getLeaderUserId, activeOrder.getLeaderUserId())
-                        .eq(MesProcessPoolTeamProcessDeviceDO::getEnabled, Boolean.TRUE));
-        String deviceSelectionSnapshotJson = MesDeviceSelectionSnapshotCodec.canonicalize(
-                deviceBindings, process.getProcessId());
+        ProductionProcessConfigSnapshot productionConfigSnapshot = resolveProductionProcessConfigSnapshot(
+                activeOrder, process);
         return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                 .activeOrderId(activeOrder.getId())
                 .workOrderId(activeOrder.getWorkOrderId())
@@ -2869,15 +2856,89 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .erpFixedQuantitySnapshot(erpFixedQuantity.setScale(6, RoundingMode.HALF_UP))
                 .productionQuantityFactorSnapshot(factor)
                 .plannedQuantitySnapshot(plannedQuantity)
-                .parameterSnapshotJson(parameterSnapshotJson)
-                .deviceSelectionSnapshotJson(deviceSelectionSnapshotJson)
-                .deviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionSnapshotJson))
-                .parameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(parameterSnapshotJson))
+                .parameterSnapshotJson(productionConfigSnapshot.parameterSnapshotJson())
+                .deviceSelectionSnapshotJson(productionConfigSnapshot.deviceSelectionSnapshotJson())
+                .deviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(
+                        productionConfigSnapshot.deviceSelectionSnapshotJson()))
+                .parameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(
+                        productionConfigSnapshot.parameterSnapshotJson()))
                 .parameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                .lossReasonSnapshotJson(productionConfigSnapshot.lossReasonSnapshotJson())
+                .lossReasonSnapshotSha256(DigestUtil.sha256Hex(productionConfigSnapshot.lossReasonSnapshotJson()))
+                .overagePercentSnapshot(productionConfigSnapshot.overagePercentSnapshot())
+                .productionConfigSnapshotJson(productionConfigSnapshot.productionConfigSnapshotJson())
+                .productionConfigSnapshotSha256(DigestUtil.sha256Hex(productionConfigSnapshot.productionConfigSnapshotJson()))
+                .productionConfigMigrationSource(productionConfigSnapshot.migrationSource())
+                .productionConfigMigratedAt(LocalDateTime.now())
                 .simulated(activeOrder.getSimulated())
                 .simulationStage(activeOrder.getSimulationStage())
                 .simulationRunId(activeOrder.getSimulationRunId())
                 .build();
+    }
+
+    private ProductionProcessConfigSnapshot resolveProductionProcessConfigSnapshot(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProScheduleOrderProcessDO process) {
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(activeOrder.getRouteVersionId());
+        JSONObject routeProductionConfig = requireRouteProductionProcessConfig(routeVersion, activeOrder, process);
+        String lossReasonsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("lossReasons"));
+        String parameterJson = canonicalProductionArray(routeProductionConfig.getJSONArray("parameterRules"));
+        String deviceJson = canonicalProductionArray(routeProductionConfig.getJSONArray("deviceSelectionGroups"));
+        JSONObject snapshot = new JSONObject(true);
+        snapshot.put("routeProcessId", process.getRouteProcessId());
+        snapshot.put("processId", process.getProcessId());
+        snapshot.put("overagePercent", routeProductionConfig.getBigDecimal("overagePercent"));
+        snapshot.put("lossReasons", JSON.parseArray(lossReasonsJson));
+        snapshot.put("deviceSelectionGroups", JSON.parseArray(deviceJson));
+        snapshot.put("parameterRules", JSON.parseArray(parameterJson));
+        return new ProductionProcessConfigSnapshot(lossReasonsJson,
+                routeProductionConfig.getBigDecimal("overagePercent"),
+                parameterJson,
+                deviceJson,
+                JSON.toJSONString(snapshot),
+                PRODUCTION_CONFIG_MIGRATION_SOURCE_ROUTE_VERSION);
+    }
+
+    private JSONObject requireRouteProductionProcessConfig(MesProRouteVersionDO routeVersion,
+                                                           MesProcessPoolActiveOrderDO activeOrder,
+                                                           MesProScheduleOrderProcessDO process) {
+        if (routeVersion == null || routeVersion.getRouteSnapshotJson() == null || process == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, activeOrder.getRouteVersionId());
+        }
+        JSONObject snapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
+        JSONArray productionConfigs = configSnapshots == null
+                ? null : configSnapshots.getJSONArray(PRODUCTION_PROCESS_CONFIGS_KEY);
+        if (productionConfigs == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, activeOrder.getRouteVersionId());
+        }
+        for (int index = 0; index < productionConfigs.size(); index++) {
+            JSONObject config = productionConfigs.getJSONObject(index);
+            if (config != null
+                    && Objects.equals(config.getLong("routeProcessId"), process.getRouteProcessId())
+                    && Objects.equals(config.getLong("processId"), process.getProcessId())) {
+                return config;
+            }
+        }
+        JSONObject emptyConfig = new JSONObject(true);
+        emptyConfig.put("routeProcessId", process.getRouteProcessId());
+        emptyConfig.put("processId", process.getProcessId());
+        emptyConfig.put("lossReasons", new JSONArray());
+        emptyConfig.put("deviceSelectionGroups", new JSONArray());
+        emptyConfig.put("parameterRules", new JSONArray());
+        return emptyConfig;
+    }
+
+    private String canonicalProductionArray(JSONArray array) {
+        return JSON.toJSONString(array == null ? new JSONArray() : array);
+    }
+
+    private record ProductionProcessConfigSnapshot(String lossReasonSnapshotJson,
+                                                   BigDecimal overagePercentSnapshot,
+                                                   String parameterSnapshotJson,
+                                                   String deviceSelectionSnapshotJson,
+                                                   String productionConfigSnapshotJson,
+                                                   String migrationSource) {
     }
 
     private static BigDecimal productionQuantityFactorOrDefault(BigDecimal value) {

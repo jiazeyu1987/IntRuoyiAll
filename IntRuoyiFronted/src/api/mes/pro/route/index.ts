@@ -151,6 +151,30 @@ export interface ProRouteVersionBlockerVO {
   blockers: string[]
 }
 
+export interface ProRouteProductionProcessConfigVO {
+  routeProcessId: number
+  processId: number
+  processCode?: string | null
+  processName?: string | null
+  sort?: number | null
+  overagePercent?: number | null
+  lossReasons?: Array<Record<string, unknown>>
+  deviceSelectionGroups?: Array<Record<string, unknown>>
+  parameterRules?: Array<Record<string, unknown>>
+}
+
+export interface ProRouteProductionProcessConfigSnapshotVO {
+  routeVersionId: MesRouteId
+  schemaVersion: number
+  productionProcessConfigs: ProRouteProductionProcessConfigVO[]
+}
+
+export interface ProRouteProductionProcessConfigSaveReqVO {
+  routeVersionId: MesRouteId
+  schemaVersion: number
+  productionProcessConfigs: ProRouteProductionProcessConfigVO[]
+}
+
 // MES 工艺路线导入结果
 export interface ProRouteImportResultVO {
   routeCount: number
@@ -490,10 +514,26 @@ export const ProRouteApi = {
     })
   },
 
+  // 查询工艺路线版本生产工序配置
+  getRouteProductionProcessConfig: async (id: MesRouteId) => {
+    return await request.get<ProRouteProductionProcessConfigSnapshotVO>({
+      url: `${PRO_ROUTE_VERSION_BASE_URL}/production-process-config`,
+      params: { id }
+    })
+  },
+
   // 创建工艺路线候选版本
   createRouteCandidateVersion: async (data: ProRouteVersionCreateReqVO) => {
     return await request.post<ProRouteVersionVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/create-candidate`,
+      data
+    })
+  },
+
+  // 保存工艺路线候选版本生产工序配置
+  saveRouteProductionProcessConfig: async (data: ProRouteProductionProcessConfigSaveReqVO) => {
+    return await request.post<boolean>({
+      url: `${PRO_ROUTE_VERSION_BASE_URL}/production-process-config/save`,
       data
     })
   },

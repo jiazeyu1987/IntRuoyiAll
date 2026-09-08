@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
@@ -47,7 +48,7 @@ class MesReportAllocationConcurrencyTest {
     @Mock private MesReportAllocationQuantityFragmentService quantityFragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
     @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
-    @Mock private MesTeamLeaderOverageLimitService overageLimitService;
+    @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
 
     private MesReportAllocationCommandService service;
 
@@ -56,7 +57,7 @@ class MesReportAllocationConcurrencyTest {
         service = new MesReportAllocationCommandService(scopeService, eventMapper, activeOrderMapper, workOrderMapper,
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
-                completionService, reportManagementSummaryService, overageLimitService);
+                completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
         when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
     }

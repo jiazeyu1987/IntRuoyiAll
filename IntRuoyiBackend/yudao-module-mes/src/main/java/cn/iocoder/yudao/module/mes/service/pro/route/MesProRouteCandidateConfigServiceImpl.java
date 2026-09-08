@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.util.Map;
+
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_CONFLICT;
@@ -31,6 +33,15 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveConfigSnapshot(Long candidateRouteVersionId, String configKey, Object configSnapshot) {
+        if (StrUtil.isBlank(configKey) || configSnapshot == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
+        }
+        saveConfigSnapshots(candidateRouteVersionId, Map.of(configKey, configSnapshot));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveConfigSnapshots(Long candidateRouteVersionId, Map<String, Object> incomingConfigSnapshots) {
         MesProRouteVersionDO candidate = routeVersionMapper.selectById(candidateRouteVersionId);
         if (candidate == null) {
             throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, candidateRouteVersionId);
@@ -41,7 +52,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
                     candidate.getId(), candidate.getLifecycleStatus());
         }
         validateSourceActiveVersionStillCurrent(candidate);
-        if (StrUtil.isBlank(configKey) || configSnapshot == null
+        if (incomingConfigSnapshots == null || incomingConfigSnapshots.isEmpty()
                 || StrUtil.isBlank(candidate.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
@@ -50,16 +61,21 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         if (snapshot == null || snapshot.isEmpty()) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
-        Object jsonSnapshot = JSON.parse(JSON.toJSONString(configSnapshot));
-        if (jsonSnapshot == null) {
-            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
-        }
         JSONObject configSnapshots = snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
         if (configSnapshots == null) {
             configSnapshots = new JSONObject(true);
             snapshot.put(SNAPSHOT_CONFIGS_KEY, configSnapshots);
         }
-        configSnapshots.put(configKey, jsonSnapshot);
+        for (Map.Entry<String, Object> entry : incomingConfigSnapshots.entrySet()) {
+            if (StrUtil.isBlank(entry.getKey()) || entry.getValue() == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
+            }
+            Object jsonSnapshot = JSON.parse(JSON.toJSONString(entry.getValue()));
+            if (jsonSnapshot == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
+            }
+            configSnapshots.put(entry.getKey(), jsonSnapshot);
+        }
 
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(candidate.getId());

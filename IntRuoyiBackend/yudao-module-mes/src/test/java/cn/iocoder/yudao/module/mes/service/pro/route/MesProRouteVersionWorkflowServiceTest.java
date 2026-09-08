@@ -310,7 +310,7 @@ class MesProRouteVersionWorkflowServiceTest {
         MesProRouteVersionDO active = activeVersion();
         MesProRouteVersionDO candidate = draftCandidate(active);
         candidate.setRouteSnapshotJson(
-                "{\"routeId\":9001,\"configSnapshots\":{\"flowGraph\":{},\"products\":[],\"scheduleConfigs\":[],\"batchUseConfigs\":[]}}");
+                "{\"routeId\":9001,\"configSnapshots\":{\"flowGraph\":{},\"products\":[],\"scheduleConfigs\":[],\"batchUseConfigs\":[],\"scheduleUseConfigs\":[],\"productionProcessConfigSchemaVersion\":1,\"productionProcessConfigs\":[]}}");
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
 
@@ -441,7 +441,9 @@ class MesProRouteVersionWorkflowServiceTest {
                     "products": [],
                     "scheduleConfigs": [],
                     "batchUseConfigs": [],
-                    "scheduleUseConfigs": []
+                    "scheduleUseConfigs": [],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": []
                   }
                 }
                 """.formatted(routeId, routeCode, routeName);
@@ -475,7 +477,9 @@ class MesProRouteVersionWorkflowServiceTest {
                         ]
                       }
                     ],
-                    "scheduleUseConfigs": []
+                    "scheduleUseConfigs": [],
+                    "productionProcessConfigSchemaVersion": 1,
+                    "productionProcessConfigs": []
                   }
                 }
                 """;
