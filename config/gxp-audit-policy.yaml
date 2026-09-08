@@ -1,0 +1,19 @@
+schemaVersion: 1
+policyVersion: policy-20260908
+approvedReference: DESIGN-PASS-20260907
+operations:
+  - operationId: MES.BATCH_RECORD.UPDATE
+    sourceType: SERVICE
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord
+    domain: MES
+    subject: BATCH_RECORD
+    action: UPDATE
+    reasonPolicy: REQUIRED
+    signaturePolicy: REQUIRED_WHEN_APPROVAL
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_BATCH_RECORD
+    testIds:
+      - GxpAuditTrailServiceContractTest
+      - GxpAuditTrailSchemaContractTest
+    owner: QA_SYSTEM_OWNER
+    applicabilityDecision: IN_SCOPE

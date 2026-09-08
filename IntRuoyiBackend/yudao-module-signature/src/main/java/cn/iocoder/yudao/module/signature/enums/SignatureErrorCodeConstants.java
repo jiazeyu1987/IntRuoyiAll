@@ -10,4 +10,6 @@ public interface SignatureErrorCodeConstants {
     ErrorCode ESIGN_SUBJECT_NOT_SIGNABLE = new ErrorCode(1_047_000_003, "对象当前不可签名，原因：{}");
     ErrorCode ESIGN_DUPLICATE_IDEMPOTENCY_KEY = new ErrorCode(1_047_000_004, "电子签名幂等键已被不同内容使用");
 
+    ErrorCode GXP_AUDIT_COMMAND_INVALID = new ErrorCode(1_047_001_000, "GxP 审计命令非法，原因：{}");
+
 }

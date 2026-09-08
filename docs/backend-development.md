@@ -1019,8 +1019,9 @@
 - Trigger: 新增或修改 GxP 业务记录、基础数据、权限、配置、电子签名、批准、发布、作废、删除、Job、外部同步或系统变更写入口。
 - Preflight check: 先在机器可读 GxP 操作登记表中确定稳定对象身份、动作类型、原因规则、签名规则、真实 before/after、证据引用、保存类别、策略版本和 owner；领域服务负责业务语义，统一审计内核只负责安全上下文身份、正式服务器时间、规范化、序号、hash 和只追加持久化。API 访问日志或 Controller 拦截器不能替代领域审计，也不能从请求参数猜测数据库真实变化。
 - Interface rule: 统一的是内部审计写入契约、统一账本、统一策略登记、统一查询导出和统一 CI 覆盖门禁；不要把所有业务 Controller 改造成一个远程审计业务接口。业务 API 保持领域语义，成功 GxP 写入在领域服务事务内调用统一 append。
+- Implementation placement rule: 当前统一 GxP 审计内核第一阶段落在 `yudao-module-signature` 的 `signature.gxp` 子包，电子签名、可信时间、归档和特权审计是可关联证据，不等同于统一事件账本本身。后续接入 eDHR/DCC/BPM/Showroom/权限/配置时，应依赖 `GxpAuditTrailService.append`，不得复制电子签名专用表结构冒充跨域账本。
 - Transaction rule: 成功业务数据与成功审计事件必须由同一 Spring 事务和同一物理数据库事务提交；审计写入、hash、链头或必需证据失败时业务整体回滚。失败尝试如需独立记录，必须使用明确 `FAILED` 结果和单独策略，不能补写或伪造成功事件。
-- Immutability rule: 统一审计事件表不得继承包含 `updater/update_time/deleted` 的通用基类，不提供 update/delete Mapper 或接口；应用账号无 UPDATE、DELETE、TRUNCATE 权限。对象 hash 链用于定位篡改，租户每日清单与正式 WORM/Object Lock 回执用于发现整链删除，不能只凭 hash 链宣称不可篡改。
+- Immutability rule: 统一审计事件表不得继承包含 `updater/update_time/deleted` 的通用基类，不提供业务 update/delete 接口；若项目通用 Mapper 基类技术上继承了 update/delete 方法，必须用服务层封装、静态合同、数据库权限和代码审查共同禁止调用。应用账号无 UPDATE、DELETE、TRUNCATE 权限。对象 hash 链用于定位篡改，租户每日清单与正式 WORM/Object Lock 回执用于发现整链删除，不能只凭 hash 链宣称不可篡改。
 - Archive rule: 法规长期归档必须保存可在主数据库不可用时独立恢复和查阅的完整事件、证据关联、签名、可信时间及必需领域证据；只把 manifest/hash 写入 WORM 不能证明记录保存期内可查阅。验收应先清空隔离恢复环境，再仅以自包含归档包恢复、查询、导出和重算 hash。
 - Periodic-review rule: 提供手工创建审查批次的接口不能证明“定期审查已执行”；必须由持久化规则按周期唯一调度，保存计划/运行/补扫/失败/逾期/签名/整改证据，并用跨多个周期和停机恢复测试证明无漏期。
 - Coverage rule: 持续覆盖门禁不能只扫描 Controller；机器可读登记表和 CI 必须双向盘点 Controller、领域服务、Job、消费者、导入、外部同步、Migration 和运维脚本，并让不适用决定具有批准人、依据和有效期。动态 SQL 或反射写入无法解析时保持 blocker。
@@ -1029,4 +1030,4 @@
 - Verification: 每个受控动作先写 BDD 和 RED，覆盖成功事件字段、CREATE/UPDATE/DELETE/VOID 显式状态信封、审计失败业务回滚、幂等重放、并发链冲突、签名内容 hash、敏感字段脱敏、修改/删除/插入/换序检测、仅归档包恢复、连续周期审查、全写边界发现、特权篡改和系统变更清单重算；CI 必须阻止未登记、缺少策略或缺少测试的新增受控写入口。
 - Release judgment: 文档覆盖只能判定 `PASS FOR DESIGN`；代码/schema/测试/覆盖登记完成只能判定 `PASS FOR SOFTWARE`；只有正式环境 NTP/WORM/特权审计、周期执行、法规归档恢复、SOP/培训和负责人签署均通过后，才能判定运行态审查可放行。
 - Forbidden action: 禁止用自由文本操作日志、API 请求日志、异步队列、after-commit 补记、长期双写、默认原因、客户端时间或管理员手工补录替代统一审计事实。
-- Evidence: `docs/adr/ADR-0002-unified-gxp-audit-trail.md`；`doc/tasks/20260907-gxp-audit-trail-unification/verification-report.md`。
+- Evidence: `docs/adr/ADR-0002-unified-gxp-audit-trail.md`；`doc/tasks/20260907-gxp-audit-trail-unification/verification-report.md`；`doc/tasks/20260908-gxp-audit-trail-implementation/backend-api-evidence.md`。
