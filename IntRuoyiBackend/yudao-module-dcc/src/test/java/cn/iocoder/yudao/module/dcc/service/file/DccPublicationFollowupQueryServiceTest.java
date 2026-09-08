@@ -18,6 +18,10 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationVisibilityRuleSn
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationVisibilityUserSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationCandidateMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationRelationDirectionSnapshotMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationAuditMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactAuditMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationNotificationAuditDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactAuditDO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationFollowupPageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationImpactTaskPageReqVO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -29,15 +33,19 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_NOTIFICATION_MANAGE_DENIED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
 
@@ -50,6 +58,8 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
     @Mock private DccPublicationVisibilityUserSnapshotMapper visibilityUserMapper;
     @Mock private DccPublicationNotificationCandidateMapper candidateMapper;
     @Mock private DccPublicationRelationDirectionSnapshotMapper directionMapper;
+    @Mock private DccPublicationNotificationAuditMapper notificationAuditMapper;
+    @Mock private DccPublicationImpactAuditMapper impactAuditMapper;
     @Mock private PermissionApi permissionApi;
     @InjectMocks private DccPublicationFollowupQueryServiceImpl service;
 
@@ -67,7 +77,8 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
     void getFileFollowup_reusesCurrentDetailAuthorizationAndAggregatesReasonsOnBackend() {
         when(batchMapper.selectLatestByPublishedControlledFileId(1L, 70L)).thenReturn(
                 DccPublicationFollowupBatchDO.builder().id(7L).publishedControlledFileId(70L)
-                        .fileNumberSnapshot("DOC-70").versionNoSnapshot("B/1").build());
+                        .fileNumberSnapshot("DOC-70").versionNoSnapshot("B/1")
+                        .publishedAt(LocalDateTime.of(2026, 9, 7, 10, 0)).build());
         when(deliveryMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of(
                 DccPublicationNotificationDeliveryDO.builder().id(10L).batchId(7L).candidateId(11L)
                         .userId(21L).status("SENT").rowVersion(2).build()));
@@ -94,6 +105,24 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         when(directionMapper.selectListByRelationSnapshotIds(1L, List.of(51L))).thenReturn(List.of(
                 DccPublicationRelationDirectionSnapshotDO.builder().relationSnapshotId(51L).direction("FORWARD").build(),
                 DccPublicationRelationDirectionSnapshotDO.builder().relationSnapshotId(51L).direction("REVERSE").build()));
+        when(notificationAuditMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of(
+                DccPublicationNotificationAuditDO.builder().id(58L).deliveryId(10L).batchId(7L)
+                        .actionType("ATTEMPT").statusBefore("PENDING").statusAfter("PENDING")
+                        .attemptCount(1).occurredAt(LocalDateTime.of(2026, 9, 7, 10, 0, 30)).build(),
+                DccPublicationNotificationAuditDO.builder().id(59L).deliveryId(10L).batchId(7L)
+                        .actionType("RETRY").statusBefore("FAILED").statusAfter("FAILED")
+                        .attemptCount(2).occurredAt(LocalDateTime.of(2026, 9, 7, 10, 1)).build(),
+                DccPublicationNotificationAuditDO.builder().id(60L).deliveryId(10L).batchId(7L)
+                        .actionType("FAILED").statusBefore("PENDING").statusAfter("FAILED")
+                        .attemptCount(2).occurredAt(LocalDateTime.of(2026, 9, 7, 10, 1, 30)).build(),
+                DccPublicationNotificationAuditDO.builder().id(61L).deliveryId(10L).batchId(7L)
+                        .actionType("SENT").statusBefore("PENDING").statusAfter("SENT")
+                        .attemptCount(2).systemMessageId(9007199254740993L)
+                        .occurredAt(LocalDateTime.of(2026, 9, 7, 10, 3)).build()));
+        when(impactAuditMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of(
+                DccPublicationImpactAuditDO.builder().id(62L).taskId(41L).batchId(7L)
+                        .actionType("START").statusBefore("PENDING").statusAfter("IN_REVIEW")
+                        .occurredAt(LocalDateTime.of(2026, 9, 7, 10, 2)).build()));
 
         var result = service.getFileFollowup(99L, 70L);
 
@@ -104,6 +133,25 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("质量部", result.getNotificationDeliveries().get(0).getDeptName());
         assertEquals("收件人", result.getVisibilityRules().get(0).getUsers().get(0).getUserName());
         assertEquals(List.of("FORWARD", "REVERSE"), result.getImpactTasks().get(0).getRelationDirections());
+        assertEquals(List.of("BATCH", "NOTIFICATION", "NOTIFICATION", "NOTIFICATION", "IMPACT", "NOTIFICATION"),
+                result.getTimeline().stream()
+                .map(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationTimelineEventRespVO::getSourceType)
+                .toList());
+        assertEquals(List.of(1, 2, 2, 2), List.of(
+                result.getTimeline().get(1).getAttemptCount(), result.getTimeline().get(2).getAttemptCount(),
+                result.getTimeline().get(3).getAttemptCount(), result.getTimeline().get(5).getAttemptCount()));
+        assertEquals("开始影响评估", result.getTimeline().get(4).getActionLabel());
+        assertEquals("评估中", result.getTimeline().get(4).getStatusAfterLabel());
+        assertNull(result.getTimeline().get(4).getAttemptCount());
+        assertNull(result.getTimeline().get(4).getAssigneeBefore());
+        assertNull(result.getTimeline().get(4).getAssigneeAfter());
+        assertNull(result.getTimeline().get(4).getLinkedRevisionControlledFileId());
+        assertNull(result.getTimeline().get(4).getLinkedRevisionVersion());
+        assertEquals("9007199254740993", result.getTimeline().get(5).getSystemMessageId());
+        assertNull(result.getTimeline().get(5).getAssigneeBefore());
+        assertNull(result.getTimeline().get(5).getAssigneeAfter());
+        assertNull(result.getTimeline().get(5).getLinkedRevisionControlledFileId());
+        assertNull(result.getTimeline().get(5).getLinkedRevisionVersion());
     }
 
     @Test
@@ -113,6 +161,17 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
 
         assertServiceException(() -> service.getManagementPage(9L, null),
                 PUBLICATION_NOTIFICATION_MANAGE_DENIED);
+    }
+
+    @Test
+    void getFileFollowup_deniedCurrentViewDoesNotReadTimelineAudits() {
+        when(controlledFileQueryService.getControlledFile(98L, 70L)).thenThrow(
+                new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "当前用户无权查看"));
+
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.getFileFollowup(98L, 70L));
+
+        verifyNoInteractions(notificationAuditMapper, impactAuditMapper);
     }
 
     @Test

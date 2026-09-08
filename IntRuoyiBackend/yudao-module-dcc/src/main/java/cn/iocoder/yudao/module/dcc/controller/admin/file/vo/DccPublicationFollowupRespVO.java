@@ -17,4 +17,5 @@ public class DccPublicationFollowupRespVO {
     private List<DccPublicationVisibilityRuleRespVO> visibilityRules;
     private List<DccPublicationNotificationDeliveryRespVO> notificationDeliveries;
     private List<DccPublicationImpactTaskRespVO> impactTasks;
+    private List<DccPublicationTimelineEventRespVO> timeline;
 }

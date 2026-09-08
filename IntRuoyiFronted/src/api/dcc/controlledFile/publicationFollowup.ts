@@ -72,6 +72,30 @@ export interface DccPublicationImpactRevisionOptionsVO {
   openMajorRevision?: DccPublicationImpactRevisionOptionVO | null
 }
 
+export interface DccPublicationTimelineEventVO {
+  eventId: DccBusinessId
+  sequenceNo: number
+  sourceType: 'BATCH' | 'NOTIFICATION' | 'IMPACT'
+  sourceLabel: string
+  actionLabel: string
+  occurredAt: string
+  actorId?: DccBusinessId
+  objectId: DccBusinessId
+  objectLabel: string
+  statusBeforeLabel?: string
+  statusAfterLabel?: string
+  decisionLabel?: string
+  directionLabels: string[]
+  reason?: string
+  errorSummary?: string
+  systemMessageId?: DccBusinessId
+  attemptCount?: number
+  assigneeBefore?: DccBusinessId
+  assigneeAfter?: DccBusinessId
+  linkedRevisionControlledFileId?: DccBusinessId
+  linkedRevisionVersion?: string
+}
+
 export interface DccPublicationFollowupVO {
   id: DccBusinessId
   publishedControlledFileId: DccBusinessId
@@ -83,6 +107,7 @@ export interface DccPublicationFollowupVO {
   visibilityRules: DccPublicationVisibilityRuleVO[]
   notificationDeliveries: DccPublicationNotificationDeliveryVO[]
   impactTasks: DccPublicationImpactTaskVO[]
+  timeline: DccPublicationTimelineEventVO[]
 }
 
 export interface DccPageResult<T> {

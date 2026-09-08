@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,8 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
     @Resource private DccPublicationVisibilityUserSnapshotMapper visibilityUserMapper;
     @Resource private DccPublicationImpactTaskMapper impactTaskMapper;
     @Resource private DccPublicationRelationDirectionSnapshotMapper directionMapper;
+    @Resource private DccPublicationNotificationAuditMapper notificationAuditMapper;
+    @Resource private DccPublicationImpactAuditMapper impactAuditMapper;
     @Resource private PermissionApi permissionApi;
 
     @Override
@@ -92,6 +96,12 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
                 Collectors.groupingBy(DccPublicationVisibilityUserSnapshotDO::getRuleSnapshotId));
         List<DccPublicationImpactTaskDO> tasks = impactTaskMapper.selectListByBatchIds(tenantId, batchIds);
         Map<Long, List<String>> directionMap = directions(tenantId, tasks);
+        List<DccPublicationNotificationAuditDO> notificationAudits = Objects.requireNonNull(
+                notificationAuditMapper.selectListByBatchIds(tenantId, batchIds),
+                "publication notification audits must not be null");
+        List<DccPublicationImpactAuditDO> impactAudits = Objects.requireNonNull(
+                impactAuditMapper.selectListByBatchIds(tenantId, batchIds),
+                "publication impact audits must not be null");
 
         Map<Long, List<DccPublicationNotificationDeliveryDO>> deliveriesByBatch = deliveries.stream()
                 .collect(Collectors.groupingBy(DccPublicationNotificationDeliveryDO::getBatchId));
@@ -99,6 +109,14 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
                 .collect(Collectors.groupingBy(DccPublicationVisibilityRuleSnapshotDO::getBatchId));
         Map<Long, List<DccPublicationImpactTaskDO>> tasksByBatch = tasks.stream()
                 .collect(Collectors.groupingBy(DccPublicationImpactTaskDO::getBatchId));
+        Map<Long, DccPublicationNotificationDeliveryDO> deliveriesById = deliveries.stream()
+                .collect(Collectors.toMap(DccPublicationNotificationDeliveryDO::getId, Function.identity()));
+        Map<Long, DccPublicationImpactTaskDO> tasksById = tasks.stream()
+                .collect(Collectors.toMap(DccPublicationImpactTaskDO::getId, Function.identity()));
+        Map<Long, List<DccPublicationNotificationAuditDO>> notificationAuditsByBatch = notificationAudits.stream()
+                .collect(Collectors.groupingBy(DccPublicationNotificationAuditDO::getBatchId));
+        Map<Long, List<DccPublicationImpactAuditDO>> impactAuditsByBatch = impactAudits.stream()
+                .collect(Collectors.groupingBy(DccPublicationImpactAuditDO::getBatchId));
 
         return batches.stream().map(batch -> {
             DccPublicationFollowupRespVO vo = toFollowup(batch);
@@ -110,6 +128,10 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
             vo.setImpactTasks(tasksByBatch.getOrDefault(batch.getId(), List.of()).stream()
                     .map(task -> toTask(task, directionMap.getOrDefault(
                             task.getPublicationRelationSnapshotId(), List.of()))).toList());
+            vo.setTimeline(buildTimeline(batch,
+                    notificationAuditsByBatch.getOrDefault(batch.getId(), List.of()),
+                    impactAuditsByBatch.getOrDefault(batch.getId(), List.of()), deliveriesById,
+                    candidates, tasksById, directionMap));
             return vo;
         }).toList();
     }
@@ -224,6 +246,197 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
         vo.setRowVersion(row.getRowVersion());
         vo.setRelationDirections(relationDirections);
         return vo;
+    }
+
+    private List<DccPublicationTimelineEventRespVO> buildTimeline(
+            DccPublicationFollowupBatchDO batch,
+            List<DccPublicationNotificationAuditDO> notificationAudits,
+            List<DccPublicationImpactAuditDO> impactAudits,
+            Map<Long, DccPublicationNotificationDeliveryDO> deliveriesById,
+            Map<Long, DccPublicationNotificationCandidateDO> candidates,
+            Map<Long, DccPublicationImpactTaskDO> tasksById,
+            Map<Long, List<String>> directions) {
+        List<TimelineDraft> drafts = new ArrayList<>();
+        DccPublicationTimelineEventRespVO created = baseTimeline(
+                "BATCH:" + batch.getId(), "BATCH", "发布批次", "发布后续批次已创建",
+                Objects.requireNonNull(batch.getPublishedAt(), "publication batch time must not be null"),
+                batch.getCreator(), id(batch.getId()), batch.getFileNumberSnapshot() + " / " + batch.getVersionNoSnapshot());
+        created.setStatusAfterLabel(batchStatusLabel("PENDING"));
+        created.setDirectionLabels(List.of());
+        drafts.add(new TimelineDraft(created, 0, Objects.requireNonNull(batch.getId())));
+
+        for (DccPublicationNotificationAuditDO audit : notificationAudits) {
+            DccPublicationNotificationDeliveryDO delivery = deliveriesById.get(audit.getDeliveryId());
+            if (delivery == null) throw new IllegalStateException("notification audit delivery is missing");
+            DccPublicationNotificationCandidateDO candidate = candidates.get(delivery.getCandidateId());
+            DccPublicationTimelineEventRespVO event = baseTimeline(
+                    "NOTIFICATION:" + audit.getId(), "NOTIFICATION", "站内通知",
+                    notificationActionLabel(audit.getActionType()), requireOccurredAt(audit.getOccurredAt()),
+                    id(audit.getActorId()), id(delivery.getId()), candidate == null
+                            ? "收件用户 #" + delivery.getUserId()
+                            : Objects.requireNonNullElse(candidate.getUserNameSnapshot(),
+                            "收件用户 #" + delivery.getUserId()));
+            event.setStatusBeforeLabel(notificationStatusLabel(audit.getStatusBefore()));
+            event.setStatusAfterLabel(notificationStatusLabel(audit.getStatusAfter()));
+            event.setDirectionLabels(List.of());
+            event.setReason(audit.getReason());
+            event.setErrorSummary(audit.getErrorSummary());
+            event.setSystemMessageId(id(audit.getSystemMessageId()));
+            if (isNotificationAttemptAction(audit.getActionType())) {
+                event.setAttemptCount(Objects.requireNonNull(audit.getAttemptCount(),
+                        "notification attempt audit count must not be null"));
+            }
+            drafts.add(new TimelineDraft(event, 1, Objects.requireNonNull(audit.getId())));
+        }
+        for (DccPublicationImpactAuditDO audit : impactAudits) {
+            DccPublicationImpactTaskDO task = tasksById.get(audit.getTaskId());
+            if (task == null) throw new IllegalStateException("impact audit task is missing");
+            DccPublicationTimelineEventRespVO event = baseTimeline(
+                    "IMPACT:" + audit.getId(), "IMPACT", "影响评估",
+                    impactActionLabel(audit.getActionType()), requireOccurredAt(audit.getOccurredAt()),
+                    id(audit.getActorId()), id(task.getId()), impactObjectLabel(task));
+            event.setStatusBeforeLabel(impactStatusLabel(audit.getStatusBefore()));
+            event.setStatusAfterLabel(impactStatusLabel(audit.getStatusAfter()));
+            event.setDecisionLabel(decisionLabel(audit.getDecisionSnapshot()));
+            event.setDirectionLabels(directions.getOrDefault(task.getPublicationRelationSnapshotId(), List.of())
+                    .stream().map(this::directionLabel).toList());
+            event.setReason(audit.getReason());
+            if ("REASSIGN".equals(audit.getActionType())) {
+                event.setAssigneeBefore(id(audit.getAssigneeBefore()));
+                event.setAssigneeAfter(id(Objects.requireNonNull(audit.getAssigneeAfter(),
+                        "reassign audit assigneeAfter must not be null")));
+            }
+            if (isLinkedRevisionAction(audit.getActionType())) {
+                Long linkedRevisionId = Objects.requireNonNull(audit.getLinkedRevisionControlledFileId(),
+                        "linked revision audit controlled file id must not be null");
+                event.setLinkedRevisionControlledFileId(id(linkedRevisionId));
+                if (Objects.equals(linkedRevisionId, task.getLinkedRevisionControlledFileId())) {
+                    event.setLinkedRevisionVersion(task.getLinkedRevisionVersionSnapshot());
+                }
+            }
+            drafts.add(new TimelineDraft(event, 2, Objects.requireNonNull(audit.getId())));
+        }
+        drafts.sort(Comparator.comparing((TimelineDraft draft) -> draft.event().getOccurredAt())
+                .thenComparingInt(TimelineDraft::sourceOrder).thenComparingLong(TimelineDraft::recordId));
+        for (int index = 0; index < drafts.size(); index++) {
+            drafts.get(index).event().setSequenceNo(index + 1);
+        }
+        return drafts.stream().map(TimelineDraft::event).toList();
+    }
+
+    private DccPublicationTimelineEventRespVO baseTimeline(
+            String eventId, String sourceType, String sourceLabel, String actionLabel,
+            java.time.LocalDateTime occurredAt, String actorId, String objectId, String objectLabel) {
+        DccPublicationTimelineEventRespVO event = new DccPublicationTimelineEventRespVO();
+        event.setEventId(eventId);
+        event.setSourceType(sourceType);
+        event.setSourceLabel(sourceLabel);
+        event.setActionLabel(actionLabel);
+        event.setOccurredAt(occurredAt);
+        event.setActorId(actorId);
+        event.setObjectId(objectId);
+        event.setObjectLabel(objectLabel);
+        return event;
+    }
+
+    private java.time.LocalDateTime requireOccurredAt(java.time.LocalDateTime occurredAt) {
+        return Objects.requireNonNull(occurredAt, "publication audit occurredAt must not be null");
+    }
+
+    private String impactObjectLabel(DccPublicationImpactTaskDO task) {
+        String name = Objects.requireNonNullElse(task.getRelatedFileNameSnapshot(), "关联文件");
+        return task.getRelatedFileNumberSnapshot() == null
+                ? name : name + " / " + task.getRelatedFileNumberSnapshot();
+    }
+
+    private String notificationActionLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "MATERIALIZE" -> "生成通知记录";
+            case "ATTEMPT" -> "尝试发送通知";
+            case "RETRY" -> "重试发送通知";
+            case "SENT" -> "通知发送成功";
+            case "FAILED" -> "通知发送失败";
+            default -> unknownAction(code);
+        };
+    }
+
+    private boolean isNotificationAttemptAction(String code) {
+        return "ATTEMPT".equals(code) || "RETRY".equals(code)
+                || "SENT".equals(code) || "FAILED".equals(code);
+    }
+
+    private boolean isLinkedRevisionAction(String code) {
+        return "LINK_REVISION".equals(code) || "RESOLVE_REVISION".equals(code);
+    }
+
+    private String impactActionLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "MATERIALIZE" -> "生成影响评估任务";
+            case "START" -> "开始影响评估";
+            case "DECIDE" -> "提交评估结论";
+            case "REASSIGN" -> "转派影响评估";
+            case "REOPEN" -> "重新打开影响评估";
+            case "LINK_REVISION" -> "关联大版本";
+            case "RESOLVE_REVISION" -> "关联大版本已发布";
+            default -> unknownAction(code);
+        };
+    }
+
+    private String notificationStatusLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "PENDING" -> "待发送";
+            case "SENT" -> "已发送";
+            case "FAILED" -> "发送失败";
+            case "" -> null;
+            default -> unknownStatus(code);
+        };
+    }
+
+    private String impactStatusLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "PENDING" -> "待处理";
+            case "UNASSIGNED" -> "待文控分配";
+            case "IN_REVIEW" -> "评估中";
+            case "COMPLETED" -> "已完成";
+            case "" -> null;
+            default -> unknownStatus(code);
+        };
+    }
+
+    private String batchStatusLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "PENDING" -> "待处理";
+            case "" -> null;
+            default -> unknownStatus(code);
+        };
+    }
+
+    private String decisionLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "NO_REVISION_REQUIRED" -> "无需升版";
+            case "REVISION_REQUIRED" -> "需要升版";
+            case "" -> null;
+            default -> "未知结论（" + code + "）";
+        };
+    }
+
+    private String directionLabel(String code) {
+        return switch (Objects.requireNonNullElse(code, "")) {
+            case "FORWARD" -> "正向关联";
+            case "REVERSE" -> "反向引用";
+            default -> "未知方向（" + code + "）";
+        };
+    }
+
+    private String unknownAction(String code) {
+        return "未知动作（" + Objects.requireNonNullElse(code, "") + "）";
+    }
+
+    private String unknownStatus(String code) {
+        return "未知状态（" + Objects.requireNonNullElse(code, "") + "）";
+    }
+
+    private record TimelineDraft(DccPublicationTimelineEventRespVO event, int sourceOrder, long recordId) {
     }
 
     private String id(Long value) {

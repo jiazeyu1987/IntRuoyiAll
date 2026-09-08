@@ -79,6 +79,14 @@
             </el-table-column>
           </el-table>
         </section>
+        <section
+          class="followup-section"
+          data-testid="dcc-detail-publication-timeline"
+          aria-labelledby="dcc-publication-timeline-title"
+        >
+          <h3 id="dcc-publication-timeline-title">完整时间线</h3>
+          <PublicationFollowupTimeline :timeline="followup.timeline" />
+        </section>
       </template>
     </div>
   </section>
@@ -100,6 +108,7 @@ import {
   visibilityResolutionStatusLabel,
   visibilitySourceLabel
 } from '../shared/publicationFollowupPresentation'
+import PublicationFollowupTimeline from '../shared/PublicationFollowupTimeline.vue'
 
 const props = defineProps<{ controlledFileId: string }>()
 const followupLoading = ref(false)

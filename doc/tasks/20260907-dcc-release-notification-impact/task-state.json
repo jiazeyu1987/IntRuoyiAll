@@ -314,40 +314,52 @@
         {
           "ac_id": "P4-AC1",
           "text": "实现当前里程碑目标：独立证明发布、通知、影响决定和升版跟踪完整，且不回归文件生效和权限边界。",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+          ]
         },
         {
           "ac_id": "P4-AC2",
           "text": "交付物已落地：发布后续完整时间线。",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+          ]
         },
         {
           "ac_id": "P4-AC3",
           "text": "交付物已落地：后端、SQL、前端合同、类型检查和真实页面闭环全部通过。",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+          ]
         },
         {
           "ac_id": "P4-AC4",
           "text": "交付物已落地：独立 tester 放行。",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+          ]
         },
         {
           "ac_id": "P4-AC5",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+          ]
         }
       ],
-      "evidence": [],
+      "evidence": [
+        "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+      ],
       "notes": [
         "Mapped test topics require main-agent review."
       ],
-      "last_reviewed_at": null,
-      "status": "pending"
+      "last_reviewed_at": "2026-09-07T16:55:56+00:00",
+      "status": "in_progress"
     }
   ],
   "planner_review_status": "approved",
@@ -355,11 +367,11 @@
   "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 1,
-    "executor_loops": 6,
-    "test_loops": 6
+    "executor_loops": 8,
+    "test_loops": 7
   },
   "created_at": "2026-09-07T09:00:00+08:00",
-  "updated_at": "2026-09-07T14:38:45+00:00",
+  "updated_at": "2026-09-07T16:55:56+00:00",
   "branch": "int_main",
   "baseline_revision": "de8c6053f",
   "workspace_root": "E:\\IntRuoyi",
