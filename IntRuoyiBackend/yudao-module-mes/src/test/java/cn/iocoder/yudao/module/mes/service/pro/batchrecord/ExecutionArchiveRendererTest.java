@@ -75,7 +75,7 @@ class ExecutionArchiveRendererTest {
                         .selectedSignedAt(LocalDateTime.of(2026, 5, 24, 9, 10))
                         .signatureDisplayAt(LocalDateTime.of(2026, 5, 24, 9, 10))
                         .signatureTimeMode("USER_SELECTED")
-                        .selectedTimeZone("Asia/Shanghai")
+                        .selectedTimeZone("America/New_York")
                         .selectedTimeReason("复核签名按线下完成时间显示")
                         .selectedTimeAuditHash("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
                         .signaturePurpose("审核")
@@ -91,17 +91,28 @@ class ExecutionArchiveRendererTest {
             assertTrue(text.contains("Meaning=表单复核"));
             assertTrue(text.contains("Signer=王复核"));
             assertTrue(text.contains("Purpose=审核"));
-            assertTrue(text.contains("DisplaySignedAt=2026-05-24 09:10:00 (Asia/Shanghai)"));
+            assertTrue(text.contains("DisplaySignedAt=2026-05-24 09:25:00 (Asia/Shanghai)"));
             assertTrue(text.contains("USER_SELECTED"));
-            assertTrue(text.contains("SelectedTimeZone=Asia/Shanghai"));
-            assertTrue(text.contains("SelectedTimeReason=复核签名按线下完成时间显示"));
-            assertTrue(text.contains("SelectedTimeAuditHash=cccccccc"));
+            assertTrue(text.contains("BusinessTimeZone=America/New_York"));
+            assertTrue(text.contains("BusinessTimeReason=复核签名按线下完成时间显示"));
+            assertTrue(text.contains("BusinessTimeAuditHash=cccccccc"));
             assertTrue(text.contains("RecordHash=record-hash-review"));
-            assertTrue(text.contains("SelectedSignedAt=2026-05-24 09:10:00"));
+            assertTrue(text.contains("BusinessOccurredAt=2026-05-24 09:10:00"));
             assertTrue(text.contains("Signer=李提交"));
             assertFalse(text.contains("Signer=7"));
             assertFalse(text.contains("Actor=8"));
         }
+    }
+
+    @Test
+    void pdfRenderer_rejectsMissingOfficialSignedAtEvenWhenHistoricalTimesExist() {
+        MesProBatchRecordExecutionArchiveRenderContext context = validContext();
+        context.getSignatures().get(0).setSignedAt(null);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> new PdfExecutionArchiveRenderer().render(context));
+
+        assertTrue(ex.getMessage().contains("official signature time is required"));
     }
 
     @Test
@@ -180,11 +191,16 @@ class ExecutionArchiveRendererTest {
             assertEquals("77", workbook.getSheet("Manifest").getRow(4).getCell(1).getStringCellValue());
             assertEquals("Approval Snapshot Hash", workbook.getSheet("Manifest").getRow(5).getCell(0).getStringCellValue());
             assertEquals("approval-snapshot-hash", workbook.getSheet("Manifest").getRow(5).getCell(1).getStringCellValue());
-            assertEquals("Selected Signed At", workbook.getSheet("Signatures").getRow(0).getCell(7).getStringCellValue());
-            assertEquals("Display Signed At", workbook.getSheet("Signatures").getRow(0).getCell(8).getStringCellValue());
+            assertEquals("Business Occurred At",
+                    workbook.getSheet("Signatures").getRow(0).getCell(7).getStringCellValue());
+            assertEquals("Official Signed At (Asia/Shanghai)",
+                    workbook.getSheet("Signatures").getRow(0).getCell(8).getStringCellValue());
             assertEquals("Signature Time Mode", workbook.getSheet("Signatures").getRow(0).getCell(9).getStringCellValue());
+            assertEquals("Business Time Zone", workbook.getSheet("Signatures").getRow(0).getCell(10).getStringCellValue());
+            assertEquals("Business Time Reason", workbook.getSheet("Signatures").getRow(0).getCell(11).getStringCellValue());
+            assertEquals("Business Time Audit Hash", workbook.getSheet("Signatures").getRow(0).getCell(12).getStringCellValue());
             assertEquals("2026-05-24T09:10", workbook.getSheet("Signatures").getRow(1).getCell(7).getStringCellValue());
-            assertEquals("2026-05-24T09:10", workbook.getSheet("Signatures").getRow(1).getCell(8).getStringCellValue());
+            assertEquals("2026-05-24T09:20", workbook.getSheet("Signatures").getRow(1).getCell(8).getStringCellValue());
             assertEquals("USER_SELECTED", workbook.getSheet("Signatures").getRow(1).getCell(9).getStringCellValue());
             assertEquals("Asia/Shanghai", workbook.getSheet("Signatures").getRow(1).getCell(10).getStringCellValue());
             assertEquals("提交签名按线下完成时间显示",
@@ -331,6 +347,54 @@ class ExecutionArchiveRendererTest {
     }
 
     @Test
+    void printableBatchArchiveRenderer_usesOfficialTimeAndStableIdForLatestSignature() throws Exception {
+        JSONArray signatures = JSONArray.parseArray("""
+                [{"id":102,"actionType":"SUBMIT","actorName":"同秒高ID",
+                "signedAt":"2026-07-22 10:20:00","selectedSignedAt":"2026-07-22 08:00:00",
+                "signatureDisplayAt":"2026-07-22 08:00:00","selectedTimeZone":"America/New_York",
+                "recordHashSnapshot":"record-hash-high"},
+                {"id":101,"actionType":"SUBMIT","actorName":"同秒低ID",
+                "signedAt":"2026-07-22 10:20:00","selectedSignedAt":"2026-07-22 08:30:00",
+                "signatureDisplayAt":"2026-07-22 08:30:00","selectedTimeZone":"Europe/London",
+                "recordHashSnapshot":"record-hash-low"},
+                {"id":100,"actionType":"SUBMIT","actorName":"业务时间较晚",
+                "signedAt":"2026-07-22 10:10:00","selectedSignedAt":"2026-07-22 14:00:00",
+                "signatureDisplayAt":"2026-07-22 14:00:00","selectedTimeZone":"Asia/Tokyo",
+                "recordHashSnapshot":"record-hash-earlier"}]
+                """);
+
+        byte[] bytes = MesProEdhrBatchArchivePrintablePdfRenderer.render(
+                printableManifest(signatures, "SUBMIT").toJSONString(),
+                "C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/seguisym.ttf");
+
+        try (PDDocument document = PDDocument.load(bytes)) {
+            String text = new PDFTextStripper().getText(document);
+            assertTrue(text.contains("签名人:同秒高ID"));
+            assertFalse(text.contains("签名人:同秒低ID"));
+            assertTrue(text.contains("时间:2026-07-22 10:20:00 (Asia/Shanghai)"));
+            assertFalse(text.contains("签名时间=2026-07-22 08:00:00"));
+            assertFalse(text.contains("签名时间=2026-07-22 14:00:00"));
+        }
+    }
+
+    @Test
+    void printableBatchArchiveRenderer_rejectsMissingOfficialSignedAtEvenWhenHistoricalTimesExist() {
+        JSONArray signatures = JSONArray.parseArray("""
+                [{"id":101,"actionType":"SUBMIT","actorName":"李提交",
+                "selectedSignedAt":"2026-07-22 09:00:00",
+                "signatureDisplayAt":"2026-07-22 09:00:00","selectedTimeZone":"Asia/Shanghai",
+                "recordHashSnapshot":"record-hash-submit"}]
+                """);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> MesProEdhrBatchArchivePrintablePdfRenderer.render(
+                        printableManifest(signatures, "SUBMIT").toJSONString(),
+                        "C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/seguisym.ttf"));
+
+        assertTrue(ex.getMessage().contains("signature time is required"));
+    }
+
+    @Test
     void printableBatchArchiveRenderer_rejectsSignatureWithoutActorNameInsteadOfPrintingUsername() {
         JSONObject layout = JSON.parseObject("""
                 {"rows":{"1":{"cells":{"1":{"text":"审核人","edhrSignature":{"enabled":true,"actionType":"FORM_REVIEW"}}}}},
@@ -451,6 +515,41 @@ class ExecutionArchiveRendererTest {
                 .generatedBy(8L)
                 .generatedAt(LocalDateTime.of(2026, 5, 24, 9, 30))
                 .build();
+    }
+
+    private JSONObject printableManifest(JSONArray signatureRecords, String actionType) {
+        JSONObject layout = JSON.parseObject("""
+                {"rows":{"1":{"cells":{"1":{"text":"提交人","edhrSignature":{"enabled":true,"actionType":"%s"}}}}},
+                "cols":{"1":{"width":180}}}
+                """.formatted(actionType));
+        JSONObject form = new JSONObject();
+        form.put("processName", "粗洗工序");
+        form.put("batchRecordReportName", "生产记录");
+        form.put("executionCode", "BRE-OFFICIAL-SIGNATURE-TIME");
+        form.put("submittedAt", "2026-07-22 10:30:00");
+        form.put("sheetLayoutJson", layout.toJSONString());
+        form.put("executionSnapshotJson", new JSONObject()
+                .fluentPut("layout", layout)
+                .fluentPut("fields", new JSONArray())
+                .toJSONString());
+        form.put("cellValuesJson", "[]");
+        form.put("signatureCellMarkers", new JSONArray().fluentAdd(new JSONObject()
+                .fluentPut("rowIndex", 1)
+                .fluentPut("columnIndex", 1)
+                .fluentPut("enabled", true)
+                .fluentPut("actionType", actionType)));
+        form.put("signatureRecords", signatureRecords);
+        return new JSONObject()
+                .fluentPut("schemaVersion", "EDHR_BATCH_PRINTABLE_ARCHIVE_V1")
+                .fluentPut("batchCode", "BATCH-OFFICIAL-SIGNATURE-TIME")
+                .fluentPut("routeName", "测试路线")
+                .fluentPut("routeCode", "RT-SIGN")
+                .fluentPut("generatedAt", "2026-07-22 10:30:00")
+                .fluentPut("aggregateHash", "archive-hash")
+                .fluentPut("bodyForms", new JSONArray().fluentAdd(form))
+                .fluentPut("appendixSpecialNodes", new JSONArray())
+                .fluentPut("dossierItems", new JSONArray())
+                .fluentPut("changeEvents", new JSONArray());
     }
 
     private byte[] firstBytes(byte[] content, int length) {

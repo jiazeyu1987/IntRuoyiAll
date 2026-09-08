@@ -963,6 +963,19 @@
 - Concurrency verification: 自动投影必须覆盖“另一 resolver 已完成”“管理员并发更正/改链”“同一关系出现无法解释的 CAS miss”三类分支，并用真实事务证明前两类不回滚 ACTIVE/正式指针且不重复审计，第三类仍显式失败。
 - Forbidden action: 禁止 catch 账本异常后继续标记发布成功，禁止把通知发送放进生效主事务，禁止用 mock TransactionTemplate 冒充数据库回滚证据，禁止用管理员权限或目录上下文扩大关联方名单。
 
+## 可信时间与正式签名时间边界门禁
+
+- Trigger: 电子签名允许填写 `selectedSignedAt`，审计页面显示 `signatureDisplayAt`，或 Runtime Control 生成正式服、审查服时间戳审查证据。
+- Preflight check: `signedAt` 必须由服务端生成并作为正式签名展示时间；`selectedSignedAt` 只能表示独立业务发生时间并保留时区和原因。可信时间检查必须读取受控 chrony 的选中源、Stratum、Last/RMS offset、Leap、系统同步状态、服务器 UTC 和数据库 UTC。测试阶段允许用空阈值明确停用 Last/RMS 数值超限判断；正式上线必须显式配置经批准的正数阈值。
+- Blocker: chrony 命令失败、无选中源、Leap 非 Normal、系统未同步、NTP 未激活、Stratum/UTC 证据缺失或无效时，检查必须为 BLOCKED/NO_GO。阈值为正数时 Last/RMS 超限必须阻断；阈值非空但无效或非正数必须 fail fast，不能当作停用。空阈值只停用数值超限判断，Last/RMS 仍必须采集和保存。
+- Verification: 后端测试分别覆盖签名展示不被业务时间覆盖、正式服/审查服固定目标、时间证据失败路径、巡检聚合、指定巡检三文件 ZIP、HTML 转义和 SHA-256；导出只读取已保存巡检 ID，不重新执行巡检。
+- Forbidden action: 禁止用 `selectedSignedAt`、`signatureDisplayAt` 旧值或客户端时间代替正式 `signedAt`；禁止导出时重新采集后覆盖历史巡检；禁止缺证据时返回默认成功。
+- Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
+- Remote collection extension: 可信时间脚本不得 source 远端整份 `.env`；数据库 UTC 应在数据库容器内使用容器已有凭据做只读查询，秘密不得进入命令输出。Windows OpenSSH 必须分离 stdout/stderr，只允许精确白名单内的已知关闭套接字诊断，其余 stderr、空 stdout 或非零退出均失败，并在抛错前完整脱敏密码、令牌和密钥赋值。
+- Legacy host extension: `timedatectl` 新旧字段同时存在时，所有出现的同步/NTP 信号都必须为肯定值；旧版 `NTP enabled`、`NTP synchronized` 可规范化为当前状态，但任一否定或未知值仍必须阻断，不能放宽 chrony、UTC 或偏差阈值门禁。
+- Evidence export extension: 时间戳证据包不能只依赖巡检整体 PASS/NO_GO。导出前必须证明已保存巡检中恰好包含正式服和审查服两项规范可信时间检查，每项都有 `trustedTime` 且环境、固定主机身份匹配；缺失、重复、错配必须拒绝导出。真实 BLOCKED 采集证据可导出，但空证据或旧巡检不得包装成可信时间报告。
+- Stratum extension: NTP Stratum 必须按同步合同校验为 `1..15`；`0`、`16`、缺失或非数字都应 BLOCKED，不能只检查字段存在。
+
 ## 站内信领域幂等必须延伸到平台消息门禁
 
 - Trigger: 业务 outbox 调用站内信 API、并发重试、消息已写入但领域 ACK 前进程中断、模板禁用返回空消息 ID、要求同一业务事件每个接收人最多一封。

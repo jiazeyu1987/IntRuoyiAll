@@ -34,7 +34,7 @@ public enum RuntimeControlOperationAction {
             "script/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("prod", reqVO, true)),
 
-    PROMOTE_BACKUP("promote-backup", "上线备份服务器", "backup", true,
+    PROMOTE_BACKUP("promote-backup", "上线审查服", "backup", true,
             "script/deploy/publish-int-ruoyi.ps1",
             reqVO -> deployReleaseArguments("backup", reqVO, true)),
 

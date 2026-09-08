@@ -185,6 +185,7 @@ import {
   type TemplateSimulationComponentKind
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
 import { formatEdhrDateTime, toEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import { selectLatestSignature } from '@/views/mes/pro/edhr/signatureSelection'
 import EdhrTemplateFitViewport from './EdhrTemplateFitViewport.vue'
 
 defineOptions({ name: 'EdhrExecutionReadonlyForm' })
@@ -849,10 +850,10 @@ const resolveSignatureText = (marker: EdhrSignatureCellMarker | RawSignatureCell
 
 const findSignatureRecord = (marker: EdhrSignatureCellMarker | RawSignatureCellMarker | undefined) => {
   if (!marker?.actionType) return undefined
-  const matched = [...(props.signatureRecords || [])]
-    .filter((record) => record.actionType === marker.actionType)
-    .sort((left, right) => toTime(left.signedAt) - toTime(right.signedAt))
-  return matched[matched.length - 1]
+  const matched = (props.signatureRecords || []).filter(
+    (record) => record.actionType === marker.actionType
+  )
+  return selectLatestSignature(matched, (record) => toTime(record.signedAt))
 }
 
 const formatSignatureTime = (value: string | undefined) => {
@@ -860,7 +861,7 @@ const formatSignatureTime = (value: string | undefined) => {
 }
 
 const toTime = (value: string | undefined) => {
-  return toEdhrDateTime(value)?.getTime() ?? 0
+  return toEdhrDateTime(value)?.getTime() ?? Number.NaN
 }
 
 const stringifyValue = (value: unknown) => {

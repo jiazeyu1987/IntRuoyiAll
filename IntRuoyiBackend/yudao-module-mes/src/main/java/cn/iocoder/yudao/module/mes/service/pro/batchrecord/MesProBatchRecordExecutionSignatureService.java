@@ -417,7 +417,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 signature.getSignatureColumnIndex(), signature.getReviewSourceType(), signature.getReviewSourceId(),
                 signature.getReviewSourceName(), signature.getApprovalResult(), signature.getReason(),
                 signature.getFieldAuditRevision(), signature.getFieldAuditHeadHash(), signature.getCellValuesHash(),
-                signature.getSignatureChallengeHash());
+                signature.getSignatureChallengeHash(), signatureTimeEvidence);
         return new MesProBatchRecordExecutionFieldAuditSignatureResult()
                 .setSignatureId(unifiedSignature.signatureId())
                 .setActorId(actorId)
@@ -648,7 +648,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 executionId, processInstanceId, bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey,
                 signatureRowIndex, signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName,
                 approvalResult, StrUtil.blankToDefault(StrUtil.trim(reason), comment), fieldAuditRevision,
-                fieldAuditHeadHash, cellValuesHash, null).signatureId();
+                fieldAuditHeadHash, cellValuesHash, null, signatureTimeEvidence).signatureId();
     }
 
     private ElectronicSignatureResult signUnifiedSignature(Long actorId, String password, String comment,
@@ -660,7 +660,8 @@ public class MesProBatchRecordExecutionSignatureService {
                                                            Long reviewSourceId, String reviewSourceName,
                                                            String approvalResult, String reason,
                                                            Long fieldAuditRevision, String fieldAuditHeadHash,
-                                                           String cellValuesHash, String signatureChallengeHash) {
+                                                           String cellValuesHash, String signatureChallengeHash,
+                                                           SignatureTimeEvidence signatureTimeEvidence) {
         String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(executionId, actionType,
                 processInstanceId, bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey,
                 signatureRowIndex, signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName,
@@ -674,8 +675,18 @@ public class MesProBatchRecordExecutionSignatureService {
                 password,
                 StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.blankToDefault(StrUtil.trim(comment), actionType)),
                 "MES|" + actorId + "|" + actionType + "|" + subjectId,
-                null,
-                null));
+                businessOccurredAt(signatureTimeEvidence),
+                businessTimeZone(signatureTimeEvidence)));
+    }
+
+    private String businessOccurredAt(SignatureTimeEvidence signatureTimeEvidence) {
+        return signatureTimeEvidence == null || signatureTimeEvidence.selectedSignedAt() == null
+                ? null : signatureTimeEvidence.selectedSignedAt().toString();
+    }
+
+    private String businessTimeZone(SignatureTimeEvidence signatureTimeEvidence) {
+        return signatureTimeEvidence == null || signatureTimeEvidence.selectedSignedAt() == null
+                ? null : signatureTimeEvidence.selectedTimeZone();
     }
 
     private Long recordProductionSubmitSignatureForEmployeeProfile(Long actorId, String password, String comment) {
@@ -806,8 +817,7 @@ public class MesProBatchRecordExecutionSignatureService {
         LocalDateTime selectedSignedAt = command == null ? null : command.getSelectedSignedAt();
         String signatureTimeMode = selectedSignedAt == null
                 ? SIGNATURE_TIME_MODE_SERVER : SIGNATURE_TIME_MODE_USER_SELECTED;
-        LocalDateTime displayAt = selectedSignedAt == null
-                ? signedAt : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS);
+        LocalDateTime displayAt = signedAt;
         String selectedTimeZone = DEFAULT_SIGNATURE_TIME_ZONE;
         String selectedTimeReason = "";
         if (selectedSignedAt != null) {

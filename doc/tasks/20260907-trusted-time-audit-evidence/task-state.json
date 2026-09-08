@@ -1,0 +1,478 @@
+{
+  "schema_version": 2,
+  "task_id": "20260907-trusted-time-audit-evidence",
+  "mode": "full",
+  "status": "completed",
+  "current_phase": null,
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "签名时间边界修复",
+      "objective": "正式签名展示时间固定使用服务器 `signedAt`，用户选择时间仅作为业务发生时间。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureServiceTest.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/ApprovalDetailPage.vue`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/SignaturePage.vue`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/signatureTime.ts`"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "服务端签名展示时间修复及回归测试。",
+        "用户可见“业务发生时间”文案与正式签名展示读取修复。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：正式签名展示时间固定使用服务器 `signedAt`，用户选择时间仅作为业务发生时间。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "交付物已落地：服务端签名展示时间修复及回归测试。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "交付物已落地：用户可见“业务发生时间”文案与正式签名展示读取修复。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P1-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "用户已明确授权本任务使用执行子 Agent 和独立测试子 Agent。",
+        "P1 独立测试 PASS：后端 13/13 + 2/2，前端静态合同 8/8，diff check PASS。"
+      ],
+      "last_reviewed_at": "2026-09-07T10:03:42+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "时间巡检与证据导出",
+      "objective": "复用 Runtime Control 保存正式服、审查服时间检查，并从指定巡检生成固定三文件 ZIP。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/runtimecontrol/`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiBackend/script/deploy/`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md`"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "时间状态解析与巡检必检项。",
+        "指定巡检报告的时间戳证据 ZIP 下载接口。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：复用 Runtime Control 保存正式服、审查服时间检查，并从指定巡检生成固定三文件 ZIP。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md",
+            "real-readonly-prod: show-int-ruoyi-trusted-time.ps1 exit 127 at .env JAVA_OPTS",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "交付物已落地：时间状态解析与巡检必检项。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md",
+            "real-readonly-prod: show-int-ruoyi-trusted-time.ps1 exit 127 at .env JAVA_OPTS",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "交付物已落地：指定巡检报告的时间戳证据 ZIP 下载接口。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md",
+            "real-readonly-prod: show-int-ruoyi-trusted-time.ps1 exit 127 at .env JAVA_OPTS",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P2-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md",
+            "real-readonly-prod: show-int-ruoyi-trusted-time.ps1 exit 127 at .env JAVA_OPTS",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md",
+        "real-readonly-prod: show-int-ruoyi-trusted-time.ps1 exit 127 at .env JAVA_OPTS",
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P1 独立测试通过，开始 P2 时间巡检与证据导出。",
+        "独立测试 FAIL：RMS offset 未进入失败关闭；同步/NTP/Stratum/UTC/HTML转义/不存在巡检ID等路径缺少测试；执行证据声明过宽。",
+        "P2 修订后独立测试 PASS：31/31，RMS及全部约定失败路径、ZIP合同、AST、证据校验、diff check通过。",
+        "真实正式服只读 RED：source .env 将 JAVA_OPTS 拆成命令；必须改为读取 MySQL 容器自身环境变量，禁止解析整份 .env。",
+        "独立安全测试 FAIL：非零SSH诊断可能泄露 MYSQL_ROOT_PASSWORD/MYSQL_PWD 及带空格引号秘密；修复脱敏后才能远程复测。",
+        "P2 真实环境三轮修订完成；本地39项及独立安全矩阵通过；正式服/审查服只读采集均成功。"
+      ],
+      "last_reviewed_at": "2026-09-07T15:09:03+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "运行控制台最小 UI",
+      "objective": "在现有运行控制台展示时间检查，并允许导出当前已保存巡检。",
+      "owned_paths": [
+        "`IntRuoyiFronted/src/api/infra/runtimeControl/index.ts`",
+        "`IntRuoyiFronted/src/views/infra/runtime-control/index.vue`",
+        "`IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md`"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "时间检查展示。",
+        "“导出时间戳证据”按钮及失败提示。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：在现有运行控制台展示时间检查，并允许导出当前已保存巡检。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "交付物已落地：时间检查展示。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "交付物已落地：“导出时间戳证据”按钮及失败提示。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md"
+          ]
+        },
+        {
+          "ac_id": "P3-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P2 独立复验通过，开始 P3 运行控制台最小 UI。",
+        "独立测试 FAIL：审查环境口径不统一；静态合同未完整锁定导出不触发巡检；node_modules缺失导致类型检查未执行。",
+        "P3 修订后独立测试 PASS：ts:check、静态合同、证据校验、口径、权限和diff check通过。"
+      ],
+      "last_reviewed_at": "2026-09-07T11:59:13+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "回归与环境闭环",
+      "objective": "完成任务定向回归与端口门禁，并在获得授权后完成真实环境验证。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/framework/runtimecontrol/config/RuntimeControlProperties.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeControlOperationAction.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeRemoteRootDiskServiceImpl.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/runtimecontrol/vo/RuntimeControlRemoteRootCleanupReqVO.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiFronted/src/views/infra/runtime-control/components/shared.ts`",
+        "`IntRuoyiFronted/src/views/infra/runtime-control/index.vue`",
+        "`IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "定向回归与分支门禁证据。",
+        "经授权的真实环境/E2E证据或明确未授权边界。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：完成任务定向回归与端口门禁，并在获得授权后完成真实环境验证。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc\\tasks\\20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "交付物已落地：定向回归与分支门禁证据。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc\\tasks\\20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "交付物已落地：经授权的真实环境/E2E证据或明确未授权边界。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc\\tasks\\20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P4-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+            "doc\\tasks\\20260907-trusted-time-audit-evidence/test-report.md",
+            "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md",
+        "doc\\tasks\\20260907-trusted-time-audit-evidence/test-report.md",
+        "doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P3 独立复验通过；P4 仅执行本地定向回归和端口门禁，未获授权的远程/E2E如实记录。",
+        "P4 独立本地开发验证 PASS；远程服务器、服务启动和真实E2E未获授权，按计划记NOT_RUN且不冒充环境闭环。",
+        "用户已授权继续完成，开始应用部署、阈值配置和真实页面验证；生产级动作仍遵守显式门禁。",
+        "真实页面独立测试发现旧探针状态显示 Backup，与统一审查服口径冲突；进入修订。",
+        "开始修复运行控制台旧称并执行严格TDD。",
+        "独立E2E发现最近操作历史旧称仍直接展示，且本地启动参数未生效；继续修订。",
+        "开始历史记录展示层术语修订；运行参数由主Agent按标准脚本纠正。",
+        "P4 最终独立复验 PASS：40/40、前端合同与类型检查、真实页面巡检ID 3、ZIP和全页术语均通过。"
+      ],
+      "last_reviewed_at": "2026-09-08T02:06:43+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "测试阶段停用偏差阈值",
+      "objective": "未配置偏差阈值时仍完成可信时间采集和证据导出，不因 Last/RMS 数值大小阻断；正式环境配置正数阈值后恢复超限阻断。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeTrustedTimeCollectorImpl.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeTrustedTimeParser.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeCollectorImplTest.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeParserTest.java`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeOpsTrustedTimeDeploymentScriptContractTest.java`",
+        "`IntRuoyiBackend/script/deploy/int-ruoyi-test/docker-compose.yml`",
+        "`IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "可选偏差阈值，未配置时只停用数值超限判定。",
+        "现有“导出时间戳证据”按钮回归证据。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：未配置偏差阈值时仍完成可信时间采集和证据导出，不因 Last/RMS 数值大小阻断；正式环境配置正数阈值后恢复超限阻断。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "交付物已落地：可选偏差阈值，未配置时只停用数值超限判定。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "交付物已落地：现有“导出时间戳证据”按钮回归证据。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        },
+        {
+          "ac_id": "P5-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "用户要求测试阶段停用100ms偏差限制；现有导出按钮复用并回归。",
+        "P5独立验证PASS：32/32、36/36、前端合同/类型检查、真实巡检ID4和ZIP均通过。"
+      ],
+      "last_reviewed_at": "2026-09-08T03:07:17+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P6",
+      "title": "静态分析与修复放行",
+      "objective": "独立审查 P1-P5 当前实现的逻辑、安全、易用性和 UI 静态合同，修复阻塞问题后取得复审放行。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/runtimecontrol/`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiBackend/script/deploy/`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchArchivePrintablePdfRenderer.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/PdfExecutionArchiveRenderer.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/ExcelExecutionArchiveRenderer.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/`",
+        "`IntRuoyiFronted/src/api/infra/runtimeControl/index.ts`",
+        "`IntRuoyiFronted/src/views/infra/runtime-control/`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`",
+        "`IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/signatureSelection.ts`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue`",
+        "`IntRuoyiFronted/tests/e2e/edhr-latest-signature-selection-static.spec.js`",
+        "`.review-fix-loop/runs/`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`"
+      ],
+      "dependencies": [
+        "P5"
+      ],
+      "deliverables": [
+        "独立 reviewer 结构化放行单。",
+        "阻塞问题的 BDD/RED/GREEN 修复证据，或无阻塞问题的明确 PASS。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P6-AC1",
+          "text": "实现当前里程碑目标：独立审查 P1-P5 当前实现的逻辑、安全、易用性和 UI 静态合同，修复阻塞问题后取得复审放行。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        },
+        {
+          "ac_id": "P6-AC2",
+          "text": "交付物已落地：独立 reviewer 结构化放行单。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        },
+        {
+          "ac_id": "P6-AC3",
+          "text": "交付物已落地：阻塞问题的 BDD/RED/GREEN 修复证据，或无阻塞问题的明确 PASS。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        },
+        {
+          "ac_id": "P6-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "开始静态代码分析与review-fix-loop放行。"
+      ],
+      "last_reviewed_at": "2026-09-08T06:25:19+00:00",
+      "status": "completed"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "passed",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "executor_loops": 9,
+    "test_loops": 5
+  },
+  "created_at": null,
+  "updated_at": "2026-09-08T06:31:51+00:00",
+  "branch": null,
+  "baseline_revision": null,
+  "workspace_root": "D:\\IntRuoyiWorktree\\timestamp_20260907",
+  "tasks_root": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks",
+  "task_dir": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks\\20260907-trusted-time-audit-evidence",
+  "goal": null,
+  "artifacts": {
+    "prd": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks\\20260907-trusted-time-audit-evidence\\prd.md",
+    "test_plan": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks\\20260907-trusted-time-audit-evidence\\test-plan.md",
+    "task_state": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks\\20260907-trusted-time-audit-evidence\\task-state.json",
+    "execution_log": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks\\20260907-trusted-time-audit-evidence\\execution-log.md",
+    "test_report": "D:\\IntRuoyiWorktree\\timestamp_20260907\\doc\\tasks\\20260907-trusted-time-audit-evidence\\test-report.md"
+  }
+}

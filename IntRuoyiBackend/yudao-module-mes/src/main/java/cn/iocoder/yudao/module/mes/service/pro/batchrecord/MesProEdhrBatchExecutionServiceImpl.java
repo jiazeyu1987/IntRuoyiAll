@@ -8672,19 +8672,18 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         LocalDateTime selectedSignedAt = signatureTime == null ? null : signatureTime.getSelectedSignedAt();
         String signatureTimeMode = selectedSignedAt == null
                 ? SIGNATURE_TIME_MODE_SERVER : SIGNATURE_TIME_MODE_USER_SELECTED;
-        LocalDateTime displayAt = selectedSignedAt == null
-                ? signedAt : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS);
+        LocalDateTime displayAt = signedAt;
         String selectedTimeZone = DEFAULT_SIGNATURE_TIME_ZONE;
         String selectedTimeReason = "";
         if (selectedSignedAt != null) {
             selectedTimeZone = StrUtil.trim(signatureTime.getSelectedTimeZone());
             selectedTimeReason = StrUtil.trim(signatureTime.getSelectedTimeReason());
             if (StrUtil.isBlank(selectedTimeZone) || StrUtil.isBlank(selectedTimeReason)) {
-                throw exception(BAD_REQUEST, "选择签名时间时必须填写时区和原因");
+                throw exception(BAD_REQUEST, "填写业务发生时间时必须填写时区和原因");
             }
         } else if (signatureTime != null && (StrUtil.isNotBlank(signatureTime.getSelectedTimeZone())
                 || StrUtil.isNotBlank(signatureTime.getSelectedTimeReason()))) {
-            throw exception(BAD_REQUEST, "选择签名时间时必须同时填写时间、时区和原因");
+            throw exception(BAD_REQUEST, "业务发生时间、时区和原因必须同时填写");
         }
         String auditHash = DigestUtil.sha256Hex(String.join("|",
                 SIGNATURE_TIME_POLICY_VERSION,

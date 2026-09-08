@@ -38,13 +38,13 @@ export const buildSignatureTimePayload = (
     return undefined
   }
   if (selectedTimeReason && !selectedSignedAt) {
-    throw new Error('请选择签名时间。')
+    throw new Error('请选择业务发生时间。')
   }
   if (!selectedTimeZone) {
-    throw new Error('签名时区不能为空。')
+    throw new Error('业务发生时区不能为空。')
   }
   if (selectedSignedAt && !selectedTimeReason) {
-    throw new Error('签名时间原因不能为空。')
+    throw new Error('业务发生时间原因不能为空。')
   }
   return {
     selectedSignedAt: normalizeSelectedSignedAt(selectedSignedAt),

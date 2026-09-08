@@ -7,7 +7,7 @@
           <span>Local</span>
           <span>Test</span>
           <span>Production</span>
-          <span>Backup</span>
+          <span>审查服</span>
         </div>
       </div>
       <div class="runtime-actions">
@@ -179,6 +179,100 @@
       <OpsLogDiskRiskPanel :capacity="capacityStatus" :loading="opsLoading.capacity" />
     </div>
 
+    <div class="trusted-time-panel" v-loading="opsLoading.inspection">
+      <div class="trusted-time-panel__head">
+        <div>
+          <div class="panel-title">可信时间证据</div>
+          <div class="trusted-time-panel__meta">
+            <span>巡检编号：{{ inspectionRun?.id || '-' }}</span>
+            <span>完成时间：{{ formatRuntimeDate(inspectionRun?.completedAt) }}</span>
+            <el-tag :type="statusTagType(inspectionRun?.status)">
+              {{ statusText(inspectionRun?.status) }}
+            </el-tag>
+          </div>
+        </div>
+        <div class="trusted-time-panel__actions">
+          <el-button
+            type="primary"
+            plain
+            :disabled="!canOperate"
+            :loading="opsLoading.inspection"
+            v-hasPermi="['infra:runtime-control:operate']"
+            @click="runInspection"
+          >
+            <Icon icon="ep:circle-check" class="mr-5px" />
+            执行巡检
+          </el-button>
+          <el-button
+            type="primary"
+            :disabled="!inspectionRun?.id || timeEvidenceDownloading"
+            :loading="timeEvidenceDownloading"
+            @click="exportTimeEvidence"
+          >
+            <Icon icon="ep:download" class="mr-5px" />
+            导出时间戳证据
+          </el-button>
+        </div>
+      </div>
+      <el-alert
+        v-if="!inspectionRun"
+        title="尚未执行巡检，暂无可导出的时间戳证据"
+        type="info"
+        :closable="false"
+        show-icon
+      />
+      <el-table
+        v-else
+        :data="trustedTimeChecks"
+        empty-text="当前巡检没有可信时间检查项"
+        class="trusted-time-table"
+      >
+        <el-table-column label="环境" width="100">
+          <template #default="{ row: check }">
+            {{ trustedTimeEnvironmentText(check.trustedTime?.targetEnvironment) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="节点" min-width="125">
+          <template #default="{ row: check }">
+            {{ check.trustedTime?.nodeName || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="时间源" min-width="165" show-overflow-tooltip>
+          <template #default="{ row: check }">
+            {{ check.trustedTime?.selectedSource || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Last 偏差" width="120">
+          <template #default="{ row: check }">
+            {{ offsetMillisText(check.trustedTime?.lastOffsetMillis) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="RMS 偏差" width="120">
+          <template #default="{ row: check }">
+            {{ offsetMillisText(check.trustedTime?.rmsOffsetMillis) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Leap" width="120">
+          <template #default="{ row: check }">
+            {{ check.trustedTime?.leapStatus || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="检查时间" width="180">
+          <template #default="{ row: check }">
+            {{ formatRuntimeDate(check.trustedTime?.checkedAtUtc) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row: check }">
+            <el-tag :type="statusTagType(check.status)">{{ statusText(check.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="说明" min-width="220" show-overflow-tooltip>
+          <template #default="{ row: check }">{{ check.reason || check.evidence || '-' }}</template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <div class="remote-root-panel">
       <div class="remote-root-panel__head">
         <div>
@@ -317,7 +411,9 @@
             {{ operationRequestedAtText(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="环境" prop="environment" width="90" />
+        <el-table-column label="环境" width="90">
+          <template #default="{ row }">{{ operationHistoryEnvironmentText(row.environment) }}</template>
+        </el-table-column>
         <el-table-column label="动作" min-width="140">
           <template #default="{ row }">
             {{ operationActionText(row) }}
@@ -338,8 +434,12 @@
             <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="原因" prop="reason" min-width="180" show-overflow-tooltip />
-        <el-table-column label="摘要" prop="summary" min-width="180" show-overflow-tooltip />
+        <el-table-column label="原因" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ operationReasonText(row) }}</template>
+        </el-table-column>
+        <el-table-column label="摘要" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ operationSummaryText(row) }}</template>
+        </el-table-column>
         <el-table-column label="日志" width="90" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" :disabled="!row.resultLogPath" @click="openLog(row)">
@@ -644,6 +744,7 @@ import type {
 import { formatDate } from '@/utils/formatTime'
 import { checkPermi } from '@/utils/permission'
 import { useMessage } from '@/hooks/web/useMessage'
+import download from '@/utils/download'
 import OpsCandidatePicker from './components/OpsCandidatePicker.vue'
 import OpsIncidentDrawer from './components/OpsIncidentDrawer.vue'
 import OpsLogDiskRiskPanel from './components/OpsLogDiskRiskPanel.vue'
@@ -677,8 +778,10 @@ const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
 const remoteRootTargetEnvironment = ref<RootDiskTargetEnvironment>('test')
 const remoteRootDiskStatus = ref<RuntimeControlApi.RuntimeControlRemoteRootDiskStatusVO>()
 const remoteRootCleanupResult = ref<RuntimeControlApi.RuntimeControlRemoteRootCleanupVO>()
+const inspectionRun = ref<RuntimeControlApi.RuntimeControlInspectionRunVO>()
 const incidentDrawerVisible = ref(false)
 const remoteRootCleanupSubmitting = ref(false)
+const timeEvidenceDownloading = ref(false)
 let pollingTimer: number | undefined
 let logPollingTimer: number | undefined
 
@@ -691,6 +794,7 @@ const opsLoading = reactive({
   probes: false,
   capacity: false,
   remoteRootDisk: false,
+  inspection: false,
   incidents: false
 })
 
@@ -698,7 +802,7 @@ const displayEnvironments = [
   { key: 'local', label: 'Local' },
   { key: 'test', label: 'Test' },
   { key: 'prod', label: 'Production' },
-  { key: 'backup', label: 'Backup' }
+  { key: 'backup', label: '审查服' }
 ]
 
 const displayComponentRows = [
@@ -715,7 +819,7 @@ const operationActions = [
   { action: 'apply-test-db-sql', label: '测试服数据库快应用', icon: 'ep:coin', type: 'warning' },
   { action: 'mark-release-tested', label: '标记测试通过', icon: 'ep:circle-check', type: 'success' },
   { action: 'promote-prod', label: '上线已验证发布包', icon: 'ep:promotion', type: 'warning' },
-  { action: 'promote-backup', label: '上线备份服务器', icon: 'ep:connection', type: 'warning' },
+  { action: 'promote-backup', label: '上线审查服', icon: 'ep:connection', type: 'warning' },
   { action: 'backup-now', label: '立即备份', icon: 'ep:folder-checked', type: 'success' },
   { action: 'rehearsal', label: '恢复演练', icon: 'ep:video-play', type: 'warning' },
   { action: 'rollback-app', label: '回滚版本', icon: 'ep:refresh-left', type: 'warning' },
@@ -734,16 +838,16 @@ const backupTargetEnvironmentOptions = [
 ] satisfies Array<{ label: string; value: OperationTargetEnvironment }>
 const restoreTargetEnvironmentOptions = [
   { label: '测试服', value: 'test' },
-  { label: '备份服务器', value: 'backup' }
+  { label: '审查服', value: 'backup' }
 ] satisfies Array<{ label: string; value: OperationTargetEnvironment }>
 const rollbackTargetEnvironmentOptions = [
   { label: '测试服', value: 'test' },
-  { label: '备份服务器', value: 'backup' }
+  { label: '审查服', value: 'backup' }
 ] satisfies Array<{ label: string; value: OperationTargetEnvironment }>
 const rootDiskTargetOptions = [
   { label: '测试服', value: 'test', host: '172.30.30.58' },
   { label: '正式服', value: 'prod', host: '172.30.30.57' },
-  { label: '备份服务器', value: 'backup', host: '172.30.30.59' }
+  { label: '审查服', value: 'backup', host: '172.30.30.59' }
 ] satisfies Array<{ label: string; value: RootDiskTargetEnvironment; host: string }>
 
 const padDatePart = (value: number) => String(value).padStart(2, '0')
@@ -827,6 +931,25 @@ const canOperate = computed(() => checkPermi(['infra:runtime-control:operate']))
 const selectedRootDiskTarget = computed(() =>
   rootDiskTargetOptions.find((item) => item.value === remoteRootTargetEnvironment.value)
 )
+const trustedTimeChecks = computed(() =>
+  (inspectionRun.value?.checks || []).filter((check) => Boolean(check.trustedTime))
+)
+
+const trustedTimeEnvironmentLabels: Record<
+  RuntimeControlApi.RuntimeControlTrustedTimeVO['targetEnvironment'],
+  string
+> = {
+  prod: '正式环境',
+  backup: '审查服'
+}
+
+const trustedTimeEnvironmentText = (
+  environment?: RuntimeControlApi.RuntimeControlTrustedTimeVO['targetEnvironment']
+) => (environment ? trustedTimeEnvironmentLabels[environment] : '-')
+
+const offsetMillisText = (value?: number) => {
+  return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(3)} ms` : '-'
+}
 
 const operationBlockReason = computed(() => {
   return (
@@ -959,6 +1082,35 @@ const loadFoolproofData = async () => {
     loadRemoteRootDiskStatus(),
     loadIncidentsPage()
   ])
+}
+
+const runInspection = async () => {
+  opsLoading.inspection = true
+  try {
+    inspectionRun.value = await RuntimeControlApi.runRuntimeControlInspection()
+    message.success('巡检完成，时间戳证据已保存')
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    opsLoading.inspection = false
+  }
+}
+
+const exportTimeEvidence = async () => {
+  const inspectionId = inspectionRun.value?.id
+  if (!inspectionId) {
+    message.error('当前没有已保存的巡检，无法导出时间戳证据')
+    return
+  }
+  timeEvidenceDownloading.value = true
+  try {
+    const data = await RuntimeControlApi.downloadRuntimeControlTimeEvidence(inspectionId)
+    download.zip(data, `可信时间证据_巡检${inspectionId}.zip`)
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    timeEvidenceDownloading.value = false
+  }
 }
 
 const loadOwnerMatrix = async () => {
@@ -1108,7 +1260,7 @@ const submitRemoteRootCleanup = async () => {
     remoteRootCleanupRequiresProdConfirm(remoteRootTargetEnvironment.value) &&
     remoteRootCleanupDialog.prodConfirmText !== 'PROD'
   ) {
-    message.warning('正式服/备用服务器清理必须输入 PROD')
+    message.warning('正式服/审查服清理必须输入 PROD')
     return
   }
   remoteRootCleanupSubmitting.value = true
@@ -1472,20 +1624,37 @@ const operationExpectedResultText = (action: string) => {
     'apply-test-db-sql': '只应用明确 SQL，不同步数据库整库、MinIO 或发布包状态。',
     'mark-release-tested': '只标记当前测试服正在运行的 releaseTag，并绑定已验证的恢复集候选。',
     'promote-prod': '上线已测试通过的发布包，并记录正式服发布历史。',
-    'promote-backup': '上线已测试通过的发布包，并记录备用服务器发布历史。',
+    'promote-backup': '上线已测试通过的发布包，并记录审查服发布历史。',
     'backup-now': `${operationTargetEnvironmentText(operationDialog.targetEnvironment)}生成真实备份点；备份只进入备份点列表。`,
     rehearsal:
-      '在测试服恢复演练槽位验证所选恢复集，并写回演练报告；不覆盖当前运行中的测试服、备份服务器或正式服务器数据。',
+      '在测试服恢复演练槽位验证所选恢复集，并写回演练报告；不覆盖当前运行中的测试服、审查服或正式服务器数据。',
     'rollback-app':
-      '兼容性成立后只回滚程序；只回滚应用版本，只覆盖所选测试服或备份服务器应用版本，不恢复数据库、MinIO、Redis、业务文件或配置，禁止影响正式服务器程序和数据。',
+      '兼容性成立后只回滚程序；只回滚应用版本，只覆盖所选测试服或审查服应用版本，不恢复数据库、MinIO、Redis、业务文件或配置，禁止影响正式服务器程序和数据。',
     'restore-data':
-      '恢复同一恢复集的 MySQL / MinIO / 文件对象；程序版本指纹、Redis 策略和配置清单仅作为恢复集证据展示，不会自动切换程序版本、执行 Redis 处理或覆盖目标运行配置；恢复数据只覆盖所选测试服或备份服务器，禁止影响正式服务器程序和数据。'
+      '恢复同一恢复集的 MySQL / MinIO / 文件对象；程序版本指纹、Redis 策略和配置清单仅作为恢复集证据展示，不会自动切换程序版本、执行 Redis 处理或覆盖目标运行配置；恢复数据只覆盖所选测试服或审查服，禁止影响正式服务器程序和数据。'
   }
   return texts[action] || ''
 }
 
+const normalizeAuditServerDisplayText = (value?: string) => {
+  const source = String(value || '')
+  return source
+    .replace(/备份服务器/g, '审查服务器')
+    .replace(/备用服务器/g, '审查服务器')
+    .replace(/备份服/g, '审查服')
+    .replace(/(^|[^\\/])Backup(?![\\/])/gi, '$1审查服')
+}
+
+const operationHistoryEnvironmentText = (environment?: string) => {
+  return normalizeAuditServerDisplayText(environment ? environmentLabel(environment) : '-')
+}
+
 const operationActionText = (operation: RuntimeControlOperationVO) => {
-  return operation.actionLabel || operation.action || '重启'
+  const actionCode = operation.action?.trim() || ''
+  if (operationActions.some((item) => item.action === actionCode)) {
+    return operationActionLabel(actionCode)
+  }
+  return normalizeAuditServerDisplayText(operation.actionLabel || actionCode || '重启')
 }
 
 function operationActionLabel(action: string) {
@@ -1500,8 +1669,16 @@ const operationPublishScopeText = (operation: RuntimeControlOperationVO) => {
 }
 
 const operationTargetText = (operation: RuntimeControlOperationVO) => {
-  if (operation.component === 'ops') return operation.environment
+  if (operation.component === 'ops') return operationHistoryEnvironmentText(operation.environment)
   return componentLabel(operation.component)
+}
+
+const operationReasonText = (operation: RuntimeControlOperationVO) => {
+  return normalizeAuditServerDisplayText(operation.reason) || '-'
+}
+
+const operationSummaryText = (operation: RuntimeControlOperationVO) => {
+  return normalizeAuditServerDisplayText(operation.summary) || '-'
 }
 
 const operationRequestedAtText = (operation: RuntimeControlOperationVO) => {
@@ -1926,7 +2103,7 @@ const statusText = (status?: string) => {
 
 const lastOperationText = (operation?: RuntimeControlOperationVO) => {
   if (!operation) return '最近操作：-'
-  return `最近操作：${statusText(operation.status)} ${operation.summary || ''}`
+  return `最近操作：${statusText(operation.status)} ${operationSummaryText(operation)}`
 }
 
 const errorMessage = (error: unknown) => {
@@ -2269,6 +2446,39 @@ watch(
   margin-top: 14px;
 }
 
+.trusted-time-panel {
+  margin-top: 14px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+}
+
+.trusted-time-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.trusted-time-panel__meta,
+.trusted-time-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.trusted-time-panel__meta {
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.trusted-time-table {
+  width: 100%;
+}
+
 .operation-panel {
   margin-top: 14px;
   padding: 12px;
@@ -2440,6 +2650,14 @@ watch(
 
   .remote-root-panel__head {
     flex-direction: column;
+  }
+
+  .trusted-time-panel__head {
+    flex-direction: column;
+  }
+
+  .trusted-time-panel__actions {
+    width: 100%;
   }
 
   .remote-root-panel__actions {

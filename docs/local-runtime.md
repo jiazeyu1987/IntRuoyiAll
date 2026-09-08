@@ -304,3 +304,4 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 前端启动后验证 `http://127.0.0.1:8081/`。
 - 后端启动后验证 `http://127.0.0.1:48081/actuator/health`。
 - 分支启动后验证对应 profile 的前端入口和后端健康检查，例如 `int_batch` 使用 `http://127.0.0.1:8041/` 与 `http://127.0.0.1:48041/actuator/health`。
+- 分支后端需要覆盖 Spring 参数时必须使用 `start-branch-backend.ps1 -ExtraArgs @('...')`；启动后除 health 外，还要核对监听 PID 的真实命令行包含任务 `repo-root/state-dir` 等关键参数。参数名写错但 PowerShell 未阻断、或只看到 health `UP`，都不能作为目标功能已加载的证据。

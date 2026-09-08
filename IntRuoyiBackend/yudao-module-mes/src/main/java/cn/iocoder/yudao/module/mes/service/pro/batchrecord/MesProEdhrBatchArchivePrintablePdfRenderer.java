@@ -46,6 +46,8 @@ import java.util.Set;
 
 final class MesProEdhrBatchArchivePrintablePdfRenderer {
 
+    private static final String OFFICIAL_SIGNATURE_TIME_ZONE =
+            MesProBatchRecordExecutionSignatureService.DEFAULT_SIGNATURE_TIME_ZONE;
     private static final PDRectangle PAGE_SIZE = PDRectangle.A4;
     private static final float MARGIN = 36F;
     private static final float TITLE_FONT_SIZE = 16F;
@@ -775,20 +777,12 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     }
 
     private static String formatSignatureDateTime(JSONObject signatureRecord) {
-        String formatted = formatDateTime(firstNonBlank(
-                signatureRecord.getString("signatureDisplayAt"),
-                signatureRecord.getString("selectedSignedAt"),
-                signatureRecord.getString("signedAt")));
-        String timeZone = StrUtil.trim(signatureRecord.getString("selectedTimeZone"));
+        String formatted = formatDateTime(signatureRecord.getString("signedAt"));
         if ("--".equals(formatted)) {
             throw new IllegalStateException("EDHR batch archive signature time is required, actionType="
                     + value(signatureRecord.getString("actionType")));
         }
-        if (StrUtil.isBlank(timeZone)) {
-            throw new IllegalStateException("EDHR batch archive signature time zone is required, actionType="
-                    + value(signatureRecord.getString("actionType")));
-        }
-        return formatted + " (" + timeZone + ")";
+        return formatted + " (" + OFFICIAL_SIGNATURE_TIME_ZONE + ")";
     }
 
     private static String signatureMeaning(String actionType) {
@@ -883,8 +877,10 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
                 records.add(record);
             }
         }
-        records.sort(Comparator.comparing(MesProEdhrBatchArchivePrintablePdfRenderer::signatureSortTime,
-                Comparator.nullsLast(LocalDateTime::compareTo)));
+        records.sort(Comparator
+                .comparing(MesProEdhrBatchArchivePrintablePdfRenderer::signatureSortTime)
+                .thenComparing(MesProEdhrBatchArchivePrintablePdfRenderer::signatureSortId,
+                        Comparator.nullsFirst(Long::compareTo)));
         for (JSONObject record : records) {
             String actionType = StrUtil.blankToDefault(record.getString("actionType"), "");
             if (StrUtil.isNotBlank(actionType)) {
@@ -895,10 +891,16 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     }
 
     private static LocalDateTime signatureSortTime(JSONObject record) {
-        return parseDateTime(firstNonBlank(
-                record.getString("signatureDisplayAt"),
-                record.getString("selectedSignedAt"),
-                record.getString("signedAt")));
+        LocalDateTime signedAt = parseDateTime(record.getString("signedAt"));
+        if (signedAt == null) {
+            throw new IllegalStateException("EDHR batch archive signature time is required, actionType="
+                    + value(record.getString("actionType")));
+        }
+        return signedAt;
+    }
+
+    private static Long signatureSortId(JSONObject record) {
+        return record.getLong("id");
     }
 
     private static String formatAttachmentRule(JSONObject field) {

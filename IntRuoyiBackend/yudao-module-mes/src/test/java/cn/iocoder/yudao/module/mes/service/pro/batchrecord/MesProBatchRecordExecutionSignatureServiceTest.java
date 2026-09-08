@@ -38,6 +38,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -219,6 +220,8 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertEquals(7002L, signatureId);
             assertEquals("SUBMIT", captor.getValue().actionCode());
             assertEquals("提交执行", captor.getValue().reason());
+            assertEquals("2026-06-15T09:05:30", captor.getValue().businessOccurredAt());
+            assertEquals("Asia/Shanghai", captor.getValue().businessTimeZone());
             verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
         }
     }

@@ -1,0 +1,177 @@
+# 执行日志：可信时间最小闭环
+
+- 2026-09-07：用户明确要求在 `D:\IntRuoyiWorktree\timestamp_20260907` 实现开发验证任务。
+- 2026-09-07：确认目标原不存在，按规则创建分支 `codex/timestamp_20260907`。
+- 2026-09-07：端口登记完成，profile=`int_main`、slot=`27`、frontend=`8161`、backend=`48161`。
+- BDD: 业务时间不覆盖正式签名时间 -> Given 用户选择业务时间 / When 签名 / Then 正式展示仍为服务器时间。
+- BDD: 时间状态不可验证 -> Given chrony/远程证据缺失 / When 巡检 / Then BLOCKED 且不能默认 PASS。
+- BDD: 导出读取已保存巡检 -> Given 巡检 ID / When 导出 / Then 不重新巡检且固定三文件一致。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`recordSubmitSignature_withSelectedTimePersistsDualTimeAudit` 期望正式展示时间等于服务器 `signedAt`，实际仍为用户选择的 `selectedSignedAt`（13 项测试，1 项失败）。
+- P1 实现：两条签名持久化链路均固定以服务器 `signedAt` 写入 `signatureDisplayAt`；`selectedSignedAt` 继续独立保存为业务发生时间，未修改 schema、历史数据或历史哈希。
+- P1 前端：正式签名列表、表单签名格统一读取 `signedAt`；用户选择字段统一标注为“业务发生时间”，历史 `signatureDisplayAt` 仅在展开证据中按历史字段展示。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，13 项测试全部通过。
+- GREEN: P1 前端静态合同（PowerShell UTF-8 读取三个页面和 `signatureTime.ts`，断言“业务发生时间”文案存在且旧 `signatureDisplayAt || selectedSignedAt || signedAt` 正式展示回退链不存在）-> PASS。
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，179 项中 3 项失败、1 项错误；其中第 5982、6162 行仍断言 `signatureDisplayAt=selectedSignedAt`，属于本次新语义下的旧测试期望，但该测试文件不在 P1 执行者授权路径；第 3995 行动态签名标记为空、第 601 行缺少 `BATCH_PROVISIONING_RECORD_REQUIRED` 与本次时间改动无关，交由主 Agent/独立测试者判定。
+- P1 验证边界：前端 worktree 未安装 `node_modules`，因此本阶段未执行 `pnpm ts:check`；P1 开发计划门禁仅要求 MES 定向测试与 `git diff --check`，未使用依赖安装或其它 fallback。
+- GREEN: `git diff --check` -> PASS（仅提示 Windows 工作副本未来可能进行 LF/CRLF 转换，无空白错误）。
+- P1 回归断言同步：经主 Agent 扩展授权，仅将 `MesProEdhrBatchExecutionServiceTest` 中批执行关闭、质量拒收两条旧断言改为 `signatureDisplayAt = signedAt`，同时断言其不等于独立保存的 `selectedSignedAt`；未处理第 3995、601 行的无关既有失败。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#closeCreatesArchiveWorkTaskAfterBatchClosedWhenFinalInspectionDossierPending+qualityReject_unarchivedBatch_marksRejectedSignsAndCancelsActiveTasks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 项聚焦测试全部通过。
+- BDD: 正常可信时间巡检 -> Given 正式服和审查服 chrony 有选中源、Leap 正常且偏差不超过经批准阈值 / When 执行 Runtime Control 巡检 / Then 两节点结构化证据写入现有 `inspection-runs.json` 并参与必检状态聚合。
+- BDD: 时间证据不可验证 -> Given chrony 命令失败、无选中源、Leap 异常、偏差超限、SSH 不可达或批准阈值缺失 / When 执行巡检 / Then 对应检查 BLOCKED，发布前/后检查及巡检整体不能 PASS。
+- BDD: 导出指定巡检 -> Given 巡检 ID 已保存 / When 调用时间戳证据导出 / Then 只读取该巡检，固定生成 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt`，重复导出不重新采集且 SHA-256 一致。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeTrustedTimeParserTest,RuntimeTrustedTimeCollectorImplTest,RuntimeTimeEvidenceExportTest,RuntimeInspectionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，测试编译明确缺少 `RuntimeTrustedTimeCollector`、`RuntimeTrustedTimeParser`、`RuntimeTrustedTimeCommandOutput`，符合生产实现尚不存在的预期原因。
+- P2 实现：增加正式服 `172.30.30.57`、审查服 `172.30.30.59` 固定目标只读采集；解析 chrony 选中源、Stratum、Last/RMS offset、Leap、timedatectl 同步状态、服务器 UTC 和数据库 UTC，并将原始输出作为 `trustedTime` 写入现有巡检 JSON。
+- P2 fail-fast：偏差阈值只接受环境变量 `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS` 的正数毫秒值；缺失或无效时两节点均 BLOCKED 且不执行远端命令，不使用默认阈值。SSH 主机密钥必须已登记，命令/依赖/证据缺失均记录真实 BLOCKED 原因。
+- P2 导出：新增 `GET /infra/runtime-control/inspection-runs/{id}/time-evidence.zip`，沿用 `infra:runtime-control:query`；服务端从指定已保存巡检生成固定三文件 ZIP，异常摘要保持 `NO_GO`，不存在的巡检 ID 明确失败。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，首轮 18 项测试全部通过；该轮实际覆盖正常、命令失败、无选中源、Leap 异常、Last offset 超限、SSH 不可达、阈值缺失、固定目标、JSON 持久化、状态聚合、ZIP/哈希/重复导出、接口权限及 Spring 装配，不以此轮结果声称覆盖尚未测试的 RMS、同步状态、Stratum、UTC 格式、HTML 转义或不存在 ID。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260907-trusted-time-audit-evidence/backend-api-evidence.md` -> PASS，`Backend API evidence is valid.`
+- GREEN: PowerShell AST 解析、P2 新文件尾随空白检查及 `git diff --check` -> PASS；仅有 Windows LF/CRLF 提示，无空白错误。
+- P2 环境边界：按授权未连接或修改正式服/审查服，未启动服务、未写数据库；真实时间源、主机密钥和经批准阈值仍由 P4 环境验证提供。
+- P2 独立测试修订 RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeEvidenceExportTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，19 项中仅“RMS offset 缺失”和“RMS offset 超限”两项错误返回 PASS，精确复现独立测试发现。
+- P2 修订：`RuntimeTrustedTimeParser` 将 RMS offset 与 Last offset 同样纳入必填和批准阈值门禁；新增参数化失败测试覆盖 System clock=`no`、NTP service 非 `active`、Stratum 缺失/无效，以及 server/database/checked UTC 分别缺失或格式无效；导出测试新增 HTML 特殊字符转义和不存在巡检 ID 的正式错误码验证。原巡检测试重命名后的旧断言经核对继续保留。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeEvidenceExportTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，19 项测试全部通过。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，修订后 31 项测试全部通过，实际覆盖上述新增失败路径及既有 P2 合同。
+- BDD: 可信时间状态展示 -> Given 当前已保存巡检包含正式服和审查服时间检查 / When 用户查看运行控制台 / Then 页面显示环境、节点、时间源、Last/RMS 偏差、Leap、检查时间、状态和说明。
+- BDD: 指定巡检证据导出 -> Given 页面当前没有巡检 ID / When 查看导出按钮 / Then 按钮禁用；Given 当前已保存巡检为 PASS、BLOCKED 或 NO_GO / When 点击导出 / Then 仅按该巡检 ID 下载，不重新执行巡检。
+- BDD: 导出失败可见 -> Given 时间戳证据下载请求失败 / When 用户点击导出 / Then 页面展示请求真实错误且不显示成功。
+- RED: `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> FAIL，首个失败为缺少 `RuntimeControlTrustedTimeVO`，符合前端尚无可信时间状态/导出合同的预期原因。
+- P3 API：扩展 `RuntimeControlInspectionCheckVO.trustedTime` 完整类型；新增 `downloadRuntimeControlTimeEvidence(id)`，使用既有 `request.download` 请求 `/infra/runtime-control/inspection-runs/{id}/time-evidence.zip`。
+- P3 UI：在现有运行控制台增加“可信时间证据”面板和“执行巡检”“导出时间戳证据”按钮；导出禁用条件仅为无当前已保存 ID 或下载中，不按巡检状态禁用，异常证据可正常导出；失败统一进入现有 `reportActionError(error)`。
+- P3 口径：本页面所有用户可见 `Backup`、备份服务器、备用服务器文案统一改为“审查服”；`backup` 环境键及 `Backup/...` NAS 技术路径保持不变。
+- GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS；`node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS。首版静态合同验证 API、展示字段、空态、loading、权限、无 ID 禁用、异常可导出、真实错误及主要审查服文案；其导出函数非贪婪正则在 ID guard 后提前结束，不能作为“完整导出函数不触发巡检”的充分证据，后续按独立测试意见修订。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260907-trusted-time-audit-evidence/frontend-feature-evidence.md` -> PASS，`Frontend feature evidence is valid.`
+- P3 类型检查边界：`IntRuoyiFronted/node_modules` 不存在，未运行 `pnpm ts:check`，未安装依赖、未切换到其它工作区依赖，也未将类型检查记为通过。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- P3 环境边界：未启动服务、未连接远程、未执行真实 E2E；真实页面验证保留至获得明确授权后的 P4。
+- P3 依赖恢复：主 Agent 在目标 worktree 前端目录执行 `pnpm install --frozen-lockfile` -> PASS，锁文件未变化，依赖来自现有 pnpm store；未改生产源码。
+- GREEN: `pnpm ts:check` -> PASS，`vue-tsc --noEmit -p tsconfig.relaxed.json` 退出码 0。
+- GREEN: 最终后端/前端 evidence validators -> PASS，核心证据已归档到 `execution-log.md`、`test-report.md` 和 `verification-report.md`。
+- GREEN: `check_plan_completion.py` -> PASS，P1-P4 与全部派生验收项完成，`test_status=passed`。
+- GREEN: `branch-runtime-port-guard.ps1` -> PASS，`codex/timestamp_20260907/int_main` 使用 `8161/48161`。
+- GREEN: 最终 UTF-8 与 `git diff --check` -> PASS。
+- CLOSEOUT: 状态进入 `ready_for_closeout`；远程服务器、服务启动、真实 E2E、Git 提交/推送/合并均未获授权，未执行。
+- CLOSEOUT PREVIEW: `task_closeout.py --mode preview` -> BLOCKED；keep 为任务核心文档，delete 仅 `backend-api-evidence.md`、`frontend-feature-evidence.md`。阻塞原因为任务实现尚未提交，且主工作区 `E:\IntRuoyi` 存在其它任务脏改动，不能执行安全 ff-only 合并；未运行 apply，未删除文件。
+- REMOTE RED: 首次正式服只读采集执行 `source .env` 时，未加引号的 `JAVA_OPTS` 被 shell 当命令，数据库 UTC 采集失败；未执行远程写入。
+- P2 修订：数据库 UTC 改为 MySQL 容器内只读 `SELECT UTC_TIMESTAMP(6)`，不再读取宿主机 `.env`；独立测试通过。
+- REMOTE RED: Windows OpenSSH 在 exit=0 时把 closed-socket 诊断写入 stderr，旧脚本用 `2>&1` 污染数据库 UTC；修订为 ProcessStartInfo 分离 stdout/stderr，仅精确接受该已知诊断，未知 stderr/空 stdout/非零 exit 均失败。
+- SECURITY RED: 独立测试发现非零 SSH 诊断脱敏未覆盖 `MYSQL_ROOT_PASSWORD`、`MYSQL_PWD` 与带空格引号值；修订后 9 类秘密键 × 3 种格式及 mysql `-p` 独立矩阵通过，非秘密诊断保留。
+- REMOTE RED: 审查服真实 `timedatectl` 使用旧字段 `NTP synchronized/enabled`；parser 增加严格旧版双 yes 规范化，任一否定信号仍 BLOCKED；compose backend 增加必填 `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS` 透传，无默认值。
+- GREEN: P2 最终本地回归 -> PASS，39/39；后续安全修订扩展为 36/36，旧版 timedatectl/部署合同修订后为 39/39；PowerShell AST、backend validator、diff check 均通过。
+- GREEN: 正式服 `172.30.30.57` 真实只读采集 -> PASS，chronyd active、选中源 `139.199.214.202`、Stratum 3、Last offset 约 0.432 ms、RMS offset 约 0.682 ms、Leap Normal、系统同步、NTP active，服务器/数据库 UTC 可解析。
+- GREEN: 审查服 `172.30.30.59` 真实只读采集 -> PASS，chronyd active、选中源 `139.199.214.202`、Stratum 3、Last offset 约 -0.034 ms、RMS offset 约 0.228 ms、Leap Normal、NTP enabled/synchronized，服务器/数据库 UTC 可解析。
+- GREEN: 远程时间权限只读核查 -> PASS，两台 `/etc/chrony.conf` 均为 `root:root 0644`，`date/timedatectl` 无 setuid；backend/mysql/minio 现有容器均 `privileged=false` 且 `capAdd=null`。正式服未运行独立 minio 容器时不伪造该项。
+- REMOTE BOUNDARY: 本轮只读核查未修改 chrony、未重启服务、未写数据库、未发布应用；现有两台服务器均使用 CentOS NTP 池且当前选中同一上游。
+- P3 独立测试修订：将可信时间环境映射 `backup` 的用户可见值由“审查环境”改为统一口径“审查服”，并确认本页无 `Backup`、备份服务器或备用服务器旧展示文案。
+- P3 静态合同修订：新增顶层函数提取器，从 `const exportTimeEvidence =` 完整截取至下一个顶层 `const`；断言 `try/finally` 末尾 loading 清理存在，且完整 handler 不含 `runRuntimeControlInspection`，不再在 ID guard 首个 `}` 截断。
+- GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS；`node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS，修订后完整锁定统一审查服口径和导出不触发巡检合同。
+- GREEN: `validate_frontend_feature.py --evidence .../frontend-feature-evidence.md` 与 `validate_frontend_feature.py --self-test` -> PASS；旧称检索和 `git diff --check` -> PASS。
+- BDD: 本地最终回归 -> Given P1 至 P3 已分别通过独立验证 / When 按开发计划执行签名、可信时间后端、运行控制台前端、证据验证器和端口门禁 / Then 所有本地必检项通过，环境授权边界单独记录且不冒充真实环境闭环。
+- P4 GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，13 项测试、0 失败、0 错误。
+- P4 GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#closeCreatesArchiveWorkTaskAfterBatchClosedWhenFinalInspectionDossierPending+qualityReject_unarchivedBatch_marksRejectedSignsAndCancelsActiveTasks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 项测试、0 失败、0 错误。
+- P4 GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，31 项测试、0 失败、0 错误。
+- P4 GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` 与 `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS，可信时间 UI 静态合同完整。
+- P4 GREEN: `pnpm ts:check` -> PASS，`vue-tsc --noEmit -p tsconfig.relaxed.json` 退出码 0、无类型错误。
+- P4 GREEN: backend/frontend evidence validators -> PASS，分别输出 `Backend API evidence is valid.`、`Frontend feature evidence is valid.`。
+- P4 GREEN: `show-int-ruoyi-trusted-time.ps1` PowerShell AST 解析 -> PASS；仅解析语法，未执行脚本或连接远程服务器。
+- P4 GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- P4 GREEN: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，`codex/timestamp_20260907` 属于 `int_main` profile，前端 `8161`、后端 `48161`。
+- P4 工作区边界：`git status --short --untracked-files=all` 仅列出 P1-P3 任务代码、测试和部署脚本；原 `RuntimeInspectionServiceImplTest` 删除与 `RuntimeOpsInspectionServiceImplTest` 新增为本任务测试类重命名。`IntRuoyiFronted/node_modules/` 为 ignored，任务文档由仓库 `.git/info/exclude` 忽略；未发现其它非任务未跟踪文件。
+- P4 未授权边界：未获当轮远程服务器操作、服务启动/重启、真实 E2E、Git 提交或推送授权，因此未连接正式服/审查服、未配置或读取真实 chrony/NTP、未启动本任务运行时、未运行 Playwright、未提交或推送。上述项目不得记录为 PASS；当前证据只证明本地开发验证闭环。
+- P4 环境前置：真实环境验证仍需经批准的 `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS`、正式服/审查服已登记 SSH 主机密钥、受控 NTP 时间源和明确远程/E2E授权；任一缺失时巡检按实现 BLOCKED，不使用默认阈值或默认 PASS。
+- BDD: 数据库时间只读采集不解析宿主机环境文件 -> Given 正式服 `.env` 含未加引号的复杂 `JAVA_OPTS` / When 采集数据库 UTC 时间 / Then 脚本不得 source/dot-source 整份 `.env`，而应在 `intruoyi-mysql` 容器内部使用容器已有密码环境变量执行只读查询，且秘密不得回传或写日志。
+- P2 真实只读 RED（主 Agent返回证据）：旧 `show-int-ruoyi-trusted-time.ps1` 执行 `. ./.env` 时将未加引号 `JAVA_OPTS` 解释为命令并 exit 127，导致正式服数据库 UTC 证据采集失败。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增合同要求容器内直接查询且禁止 source `.env`，旧实现不满足。
+- P2 脚本修订：删除 `. ./.env`、`set -a` 和宿主机密码展开；改为 `docker exec intruoyi-mysql sh -c`，由容器 shell 校验自身 `MYSQL_ROOT_PASSWORD`、仅在容器进程内设置 `MYSQL_PWD`，执行 `SELECT UTC_TIMESTAMP(6)` 后在 PowerShell 中严格解析并输出 UTC ISO 8601。命令输出、JSON 和错误日志均不包含密码值。
+- GREEN: 部署脚本聚焦测试 -> PASS，1 项测试、0 失败、0 错误；合同明确禁止 `. ./.env`、`set -a`、mysql `-p` 参数和密码输出。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，31 项测试、0 失败、0 错误。
+- GREEN: PowerShell AST、backend evidence validator、`git diff --check` -> PASS。
+- P2 远程复验边界：执行 Agent按指令未再次连接正式服或审查服；修复后的真实只读采集结果等待主 Agent重新实测，不在本轮记录为 PASS。
+- BDD: SSH 标准错误严格分流 -> Given Windows OpenSSH exit=0 且仅输出已知 closed-socket stderr / When 采集可信时间 / Then 只返回 stdout；Given exit 非 0、stdout 为空或 stderr 含其它内容 / When 采集 / Then 明确失败并对诊断脱敏，不得静默吞掉。
+- P2 第二个真实只读 RED（主 Agent返回证据）：Windows OpenSSH exit=0，但 stderr 包含 `close - IO is still pending on closed socket. read:1, write:0, io:<hex>`；旧脚本 `2>&1` 将其拼入数据库 stdout，严格 `ParseExact` 因混合文本失败。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，扩展后的 5 项测试全部失败：主脚本尚无 ProcessStartInfo/stdout-stderr 分流，结果辅助脚本尚不存在。
+- P2 stderr 修订：新增 `resolve-trusted-time-ssh-result.ps1`；`Invoke-Remote` 改用 `System.Diagnostics.ProcessStartInfo` 和 `ssh -n`，异步且独立读取 stdout/stderr。exit=0 时只允许逐行精确匹配已知 closed-socket 诊断，任何其它非空 stderr 均失败；exit 非 0 和 stdout 为空均失败；错误诊断脱敏 password/passwd/token/secret/api-key 和 `-p...` 值。返回值始终只取 stdout，数据库 UTC `ParseExact` 保持严格。
+- GREEN: 部署脚本合同及结果辅助行为测试 -> PASS，5 项测试覆盖已知 benign stderr、未知 stderr、空 stdout、非零 exit 脱敏和主脚本静态边界。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，35 项测试、0 失败、0 错误。
+- P2 第二次远程复验边界：执行 Agent按指令未再次连接正式服或审查服；修复后的真实只读结果等待主 Agent复验，未记录远程 PASS。
+- BDD: SSH 失败诊断完整脱敏 -> Given stderr 含大小写不同的 `MYSQL_ROOT_PASSWORD`、`MYSQL_PWD`、`PASSWORD`、`TOKEN`、`SECRET`、`ACCESS_KEY`、`SECRET_KEY`，且值可能未加引号或使用单双引号包含空格 / When exit 非 0 抛出错误 / Then 错误仅保留秘密键名和 `<REDACTED>`，原秘密任一片段均不得出现，非秘密 host/node/reason/retry 诊断仍保留。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，6 项中 1 项失败；`sshResultHelperShouldRedactAllSupportedSecretAssignmentsCaseInsensitively` 证明 `MYSQL_ROOT_PASSWORD=rootPlainSecret` 被原样写入 exit=255 异常。
+- P2 安全修订：`Protect-TrustedTimeDiagnostic` 改为大小写不敏感、显式秘密键白名单和完整赋值值匹配；对未加引号、单引号含空格、双引号含空格三种值整体替换为 `<REDACTED>`，同时保留独立 mysql `-p...` 脱敏。未匹配的普通诊断不删除。
+- GREEN: 部署脚本合同及辅助行为测试 -> PASS，6 项测试、0 失败、0 错误；七类必测键的原秘密片段均不出现在异常，非秘密 `host=prod node=audit reason=connection_refused retry=disabled` 保持可见。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，36 项测试、0 失败、0 错误。
+- P2 安全修订边界：未连接远程服务器，真实环境复验仍由主 Agent执行；本轮只证明合成诊断与本地 P2 回归。
+- BDD: 新旧 timedatectl 输出语义一致 -> Given 新版同步字段或审查服旧版 `NTP synchronized/NTP enabled` 字段 / When 两项均为肯定值 / Then 统一保存 `systemClockSynchronized=true`、`ntpServiceState=active` 并允许其它证据共同决定 PASS；When 任一项为 no / Then 必须 BLOCKED。
+- BDD: 批准阈值显式进入 backend -> Given 部署 compose 启动 backend / When `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS` 缺失 / Then compose 必须报缺失变量，不得使用默认阈值；When 已提供 / Then 显式透传同名环境变量供 `System.getenv` 读取。
+- P2 真实审查服 RED（主 Agent返回证据）：审查服 `timedatectl` 输出旧格式 `NTP enabled: yes`、`NTP synchronized: yes`，没有新版字段，旧 parser 将其误判为未同步和 NTP 非 active。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，26 项中 2 项失败：旧格式双 yes 被错误 BLOCKED，部署 compose 未显式透传必填偏差阈值。
+- P2 parser 修订：新增旧版 `NTP synchronized`、`NTP enabled` 精确解析；双 yes 规范化为 `true/active`。新版字段保持原规则；新旧字段同时存在时所有已出现信号必须肯定，任一 no/invalid 仍阻断，不放宽 chrony、偏差、UTC 或目标主机门禁。
+- P2 部署修订：backend environment 新增 `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS: ${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS:?INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS is required}`，只做显式必填透传，不提供默认值。
+- GREEN: parser + deployment 聚焦测试 -> PASS，26 项测试、0 失败、0 错误；包含旧格式双 yes PASS、enabled=no BLOCKED、synchronized=no BLOCKED 和 compose 必填透传合同。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，39 项测试、0 失败、0 错误。
+- P2 旧格式修订边界：执行 Agent未再次连接正式服或审查服；真实环境复验等待主 Agent执行，本轮不记录远程 PASS。
+- BDD: 审查服用户口径统一 -> Given 技术环境键仍为 `backup`、发布动作仍为 `promote-backup` / When 后端返回环境标签、动作显示名或高危清理提示，且前端探针/操作面板格式化这些值 / Then 面向人员只显示“审查服/审查服务器”，不得显示 `Backup`、备份服务器或备用服务器，技术键、参数名和路径保持不变。
+- RED 预期: 后端术语合同将锁定默认 backup label=`审查服`、PROMOTE_BACKUP label=`上线审查服`、远程清理错误和 Schema 使用审查服务器；前端静态合同将锁定 shared.ts 的 environment/action 显示映射。当前实现仍含旧称，测试应 FAIL 后再修改产品代码。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeControlAuditServerTerminologyTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，1 项中 1 项失败，默认 `backup` 环境期望“审查服”、实际为 `Backup`。
+- RED: `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> FAIL，`shared.ts` 缺少 `backup: '审查服'`，实际仍为英文 `Backup`。
+- 根因：运行控制台主页面已在 P3 修正自身映射，但探针状态和事故抽屉复用的 `components/shared.ts` 保留旧映射；后端默认环境 label、发布动作 label、高危清理错误及 Schema 也仍保留早期称谓，导致同一技术环境在不同视图口径不一致。
+- P4 术语修复：`RuntimeControlProperties` 默认 backup label 改为“审查服”；`RuntimeControlOperationAction.PROMOTE_BACKUP` 显示名改为“上线审查服”；远程根分区高危确认错误和请求 Schema 改为“审查服务器”；前端 shared `environmentText/actionText` 同步改为“审查服/上线审查服”。
+- 技术边界：环境键 `backup`、动作键 `promote-backup`、常量 `BACKUP_SERVER_HOST`、命令参数 `BackupServerHost`、NAS `Backup/...` 路径及备份业务字段未改名。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeControlAuditServerTerminologyTest,RuntimeRemoteRootDiskServiceImplTest,RuntimeControlServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，77 项测试、0 失败、0 错误；覆盖术语合同、远程根分区边界和运行控制服务回归。
+- GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js`、可信时间静态合同、正式服只读状态静态合同、发布包静态合同 -> PASS；探针共享环境映射和发布动作映射均锁定为审查服口径。
+- REGRESSION: 对相关后端类及前端运行控制目录检索 `Backup/备份服务器/备用服务器/备份服`，剩余命中仅为 Java 标识符、`Backup/...` NAS 路径、backup 数据对象字段或内部函数名，无面向人员旧称；`git diff --check` -> PASS，仅有 Windows LF/CRLF 提示。
+- P4 术语修复边界：未启动服务、未连接服务器、未执行真实 E2E、未提交 Git；`task-state.json`、`test-report.md` 及其它任务文档的并行修改不是本执行 Agent产生。
+- BDD: 历史运行操作只在展示层统一审查服口径 -> Given 已保存历史操作的 `environment/actionLabel/reason/summary` 含 `Backup`、备份服、备份服务器或备用服务器 / When 运行控制台展示最近操作、运行矩阵最近摘要或日志标题 / Then 页面显示审查服/审查服务器；动作优先按 `action` 技术码使用当前名称，原始 VO、服务端审计数据、技术键和路径不修改。
+- RED 预期: 扩展可信时间静态合同，要求最近操作表的环境/原因/摘要使用展示规范化函数，动作不优先旧 `actionLabel`，对象和 recent summary 同步规范化，并验证函数覆盖完整已知旧称且跳过 `Backup/...` 技术路径；当前代码直接绑定原字段，应 FAIL。
+- RED: `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> FAIL，最近操作环境仍直接使用原字段，缺少 `operationHistoryEnvironmentText(row.environment)`，证明历史展示层尚未统一。
+- P4 历史展示修复：新增纯展示函数 `normalizeAuditServerDisplayText`，按“备份服务器/备用服务器 -> 审查服务器、备份服/独立 Backup -> 审查服”规范化；通过前后文正则明确保留 `Backup/...` 和 `Backup\...` 技术路径。最近操作表环境、对象、原因、摘要及运行矩阵 `lastOperationText` 均使用展示投影，不写回 `operations/releaseStatus/overview` 原始 VO。
+- P4 动作优先级：`operationActionText` 对已知 `action` 技术码优先调用当前 `operationActionLabel`；只有未知/缺失技术码时才读取并规范化历史 `actionLabel`，防止旧 actionLabel 覆盖当前“上线审查服”名称。
+- P4 中间类型门禁：首次 `pnpm ts:check` -> FAIL，发现新增历史环境函数与页面既有动作环境函数同名，报 TS2451 两处；将历史专用函数精确重命名为 `operationHistoryEnvironmentText`，未改变既有动作环境逻辑。
+- GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` 与可信时间静态合同 -> PASS；合同完整覆盖最近操作表字段、对象、recent summary、动作码优先级，并直接执行从页面提取的规范化函数，验证四类旧称转换及 `Backup/ReleasePackage/r1` 技术路径保持不变。
+- GREEN: `runtime-control-release-package-static.spec.js`、`runtime-control-prod-readonly-status-static.spec.js` -> PASS，发布包和探针相邻合同未回归。
+- GREEN: `pnpm ts:check` -> PASS，`vue-tsc --noEmit -p tsconfig.relaxed.json` 退出码 0、无类型错误。
+- P4 历史展示边界：只修改页面渲染和格式化函数，未修改 API 类型、请求参数、服务端历史操作、审计存储或任何 `backup/promote-backup/Backup/...` 技术值；未启动服务、未连接服务器、未提交 Git。
+- P4 最终独立验收：后端定向 40/40、前端两份静态合同与 `pnpm ts:check` 均 PASS；Playwright 真实页面巡检 ID 3 中正式服/审查服可信时间均 PASS，页面无旧称，ZIP 三文件、SHA-256、主机与时间项校验 PASS，console 0 error/0 warning。
+- GREEN: 最终 backend/frontend evidence validators、branch runtime port guard 与 `git diff --check` -> PASS；可复用经验已合并到 `docs/backend-development.md`、`docs/frontend-development.md`、`docs/local-runtime.md`。
+- CLOSEOUT PREVIEW: 正确保留八个正式任务记录并计划删除 `backend-api-evidence.md`、`frontend-feature-evidence.md`；因 `E:\IntRuoyi` 主工作区存在其它任务脏改动且当前分支不能 ff-only 合并到 `int_main`，apply 按规则 BLOCKED，未删除、未合并、未移除 worktree。
+- IMPLEMENTATION COMMIT: `3d6ea3ba4`（24 个任务自有文件）已通过分支端口门禁并推送到 `origin/codex/timestamp_20260907`；分支与远端实现提交一致。
+- RUNTIME CLOSEOUT: 经 PID 与命令行归属复核后停止本任务 8161/48161 前后端，端口均已释放；项目共享 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 保持运行且 MinIO healthy，未影响其它任务。
+- BDD: 测试阶段停用偏差阈值 -> Given `INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS` 缺失或空白且 chrony、选中源、同步/NTP、Leap、Stratum、服务器 UTC、数据库 UTC 与检查时间均有效 / When 执行正式服和审查服可信时间巡检 / Then 仍执行远程采集，保存实际 Last/RMS，证据中的 `maxOffsetMillis` 为空，并且不因 Last/RMS 数值大小阻断。
+- BDD: 正式环境恢复偏差阈值 -> Given 配置正数偏差阈值 / When Last 或 RMS 超过阈值 / Then 仍按既有规则 BLOCKED；Given 阈值非空但不是正数 / When 应用读取配置 / Then fail fast，不把无效配置当作停用。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeCollectorImplTest,RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，测试编译明确显示旧 parser 只接受基本类型 `double`、collector 尚无可测试的空白/无效配置解析入口，复现“缺失阈值直接阻断且不采集”的旧合同。
+- P5 实现：collector 在阈值为空时仍创建 parser 并采集两台固定目标；parser 使用可空 `Double`，始终解析并校验 Last/RMS 是否存在，仅在阈值非空时执行数值超限判断，结构化证据保留实际偏差且 `maxOffsetMillis=null`。其它 chrony、选中源、同步/NTP、Leap、Stratum、目标主机、服务器/数据库/检查 UTC 和命令失败门禁未放宽。
+- P5 配置边界：缺失或空白阈值表示停用数值限制；正数正常启用；非空但非数字、非有限数或非正数抛出配置异常，不静默降级。部署 compose 改为 `${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS-}` 可选原样透传，不提供数值默认值。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeCollectorImplTest,RuntimeOpsTrustedTimeParserTest,RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，32 项测试、0 失败、0 错误；覆盖无阈值仍采集/保留偏差、正数阈值超限阻断、无效非空值 fail fast 和 compose 可选透传。
+- REGRESSION: `mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，41 项测试、0 失败、0 错误，既有可信时间、巡检聚合、导出三文件、接口和 Spring 装配合同未回归。
+- GREEN: `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` 与 `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS；现有且唯一的“导出时间戳证据”按钮仍按已保存巡检 ID 下载，未新增第二入口。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- P5 边界：执行 Agent 未编辑 `task-state.json`、`test-report.md`，未提交 Git，未操作服务器或服务；远程清除环境变量、重启和真实页面复验由主 Agent按授权另行执行。
+- P5 最终独立验收：后端聚焦 32/32、完整相关 36/36、前端静态合同、`pnpm ts:check` 与 diff check 均 PASS；Playwright 页面巡检 ID 4 的正式服/审查服均保留实际 Last/RMS 且 PASS，导出 ZIP 固定三文件、SHA-256 正确、两项 `maxOffsetMillis=null`，console 0 error/0 warning。
+- P5 运维边界：本地任务运行态已按无阈值配置重建并复验；远程 `.env` 中先前的 `100 ms` 配置尚未删除，服务器未重启，等待用户明确目标及生产等级操作所需的 `PROD` 确认。
+- P5 本地运行态收尾：复核 8161/48161 PID 与当前 worktree 命令行后停止任务自有前后端并释放端口；共享 MySQL、Redis、MinIO 不停止。
+- P5 IMPLEMENTATION COMMIT: `18a776ff9` 已通过分支端口门禁并推送到 `origin/codex/timestamp_20260907`；本地分支与远端一致。
+- BDD: 正式归档只使用服务器签署时间 -> Given 历史 `signatureDisplayAt`、用户填写的 `selectedSignedAt` 均不同于服务器 `signedAt`，且业务时区不是 `Asia/Shanghai` / When 生成执行归档 PDF、XLSX 和最终可打印批归档 / Then 正式签名时间只显示 `signedAt (Asia/Shanghai)`，业务发生时间、业务时区和原因保持独立证据字段，不能覆盖正式签名时间。
+- BDD: 最终批归档按可信签署顺序选择签名 -> Given 同一动作存在多条签名，业务时间顺序与服务器 `signedAt` 顺序相反且正式签署时间可能同秒 / When 选择签字格最新签名 / Then 只按 `signedAt` 排序并以稳定签名 ID 处理同秒并列；任一候选缺少 `signedAt` 时失败关闭，不使用历史展示时间或业务时间补齐。
+- RED: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，14 项中 5 项失败；执行归档 PDF/XLSX 仍输出 `signatureDisplayAt`，最终可打印批归档仍按业务时间选择签名并展示业务时区，两个 PDF 路径在 `signedAt` 缺失时均未失败关闭，精确复现 reviewer 阻塞项。
+- RED: 同一聚焦命令在正式时间修复后针对业务证据标签复跑 -> FAIL，14 项中 2 项失败；PDF 仍使用 `SelectedTime...`、XLSX 仍使用 `Selected Signed At` 人员可见标签，不能明确表达该组字段仅为业务发生时间证据。
+- P6 归档修复：执行归档 PDF、XLSX 和最终可打印批归档的正式签名展示均只读取服务端 `signedAt`，统一标注正式时区 `Asia/Shanghai`；`selectedSignedAt/selectedTimeZone/selectedTimeReason/selectedTimeAuditHash` 仅以独立 `Business...` 证据标签输出，历史 `signatureDisplayAt` 不再参与正式展示或签名选择。
+- P6 签名选择：最终可打印批归档按 `signedAt` 升序、稳定签名 ID 次序建立每动作最新签名；候选缺失 `signedAt` 时抛出明确异常，不用业务时间或历史展示值补齐。
+- GREEN: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，14 项、0 失败、0 错误；覆盖历史展示时间与业务时间均不同、非上海业务时区、业务/正式顺序相反、同秒 ID 决胜和缺失正式时间失败关闭。
+- REGRESSION: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest,MesProBatchRecordExecutionSignatureServiceTest,MesProEdhrBatchArchivePdfAComplianceTest,MesProBatchRecordExecutionArchiveContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，36 项、0 失败、0 错误；签名持久化、PDF/A 和归档合同相邻回归通过。
+- REGRESSION: `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS，现有可信时间展示和证据导出静态合同未回归；对三个归档 renderer 检索正式展示回退链无命中；`git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- BDD: 证据包仅接受完整双目标可信时间事实 -> Given 已保存巡检为历史 PASS 但没有可信时间项，或可信时间项缺失、重复、缺少 `trustedTime`、环境/固定主机错配 / When 导出时间戳证据 ZIP / Then 在创建任何 ZIP 内容前明确失败；Given 正式服和审查服均有环境/主机身份正确的 BLOCKED 采集事实 / When 导出 / Then 仍可导出真实失败证据。
+- BDD: 同步 NTP Stratum 只接受 1..15 -> Given chrony 其它必需证据有效 / When Stratum 为 0 或 16 / Then 可信时间检查 BLOCKED；When Stratum 为 1 或 15 / Then Stratum 边界本身不阻断 PASS。
+- BDD: 活动执行表单同秒签名稳定选择 -> Given 签名分页按 `signedAt DESC, id DESC` 返回同动作、同秒的 ID 102 与 101 / When 活动执行页和其只读表单选择最新签名 / Then 均显示更高 ID 102 的签名人，不受输入稳定排序和原始顺序影响。
+- RED: `.review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-2.md` -> FAIL，独立 reviewer 明确复现三项阻塞：旧巡检缺少双目标可信时间仍可导出、Stratum 0/16 可通过、活动执行页同秒签名可能选择低 ID 旧记录。
+- P6 第二轮修复：导出 ZIP 前强制校验 `trusted-time-prod` 与 `trusted-time-audit` 各 1 项且含匹配目标环境/固定主机的 `trustedTime`；Stratum 限制为 `1..15`；活动执行页和只读表单共用 `selectLatestSignature`，按服务器 `signedAt` 与数值 ID 稳定选择最新签名，缺少有效 ID 或签署时间时 fail fast。
+- GREEN: `mvn -q -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，可信时间解析、巡检、导出、接口和 Spring 装配相关回归通过。
+- GREEN: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest,MesProBatchRecordExecutionSignatureServiceTest,MesProEdhrBatchArchivePdfAComplianceTest,MesProBatchRecordExecutionArchiveContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，36 项、0 失败、0 错误。
+- GREEN: `node tests\e2e\edhr-latest-signature-selection-static.spec.js` -> PASS，活动执行表单同秒签名选择和缺失服务器签署时间失败关闭合同通过。
+- GREEN: `node tests\e2e\runtime-control-trusted-time-static.spec.js` -> PASS，可信时间展示与导出按钮静态合同未回归。
+- GREEN: `pnpm ts:check` -> PASS，`vue-tsc --noEmit -p tsconfig.relaxed.json` 退出码 0。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- INT_MAIN MERGE: `git merge --ff-only codex/timestamp_20260907` -> FAIL，`int_main` 与可信时间分支已分叉；改用 `git merge --no-ff --no-commit codex/timestamp_20260907` 做合并预检，发现 3 个冲突文件：`MesProBatchRecordExecutionSignatureServiceTest.java`、`MesProEdhrBatchExecutionServiceTest.java`、`docs/experience-index.md`。
+- INT_MAIN MERGE RESOLUTION: 保留主线统一电子签名服务架构，不恢复旧 MES 本地签名表写入；可信时间业务发生时间通过 `ElectronicSignatureCommand.businessOccurredAt/businessTimeZone` 进入统一签名证据，正式签署时间继续由统一签名服务服务器端生成。
+- GREEN: `mvn -q -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionSignatureServiceTest#recordSubmitSignature_withSelectedTimePersistsDualTimeAudit,MesProEdhrBatchExecutionServiceTest#close_success_recordsUnifiedSignatureAndCreatesArchiveTask+rejectFinalQuality_success_recordsUnifiedSignatureAndCancelsTasks,ExecutionArchiveRendererTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，覆盖本次合并冲突方法与归档渲染回归。
+- BLOCKED-EXTERNAL: `mvn -q -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionSignatureServiceTest,MesProEdhrBatchExecutionServiceTest,ExecutionArchiveRendererTest,MesProBatchRecordExecutionSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`MesProEdhrBatchExecutionServiceTest` 多数用例因主线 H2 测试表 `mes_pro_edhr_batch_execution_origin` 缺失报错；该缺失属于既有主线测试前置条件，不是本次可信时间合并冲突逻辑。
+- GREEN: `mvn -q -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `node tests\e2e\edhr-latest-signature-selection-static.spec.js`、`node tests\e2e\runtime-control-trusted-time-static.spec.js`、`pnpm ts:check` -> PASS。
+- GREEN: `git diff --check`、`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；端口守卫确认 `int_main/int_main` 前端 8081、后端 48081。

@@ -41,6 +41,8 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
     private static final float LEADING = 14F;
     private static final int WRAP_CHARS = 96;
     private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String OFFICIAL_SIGNATURE_TIME_ZONE =
+            MesProBatchRecordExecutionSignatureService.DEFAULT_SIGNATURE_TIME_ZONE;
 
     @Override
     public String getArtifactType() {
@@ -118,12 +120,12 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
                     + ", PasswordVerified=" + value(signature.getPasswordVerified())
                     + ", SignedAt=" + formatDateTime(signature.getSignedAt())
                     + ", Comment=" + value(signature.getComment()));
-            lines.add("  SelectedSignedAt=" + formatDateTime(signature.getSelectedSignedAt()));
+            lines.add("  BusinessOccurredAt=" + formatDateTime(signature.getSelectedSignedAt()));
             lines.add("  DisplaySignedAt=" + formatSignatureDisplayDateTime(signature));
             lines.add("  SignatureTimeMode=" + value(signature.getSignatureTimeMode()));
-            lines.add("  SelectedTimeZone=" + value(signature.getSelectedTimeZone()));
-            lines.add("  SelectedTimeReason=" + value(signature.getSelectedTimeReason()));
-            lines.add("  SelectedTimeAuditHash=" + value(signature.getSelectedTimeAuditHash()));
+            lines.add("  BusinessTimeZone=" + value(signature.getSelectedTimeZone()));
+            lines.add("  BusinessTimeReason=" + value(signature.getSelectedTimeReason()));
+            lines.add("  BusinessTimeAuditHash=" + value(signature.getSelectedTimeAuditHash()));
             lines.add("  RecordHash=" + value(resolveRecordHash(signature)));
         }
         lines.add("");
@@ -198,18 +200,12 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
     }
 
     private String formatSignatureDisplayDateTime(MesProBatchRecordExecutionSignatureDO signature) {
-        LocalDateTime displayAt = firstNonNull(signature.getSignatureDisplayAt(),
-                signature.getSelectedSignedAt(), signature.getSignedAt());
-        if (displayAt == null) {
-            throw new IllegalStateException("EDHR archive signature display time is required, signatureId="
+        LocalDateTime signedAt = signature.getSignedAt();
+        if (signedAt == null) {
+            throw new IllegalStateException("EDHR archive official signature time is required, signatureId="
                     + value(signature.getId()));
         }
-        String zone = StrUtil.trim(signature.getSelectedTimeZone());
-        if (StrUtil.isBlank(zone)) {
-            throw new IllegalStateException("EDHR archive signature time zone is required, signatureId="
-                    + value(signature.getId()));
-        }
-        return DISPLAY_TIME.format(displayAt) + " (" + zone + ")";
+        return DISPLAY_TIME.format(signedAt) + " (" + OFFICIAL_SIGNATURE_TIME_ZONE + ")";
     }
 
     private String firstNonBlank(String first, String second) {
@@ -227,16 +223,6 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
             return third;
         }
         return fourth;
-    }
-
-    private LocalDateTime firstNonNull(LocalDateTime first, LocalDateTime second, LocalDateTime third) {
-        if (first != null) {
-            return first;
-        }
-        if (second != null) {
-            return second;
-        }
-        return third;
     }
 
     private String fileName(RenderData data) {

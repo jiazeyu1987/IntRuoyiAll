@@ -21,7 +21,7 @@ for (const fragment of [
   "action: 'promote-prod'",
   "label: '上线已验证发布包'",
   "action: 'promote-backup'",
-  "label: '上线备份服务器'",
+  "label: '上线审查服'",
   'releaseTag'
 ]) {
   assert(
