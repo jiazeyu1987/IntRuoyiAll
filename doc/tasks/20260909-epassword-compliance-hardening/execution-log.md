@@ -40,6 +40,10 @@
 - GREEN: rebase 后 `mvn -pl yudao-module-bpm -am '-Dtest=ApprovalSignatureRecordServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS, 5 tests。
 - GREEN: rebase 后 `mvn -pl yudao-module-mes -am '-Dtest=MesProBatchRecordExecutionSignatureServiceTest,MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_withSelectedSignatureTimePassesTimeCommandAndStoresDualTimeSignature' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS, 15 tests。
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260909-epassword-compliance-hardening --mode preview` -> BLOCKED, 主工作区 `E:\IntRuoyi` dirty，不能接收 ff-only 合并；未清理、未 stash、未覆盖无关改动。
+- REGRESSION: 4.10 文档证据复核 -> FAIL, worktree 原有代码证据可覆盖 4.1-4.9、4.11、4.12，但缺少定期电子签名合规审查 SOP、证据包字段、责任人和判定规则，生产运营审查无法仅凭代码闭环。
+- GREEN: 新增 `docs/security/electronic-signature-periodic-compliance-review-sop.md` -> PASS, 明确定期/变更/事件触发、角色职责、证据包、审查步骤、判定规则、记录留存和发布门禁。
+- GREEN: 新增 `docs/security/security-privacy-compliance-review.md` -> PASS, 将 4.1-4.12 映射到代码/制度证据，并明确 4.10 的生产运营执行记录仍需实际归档。
+- GREEN: project-experience-consolidation -> PASS, 已将附加 worktree 补丁必须使用绝对路径并交叉复核主工作区无误落的经验合并到 docs/worktree-memory.md。
 
 ## Implementation Notes
 

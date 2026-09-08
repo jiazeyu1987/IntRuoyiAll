@@ -33,4 +33,6 @@ ready_for_closeout
 
 已创建 worktree `D:\IntRuoyiWorktree\20260909_epassword`，分支 `codex/20260909_epassword`，端口槽位 `35`，前端 `8210`，后端 `48210`。
 
-已完成正式电子签名时间、BPM 审批上下文、模拟/草稿签名模式和前端正式签名入口整改；已 rebase 到最新 `int_main`，当前提交 `1d5130f8d`；rebase 后定向后端测试、前端静态契约、历史 E2E 语法检查、`pnpm ts:check`、端口门禁和 `git diff --check` 通过。尚未完成收尾清理和主线融合：收尾预览被主工作区 `E:\IntRuoyi` 的无关 dirty 状态阻塞。
+已完成正式电子签名时间、BPM 审批上下文、模拟/草稿签名模式和前端正式签名入口整改；已 rebase 到最新 `int_main`，当前提交 `1d5130f8d`；rebase 后定向后端测试、前端静态契约、历史 E2E 语法检查、`pnpm ts:check`、端口门禁和 `git diff --check` 通过。
+
+本轮继续补齐 4.10 定期电子签名合规审查的制度与设计证据，新增 `docs/security/electronic-signature-periodic-compliance-review-sop.md` 和 `docs/security/security-privacy-compliance-review.md`；安全合规证据校验和 `git diff --check` 已通过。尚未完成收尾清理和主线融合：收尾预览此前被主工作区 `E:\IntRuoyi` 的无关 dirty 状态阻塞。

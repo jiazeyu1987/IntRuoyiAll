@@ -427,3 +427,4 @@
 - 经验规则：对附加 worktree 改文件时，补丁目标必须使用当前任务 worktree 下的绝对路径；首次补丁后立即用 `git -C <worktree> status --short -- <path>` 和 `git -C E:\IntRuoyi status --short -- <path>` 交叉确认没有误写主工作区。
 - 阻断处理：发现误写主工作区时，只能删除或回滚本次误创建且未跟踪的明确文件；若误改已存在 tracked 文件，必须停止并报告，不能用 restore/reset 隐藏。
 - 验证方式：记录误写路径清单、清理方式、主工作区 `git status --short -- <path>` 为空，以及目标 worktree 中对应文件存在并通过定向验证。
+- Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `D:\IntRuoyiWorktree\20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `E:\IntRuoyi` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件。
