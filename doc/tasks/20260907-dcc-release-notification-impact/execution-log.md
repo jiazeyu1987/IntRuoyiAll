@@ -641,6 +641,20 @@ The independently owned restart was not stopped or replaced. Playwright was clos
 
 `RED: Invoke-RestMethod http://127.0.0.1:48081/actuator/health -> FAIL, current int_main backend refuses connection while frontend 8081 remains HTTP 200; authenticated DCC page cannot be accepted until the owned 48081 runtime is restored`
 
+`GREEN: int_main restart -> PASS, standard restart completed; health UP and fresh admin login succeeded`
+
+`E2E: existing DCC-P4-202609081528-NEW approval -> BLOCKED, page showed duplicate 文控审批 rows for the same business number at 审核会签; no deterministic single active row could be selected without risking the wrong task`
+
+`E2E: new DCC-P4-202609081528-NEW upload -> PASS, real page selected project 血管指引导丝（导引导丝） and taxonomy 技术文档 / 设计和开发策划阶段 / 技术调研报告, uploaded 文控系统概要设计.docx, and submitted via the visible 提交审批 button`
+
+`E2E: new file approval -> BLOCKED, visible approval task reached 文控审核 then 审核会签 and 文控批准. The final 文控批准 dialog explicitly required a stamped PDF and at least one distribution department; no such business inputs were available in the approved page flow, so no bypass or direct write was attempted`
+
+`E2E: approval chain stop -> BLOCKED, another direct approval attempt returned business error 下一个任务(批准)的审批人未配置; the page and backend remained at the assigned approval state. No publish, follow-up batch, notification or impact task was claimed`
+
+Evidence artifacts: `output/playwright-p4/.playwright-cli/page-2026-09-08T07-57-16-857Z.png` and the stopped session snapshots under the same task-owned output. Passwords, tokens and credentials are excluded from evidence.
+
+`STATUS: P4 runtime and Playwright sessions are closed; this executor holds no 48081/8081 process. Current shared listeners are owned by other runtimes. Latest task-owned UI write is DCC-P4-202609081528-NEW submission, which reached 文控审核/审核会签/文控批准. The final blocker is the required stamped PDF and distribution department; publish, follow-up, notification and impact assessment were not claimed.`
+
 ## P4 Local Acceptance: 48081 Restart And Own Playwright E2E
 
 `BDD: 本地 P4 验收走真实前端 -> Given 48081/8081 均为本地 int_main 运行态且测试租户账号可登录，When 使用 Playwright 通过真实页面访问 DCC 发布后续、工作台影响评估和上传页并提交一份任务自有新文件，Then 页面入口、查询接口、上传预览和提交审批均成功；不得用 API 或数据库写入替代页面业务动作`
@@ -691,3 +705,35 @@ Root-cause correction: the earlier `S3 NoSuchKey` stack belongs to old file `DCC
 `BLOCKED: post-repair Playwright retry -> BLOCKED by unrelated working-tree conflict, ActiveOrderSubmissionDetailPanel.vue contains unresolved Git conflict markers and Vite error overlay intercepts all page actions. DCC migrations are repaired, but the actual approval transition is not yet claimed until the shared frontend compiles again.`
 
 `BLOCKED: final runtime health recheck -> FAIL, shared 48081 stopped listening after migration verification; current turn did not authorize restarting int_main, so no restart was attempted.`
+
+## Approval Repair: Unified Signature Capacity And Runtime Schema
+
+`BDD: DCC/BPM 审批身份完整保存 -> Given 审批主题身份由完整 Base64 上下文组成，When 统一电子签名写入，Then subject_id 不得截断且审批可继续；运行库缺表/缺列时必须由正式迁移修复。`
+
+`RED: python -X utf8 -m pytest script/tests/test_system_signature_password_t1_contract.py -q -> FAIL, new subject-id capacity contract missing.`
+
+`RED: real approval retry -> FAIL, system_electronic_signature.subject_id was too short for the encoded DCC approval identity; MySQL returned Data truncation.`
+
+`GREEN: subject-id capacity contract -> PASS, 11 tests.`
+
+`GREEN: official subject-id capacity migration first/repeat -> PASS, system_electronic_signature.subject_id changed to varchar(512); no truncation or hash substitution.`
+
+`GREEN: standard restart-int-ruoyi-local.ps1 -Component backend -> PASS, 31-module Maven BUILD SUCCESS, 48081 health UP, 8081 HTTP 200.`
+
+`GREEN: runtime schema repair -> PASS, applied existing system_temporary_role_grant migration first/repeat; public tenant/login prerequisites no longer fail on missing remind_time.`
+
+`BLOCKED: final DCC approval retry -> shared runtime/frontend state changed by concurrent work; current verified health is UP, but a new fresh reviewer page run is still required before claiming the approval transition and publication closure.`
+
+## P4 Resume Preflight: Frontend Compile And Runtime Health
+
+`BDD: P4 写入验收必须从可编译前端和在线运行态恢复 -> Given P4 此前因共享前端冲突和运行态变化阻塞，When 恢复执行前置检查，Then 必须先证明 8081/48081 可访问且前端类型检查通过，再决定是否进入真实审批/发布页面写入。`
+
+`GREEN: Invoke-RestMethod http://127.0.0.1:48081/actuator/health -> PASS, status=UP.`
+
+`GREEN: Invoke-WebRequest http://127.0.0.1:8081/ -> PASS, HTTP 200.`
+
+`GREEN: rg '^<{7}|^>{7}|^={7}' ActiveOrderSubmissionDetailPanel.vue -> PASS, no unresolved conflict markers in the previously blocking file.`
+
+`GREEN: pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS, frontend type check completed with exit code 0.`
+
+`BLOCKED: fresh DCC approval/publish Playwright retry -> current command did not explicitly authorize a write-path E2E, database business writes, or an int_main restart; no approval, publish, notification, or impact-task business action was executed.`

@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.signature.gxp.api.GxpAuditTrailAppendCommand;
 import cn.iocoder.yudao.module.signature.gxp.api.GxpAuditTrailService;
 import cn.iocoder.yudao.module.signature.gxp.dal.dataobject.GxpAuditEventDO;
 import cn.iocoder.yudao.module.signature.gxp.dal.mysql.GxpAuditEventMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.GXP_AUDIT_COMMAND_INVALID;
+import static cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.GXP_AUDIT_IDEMPOTENCY_CONFLICT;
 
 @Service
 public class GxpAuditTrailServiceImpl implements GxpAuditTrailService {
@@ -31,6 +33,7 @@ public class GxpAuditTrailServiceImpl implements GxpAuditTrailService {
     private final GxpAuditEventMapper eventMapper;
     private final Clock clock;
 
+    @Autowired
     public GxpAuditTrailServiceImpl(GxpAuditEventMapper eventMapper) {
         this(eventMapper, Clock.systemDefaultZone());
     }
@@ -44,8 +47,18 @@ public class GxpAuditTrailServiceImpl implements GxpAuditTrailService {
     @Transactional(rollbackFor = Exception.class)
     public Long append(GxpAuditTrailAppendCommand command) {
         validateCommand(command);
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
         LocalDateTime occurredAt = LocalDateTime.now(clock);
         String canonicalEventJson = canonicalEventJson(command, occurredAt);
+        GxpAuditEventDO existing = eventMapper.selectByTenantIdAndIdempotencyKey(tenantId, command.idempotencyKey());
+        if (existing != null) {
+            if (!canonicalEventJson.equals(existing.getCanonicalEventJson())) {
+                throw exception(GXP_AUDIT_IDEMPOTENCY_CONFLICT);
+            }
+            return existing.getId();
+        }
+        Long maxLedgerSequence = eventMapper.selectMaxLedgerSequence(tenantId);
+        long nextLedgerSequence = maxLedgerSequence == null ? 1L : maxLedgerSequence + 1L;
         String eventHash = hash(canonicalEventJson);
 
         GxpAuditSubject subject = command.subject();
@@ -53,7 +66,8 @@ public class GxpAuditTrailServiceImpl implements GxpAuditTrailService {
         GxpAuditStateEnvelope before = command.beforeState();
         GxpAuditStateEnvelope after = command.afterState();
         GxpAuditEventDO event = GxpAuditEventDO.builder()
-                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .tenantId(tenantId)
+                .ledgerSequence(nextLedgerSequence)
                 .operationId(command.operationId())
                 .domain(subject.domain())
                 .subjectType(subject.subjectType())
@@ -129,12 +143,13 @@ public class GxpAuditTrailServiceImpl implements GxpAuditTrailService {
     }
 
     private String canonicalEventJson(GxpAuditTrailAppendCommand command, LocalDateTime occurredAt) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
         GxpAuditSubject subject = command.subject();
         GxpAuditActor actor = command.actor();
         GxpAuditStateEnvelope before = command.beforeState();
         GxpAuditStateEnvelope after = command.afterState();
         return "{"
-                + jsonPair("tenantId", String.valueOf(TenantContextHolder.getRequiredTenantId())) + ","
+                + jsonPair("tenantId", String.valueOf(tenantId)) + ","
                 + jsonPair("operationId", command.operationId()) + ","
                 + jsonPair("domain", subject.domain()) + ","
                 + jsonPair("subjectType", subject.subjectType()) + ","

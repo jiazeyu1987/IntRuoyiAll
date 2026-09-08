@@ -259,6 +259,23 @@ function Get-BackupOpsMySqlDumpFileName {
     return "$DatabaseName.sql.gz"
 }
 
+function ConvertFrom-BackupOpsMySqlPayloadProof {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Output
+    )
+
+    $match = [regex]::Match($Output, '(?i)([0-9a-f]{64})(?:\s+|\\t)([1-9][0-9]*)')
+    if (-not $match.Success) {
+        return $null
+    }
+
+    return [pscustomobject]([ordered]@{
+            sha256 = $match.Groups[1].Value.ToLowerInvariant()
+            size = [long]$match.Groups[2].Value
+        })
+}
+
 function Assert-BackupOpsMySqlRestoreTestHost {
     param(
         [Parameter(Mandatory)]
@@ -818,8 +835,8 @@ function Export-BackupOpsMySqlBinlogIncrement {
             Command = "bash -lc {0}" -f (ConvertTo-BackupBashSingleQuotedString -Value $remoteScript)
             TimeoutSeconds = 7200
         })
-        $proof = ([string]$exportResult.output).Trim() -split ([char]9)
-        if ($proof.Count -ne 2 -or [string]$proof[0] -notmatch '^[0-9a-fA-F]{64}$' -or [long]$proof[1] -le 0) {
+        $proof = ConvertFrom-BackupOpsMySqlPayloadProof -Output ([string]$exportResult.output)
+        if ($null -eq $proof) {
             throw (New-BackupOpsMySqlException -Code 'INTBK-3001' -Status 'blocked' -Message "MySQL binlog segment proof is invalid for $file.")
         }
         $segments.Add([pscustomobject]([ordered]@{
@@ -828,8 +845,8 @@ function Export-BackupOpsMySqlBinlogIncrement {
             checksumPath = "mysql/binlog/$fileName.sha256"
             startPosition = $startPosition
             stopPosition = $stopPosition
-            sha256 = ([string]$proof[0]).ToLowerInvariant()
-            size = [long]$proof[1]
+            sha256 = $proof.sha256
+            size = $proof.size
         })) | Out-Null
     }
     $evidence = [pscustomobject]([ordered]@{
@@ -1137,8 +1154,8 @@ function Export-BackupOpsMySqlDump {
             (ConvertTo-BackupBashSingleQuotedString -Value $remoteDumpPath)
         TimeoutSeconds = 60
     })
-    $proof = ([string]$proofResult.output).Trim() -split ([char]9)
-    if ($proof.Count -ne 2 -or [string]$proof[0] -notmatch '^[0-9a-fA-F]{64}$' -or [long]$proof[1] -le 0) {
+    $proof = ConvertFrom-BackupOpsMySqlPayloadProof -Output ([string]$proofResult.output)
+    if ($null -eq $proof) {
         throw (New-BackupOpsMySqlException -Code 'INTBK-3001' -Status 'blocked' -Message 'MySQL full dump integrity proof is invalid.')
     }
     $evidence = [pscustomobject]([ordered]@{
@@ -1146,8 +1163,8 @@ function Export-BackupOpsMySqlDump {
         status = 'exported'
         dumpPath = "mysql/$dumpFileName"
         checksumPath = "mysql/$dumpFileName.sha256"
-        sha256 = ([string]$proof[0]).ToLowerInvariant()
-        size = [long]$proof[1]
+        sha256 = $proof.sha256
+        size = $proof.size
         endPosition = [pscustomobject]@{ file = [string]$position.file; position = [long]$position.position }
     })
     Write-BackupOpsMySqlEvidenceJson -Path (Join-Path $Workspace.MySqlPath 'full-dump-manifest.json') -Value $evidence
@@ -1228,4 +1245,4 @@ function Test-BackupOpsMySqlDumpIntegrity {
     return [pscustomobject]@{ backupId = $BackupId; status = 'passed' }
 }
 
-Export-ModuleMember -Function New-BackupMySqlDumpCommandSpec, New-BackupMySqlRestoreCommandSpec, Test-BackupMySqlConnectivity, Export-BackupMySqlDump, Import-BackupMySqlDump, Export-BackupOpsMySqlDump, Export-BackupOpsMySqlBinlogIncrement, Test-BackupOpsMySqlDumpIntegrity, Test-BackupOpsMySqlRestoreChainIntegrity, Replay-BackupOpsMySqlBinlogChain, Import-BackupOpsMySqlDump
+Export-ModuleMember -Function New-BackupMySqlDumpCommandSpec, New-BackupMySqlRestoreCommandSpec, Test-BackupMySqlConnectivity, Export-BackupMySqlDump, Import-BackupMySqlDump, ConvertFrom-BackupOpsMySqlPayloadProof, Export-BackupOpsMySqlDump, Export-BackupOpsMySqlBinlogIncrement, Test-BackupOpsMySqlDumpIntegrity, Test-BackupOpsMySqlRestoreChainIntegrity, Replay-BackupOpsMySqlBinlogChain, Import-BackupOpsMySqlDump

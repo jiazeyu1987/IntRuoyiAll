@@ -15,6 +15,13 @@
 - 需要描述默认本机 E2E 身份时，使用 `芋道源码/admin` 作为身份标签；它只表示本机默认租户和用户名，不代表正式环境地址或正式环境授权。
 - 用户要求修改截图或当前页面中的本机数据但未另行指定租户时，写入前必须通过真实登录确认截图对应的租户/账号，并同时核对页面可见业务范围标识（例如负责路线）和目标列表数量；不得因为另一“测试租户”更便于操作就静默切换。无法从页面证据唯一确认目标租户时必须先阻塞询问。
 
+### 本机菜单权限投影核对门禁
+
+- Trigger: 本机账号看不到新增页签、动态菜单、按钮权限，或需要确认某个页面是否已对当前登录账号可见。
+- 经验规则：当前前端登录后的动态菜单与按钮权限以 `/admin-api/system/auth/get-permission-info` 返回的 `menus` 和 `permissions` 为准；不要用过期的 `/admin-api/system/list-menus` 样例接口判断菜单是否存在，避免把接口 404 误判为菜单迁移失败。
+- 验证方式：先通过 `/system/tenant/get-id-by-name` 取得真实租户 ID，再用目标账号登录，最后核对 `get-permission-info` 中的菜单 `path/component/name` 与按钮 permission；仅看到后端 Controller mapping 或前端组件文件不足以证明账号菜单可见。
+- 禁止做法：禁止在权限投影未核对前修改前端路由兜底、隐藏错误或重复补菜单；禁止记录登录 token、密码、Cookie 或数据库连接敏感值。
+
 ### 登录页默认凭据禁止门禁
 
 - Trigger: 登录页默认出现 `admin`、无浏览记录浏览器出现默认用户名、构建环境或源码出现 `VITE_APP_DEFAULT_LOGIN_USERNAME` / `VITE_APP_DEFAULT_LOGIN_PASSWORD`，或有人要求恢复默认账号密码。

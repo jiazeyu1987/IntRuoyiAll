@@ -13,16 +13,22 @@ import cn.iocoder.yudao.module.signature.gxp.service.GxpAuditTrailServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.lang.reflect.Constructor;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +51,7 @@ class GxpAuditTrailServiceContractTest {
             event.setId(1001L);
             return 1;
         });
+        when(mapper.selectMaxLedgerSequence(1L)).thenReturn(41L);
 
         GxpAuditTrailServiceImpl service = new GxpAuditTrailServiceImpl(mapper, FIXED_CLOCK);
         Long eventId = service.append(validCommand());
@@ -54,6 +61,7 @@ class GxpAuditTrailServiceContractTest {
         verify(mapper).insert(captor.capture());
         GxpAuditEventDO event = captor.getValue();
         assertEquals(1L, event.getTenantId());
+        assertEquals(42L, event.getLedgerSequence());
         assertEquals("MES.BATCH_RECORD.UPDATE", event.getOperationId());
         assertEquals("MES", event.getDomain());
         assertEquals("BATCH_RECORD", event.getSubjectType());
@@ -100,6 +108,63 @@ class GxpAuditTrailServiceContractTest {
                 null));
 
         assertThrows(ServiceException.class, () -> service.append(command));
+    }
+
+    @Test
+    void appendReturnsExistingEventForSameIdempotencyAndCanonicalPayload() {
+        TenantContextHolder.setTenantId(1L);
+        GxpAuditEventMapper mapper = mock(GxpAuditEventMapper.class);
+        GxpAuditTrailServiceImpl service = new GxpAuditTrailServiceImpl(mapper, FIXED_CLOCK);
+        GxpAuditTrailAppendCommand command = validCommand();
+        when(mapper.insert(any(GxpAuditEventDO.class))).thenAnswer(invocation -> {
+            GxpAuditEventDO event = invocation.getArgument(0);
+            event.setId(2002L);
+            return 1;
+        });
+        when(mapper.selectMaxLedgerSequence(1L)).thenReturn(0L);
+
+        Long firstEventId = service.append(command);
+        assertEquals(2002L, firstEventId);
+
+        ArgumentCaptor<GxpAuditEventDO> captor = ArgumentCaptor.forClass(GxpAuditEventDO.class);
+        verify(mapper).insert(captor.capture());
+        GxpAuditEventDO existing = captor.getValue();
+        reset(mapper);
+        when(mapper.selectByTenantIdAndIdempotencyKey(1L, command.idempotencyKey())).thenReturn(existing);
+
+        Long eventId = service.append(command);
+
+        assertEquals(2002L, eventId);
+        verify(mapper, never()).insert(any(GxpAuditEventDO.class));
+    }
+
+    @Test
+    void appendRejectsSameIdempotencyWithDifferentCanonicalPayload() {
+        TenantContextHolder.setTenantId(1L);
+        GxpAuditEventMapper mapper = mock(GxpAuditEventMapper.class);
+        GxpAuditTrailServiceImpl service = new GxpAuditTrailServiceImpl(mapper, FIXED_CLOCK);
+        GxpAuditTrailAppendCommand command = validCommand();
+        GxpAuditEventDO existing = GxpAuditEventDO.builder()
+                .id(2003L)
+                .tenantId(1L)
+                .idempotencyKey(command.idempotencyKey())
+                .canonicalEventJson("{\"different\":true}")
+                .build();
+        when(mapper.selectByTenantIdAndIdempotencyKey(1L, command.idempotencyKey())).thenReturn(existing);
+
+        assertThrows(ServiceException.class, () -> service.append(command));
+        verify(mapper, never()).insert(any(GxpAuditEventDO.class));
+    }
+
+    @Test
+    void springRuntimeUsesExplicitMapperConstructor() throws NoSuchMethodException {
+        Constructor<GxpAuditTrailServiceImpl> runtimeConstructor =
+                GxpAuditTrailServiceImpl.class.getConstructor(GxpAuditEventMapper.class);
+        Constructor<GxpAuditTrailServiceImpl> testConstructor =
+                GxpAuditTrailServiceImpl.class.getConstructor(GxpAuditEventMapper.class, Clock.class);
+
+        assertTrue(runtimeConstructor.isAnnotationPresent(Autowired.class));
+        assertFalse(testConstructor.isAnnotationPresent(Autowired.class));
     }
 
     private GxpAuditTrailAppendCommand validCommand() {

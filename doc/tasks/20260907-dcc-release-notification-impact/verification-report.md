@@ -68,3 +68,18 @@
 - The actual retry failure was runtime schema drift: `system_electronic_signature` did not exist in the MySQL database used by `48081`.
 - Existing official migrations `20260908_system_electronic_signature_t3.sql`, `t7.sql` and `t8.sql` were applied and repeated successfully. The six `system_electronic_signature*` tables now exist.
 - Runtime page re-verification is blocked by an unrelated unresolved Git conflict in the shared frontend, which causes a Vite compiler overlay. The approval transition is therefore not yet claimed as passing.
+
+## Approval Repair 2026-09-08
+
+- Added and validated a forward migration for the unified signature `subject_id` capacity (`varchar(512)`), preserving the full encoded approval identity and remaining within MySQL index limits.
+- Applied the migration successfully twice.
+- Applied the existing temporary-role migration successfully twice to repair the shared runtime's missing `remind_time` schema used by public tenant/login prerequisites.
+- Standard local backend restart completed with Maven `BUILD SUCCESS`; `48081` health is `UP` and `8081` returns HTTP 200.
+- A fresh DCC approval transition after these repairs is still pending; the prior retry was affected by concurrent shared frontend/runtime activity.
+
+## P4 Resume Preflight 2026-09-08
+
+- Rechecked local runtime without restarting: `48081` health is `UP` and `8081` returns HTTP 200.
+- Rechecked the previously blocking frontend conflict file: `ActiveOrderSubmissionDetailPanel.vue` has no unresolved merge markers.
+- Re-ran frontend relaxed type check: `pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json` passed with exit code 0.
+- Remaining blocker: fresh real frontend approval/publish/write-path Playwright was not run in this command because the current instruction did not explicitly authorize business writes or service restart.

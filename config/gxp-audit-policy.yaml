@@ -4,7 +4,7 @@ approvedReference: DESIGN-PASS-20260907
 operations:
   - operationId: MES.BATCH_RECORD.UPDATE
     sourceType: SERVICE
-    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord
+    sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionServiceImpl#submitBatchRecordExecution
     domain: MES
     subject: BATCH_RECORD
     action: UPDATE
@@ -15,5 +15,124 @@ operations:
     testIds:
       - GxpAuditTrailServiceContractTest
       - GxpAuditTrailSchemaContractTest
+      - test_gxp_audit_policy_static.py
     owner: QA_SYSTEM_OWNER
     applicabilityDecision: IN_SCOPE
+  - operationId: DCC.DATA_RELATION.CREATE
+    sourceType: SERVICE
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.relation.DccDataRelationServiceImpl#createRelation
+    domain: DCC
+    subject: DATA_RELATION
+    action: CREATE
+    reasonPolicy: REQUIRED
+    signaturePolicy: REQUIRED_WHEN_POLICY_SAYS
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_MASTER_DATA
+    testIds:
+      - test_gxp_audit_policy_static.py
+    owner: DCC_SYSTEM_OWNER
+    applicabilityDecision: IN_SCOPE
+  - operationId: SIGNATURE.ELECTRONIC_SIGNATURE.SIGN
+    sourceType: SERVICE
+    sourceLocator: cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl#sign
+    domain: SIGNATURE
+    subject: ELECTRONIC_SIGNATURE_RECORD
+    action: CREATE
+    reasonPolicy: REQUIRED
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_SIGNATURE_RECORD
+    testIds:
+      - GxpAuditTrailServiceContractTest
+      - test_gxp_audit_policy_static.py
+    owner: QA_SYSTEM_OWNER
+    applicabilityDecision: IN_SCOPE
+  - operationId: SYSTEM.USER_ROLE.ASSIGN
+    sourceType: SERVICE
+    sourceLocator: cn.iocoder.yudao.module.system.service.permission.PermissionServiceImpl#assignUserRole
+    domain: SYSTEM
+    subject: USER_ROLE_ASSIGNMENT
+    action: ASSIGN
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED_WHEN_POLICY_SAYS
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_PERMISSION_CONFIG
+    testIds:
+      - test_gxp_audit_policy_static.py
+    owner: SYSTEM_OWNER
+    applicabilityDecision: IN_SCOPE
+  - operationId: INFRA.SYSTEM_CONFIG.UPDATE
+    sourceType: SERVICE
+    sourceLocator: cn.iocoder.yudao.module.infra.service.config.ConfigServiceImpl#updateConfig
+    domain: INFRA
+    subject: SYSTEM_CONFIG
+    action: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED_WHEN_POLICY_SAYS
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_SYSTEM_CONFIG
+    testIds:
+      - test_gxp_audit_policy_static.py
+    owner: SYSTEM_OWNER
+    applicabilityDecision: IN_SCOPE
+  - operationId: INFRA.RELEASE_MIGRATION.SYSTEM_CHANGE
+    sourceType: OPS_SCRIPT
+    sourceLocator: IntRuoyiBackend/script/release/run-release-migration-policy-gate.py#main
+    domain: INFRA
+    subject: RELEASE_MIGRATION
+    action: SYSTEM_CHANGE
+    reasonPolicy: SYSTEM_GENERATED_WITH_REASON_CODE
+    signaturePolicy: REQUIRED_WHEN_POLICY_SAYS
+    statePolicy: SYSTEM_MANIFEST
+    retentionClass: GXP_SYSTEM_CHANGE
+    testIds:
+      - test_gxp_audit_policy_static.py
+    owner: RELEASE_OWNER
+    applicabilityDecision: IN_SCOPE
+writeBoundaryScan:
+  categories:
+    - sourceType: CONTROLLER
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/**/controller/**/*.java
+      expectedMinCandidates: 400
+    - sourceType: DOMAIN_SERVICE
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/**/service/**/*.java
+      expectedMinCandidates: 1200
+    - sourceType: JOB
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/**/*Job*.java
+        - IntRuoyiBackend/**/job/**/*.java
+      expectedMinCandidates: 10
+    - sourceType: MESSAGE_CONSUMER
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/**/*Consumer*.java
+        - IntRuoyiBackend/**/*Listener*.java
+      expectedMinCandidates: 3
+    - sourceType: IMPORT
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/**/*.java
+      expectedMinCandidates: 700
+    - sourceType: EXTERNAL_SYNC
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/**/*.java
+      expectedMinCandidates: 150
+    - sourceType: MIGRATION
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/sql/**/*.sql
+      expectedMinCandidates: 600
+    - sourceType: OPS_SCRIPT
+      requiredRegistration: true
+      paths:
+        - IntRuoyiBackend/script/**/*.ps1
+        - IntRuoyiBackend/script/**/*.py
+        - scripts/**/*.ps1
+        - scripts/**/*.py
+      expectedMinCandidates: 450

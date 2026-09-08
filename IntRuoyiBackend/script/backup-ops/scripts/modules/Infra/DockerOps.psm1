@@ -1231,14 +1231,14 @@ function Assert-BackupOpsWriteWindowQuiesced {
     $backend = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'backend') -Code 'INTBK-5002' -Reason '缺少 backend 容器名。' -Action '请补齐 containers.backend。')
     $frontend = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'frontend') -Code 'INTBK-5002' -Reason '缺少 frontend 容器名。' -Action '请补齐 containers.frontend。')
     $mysql = [string](Get-BackupOpsRequiredConfigValue -Config $Config -Path @('containers', 'mysql') -Code 'INTBK-5002' -Reason '缺少 MySQL 容器名。' -Action '请补齐 containers.mysql。')
-    $command = 'set -euo pipefail; test "$(docker inspect -f ''{{.State.Running}}'' {0})" = "false"; test "$(docker inspect -f ''{{.State.Running}}'' {1})" = "false"; active=$(docker exec {2} mysql -uroot -p{3} -N -B -e {4}); test "$active" = "0"; printf ''QUIESCED\n''' -f
+    $command = 'set -euo pipefail; test "$(docker inspect -f ''{{{{.State.Running}}}}'' {0})" = "false"; test "$(docker inspect -f ''{{{{.State.Running}}}}'' {1})" = "false"; active=$(docker exec {2} mysql -uroot -p{3} -N -B -e {4} 2>/dev/null); test "$active" = "0"; printf ''QUIESCED\n''' -f
         (ConvertTo-BackupBashSingleQuotedString -Value $backend),
         (ConvertTo-BackupBashSingleQuotedString -Value $frontend),
         (ConvertTo-BackupBashSingleQuotedString -Value $mysql),
         (ConvertTo-BackupBashSingleQuotedString -Value $rootPassword),
         (ConvertTo-BackupBashSingleQuotedString -Value 'SELECT COUNT(*) FROM information_schema.innodb_trx;')
     $result = Invoke-BackupSshCommand -Request ($sshRequest + @{ Command = "bash -lc {0}" -f (ConvertTo-BackupBashSingleQuotedString -Value $command); TimeoutSeconds = 60 })
-    if (([string]$result.output).Trim() -ne 'QUIESCED') {
+    if (([string]$result.output).Trim() -notmatch 'QUIESCED') {
         throw (New-BackupOpsDockerException -Code 'INTBK-5002' -Status 'blocked' -Message '无法证明 frontend/backend 已停止且 MySQL 活动事务为 0。')
     }
     Write-BackupOpsLog -Session $LogSession -Message 'Write window quiesced: frontend/backend stopped and active MySQL transactions=0.'

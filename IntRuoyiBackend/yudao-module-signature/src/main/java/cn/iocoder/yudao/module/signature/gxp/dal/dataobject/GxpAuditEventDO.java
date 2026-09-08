@@ -21,6 +21,7 @@ public class GxpAuditEventDO {
     @TableId
     private Long id;
     private Long tenantId;
+    private Long ledgerSequence;
     private String operationId;
     private String domain;
     private String subjectType;

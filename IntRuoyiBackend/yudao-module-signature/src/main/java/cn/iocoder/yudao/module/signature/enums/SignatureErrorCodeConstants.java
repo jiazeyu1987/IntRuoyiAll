@@ -11,5 +11,6 @@ public interface SignatureErrorCodeConstants {
     ErrorCode ESIGN_DUPLICATE_IDEMPOTENCY_KEY = new ErrorCode(1_047_000_004, "电子签名幂等键已被不同内容使用");
 
     ErrorCode GXP_AUDIT_COMMAND_INVALID = new ErrorCode(1_047_001_000, "GxP 审计命令非法，原因：{}");
+    ErrorCode GXP_AUDIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_047_001_001, "GxP 审计幂等键已被不同内容使用");
 
 }

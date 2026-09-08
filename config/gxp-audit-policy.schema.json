@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://intruoyi.local/schemas/gxp-audit-policy.schema.json",
+  "x-schema-version": 1,
+  "title": "IntRuoyi GxP Audit Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "policyVersion",
+    "approvedReference",
+    "operations",
+    "writeBoundaryScan"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "policyVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approvedReference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    },
+    "writeBoundaryScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "categories"
+      ],
+      "properties": {
+        "categories": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "$ref": "#/$defs/writeBoundaryCategory"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operationId",
+        "sourceType",
+        "sourceLocator",
+        "domain",
+        "subject",
+        "action",
+        "reasonPolicy",
+        "signaturePolicy",
+        "statePolicy",
+        "retentionClass",
+        "testIds",
+        "owner",
+        "applicabilityDecision"
+      ],
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[A-Z0-9_]+)+$"
+        },
+        "sourceType": {
+          "enum": [
+            "SERVICE",
+            "CONTROLLER",
+            "DOMAIN_SERVICE",
+            "JOB",
+            "MESSAGE_CONSUMER",
+            "IMPORT",
+            "EXTERNAL_SYNC",
+            "MIGRATION",
+            "OPS_SCRIPT"
+          ]
+        },
+        "sourceLocator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "enum": [
+            "MES",
+            "DCC",
+            "BPM",
+            "SYSTEM",
+            "SIGNATURE",
+            "SHOWROOM",
+            "INFRA"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "enum": [
+            "CREATE",
+            "UPDATE",
+            "DELETE",
+            "SUBMIT",
+            "APPROVE",
+            "REJECT",
+            "PUBLISH",
+            "VOID",
+            "ASSIGN",
+            "SYNC",
+            "IMPORT",
+            "SYSTEM_CHANGE"
+          ]
+        },
+        "reasonPolicy": {
+          "enum": [
+            "REQUIRED",
+            "REQUIRED_CATEGORY_AND_TEXT",
+            "SYSTEM_GENERATED_WITH_REASON_CODE"
+          ]
+        },
+        "signaturePolicy": {
+          "enum": [
+            "NOT_REQUIRED",
+            "REQUIRED",
+            "REQUIRED_WHEN_APPROVAL",
+            "REQUIRED_WHEN_POLICY_SAYS"
+          ]
+        },
+        "statePolicy": {
+          "enum": [
+            "ABSENT_TO_PRESENT",
+            "PRESENT_TO_PRESENT",
+            "PRESENT_TO_ABSENT",
+            "PRESENT_TO_VOIDED",
+            "SYSTEM_MANIFEST"
+          ]
+        },
+        "retentionClass": {
+          "type": "string",
+          "pattern": "^GXP_[A-Z0-9_]+$"
+        },
+        "testIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applicabilityDecision": {
+          "enum": [
+            "IN_SCOPE",
+            "NOT_APPLICABLE_APPROVED"
+          ]
+        },
+        "notApplicableApproval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "approvedBy",
+            "approvalReference",
+            "reason",
+            "validUntil"
+          ],
+          "properties": {
+            "approvedBy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "approvalReference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "validUntil": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "applicabilityDecision": {
+                "const": "NOT_APPLICABLE_APPROVED"
+              }
+            },
+            "required": [
+              "applicabilityDecision"
+            ]
+          },
+          "then": {
+            "required": [
+              "notApplicableApproval"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "notApplicableApproval"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "writeBoundaryCategory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType",
+        "requiredRegistration",
+        "paths",
+        "expectedMinCandidates"
+      ],
+      "properties": {
+        "sourceType": {
+          "enum": [
+            "CONTROLLER",
+            "DOMAIN_SERVICE",
+            "JOB",
+            "MESSAGE_CONSUMER",
+            "IMPORT",
+            "EXTERNAL_SYNC",
+            "MIGRATION",
+            "OPS_SCRIPT"
+          ]
+        },
+        "requiredRegistration": {
+          "const": true
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "expectedMinCandidates": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

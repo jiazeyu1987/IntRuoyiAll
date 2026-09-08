@@ -607,5 +607,5 @@
 - Keywords: PQC 手工检验设备, PQC设备可选, 空设备快照, equipmentRequired不代表提交必选, 空设备ID, 手工设备快照, 禁止伪造设备ID, 正式设备严格匹配, selectedEquipmentNumber -> `docs/backend-development.md#pqc-手工检验设备必须使用可审计快照而非伪造设备身份`
 
 - 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。
-- Keywords: GxP审计追踪, 统一审计内核, signature.gxp, GxpAuditTrailService.append, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
+- Keywords: GxP审计追踪, 统一审计内核, signature.gxp, GxpAuditTrailService.append, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, sourceLocator 精确到类方法, 登记悬空失败, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
 - Keywords: 可信时间, 审计追踪时间戳, chrony, Last offset, RMS offset, Leap status, 系统签名时间, 业务发生时间, selectedSignedAt, signatureDisplayAt, inspection-runs.json, 时间戳证据 ZIP, 审查摘要, SHA256SUMS, 审查服 -> `docs/backend-development.md#可信时间与正式签名时间边界门禁`、`docs/frontend-development.md#可信时间证据与业务发生时间展示门禁`

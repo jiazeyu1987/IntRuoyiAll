@@ -78,6 +78,28 @@ def test_mysql_restore_verifies_dump_before_resetting_database() -> None:
     assert "'--events'" in source
 
 
+def test_mysql_payload_proof_parser_tolerates_ssh_noise() -> None:
+    module = BACKUP_ROOT / "scripts" / "modules" / "Infra" / "MySqlOps.psm1"
+    script = f"""
+$ErrorActionPreference = 'Stop'
+function New-BackupOpsMySqlException {{ param($Code, $Status, $Message) throw $Message }}
+Import-Module '{module}' -Force -DisableNameChecking
+$actualTab = "noise before`rBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB`t4396845705`nclose - IO is still pending on closed socket"
+$literalTab = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\\t4396845705\\n"
+$proof1 = ConvertFrom-BackupOpsMySqlPayloadProof -Output $actualTab
+$proof2 = ConvertFrom-BackupOpsMySqlPayloadProof -Output $literalTab
+[pscustomobject]@{{ proof1 = $proof1; proof2 = $proof2 }} | ConvertTo-Json -Depth 4 -Compress
+"""
+    result = _run_powershell(script)
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["proof1"]["sha256"] == "b" * 64
+    assert payload["proof1"]["size"] == 4396845705
+    assert payload["proof2"]["sha256"] == "b" * 64
+    assert payload["proof2"]["size"] == 4396845705
+
+
 def test_object_restore_verifies_repository_payload_before_mirror() -> None:
     source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "ObjectOps.psm1").read_text(encoding="utf-8")
     restore = source.split("function Import-BackupObjectInventoryFromRemoteNas", 1)[1].split(
@@ -347,6 +369,18 @@ def test_backup_use_cases_restart_services_in_finally() -> None:
 
         assert "$servicesStopped = $false" in source
         assert 0 <= stop_index < quiesced_index < mysql_index < object_index < finally_index < start_index < health_index
+
+
+def test_write_window_quiesce_preserves_docker_inspect_go_template() -> None:
+    source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "DockerOps.psm1").read_text(encoding="utf-8")
+    quiesce = source.split("function Assert-BackupOpsWriteWindowQuiesced", 1)[1].split(
+        "function Restore-BackupOpsDependentAssets", 1
+    )[0]
+
+    assert "docker inspect -f ''{{{{.State.Running}}}}''" in quiesce
+    assert "docker inspect -f ''{{.State.Running}}''" not in quiesce
+    assert "2>/dev/null" in quiesce
+    assert "-notmatch 'QUIESCED'" in quiesce
 
 
 def test_dcc_snapshot_is_captured_inside_the_same_write_window() -> None:

@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '审计事件编号',
     `tenant_id` bigint NOT NULL COMMENT '租户编号',
+    `ledger_sequence` bigint NOT NULL COMMENT '租户内审计账本序号',
     `operation_id` varchar(128) NOT NULL COMMENT 'GxP 操作登记编号',
     `domain` varchar(64) NOT NULL COMMENT '业务域',
     `subject_type` varchar(64) NOT NULL COMMENT '对象类型',
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `algorithm` varchar(32) NOT NULL COMMENT 'Hash 算法',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_gxp_audit_event_sequence` (`tenant_id`, `ledger_sequence`),
     UNIQUE KEY `uk_gxp_audit_event_idempotency` (`tenant_id`, `idempotency_key`),
     KEY `idx_gxp_audit_event_subject` (`tenant_id`, `domain`, `subject_type`, `subject_id`, `server_occurred_at`),
     KEY `idx_gxp_audit_event_operation` (`tenant_id`, `operation_id`, `server_occurred_at`)
@@ -47,3 +49,99 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_policy_version` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_gxp_audit_policy_version` (`tenant_id`, `policy_version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计策略版本登记';
+
+CREATE TABLE IF NOT EXISTS `gxp_audit_coverage_report` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '覆盖报告编号',
+    `tenant_id` bigint NOT NULL COMMENT '租户编号',
+    `policy_version` varchar(128) NOT NULL COMMENT '策略版本',
+    `source_commit` varchar(64) NOT NULL COMMENT '源码 commit',
+    `registry_sha256` char(64) NOT NULL COMMENT '策略登记 Hash',
+    `discovered_inventory_sha256` char(64) NOT NULL COMMENT '实际写入口清单 Hash',
+    `registered_count` int NOT NULL COMMENT '登记项数量',
+    `not_applicable_count` int NOT NULL COMMENT '已批准不适用数量',
+    `gap_count` int NOT NULL COMMENT '缺口数量',
+    `test_mapping_count` int NOT NULL COMMENT '测试映射数量',
+    `report_sha256` char(64) NOT NULL COMMENT '覆盖报告 Hash',
+    `generated_at_utc` datetime NOT NULL COMMENT '生成时间 UTC',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_gxp_audit_coverage_report` (`tenant_id`, `policy_version`, `source_commit`),
+    KEY `idx_gxp_audit_coverage_report_policy` (`tenant_id`, `policy_version`, `generated_at_utc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计覆盖登记报告';
+
+CREATE TABLE IF NOT EXISTS `gxp_audit_daily_manifest` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日清单编号',
+    `tenant_id` bigint NOT NULL COMMENT '租户编号',
+    `business_date` date NOT NULL COMMENT '业务日期',
+    `first_sequence` bigint NOT NULL COMMENT '首个账本序号',
+    `last_sequence` bigint NOT NULL COMMENT '最后账本序号',
+    `event_count` int NOT NULL COMMENT '事件数量',
+    `merkle_root` char(64) NOT NULL COMMENT 'Merkle Root',
+    `previous_manifest_hash` char(64) NULL COMMENT '前一清单 Hash',
+    `manifest_hash` char(64) NOT NULL COMMENT '清单 Hash',
+    `sealed_at_utc` datetime NOT NULL COMMENT '封存时间 UTC',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_gxp_audit_daily_manifest` (`tenant_id`, `business_date`),
+    UNIQUE KEY `uk_gxp_audit_daily_manifest_hash` (`tenant_id`, `manifest_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计每日封存清单';
+
+CREATE TABLE IF NOT EXISTS `gxp_audit_seal_watermark` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '封存水位编号',
+    `tenant_id` bigint NOT NULL COMMENT '租户编号',
+    `watermark_type` varchar(64) NOT NULL COMMENT '水位类型',
+    `sealed_through_sequence` bigint NOT NULL COMMENT '已封存至账本序号',
+    `last_manifest_hash` char(64) NOT NULL COMMENT '最新清单 Hash',
+    `unsealed_event_count` int NOT NULL COMMENT '未封存事件数',
+    `watermark_hash` char(64) NOT NULL COMMENT '水位 Hash',
+    `generated_at_utc` datetime NOT NULL COMMENT '生成时间 UTC',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_gxp_audit_seal_watermark_hash` (`tenant_id`, `watermark_hash`),
+    KEY `idx_gxp_audit_seal_watermark_sequence` (`tenant_id`, `watermark_type`, `sealed_through_sequence`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计封存水位';
+
+DROP TRIGGER IF EXISTS `trg_gxp_audit_event_no_update`;
+DROP TRIGGER IF EXISTS `trg_gxp_audit_event_no_delete`;
+DROP TRIGGER IF EXISTS `trg_gxp_audit_daily_manifest_no_update`;
+DROP TRIGGER IF EXISTS `trg_gxp_audit_daily_manifest_no_delete`;
+DROP TRIGGER IF EXISTS `trg_gxp_audit_seal_watermark_no_update`;
+DROP TRIGGER IF EXISTS `trg_gxp_audit_seal_watermark_no_delete`;
+DELIMITER $$
+CREATE TRIGGER `trg_gxp_audit_event_no_update`
+BEFORE UPDATE ON `gxp_audit_event`
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'GxP audit event is append-only';
+END$$
+CREATE TRIGGER `trg_gxp_audit_event_no_delete`
+BEFORE DELETE ON `gxp_audit_event`
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'GxP audit event is append-only';
+END$$
+CREATE TRIGGER `trg_gxp_audit_daily_manifest_no_update`
+BEFORE UPDATE ON `gxp_audit_daily_manifest`
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'GxP audit daily manifest is append-only';
+END$$
+CREATE TRIGGER `trg_gxp_audit_daily_manifest_no_delete`
+BEFORE DELETE ON `gxp_audit_daily_manifest`
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'GxP audit daily manifest is append-only';
+END$$
+CREATE TRIGGER `trg_gxp_audit_seal_watermark_no_update`
+BEFORE UPDATE ON `gxp_audit_seal_watermark`
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'GxP audit seal watermark is append-only';
+END$$
+CREATE TRIGGER `trg_gxp_audit_seal_watermark_no_delete`
+BEFORE DELETE ON `gxp_audit_seal_watermark`
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'GxP audit seal watermark is append-only';
+END$$
+DELIMITER ;

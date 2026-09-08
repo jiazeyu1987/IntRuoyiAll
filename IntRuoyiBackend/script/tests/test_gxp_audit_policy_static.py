@@ -39,6 +39,15 @@ WRITE_BOUNDARY_PATTERNS = {
     "OPS_SCRIPT": re.compile(r"\b(insert|update|delete|alter|create|drop|deploy|release|migration)\b", re.IGNORECASE),
 }
 
+FIRST_HIGH_RISK_OPERATION_IDS = {
+    "MES.BATCH_RECORD.UPDATE",
+    "DCC.DATA_RELATION.CREATE",
+    "SIGNATURE.ELECTRONIC_SIGNATURE.SIGN",
+    "SYSTEM.USER_ROLE.ASSIGN",
+    "INFRA.SYSTEM_CONFIG.UPDATE",
+    "INFRA.RELEASE_MIGRATION.SYSTEM_CHANGE",
+}
+
 
 def _load_policy() -> dict[str, object]:
     assert POLICY_PATH.exists(), "config/gxp-audit-policy.yaml must exist"
@@ -79,6 +88,45 @@ def test_registered_operations_have_required_fields_and_unique_ids() -> None:
         operation_ids.append(operation["operationId"])
 
     assert len(operation_ids) == len(set(operation_ids)), "operationId must be unique"
+
+
+def test_policy_seeds_first_high_risk_gxp_operations() -> None:
+    policy = _load_policy()
+    operation_ids = {operation["operationId"] for operation in policy["operations"]}
+
+    assert FIRST_HIGH_RISK_OPERATION_IDS.issubset(operation_ids)
+
+
+def test_registered_operations_resolve_to_exact_source_locator() -> None:
+    policy = _load_policy()
+
+    for operation in policy["operations"]:
+        locator = operation["sourceLocator"]
+        assert "#" in locator, f"sourceLocator must be exact class#method: {locator}"
+        source_ref, member_name = locator.split("#", 1)
+        assert source_ref and member_name, f"sourceLocator must include source and member: {locator}"
+        if operation["sourceType"] in {"MIGRATION", "OPS_SCRIPT"}:
+            source_path = WORKSPACE_ROOT / source_ref
+            assert source_path.is_file(), f"sourceLocator script does not exist: {locator}"
+            source_text = source_path.read_text(encoding="utf-8", errors="ignore")
+            assert re.search(rf"\b{re.escape(member_name)}\s*\(", source_text), (
+                f"sourceLocator script member does not exist: {locator}"
+            )
+        else:
+            relative_path = Path(*source_ref.split(".")).with_suffix(".java")
+            candidates = [
+                path for pattern in (
+                    f"IntRuoyiBackend/*/src/main/java/{relative_path.as_posix()}",
+                    f"IntRuoyiBackend/yudao-framework/*/src/main/java/{relative_path.as_posix()}",
+                )
+                for path in WORKSPACE_ROOT.glob(pattern)
+                if path.is_file()
+            ]
+            assert candidates, f"sourceLocator class does not exist: {locator}"
+            class_text = candidates[0].read_text(encoding="utf-8", errors="ignore")
+            assert re.search(rf"\b{re.escape(member_name)}\s*\(", class_text), (
+                f"sourceLocator method does not exist: {locator}"
+            )
 
 
 def test_write_boundary_scan_policy_covers_required_source_types() -> None:
