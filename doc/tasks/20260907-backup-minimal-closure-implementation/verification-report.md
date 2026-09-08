@@ -43,15 +43,19 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 - `git commit -m "feat: complete backup minimal closure validation"` -> PASS，commit `d8bc08ab1`。
 - `git push origin codex/tmp_auth_20260907` -> PASS，远端分支已创建。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260907-backup-minimal-closure-implementation --mode preview` after push -> BLOCKED，仅剩主工作区 `E:\IntRuoyi` dirty，不能接收 ff-only merge。
+- `node --check tests\e2e\system-backup-plan-real-readonly.e2e.js` -> PASS。
+- `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS，生成 worktree 后端运行 jar。
+- worktree runtime startup -> PASS，后端 `48164` health HTTP 200，前端 `8164` ready；运行时显式使用当前 worktree `INTRUOYI_RUNTIME_CONTROL_REPO_ROOT`。
+- `node tests\e2e\system-backup-plan-real-readonly.e2e.js` with `SYSTEM_BACKUP_PLAN_E2E_BASE_URL=http://127.0.0.1:8164` and project test account -> PASS，真实前端只读闭环覆盖登录、页面进入、status/history API、保存期限来源和质量批准引用回显；测试密码未写入报告。
+- task-owned runtime stop -> PASS，`8164` / `48164` 无 LISTEN。
 
 ## Updated Development Document Reanalysis
 
-- Frontend operation closure: PASS for local development verification. The page now displays and submits the retention source and quality approval reference, still delegates backup success and evidence conclusions to backend APIs, and keeps independent evidence-export permission.
+- Frontend operation closure: PASS for local development verification and real read-only E2E. The page now displays and submits the retention source and quality approval reference, real browser verification confirms status/history loading and retention/approval 回显；backup success and evidence conclusions still come from backend APIs, with independent evidence-export permission.
 - Checklist fit: PASS for 3.1 / 3.3 / 3.6 after implementation evidence; CONDITIONAL for 3.2 / 2.7 because the system can expose and enforce approved retention references but cannot by itself replace the formal record-retention matrix, long-term archive package, or WORM/Object Lock evidence.
 - Backend data flow: PASS for local development verification. Backend-owned config, manifest/report, rehearsal evidence, evidence manifest and audit-related operation records remain the source of truth. `overallVerdict=PASS` is only emitted from backend evidence generation; missing preconditions remain BLOCKED.
 
 ## Remaining Blockers
 
-- Real backup, remote server, database write and Playwright E2E validation still require explicit user authorization.
 - Git commit/push has completed, but cleanup preview is still blocked by dirty main worktree `E:\IntRuoyi`, so the task remains `ready_for_closeout` instead of `completed`.
-- Real backup, remote server, database write and Playwright E2E validation still require production/test-environment preconditions and, for production-grade actions, explicit `PROD` confirmation.
+- Playwright real read-only E2E has completed. Real backup write, restore rehearsal against remote/test/prod targets, and production-grade evidence still require target environment preconditions and, for production-grade actions, explicit `PROD` confirmation.

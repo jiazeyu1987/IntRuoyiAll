@@ -136,6 +136,8 @@ async function run() {
     const statusData = requireSuccessPayload(await statusResponse.json(), 'backup status')
     requireSuccessPayload(await historyResponse.json(), 'backup history')
     assert.ok(statusData && statusData.healthStatus, 'backup status must expose healthStatus')
+    assert.ok(statusData.retentionSource, 'backup status must expose retentionSource')
+    assert.ok(statusData.qualityApprovalRef, 'backup status must expose qualityApprovalRef')
     if (statusData.healthStatus === '配置异常') {
       assert.ok(statusData.blockedReason, 'configuration abnormal status must expose blockedReason')
     }
@@ -146,12 +148,24 @@ async function run() {
       timeout: config.timeout
     })
     await pageRoot.getByText('自动备份', { exact: false }).first().waitFor({ state: 'visible', timeout: config.timeout })
-    await pageRoot.getByText('每天', { exact: false }).first().waitFor({ state: 'visible', timeout: config.timeout })
-    await pageRoot.getByText('每周', { exact: false }).first().waitFor({ state: 'visible', timeout: config.timeout })
+    await pageRoot.getByText('每周全量备份', { exact: true }).waitFor({ state: 'visible', timeout: config.timeout })
+    await pageRoot.getByText('周一至周六增量备份', { exact: true }).waitFor({ state: 'visible', timeout: config.timeout })
     await pageRoot.getByText('备份包历史', { exact: false }).waitFor({ state: 'visible', timeout: config.timeout })
     for (const text of ['备份仓库', '新鲜度阈值', '最新成功备份点']) {
       await pageRoot.getByText(text, { exact: true }).waitFor({ state: 'visible', timeout: config.timeout })
     }
+    const statusLabels = pageRoot.locator('.backup-plan-status-item__label')
+    for (const text of ['保存期限来源', '质量批准引用']) {
+      await statusLabels.getByText(text, { exact: true }).waitFor({ state: 'visible', timeout: config.timeout })
+    }
+    await pageRoot.getByText(statusData.retentionSource, { exact: false }).waitFor({
+      state: 'visible',
+      timeout: config.timeout
+    })
+    await pageRoot.getByText(statusData.qualityApprovalRef, { exact: false }).waitFor({
+      state: 'visible',
+      timeout: config.timeout
+    })
     if (statusData.blockedReason) {
       await pageRoot.getByText(statusData.blockedReason, { exact: false }).waitFor({
         state: 'visible',

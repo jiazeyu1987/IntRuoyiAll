@@ -2,7 +2,7 @@
 
 ## Scope
 
-验证 `D:\IntRuoyiWorktree\tmp_auth_20260907` 中备份恢复最小闭环实现是否满足本地开发验证门禁。未执行真实备份、远程服务器、数据库写入或 Playwright E2E。
+验证 `D:\IntRuoyiWorktree\tmp_auth_20260907` 中备份恢复最小闭环实现是否满足本地开发验证门禁。已执行真实前端只读 Playwright E2E；未执行真实备份、恢复演练写入、保存计划写入或生产级证据生成。
 
 ## Results
 
@@ -15,6 +15,7 @@
 | Frontend static contract | `node tests\e2e\system-backup-plan-standard-list-static.spec.js` | PASS |
 | Frontend minimal closure static contract | `node tests\e2e\system-backup-minimal-closure-static.spec.js` | PASS |
 | Frontend type check | `pnpm ts:check` | PASS |
+| Frontend real read-only E2E | `node tests\e2e\system-backup-plan-real-readonly.e2e.js` against `http://127.0.0.1:8164` | PASS，覆盖登录、页面进入、status/history API、保存期限来源和质量批准引用回显 |
 
 ## Coverage Notes
 
@@ -27,7 +28,8 @@
 - Evidence manifest now covers `overallVerdict`、`chainId`、`targetBackupId` and package file hashes.
 - Plan status and save request cover `retentionSource` and `qualityApprovalRef`; missing approval evidence remains BLOCKED instead of default PASS.
 - Frontend covers full/incremental buttons, backup chain display, retention source display/input, quality approval reference display/input, independent evidence-export permission and blob download.
+- Real read-only E2E covers the current worktree runtime ports `8164/48164` and verifies retention source / quality approval reference回显 from backend status data. Test password is intentionally not recorded.
 
 ## Not Run
 
-- Real backup execution, remote server interaction, database writes and Playwright E2E were not run because this turn does not include explicit authorization for those actions.
+- Real backup execution, restore rehearsal write, save-plan write and production-grade evidence generation were not run. Production-grade actions still require explicit `PROD` confirmation and target environment preconditions.

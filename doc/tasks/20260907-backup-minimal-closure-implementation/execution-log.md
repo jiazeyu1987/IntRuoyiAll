@@ -92,3 +92,16 @@ BLOCKED: task-closeout-cleanup preview -> `python C:\Users\BJB110\.codex\skills\
 - GREEN: implementation commit -> PASS，`git commit -m "feat: complete backup minimal closure validation"` 创建提交 `d8bc08ab1`，包含任务实现、开发文档和强制加入的任务证据。
 - GREEN: branch push -> PASS，`git push origin codex/tmp_auth_20260907` 成功创建远端分支 `origin/codex/tmp_auth_20260907`。
 - BLOCKED: task-closeout-cleanup preview after push -> 重新预览后 current worktree 无 pending change，但仍因主工作区 `E:\IntRuoyi` dirty 阻断 ff-only merge；不执行 cleanup apply，不删除 worktree。
+
+## 2026-09-08 Real Read-only E2E Follow-up
+
+- 根据真实前端闭环要求，补强 `IntRuoyiFronted/tests/e2e/system-backup-plan-real-readonly.e2e.js`：只读 E2E 现在同时校验 status API 返回 `retentionSource` / `qualityApprovalRef`，并校验页面状态区回显“保存期限来源”“质量批准引用”及对应值。
+- GREEN: frontend lightweight verification -> PASS，`node --check tests\e2e\system-backup-plan-real-readonly.e2e.js`、`node tests\e2e\system-backup-minimal-closure-static.spec.js`、`pnpm ts:check` 通过。
+- GREEN: backend package -> PASS，`mvn.cmd -pl yudao-server -am -DskipTests package` 通过，生成 `yudao-server-exec.jar`。
+- GREEN: worktree runtime startup -> PASS，显式设置 `INTRUOYI_RUNTIME_CONTROL_REPO_ROOT=D:\IntRuoyiWorktree\tmp_auth_20260907\IntRuoyiBackend` 后启动本 worktree 后端 `48164`，并确认 health HTTP 200；启动前端 `8164`，proxy backend `48164`。
+- RED: real read-only E2E first run -> FAIL，缺少显式 E2E 登录输入；按 fail-fast 规则未使用默认/伪造账号。
+- RED: real read-only E2E second run -> FAIL，后端 `backupOps.configPath` 指向旧默认仓库路径 `D:\ProjectPackage\...`，当前 worktree 不存在该配置；按无 fallback 规则停止并定位为运行时 `INTRUOYI_RUNTIME_CONTROL_REPO_ROOT` 未显式指向当前 worktree。
+- RED: real read-only E2E third run -> FAIL，页面存在状态区和表单区两处“保存期限来源”，Playwright strict mode 命中重复元素；收窄断言到 `.backup-plan-status-item__label`。
+- GREEN: real read-only E2E final -> PASS，`SYSTEM_BACKUP_PLAN_E2E_BASE_URL=http://127.0.0.1:8164` + 项目测试租户/账号运行 `node tests\e2e\system-backup-plan-real-readonly.e2e.js` 通过；覆盖登录、备份计划页面、`/status`、`/history/page`、新增保存期限来源/质量批准引用回显。测试密码未写入任务记录。
+- GREEN: task-owned runtime stop -> PASS，已停止本轮启动的 `8164` 前端和 `48164` 后端；端口仅剩 `TIME_WAIT`，无 LISTEN。
+- NOTE: 真实只读 E2E 会触发登录、权限、消息和备份状态/历史读取请求；本轮未点击立即备份、恢复演练、保存计划或导出证据，未执行真实备份写入。
