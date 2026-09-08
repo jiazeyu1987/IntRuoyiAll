@@ -7,12 +7,14 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_signature_password_migration_adds_history_and_state_columns():
     migration = (ROOT / "sql/mysql/20260908_system_signature_password_t1.sql").read_text(encoding="utf-8")
 
+    assert "DELIMITER $$" in migration
     assert "CREATE PROCEDURE intruoyi_add_system_users_esign_t1_column" in migration
     assert "CALL intruoyi_add_system_users_esign_t1_column('canonical_username'" in migration
     assert "CALL intruoyi_add_system_users_esign_t1_column('password_credential_status'" in migration
     assert "CREATE TABLE IF NOT EXISTS `system_user_password_history`" in migration
     assert "`password_hash` varchar(100) NOT NULL" in migration
     assert "UNIQUE KEY `uk_system_users_tenant_canonical_username` (`tenant_id`, `canonical_username`)" in migration
+    assert migration.count("DELIMITER ;") >= 2
 
 
 def test_system_test_schema_contains_signature_password_t1_fields():

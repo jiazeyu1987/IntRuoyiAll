@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -103,6 +105,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private static final Set<String> REVIEW_SOURCE_TYPES = Set.of("POST", "ROLE", "USER", "ROLES", "USERS");
     private static final Set<String> MULTI_REVIEW_SOURCE_TYPES = Set.of("ROLES", "USERS");
     private static final String DEFAULT_SIGNATURE_DISPLAY_FORMAT = "ACTOR_SIGNED_AT";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private enum GeneratedReportSource {
         IMPORTED_DOC,
         IMAGE,
@@ -199,9 +202,22 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 scopeSampleKeyByTenant(MesProBatchRecordReportConstants.SAMPLE_KEY_PREFIX + sourceHash.substring(0, 16)),
                 MesProBatchRecordRecognitionRouteKeys.LEGACY, DEFAULT_BATCH_RECORD_NAME,
                 GeneratedReportSource.IMPORTED_DOC, false);
-        String totalRecognitionJson = JSON.toJSONString(
-                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
+        String totalRecognitionJson = buildTotalRecognitionJson(sourceFileName, parsedTables);
         return result.withTotalRecognitionJson(totalRecognitionJson);
+    }
+
+    @Override
+    public String parseProductionBatchRecordTotalRecognitionJson(MultipartFile file) {
+        validateUploadedRouteDoc(file);
+        byte[] bytes = getBytes(file);
+        String sourceFileName = normalizeFileName(file.getOriginalFilename());
+        List<MesProBatchRecordParsedTable> parsedTables = parseWordByFileName(bytes, sourceFileName);
+        attachDocumentFrame(parsedTables, extractDocumentFrameByFileName(bytes, sourceFileName));
+        if (parsedTables.isEmpty()) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID,
+                    parsedTables.size());
+        }
+        return buildTotalRecognitionJson(sourceFileName, parsedTables);
     }
 
     @Override
@@ -865,8 +881,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<MesProBatchRecordParsedTable> parsedTables = recognizer.recognize(null, bytes, sourceFileName);
         attachDocumentFrame(parsedTables, extractDocumentFrameByFileName(bytes, sourceFileName));
         routeGenerationService.validateUploadedWordRoute(parsedTables);
-        String totalRecognitionJson = JSON.toJSONString(
-                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
+        String totalRecognitionJson = buildTotalRecognitionJson(sourceFileName, parsedTables);
 
         MesProBatchRecordVersionDO targetVersion = rebuildRecord ? createPrecheckVersion(
                 definition, upgradeImport ? targetSourceVersion : null, sourceFileName, sha256, targetVersionNo)
@@ -961,6 +976,16 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .build();
         saveProjectCodeBatchRecordTotalRecognitionJson(selectedDccProjectCode.getId(), totalRecognitionJson);
         return result.withTotalRecognitionJson(totalRecognitionJson);
+    }
+
+    private String buildTotalRecognitionJson(String sourceFileName, List<MesProBatchRecordParsedTable> parsedTables) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(
+                    new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
+        } catch (JsonProcessingException ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
+                    ex.getMessage());
+        }
     }
 
     private void saveProjectCodeBatchRecordTotalRecognitionJson(Long dccProjectCodeId, String totalRecognitionJson) {

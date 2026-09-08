@@ -68,11 +68,19 @@ public class MesProWorkOrderDO extends TenantBaseDO {
      */
     private String orderSourceCode;
     /**
+     * 金蝶需求单据号
+     */
+    private String demandBillNo;
+    /**
      * 产品编号
      *
      * 关联 {@link MesMdItemDO#getId()}
      */
     private Long productId;
+    /**
+     * 金蝶规格型号
+     */
+    private String materialSpecification;
     /**
      * 生产数量
      */

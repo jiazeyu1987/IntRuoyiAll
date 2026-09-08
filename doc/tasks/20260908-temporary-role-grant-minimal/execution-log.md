@@ -26,3 +26,14 @@ GREEN: mvn.cmd -pl yudao-module-system -DskipTests compile -> PASS。
 GREEN: git cherry-pick b74d02956 58402cd33 d940e7899 -> PASS，已只融合临时角色授权任务提交，未把早先备份任务提交混入 `int_main`。
 GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-temporary-role-grant-minimal --mode preview -> PASS，无 delete、无 blocked。
 GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-temporary-role-grant-minimal --mode apply -> PASS，无删除项。
+
+## int_main Real E2E
+
+BDD: int_main 临时角色授权真实页面闭环 -> Given 本机 `int_main` 前端 8081 和后端 48081 使用真实数据库、真实登录页和 `芋道源码/admin` 测试身份 When 管理员在“系统管理 / 临时角色授权”页面创建、审批、撤销一条任务自有临时授权 Then 页面列表状态依次显示待审批、有效中、已撤销，审计弹窗显示 APPLY、APPROVE、REVOKE。
+RED: node ..\output\playwright\temporary-role-grant-real-e2e.cjs -> FAIL，本机库缺少临时授权菜单/表，登录后目标路由显示“页面不存在”。
+RED: Get-Content IntRuoyiBackend\sql\mysql\20260908_system_signature_password_t1.sql -Raw | docker exec -i int-ruoyi-mysql mysql ... -> FAIL，`20260908_system_signature_password_t1.sql` 缺少 `DELIMITER`，真实 MySQL 在创建存储过程时语法错误。
+GREEN: python -X utf8 -c "from pathlib import Path; ..." -> PASS，`20260908_system_signature_password_t1.sql` 已补齐存储过程 delimiter 合同。
+GREEN: Get-Content IntRuoyiBackend\sql\mysql\20260908_system_temporary_role_grant.sql -Raw | docker exec -i int-ruoyi-mysql mysql ... -> PASS，本机库出现临时授权主表、审计表、菜单和过期扫描任务。
+GREEN: powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\IntRuoyi\output\playwright\start-temporary-role-grant-int-main-backend.ps1 -> PASS，48081 重启为 `backend-runtime-control-20260908-171951.jar`，健康检查 `UP`。
+GREEN: node ..\output\playwright\temporary-role-grant-real-e2e.cjs -> PASS，5 PASS / 0 FAIL / 0 BLOCKED；真实页面完成页面可达、新建待审批、审批有效中、撤销已撤销、审计 APPLY/APPROVE/REVOKE。
+BLOCKER: 统一电子签名 T1 完整唯一索引迁移未完成，原因是本机租户 1 存在重复规范化账号 `zhangsan`、`lisi`；本轮未合并或删除账号，因为这超出临时角色授权 E2E 范围。

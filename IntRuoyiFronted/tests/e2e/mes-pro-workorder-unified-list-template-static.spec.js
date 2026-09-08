@@ -21,6 +21,7 @@ for (const field of [
   'code',
   'productCode',
   'productName',
+  'demandBillNo',
   'productSpecification',
   'quantity',
   'batchCode',
@@ -41,7 +42,7 @@ for (const field of [
   assert.match(source, new RegExp(`isWorkOrderColumnVisible\\('${field}'\\)`))
 }
 
-for (const filterField of ['code', 'productCode', 'productName', 'productSpecification', 'requestDate']) {
+for (const filterField of ['code', 'productCode', 'productName', 'demandBillNo', 'productSpecification', 'requestDate']) {
   assert.match(source, new RegExp(`key:\\s*'${filterField}'`))
 }
 

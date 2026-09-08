@@ -54,6 +54,14 @@
 
 静态 SQL 测试验证迁移元数据、必要表/索引/菜单/任务片段、H2 测试表同步，并确认未将临时授权写入 `system_user_role`。
 
+## int_main E2E migration evidence
+
+- `20260908_system_temporary_role_grant.sql` 已在本机 MySQL `ruoyi-vue-pro` 执行；只读探针确认 `system_temporary_role_grant`、`system_temporary_role_grant_audit`、临时授权菜单权限和 `temporaryRoleGrantExpireJob` 均存在。
+- E2E 登录前置暴露统一电子签名 T1 脚本缺少存储过程 delimiter；已修复 `IntRuoyiBackend/sql/mysql/20260908_system_signature_password_t1.sql`，并用最小 Python 合同断言验证脚本包含 `DELIMITER $$`、`END$$`、`DELIMITER ;`。
+- 本机执行 T1 后已补齐登录运行所需的 `canonical_username`、`password_credential_status`，执行 T2 后补齐 `login_failure_window_start_time`。
+- T1 的永久唯一索引仍按脚本设计 fail-fast：本机租户 1 内存在重复规范化账号 `zhangsan`、`lisi`，因此未自动合并账号、未创建 `uk_system_users_tenant_canonical_username`。
+- 为恢复本机真实登录入口，已给租户 `芋道源码` 追加本机绑定域名 `127.0.0.1:8081`、`localhost:8081`；保留原绑定值，未切换测试租户。
+
 ## Blockers
 
-无。
+临时角色授权 E2E 所需 schema 无阻塞；统一电子签名 T1 完整唯一索引迁移存在账号重复数据阻塞，需单独清理身份数据后再执行。

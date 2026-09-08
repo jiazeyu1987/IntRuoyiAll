@@ -23,11 +23,14 @@ const assertNotIncludes = (content, unexpected, message) => {
   }
 }
 
-const templateApi = assertFile('src/api/form-center/template.ts')
-assertIncludes(templateApi, 'FormTemplateParseJsonRespVO')
-assertIncludes(templateApi, 'parseProductionBatchRecordJson')
-assertIncludes(templateApi, '/form-center/parser/production-batch-record/json')
-assertIncludes(templateApi, 'request.upload<FormTemplateParseJsonRespVO>')
+const batchRecordApi = assertFile('src/api/mes/pro/batchrecordreport/index.ts')
+assertIncludes(batchRecordApi, 'parseProductionBatchRecordTotalRecognitionJson')
+assertIncludes(
+  batchRecordApi,
+  '/mes/pro/batch-record-report/production-batch-record/total-recognition-json'
+)
+assertIncludes(batchRecordApi, 'request.upload<{ data: string }>')
+assertIncludes(batchRecordApi, 'WORD_IMPORT_REQUEST_TIMEOUT')
 
 const parserPage = assertFile('src/views/form-center/parser/index.vue')
 assertIncludes(parserPage, "name: 'FormCenterParser'")
@@ -38,18 +41,30 @@ assertIncludes(parserPage, '过程检验记录')
 assertIncludes(parserPage, 'handleProductionBatchRecord')
 assertIncludes(parserPage, 'handleUnsupportedParseType')
 assertIncludes(parserPage, 'accept=".doc,.docx"')
-assertIncludes(parserPage, 'parseProductionBatchRecordJson')
+assertIncludes(parserPage, 'BatchRecordReportApi')
+assertIncludes(parserPage, 'parseProductionBatchRecordTotalRecognitionJson')
 assertIncludes(parserPage, 'download.json')
 assertIncludes(parserPage, "application/json;charset=utf-8")
 assertIncludes(parserPage, "'.json'")
 assertIncludes(parserPage, 'JSON.stringify')
-assertIncludes(parserPage, 'FormTemplateParseJsonRespVO')
+assertIncludes(parserPage, 'JSON.parse(totalRecognitionJson)')
+assertIncludes(parserPage, 'processes')
+assertIncludes(parserPage, 'product')
 assertNotIncludes(
   parserPage,
   'importTemplateDoc',
   '表单解析页只能做 parse-only JSON 下载，不得复用会创建模板版本的导入接口'
 )
 assertNotIncludes(parserPage, '/form-center/templates/import-doc')
+assertNotIncludes(
+  parserPage,
+  'parseProductionBatchRecordJson',
+  '生产批记录按钮必须下载批记录总识别 JSON，不能继续下载 Jimu 表单 JSON'
+)
+assertNotIncludes(parserPage, 'FormTemplateParseJsonRespVO')
+assertNotIncludes(parserPage, 'recognizedFields')
+assertNotIncludes(parserPage, 'jimuSchemaJson')
+assertNotIncludes(parserPage, 'recognizedSchemaJson')
 
 const parserButtons = parserPage.match(/<el-button[\s\S]*?<\/el-button>/g) || []
 const productionButton = parserButtons.find((button) => button.includes('生产批记录'))

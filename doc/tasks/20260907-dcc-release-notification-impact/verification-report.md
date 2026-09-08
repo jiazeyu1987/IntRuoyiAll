@@ -54,3 +54,10 @@
 - Upload precheck: real upload page loaded project, category and related-file controls; visible controls included source upload, PDF upload and submit approval.
 - Upload submit: first run exposed a test-data precondition (`MDM_PRODUCT_DCC_CODE_INVALID`) on an invalid project; rerun selected valid test project `T07注册证临时项目`, category `技术调研报告`, uploaded the source document and submitted file `DCC-P4-20260908064319ZPS7` successfully through the page.
 - Remaining scope: approval, publish, publication-followup batch, notification delivery and related-file impact task closure are not yet claimed by this local E2E.
+
+## P4 Approval Resume 2026-09-08
+
+- Result: BLOCKED at the first approval confirmation.
+- The real frontend approval path was exercised against `DCC-P4-202609081528-NEW`.
+- The approval dialog opened, but confirmation returned HTTP 500 because signature-evidence digesting could not read the referenced source object (`S3 NoSuchKey`, HTTP 404).
+- Approval, publication, notification and impact-task closure therefore remain unverified. No API or database write was used to bypass the failure.

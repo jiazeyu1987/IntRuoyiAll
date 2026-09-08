@@ -12,6 +12,7 @@ export interface ProWorkOrderVO {
   type: number
   orderSourceType: number
   orderSourceCode: string
+  demandBillNo: string
   productId: number
   productName: string
   productCode: string
@@ -103,6 +104,7 @@ export interface ProWorkOrderKingdeeSyncStatusVO {
 
 export interface ProWorkOrderPageReqVO extends PageParam {
   code?: string
+  demandBillNo?: string
   productNameKeyword?: string
   productCodeKeyword?: string
   requestDate?: string[]

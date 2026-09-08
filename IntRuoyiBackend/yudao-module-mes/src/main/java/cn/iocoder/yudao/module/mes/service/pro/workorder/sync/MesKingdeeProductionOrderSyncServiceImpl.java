@@ -231,7 +231,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         reqVO.setType(MesProWorkOrderTypeEnum.SELF.getType());
         reqVO.setOrderSourceType(resolveSourceType(productionOrder));
         reqVO.setOrderSourceCode(resolveOrderSourceCode(productionOrder, workOrderCode));
+        reqVO.setDemandBillNo(resolveDemandBillNo(productionOrder));
         reqVO.setProductId(productId);
+        reqVO.setMaterialSpecification(resolveMaterialSpecification(productionOrder));
         reqVO.setQuantity(productionOrder.getQuantity());
         reqVO.setQuantityProduced(BigDecimal.ZERO);
         reqVO.setQuantityChanged(BigDecimal.ZERO);
@@ -254,6 +256,14 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             return null;
         }
         return sourceBillNo;
+    }
+
+    private String resolveDemandBillNo(ErpKingdeeProductionOrder productionOrder) {
+        return StrUtil.trimToNull(productionOrder.getSourceBillNo());
+    }
+
+    private String resolveMaterialSpecification(ErpKingdeeProductionOrder productionOrder) {
+        return StrUtil.trimToNull(productionOrder.getMaterialSpecification());
     }
 
     private LocalDateTime resolveRequestDate(ErpKingdeeProductionOrder productionOrder) {
@@ -411,7 +421,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 .setType(MesProWorkOrderTypeEnum.SELF.getType())
                 .setOrderSourceType(resolveSourceType(productionOrder))
                 .setOrderSourceCode(resolveOrderSourceCode(productionOrder, workOrderCode))
+                .setDemandBillNo(resolveDemandBillNo(productionOrder))
                 .setProductId(productId)
+                .setMaterialSpecification(resolveMaterialSpecification(productionOrder))
                 .setQuantity(productionOrder.getQuantity())
                 .setBatchCode(resolveBatchCode(existingWorkOrder, productionOrder))
                 .setWorkshopName(StrUtil.trimToNull(productionOrder.getWorkshopName()))
@@ -437,6 +449,8 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                                                      ErpKingdeeProductionOrder productionOrder) {
         return new MesProWorkOrderDO()
                 .setId(workOrderId)
+                .setDemandBillNo(resolveDemandBillNo(productionOrder))
+                .setMaterialSpecification(resolveMaterialSpecification(productionOrder))
                 .setWorkshopName(StrUtil.trimToNull(productionOrder.getWorkshopName()))
                 .setBomVersion(StrUtil.trimToNull(productionOrder.getBomVersion()))
                 .setPickMode(StrUtil.trimToNull(productionOrder.getPickMode()))
@@ -453,7 +467,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         return !Objects.equals(existingWorkOrder.getName(), updatedWorkOrder.getName())
                 || !Objects.equals(existingWorkOrder.getOrderSourceType(), updatedWorkOrder.getOrderSourceType())
                 || !Objects.equals(existingWorkOrder.getOrderSourceCode(), updatedWorkOrder.getOrderSourceCode())
+                || !Objects.equals(existingWorkOrder.getDemandBillNo(), updatedWorkOrder.getDemandBillNo())
                 || !Objects.equals(existingWorkOrder.getProductId(), updatedWorkOrder.getProductId())
+                || !Objects.equals(existingWorkOrder.getMaterialSpecification(), updatedWorkOrder.getMaterialSpecification())
                 || compareDecimal(existingWorkOrder.getQuantity(), updatedWorkOrder.getQuantity()) != 0
                 || !Objects.equals(existingWorkOrder.getBatchCode(), updatedWorkOrder.getBatchCode())
                 || !Objects.equals(existingWorkOrder.getWorkshopName(), updatedWorkOrder.getWorkshopName())
@@ -509,7 +525,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         payload.put("name", workOrder.getName());
         payload.put("orderSourceType", workOrder.getOrderSourceType());
         payload.put("orderSourceCode", workOrder.getOrderSourceCode());
+        payload.put("demandBillNo", workOrder.getDemandBillNo());
         payload.put("productId", workOrder.getProductId());
+        payload.put("materialSpecification", workOrder.getMaterialSpecification());
         payload.put("quantity", workOrder.getQuantity());
         payload.put("batchCode", workOrder.getBatchCode());
         payload.put("workshopName", workOrder.getWorkshopName());

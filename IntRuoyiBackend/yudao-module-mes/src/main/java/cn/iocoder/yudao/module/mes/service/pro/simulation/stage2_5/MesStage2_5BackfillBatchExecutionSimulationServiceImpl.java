@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
@@ -26,6 +27,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderD
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyFieldMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
@@ -59,6 +61,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationContractValidator;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,6 +116,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProBatchRecordExecutionMapper batchRecordExecutionMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
+    private final MesProEdhrOperationAuditEventMapper operationAuditEventMapper;
     private final MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService;
     private final MesProEdhrBatchExecutionService batchExecutionService;
 
@@ -147,6 +151,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProBatchRecordExecutionMapper batchRecordExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
+            MesProEdhrOperationAuditEventMapper operationAuditEventMapper,
             MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService,
             MesProEdhrBatchExecutionService batchExecutionService) {
         this.activeOrderMapper = activeOrderMapper;
@@ -179,6 +184,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchRecordExecutionMapper = batchRecordExecutionMapper;
         this.batchTaskMapper = batchTaskMapper;
+        this.operationAuditEventMapper = operationAuditEventMapper;
         this.activeOrderCompletionService = activeOrderCompletionService;
         this.batchExecutionService = batchExecutionService;
     }
@@ -245,12 +251,68 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
     private MesProEdhrBatchExecutionDO selectExistingBatchBeforeCompletion(
             MesProcessPoolActiveOrderDO activeOrder,
             MesProWorkOrderDO workOrder) {
-        if (activeOrder == null || workOrder == null || workOrder.getId() == null
+        if (activeOrder == null) {
+            return null;
+        }
+        MesProEdhrBatchExecutionDO existingByOpenAudit =
+                selectExistingBatchByActiveOrderOpenAudit(activeOrder.getId(), workOrder);
+        if (existingByOpenAudit != null) {
+            return existingByOpenAudit;
+        }
+        if (workOrder == null || workOrder.getId() == null
                 || blank(workOrder.getBatchCode()) || activeOrder.getRouteId() == null) {
             return null;
         }
         return batchExecutionMapper.selectByContext(
                 workOrder.getId(), workOrder.getBatchCode(), activeOrder.getRouteId());
+    }
+
+    private MesProEdhrBatchExecutionDO selectExistingBatchByActiveOrderOpenAudit(
+            Long activeOrderId, MesProWorkOrderDO workOrder) {
+        List<MesProEdhrOperationAuditEventDO> audits =
+                operationAuditEventMapper.selectSuccessfulOpenListByActiveOrderId(activeOrderId);
+        Map<Long, MesProEdhrBatchExecutionDO> matched = new LinkedHashMap<>();
+        for (MesProEdhrOperationAuditEventDO audit : audits) {
+            if (!Objects.equals(activeOrderId, activeOrderIdFromOpenAudit(audit))) {
+                continue;
+            }
+            Long batchExecutionId = audit.getBatchExecutionId();
+            if (batchExecutionId == null || matched.containsKey(batchExecutionId)) {
+                continue;
+            }
+            MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
+            if (batch == null || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionMapper.BATCH_STATUS_VOIDED)) {
+                continue;
+            }
+            if (workOrder != null && workOrder.getId() != null
+                    && !Objects.equals(workOrder.getId(), batch.getWorkOrderId())) {
+                continue;
+            }
+            matched.put(batchExecutionId, batch);
+        }
+        if (matched.size() > 1) {
+            throw new IllegalStateException("STAGE2_5_EXISTING_BATCH_AMBIGUOUS: activeOrderId=" + activeOrderId);
+        }
+        return matched.values().stream().findFirst().orElse(null);
+    }
+
+    private Long activeOrderIdFromOpenAudit(MesProEdhrOperationAuditEventDO audit) {
+        if (audit == null || blank(audit.getMetadataJson())) {
+            throw new IllegalStateException("STAGE2_5_OPEN_AUDIT_ACTIVE_ORDER_MISSING");
+        }
+        JSONObject metadata = JSON.parseObject(audit.getMetadataJson());
+        Object value = metadata == null ? null : metadata.get("activeOrderId");
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Long.valueOf(text);
+            } catch (NumberFormatException ex) {
+                throw new IllegalStateException("STAGE2_5_OPEN_AUDIT_ACTIVE_ORDER_INVALID: " + text, ex);
+            }
+        }
+        throw new IllegalStateException("STAGE2_5_OPEN_AUDIT_ACTIVE_ORDER_MISSING");
     }
 
     private MesStage2_5BackfillBatchExecutionSimulationResult existingBatchResult(

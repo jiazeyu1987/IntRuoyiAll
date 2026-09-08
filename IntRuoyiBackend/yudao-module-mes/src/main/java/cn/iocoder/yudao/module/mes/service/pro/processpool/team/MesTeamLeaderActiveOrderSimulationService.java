@@ -92,6 +92,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private static final String DEVICE_STATUS_ENABLED = "ENABLED";
     private static final BigDecimal PERCENT_DIVISOR = BigDecimal.valueOf(100);
     private static final int PROGRESS_PERCENT_SCALE = 6;
+    private static final int SIMULATED_PQC_SCRAP_QUANTITY = 1;
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
@@ -887,7 +888,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
         if (!Boolean.TRUE.equals(pqcPieceDetailMapper.insertBatch(pieceDetails))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcPieceDetails");
         }
-        String contentHash = "SIMULATED:" + task.getId() + ":" + actualInspectionQuantity;
+        Integer scrapQuantity = simulatedPqcScrapQuantity(actualInspectionQuantity);
+        String inspectionResult = simulatedPqcInspectionResult(scrapQuantity, pieceDetails);
+        String contentHash = "SIMULATED:" + task.getId() + ":" + actualInspectionQuantity
+                + ":scrapQuantity:" + scrapQuantity + ":inspectionResult:" + inspectionResult;
         int updated = pqcInspectionTaskMapper.updateSubmittedIfPending(task.getId(), actualInspectionQuantity,
                 contentHash, MesPqcInspectionTaskDO.TASK_STATUS_PENDING,
                 MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED);
@@ -922,8 +926,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .feedbackSourceId(task.getId())
                 .recordbookSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .recordbookSourceId(task.getId())
-                .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                .rawPayload(buildPqcRawPayload(activeOrder, task, actualInspectionQuantity, pieceDetails,
+                .inspectionResult(inspectionResult)
+                .rawPayload(buildPqcRawPayload(activeOrder, task, actualInspectionQuantity, scrapQuantity, pieceDetails,
+                        inspectionResult,
                         pieceBuildResult.selectedEquipment(), simulationStage, simulationRunId))
                 .clientSubmitTime(now)
                 .signatureId(signatureId)
@@ -993,6 +998,23 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     .build());
         }
         return new PqcPieceBuildResult(result, selectedEquipment);
+    }
+
+    private Integer simulatedPqcScrapQuantity(Integer actualInspectionQuantity) {
+        if (actualInspectionQuantity == null || actualInspectionQuantity <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcTask.actualInspectionQuantity");
+        }
+        return SIMULATED_PQC_SCRAP_QUANTITY;
+    }
+
+    private String simulatedPqcInspectionResult(Integer scrapQuantity,
+                                                List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+        int safeScrapQuantity = scrapQuantity == null ? 0 : scrapQuantity;
+        if (safeScrapQuantity > 0 || pieceDetails.stream().anyMatch(detail ->
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(detail.getJudgement()))) {
+            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
+        }
+        return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
     }
 
     private PqcEquipment resolveDefaultPqcEquipment(MesProcessPoolActiveOrderDO activeOrder,
@@ -1068,7 +1090,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
 
     private String buildPqcRawPayload(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task,
                                       Integer actualInspectionQuantity,
+                                      Integer scrapQuantity,
                                       List<MesPqcInspectionPieceDetailDO> pieceDetails,
+                                      String inspectionResult,
                                       PqcEquipment selectedEquipment,
                                       String simulationStage,
                                       String simulationRunId) {
@@ -1089,7 +1113,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
         payload.put("shiftCode", task.getShiftCode());
         payload.put("roundNo", task.getRoundNo());
         payload.put("actualInspectionQuantity", actualInspectionQuantity);
-        payload.put("inspectionResult", MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
+        payload.put("scrapQuantity", scrapQuantity);
+        payload.put("inspectionResult", inspectionResult);
         payload.put("selectedEquipment", selectedEquipment == null ? null : Map.of(
                 "equipmentId", selectedEquipment.equipmentId(),
                 "equipmentCode", selectedEquipment.equipmentCode(),

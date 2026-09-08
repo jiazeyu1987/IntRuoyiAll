@@ -278,6 +278,17 @@ export const BatchRecordReportApi = {
     return result.data
   },
 
+  parseProductionBatchRecordTotalRecognitionJson: async (file: File) => {
+    const data = new FormData()
+    data.append('file', file)
+    const result = await request.upload<{ data: string }>({
+      url: '/mes/pro/batch-record-report/production-batch-record/total-recognition-json',
+      data,
+      timeout: WORD_IMPORT_REQUEST_TIMEOUT
+    })
+    return result.data
+  },
+
   importImage: async (data: FormData) => {
     const result = await request.upload<{ data: BatchRecordReportImportResultVO }>({
       url: '/mes/pro/batch-record-report/import-image',

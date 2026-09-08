@@ -51,26 +51,42 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item label="解析类型">{{ lastResult.parseTypeName }}</el-descriptions-item>
         <el-descriptions-item label="源文件">{{ lastResult.sourceFileName }}</el-descriptions-item>
-        <el-descriptions-item label="识别字段数">
-          {{ lastResult.recognizedFields?.length || 0 }}
+        <el-descriptions-item label="产品">
+          {{ lastResult.mapping.product?.name || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="产品编码">
+          {{ lastResult.mapping.product?.code || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="Schema版本">
+          {{ lastResult.mapping.schemaVersion }}
+        </el-descriptions-item>
+        <el-descriptions-item label="工序数">
+          {{ lastResult.mapping.processes.length }}
         </el-descriptions-item>
         <el-descriptions-item label="下载文件">{{ lastDownloadName }}</el-descriptions-item>
       </el-descriptions>
       <el-table
         class="form-parser-result__table"
-        :data="lastResult.recognizedFields || []"
+        :data="lastResult.mapping.processes"
         border
         stripe
       >
-        <el-table-column label="字段编码" min-width="180" prop="fieldCode" />
-        <el-table-column label="字段名称" min-width="180" prop="label" />
-        <el-table-column label="字段类型" min-width="140" prop="fieldType" />
-        <el-table-column label="必填" width="90">
+        <el-table-column label="工序名称" min-width="180" prop="name" />
+        <el-table-column label="关键/特殊工序" width="130">
           <template #default="{ row }">
-            <el-tag :type="row.required ? 'danger' : 'info'">
-              {{ row.required ? '是' : '否' }}
+            <el-tag :type="row.criticalProcess ? 'danger' : 'info'">
+              {{ row.criticalProcess ? '是' : '否' }}
             </el-tag>
           </template>
+        </el-table-column>
+        <el-table-column label="投入物料数" width="120">
+          <template #default="{ row }">{{ row.inputs?.length || 0 }}</template>
+        </el-table-column>
+        <el-table-column label="产出物料数" width="120">
+          <template #default="{ row }">{{ row.outputs?.length || 0 }}</template>
+        </el-table-column>
+        <el-table-column label="设备组数" width="110">
+          <template #default="{ row }">{{ row.equipmentGroups?.length || 0 }}</template>
         </el-table-column>
       </el-table>
     </div>
@@ -80,16 +96,40 @@
 <script setup lang="ts">
 import type { UploadFile, UploadFiles, UploadInstance, UploadUserFile } from 'element-plus'
 import download from '@/utils/download'
-import * as TemplateApi from '@/api/form-center/template'
-import type { FormTemplateParseJsonRespVO } from '@/api/form-center/template'
+import { BatchRecordReportApi } from '@/api/mes/pro/batchrecordreport'
 
 defineOptions({ name: 'FormCenterParser' })
+
+interface BatchRecordTotalRecognitionProduct {
+  name?: string
+  code?: string
+}
+
+interface BatchRecordTotalRecognitionProcess {
+  name: string
+  criticalProcess?: boolean
+  inputs?: unknown[]
+  outputs?: unknown[]
+  equipmentGroups?: unknown[]
+}
+
+interface BatchRecordTotalRecognitionJson {
+  product: BatchRecordTotalRecognitionProduct
+  schemaVersion: number
+  processes: BatchRecordTotalRecognitionProcess[]
+}
+
+interface ProductionBatchRecordParseResult {
+  parseTypeName: string
+  sourceFileName: string
+  mapping: BatchRecordTotalRecognitionJson
+}
 
 const message = useMessage()
 const uploadRef = ref<UploadInstance>()
 const fileList = ref<UploadUserFile[]>([])
 const productionLoading = ref(false)
-const lastResult = ref<FormTemplateParseJsonRespVO>()
+const lastResult = ref<ProductionBatchRecordParseResult>()
 const lastDownloadName = ref('')
 const JSON_EXTENSION = '.json'
 
@@ -125,17 +165,22 @@ const handleProductionFileChange = async (uploadFile: UploadFile, uploadFiles: U
 }
 
 const parseAndDownloadProductionBatchRecord = async (file: File) => {
-  const payload = new FormData()
-  payload.append('file', file)
   productionLoading.value = true
   try {
-    const result = await TemplateApi.parseProductionBatchRecordJson(payload)
-    const downloadName = buildJsonDownloadName(result.sourceFileName)
-    const jsonBlob = new Blob([JSON.stringify(result, null, 2)], {
+    const totalRecognitionJson = await BatchRecordReportApi.parseProductionBatchRecordTotalRecognitionJson(
+      file
+    )
+    const mapping = parseTotalRecognitionJson(totalRecognitionJson)
+    const downloadName = buildJsonDownloadName(file.name)
+    const jsonBlob = new Blob([JSON.stringify(mapping, null, 2)], {
       type: 'application/json;charset=utf-8'
     })
     download.json(jsonBlob, downloadName)
-    lastResult.value = result
+    lastResult.value = {
+      parseTypeName: '生产批记录',
+      sourceFileName: file.name,
+      mapping
+    }
     lastDownloadName.value = downloadName
     message.success('解析完成，已下载 JSON 文件')
   } catch (error) {
@@ -156,6 +201,23 @@ const buildJsonDownloadName = (sourceFileName?: string) => {
     .replace(/[\\/:*?"<>|]/g, '_')
     .trim()
   return `${baseName || '生产批记录解析'}${JSON_EXTENSION}`
+}
+
+const parseTotalRecognitionJson = (totalRecognitionJson: string): BatchRecordTotalRecognitionJson => {
+  const parsed = JSON.parse(totalRecognitionJson) as BatchRecordTotalRecognitionJson
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('生产批记录 JSON 结构无效')
+  }
+  if (!parsed.product || typeof parsed.product !== 'object') {
+    throw new Error('生产批记录 JSON 缺少 product')
+  }
+  if (typeof parsed.schemaVersion !== 'number') {
+    throw new Error('生产批记录 JSON 缺少 schemaVersion')
+  }
+  if (!Array.isArray(parsed.processes)) {
+    throw new Error('生产批记录 JSON 缺少 processes')
+  }
+  return parsed
 }
 
 const resolveParseErrorMessage = (error: unknown, fallback: string) => {

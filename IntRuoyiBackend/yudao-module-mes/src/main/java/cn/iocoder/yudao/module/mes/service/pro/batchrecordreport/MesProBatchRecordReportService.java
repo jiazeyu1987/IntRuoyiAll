@@ -20,6 +20,8 @@ public interface MesProBatchRecordReportService {
 
     MesProBatchRecordImportResult importPilotDoc(MultipartFile file);
 
+    String parseProductionBatchRecordTotalRecognitionJson(MultipartFile file);
+
     MesProBatchRecordImportResult importImage(MultipartFile file);
 
     MesProBatchRecordImportResult recognizeFixedRoute(String routeKey);

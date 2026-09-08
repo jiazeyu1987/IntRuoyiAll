@@ -293,7 +293,6 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
         return switch (StrUtil.blankToDefault(quickFilter.getFieldKey(), "")) {
             case "productName" -> toProductIds(itemMapper.selectListByNameLike(value));
             case "productCode" -> toProductIds(itemMapper.selectListByCodeLike(value));
-            case "productSpecification" -> toProductIds(itemMapper.selectListBySpecificationLike(value));
             default -> Collections.emptyList();
         };
     }
@@ -303,7 +302,7 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
             return false;
         }
         return switch (StrUtil.blankToDefault(quickFilter.getFieldKey(), "")) {
-            case "productName", "productCode", "productSpecification" -> true;
+            case "productName", "productCode" -> true;
             default -> false;
         };
     }

@@ -272,7 +272,7 @@ public class MesProBatchRecordTotalRecognitionExtractor {
                 continue;
             }
             for (String line : normalized(cell.getText()).split("\\R")) {
-                String value = compact(line);
+                String value = normalizeReferenceValue(line);
                 if (isReferenceValue(value)) {
                     values.add(value);
                 }
@@ -470,6 +470,35 @@ public class MesProBatchRecordTotalRecognitionExtractor {
 
     private String compact(String value) {
         return normalized(value).replaceAll("\\s+", "").trim();
+    }
+
+    private String normalizeReferenceValue(String value) {
+        String text = compact(value);
+        while (text.length() > 1 && isOpeningBracket(text.charAt(0))
+                && startsWithNumericReference(text.substring(1))) {
+            text = text.substring(1);
+        }
+        while (text.length() > 1 && isClosingBracket(text.charAt(text.length() - 1))
+                && startsWithNumericReference(text)) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return text;
+    }
+
+    private boolean startsWithNumericReference(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        char first = value.charAt(0);
+        return Character.isDigit(first) || first == '-';
+    }
+
+    private boolean isOpeningBracket(char value) {
+        return value == '(' || value == '（';
+    }
+
+    private boolean isClosingBracket(char value) {
+        return value == ')' || value == '）';
     }
 
     private String stripCheckbox(String value) {

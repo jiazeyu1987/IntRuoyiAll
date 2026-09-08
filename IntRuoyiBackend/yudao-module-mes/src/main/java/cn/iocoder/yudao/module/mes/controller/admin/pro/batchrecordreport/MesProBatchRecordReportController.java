@@ -58,6 +58,14 @@ public class MesProBatchRecordReportController {
         return success(toImportRespVO(batchRecordReportService.importPilotDoc(file)));
     }
 
+    @PostMapping("/production-batch-record/total-recognition-json")
+    @Operation(summary = "解析生产批记录 Word 为批记录总识别 JSON")
+    @PreAuthorize("@ss.hasPermission('form:parser:production-batch-record')")
+    public CommonResult<String> parseProductionBatchRecordTotalRecognitionJson(
+            @RequestParam("file") MultipartFile file) {
+        return success(batchRecordReportService.parseProductionBatchRecordTotalRecognitionJson(file));
+    }
+
     @PostMapping("/import-total-recognition-json")
     @Operation(summary = "导入批记录总识别 JSON 并同步一线设备参数")
     @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-template:update')")

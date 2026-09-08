@@ -223,6 +223,30 @@ class MesProBatchRecordReportControllerTest {
     }
 
     @Test
+    void parseProductionBatchRecordTotalRecognitionJsonKeepsParseOnlyPermissionContract() throws Exception {
+        MockMultipartFile docFile = new MockMultipartFile("file", "production.doc", "application/msword",
+                new byte[]{1, 2, 3});
+        String totalRecognitionJson =
+                "{\"product\":{\"name\":\"按压式球囊扩充压力泵\",\"code\":\"IDI-01\"},"
+                        + "\"schemaVersion\":2,\"processes\":[]}";
+        when(reportService.parseProductionBatchRecordTotalRecognitionJson(docFile)).thenReturn(totalRecognitionJson);
+
+        CommonResult<String> response = controller.parseProductionBatchRecordTotalRecognitionJson(docFile);
+
+        assertTrue(response.isSuccess());
+        assertEquals(totalRecognitionJson, response.getData());
+        verify(reportService).parseProductionBatchRecordTotalRecognitionJson(docFile);
+
+        Method parseMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "parseProductionBatchRecordTotalRecognitionJson", MultipartFile.class);
+        assertArrayEquals(new String[]{"/production-batch-record/total-recognition-json"},
+                parseMethod.getAnnotation(PostMapping.class).value());
+        assertEquals("file", parseMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("@ss.hasPermission('form:parser:production-batch-record')",
+                parseMethod.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
     void contractMappings_matchImageImportAndExistingReportEndpoints() throws Exception {
         Method importDocMethod = MesProBatchRecordReportController.class.getDeclaredMethod("importPilotDoc",
                 org.springframework.web.multipart.MultipartFile.class);

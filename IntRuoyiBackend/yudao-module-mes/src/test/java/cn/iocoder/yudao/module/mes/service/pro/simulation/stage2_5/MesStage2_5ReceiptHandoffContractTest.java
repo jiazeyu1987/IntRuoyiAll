@@ -149,6 +149,25 @@ class MesStage2_5ReceiptHandoffContractTest {
     }
 
     @Test
+    void stage2_5MustReuseExistingBatchByActiveOrderOpenAuditBeforeCompletingAgain() throws Exception {
+        String stage25 = Files.readString(IMPLEMENTATION, StandardCharsets.UTF_8);
+        String auditMapper = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/"
+                        + "MesProEdhrOperationAuditEventMapper.java"), StandardCharsets.UTF_8);
+
+        assertTrue(stage25.contains("selectExistingBatchByActiveOrderOpenAudit(activeOrder.getId(), workOrder)"),
+                "Stage2.5 第二次从工序详情打开批次表单时，必须先按活跃订单 OPEN 审计复用已有批次。");
+        assertTrue(stage25.contains("operationAuditEventMapper.selectSuccessfulOpenListByActiveOrderId(activeOrderId)"),
+                "Stage2.5 不能只靠 workOrderId + batchCode + routeId 查找已有批次。");
+        assertTrue(stage25.contains("return existingBatchResult(validated, existingBatch, cleanedRunId);"),
+                "命中已有批次时必须直接返回批次详情，不能再次调用 activeOrderCompletionService.complete。");
+        assertTrue(auditMapper.contains("selectSuccessfulOpenListByActiveOrderId(Long activeOrderId)")
+                        && auditMapper.contains("MesProEdhrOperationAuditEventDO::getOperationType, \"OPEN\"")
+                        && auditMapper.contains("MesProEdhrOperationAuditEventDO::getResultStatus, \"SUCCESS\""),
+                "OPEN 审计查询必须按活跃订单来源限定，避免重复点击时创建第二条完成回执。");
+    }
+
+    @Test
     void downstreamStagesMustCarryTheExistingBatchIdentity() throws Exception {
         String stage4 = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage4/"

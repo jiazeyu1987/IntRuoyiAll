@@ -1883,9 +1883,9 @@ const normalizeActiveOrderPqcText = (value?: string | number | null) => {
   return String(value).trim()
 }
 
-const formatActiveOrderPqcItemCountSummary = (values: string[]) => {
+const formatActiveOrderPqcItemCountSummary = (values: Array<string | number | null | undefined>) => {
   const counts = new Map<string, number>()
-  for (const value of values.map((item) => item.trim()).filter(Boolean)) {
+  for (const value of values.map((item) => normalizeActiveOrderPqcText(item)).filter(Boolean)) {
     counts.set(value, (counts.get(value) ?? 0) + 1)
   }
   const parts = Array.from(counts.entries())
@@ -1894,8 +1894,10 @@ const formatActiveOrderPqcItemCountSummary = (values: string[]) => {
   return parts.length ? parts.join('；') : '-'
 }
 
-const formatActiveOrderPqcItemUniqueSummary = (values: string[]) => {
-  const uniqueValues = Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).sort(
+const formatActiveOrderPqcItemUniqueSummary = (values: Array<string | number | null | undefined>) => {
+  const uniqueValues = Array.from(
+    new Set(values.map((item) => normalizeActiveOrderPqcText(item)).filter(Boolean))
+  ).sort(
     (left, right) => left.localeCompare(right, 'zh-Hans-CN')
   )
   return uniqueValues.length ? uniqueValues.join('；') : '-'
@@ -2253,7 +2255,8 @@ const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
   for (const process of detailResult.processes) {
     for (const submission of process.pqcSubmissions ?? []) {
       const qaProcessId = Number(submission.qaProcessId)
-      if (!Number.isFinite(qaProcessId) || qaProcessId <= 0 || !submission.qaProcessName?.trim()) {
+      const qaProcessName = normalizeActiveOrderPqcText(submission.qaProcessName)
+      if (!Number.isFinite(qaProcessId) || qaProcessId <= 0 || !qaProcessName) {
         throw new Error('PQC提交缺少正式检验工序身份，无法按PQC工序展示')
       }
       const existed = groupsByQaProcessId.get(qaProcessId)
@@ -2265,7 +2268,7 @@ const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
         key: `pqc-process-${qaProcessId}`,
         qaProcessId,
         qaProcessCode: submission.qaProcessCode,
-        qaProcessName: submission.qaProcessName.trim(),
+        qaProcessName,
         submissions: [submission]
       })
     }

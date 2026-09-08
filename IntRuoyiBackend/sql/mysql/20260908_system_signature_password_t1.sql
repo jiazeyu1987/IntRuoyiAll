@@ -3,6 +3,7 @@
 
 DROP PROCEDURE IF EXISTS intruoyi_add_system_users_esign_t1_column;
 
+DELIMITER $$
 CREATE PROCEDURE intruoyi_add_system_users_esign_t1_column(
     IN p_column_name varchar(64),
     IN p_column_definition varchar(512)
@@ -20,7 +21,8 @@ BEGIN
         EXECUTE stmt;
         DEALLOCATE PREPARE stmt;
     END IF;
-END;
+END$$
+DELIMITER ;
 
 CALL intruoyi_add_system_users_esign_t1_column('password_credential_status',
     'varchar(32) NOT NULL DEFAULT ''ACTIVE'' COMMENT ''密码凭据状态：ACTIVE可用 INITIAL初始凭据 RESET_REQUIRED重置后必须改密'' AFTER `password_update_time`'
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `system_user_password_history` (
 
 DROP PROCEDURE IF EXISTS intruoyi_add_system_users_tenant_username_permanent_index;
 
+DELIMITER $$
 CREATE PROCEDURE intruoyi_add_system_users_tenant_username_permanent_index()
 BEGIN
     IF EXISTS (
@@ -83,7 +86,8 @@ BEGIN
         ALTER TABLE `system_users`
             ADD UNIQUE KEY `uk_system_users_tenant_canonical_username` (`tenant_id`, `canonical_username`);
     END IF;
-END;
+END$$
+DELIMITER ;
 
 CALL intruoyi_add_system_users_tenant_username_permanent_index();
 

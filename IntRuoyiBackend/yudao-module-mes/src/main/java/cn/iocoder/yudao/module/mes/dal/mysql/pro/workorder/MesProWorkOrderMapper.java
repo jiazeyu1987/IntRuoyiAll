@@ -49,6 +49,7 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 .likeIfPresent(MesProWorkOrderDO::getName, reqVO.getName())
                 .eqIfPresent(MesProWorkOrderDO::getType, reqVO.getType())
                 .likeIfPresent(MesProWorkOrderDO::getOrderSourceCode, reqVO.getOrderSourceCode())
+                .likeIfPresent(MesProWorkOrderDO::getDemandBillNo, reqVO.getDemandBillNo())
                 .eqIfPresent(MesProWorkOrderDO::getProductId,
                         CollUtil.isEmpty(productIds) ? resolveSingleProductId(reqVO) : null)
                 .inIfPresent(MesProWorkOrderDO::getProductId, productIds)
@@ -59,6 +60,8 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 .betweenIfPresent(MesProWorkOrderDO::getRequestDate, reqVO.getRequestDate());
         QuickFilterUtils.filter(queryWrapper, reqVO.getQuickFilter(), Map.of(
                 "code", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getCode),
+                "demandBillNo", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getDemandBillNo),
+                "productSpecification", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getMaterialSpecification),
                 "requestDate", QuickFilterUtils.QuickFilterField.localDateTimeRange(MesProWorkOrderDO::getRequestDate),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProWorkOrderDO::getStatus)
         ));

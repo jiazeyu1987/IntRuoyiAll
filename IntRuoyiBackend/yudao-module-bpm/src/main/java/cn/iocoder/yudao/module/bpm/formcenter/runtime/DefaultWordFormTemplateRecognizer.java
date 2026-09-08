@@ -32,13 +32,20 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
             if (fileName.endsWith(".docx")) {
                 return recognizeDocx(command.getSourceBytes(), command.getTemplateName());
             }
-            List<FormRecognizedField> fields = toFields(extractDocLabels(command.getSourceBytes()));
+            return recognizeDoc(command.getSourceBytes());
+        } catch (Exception ex) {
+            return FormTemplateRecognition.failure(ex.getMessage());
+        }
+    }
+
+    private FormTemplateRecognition recognizeDoc(byte[] bytes) throws Exception {
+        try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(bytes));
+             WordExtractor extractor = new WordExtractor(document)) {
+            List<FormRecognizedField> fields = toFields(extractDocLabels(extractor));
             if (fields.isEmpty()) {
                 return FormTemplateRecognition.failure("no recognizable text field labels");
             }
-            return FormTemplateRecognition.success(fields);
-        } catch (Exception ex) {
-            return FormTemplateRecognition.failure(ex.getMessage());
+            return FormTemplateRecognition.success(fields, HwpfWordTableVisualSchemaBuilder.build(document));
         }
     }
 
@@ -92,13 +99,10 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
         return new ArrayList<>(labels);
     }
 
-    private List<String> extractDocLabels(byte[] bytes) throws Exception {
+    private List<String> extractDocLabels(WordExtractor extractor) {
         Set<String> labels = new LinkedHashSet<>();
-        try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(bytes));
-             WordExtractor extractor = new WordExtractor(document)) {
-            for (String paragraph : extractor.getParagraphText()) {
-                addLabel(labels, paragraph);
-            }
+        for (String paragraph : extractor.getParagraphText()) {
+            addLabel(labels, paragraph);
         }
         return new ArrayList<>(labels);
     }

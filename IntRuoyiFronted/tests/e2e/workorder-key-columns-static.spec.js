@@ -19,6 +19,7 @@ const keyColumns = [
   { label: '工单编号', prop: 'code' },
   { label: '产品编码', prop: 'productCode' },
   { label: '产品名称', prop: 'productName' },
+  { label: '需求单据', prop: 'demandBillNo' },
   { label: '规格型号', prop: 'productSpecification' },
   { label: '计划数量', prop: 'quantity' }
 ]
@@ -48,7 +49,7 @@ for (const label of removedColumns) {
 assert.notEqual(columnIndex('批次号'), -1, 'Production work order table must include 批次号.')
 assert(/label="批次号"[\s\S]*?prop="batchCode"/.test(tableSource), '批次号 column must bind row batchCode.')
 
-const expectedOrder = ['工单编号', '产品编码', '产品名称', '规格型号', '计划数量', '批次号']
+const expectedOrder = ['工单编号', '产品编码', '产品名称', '需求单据', '规格型号', '计划数量', '批次号']
 for (let index = 1; index < expectedOrder.length; index += 1) {
   assert(
     columnIndex(expectedOrder[index - 1]) < columnIndex(expectedOrder[index]),
@@ -67,6 +68,7 @@ const widthContracts = [
   { label: '工单编号', pattern: /label="工单编号"[\s\S]*?width="340"/ },
   { label: '产品编码', pattern: /label="产品编码"[\s\S]*?width="260"/ },
   { label: '产品名称', pattern: /label="产品名称"[\s\S]*?min-width="340"/ },
+  { label: '需求单据', pattern: /label="需求单据"[\s\S]*?min-width="220"/ },
   { label: '规格型号', pattern: /label="规格型号"[\s\S]*?min-width="360"/ },
   { label: '计划数量', pattern: /label="计划数量"[\s\S]*?width="180"/ },
   { label: '批次号', pattern: /label="批次号"[\s\S]*?width="160"/ }

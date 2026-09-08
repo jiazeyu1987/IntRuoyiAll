@@ -120,6 +120,8 @@ class MesProWorkOrderControllerTest {
                 .id(1001L)
                 .code("WO-1001")
                 .name("导管工单")
+                .demandBillNo("SO-1001")
+                .materialSpecification("泵体 20ml")
                 .quantity(new BigDecimal("10"))
                 .quantityProduced(BigDecimal.ZERO)
                 .quantityChanged(BigDecimal.ZERO)
@@ -158,6 +160,8 @@ class MesProWorkOrderControllerTest {
         MesProWorkOrderRespVO row = response.getData().getList().get(0);
         assertEquals(2L, row.getProductionMaterialListCount());
         assertEquals("PPBOM-001、PPBOM-002", row.getProductionMaterialListSummary());
+        assertEquals("SO-1001", row.getDemandBillNo());
+        assertEquals("泵体 20ml", row.getProductSpecification());
         assertEquals("组装车间", row.getWorkshopName());
         assertEquals("BOM-2026-01", row.getBomVersion());
         assertEquals("直接领料", row.getPickMode());

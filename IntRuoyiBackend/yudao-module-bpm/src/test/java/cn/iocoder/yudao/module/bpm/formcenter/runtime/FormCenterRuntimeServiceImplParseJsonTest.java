@@ -19,11 +19,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -81,6 +85,28 @@ class FormCenterRuntimeServiceImplParseJsonTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void parseProductionBatchRecordJsonParsesLegacyDocWithRealFormCenterRecognizer() throws Exception {
+        TenantContextHolder.setTenantId(122L);
+        Path sample = findRepoResource("按压式球囊扩充压力泵IDI-001",
+                "RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.doc");
+        assertTrue(Files.exists(sample), "pressure pump production record DOC fixture is required");
+        ReflectionTestUtils.setField(runtimeService, "templateRecognizer", new DefaultWordFormTemplateRecognizer());
+
+        FormCenterTemplateParseJsonRespVO result = runtimeService.parseProductionBatchRecordJson(
+                req(sample.getFileName().toString(), Files.readAllBytes(sample)));
+
+        assertEquals("PRODUCTION_BATCH_RECORD", result.getParseType());
+        assertEquals("生产批记录", result.getParseTypeName());
+        assertEquals(sample.getFileName().toString(), result.getSourceFileName());
+        assertFalse(result.getRecognizedFields().isEmpty());
+        assertTrue(result.getJimuSchemaJson().contains("\"sheetLayoutJson\""));
+        assertTrue(result.getJimuSchemaJson().contains("\"cellRules\""));
+        verify(templateVersionMapper, never()).insert(any(FormTemplateVersionDO.class));
+        verify(templateVersionMapper, never()).updateById(any(FormTemplateVersionDO.class));
+        verify(businessApprovalOrchestrator, never()).submit(any());
+    }
+
+    @Test
     void parseProductionBatchRecordJsonFailsWhenRecognizerDoesNotProduceVisualSchema() {
         TenantContextHolder.setTenantId(122L);
         when(templateRecognizer.recognize(any())).thenReturn(FormTemplateRecognition.success(List.of(
@@ -108,9 +134,25 @@ class FormCenterRuntimeServiceImplParseJsonTest extends BaseMockitoUnitTest {
     }
 
     private FormCenterTemplateParseJsonReqVO req(String filename) {
+        return req(filename, new byte[]{1, 2, 3});
+    }
+
+    private FormCenterTemplateParseJsonReqVO req(String filename, byte[] bytes) {
         FormCenterTemplateParseJsonReqVO reqVO = new FormCenterTemplateParseJsonReqVO();
-        reqVO.setFile(new MockMultipartFile("file", filename, "application/octet-stream", new byte[]{1, 2, 3}));
+        reqVO.setFile(new MockMultipartFile("file", filename, "application/octet-stream", bytes));
         return reqVO;
+    }
+
+    private static Path findRepoResource(String directoryName, String fileName) {
+        Path cursor = Path.of("").toAbsolutePath();
+        for (int depth = 0; cursor != null && depth < 8; depth++) {
+            Path candidate = cursor.resolve("resource").resolve(directoryName).resolve(fileName);
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            cursor = cursor.getParent();
+        }
+        return Path.of("resource").resolve(directoryName).resolve(fileName);
     }
 
 }

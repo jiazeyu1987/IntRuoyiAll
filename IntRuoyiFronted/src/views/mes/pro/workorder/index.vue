@@ -118,6 +118,19 @@
         ></el-table-column
       >
       <el-table-column
+        v-if="isWorkOrderColumnVisible('demandBillNo')"
+        label="需求单据"
+        align="center"
+        prop="demandBillNo"
+        min-width="220"
+          v-bind="sortColumnAttrs('demandBillNo')"
+        ><template #default="scope">
+          <div class="work-order-key-cell">
+            <span class="work-order-key-text">{{ scope.row.demandBillNo }}</span>
+          </div></template
+        ></el-table-column
+      >
+      <el-table-column
         v-if="isWorkOrderColumnVisible('productSpecification')"
         label="规格型号"
         align="center"
@@ -266,6 +279,7 @@ const workOrderDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '工单编号', width: 340 },
   { key: 'productCode', label: '产品编码', width: 260 },
   { key: 'productName', label: '产品名称', minWidth: 340 },
+  { key: 'demandBillNo', label: '需求单据', minWidth: 220 },
   { key: 'productSpecification', label: '规格型号', minWidth: 360 },
   { key: 'quantity', label: '计划数量', width: 180 },
   { key: 'batchCode', label: '批次号', width: 160 },
@@ -383,6 +397,7 @@ const workOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     placeholder: '请输入产品编码',
     fetchSuggestions: queryProductCodeSuggestions
   },
+  { key: 'demandBillNo', label: '需求单据', type: 'text', placeholder: '请输入需求单据' },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   { key: 'requestDate', label: '需求日期', type: 'dateRange' }
 ]

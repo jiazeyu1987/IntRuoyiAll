@@ -53,6 +53,27 @@ class MesProBatchRecordTotalRecognitionExtractorTest {
     }
 
     @Test
+    void extractRealIdiDocMatchesExpectedTotalRecognitionJson() throws Exception {
+        assertTrue(Files.exists(REAL_IDI_DOC), "real IDI production record doc fixture is required");
+        assertTrue(Files.exists(EXPECTED_JSON), "expected total recognition JSON fixture is required");
+
+        String sourceFileName = REAL_IDI_DOC.getFileName().toString();
+        List<MesProBatchRecordParsedTable> tables = new MesProBatchRecordDocParser().parseWord(
+                Files.readAllBytes(REAL_IDI_DOC), sourceFileName);
+        MesProBatchRecordTotalRecognitionExtractor.RecognitionResult actual =
+                new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, tables);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode actualJson = objectMapper.valueToTree(actual);
+        Files.createDirectories(Path.of("target"));
+        Files.writeString(Path.of("target", "idi-total-recognition-doc-actual.json"),
+                objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actualJson), StandardCharsets.UTF_8);
+
+        JsonNode expectedJson = objectMapper.readTree(Files.readString(EXPECTED_JSON, StandardCharsets.UTF_8));
+        assertJsonSemanticallyEquals(expectedJson, actualJson, "$");
+    }
+
+    @Test
     void extractRealIdiDocxIncludesCriticalProcessFlags() throws Exception {
         assertTrue(Files.exists(REAL_IDI_DOCX), "real IDI production record docx fixture is required");
 

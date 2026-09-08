@@ -88,7 +88,7 @@ const representativePages = [
   {
     file: 'src/views/mes/pro/workorder/index.vue',
     tableKey: 'mes.pro.workorder.main',
-    requiredFields: ['code', 'productName', 'productCode', 'productSpecification', 'requestDate']
+    requiredFields: ['code', 'productName', 'productCode', 'demandBillNo', 'productSpecification', 'requestDate']
   },
   {
     file: 'src/views/mes/pro/scheduleorder/index.vue',

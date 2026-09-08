@@ -38,6 +38,23 @@
 - Forbidden action: 禁止为了省接口把 JSON 下载按钮直接调用模板导入、批记录导入或任何会写库的上传接口；禁止解析失败后返回空 JSON、mock JSON 或切换到另一个业务导入接口。
 - Evidence: `doc/tasks/20260908-form-parser-json-download/execution-log.md`。
 
+### Legacy DOC Visual Schema 经验
+
+- 触发场景：表单中心导入、表单解析下载 JSON 或其它 parse-only 入口处理旧版 `.doc` Word 文件时。
+- 经验规则：`.doc` 与 `.docx` 都必须产出同一份 `FormTemplateRecognition` visual schema 合同，至少包含可被 `requireRecognizedVisualSchema` 验证的 `sheetLayoutJson.rows` 与 `cellRules`；旧 `.doc` 不能只返回字段 label 列表，否则 parse-only 与正式导入都会在同一服务门禁报 `Template schema rows are missing`。
+- 排查顺序：先确认调用方是否都进入 `templateRecognizer.recognize(command)` 和 `requireRecognizedVisualSchema`，再检查具体文件分支是否给 `FormTemplateRecognition.success(fields, jimuSchemaJson)` 传入正式 schema。
+- 验证方式：必须用真实 `.doc` fixture 覆盖 recognizer 与 parse-only service 方法，断言返回 `jimuSchemaJson`、schema rows 和可填写 `cellRules` 非空。
+- Evidence: `doc/tasks/20260908-form-parser-template-schema-rows/execution-log.md`。
+
+### Batch Record Mapping JSON 经验
+
+- 触发场景：表单解析页、批记录预检或其它入口要求下载类似 `批记录总对应.json` 的生产批记录业务映射 JSON 时。
+- 经验规则：`product/schemaVersion/processes` 批记录总识别 JSON 与表单中心 Jimu 版式 JSON 是两种不同合同；前者必须走 MES 批记录 Word parser 与 `MesProBatchRecordTotalRecognitionExtractor`，后者才走表单中心 `FormTemplateRecognition` visual schema。不能把 `recognizedSchemaJson`、`jimuSchemaJson` 或字段清单包装成批记录总对应 JSON。
+- 常见卡点：Java record 不能用 Fastjson 旧式 bean 序列化方式直接 `JSON.toJSONString(record)`，否则可能返回 `{}`；总识别结果应使用能识别 record 的 Jackson 序列化，并用真实 Word 与样例 JSON 做语义等价断言。
+- Parse-only 边界：只下载批记录总识别 JSON 的接口不得调用 `saveGeneratedReports`、批记录版本、DCC 项目编码写入或设备同步；若需要持久化，必须走正式批记录导入链路并另行授权。
+- 验证方式：后端覆盖真实 `.doc` 到 `批记录总对应.json` 的语义等价测试、parse-only 无写入静态合同、Controller 权限合同；前端覆盖下载内容来自批记录总识别 API 且不含 Jimu schema 字段。
+- Evidence: `doc/tasks/20260908-form-parser-template-schema-rows/execution-log.md`。
+
 ## Target Architecture
 
 ```mermaid

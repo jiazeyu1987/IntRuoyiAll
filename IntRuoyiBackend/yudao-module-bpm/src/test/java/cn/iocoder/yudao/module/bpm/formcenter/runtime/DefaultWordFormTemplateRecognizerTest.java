@@ -155,6 +155,30 @@ class DefaultWordFormTemplateRecognizerTest {
     }
 
     @Test
+    void recognizeLegacyDocProductionRecordBuildsVisualSchemaRows() throws Exception {
+        Path sample = findRepoResource("按压式球囊扩充压力泵IDI-001",
+                "RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效.doc");
+        assertTrue(Files.exists(sample), "pressure pump production record DOC fixture is required");
+        DefaultWordFormTemplateRecognizer recognizer = new DefaultWordFormTemplateRecognizer();
+
+        FormTemplateRecognition recognition = recognizer.recognize(FormTemplateImportCommand.of(
+                "RE-PP-IDI-01（A 1） 按压式球囊扩充压力泵生产记录--2026.02.02生效",
+                "PARSE_ONLY", sample.getFileName().toString(), Files.readAllBytes(sample), null));
+
+        assertTrue(recognition.isSuccess(), recognition.getFailureReason());
+        assertFalse(recognition.getFields().isEmpty());
+        assertNotNull(recognition.getJimuSchemaJson(),
+                "legacy DOC imports must build the same visual schema contract as DOCX imports");
+        Map<String, Object> schema = parseMap(recognition.getJimuSchemaJson());
+        Map<String, Object> layout = parseMap((String) schema.get("sheetLayoutJson"));
+        Map<String, Object> rows = castMap(layout.get("rows"));
+        assertTrue(number(rows.get("len")) > 0);
+        assertTrue(hasAnyCellTextContaining(rows, "生产记录"));
+        assertFalse(castMapList(schema.get("cellRules")).isEmpty(),
+                "parse-only JSON must include fillable cell rules instead of field-list-only output");
+    }
+
+    @Test
     void recognizeProcessInspectionDocxPreservesSourceGridAndCreatesEquipmentTextInputs() throws Exception {
         Path sample = findRepoResource("按压式球囊扩充压力泵IDI-001", "old/过程检验记录.docx");
         assertTrue(Files.exists(sample), "pressure pump process inspection DOCX fixture is required");

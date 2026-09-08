@@ -663,3 +663,15 @@ The independently owned restart was not stopped or replaced. Playwright was clos
 - Upload submit screenshot: `doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e.png`
 
 Current P4 local blocker: none for page reachability, upload precheck or new-file submit-to-approval. Full publication-followup closure still requires approving and publishing the submitted file from the real frontend, then verifying the follow-up batch, notification, and related-file impact task pages.
+
+## P4 Runtime Resume: Approval Evidence Blocker
+
+`BDD: 新文件审批必须能读取真实源对象 -> Given DCC-P4-202609081528-NEW 已由真实前端提交审批，When 文控在审批中心通过页面输入电子签名并确认，Then 审批动作应完成并进入下一节点；若源对象不存在，系统必须返回明确失败且不得伪造通过。`
+
+`E2E: http://127.0.0.1:8081/approval-center/todo -> PARTIAL, Playwright 定位到 DCC-P4-202609081528-NEW，并通过页面打开“审核确认”弹窗；未完成审批写入。`
+
+`RED: 页面确认审核 -> FAIL, 页面返回“请求出错，请稍候重试500”；后端日志显示 DccControlledFileSignatureEvidenceServiceImpl.digestFile 读取源文件时收到 S3 NoSuchKey(404)。`
+
+`BLOCKED: 审批/发布闭环 -> BLOCKED, 任务提交记录引用的源对象在对象存储中不存在，无法在不修改数据或绕过正式页面的前提下继续审批；未执行 API/DB 补对象或伪造成功。`
+
+Evidence: Playwright snapshot `output/playwright-p4/.playwright-cli/page-2026-09-08T08-15-41-910Z.yml`; page screenshot `output/playwright-p4/.playwright-cli/page-2026-09-08T07-57-16-857Z.png`; backend log evidence is the local runtime `output/runtime/int_main/logs/yudao-server.log` NoSuchKey stack at `DccControlledFileSignatureEvidenceServiceImpl.digestFile`.
