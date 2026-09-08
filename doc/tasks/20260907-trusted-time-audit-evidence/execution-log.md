@@ -133,3 +133,4 @@
 - GREEN: 最终 backend/frontend evidence validators、branch runtime port guard 与 `git diff --check` -> PASS；可复用经验已合并到 `docs/backend-development.md`、`docs/frontend-development.md`、`docs/local-runtime.md`。
 - CLOSEOUT PREVIEW: 正确保留八个正式任务记录并计划删除 `backend-api-evidence.md`、`frontend-feature-evidence.md`；因 `E:\IntRuoyi` 主工作区存在其它任务脏改动且当前分支不能 ff-only 合并到 `int_main`，apply 按规则 BLOCKED，未删除、未合并、未移除 worktree。
 - IMPLEMENTATION COMMIT: `3d6ea3ba4`（24 个任务自有文件）已通过分支端口门禁并推送到 `origin/codex/timestamp_20260907`；分支与远端实现提交一致。
+- RUNTIME CLOSEOUT: 经 PID 与命令行归属复核后停止本任务 8161/48161 前后端，端口均已释放；项目共享 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 保持运行且 MinIO healthy，未影响其它任务。

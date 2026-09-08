@@ -38,3 +38,4 @@ PASS：P1-P4 实现、定向回归、远程只读核查和真实 Playwright E2E 
 - 当前代码尚未发布到远程服务器；真实 E2E 使用任务 worktree 的 8161/48161 运行态，时间采集读取两台服务器真实只读状态。
 - 初始实现提交 `34e915a29` 与真实环境/术语闭环提交 `3d6ea3ba4` 均已推送至 `origin/codex/timestamp_20260907`；未合并或删除 worktree。
 - task-closeout-cleanup preview 已通过删除范围识别：仅计划删除两个临时技能 evidence 文件；apply 因主工作区其它任务脏改动及非快进合并条件而安全阻断，未执行删除、合并或 worktree 移除。
+- 本任务本地 8161/48161 验收服务已按归属停止并释放端口；共享 MySQL、Redis、MinIO 依赖保持运行。
