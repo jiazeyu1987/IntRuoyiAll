@@ -13,6 +13,7 @@ import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.common.util.validation.ValidationUtils;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
@@ -27,9 +28,11 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqV
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserPasswordHistoryDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.DeptMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserPasswordHistoryMapper;
 import cn.iocoder.yudao.module.system.enums.user.UserLifecycleDocumentTypeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
@@ -49,6 +52,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -73,8 +77,17 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     static final int USER_LOGIN_FAILURE_LOCK_THRESHOLD = 5;
 
+    static final int USER_LOGIN_FAILURE_WINDOW_MINUTES = 15;
+
+    static final int USER_LOGIN_LOCK_MINUTES = 30;
+
+    private static final int PASSWORD_HISTORY_REUSE_LIMIT = 5;
+
     @Resource
     private AdminUserMapper userMapper;
+
+    @Resource
+    private AdminUserPasswordHistoryMapper passwordHistoryMapper;
 
     @Resource
     private DeptService deptService;
@@ -118,8 +131,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 2.1 插入用户
         AdminUserDO user = BeanUtils.toBean(createReqVO, AdminUserDO.class);
         user.setStatus(CommonStatusEnum.ENABLE.getStatus()); // 默认开启
+        user.setCanonicalUsername(canonicalizeUsername(createReqVO.getUsername()));
         user.setPassword(encodePassword(createReqVO.getPassword())); // 加密密码
         user.setPasswordUpdateTime(LocalDateTime.now());
+        user.setPasswordCredentialStatus("RESET_REQUIRED");
         userMapper.insert(user);
         // 2.2 插入关联岗位
         if (CollectionUtil.isNotEmpty(user.getPostIds())) {
@@ -152,8 +167,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 2. 插入用户
         AdminUserDO user = BeanUtils.toBean(registerReqVO, AdminUserDO.class);
         user.setStatus(CommonStatusEnum.ENABLE.getStatus()); // 默认开启
+        user.setCanonicalUsername(canonicalizeUsername(registerReqVO.getUsername()));
         user.setPassword(encodePassword(registerReqVO.getPassword())); // 加密密码
         user.setPasswordUpdateTime(LocalDateTime.now());
+        user.setPasswordCredentialStatus("ACTIVE");
         userMapper.insert(user);
         return user.getId();
     }
@@ -170,6 +187,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         // 2.1 更新用户
         AdminUserDO updateObj = BeanUtils.toBean(updateReqVO, AdminUserDO.class);
+        updateObj.setCanonicalUsername(canonicalizeUsername(updateReqVO.getUsername()));
         userMapper.updateById(updateObj);
         // 2.2 更新岗位
         updateUserPost(updateReqVO, updateObj);
@@ -204,11 +222,21 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     public void recordUserLoginFailure(Long id) {
         AdminUserDO user = validateUserExists(id);
-        int failureCount = Optional.ofNullable(user.getLoginFailureCount()).orElse(0) + 1;
-        AdminUserDO updateObj = new AdminUserDO().setId(id).setLoginFailureCount(failureCount);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime windowStartTime = user.getLoginFailureWindowStartTime();
+        int failureCount = Optional.ofNullable(user.getLoginFailureCount()).orElse(0);
+        if (windowStartTime == null || windowStartTime.plusMinutes(USER_LOGIN_FAILURE_WINDOW_MINUTES).isBefore(now)) {
+            windowStartTime = now;
+            failureCount = 1;
+        } else {
+            failureCount++;
+        }
+        AdminUserDO updateObj = new AdminUserDO().setId(id)
+                .setLoginFailureCount(failureCount)
+                .setLoginFailureWindowStartTime(windowStartTime);
         if (failureCount >= USER_LOGIN_FAILURE_LOCK_THRESHOLD) {
             updateObj.setLoginLocked(1);
-            updateObj.setLoginLockedTime(LocalDateTime.now());
+            updateObj.setLoginLockedTime(now);
         }
         userMapper.updateById(updateObj);
     }
@@ -219,8 +247,56 @@ public class AdminUserServiceImpl implements AdminUserService {
         userMapper.update(null, Wrappers.lambdaUpdate(AdminUserDO.class)
                 .eq(AdminUserDO::getId, id)
                 .set(AdminUserDO::getLoginFailureCount, 0)
+                .set(AdminUserDO::getLoginFailureWindowStartTime, null)
                 .set(AdminUserDO::getLoginLocked, 0)
                 .set(AdminUserDO::getLoginLockedTime, null));
+    }
+
+    @Override
+    @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UNLOCK_SUB_TYPE, bizNo = "{{#id}}",
+            success = SYSTEM_USER_UNLOCK_SUCCESS)
+    public void resetUserLoginFailure(Long id, String reason) {
+        if (StrUtil.isBlank(reason)) {
+            throw exception(USER_UNLOCK_REASON_REQUIRED);
+        }
+        AdminUserDO user = validateUserExists(id);
+        resetUserLoginFailure(id);
+        LogRecordContext.putVariable("user", user);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class, noRollbackFor = ServiceException.class)
+    public AdminUserDO reauthenticateForSignature(Long id, String rawPassword) {
+        AdminUserDO user = userMapper.selectByIdForUpdate(id);
+        if (user == null) {
+            throw exception(USER_NOT_EXISTS);
+        }
+        if (CommonStatusEnum.isDisable(user.getStatus())) {
+            throw exception(ESIGN_IDENTITY_DISABLED);
+        }
+        if (isLoginLockActive(user, LocalDateTime.now())) {
+            throw exception(ESIGN_IDENTITY_LOCKED);
+        }
+        if (Objects.equals(user.getLoginLocked(), 1)) {
+            resetUserLoginFailure(id);
+            user.setLoginFailureCount(0);
+            user.setLoginFailureWindowStartTime(null);
+            user.setLoginLocked(0);
+            user.setLoginLockedTime(null);
+        }
+        if (!isPasswordMatch(rawPassword, user.getPassword())) {
+            recordUserLoginFailure(user.getId());
+            throw exception(ESIGN_IDENTITY_BAD_CREDENTIALS);
+        }
+        if (Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
+                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
+            throw exception(ESIGN_CREDENTIAL_CHANGE_REQUIRED);
+        }
+        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
+            throw exception(ESIGN_CREDENTIAL_EXPIRED);
+        }
+        resetUserLoginFailure(id);
+        return user;
     }
 
     @Override
@@ -238,10 +314,14 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 校验旧密码密码
         validateOldPassword(id, reqVO.getOldPassword());
         validatePasswordStrength(reqVO.getNewPassword());
+        AdminUserDO user = validateUserExists(id);
+        validatePasswordNotReused(user, reqVO.getNewPassword());
         // 执行更新
         AdminUserDO updateObj = new AdminUserDO().setId(id);
+        savePasswordHistory(user, "SELF_CHANGE");
         updateObj.setPassword(encodePassword(reqVO.getNewPassword())); // 加密密码
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
+        updateObj.setPasswordCredentialStatus("ACTIVE");
         userMapper.updateById(updateObj);
     }
 
@@ -252,12 +332,15 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 1. 校验用户存在
         AdminUserDO user = validateUserExists(id);
         validatePasswordStrength(password);
+        validatePasswordNotReused(user, password);
 
         // 2. 更新密码
         AdminUserDO updateObj = new AdminUserDO();
         updateObj.setId(id);
+        savePasswordHistory(user, "ADMIN_RESET");
         updateObj.setPassword(encodePassword(password)); // 加密密码
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
+        updateObj.setPasswordCredentialStatus("RESET_REQUIRED");
         userMapper.updateById(updateObj);
 
         // 3. 记录操作日志上下文
@@ -600,7 +683,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (StrUtil.isBlank(username)) {
             return;
         }
-        AdminUserDO user = userMapper.selectByUsername(username);
+        AdminUserDO user = userMapper.selectByCanonicalUsernameIncludingDeleted(
+                TenantContextHolder.getTenantId(), canonicalizeUsername(username));
         if (user == null) {
             return;
         }
@@ -673,6 +757,45 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
     }
 
+    private void validatePasswordNotReused(AdminUserDO user, String password) {
+        if (isPasswordMatch(password, user.getPassword())) {
+            throw exception(USER_PASSWORD_REUSE_FORBIDDEN);
+        }
+        List<AdminUserPasswordHistoryDO> historyList =
+                passwordHistoryMapper.selectLatestListByUserId(user.getId(), PASSWORD_HISTORY_REUSE_LIMIT);
+        for (AdminUserPasswordHistoryDO history : historyList) {
+            if (isPasswordMatch(password, history.getPasswordHash())) {
+                throw exception(USER_PASSWORD_REUSE_FORBIDDEN);
+            }
+        }
+    }
+
+    @VisibleForTesting
+    static String canonicalizeUsername(String username) {
+        if (StrUtil.isBlank(username)) {
+            return username;
+        }
+        return Normalizer.normalize(StrUtil.trim(username), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isLoginLockActive(AdminUserDO user, LocalDateTime now) {
+        return Objects.equals(user.getLoginLocked(), 1)
+                && user.getLoginLockedTime() != null
+                && user.getLoginLockedTime().plusMinutes(USER_LOGIN_LOCK_MINUTES).isAfter(now);
+    }
+
+    private void savePasswordHistory(AdminUserDO user, String sourceType) {
+        if (StrUtil.isBlank(user.getPassword())) {
+            throw exception(USER_PASSWORD_FAILED);
+        }
+        passwordHistoryMapper.insert(AdminUserPasswordHistoryDO.builder()
+                .userId(user.getId())
+                .passwordHash(user.getPassword())
+                .changedAt(LocalDateTime.now())
+                .sourceType(sourceType)
+                .build());
+    }
+
     @VisibleForTesting
     void validateLifecycleDeactivationRequest(String documentType, String documentNo,
                                               LocalDateTime documentTime, LocalDateTime effectiveTime) {
@@ -723,12 +846,19 @@ public class AdminUserServiceImpl implements AdminUserService {
                 return;
             }
 
-            // 2.2.1 判断如果不存在，在进行插入
-            AdminUserDO existUser = userMapper.selectByUsername(importUser.getUsername());
+            // 2.2.1 按规范化账号判断是否已存在，避免大小写、首尾空格、Unicode 表示差异绕过账号唯一性
+            AdminUserDO existUser = userMapper.selectByCanonicalUsernameIncludingDeleted(
+                    TenantContextHolder.getTenantId(), canonicalizeUsername(importUser.getUsername()));
+            if (existUser != null && Boolean.TRUE.equals(existUser.getDeleted())) {
+                respVO.getFailureUsernames().put(importUser.getUsername(), USER_USERNAME_EXISTS.getMsg());
+                return;
+            }
             if (existUser == null) {
                 userMapper.insert(BeanUtils.toBean(importUser, AdminUserDO.class)
+                        .setCanonicalUsername(canonicalizeUsername(importUser.getUsername()))
                         .setPassword(encodePassword(initPassword))
                         .setPasswordUpdateTime(LocalDateTime.now())
+                        .setPasswordCredentialStatus("RESET_REQUIRED")
                         .setPostIds(new HashSet<>())); // 设置默认密码及空岗位编号数组
                 respVO.getCreateUsernames().add(importUser.getUsername());
                 return;
@@ -740,6 +870,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
             AdminUserDO updateUser = BeanUtils.toBean(importUser, AdminUserDO.class);
             updateUser.setId(existUser.getId());
+            updateUser.setCanonicalUsername(canonicalizeUsername(importUser.getUsername()));
             userMapper.updateById(updateUser);
             respVO.getUpdateUsernames().add(importUser.getUsername());
         });
@@ -834,6 +965,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
             AdminUserDO user = AdminUserDO.builder()
                     .username(username)
+                    .canonicalUsername(canonicalizeUsername(username))
                     .nickname(StrUtil.trim(importUser.getName()))
                     .deptId(targetDept.getId())
                     .postIds(new HashSet<>())
@@ -842,6 +974,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                     .status(CommonStatusEnum.ENABLE.getStatus())
                     .password(encodePassword(initPassword))
                     .passwordUpdateTime(LocalDateTime.now())
+                    .passwordCredentialStatus("RESET_REQUIRED")
                     .build();
             userMapper.insert(user);
             respVO.getCreateUsernames().add(username);

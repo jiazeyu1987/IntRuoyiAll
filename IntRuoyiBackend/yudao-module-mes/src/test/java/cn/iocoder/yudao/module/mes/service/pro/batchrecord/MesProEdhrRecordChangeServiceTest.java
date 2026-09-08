@@ -108,6 +108,8 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
     @BeforeEach
     void setUpBpm() {
         when(processInstanceApi.createProcessInstance(any(), any())).thenReturn("void-process-default");
+        when(signatureService.recordBatchVoidRequestSignature(any(), any(), any(), any(), any()))
+                .thenReturn(9101L);
         when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class)))
                 .thenAnswer(invocation -> submitBatchVoidBusinessApprovalInTest(invocation));
     }
@@ -359,19 +361,11 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         assertEquals("10", event.getPreviousStatus());
         assertEquals("60", event.getNewStatus());
         assertNotNull(event.getRequestSignatureId());
+        assertEquals(9101L, event.getRequestSignatureId());
         assertEquals(ACTOR_ID, event.getRequestedBy());
-        verify(adminUserApi).validatePassword(ACTOR_ID, "request-pass");
+        verify(signatureService).recordBatchVoidRequestSignature(ACTOR_ID, batch.getId(), "request-pass",
+                "void comment", batch.getAggregateHash());
         verify(signatureService, never()).recordSubmitSignature(eq(0L), eq("request-pass"), any());
-
-        MesProEdhrBatchExecutionSignatureDO signature =
-                batchSignatureMapper.selectById(event.getRequestSignatureId());
-        assertNotNull(signature);
-        assertEquals(batch.getId(), signature.getBatchExecutionId());
-        assertEquals(ACTOR_ID, signature.getActorId());
-        assertEquals("BATCH_VOID_REQUEST", signature.getActionType());
-        assertEquals("PASSWORD", signature.getSignatureMode());
-        assertEquals("void comment", signature.getComment());
-        assertEquals(batch.getAggregateHash(), signature.getAggregateHash());
 
         ArgumentCaptor<BpmProcessInstanceCreateReqDTO> bpmCaptor =
                 ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
@@ -530,9 +524,11 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         assertEquals(ACTOR_ID, event.getRequestedBy());
         assertEquals(ACTOR_ID, event.getApprovedBy());
         assertNotNull(event.getRequestSignatureId());
+        assertEquals(9101L, event.getRequestSignatureId());
         assertNotNull(event.getEffectiveAt());
         verify(processInstanceApi, never()).createProcessInstance(any(), any());
-        verify(adminUserApi).validatePassword(ACTOR_ID, "request-pass");
+        verify(signatureService).recordBatchVoidRequestSignature(ACTOR_ID, batch.getId(), "request-pass",
+                "direct void", batch.getAggregateHash());
     }
 
     @Test

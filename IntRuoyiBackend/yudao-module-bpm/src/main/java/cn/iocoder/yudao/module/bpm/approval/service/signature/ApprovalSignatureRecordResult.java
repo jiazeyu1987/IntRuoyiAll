@@ -9,6 +9,8 @@ public class ApprovalSignatureRecordResult {
 
     Long recordId;
 
+    Long unifiedSignatureId;
+
     Long signatureImageId;
 
     String signatureImageFileUrl;

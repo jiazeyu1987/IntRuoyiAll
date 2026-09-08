@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 public final class AdminUserPasswordPolicy {
 
     public static final int MIN_LENGTH = 8;
-    public static final int MAX_AGE_DAYS = 365;
+    public static final int MAX_AGE_DAYS = 90;
     private static final String SPECIAL_CHARACTERS = "!@#$%^&*()_+-=[]{};':\"\\|,.<>/?`~";
 
     private AdminUserPasswordPolicy() {
@@ -36,7 +36,7 @@ public final class AdminUserPasswordPolicy {
     }
 
     public static boolean isExpired(LocalDateTime passwordUpdateTime, LocalDateTime now) {
-        return passwordUpdateTime == null || passwordUpdateTime.plusDays(MAX_AGE_DAYS).isBefore(now);
+        return passwordUpdateTime == null || !passwordUpdateTime.plusDays(MAX_AGE_DAYS).isAfter(now);
     }
 
     private static boolean isAsciiUppercaseLetter(char ch) {

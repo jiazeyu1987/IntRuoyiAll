@@ -310,11 +310,47 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         lenient().when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(8803L))
                 .thenReturn(List.of(
                         new DccFileTypeTaxonomyPath(8803L, "一级", "二级", "三级", "四级", null)));
+        lenient().when(signatureVerificationService.verifyPasswordAndCreateSignature(
+                any(Long.class), any(Long.class), any(String.class), any(String.class), any(String.class),
+                any(String.class), any(String.class))).thenAnswer(invocation -> {
+            Long controlledFileId = invocation.getArgument(1);
+            String taskId = invocation.getArgument(2);
+            String stageCode = invocation.getArgument(3);
+            String actionType = invocation.getArgument(4);
+            return DccUnifiedSignatureResult.builder()
+                    .signatureId(defaultUnifiedSignatureId(taskId))
+                    .controlledFileId(controlledFileId)
+                    .revisionId(controlledFileId + 1)
+                    .versionNo("A.1")
+                    .meaningCode(defaultMeaningCode(stageCode, actionType))
+                    .controlledCopyHashStatus("NOT_APPLICABLE")
+                    .evidenceStatus("VALID")
+                    .evidenceHash("abcdef1234567890")
+                    .signedAt(LocalDateTime.of(2026, 9, 8, 10, 0, 0))
+                    .build();
+        });
     }
 
     @AfterEach
     void clearTenantContext() {
         TenantContextHolder.clear();
+    }
+
+    private static Long defaultUnifiedSignatureId(String taskId) {
+        return switch (taskId) {
+            case "task-1" -> 1001L;
+            case "task-3" -> 1003L;
+            case "task-4" -> 1004L;
+            case "task-9" -> 1009L;
+            default -> 1000L;
+        };
+    }
+
+    private static String defaultMeaningCode(String stageCode, String actionType) {
+        if ("DISTRIBUTION_ACK".equals(actionType) || "DISTRIBUTION_SIGN".equals(actionType)) {
+            return actionType;
+        }
+        return stageCode + "_" + actionType;
     }
 
     @Test
@@ -3887,8 +3923,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
     private void mockActionSignature(Long controlledFileId, String taskId, Long actorId, String actionType,
                                      DccControlledFileSignatureDO signature) {
-        when(signatureMapper.selectActionSignature(controlledFileId, taskId, actorId, actionType))
-                .thenReturn(signature);
+        // approve/reject actions now receive the signature result directly from the unified signature kernel.
     }
 
     private DccControlledFileSignatureDO actionSignature(Long id, String taskId, String actionType,

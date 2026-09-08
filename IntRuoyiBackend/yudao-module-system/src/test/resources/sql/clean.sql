@@ -25,6 +25,7 @@ DELETE FROM "system_user_table_column_config";
 DELETE FROM "system_profile_workbench_task_visibility";
 DELETE FROM "system_login_log";
 DELETE FROM "system_operate_log";
+DELETE FROM "system_user_password_history";
 DELETE FROM "system_users";
 DELETE FROM "system_sms_channel";
 DELETE FROM "system_sms_template";

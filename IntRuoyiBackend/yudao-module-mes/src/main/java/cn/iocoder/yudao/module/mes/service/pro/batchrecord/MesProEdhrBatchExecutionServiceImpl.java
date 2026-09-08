@@ -449,6 +449,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProEdhrPdfAValidator pdfAValidator;
     @Resource
+    private MesProBatchRecordExecutionSignatureService signatureService;
+    @Resource
     private AdminUserApi adminUserApi;
     @Resource
     private PermissionApi permissionApi;
@@ -1922,24 +1924,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         String skipReason = StrUtil.trim(reason);
         String aggregateHash = DigestUtil.sha256Hex(task.getBatchExecutionId() + ":" + task.getId() + ":"
                 + skipReason + ":" + password);
-        MesProEdhrBatchExecutionSignatureDO signature = new MesProEdhrBatchExecutionSignatureDO()
-                .setBatchExecutionId(task.getBatchExecutionId())
-                .setActorId(actorId)
-                .setActorName(String.valueOf(actorId))
-                .setActionType(signatureAction)
-                .setSignatureMode("PASSWORD")
-                .setPasswordVerified(true)
-                .setComment(skipReason)
-                .setSignedAt(operatedAt)
-                .setSignatureChallengeHash(DigestUtil.sha256Hex(task.getBatchExecutionId() + ":" + password))
-                .setAggregateHash(aggregateHash);
-        batchSignatureMapper.insert(signature);
+        Long signatureId = signatureService.recordBatchActionSignature(actorId, task.getBatchExecutionId(), password,
+                skipReason, signatureAction, actionName, aggregateHash);
         JSONObject payload = new JSONObject();
         payload.put("skippedBy", actorId);
         payload.put("skippedAt", operatedAt.toString());
         payload.put("skipReason", skipReason);
-        payload.put("skipSignatureId", signature.getId());
-        payload.put("skipSignatureHash", signature.getAggregateHash());
+        payload.put("skipSignatureId", signatureId);
+        payload.put("skipSignatureHash", aggregateHash);
         payload.put("skipTaskType", specialNodeSkip ? "SPECIAL_NODE" : "OPTIONAL_ROUTE_FORM");
         if (optionalWorkTask != null) {
             payload.put("workTaskId", optionalWorkTask.getId());
@@ -4672,35 +4664,17 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long actorId = currentUserId();
         validateBatchSignaturePassword(batch, actorId, reqVO.getPassword(), "BATCH_CLOSE",
                 "关闭 eDHR 批次", "mes:pro-edhr-batch-execution:close");
-        String actorName = requireSignatureActorName(actorId, "BATCH_CLOSE");
         LocalDateTime signedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         BatchSignatureTimeEvidence signatureTimeEvidence =
                 buildBatchSignatureTimeEvidence(batch.getId(), "BATCH_CLOSE", actorId, signedAt,
                         reqVO.getSignatureTime());
-        MesProEdhrBatchExecutionSignatureDO signature = new MesProEdhrBatchExecutionSignatureDO()
-                .setBatchExecutionId(batch.getId())
-                .setActorId(actorId)
-                .setActorName(actorName)
-                .setActionType("BATCH_CLOSE")
-                .setSignatureMode("PASSWORD")
-                .setPasswordVerified(true)
-                .setComment(reqVO.getComment())
-                .setSignedAt(signedAt)
-                .setSelectedSignedAt(signatureTimeEvidence.selectedSignedAt())
-                .setSignatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
-                .setSignatureTimeMode(signatureTimeEvidence.signatureTimeMode())
-                .setSelectedTimeZone(signatureTimeEvidence.selectedTimeZone())
-                .setSelectedTimeReason(signatureTimeEvidence.selectedTimeReason())
-                .setSelectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
-                .setSelectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
-                .setSignatureChallengeHash(DigestUtil.sha256Hex(batch.getId() + ":" + reqVO.getPassword()))
-                .setAggregateHash(aggregateHash);
-        batchSignatureMapper.insert(signature);
+        Long signatureId = signatureService.recordBatchActionSignature(actorId, batch.getId(), reqVO.getPassword(),
+                reqVO.getComment(), "BATCH_CLOSE", "关闭 eDHR 批次", aggregateHash);
 
         batch.setStatus(BATCH_STATUS_CLOSED)
                 .setClosedAt(signedAt)
                 .setClosedBy(actorId)
-                .setCloseSignatureId(signature.getId())
+                .setCloseSignatureId(signatureId)
                 .setAggregateHash(aggregateHash);
         batchExecutionMapper.updateById(batch);
         workTaskService.createArchiveTaskAfterBatchClose(batch);
@@ -4728,7 +4702,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long actorId = currentUserId();
         validateBatchSignaturePassword(batch, actorId, reqVO.getPassword(), "QUALITY_REJECT",
                 "质量终态拒收 eDHR 批次", "mes:pro-edhr-batch-execution:quality-reject");
-        String actorName = requireSignatureActorName(actorId, "QUALITY_REJECT");
         requireQualityRejectPrecheckStage(batch);
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         String reason = StrUtil.trim(reqVO.getReason());
@@ -4736,28 +4709,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         BatchSignatureTimeEvidence signatureTimeEvidence =
                 buildBatchSignatureTimeEvidence(batch.getId(), "QUALITY_REJECT", actorId, now,
                         reqVO.getSignatureTime());
-        MesProEdhrBatchExecutionSignatureDO signature = new MesProEdhrBatchExecutionSignatureDO()
-                .setBatchExecutionId(batch.getId())
-                .setActorId(actorId)
-                .setActorName(actorName)
-                .setActionType("QUALITY_REJECT")
-                .setSignatureMode("PASSWORD")
-                .setPasswordVerified(true)
-                .setComment(reason)
-                .setSignedAt(now)
-                .setSelectedSignedAt(signatureTimeEvidence.selectedSignedAt())
-                .setSignatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
-                .setSignatureTimeMode(signatureTimeEvidence.signatureTimeMode())
-                .setSelectedTimeZone(signatureTimeEvidence.selectedTimeZone())
-                .setSelectedTimeReason(signatureTimeEvidence.selectedTimeReason())
-                .setSelectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
-                .setSelectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
-                .setSignatureChallengeHash(DigestUtil.sha256Hex(batch.getId() + ":" + reqVO.getPassword()))
-                .setAggregateHash(aggregateHash);
-        batchSignatureMapper.insert(signature);
+        Long signatureId = signatureService.recordBatchActionSignature(actorId, batch.getId(), reqVO.getPassword(),
+                reason, "QUALITY_REJECT", "质量终态拒收 eDHR 批次", aggregateHash);
 
         batch.setStatus(BATCH_STATUS_REJECTED)
-                .setRejectSignatureId(signature.getId())
+                .setRejectSignatureId(signatureId)
                 .setRejectedBy(actorId)
                 .setRejectedAt(now)
                 .setRejectReason(reason)
@@ -4797,7 +4753,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(BAD_REQUEST, actionName + "必须填写签名密码");
         }
         try {
-            adminUserApi.validatePassword(actorId, password);
+            adminUserApi.reauthenticateForSignature(actorId, password);
         } catch (RuntimeException ex) {
             recordSignaturePasswordFailure(batch, operationType, actionName, permissionCode,
                     StrUtil.blankToDefault(ex.getMessage(), "签名密码校验失败"));

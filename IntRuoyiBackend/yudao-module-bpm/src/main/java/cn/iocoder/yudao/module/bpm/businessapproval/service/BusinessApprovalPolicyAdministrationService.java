@@ -113,8 +113,6 @@ public class BusinessApprovalPolicyAdministrationService {
         String signaturePassword = StrUtil.trim(reqVO.getSignaturePassword());
         String processDefinitionKey = resolveSwitchProcessDefinitionKey(sourcePolicy, targetMode);
         executorRegistry.requireExecutor(sourcePolicy.getEffectExecutorCode());
-        adminUserApi.validatePassword(loginUserId, signaturePassword);
-
         sourcePolicy.setStatus(BusinessApprovalPolicy.STATUS_DISABLED);
         policyMapper.updateById(sourcePolicy);
 

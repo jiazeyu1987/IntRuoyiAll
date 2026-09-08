@@ -426,7 +426,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         }
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, submitted.getReleaseStatus());
-        verify(adminUserApi).validatePassword(10001L, "owner-sign-secret");
+        verify(adminUserApi).reauthenticateForSignature(10001L, "owner-sign-secret");
     }
 
     @Test
@@ -463,7 +463,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertNotNull(submitted.getSubmittedAt());
         assertEquals(null, submitted.getApprovedAt());
         assertNotNull(submitted.getReleaseApprovalWorkTaskId());
-        verify(adminUserApi).validatePassword(10001L, "owner-sign-secret");
+        verify(adminUserApi).reauthenticateForSignature(10001L, "owner-sign-secret");
         verify(workTaskService).createReleaseApprovalTaskAfterSubmit(any(), any());
         List<MesProEdhrBatchExecutionSignatureDO> signatures =
                 batchSignatureMapper.selectListByBatchExecutionId(batch.getId());
@@ -557,7 +557,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, submitted.getReleaseStatus());
         assertEquals(10002L, submitted.getSubmittedBy());
         assertEquals(null, submitted.getApprovedBy());
-        verify(adminUserApi).validatePassword(10002L, "role-owner-sign-secret");
+        verify(adminUserApi).reauthenticateForSignature(10002L, "role-owner-sign-secret");
     }
 
     @Test
@@ -961,7 +961,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 insertApprovedOrdinaryTask(invalidPasswordBatch.getId(), 7602L);
         insertCompletedExecution(invalidPasswordTask.getExecutionId(), true);
         MesProEdhrReleaseRespVO invalidPasswordPrecheck = precheckAsUser(10001L, invalidPasswordBatch.getId());
-        doThrow(new ServiceException(USER_PASSWORD_FAILED)).when(adminUserApi).validatePassword(10001L, "wrong-pass");
+        doThrow(new ServiceException(USER_PASSWORD_FAILED)).when(adminUserApi)
+                .reauthenticateForSignature(10001L, "wrong-pass");
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
@@ -1000,7 +1001,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED,
                 releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
         assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
-        verify(adminUserApi, never()).validatePassword(10001L, "owner-sign-secret");
+        verify(adminUserApi, never()).reauthenticateForSignature(10001L, "owner-sign-secret");
     }
 
     @Test
@@ -1025,7 +1026,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED,
                 releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
         assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
-        verify(adminUserApi, never()).validatePassword(10001L, "owner-sign-secret");
+        verify(adminUserApi, never()).reauthenticateForSignature(10001L, "owner-sign-secret");
     }
 
     @Test

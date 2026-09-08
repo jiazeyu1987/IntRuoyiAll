@@ -69,6 +69,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     @Override
     public EdhrRecordChangeRespVO precheckPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO) {
@@ -247,40 +249,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
         if (batch == null || batch.getId() == null || actorUserId == null || StrUtil.isBlank(password)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
-        adminUserApi.validatePassword(actorUserId, password);
-        LocalDateTime signedAt = now();
-        MesProEdhrBatchExecutionSignatureDO signature = new MesProEdhrBatchExecutionSignatureDO()
-                .setBatchExecutionId(batch.getId())
-                .setActorId(actorUserId)
-                .setActorName(String.valueOf(actorUserId))
-                .setActionType(BATCH_SIGNATURE_ACTION_VOID_REQUEST)
-                .setSignatureMode(SIGNATURE_MODE_PASSWORD)
-                .setPasswordVerified(Boolean.TRUE)
-                .setComment(StrUtil.blankToDefault(StrUtil.trim(comment), null))
-                .setSignedAt(signedAt)
-                .setSignatureDisplayAt(signedAt)
-                .setSignatureTimeMode(MesProBatchRecordExecutionSignatureService.SIGNATURE_TIME_MODE_SERVER)
-                .setSelectedTimeZone("Asia/Shanghai")
-                .setSelectedTimeReason("")
-                .setSelectedTimePolicyVersion(MesProBatchRecordExecutionSignatureService.SIGNATURE_TIME_POLICY_VERSION)
-                .setSelectedTimeAuditHash(DigestUtil.sha256Hex(String.join("|",
-                        MesProBatchRecordExecutionSignatureService.SIGNATURE_TIME_POLICY_VERSION,
-                        value(batch.getId()),
-                        BATCH_SIGNATURE_ACTION_VOID_REQUEST,
-                        value(actorUserId),
-                        value(signedAt),
-                        MesProBatchRecordExecutionSignatureService.SIGNATURE_TIME_MODE_SERVER,
-                        value(signedAt),
-                        "",
-                        "Asia/Shanghai",
-                        "")))
-                .setSignatureChallengeHash(DigestUtil.sha256Hex(batch.getId() + ":" + password))
-                .setAggregateHash(batch.getAggregateHash());
-        int inserted = batchSignatureMapper.insert(signature);
-        if (inserted <= 0 || signature.getId() == null) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
-        }
-        return signature.getId();
+        return signatureService.recordBatchVoidRequestSignature(actorUserId, batch.getId(), password, comment,
+                batch.getAggregateHash());
     }
 
     private EdhrRecordChangeRespVO approveVoidBatchExecutionByBpm(MesProEdhrRecordChangeEventDO event,

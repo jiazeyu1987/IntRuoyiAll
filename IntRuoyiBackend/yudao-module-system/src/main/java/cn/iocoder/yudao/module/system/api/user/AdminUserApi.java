@@ -102,4 +102,12 @@ public interface AdminUserApi {
      */
     void validatePassword(Long id, String rawPassword);
 
+    /**
+     * 使用当前实名账号密码执行正式电子签名重新认证。
+     *
+     * @param id 当前登录用户编号
+     * @param rawPassword 本人密码明文
+     */
+    void reauthenticateForSignature(Long id, String rawPassword);
+
 }

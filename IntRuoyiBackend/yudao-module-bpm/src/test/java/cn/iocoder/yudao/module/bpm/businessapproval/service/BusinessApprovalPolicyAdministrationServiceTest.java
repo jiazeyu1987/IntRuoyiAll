@@ -346,7 +346,6 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
 
     private void verifyPolicySwitchSignatureRecorded(BusinessApprovalPolicyDO newPolicy,
             BusinessApprovalPolicyMode targetMode) {
-        verify(adminUserApi).validatePassword(100L, "signature-pass");
         ArgumentCaptor<ApprovalTaskReviewContext> captor =
                 ArgumentCaptor.forClass(ApprovalTaskReviewContext.class);
         verify(signatureRecordService).recordReviewSignature(captor.capture());

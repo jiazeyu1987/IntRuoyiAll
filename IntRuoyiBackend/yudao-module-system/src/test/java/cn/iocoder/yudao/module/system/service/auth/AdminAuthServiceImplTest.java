@@ -135,7 +135,8 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         String password = randomString();
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
-                .setLoginLocked(1));
+                .setLoginLocked(1)
+                .setLoginLockedTime(LocalDateTime.now().minusMinutes(10)));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
 
         assertServiceException(() -> authService.authenticate(username, password),
@@ -176,7 +177,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         String password = randomString();
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
-                .setPasswordUpdateTime(LocalDateTime.now().minusDays(366)));
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(90)));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
         when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
 
@@ -185,6 +186,41 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         verify(loginLogService).createLoginLog(
                 argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
                         && o.getResult().equals(LoginResultEnum.PASSWORD_EXPIRED.getResult())
+                        && o.getUserId().equals(user.getId()))
+        );
+    }
+
+    @Test
+    public void testAuthenticate_passwordValidAt89Days() {
+        String username = randomString();
+        String password = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
+                .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(89)));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
+
+        AdminUserDO loginUser = authService.authenticate(username, password);
+
+        assertPojoEquals(user, loginUser);
+    }
+
+    @Test
+    public void testAuthenticate_passwordChangeRequired() {
+        String username = randomString();
+        String password = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
+                .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordCredentialStatus("RESET_REQUIRED")
+                .setPasswordUpdateTime(LocalDateTime.now()));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
+
+        assertServiceException(() -> authService.authenticate(username, password),
+                AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
+        verify(loginLogService).createLoginLog(
+                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
+                        && o.getResult().equals(LoginResultEnum.PASSWORD_CHANGE_REQUIRED.getResult())
                         && o.getUserId().equals(user.getId()))
         );
     }

@@ -49,8 +49,6 @@ class BusinessApprovalOrchestratorSignatureRequiredTest {
         assertEquals(1, executor.getDirectExecutions());
         assertEquals(0, executor.getPendingMarks());
         assertEquals(0, bpmStarter.getStartCount());
-        assertEquals(501L, adminUserApi.validatedUserId);
-        assertEquals("signature-pass", adminUserApi.validatedPassword);
         assertEquals(ApprovalModuleCode.BPM, signatureRecordService.lastContext.getModuleCode());
         assertEquals("BUSINESS_APPROVAL_ROUTE_VERSION_PUBLISH",
                 signatureRecordService.lastContext.getSourceTaskType());
@@ -127,6 +125,11 @@ class BusinessApprovalOrchestratorSignatureRequiredTest {
 
         @Override
         public void validatePassword(Long id, String rawPassword) {
+            throw new AssertionError("Business approval must not validate signature passwords outside the unified kernel");
+        }
+
+        @Override
+        public void reauthenticateForSignature(Long id, String rawPassword) {
             validatedUserId = id;
             validatedPassword = rawPassword;
         }

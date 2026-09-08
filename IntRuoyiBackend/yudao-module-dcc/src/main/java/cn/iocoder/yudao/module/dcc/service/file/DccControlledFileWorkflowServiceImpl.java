@@ -676,7 +676,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .stream()
                 .map(Task::getId)
                 .collect(Collectors.toSet());
-        signatureVerificationService.verifyPasswordAndCreateSignature(userId, id, reqVO.getTaskId(),
+        DccUnifiedSignatureResult signature = signatureVerificationService.verifyPasswordAndCreateSignature(userId, id, reqVO.getTaskId(),
                 context.stageCode().getCode(), "APPROVE", reqVO.getPassword(), reqVO.getReason());
         if (docControlArtifacts != null) {
             signatureBindingService.bindPublishedCopy(context.file(), docControlArtifacts.stampedPdfFileId(), userId,
@@ -692,8 +692,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .setNextAssignees(buildStageAssigneeMapFromSnapshots(routeSnapshots)));
         String nextStatus = syncStatusAfterApprove(context.file(), context.stageCode(), beforeRunningTaskIds,
                 reqVO.getTaskId(), context.taskDefinitionKey());
-        return buildActionRespVO(requireActionSignature(id, reqVO.getTaskId(), userId, "APPROVE"),
-                "APPROVED", nextStatus);
+        return buildActionRespVO(signature, "APPROVED", nextStatus);
     }
 
     @Override
@@ -706,7 +705,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                                                                 String processDefinitionKey) {
         ValidatedTaskActionContext context = validateTaskAction(userId, id, reqVO.getTaskId(), processDefinitionKey,
                 "REJECT");
-        signatureVerificationService.verifyPasswordAndCreateSignature(userId, id, reqVO.getTaskId(),
+        DccUnifiedSignatureResult signature = signatureVerificationService.verifyPasswordAndCreateSignature(userId, id, reqVO.getTaskId(),
                 context.stageCode().getCode(), "REJECT", reqVO.getPassword(), reqVO.getReason());
         bpmTaskService.rejectTask(userId, new BpmTaskRejectReqVO()
                 .setId(reqVO.getTaskId())
@@ -717,8 +716,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .rejectedTime(LocalDateTime.now())
                 .rejectReason(reqVO.getReason())
                 .build());
-        return buildActionRespVO(requireActionSignature(id, reqVO.getTaskId(), userId, "REJECT"),
-                "REJECTED", DccControlledFileStatusEnum.REJECTED.getStatus());
+        return buildActionRespVO(signature, "REJECTED", DccControlledFileStatusEnum.REJECTED.getStatus());
     }
 
     private DccControlledFileSignatureDO requireActionSignature(Long controlledFileId, String taskId,
@@ -751,6 +749,38 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccSignatureActionRespVO respVO = new DccSignatureActionRespVO();
         respVO.setTaskActionResult(taskActionResult);
         respVO.setSignatureId(signature.getId());
+        respVO.setControlledFileId(signature.getControlledFileId());
+        respVO.setRevisionId(signature.getRevisionId());
+        respVO.setVersionNo(signature.getVersionNo());
+        respVO.setMeaningCode(signature.getMeaningCode());
+        respVO.setControlledCopyHashStatus(signature.getControlledCopyHashStatus());
+        respVO.setEvidenceStatus(signature.getEvidenceStatus());
+        respVO.setEvidenceHashShort(shortHash(signature.getEvidenceHash()));
+        respVO.setSignedAt(signature.getSignedAt());
+        respVO.setNextStatus(nextStatus);
+        return respVO;
+    }
+
+    private DccSignatureActionRespVO buildActionRespVO(DccUnifiedSignatureResult signature,
+                                                       String taskActionResult,
+                                                       String nextStatus) {
+        if (signature.getSignatureId() == null
+                || signature.getControlledFileId() == null
+                || signature.getRevisionId() == null
+                || StrUtil.isBlank(signature.getVersionNo())
+                || StrUtil.isBlank(signature.getMeaningCode())
+                || StrUtil.isBlank(signature.getControlledCopyHashStatus())
+                || StrUtil.isBlank(signature.getEvidenceHash())
+                || signature.getSignedAt() == null
+                || StrUtil.isBlank(nextStatus)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        if (!"VALID".equals(signature.getEvidenceStatus())) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID);
+        }
+        DccSignatureActionRespVO respVO = new DccSignatureActionRespVO();
+        respVO.setTaskActionResult(taskActionResult);
+        respVO.setSignatureId(signature.getSignatureId());
         respVO.setControlledFileId(signature.getControlledFileId());
         respVO.setRevisionId(signature.getRevisionId());
         respVO.setVersionNo(signature.getVersionNo());

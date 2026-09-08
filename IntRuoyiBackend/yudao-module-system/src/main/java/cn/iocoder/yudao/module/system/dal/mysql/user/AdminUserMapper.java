@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -17,6 +19,24 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
     default AdminUserDO selectByUsername(String username) {
         return selectOne(AdminUserDO::getUsername, username);
     }
+
+    @Select("""
+            SELECT *
+            FROM system_users
+            WHERE canonical_username = #{canonicalUsername}
+              AND (#{tenantId} IS NULL OR tenant_id = #{tenantId})
+            LIMIT 1
+            """)
+    AdminUserDO selectByCanonicalUsernameIncludingDeleted(@Param("tenantId") Long tenantId,
+                                                          @Param("canonicalUsername") String canonicalUsername);
+
+    @Select("""
+            SELECT *
+            FROM system_users
+            WHERE id = #{id}
+            FOR UPDATE
+            """)
+    AdminUserDO selectByIdForUpdate(@Param("id") Long id);
 
     default AdminUserDO selectByEmail(String email) {
         return selectOne(AdminUserDO::getEmail, email);

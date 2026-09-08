@@ -100,6 +100,11 @@ public class AdminUserApiImpl implements AdminUserApi {
         userService.validateOldPassword(id, rawPassword);
     }
 
+    @Override
+    public void reauthenticateForSignature(Long id, String rawPassword) {
+        userService.reauthenticateForSignature(id, rawPassword);
+    }
+
     private AdminUserRespDTO toUserRespDTO(AdminUserDO user) {
         AdminUserRespDTO respDTO = BeanUtils.toBean(user, AdminUserRespDTO.class);
         if (respDTO == null || respDTO.getId() == null) {

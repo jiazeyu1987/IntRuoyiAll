@@ -279,6 +279,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProBatchRecordExecutionService singleExecutionService;
     @MockitoBean
+    private MesProBatchRecordExecutionSignatureService signatureService;
+    @MockitoBean
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
@@ -416,6 +418,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 });
         when(cellLinkService.buildFormTemplateVersionPrefillData(any(), any(), any(), any()))
                 .thenAnswer(invocation -> invocation.getArgument(3));
+        when(signatureService.recordBatchActionSignature(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(9201L);
     }
 
     private MesBatchExecutionAuthoritativeContext testAuthoritativeContext(
@@ -2480,7 +2484,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .orElseThrow();
         markBatchOwner(batch.getId(), 188L);
         doThrow(new ServiceException(USER_PASSWORD_FAILED))
-                .when(adminUserApi).validatePassword(188L, "wrong-pass");
+                .when(signatureService).recordBatchActionSignature(eq(188L), any(), eq("wrong-pass"), any(),
+                        eq("SPECIAL_NODE_SKIP"), any(), any());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
@@ -2506,10 +2511,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                             .getStatus());
             MesProEdhrBatchExecutionTaskDO updatedTask = batchTaskMapper.selectById(specialNode.getId());
             assertTrue(updatedTask.getSpecialPayloadJson().contains("\"skipReason\":\"现场确认后跳过\""));
-            assertTrue(updatedTask.getSpecialPayloadJson().contains("\"skipSignatureId\":"));
-            assertEquals(1, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).stream()
+            assertTrue(updatedTask.getSpecialPayloadJson().contains("\"skipSignatureId\":9201"));
+            assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).stream()
                     .filter(signature -> "SPECIAL_NODE_SKIP".equals(signature.getActionType()))
                     .count());
+            verify(signatureService).recordBatchActionSignature(eq(188L), eq(batch.getId()), eq("secret"),
+                    eq("现场确认后跳过"), eq("SPECIAL_NODE_SKIP"), any(), any());
             verify(workTaskService).createNextFillAfterSpecialNodeResolved(argThat(task ->
                     task != null
                             && specialNode.getId().equals(task.getId())
@@ -5425,11 +5432,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setComment("close with optional shared form skipped"));
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
         MesProEdhrBatchExecutionDO closedBatch = batchExecutionMapper.selectById(batch.getId());
-        MesProEdhrBatchExecutionSignatureDO closeSignature =
-                batchSignatureMapper.selectById(closedBatch.getCloseSignatureId());
-        assertEquals("用户0", closeSignature.getActorName());
-        assertEquals("SERVER_TIME", closeSignature.getSignatureTimeMode());
-        assertEquals("Asia/Shanghai", closeSignature.getSelectedTimeZone());
+        assertEquals(9201L, closedBatch.getCloseSignatureId());
+        verify(signatureService).recordBatchActionSignature(eq(0L), eq(batch.getId()), eq("secret"),
+                eq("close with optional shared form skipped"), eq("BATCH_CLOSE"), any(), any());
     }
 
     @Test
@@ -5975,16 +5980,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
         MesProEdhrBatchExecutionDO updated = batchExecutionMapper.selectById(batch.getId());
-        MesProEdhrBatchExecutionSignatureDO signature = batchSignatureMapper.selectById(updated.getCloseSignatureId());
-        assertEquals("BATCH_CLOSE", signature.getActionType());
-        assertEquals("用户0", signature.getActorName());
-        assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
-        assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
-        assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
-        assertEquals("Asia/Shanghai", signature.getSelectedTimeZone());
-        assertEquals("批执行关闭按现场复核完成时间显示", signature.getSelectedTimeReason());
-        assertEquals("EDHR_SIGNATURE_TIME_V1", signature.getSelectedTimePolicyVersion());
-        assertNotNull(signature.getSelectedTimeAuditHash());
+        assertEquals(9201L, updated.getCloseSignatureId());
+        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).stream()
+                .filter(signature -> "BATCH_CLOSE".equals(signature.getActionType()))
+                .count());
+        verify(signatureService).recordBatchActionSignature(eq(0L), eq(batch.getId()), eq("secret"),
+                eq("close batch and create archive task"), eq("BATCH_CLOSE"), any(), any());
         ArgumentCaptor<MesProEdhrBatchExecutionDO> batchCaptor =
                 ArgumentCaptor.forClass(MesProEdhrBatchExecutionDO.class);
         verify(workTaskService).createArchiveTaskAfterBatchClose(batchCaptor.capture());
@@ -6008,7 +6009,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionDO before = batchExecutionMapper.selectById(batch.getId());
         int signatureCountBefore = batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size();
         doThrow(new ServiceException(USER_PASSWORD_FAILED))
-                .when(adminUserApi).validatePassword(188L, "wrong-pass");
+                .when(signatureService).recordBatchActionSignature(eq(188L), eq(batch.getId()), eq("wrong-pass"),
+                        any(), eq("BATCH_CLOSE"), any(), any());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
@@ -6152,19 +6154,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(188L, updated.getRejectedBy());
         assertNotNull(updated.getRejectedAt());
         assertEquals("质量负责人终态拒收。", updated.getRejectReason());
-        assertNotNull(updated.getRejectSignatureId());
-        MesProEdhrBatchExecutionSignatureDO signature = batchSignatureMapper.selectById(updated.getRejectSignatureId());
-        assertEquals("QUALITY_REJECT", signature.getActionType());
-        assertEquals("质量负责人终态拒收。", signature.getComment());
-        assertEquals(188L, signature.getActorId());
-        assertEquals("用户188", signature.getActorName());
-        assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
-        assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
-        assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
-        assertEquals("Asia/Shanghai", signature.getSelectedTimeZone());
-        assertEquals("质量拒收按纸面终判时间显示", signature.getSelectedTimeReason());
-        assertEquals("EDHR_SIGNATURE_TIME_V1", signature.getSelectedTimePolicyVersion());
-        assertNotNull(signature.getSelectedTimeAuditHash());
+        assertEquals(9201L, updated.getRejectSignatureId());
+        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).stream()
+                .filter(signature -> "QUALITY_REJECT".equals(signature.getActionType()))
+                .count());
+        verify(signatureService).recordBatchActionSignature(eq(188L), eq(batch.getId()), eq("sign-pass"),
+                eq("质量负责人终态拒收。"), eq("QUALITY_REJECT"), any(), any());
         verify(workTaskService).cancelActiveTasksByBatch(batch.getId(), "质量终态拒收：质量负责人终态拒收。");
     }
 
@@ -6738,9 +6733,15 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-QUALITY-WRONG-PASSWORD")
                 .setRouteId(fixture.routeId()));
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(LocalDateTime.now())
+                .setAggregateHash("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         MesProEdhrBatchExecutionDO before = batchExecutionMapper.selectById(batch.getId());
         doThrow(new ServiceException(USER_PASSWORD_FAILED))
-                .when(adminUserApi).validatePassword(188L, "wrong-pass");
+                .when(signatureService).recordBatchActionSignature(eq(188L), eq(batch.getId()), eq("wrong-pass"),
+                        any(), eq("QUALITY_REJECT"), any(), any());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);

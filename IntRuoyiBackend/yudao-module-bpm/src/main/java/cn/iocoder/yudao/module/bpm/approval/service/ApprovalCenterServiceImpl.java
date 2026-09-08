@@ -142,7 +142,6 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         boolean globalView = hasApprovalAdminRole(loginUserId);
         ApprovalTaskProvider provider = providerRegistry.requireProvider(command.getModuleCode());
         assertProviderVisible(provider, loginUserId);
-        adminUserApi.validatePassword(loginUserId, signaturePassword);
         ApprovalTaskReviewContext reviewContext = ApprovalTaskReviewContext.of(loginUserId, command.getModuleCode(),
                 command.getSourceTaskType(),
                 command.getSourceTaskId(), command.getBusinessKey(), command.getProcessInstanceId(),

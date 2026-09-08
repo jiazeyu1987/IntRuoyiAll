@@ -18,6 +18,7 @@ public interface ErrorCodeConstants {
     ErrorCode AUTH_MOBILE_NOT_EXISTS = new ErrorCode(1_002_000_007, "手机号不存在");
     ErrorCode AUTH_REGISTER_CAPTCHA_CODE_ERROR = new ErrorCode(1_002_000_008, "验证码不正确，原因：{}");
     ErrorCode AUTH_LOGIN_PASSWORD_EXPIRED = new ErrorCode(1_002_000_009, "密码已过期，请修改密码后再登录");
+    ErrorCode AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED = new ErrorCode(1_002_000_011, "首次或重置后必须修改密码后再登录");
 
     // ========== 菜单模块 1-002-001-000 ==========
     ErrorCode MENU_NAME_DUPLICATE = new ErrorCode(1_002_001_000, "已经存在该名字的菜单");
@@ -102,6 +103,13 @@ public interface ErrorCodeConstants {
     ErrorCode USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN = new ErrorCode(1_002_003_029, "账号已按离职/转岗单【{}】联动停用，不能手工启用");
     ErrorCode USER_LIFECYCLE_PROCESS_TIME_REQUIRED = new ErrorCode(1_002_003_030, "账号生命周期停用处理时间不能为空");
     ErrorCode USER_LIFECYCLE_PROCESS_LIMIT_INVALID = new ErrorCode(1_002_003_031, "账号生命周期停用处理数量必须大于 0");
+    ErrorCode USER_PASSWORD_REUSE_FORBIDDEN = new ErrorCode(1_002_003_032, "新密码不能与当前密码或最近 5 次历史密码重复");
+    ErrorCode ESIGN_IDENTITY_BAD_CREDENTIALS = new ErrorCode(1_002_003_033, "电子签名身份验证失败");
+    ErrorCode ESIGN_IDENTITY_LOCKED = new ErrorCode(1_002_003_034, "电子签名身份已锁定");
+    ErrorCode ESIGN_CREDENTIAL_CHANGE_REQUIRED = new ErrorCode(1_002_003_035, "首次或重置后必须修改密码后再签名");
+    ErrorCode ESIGN_CREDENTIAL_EXPIRED = new ErrorCode(1_002_003_036, "签名凭据已过期");
+    ErrorCode ESIGN_IDENTITY_DISABLED = new ErrorCode(1_002_003_037, "电子签名账号已禁用");
+    ErrorCode USER_UNLOCK_REASON_REQUIRED = new ErrorCode(1_002_003_038, "管理员解锁原因不能为空");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");

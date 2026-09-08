@@ -414,7 +414,6 @@ class ApprovalCenterServiceImplTest {
         assertEquals(ApprovalTaskReviewResult.APPROVE, captured.get().getResult());
         assertEquals("secret", captured.get().getSignaturePassword());
         assertTrue(captured.get().isGlobalView());
-        verify(adminUserApi).validatePassword(100L, "secret");
         verify(signatureRecordService).recordReviewSignature(argThat(context ->
                 context.getLoginUserId().equals(100L)
                         && context.getModuleCode() == ApprovalModuleCode.MES_FEEDBACK

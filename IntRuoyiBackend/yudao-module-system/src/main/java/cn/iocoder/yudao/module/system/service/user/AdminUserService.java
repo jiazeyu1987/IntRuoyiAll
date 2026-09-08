@@ -75,6 +75,23 @@ public interface AdminUserService {
     void resetUserLoginFailure(Long id);
 
     /**
+     * 管理员解锁用户登录/签名失败锁定。
+     *
+     * @param id 用户编号
+     * @param reason 解锁原因
+     */
+    void resetUserLoginFailure(Long id, String reason);
+
+    /**
+     * 使用当前实名账号的密码执行正式电子签名重新认证。
+     *
+     * @param id 当前登录用户编号
+     * @param rawPassword 本人密码明文，仅允许停留在调用栈中
+     * @return 重新认证通过的用户
+     */
+    AdminUserDO reauthenticateForSignature(Long id, String rawPassword);
+
+    /**
      * 修改用户个人信息
      *
      * @param id 用户编号

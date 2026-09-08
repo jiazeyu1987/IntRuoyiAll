@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Collections;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -112,10 +113,14 @@ public class UserController {
 
     @PutMapping("/unlock")
     @Operation(summary = "解锁用户")
-    @Parameter(name = "id", description = "编号", required = true, example = "1024")
+    @Parameters({
+            @Parameter(name = "id", description = "编号", required = true, example = "1024"),
+            @Parameter(name = "reason", description = "解锁原因", required = true, example = "误输密码后经线下核验确认本人")
+    })
     @PreAuthorize("@ss.hasPermission('system:user:update')")
-    public CommonResult<Boolean> unlockUser(@RequestParam("id") Long id) {
-        userService.resetUserLoginFailure(id);
+    public CommonResult<Boolean> unlockUser(@RequestParam("id") Long id,
+                                            @RequestParam("reason") @NotBlank(message = "解锁原因不能为空") String reason) {
+        userService.resetUserLoginFailure(id, reason);
         return success(true);
     }
 

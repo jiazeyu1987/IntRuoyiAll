@@ -481,7 +481,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
         requireReleaseOwner(batch, actorUserId);
         String password = requireReleaseSignaturePassword(reqVO.getPassword());
-        adminUserApi.validatePassword(actorUserId, password);
+        adminUserApi.reauthenticateForSignature(actorUserId, password);
         String reason = StrUtil.blankToDefault(StrUtil.trim(reqVO.getSubmitReason()), "负责人电子签名放行");
         MesProEdhrWorkTaskDO approvalTask = workTaskService.createReleaseApprovalTaskAfterSubmit(transaction, batch);
         if (approvalTask == null || approvalTask.getId() == null) {

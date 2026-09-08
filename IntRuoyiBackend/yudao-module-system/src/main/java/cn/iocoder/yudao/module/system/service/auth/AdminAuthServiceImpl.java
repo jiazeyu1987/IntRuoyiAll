@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.user.AdminUserServiceImpl;
 import cn.iocoder.yudao.module.system.service.user.AdminUserPasswordPolicy;
 import com.anji.captcha.model.common.ResponseModel;
 import com.anji.captcha.model.vo.CaptchaVO;
@@ -93,14 +94,26 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_DISABLED);
             throw exception(AUTH_LOGIN_USER_DISABLED);
         }
-        if (Objects.equals(user.getLoginLocked(), 1)) {
+        if (AdminUserServiceImpl.isLoginLockActive(user, LocalDateTime.now())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_LOCKED);
             throw exception(AUTH_LOGIN_USER_LOCKED);
+        }
+        if (Objects.equals(user.getLoginLocked(), 1)) {
+            userService.resetUserLoginFailure(user.getId());
+            user.setLoginFailureCount(0);
+            user.setLoginFailureWindowStartTime(null);
+            user.setLoginLocked(0);
+            user.setLoginLockedTime(null);
         }
         if (!userService.isPasswordMatch(password, user.getPassword())) {
             userService.recordUserLoginFailure(user.getId());
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
             throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
+        }
+        if (Objects.equals(user.getPasswordCredentialStatus(), "INITIAL")
+                || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
+            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_CHANGE_REQUIRED);
+            throw exception(AUTH_LOGIN_PASSWORD_CHANGE_REQUIRED);
         }
         if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_EXPIRED);

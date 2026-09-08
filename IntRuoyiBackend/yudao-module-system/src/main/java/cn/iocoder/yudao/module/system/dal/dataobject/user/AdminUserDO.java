@@ -38,6 +38,10 @@ public class AdminUserDO extends TenantBaseDO {
      */
     private String username;
     /**
+     * 规范化用户账号：trim + Unicode NFC + lower-case，用于租户内永久唯一
+     */
+    private String canonicalUsername;
+    /**
      * 加密后的密码
      *
      * 因为目前使用 {@link BCryptPasswordEncoder} 加密器，所以无需自己处理 salt 盐
@@ -47,6 +51,10 @@ public class AdminUserDO extends TenantBaseDO {
      * 密码最后更新时间
      */
     private LocalDateTime passwordUpdateTime;
+    /**
+     * 密码凭据状态：ACTIVE-可用，INITIAL-初始凭据，RESET_REQUIRED-重置后必须改密
+     */
+    private String passwordCredentialStatus;
     /**
      * 用户昵称
      */
@@ -92,6 +100,10 @@ public class AdminUserDO extends TenantBaseDO {
      * 登录失败次数
      */
     private Integer loginFailureCount;
+    /**
+     * 登录/签名失败计数窗口开始时间
+     */
+    private LocalDateTime loginFailureWindowStartTime;
     /**
      * 登录锁定标记，0-未锁定，1-锁定
      */

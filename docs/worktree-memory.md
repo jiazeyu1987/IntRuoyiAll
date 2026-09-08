@@ -411,3 +411,10 @@
 - 经验规则：融合前重新执行 `git log --left-right --cherry-pick int_main...<branch>`；若出现 `<` 侧提交，先在附加 worktree 再 rebase 到当前 `int_main` 并重跑目标验证。即使分支已可 fast-forward，主工作区仍需 clean 后才能运行 closeout apply。
 - 阻断处理：主工作区 dirty 属于其它任务时，只记录文件清单和阻断原因，不做 stash、restore、clean、reset，也不手工绕过 closeout guard。
 - 验证方式：记录最终分支领先提交数、任务提交 hash、目标静态/单测结果、`git diff --check` 和 closeout preview 输出。
+
+### Worktree 绝对路径补丁门禁
+
+- 触发场景：当前 shell 已在附加 worktree，但补丁或工具调用使用了主工作区相对路径、默认仓库根或混合盘符路径。
+- 经验规则：对附加 worktree 改文件时，补丁目标必须使用当前任务 worktree 下的绝对路径；首次补丁后立即用 `git -C <worktree> status --short -- <path>` 和 `git -C E:\IntRuoyi status --short -- <path>` 交叉确认没有误写主工作区。
+- 阻断处理：发现误写主工作区时，只能删除或回滚本次误创建且未跟踪的明确文件；若误改已存在 tracked 文件，必须停止并报告，不能用 restore/reset 隐藏。
+- 验证方式：记录误写路径清单、清理方式、主工作区 `git status --short -- <path>` 为空，以及目标 worktree 中对应文件存在并通过定向验证。

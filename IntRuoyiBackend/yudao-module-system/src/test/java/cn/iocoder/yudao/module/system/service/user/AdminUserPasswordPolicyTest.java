@@ -22,10 +22,10 @@ class AdminUserPasswordPolicyTest {
     }
 
     @Test
-    void passwordAgeUses365DayGlobalWindow() {
-        assertFalse(AdminUserPasswordPolicy.isExpired(NOW.minusDays(364), NOW));
-        assertFalse(AdminUserPasswordPolicy.isExpired(NOW.minusDays(365), NOW));
-        assertTrue(AdminUserPasswordPolicy.isExpired(NOW.minusDays(366), NOW));
+    void passwordAgeUses90DayGlobalWindow() {
+        assertFalse(AdminUserPasswordPolicy.isExpired(NOW.minusDays(89), NOW));
+        assertTrue(AdminUserPasswordPolicy.isExpired(NOW.minusDays(90), NOW));
+        assertTrue(AdminUserPasswordPolicy.isExpired(NOW.minusDays(91), NOW));
     }
 
     @Test

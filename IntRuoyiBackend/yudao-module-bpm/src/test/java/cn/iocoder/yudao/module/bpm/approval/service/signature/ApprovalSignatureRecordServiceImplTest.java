@@ -1,20 +1,23 @@
 package cn.iocoder.yudao.module.bpm.approval.service.signature;
 
-import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
-import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
-import cn.iocoder.yudao.module.bpm.dal.mysql.signature.BpmApprovalSignatureRecordMapper;
-import org.junit.jupiter.api.AfterEach;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectSnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,67 +26,97 @@ import static org.mockito.Mockito.when;
 class ApprovalSignatureRecordServiceImplTest {
 
     @Mock
-    private BpmApprovalSignatureRecordMapper signatureRecordMapper;
+    private ElectronicSignatureService electronicSignatureService;
     @Mock
     private ApprovalSignatureImageSnapshotProvider signatureImageSnapshotProvider;
 
-    @AfterEach
-    void tearDown() {
-        TenantContextHolder.clear();
-    }
-
     @Test
-    void recordReviewSignaturePersistsNativeBpmReviewSignature() {
-        TenantContextHolder.setTenantId(122L);
+    void recordReviewSignatureDelegatesToUnifiedKernelForNativeBpmReviewSignature() {
         ApprovalSignatureRecordServiceImpl service = newService();
         when(signatureImageSnapshotProvider.requireActiveSnapshot(100L)).thenReturn(signatureImageSnapshot());
+        when(electronicSignatureService.sign(org.mockito.ArgumentMatchers.any())).thenReturn(signatureResult(810001L));
 
-        service.recordReviewSignature(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
-                "BPM_TASK_TODO", "task-100", "pi-100", "pi-100",
+        ApprovalSignatureRecordResult result = service.recordReviewSignature(ApprovalTaskReviewContext.of(100L,
+                ApprovalModuleCode.BPM, "BPM_TASK_TODO", "task-100", "pi-100", "pi-100",
                 ApprovalTaskReviewResult.APPROVE, null, "secret", false));
 
-        BpmApprovalSignatureRecordDO record = captureInsertedRecord();
-        assertEquals(122L, record.getTenantId());
-        assertEquals("BPM", record.getModuleCode());
-        assertEquals("BPM_TASK_TODO", record.getSourceTaskType());
-        assertEquals("task-100", record.getSourceTaskId());
-        assertEquals("pi-100", record.getBusinessKey());
-        assertEquals("pi-100", record.getProcessInstanceId());
-        assertEquals(100L, record.getSignerUserId());
-        assertEquals("APPROVE", record.getReviewResult());
-        assertTrue(record.getPasswordVerified());
-        assertNotNull(record.getSignedAt());
-        assertSignatureImageSnapshot(record);
+        ElectronicSignatureCommand command = captureSignatureCommand();
+        assertEquals("BPM", command.moduleCode());
+        assertEquals("APPROVE", command.actionCode());
+        assertEquals("BPM_APPROVAL_TASK", command.subjectType());
+        assertEquals(command.expectedSubjectVersion(),
+                BpmApprovalSignatureSubjectAdapter.subjectVersion(command.subjectId()));
+        assertEquals("secret", command.credential());
+        assertEquals("APPROVE", command.reason());
+        assertTrue(command.idempotencyKey().startsWith("BPM|BPM|BPM_TASK_TODO|task-100|pi-100|pi-100|100|APPROVE|"));
+        assertEquals(810001L, result.getRecordId());
+        assertEquals(810001L, result.getUnifiedSignatureId());
+        assertEquals(9101L, result.getSignatureImageId());
+        assertEquals("/admin-api/infra/file/28/get/dcc/signature-images/signature.png",
+                result.getSignatureImageFileUrl());
         verify(signatureImageSnapshotProvider).markReferenced(9101L);
     }
 
     @Test
-    void recordReviewSignaturePersistsMesFeedbackReviewSignature() {
-        TenantContextHolder.setTenantId(122L);
+    void recordReviewSignatureDelegatesToUnifiedKernelForMesFeedbackReviewSignature() {
         ApprovalSignatureRecordServiceImpl service = newService();
         when(signatureImageSnapshotProvider.requireActiveSnapshot(101L)).thenReturn(signatureImageSnapshot());
+        when(electronicSignatureService.sign(org.mockito.ArgumentMatchers.any())).thenReturn(signatureResult(810002L));
 
-        service.recordReviewSignature(ApprovalTaskReviewContext.of(101L, ApprovalModuleCode.MES_FEEDBACK,
-                "MES_PRO_FEEDBACK", "9001", "9001", null,
+        ApprovalSignatureRecordResult result = service.recordReviewSignature(ApprovalTaskReviewContext.of(101L,
+                ApprovalModuleCode.MES_FEEDBACK, "MES_PRO_FEEDBACK", "9001", "9001", null,
                 ApprovalTaskReviewResult.REJECT, "quality data missing", "secret", false));
 
-        BpmApprovalSignatureRecordDO record = captureInsertedRecord();
-        assertEquals(122L, record.getTenantId());
-        assertEquals("MES_FEEDBACK", record.getModuleCode());
-        assertEquals("MES_PRO_FEEDBACK", record.getSourceTaskType());
-        assertEquals("9001", record.getSourceTaskId());
-        assertEquals("9001", record.getBusinessKey());
-        assertEquals(101L, record.getSignerUserId());
-        assertEquals("REJECT", record.getReviewResult());
-        assertEquals("quality data missing", record.getReason());
-        assertTrue(record.getPasswordVerified());
-        assertNotNull(record.getSignedAt());
-        assertSignatureImageSnapshot(record);
+        ElectronicSignatureCommand command = captureSignatureCommand();
+        assertEquals("BPM", command.moduleCode());
+        assertEquals("REJECT", command.actionCode());
+        assertEquals("BPM_APPROVAL_TASK", command.subjectType());
+        assertEquals("quality data missing", command.reason());
+        assertTrue(command.idempotencyKey().startsWith("BPM|MES_FEEDBACK|MES_PRO_FEEDBACK|9001|9001|null|101|REJECT|"));
+        assertEquals(810002L, result.getUnifiedSignatureId());
         verify(signatureImageSnapshotProvider).markReferenced(9101L);
+    }
+
+    @Test
+    void adapterBuildsDeterministicContentSnapshotFromServerSideReviewContext() {
+        ApprovalTaskReviewContext context = ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-100", "pi-100", "pi-100",
+                ApprovalTaskReviewResult.APPROVE, "approved", "secret", false);
+        String subjectId = BpmApprovalSignatureSubjectAdapter.encodeSubjectId(context, signatureImageSnapshot());
+        BpmApprovalSignatureSubjectAdapter adapter = new BpmApprovalSignatureSubjectAdapter();
+
+        SignatureSubjectSnapshot snapshot = adapter.loadAndAuthorize(new SignatureSubjectCommand(100L,
+                "BPM", "APPROVE", "BPM_APPROVAL_TASK", subjectId,
+                BpmApprovalSignatureSubjectAdapter.subjectVersion(subjectId), "approved"));
+
+        assertEquals("BPM_APPROVAL_TASK", snapshot.subjectType());
+        assertEquals(subjectId, snapshot.subjectId());
+        assertEquals(BpmApprovalSignatureSubjectAdapter.subjectVersion(subjectId), snapshot.subjectVersion());
+        assertTrue(snapshot.canonicalContentJson().contains("\"moduleCode\":\"BPM\""));
+        assertTrue(snapshot.canonicalContentJson().contains("\"sourceTaskType\":\"BPM_TASK_TODO\""));
+        assertTrue(snapshot.canonicalContentJson().contains("\"sourceTaskId\":\"task-100\""));
+        assertTrue(snapshot.canonicalContentJson().contains("\"reviewResult\":\"APPROVE\""));
+        assertTrue(snapshot.canonicalContentJson().contains("\"signatureImagePayloadHash\":\""));
+        assertEquals("pi-100", snapshot.processInstanceId());
+        assertEquals("task-100", snapshot.taskId());
+        assertEquals("BPM_TASK_TODO", snapshot.nodeCode());
+        assertFalse(snapshot.canonicalContentJson().contains("secret"));
     }
 
     private ApprovalSignatureRecordServiceImpl newService() {
-        return new ApprovalSignatureRecordServiceImpl(signatureRecordMapper, signatureImageSnapshotProvider);
+        return new ApprovalSignatureRecordServiceImpl(electronicSignatureService, signatureImageSnapshotProvider);
+    }
+
+    private ElectronicSignatureCommand captureSignatureCommand() {
+        ArgumentCaptor<ElectronicSignatureCommand> captor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService).sign(captor.capture());
+        return captor.getValue();
+    }
+
+    private static ElectronicSignatureResult signatureResult(Long id) {
+        return new ElectronicSignatureResult(id, "VALID", LocalDateTime.now(), "SERVER_CLOCK:now",
+                "version", "contentHash", "evidenceHash", "SHA-256", "system-local-v1");
     }
 
     private static ApprovalSignatureImageSnapshot signatureImageSnapshot() {
@@ -100,24 +133,4 @@ class ApprovalSignatureRecordServiceImplTest {
                 .build();
     }
 
-    private static void assertSignatureImageSnapshot(BpmApprovalSignatureRecordDO record) {
-        assertEquals(9101L, record.getSignatureImageId());
-        assertEquals(2, record.getSignatureImageVersionNo());
-        assertEquals(8101L, record.getSignatureImageFileId());
-        assertEquals("/admin-api/infra/file/28/get/dcc/signature-images/signature.png",
-                record.getSignatureImageFileUrl());
-        assertEquals("87b335f7e9429e37ff0df4c0c966681a86932139eade14bf1957d1fda2a19430",
-                record.getSignatureImageSha256());
-        assertEquals("image/png", record.getSignatureImageContentType());
-        assertEquals(2048L, record.getSignatureImageFileSize());
-        assertEquals("ACTIVE", record.getSignatureImageStatusSnapshot());
-        assertEquals("VALID", record.getSignatureImageVerifiedStatus());
-    }
-
-    private BpmApprovalSignatureRecordDO captureInsertedRecord() {
-        ArgumentCaptor<BpmApprovalSignatureRecordDO> captor =
-                ArgumentCaptor.forClass(BpmApprovalSignatureRecordDO.class);
-        verify(signatureRecordMapper).insert(captor.capture());
-        return captor.getValue();
-    }
 }

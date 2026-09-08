@@ -17,6 +17,7 @@ public enum LoginResultEnum {
     CAPTCHA_NOT_FOUND(30), // 图片验证码不存在
     CAPTCHA_CODE_ERROR(31), // 图片验证码不正确
     PASSWORD_EXPIRED(40), // 密码过期
+    PASSWORD_CHANGE_REQUIRED(41), // 首次或重置后必须改密
 
     ;
 
