@@ -38,6 +38,11 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 - `pnpm ts:check` -> PASS。
 - `IntRuoyiBackend/.pytest-temp` cleanup -> PASS，已删除本轮测试临时目录。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260907-backup-minimal-closure-implementation --mode preview` -> BLOCKED，主工作区 dirty 且当前任务实现未提交；本轮未授权 Git commit/push，因此不执行 apply。
+- `.\scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/tmp_auth_20260907/int_main` frontend `8164`、backend `48164`。
+- `git diff --check` -> PASS，退出码 0。
+- `git commit -m "feat: complete backup minimal closure validation"` -> PASS，commit `d8bc08ab1`。
+- `git push origin codex/tmp_auth_20260907` -> PASS，远端分支已创建。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260907-backup-minimal-closure-implementation --mode preview` after push -> BLOCKED，仅剩主工作区 `E:\IntRuoyi` dirty，不能接收 ff-only merge。
 
 ## Updated Development Document Reanalysis
 
@@ -48,4 +53,5 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 ## Remaining Blockers
 
 - Real backup, remote server, database write and Playwright E2E validation still require explicit user authorization.
-- Git commit/push is not authorized in this turn, and cleanup preview is blocked by dirty main worktree plus uncommitted implementation changes, so the task remains `ready_for_closeout` instead of `completed`.
+- Git commit/push has completed, but cleanup preview is still blocked by dirty main worktree `E:\IntRuoyi`, so the task remains `ready_for_closeout` instead of `completed`.
+- Real backup, remote server, database write and Playwright E2E validation still require production/test-environment preconditions and, for production-grade actions, explicit `PROD` confirmation.

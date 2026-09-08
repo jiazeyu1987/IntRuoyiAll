@@ -83,3 +83,12 @@ REGRESSION: `node tests\e2e\system-backup-minimal-closure-static.spec.js` -> PAS
 REGRESSION: `pnpm ts:check` -> PASS。
 GREEN: cleanup temp artifact -> PASS，`D:\IntRuoyiWorktree\tmp_auth_20260907\IntRuoyiBackend\.pytest-temp` 已删除；删除前确认目标位于当前 worktree 后端根目录内且目录名为 `.pytest-temp`。
 BLOCKED: task-closeout-cleanup preview -> `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260907-backup-minimal-closure-implementation --mode preview` 返回 blocked；keep 为 task.md、execution-log.md、test-report.md、verification-report.md，delete/warnings 为 none；阻断原因为主工作区 `E:\IntRuoyi` dirty，且当前任务实现仍是未提交 pending change。由于本轮未授权 Git commit/push，不执行 cleanup apply，不标记 completed。
+
+## 2026-09-08 Authorized Git Closeout Progress
+
+- 用户回复“授权”，按上一轮阻断项推进当前任务分支提交/推送；正式服/备用服按生产级规则仍需单独 `PROD` 明确确认，本轮未执行真实生产备份、远程写入或数据库写入。
+- GREEN: branch runtime port guard -> PASS，`.\scripts\preflight\branch-runtime-port-guard.ps1` 确认 `codex/tmp_auth_20260907/int_main` 使用 frontend `8164`、backend `48164`。
+- GREEN: whitespace check -> PASS，`git diff --check` 退出码 0；仅输出 Windows 换行提示。
+- GREEN: implementation commit -> PASS，`git commit -m "feat: complete backup minimal closure validation"` 创建提交 `d8bc08ab1`，包含任务实现、开发文档和强制加入的任务证据。
+- GREEN: branch push -> PASS，`git push origin codex/tmp_auth_20260907` 成功创建远端分支 `origin/codex/tmp_auth_20260907`。
+- BLOCKED: task-closeout-cleanup preview after push -> 重新预览后 current worktree 无 pending change，但仍因主工作区 `E:\IntRuoyi` dirty 阻断 ff-only merge；不执行 cleanup apply，不删除 worktree。
