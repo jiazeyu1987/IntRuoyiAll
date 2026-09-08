@@ -71,6 +71,16 @@ public interface ErrorCodeConstants {
     ErrorCode CODEX_TEST_RUNNER_STARTER_MISSING = new ErrorCode(1_002_031_013, "Codex Runner 按需启动脚本未配置：{}");
     ErrorCode CODEX_TEST_RUNNER_START_FAILED = new ErrorCode(1_002_031_014, "Codex Runner 按需启动失败：{}");
 
+    // ========== GxP 审计追踪 1-002-032-000 ==========
+    ErrorCode GXP_AUDIT_POLICY_NOT_FOUND = new ErrorCode(1_002_032_000, "GxP 审计策略不存在或未启用：{}");
+    ErrorCode GXP_AUDIT_REASON_REQUIRED = new ErrorCode(1_002_032_001, "GxP 审计变更原因不能为空：{}");
+    ErrorCode GXP_AUDIT_BEFORE_AFTER_REQUIRED = new ErrorCode(1_002_032_002, "GxP 审计缺少变更前后快照：{}");
+    ErrorCode GXP_AUDIT_SIGNATURE_REQUIRED = new ErrorCode(1_002_032_003, "GxP 审计缺少电子签名关联：{}");
+    ErrorCode GXP_AUDIT_ACTOR_MISMATCH = new ErrorCode(1_002_032_004, "GxP 审计操作人上下文缺失或不一致：{}");
+    ErrorCode GXP_AUDIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_002_032_005, "GxP 审计幂等键载荷冲突：{}");
+    ErrorCode GXP_AUDIT_APPEND_FAILED = new ErrorCode(1_002_032_006, "GxP 审计写入失败，业务已回滚：{}");
+    ErrorCode GXP_AUDIT_COVERAGE_GAP = new ErrorCode(1_002_032_007, "GxP 审计覆盖登记存在缺口：{}");
+
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");
     ErrorCode USER_MOBILE_EXISTS = new ErrorCode(1_002_003_001, "手机号已经存在");
