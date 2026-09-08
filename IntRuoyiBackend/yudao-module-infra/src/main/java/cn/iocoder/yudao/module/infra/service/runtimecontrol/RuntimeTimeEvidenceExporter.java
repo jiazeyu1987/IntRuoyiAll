@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.infra.service.runtimecontrol;
 import cn.hutool.core.util.EscapeUtil;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlInspectionCheckRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlInspectionRunRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlTrustedTimeRespVO;
+import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -19,6 +21,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_OPERATION_STORE_FAILED;
 
 class RuntimeTimeEvidenceExporter {
@@ -32,6 +35,7 @@ class RuntimeTimeEvidenceExporter {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     byte[] export(RuntimeControlInspectionRunRespVO run) {
+        validateTrustedTimeEvidence(run);
         byte[] summary = summary(run).getBytes(StandardCharsets.UTF_8);
         byte[] raw = raw(run);
         byte[] checksums = (sha256(summary) + "  " + SUMMARY_FILE + "\n"
@@ -47,6 +51,39 @@ class RuntimeTimeEvidenceExporter {
             throw exception(RUNTIME_CONTROL_OPERATION_STORE_FAILED,
                     "时间戳证据 ZIP 生成失败：" + ex.getMessage());
         }
+    }
+
+    private void validateTrustedTimeEvidence(RuntimeControlInspectionRunRespVO run) {
+        List<RuntimeControlInspectionCheckRespVO> checks = run.getChecks();
+        if (checks == null) {
+            throw incompleteEvidence("巡检检查项缺失");
+        }
+        validateTrustedTimeCheck(checks, "trusted-time-prod", "prod",
+                RuntimeControlProperties.PROD_SERVER_HOST);
+        validateTrustedTimeCheck(checks, "trusted-time-audit", "backup",
+                RuntimeControlProperties.BACKUP_SERVER_HOST);
+    }
+
+    private void validateTrustedTimeCheck(List<RuntimeControlInspectionCheckRespVO> checks, String code,
+                                          String environment, String host) {
+        List<RuntimeControlInspectionCheckRespVO> matching = checks.stream()
+                .filter(check -> check != null && code.equals(check.getCode()))
+                .toList();
+        if (matching.size() != 1) {
+            throw incompleteEvidence(code + " 数量必须为 1，实际为 " + matching.size());
+        }
+        RuntimeControlTrustedTimeRespVO trustedTime = matching.get(0).getTrustedTime();
+        if (trustedTime == null) {
+            throw incompleteEvidence(code + " 缺少 trustedTime");
+        }
+        if (!environment.equals(trustedTime.getTargetEnvironment())
+                || !host.equals(trustedTime.getServerHost())) {
+            throw incompleteEvidence(code + " 的 targetEnvironment/serverHost 与固定目标不匹配");
+        }
+    }
+
+    private RuntimeException incompleteEvidence(String reason) {
+        return exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "可信时间证据不完整：" + reason);
     }
 
     private byte[] raw(RuntimeControlInspectionRunRespVO run) {

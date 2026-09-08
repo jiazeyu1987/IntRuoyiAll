@@ -910,3 +910,4 @@
 - Forbidden action: 禁止以当前时间、业务时间或旧展示字段回退正式签名时间；禁止因巡检异常隐藏导出入口；禁止把下载请求失败包装成成功。
 - Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
 - Historical audit display extension: 已保存操作记录中的 `actionLabel/reason/summary` 属于原始审计事实，不得为改文案而回写；页面应优先按稳定动作码映射当前显示名，并对历史自由文本中的已知旧环境称谓做只读展示投影。投影必须保留 `Backup/...` 等技术路径原值，静态合同与真实非空历史页面同时证明旧称不可见、原始 VO 未被修改。
+- Signature selection extension: eDHR 表单或只读表单展示“最新签名”时，必须先按服务器生成的 `signedAt` 比较，再用数值签名 ID 处理同秒并列；API 若按 `signedAt DESC, id DESC` 返回，同秒场景不能因稳定排序而选中低 ID 旧记录。缺少有效 ID 或服务器签署时间应失败关闭，不得用 `0`、客户端当前时间、业务发生时间或旧展示字段参与排序。

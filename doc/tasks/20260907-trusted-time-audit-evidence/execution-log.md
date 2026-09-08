@@ -148,3 +148,23 @@
 - P5 运维边界：本地任务运行态已按无阈值配置重建并复验；远程 `.env` 中先前的 `100 ms` 配置尚未删除，服务器未重启，等待用户明确目标及生产等级操作所需的 `PROD` 确认。
 - P5 本地运行态收尾：复核 8161/48161 PID 与当前 worktree 命令行后停止任务自有前后端并释放端口；共享 MySQL、Redis、MinIO 不停止。
 - P5 IMPLEMENTATION COMMIT: `18a776ff9` 已通过分支端口门禁并推送到 `origin/codex/timestamp_20260907`；本地分支与远端一致。
+- BDD: 正式归档只使用服务器签署时间 -> Given 历史 `signatureDisplayAt`、用户填写的 `selectedSignedAt` 均不同于服务器 `signedAt`，且业务时区不是 `Asia/Shanghai` / When 生成执行归档 PDF、XLSX 和最终可打印批归档 / Then 正式签名时间只显示 `signedAt (Asia/Shanghai)`，业务发生时间、业务时区和原因保持独立证据字段，不能覆盖正式签名时间。
+- BDD: 最终批归档按可信签署顺序选择签名 -> Given 同一动作存在多条签名，业务时间顺序与服务器 `signedAt` 顺序相反且正式签署时间可能同秒 / When 选择签字格最新签名 / Then 只按 `signedAt` 排序并以稳定签名 ID 处理同秒并列；任一候选缺少 `signedAt` 时失败关闭，不使用历史展示时间或业务时间补齐。
+- RED: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，14 项中 5 项失败；执行归档 PDF/XLSX 仍输出 `signatureDisplayAt`，最终可打印批归档仍按业务时间选择签名并展示业务时区，两个 PDF 路径在 `signedAt` 缺失时均未失败关闭，精确复现 reviewer 阻塞项。
+- RED: 同一聚焦命令在正式时间修复后针对业务证据标签复跑 -> FAIL，14 项中 2 项失败；PDF 仍使用 `SelectedTime...`、XLSX 仍使用 `Selected Signed At` 人员可见标签，不能明确表达该组字段仅为业务发生时间证据。
+- P6 归档修复：执行归档 PDF、XLSX 和最终可打印批归档的正式签名展示均只读取服务端 `signedAt`，统一标注正式时区 `Asia/Shanghai`；`selectedSignedAt/selectedTimeZone/selectedTimeReason/selectedTimeAuditHash` 仅以独立 `Business...` 证据标签输出，历史 `signatureDisplayAt` 不再参与正式展示或签名选择。
+- P6 签名选择：最终可打印批归档按 `signedAt` 升序、稳定签名 ID 次序建立每动作最新签名；候选缺失 `signedAt` 时抛出明确异常，不用业务时间或历史展示值补齐。
+- GREEN: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，14 项、0 失败、0 错误；覆盖历史展示时间与业务时间均不同、非上海业务时区、业务/正式顺序相反、同秒 ID 决胜和缺失正式时间失败关闭。
+- REGRESSION: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest,MesProBatchRecordExecutionSignatureServiceTest,MesProEdhrBatchArchivePdfAComplianceTest,MesProBatchRecordExecutionArchiveContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，36 项、0 失败、0 错误；签名持久化、PDF/A 和归档合同相邻回归通过。
+- REGRESSION: `node tests/e2e/runtime-control-trusted-time-static.spec.js` -> PASS，现有可信时间展示和证据导出静态合同未回归；对三个归档 renderer 检索正式展示回退链无命中；`git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+- BDD: 证据包仅接受完整双目标可信时间事实 -> Given 已保存巡检为历史 PASS 但没有可信时间项，或可信时间项缺失、重复、缺少 `trustedTime`、环境/固定主机错配 / When 导出时间戳证据 ZIP / Then 在创建任何 ZIP 内容前明确失败；Given 正式服和审查服均有环境/主机身份正确的 BLOCKED 采集事实 / When 导出 / Then 仍可导出真实失败证据。
+- BDD: 同步 NTP Stratum 只接受 1..15 -> Given chrony 其它必需证据有效 / When Stratum 为 0 或 16 / Then 可信时间检查 BLOCKED；When Stratum 为 1 或 15 / Then Stratum 边界本身不阻断 PASS。
+- BDD: 活动执行表单同秒签名稳定选择 -> Given 签名分页按 `signedAt DESC, id DESC` 返回同动作、同秒的 ID 102 与 101 / When 活动执行页和其只读表单选择最新签名 / Then 均显示更高 ID 102 的签名人，不受输入稳定排序和原始顺序影响。
+- RED: `.review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-2.md` -> FAIL，独立 reviewer 明确复现三项阻塞：旧巡检缺少双目标可信时间仍可导出、Stratum 0/16 可通过、活动执行页同秒签名可能选择低 ID 旧记录。
+- P6 第二轮修复：导出 ZIP 前强制校验 `trusted-time-prod` 与 `trusted-time-audit` 各 1 项且含匹配目标环境/固定主机的 `trustedTime`；Stratum 限制为 `1..15`；活动执行页和只读表单共用 `selectLatestSignature`，按服务器 `signedAt` 与数值 ID 稳定选择最新签名，缺少有效 ID 或签署时间时 fail fast。
+- GREEN: `mvn -q -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，可信时间解析、巡检、导出、接口和 Spring 装配相关回归通过。
+- GREEN: `mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest,MesProBatchRecordExecutionSignatureServiceTest,MesProEdhrBatchArchivePdfAComplianceTest,MesProBatchRecordExecutionArchiveContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，36 项、0 失败、0 错误。
+- GREEN: `node tests\e2e\edhr-latest-signature-selection-static.spec.js` -> PASS，活动执行表单同秒签名选择和缺失服务器签署时间失败关闭合同通过。
+- GREEN: `node tests\e2e\runtime-control-trusted-time-static.spec.js` -> PASS，可信时间展示与导出按钮静态合同未回归。
+- GREEN: `pnpm ts:check` -> PASS，`vue-tsc --noEmit -p tsconfig.relaxed.json` 退出码 0。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无空白错误。

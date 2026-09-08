@@ -131,6 +131,8 @@ class RuntimeTrustedTimeParser {
         }
         if (evidence.getStratum() == null) {
             failures.add("缺少 Stratum");
+        } else if (evidence.getStratum() < 1 || evidence.getStratum() > 15) {
+            failures.add("Stratum 必须在 1..15");
         }
         if (evidence.getLastOffsetMillis() == null) {
             failures.add("缺少 Last offset");

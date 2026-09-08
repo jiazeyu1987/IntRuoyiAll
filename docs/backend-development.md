@@ -955,6 +955,8 @@
 - Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
 - Remote collection extension: 可信时间脚本不得 source 远端整份 `.env`；数据库 UTC 应在数据库容器内使用容器已有凭据做只读查询，秘密不得进入命令输出。Windows OpenSSH 必须分离 stdout/stderr，只允许精确白名单内的已知关闭套接字诊断，其余 stderr、空 stdout 或非零退出均失败，并在抛错前完整脱敏密码、令牌和密钥赋值。
 - Legacy host extension: `timedatectl` 新旧字段同时存在时，所有出现的同步/NTP 信号都必须为肯定值；旧版 `NTP enabled`、`NTP synchronized` 可规范化为当前状态，但任一否定或未知值仍必须阻断，不能放宽 chrony、UTC 或偏差阈值门禁。
+- Evidence export extension: 时间戳证据包不能只依赖巡检整体 PASS/NO_GO。导出前必须证明已保存巡检中恰好包含正式服和审查服两项规范可信时间检查，每项都有 `trustedTime` 且环境、固定主机身份匹配；缺失、重复、错配必须拒绝导出。真实 BLOCKED 采集证据可导出，但空证据或旧巡检不得包装成可信时间报告。
+- Stratum extension: NTP Stratum 必须按同步合同校验为 `1..15`；`0`、`16`、缺失或非数字都应 BLOCKED，不能只检查字段存在。
 
 ## 站内信领域幂等必须延伸到平台消息门禁
 

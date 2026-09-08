@@ -603,3 +603,26 @@ P5 PASS：未配置偏差阈值的任务运行态仍采集完整 Last/RMS 偏差
 - P5-AC3：PASS，现有唯一导出按钮可用，证据包三文件与哈希合同成立。
 
 最终结论：P5 PASS，可以进入主 Agent 的状态同步与收尾门禁。
+
+## P6 第二轮修复验证
+
+P6 修复轮 PASS：第二轮 reviewer 指出的三项阻塞均已按最小实现修复，并完成本地定向回归。最终是否放行以第三轮独立 reviewer 结构化报告为准。
+
+### Fixed Blocking Issues
+
+- 证据导出：导出 ZIP 前要求 `trusted-time-prod` 与 `trusted-time-audit` 各 1 项，且每项必须含目标环境/固定主机匹配的 `trustedTime`；历史 PASS、缺失、重复、错配证据均拒绝导出。
+- Stratum 边界：可信时间 parser 明确接受 `1..15`，`0` 和 `16` 均 BLOCKED。
+- 签名选择：活动执行页和只读表单统一按服务器签署时间 `signedAt`、数值签名 ID 选择最新签名；缺少有效编号或服务器签署时间时失败关闭。
+
+### Verification Evidence
+
+1. Infra 定向回归：`mvn -q -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+2. MES 归档/签名回归：`mvn -q -pl yudao-module-mes -am "-Dtest=ExecutionArchiveRendererTest,MesProBatchRecordExecutionSignatureServiceTest,MesProEdhrBatchArchivePdfAComplianceTest,MesProBatchRecordExecutionArchiveContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，36 项、0 失败、0 错误。
+3. 前端签名选择合同：`node tests\e2e\edhr-latest-signature-selection-static.spec.js` -> PASS。
+4. 可信时间 UI 合同：`node tests\e2e\runtime-control-trusted-time-static.spec.js` -> PASS。
+5. 类型检查：`pnpm ts:check` -> PASS。
+6. 空白检查：`git diff --check` -> PASS，仅有 Windows LF/CRLF 提示。
+
+### Boundary
+
+- P6 未新增真实 E2E 或远程服务器操作；P4/P5 已覆盖真实页面巡检与导出证据包。

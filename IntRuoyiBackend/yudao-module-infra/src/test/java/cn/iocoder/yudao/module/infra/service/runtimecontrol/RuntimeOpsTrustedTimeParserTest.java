@@ -158,6 +158,31 @@ class RuntimeOpsTrustedTimeParserTest {
         );
     }
 
+    @ParameterizedTest(name = "Stratum 边界 {0} -> {1}")
+    @MethodSource("stratumBoundaries")
+    void parseShouldEnforceSynchronizedStratumRange(
+            int stratum, RuntimeOpsInspectionStatus expectedStatus) {
+        RuntimeTrustedTimeCommandOutput output = normalOutput("+0.000120 seconds");
+        mutate(output, "stratum", Integer.toString(stratum));
+
+        RuntimeControlInspectionCheckRespVO check = parser.parse(
+                "prod", "正式服", "172.30.30.57", output);
+
+        assertEquals(expectedStatus, check.getStatus());
+        if (expectedStatus == RuntimeOpsInspectionStatus.BLOCKED) {
+            assertTrue(check.getReason().contains("Stratum 必须在 1..15"), check.getReason());
+        }
+    }
+
+    private static Stream<Arguments> stratumBoundaries() {
+        return Stream.of(
+                Arguments.of(0, RuntimeOpsInspectionStatus.BLOCKED),
+                Arguments.of(1, RuntimeOpsInspectionStatus.PASS),
+                Arguments.of(15, RuntimeOpsInspectionStatus.PASS),
+                Arguments.of(16, RuntimeOpsInspectionStatus.BLOCKED)
+        );
+    }
+
     private void mutate(RuntimeTrustedTimeCommandOutput output, String field, String value) {
         switch (field) {
             case "rms" -> output.setChronycTracking(output.getChronycTracking().replace(

@@ -50,3 +50,8 @@ node tests/e2e/runtime-control-trusted-time-static.spec.js
 
 - NTP 地址或远程执行配置缺失；正式环境阈值未恢复。
 - chronyd 未运行、SSH 不可达、巡检 ID 不存在、ZIP 写入失败、下载无权限。
+
+## Static Review Gate
+
+- 独立 reviewer 按逻辑、易用性、UI 三层输出结构化放行单。
+- reviewer 发现的阻塞项必须先补 RED，再修复并复跑相关回归，最后由不同 reviewer 复审 PASS。

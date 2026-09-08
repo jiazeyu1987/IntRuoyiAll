@@ -1667,6 +1667,7 @@ import type {
 import EdhrExecutionTemplateEditableForm from './components/EdhrExecutionTemplateEditableForm.vue'
 import EdhrExecutionReadonlyForm from './components/EdhrExecutionReadonlyForm.vue'
 import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from './signatureTime'
+import { selectLatestSignature } from './signatureSelection'
 
 defineOptions({ name: 'MesProFeedbackEdhrExecutionForm' })
 
@@ -4306,7 +4307,7 @@ const resolveSignatureCellActionLabel = (field: NormalizedSnapshotField) => {
 }
 
 const toSignatureTime = (value?: string) => {
-  return toEdhrDateTime(value)?.getTime() ?? 0
+  return toEdhrDateTime(value)?.getTime() ?? Number.NaN
 }
 
 const formatSignatureCellTime = (value?: string) => {
@@ -4328,11 +4329,7 @@ const findSignatureCellRecord = (field: NormalizedSnapshotField) => {
   const candidates = exactMatches.length
     ? exactMatches
     : signatureRows.value.filter((record) => record.actionType === actionType)
-  return [...candidates].sort(
-    (left, right) =>
-      toSignatureTime(left.signedAt) -
-      toSignatureTime(right.signedAt)
-  )[candidates.length - 1]
+  return selectLatestSignature(candidates, (record) => toSignatureTime(record.signedAt))
 }
 
 const resolveSignatureCellDisplay = (field: NormalizedSnapshotField) => {

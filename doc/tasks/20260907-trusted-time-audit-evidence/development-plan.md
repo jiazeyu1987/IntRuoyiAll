@@ -180,6 +180,51 @@
 - 配置正数阈值时 Last 或 RMS 超限仍 BLOCKED。
 - 现有页面按钮仍从指定已保存巡检导出固定三文件 ZIP。
 
+### 里程碑 6：静态分析与修复放行
+
+目标：独立审查 P1-P5 当前实现的逻辑、安全、易用性和 UI 静态合同，修复阻塞问题后取得复审放行。
+
+涉及文件：
+
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/runtimecontrol/`
+- `IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`
+- `IntRuoyiBackend/script/deploy/`
+- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchArchivePrintablePdfRenderer.java`
+- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/PdfExecutionArchiveRenderer.java`
+- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/ExcelExecutionArchiveRenderer.java`
+- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/`
+- `IntRuoyiFronted/src/api/infra/runtimeControl/index.ts`
+- `IntRuoyiFronted/src/views/infra/runtime-control/`
+- `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`
+- `IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`
+- `IntRuoyiFronted/src/views/mes/pro/edhr/signatureSelection.ts`
+- `IntRuoyiFronted/src/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue`
+- `IntRuoyiFronted/tests/e2e/edhr-latest-signature-selection-static.spec.js`
+- `.review-fix-loop/runs/`
+- `doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`
+- `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`
+
+交付物：
+
+- 独立 reviewer 结构化放行单。
+- 阻塞问题的 BDD/RED/GREEN 修复证据，或无阻塞问题的明确 PASS。
+
+### Implementation Steps
+
+1. 初始化 review-fix-loop，隔离 reviewer 做静态审查。
+2. reviewer FAIL 时，由独立 worker 仅修 required_changes 并补回归测试。
+3. 复审直到 PASS 或达到最大四轮阻塞。
+
+### Acceptance
+
+- AC-01 至 AC-07。
+
+### Verification Gates
+
+- logic、usability、UI 三层均无阻塞项，`final_decision=pass`。
+- 所有修复必须有 RED/GREEN，相关回归和 `git diff --check` 通过。
+
 ## Rollback or Stop Conditions
 
 - chrony 输出契约不明确、远程执行配置缺失或目标 worktree 发生非任务改动时停止。

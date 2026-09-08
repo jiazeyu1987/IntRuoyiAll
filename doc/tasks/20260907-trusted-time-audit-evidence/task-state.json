@@ -374,6 +374,82 @@
       ],
       "last_reviewed_at": "2026-09-08T03:07:17+00:00",
       "status": "completed"
+    },
+    {
+      "phase_id": "P6",
+      "title": "静态分析与修复放行",
+      "objective": "独立审查 P1-P5 当前实现的逻辑、安全、易用性和 UI 静态合同，修复阻塞问题后取得复审放行。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/runtimecontrol/`",
+        "`IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`",
+        "`IntRuoyiBackend/script/deploy/`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchArchivePrintablePdfRenderer.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/PdfExecutionArchiveRenderer.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/ExcelExecutionArchiveRenderer.java`",
+        "`IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/`",
+        "`IntRuoyiFronted/src/api/infra/runtimeControl/index.ts`",
+        "`IntRuoyiFronted/src/views/infra/runtime-control/`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`",
+        "`IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/signatureSelection.ts`",
+        "`IntRuoyiFronted/src/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue`",
+        "`IntRuoyiFronted/tests/e2e/edhr-latest-signature-selection-static.spec.js`",
+        "`.review-fix-loop/runs/`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`",
+        "`doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`"
+      ],
+      "dependencies": [
+        "P5"
+      ],
+      "deliverables": [
+        "独立 reviewer 结构化放行单。",
+        "阻塞问题的 BDD/RED/GREEN 修复证据，或无阻塞问题的明确 PASS。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P6-AC1",
+          "text": "实现当前里程碑目标：独立审查 P1-P5 当前实现的逻辑、安全、易用性和 UI 静态合同，修复阻塞问题后取得复审放行。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        },
+        {
+          "ac_id": "P6-AC2",
+          "text": "交付物已落地：独立 reviewer 结构化放行单。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        },
+        {
+          "ac_id": "P6-AC3",
+          "text": "交付物已落地：阻塞问题的 BDD/RED/GREEN 修复证据，或无阻塞问题的明确 PASS。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        },
+        {
+          "ac_id": "P6-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md; doc/tasks/20260907-trusted-time-audit-evidence/test-report.md; .review-fix-loop/runs/20260908T032131Z-4ee283/review/report-round-3.md"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "开始静态代码分析与review-fix-loop放行。"
+      ],
+      "last_reviewed_at": "2026-09-08T06:25:19+00:00",
+      "status": "completed"
     }
   ],
   "planner_review_status": "approved",
@@ -385,7 +461,7 @@
     "test_loops": 5
   },
   "created_at": null,
-  "updated_at": "2026-09-08T03:07:17+00:00",
+  "updated_at": "2026-09-08T06:31:51+00:00",
   "branch": null,
   "baseline_revision": null,
   "workspace_root": "D:\\IntRuoyiWorktree\\timestamp_20260907",

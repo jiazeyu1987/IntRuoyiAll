@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlInspectionCheckRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlInspectionRunRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlProbeLatestRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlTrustedTimeRespVO;
 import cn.iocoder.yudao.module.infra.framework.runtimecontrol.config.RuntimeControlProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -18,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -27,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_ACTION_PARAMETER_INVALID;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class RuntimeOpsTrustedTimeEvidenceExportTest {
 
@@ -51,7 +55,9 @@ class RuntimeOpsTrustedTimeEvidenceExportTest {
                 },
                 () -> {
                     collections.incrementAndGet();
-                    return List.of(blockedTrustedTime());
+                    return List.of(
+                            trustedTimeCheck("trusted-time-prod", "prod", "172.30.30.57"),
+                            trustedTimeCheck("trusted-time-audit", "backup", "172.30.30.59"));
                 });
         RuntimeControlInspectionRunRespVO run = service.runInspection();
 
@@ -107,6 +113,33 @@ class RuntimeOpsTrustedTimeEvidenceExportTest {
         assertTrue(exception.getMessage().contains("巡检报告不存在：999"));
     }
 
+    @ParameterizedTest(name = "不完整可信时间证据必须拒绝导出：{0}")
+    @MethodSource("invalidTrustedTimeChecks")
+    void exportShouldFailBeforeCreatingZipWhenTrustedTimeEvidenceIsIncomplete(
+            String scenario, List<RuntimeControlInspectionCheckRespVO> checks) {
+        RuntimeControlInspectionRunRespVO run = inspectionRun(checks);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> new RuntimeTimeEvidenceExporter().export(run), scenario);
+
+        assertEquals(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID.getCode(), exception.getCode());
+        assertTrue(exception.getMessage().contains("可信时间证据不完整"), exception.getMessage());
+    }
+
+    private static Stream<org.junit.jupiter.params.provider.Arguments> invalidTrustedTimeChecks() {
+        RuntimeControlInspectionCheckRespVO prod = trustedTimeCheck(
+                "trusted-time-prod", "prod", "172.30.30.57");
+        RuntimeControlInspectionCheckRespVO audit = trustedTimeCheck(
+                "trusted-time-audit", "backup", "172.30.30.59");
+        return Stream.of(
+                org.junit.jupiter.params.provider.Arguments.of("历史 PASS 巡检没有可信时间项", List.of()),
+                org.junit.jupiter.params.provider.Arguments.of("只包含正式服可信时间项", List.of(prod)),
+                org.junit.jupiter.params.provider.Arguments.of("正式服可信时间项重复", List.of(prod, prod, audit)),
+                org.junit.jupiter.params.provider.Arguments.of("审查服主机错配", List.of(
+                        prod, trustedTimeCheck("trusted-time-audit", "backup", "172.30.30.57")))
+        );
+    }
+
     private RuntimeControlBusinessHealthRespVO passBusinessHealth() {
         RuntimeControlBusinessHealthRespVO result = new RuntimeControlBusinessHealthRespVO();
         result.setStatus(RuntimeOpsInspectionStatus.PASS);
@@ -123,14 +156,30 @@ class RuntimeOpsTrustedTimeEvidenceExportTest {
         return result;
     }
 
-    private RuntimeControlInspectionCheckRespVO blockedTrustedTime() {
+    private static RuntimeControlInspectionRunRespVO inspectionRun(
+            List<RuntimeControlInspectionCheckRespVO> checks) {
+        RuntimeControlInspectionRunRespVO run = new RuntimeControlInspectionRunRespVO();
+        run.setId(1L);
+        run.setStatus(RuntimeOpsInspectionStatus.PASS);
+        run.setStartedAt(LocalDateTime.of(2026, 9, 7, 10, 0));
+        run.setCompletedAt(LocalDateTime.of(2026, 9, 7, 10, 1));
+        run.setChecks(checks);
+        return run;
+    }
+
+    private static RuntimeControlInspectionCheckRespVO trustedTimeCheck(
+            String code, String environment, String host) {
         RuntimeControlInspectionCheckRespVO check = new RuntimeControlInspectionCheckRespVO();
-        check.setCode("trusted-time-prod");
-        check.setName("正式服可信时间");
+        check.setCode(code);
+        check.setName("prod".equals(environment) ? "正式服可信时间" : "审查服可信时间");
         check.setStatus(RuntimeOpsInspectionStatus.BLOCKED);
         check.setRequired(true);
         check.setReason("没有选中时间源<script>alert(1)</script>&\"");
         check.setSampledAt(LocalDateTime.of(2026, 9, 7, 10, 0));
+        RuntimeControlTrustedTimeRespVO trustedTime = new RuntimeControlTrustedTimeRespVO();
+        trustedTime.setTargetEnvironment(environment);
+        trustedTime.setServerHost(host);
+        check.setTrustedTime(trustedTime);
         return check;
     }
 
