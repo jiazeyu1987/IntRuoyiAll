@@ -65,12 +65,241 @@
         </el-descriptions-item>
         <el-descriptions-item label="下载文件">{{ lastDownloadName }}</el-descriptions-item>
       </el-descriptions>
+      <el-collapse class="form-parser-json-collapse">
+        <el-collapse-item title="完整 JSON" name="full-json">
+          <pre class="form-parser-json">{{ formatJson(lastResult.mapping) }}</pre>
+        </el-collapse-item>
+      </el-collapse>
       <el-table
         class="form-parser-result__table"
         :data="lastResult.mapping.processes"
         border
         stripe
       >
+        <el-table-column type="expand" width="48">
+          <template #default="{ row, $index }">
+            <div class="form-parser-detail">
+              <section class="form-parser-detail__section">
+                <div class="form-parser-detail__title">输入物料</div>
+                <el-table
+                  :data="row.inputs || []"
+                  border
+                  empty-text="无输入物料"
+                  size="small"
+                >
+                  <el-table-column label="物料名称(编号)" min-width="220">
+                    <template #default="{ row: material }">
+                      {{ formatNameCode(material) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="名称" min-width="160" prop="name" />
+                  <el-table-column label="编号" min-width="180">
+                    <template #default="{ row: material }">
+                      {{ formatValue(material.code) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="来源标记" width="110">
+                    <template #default="{ row: material }">
+                      {{ formatValue(material.sourceCodeLabel) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </section>
+
+              <section class="form-parser-detail__section">
+                <div class="form-parser-detail__title">输出物料</div>
+                <el-table
+                  :data="row.outputs || []"
+                  border
+                  empty-text="无输出物料"
+                  size="small"
+                >
+                  <el-table-column label="物料名称(编号)" min-width="220">
+                    <template #default="{ row: material }">
+                      {{ formatNameCode(material) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="名称" min-width="160" prop="name" />
+                  <el-table-column label="编号" min-width="180">
+                    <template #default="{ row: material }">
+                      {{ formatValue(material.code) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="来源标记" width="110">
+                    <template #default="{ row: material }">
+                      {{ formatValue(material.sourceCodeLabel) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="输出物料对应设备（工序级）" min-width="220">
+                    <template #default>
+                      {{ formatProcessEquipmentOptions(row) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </section>
+
+              <section class="form-parser-detail__section">
+                <div class="form-parser-detail__title">输出物料-设备-参数对应</div>
+                <div class="form-parser-detail__hint">
+                  JSON 未提供单个输出物料与设备的一对一字段；此处按同一工序下的设备组关联展示。
+                </div>
+                <el-table
+                  :data="buildOutputEquipmentParameterRows(row)"
+                  border
+                  empty-text="无输出物料或设备参数"
+                  size="small"
+                >
+                  <el-table-column label="输出物料名称(编号)" min-width="220">
+                    <template #default="{ row: relation }">
+                      {{ formatNameCode(relation.outputMaterial) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="设备名称(编号)" min-width="240">
+                    <template #default="{ row: relation }">
+                      {{ relation.equipmentNames }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="选择模式" width="100">
+                    <template #default="{ row: relation }">
+                      {{ formatSelectionMode(relation.selectionMode) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="参数名称" min-width="150">
+                    <template #default="{ row: relation }">
+                      {{ relation.parameter?.name || '无参数' }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="参数范围" min-width="140">
+                    <template #default="{ row: relation }">
+                      {{ formatParameterRange(relation.parameter) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="默认值" min-width="110">
+                    <template #default="{ row: relation }">
+                      {{ formatValue(relation.parameter?.ui?.defaultValue) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="单位" width="90">
+                    <template #default="{ row: relation }">
+                      {{ formatValue(relation.parameter?.ui?.unit) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="实际值" width="100">
+                    <template #default="{ row: relation }">
+                      {{ formatValue(relation.parameter?.actualValue) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </section>
+
+              <section class="form-parser-detail__section">
+                <div class="form-parser-detail__title">设备与参数</div>
+                <div v-if="row.equipmentGroups?.length" class="form-parser-equipment-groups">
+                  <div
+                    v-for="(group, groupIndex) in row.equipmentGroups"
+                    :key="`${row.name}-${groupIndex}`"
+                    class="form-parser-equipment-group"
+                  >
+                    <div class="form-parser-equipment-group__head">
+                      <span>设备组 {{ groupIndex + 1 }}</span>
+                      <el-tag size="small" type="success">
+                        选择模式：{{ formatSelectionMode(group.selectionMode) }}
+                      </el-tag>
+                    </div>
+                    <el-table
+                      :data="group.equipmentOptions || []"
+                      border
+                      empty-text="无设备"
+                      size="small"
+                    >
+                      <el-table-column label="设备名称(编号)" min-width="220">
+                        <template #default="{ row: equipment }">
+                          {{ formatNameCode(equipment) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="名称" min-width="160" prop="name" />
+                      <el-table-column label="编号" min-width="160">
+                        <template #default="{ row: equipment }">
+                          {{ formatValue(equipment.code) }}
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                    <el-table
+                      :data="group.parameters || []"
+                      border
+                      empty-text="无参数"
+                      size="small"
+                    >
+                      <el-table-column label="设备名称(编号)" min-width="220">
+                        <template #default>
+                          {{ formatEquipmentGroupOptions(group) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="参数名称" min-width="150" prop="name" />
+                      <el-table-column label="参数范围" min-width="140">
+                        <template #default="{ row: parameter }">
+                          {{ formatParameterRange(parameter) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="默认值" min-width="120">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.defaultValue) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="最小值" min-width="100">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.min) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="最大值" min-width="100">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.max) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="步长" min-width="90">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.step) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="单位" min-width="90">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.unit) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="控件" min-width="100">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.control) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="显示名" min-width="110">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.displayName) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="可选项" min-width="180">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.ui?.options) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="实际值" min-width="100">
+                        <template #default="{ row: parameter }">
+                          {{ formatValue(parameter.actualValue) }}
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </div>
+                </div>
+                <el-empty v-else description="无设备与参数" :image-size="44" />
+              </section>
+
+              <el-collapse class="form-parser-json-collapse">
+                <el-collapse-item title="工序 JSON" :name="`${row.name}-${$index}-json`">
+                  <pre class="form-parser-json">{{ formatJson(row) }}</pre>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="工序名称" min-width="180" prop="name" />
         <el-table-column label="关键/特殊工序" width="130">
           <template #default="{ row }">
@@ -105,12 +334,54 @@ interface BatchRecordTotalRecognitionProduct {
   code?: string
 }
 
+interface BatchRecordTotalRecognitionMaterial {
+  code?: string | null
+  name?: string
+  sourceCodeLabel?: string | null
+}
+
+interface BatchRecordTotalRecognitionEquipmentOption {
+  code?: string | null
+  name?: string
+}
+
+interface BatchRecordTotalRecognitionParameterUi {
+  control?: string
+  defaultValue?: unknown
+  step?: unknown
+  min?: unknown
+  max?: unknown
+  unit?: string
+  displayName?: string
+  options?: unknown[]
+}
+
+interface BatchRecordTotalRecognitionParameter {
+  name?: string
+  referenceValue?: string
+  actualValue?: string
+  ui?: BatchRecordTotalRecognitionParameterUi
+}
+
+interface BatchRecordTotalRecognitionEquipmentGroup {
+  equipmentOptions?: BatchRecordTotalRecognitionEquipmentOption[]
+  parameters?: BatchRecordTotalRecognitionParameter[]
+  selectionMode?: string
+}
+
 interface BatchRecordTotalRecognitionProcess {
   name: string
   criticalProcess?: boolean
-  inputs?: unknown[]
-  outputs?: unknown[]
-  equipmentGroups?: unknown[]
+  inputs?: BatchRecordTotalRecognitionMaterial[]
+  outputs?: BatchRecordTotalRecognitionMaterial[]
+  equipmentGroups?: BatchRecordTotalRecognitionEquipmentGroup[]
+}
+
+interface BatchRecordOutputEquipmentParameterRow {
+  outputMaterial: BatchRecordTotalRecognitionMaterial
+  equipmentNames: string
+  selectionMode?: string
+  parameter?: BatchRecordTotalRecognitionParameter
 }
 
 interface BatchRecordTotalRecognitionJson {
@@ -220,6 +491,102 @@ const parseTotalRecognitionJson = (totalRecognitionJson: string): BatchRecordTot
   return parsed
 }
 
+const formatNameCode = (
+  item?: {
+    name?: string
+    code?: string | null
+    sourceCodeLabel?: string | null
+  }
+) => {
+  const name = formatValue(item?.name)
+  const code = formatValue(item?.code || item?.sourceCodeLabel)
+  if (name === '-' && code === '-') {
+    return '-'
+  }
+  if (code === '-') {
+    return name
+  }
+  return `${name}(${code})`
+}
+
+const formatParameterRange = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  if (parameter?.referenceValue) {
+    return parameter.referenceValue
+  }
+  const min = formatValue(parameter?.ui?.min)
+  const max = formatValue(parameter?.ui?.max)
+  const unit = formatValue(parameter?.ui?.unit)
+  if (min !== '-' && max !== '-') {
+    return `${min}-${max}${unit === '-' ? '' : unit}`
+  }
+  if (min !== '-') {
+    return `≥${min}${unit === '-' ? '' : unit}`
+  }
+  if (max !== '-') {
+    return `≤${max}${unit === '-' ? '' : unit}`
+  }
+  return '-'
+}
+
+const formatSelectionMode = (selectionMode?: string) => {
+  if (selectionMode === 'SINGLE') {
+    return '单选'
+  }
+  if (selectionMode === 'MULTIPLE') {
+    return '多选'
+  }
+  return formatValue(selectionMode)
+}
+
+const formatEquipmentGroupOptions = (group?: BatchRecordTotalRecognitionEquipmentGroup) => {
+  return (group?.equipmentOptions || []).map((equipment) => formatNameCode(equipment)).join('、') || '-'
+}
+
+const formatProcessEquipmentOptions = (process?: BatchRecordTotalRecognitionProcess) => {
+  return (
+    process?.equipmentGroups
+      ?.flatMap((group) => group.equipmentOptions || [])
+      .map((equipment) => formatNameCode(equipment))
+      .join('、') || '-'
+  )
+}
+
+const buildOutputEquipmentParameterRows = (
+  process?: BatchRecordTotalRecognitionProcess
+): BatchRecordOutputEquipmentParameterRow[] => {
+  const outputs = process?.outputs || []
+  const equipmentGroups = process?.equipmentGroups || []
+  if (!outputs.length || !equipmentGroups.length) {
+    return []
+  }
+  return outputs.flatMap((outputMaterial) =>
+    equipmentGroups.flatMap((group) => {
+      const parameters = group.parameters?.length ? group.parameters : [undefined]
+      return parameters.map((parameter) => ({
+        outputMaterial,
+        equipmentNames: formatEquipmentGroupOptions(group),
+        selectionMode: group.selectionMode,
+        parameter
+      }))
+    })
+  )
+}
+
+const formatValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => formatValue(item)).join('、') || '-'
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
+const formatJson = (value: unknown) => JSON.stringify(value, null, 2)
+
 const resolveParseErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as { response?: { data?: { msg?: string } } })?.response?.data?.msg
   const directMessage = (error as { message?: string })?.message
@@ -280,6 +647,83 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
 
 .form-parser-result__table {
   width: 100%;
+
+  :deep(.el-table__expanded-cell) {
+    padding: 0;
+  }
+}
+
+.form-parser-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.form-parser-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-parser-detail__title {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.form-parser-equipment-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-parser-equipment-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.form-parser-equipment-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.form-parser-json-collapse {
+  :deep(.el-collapse-item__content) {
+    padding-bottom: 0;
+  }
+}
+
+.form-parser-json {
+  max-height: 360px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:deep(.el-table .cell) {
+  word-break: break-word;
 }
 
 @media (max-width: 720px) {
@@ -299,6 +743,11 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
     :deep(.el-upload) {
       width: 100%;
     }
+  }
+
+  .form-parser-equipment-group__head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

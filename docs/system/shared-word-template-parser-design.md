@@ -55,6 +55,15 @@
 - 验证方式：后端覆盖真实 `.doc` 到 `批记录总对应.json` 的语义等价测试、parse-only 无写入静态合同、Controller 权限合同；前端覆盖下载内容来自批记录总识别 API 且不含 Jimu schema 字段。
 - Evidence: `doc/tasks/20260908-form-parser-template-schema-rows/execution-log.md`。
 
+### Batch Record Mapping JSON 展示经验
+
+- 触发场景：表单解析页或其它只读页面展示 `批记录总对应.json` 中输出物料、输入物料、设备和参数关系时。
+- 经验规则：当前总识别 JSON 的 `equipmentGroups` 是工序级字段，不是单个 `outputs[]` 下的子字段；前端可以在同一工序展开区按“输出物料 + 工序设备组 + 参数”做并列表达，但必须明确标注不是输出物料到设备的一对一绑定。
+- 常见卡点：只在主表展示投入/产出/设备数量会让用户看不到物料名称编号、设备名称编号、参数范围和默认值；只展示格式化明细又会漏掉后续新增字段。正确做法是结构化表格展示已知字段，同时保留完整 JSON 与单工序 JSON。
+- 验证方式：前端静态合同同时锁定 parse-only API、`.json` 下载、展开行、输入/输出物料表、输出物料-设备-参数对应表、设备参数表、完整 JSON 和工序 JSON。
+- Forbidden action: 禁止用前端推断、物料主数据或设备配置把工序级设备伪造成某个输出物料的专属设备；禁止删除完整 JSON 核对入口来掩盖未建模字段。
+- Evidence: `doc/tasks/20260908-form-parser-json-detail-display/execution-log.md`。
+
 ## Target Architecture
 
 ```mermaid
