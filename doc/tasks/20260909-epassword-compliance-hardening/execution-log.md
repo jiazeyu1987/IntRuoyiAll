@@ -48,6 +48,12 @@
 - GREEN: rebase 后 `python C:\Users\BJB110\.codex\skills\security-privacy-compliance-review\scripts\validate_security_privacy_compliance.py --evidence docs/security/security-privacy-compliance-review.md` -> PASS。
 - GREEN: rebase 后 `git diff --check` -> PASS。
 - BLOCKED: rebase 后 `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260909-epassword-compliance-hardening --mode preview` -> BLOCKED, 仅剩主工作区 `E:\IntRuoyi` dirty，分支快进阻塞已解除。
+- GREEN: 主工作区基线提交 -> PASS, 按用户“先提交主干代码”授权提交 `b968e1b1a chore: checkpoint int_main pending work before epassword merge`。
+- GREEN: `git rebase int_main` -> PASS, `codex/20260909_epassword` 重新基于主线基线提交后，cleanup preview 返回 `status: ready`。
+- GREEN: cleanup 临时证据删除 -> PASS, 提交 `31f1f6051 chore: clean epassword task evidence artifacts` 删除 `backend-api-evidence.md`、`database-schema-evidence.md`、`frontend-feature-evidence.md`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260909-epassword-compliance-hardening --mode apply` -> PASS, 返回 `status: applied`，`closeout_merge: codex/20260909_epassword -> E:\IntRuoyi`，`closeout_remove: D:\IntRuoyiWorktree\20260909_epassword`。
+- GREEN: 融合后容量补丁 -> PASS, `git diff --check` 与 `python IntRuoyiBackend\script\tests\test_system_signature_password_t1_contract.py` 通过，提交 `98081d67d fix: support large electronic signature subject ids`。
+- BLOCKED: 残留物理目录清理 -> BLOCKED, Git worktree 注册已无 `20260909_epassword`，但 `D:\IntRuoyiWorktree\20260909_epassword` 仍存在且仅剩 `IntRuoyiFronted\node_modules`；端口 `8210` 仍由 PID `10476` 监听，`Stop-Process` 和 `taskkill /F` 均返回拒绝访问，递归删除命令被本地安全策略拦截。
 
 ## Implementation Notes
 
@@ -59,4 +65,4 @@
 
 ## Current Blockers
 
-- 主工作区 `E:\IntRuoyi` 存在与本任务无关的 tracked/untracked 改动，收尾脚本拒绝接收 ff-only 合并。当前分支已可快进；需要先由对应任务/人工处理主工作区脏状态，之后再从 `D:\IntRuoyiWorktree\20260909_epassword` 继续 cleanup apply 和 merge。
+- 实现代码、文档和清理提交已融合进 `int_main`。剩余阻塞不是代码融合，而是本机残留进程/目录：PID `10476` 监听 `8210` 且拒绝停止，`D:\IntRuoyiWorktree\20260909_epassword` 物理目录仍残留 `IntRuoyiFronted\node_modules`，因此 slot 35 暂不释放。

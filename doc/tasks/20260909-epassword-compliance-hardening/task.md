@@ -29,10 +29,10 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 已创建 worktree `D:\IntRuoyiWorktree\20260909_epassword`，分支 `codex/20260909_epassword`，端口槽位 `35`，前端 `8210`，后端 `48210`。
 
-已完成正式电子签名时间、BPM 审批上下文、模拟/草稿签名模式和前端正式签名入口整改；已 rebase 到最新 `int_main`，当前提交 `3f7fa6caa`；rebase 后定向后端测试、前端静态契约、历史 E2E 语法检查、`pnpm ts:check`、端口门禁和 `git diff --check` 通过。
+已完成正式电子签名时间、BPM 审批上下文、模拟/草稿签名模式和前端正式签名入口整改；已融合进 `int_main`，主线提交包含 `b15538878`、`6cb8aa373`、`ef347bb48`、`31f1f6051` 和融合后容量补丁 `98081d67d`。rebase 后定向后端测试、前端静态契约、历史 E2E 语法检查、`pnpm ts:check`、端口门禁和 `git diff --check` 通过。
 
-本轮继续补齐 4.10 定期电子签名合规审查的制度与设计证据，新增 `docs/security/electronic-signature-periodic-compliance-review-sop.md` 和 `docs/security/security-privacy-compliance-review.md`；安全合规证据校验和 `git diff --check` 已通过。最新收尾预览确认分支已可快进，尚未完成收尾清理和主线融合：主工作区 `E:\IntRuoyi` 仍存在无关 dirty 状态。
+本轮已先提交主工作区脏改动基线 `b968e1b1a`，随后将 `codex/20260909_epassword` 快进融合进 `int_main`。`task_closeout.py --mode apply` 返回 `status: applied`，Git worktree 注册已移除；但物理目录 `D:\IntRuoyiWorktree\20260909_epassword` 仍残留 `IntRuoyiFronted\node_modules`，且登记端口 `8210` 仍被 PID `10476` 监听，本地拒绝 `Stop-Process` / `taskkill`，递归删除也被安全策略拦截。因此当前实现和融合已完成，剩余阻塞仅为本机残留进程、目录和 slot 35 登记项释放。
