@@ -30,6 +30,7 @@ function extractTopLevelConstFunction(source, functionName) {
 
 const api = readUtf8('src/api/infra/runtimeControl/index.ts')
 const page = readUtf8('src/views/infra/runtime-control/index.vue')
+const shared = readUtf8('src/views/infra/runtime-control/components/shared.ts')
 
 for (const fragment of [
   'export interface RuntimeControlTrustedTimeVO',
@@ -78,6 +79,49 @@ for (const fragment of [
   assertContains(page, fragment, 'trusted-time page contract')
 }
 
+for (const fragment of [
+  'operationHistoryEnvironmentText(row.environment)',
+  'operationReasonText(row)',
+  'operationSummaryText(row)',
+  'const normalizeAuditServerDisplayText =',
+  ".replace(/备份服务器/g, '审查服务器')",
+  ".replace(/备用服务器/g, '审查服务器')",
+  ".replace(/备份服/g, '审查服')",
+  "Backup(?![\\\\/])/gi, '$1审查服'",
+  'return operationHistoryEnvironmentText(operation.environment)',
+  'operationSummaryText(operation)'
+]) {
+  assertContains(page, fragment, 'historical operation terminology projection')
+}
+
+assertNotContains(page, '<el-table-column label="环境" prop="environment"', 'raw operation environment')
+assertNotContains(page, '<el-table-column label="原因" prop="reason"', 'raw operation reason')
+assertNotContains(page, '<el-table-column label="摘要" prop="summary"', 'raw operation summary')
+
+const operationActionHandler = extractTopLevelConstFunction(page, 'operationActionText')
+assertContains(operationActionHandler, 'operationActionLabel(actionCode)', 'current action code mapping')
+assertContains(operationActionHandler, 'operation.actionLabel', 'legacy action label normalization')
+assert.ok(
+  operationActionHandler.indexOf('operationActionLabel(actionCode)') <
+    operationActionHandler.indexOf('operation.actionLabel'),
+  'known action code mapping must take precedence over historical actionLabel'
+)
+
+const normalizerMatch = page.match(
+  /const normalizeAuditServerDisplayText = \(value\?: string\) => \{([\s\S]*?)\n\}/
+)
+assert.ok(normalizerMatch, 'missing audit server display normalizer body')
+const normalizeAuditServerDisplayText = new Function('value', normalizerMatch[1])
+assert.equal(normalizeAuditServerDisplayText('Backup'), '审查服')
+assert.equal(normalizeAuditServerDisplayText('备份服已完成'), '审查服已完成')
+assert.equal(normalizeAuditServerDisplayText('上线备份服务器'), '上线审查服务器')
+assert.equal(normalizeAuditServerDisplayText('正式服/备用服务器清理'), '正式服/审查服务器清理')
+assert.equal(
+  normalizeAuditServerDisplayText('证据路径 Backup/ReleasePackage/r1'),
+  '证据路径 Backup/ReleasePackage/r1',
+  'technical Backup path must remain unchanged'
+)
+
 assertNotContains(
   page,
   ':disabled="!inspectionRun?.id || inspectionRun?.status !== \'PASS\' || timeEvidenceDownloading"',
@@ -94,6 +138,10 @@ assertNotContains(page, "label: '备份服务器'", 'legacy visible backup serve
 assertNotContains(page, '上线备份服务器', 'legacy visible promote label')
 assertNotContains(page, '测试服、备份服务器或正式服务器', 'legacy visible backup wording')
 assertNotContains(page, "backup: '审查环境'", 'nonstandard audit server environment label')
+assertContains(shared, "backup: '审查服'", 'shared audit server environment label')
+assertContains(shared, "'promote-backup': '上线审查服'", 'shared audit server action label')
+assertNotContains(shared, "backup: 'Backup'", 'legacy shared Backup label')
+assertNotContains(shared, "'promote-backup': '上线备份服务器'", 'legacy shared promote label')
 
 const exportHandler = extractTopLevelConstFunction(page, 'exportTimeEvidence')
 assertContains(exportHandler, 'timeEvidenceDownloading.value = true', 'complete export handler body')

@@ -411,7 +411,9 @@
             {{ operationRequestedAtText(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="环境" prop="environment" width="90" />
+        <el-table-column label="环境" width="90">
+          <template #default="{ row }">{{ operationHistoryEnvironmentText(row.environment) }}</template>
+        </el-table-column>
         <el-table-column label="动作" min-width="140">
           <template #default="{ row }">
             {{ operationActionText(row) }}
@@ -432,8 +434,12 @@
             <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="原因" prop="reason" min-width="180" show-overflow-tooltip />
-        <el-table-column label="摘要" prop="summary" min-width="180" show-overflow-tooltip />
+        <el-table-column label="原因" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ operationReasonText(row) }}</template>
+        </el-table-column>
+        <el-table-column label="摘要" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ operationSummaryText(row) }}</template>
+        </el-table-column>
         <el-table-column label="日志" width="90" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" :disabled="!row.resultLogPath" @click="openLog(row)">
@@ -1630,8 +1636,25 @@ const operationExpectedResultText = (action: string) => {
   return texts[action] || ''
 }
 
+const normalizeAuditServerDisplayText = (value?: string) => {
+  const source = String(value || '')
+  return source
+    .replace(/备份服务器/g, '审查服务器')
+    .replace(/备用服务器/g, '审查服务器')
+    .replace(/备份服/g, '审查服')
+    .replace(/(^|[^\\/])Backup(?![\\/])/gi, '$1审查服')
+}
+
+const operationHistoryEnvironmentText = (environment?: string) => {
+  return normalizeAuditServerDisplayText(environment ? environmentLabel(environment) : '-')
+}
+
 const operationActionText = (operation: RuntimeControlOperationVO) => {
-  return operation.actionLabel || operation.action || '重启'
+  const actionCode = operation.action?.trim() || ''
+  if (operationActions.some((item) => item.action === actionCode)) {
+    return operationActionLabel(actionCode)
+  }
+  return normalizeAuditServerDisplayText(operation.actionLabel || actionCode || '重启')
 }
 
 function operationActionLabel(action: string) {
@@ -1646,8 +1669,16 @@ const operationPublishScopeText = (operation: RuntimeControlOperationVO) => {
 }
 
 const operationTargetText = (operation: RuntimeControlOperationVO) => {
-  if (operation.component === 'ops') return operation.environment
+  if (operation.component === 'ops') return operationHistoryEnvironmentText(operation.environment)
   return componentLabel(operation.component)
+}
+
+const operationReasonText = (operation: RuntimeControlOperationVO) => {
+  return normalizeAuditServerDisplayText(operation.reason) || '-'
+}
+
+const operationSummaryText = (operation: RuntimeControlOperationVO) => {
+  return normalizeAuditServerDisplayText(operation.summary) || '-'
 }
 
 const operationRequestedAtText = (operation: RuntimeControlOperationVO) => {
@@ -2072,7 +2103,7 @@ const statusText = (status?: string) => {
 
 const lastOperationText = (operation?: RuntimeControlOperationVO) => {
   if (!operation) return '最近操作：-'
-  return `最近操作：${statusText(operation.status)} ${operation.summary || ''}`
+  return `最近操作：${statusText(operation.status)} ${operationSummaryText(operation)}`
 }
 
 const errorMessage = (error: unknown) => {

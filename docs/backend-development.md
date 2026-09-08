@@ -953,6 +953,8 @@
 - Verification: 后端测试分别覆盖签名展示不被业务时间覆盖、正式服/审查服固定目标、时间证据失败路径、巡检聚合、指定巡检三文件 ZIP、HTML 转义和 SHA-256；导出只读取已保存巡检 ID，不重新执行巡检。
 - Forbidden action: 禁止用 `selectedSignedAt`、`signatureDisplayAt` 旧值或客户端时间代替正式 `signedAt`；禁止导出时重新采集后覆盖历史巡检；禁止缺证据时返回默认成功。
 - Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
+- Remote collection extension: 可信时间脚本不得 source 远端整份 `.env`；数据库 UTC 应在数据库容器内使用容器已有凭据做只读查询，秘密不得进入命令输出。Windows OpenSSH 必须分离 stdout/stderr，只允许精确白名单内的已知关闭套接字诊断，其余 stderr、空 stdout 或非零退出均失败，并在抛错前完整脱敏密码、令牌和密钥赋值。
+- Legacy host extension: `timedatectl` 新旧字段同时存在时，所有出现的同步/NTP 信号都必须为肯定值；旧版 `NTP enabled`、`NTP synchronized` 可规范化为当前状态，但任一否定或未知值仍必须阻断，不能放宽 chrony、UTC 或偏差阈值门禁。
 
 ## 站内信领域幂等必须延伸到平台消息门禁
 

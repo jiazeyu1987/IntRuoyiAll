@@ -72,6 +72,45 @@ class RuntimeOpsTrustedTimeParserTest {
         assertTrue(check.getReason().contains("Leap status"));
     }
 
+    @Test
+    void parseShouldAcceptLegacyTimedatectlSynchronizedAndEnabledEvidence() {
+        RuntimeTrustedTimeCommandOutput output = normalOutput("+0.000120 seconds");
+        output.setTimedatectlStatus("""
+                NTP enabled: yes
+                NTP synchronized: yes
+                RTC in local TZ: no
+                """);
+
+        RuntimeControlInspectionCheckRespVO check = parser.parse(
+                "backup", "审查服", "172.30.30.59", outputForTarget(output, "backup", "172.30.30.59"));
+
+        assertEquals(RuntimeOpsInspectionStatus.PASS, check.getStatus());
+        assertEquals(Boolean.TRUE, check.getTrustedTime().getSystemClockSynchronized());
+        assertEquals("active", check.getTrustedTime().getNtpServiceState());
+    }
+
+    @ParameterizedTest(name = "旧版 timedatectl 任一 no 必须阻断：{0}")
+    @MethodSource("legacyTimedatectlFailures")
+    void parseShouldBlockWhenLegacyTimedatectlHasAnyNo(
+            String scenario, String enabled, String synchronizedValue, String expectedReason) {
+        RuntimeTrustedTimeCommandOutput output = normalOutput("+0.000120 seconds");
+        output.setTimedatectlStatus("NTP enabled: " + enabled
+                + "\nNTP synchronized: " + synchronizedValue);
+
+        RuntimeControlInspectionCheckRespVO check = parser.parse(
+                "backup", "审查服", "172.30.30.59", outputForTarget(output, "backup", "172.30.30.59"));
+
+        assertEquals(RuntimeOpsInspectionStatus.BLOCKED, check.getStatus(), scenario);
+        assertTrue(check.getReason().contains(expectedReason), check.getReason());
+    }
+
+    private static Stream<Arguments> legacyTimedatectlFailures() {
+        return Stream.of(
+                Arguments.of("NTP enabled=no", "no", "yes", "NTP service"),
+                Arguments.of("NTP synchronized=no", "yes", "no", "系统时钟未同步")
+        );
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidRequiredEvidence")
     void parseShouldBlockWhenRequiredEvidenceIsMissingInvalidOrOutOfRange(
@@ -138,6 +177,13 @@ class RuntimeOpsTrustedTimeParserTest {
         output.setServerTimeUtc("2026-09-07T10:00:00Z");
         output.setDatabaseTimeUtc("2026-09-07T10:00:00.123456Z");
         output.setCheckedAtUtc("2026-09-07T10:00:01Z");
+        return output;
+    }
+
+    private RuntimeTrustedTimeCommandOutput outputForTarget(RuntimeTrustedTimeCommandOutput output,
+                                                            String environment, String host) {
+        output.setTargetEnvironment(environment);
+        output.setServerHost(host);
         return output;
     }
 }

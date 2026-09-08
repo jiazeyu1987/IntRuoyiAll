@@ -148,6 +148,46 @@ mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInsp
 
 - 本次结论只覆盖 P2 本地代码与测试验收。正式服、审查服真实 chrony 状态、受控 NTP 地址、批准阈值和主机密钥仍属于 P4 经授权环境验证范围。
 
+## P2 数据库时间采集修订独立复验
+
+P2 PASS：真实只读检查发现的宿主机 `.env` 解析缺陷已按失败关闭原则修复；本轮本地代码、合同和静态验证全部通过，不改变上一节 P2 PASS 结论。
+
+### Security And Read-only Review
+
+- `show-int-ruoyi-trusted-time.ps1` 不再 source/dot-source 宿主机 `.env`，也不再使用 `set -a`；复杂 `JAVA_OPTS` 不会参与数据库时间采集。
+- 数据库命令固定为 `docker exec intruoyi-mysql sh -c`。容器 shell 先执行 `test -n "$MYSQL_ROOT_PASSWORD"`，缺失即非零退出；密码只在容器进程内导出为 `MYSQL_PWD`。
+- mysql 调用只执行 `SELECT UTC_TIMESTAMP(6)`，没有 `-p<secret>`、`--password`、写 SQL、宿主机密码展开或默认凭据分支。
+- SSH 成功输出仅返回 MySQL 查询值；非零错误只拼接远端标准输出/错误，命令文本中的变量为字面量 `$MYSQL_ROOT_PASSWORD` 而不是密码值。最终 JSON 字段固定为环境、主机、chrony/timedatectl、服务器 UTC、数据库 UTC 和检查 UTC，不包含密码字段。
+- MySQL 输出通过 `DateTime.ParseExact('yyyy-MM-dd HH:mm:ss.ffffff', InvariantCulture, AssumeUniversal|AdjustToUniversal)` 严格解析，再固定输出 `yyyy-MM-ddTHH:mm:ss.ffffffZ`；格式不符直接失败，不做宽松解析或本地时间回退。
+
+### Re-verification Evidence
+
+1. 部署脚本聚焦合同：
+
+```powershell
+mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTimeDeploymentScriptContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+结果：PASS，`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。合同断言要求容器内查询和 `MYSQL_PWD`，并禁止 `. ./.env`、`set -a`、mysql `-p` 及密码输出语句。
+
+2. 完整 P2 定向测试：
+
+```powershell
+mvn -pl yudao-module-infra -am "-Dtest=RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
+```
+
+结果：PASS，`Tests run: 31, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+
+3. PowerShell AST：PASS，无语法错误。
+
+4. Backend evidence validator：PASS，`Backend API evidence is valid.`；文档已记录旧脚本真实 RED、脚本合同 RED/GREEN、容器内密码边界和修订后的远程复验边界。
+
+5. `git diff --check`：PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+
+### Boundary
+
+- 按独立测试指令未执行脚本、未连接正式服或审查服、未启动服务。修订后在真实容器中获得数据库 UTC 的结果仍须由已授权的 P4 远程只读验证证明，本节不将该外部运行态记为 PASS。
+
 ## P3 独立验证结果
 
 P3 FAIL：现有运行控制台已经具备可信时间表格、执行巡检和按当前巡检 ID 导出 ZIP 的主路径，但用户可见环境口径仍不统一，且开发计划明确要求的类型检查没有执行，当前不允许进入 P4。
@@ -262,3 +302,257 @@ P4 PASS（本地交付范围）：P1 至 P3 的任务定向回归、证据验证
 ### Final Decision
 
 P4 本地开发验证：PASS。远程环境验证：`NOT_RUN`。真实 E2E：`NOT_RUN`。允许主 Agent按开发计划推进本地任务收尾，但不得把正式服/审查服或真实页面链路标记为 PASS。
+
+## P4 真实环境与页面闭环复验
+
+P4 PASS：本节以经授权、已启动的任务自有运行态取代上一节的远程环境与真实 E2E `NOT_RUN` 边界。Playwright 从真实登录页完成巡检和证据导出动作；正式服、审查服可信时间行均为 PASS，下载 ZIP 的冻结巡检、三文件和 SHA-256 离线核验全部通过。
+
+### Runtime Preflight
+
+- 分支：`codex/timestamp_20260907`；worktree：`D:\IntRuoyiWorktree\timestamp_20260907`。
+- 前端：`http://127.0.0.1:8161`，监听 PID `62604`，命令行指向当前 worktree 的 Vite；入口 HTTP 200。
+- 后端：`http://127.0.0.1:48161`，监听 PID `40004`，运行包为当前 worktree 的 `yudao-server-exec.jar`；启动参数包含 `--server.port=48161`、当前 worktree `repo-root/state-dir`；health 为 `UP`。
+- 验证身份：本机 E2E 租户/账号标签 `芋道源码/admin`。报告不记录密码、令牌或 Cookie。
+
+### Real Playwright Path
+
+1. 使用独立 Playwright CLI session `timestamp-p4` 打开 `http://127.0.0.1:8161/login?redirect=/index`，从登录页填写测试租户账号并点击“登录”，进入首页。
+2. 通过真实菜单依次点击“基础设施” -> “监控中心” -> “运行控制台”，最终 URL 为 `http://127.0.0.1:8161/infra/monitors/runtime-control`，页面标题为“瑛泰管理系统 - 运行控制台”。
+3. 在“可信时间证据”区域点击“执行巡检”。页面自然请求 `POST /admin-api/infra/runtime-control/inspection-runs` 返回 HTTP 200，并显示冻结巡检编号 `2`、完成时间 `2026-09-08 00:06:13`、整体结论“不放行”。
+4. 页面可信时间表格显示两条真实结果：
+   - 正式服 `172.30.30.57`：时间源 `139.199.214.202`，Last `0.211 ms`，RMS `0.554 ms`，Leap `Normal`，检查时间 `2026-09-08 00:06:10`，状态“通过”。
+   - 审查服 `172.30.30.59`：时间源 `139.199.214.202`，Last `-0.005 ms`，RMS `0.219 ms`，Leap `Normal`，检查时间 `2026-09-08 00:06:13`，状态“通过”。
+5. 在同一页面点击“导出时间戳证据”。页面自然请求 `GET /admin-api/infra/runtime-control/inspection-runs/2/time-evidence.zip` 返回 HTTP 200，浏览器真实下载 `可信时间证据_巡检2.zip`。没有使用 `fetch`、APIRequest 或 shell HTTP 调用代替巡检、导出动作。
+
+### Downloaded Evidence Verification
+
+- 对浏览器实际下载 ZIP 进行只读离线核验，固定且仅包含 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt`。
+- `SHA256SUMS.txt` 中 HTML 与 JSON 两项散列分别按文件字节重新计算，均一致。
+- `原始证据.json` 的巡检 ID 为 `2`、整体状态为 `NO_GO`，两条可信时间检查均为 `PASS`；目标主机精确为 `172.30.30.57`、`172.30.30.59`，时间源均为 `139.199.214.202`。
+- `审查摘要.html` 明确保留 `结论：NO_GO`，没有因两条时间检查通过而把整体巡检伪造成 PASS。整体 NO_GO 来自本地 website 探针不可达及任务 worktree 日志目录缺失等相邻现状，不影响两条可信时间检查的独立 PASS 结论。
+
+### Browser Diagnostics
+
+- Playwright console：共记录 4 条消息，`Errors: 0`、`Warnings: 0`；可见 info 仅为系统欢迎日志。
+- 页面未出现巡检或下载失败提示。外部 Iconify 资源请求均为 HTTP 200，本轮没有外部图片证书错误。
+- 页面相邻既有状态仍显示本机 `4173` website 探针不可达、任务 worktree 日志目录不存在以及 `48081` 基准后端不可达/错误文本乱码；这些状态使整体巡检 NO_GO，但目标任务运行态 `8161/48161`、可信时间巡检和下载链路均正常。
+- 非阻塞口径观察：可信时间区域和发布/矩阵区域均显示“审查服”，但相邻“探针状态”表仍把技术环境值渲染为英文 `Backup`。该既有探针展示不属于本次可信时间 AC-01 至 AC-06 的验收动作，不影响本节 PASS；若要求运行控制台所有区域严格统一口径，应单独修正其环境标签映射。
+
+### Final Decision
+
+- P4-AC1：PASS，定向回归与真实环境/页面闭环均已有证据。
+- P4-AC2：PASS，分支门禁和定向回归证据见上一节，本节补齐运行态证据。
+- P4-AC3：PASS，经授权的正式服/审查服真实时间采集与 Playwright E2E 已完成。
+- P4-AC4：PASS，真实巡检、异常整体状态保留、真实下载及离线内容校验全部完成。
+
+最终结论：P4 PASS。可信时间最小闭环具备真实页面巡检、正式服/审查服状态展示、异常不伪装通过及一键导出可离线核验证据的完整验证。
+
+## P2 SSH stderr 分流修订独立复验
+
+P2 FAIL：stdout/stderr 分流、已知 Windows OpenSSH 诊断白名单和严格数据库 UTC 解析均已实现，规定测试也全部通过；但非零诊断脱敏未覆盖本功能实际使用的 `MYSQL_ROOT_PASSWORD` 与 `MYSQL_PWD` 键，秘密值仍可进入异常消息，因此不能按“非零诊断脱敏、密码不进入日志”合同放行。本节结论取代此前 P2/P4 的 PASS 状态，修复并重新独立验证前不得收尾。
+
+### Finding
+
+1. `resolve-trusted-time-ssh-result.ps1` 的脱敏正则只匹配独立单词 `password|passwd|token|secret|api-key`。由于下划线属于正则单词字符，`MYSQL_ROOT_PASSWORD=<value>` 不会在 `PASSWORD` 前形成单词边界；`MYSQL_PWD=<value>` 也完全不在键集合中。带空格的引号值同样只会脱敏第一个词并留下剩余内容。`Resolve-TrustedTimeSshResult` 在 exit 非 0 时把该不完整脱敏结果直接拼入异常消息。
+
+独立使用合成秘密值调用辅助函数得到：
+
+```text
+INPUT=MYSQL_ROOT_PASSWORD=<synthetic-secret>
+ERROR=SSH command failed with exit code 255: MYSQL_ROOT_PASSWORD=<synthetic-secret> connection failed
+
+INPUT=MYSQL_PWD=<synthetic-secret>
+ERROR=SSH command failed with exit code 255: MYSQL_PWD=<synthetic-secret> connection failed
+```
+
+这证明当前“非零诊断脱敏”测试只覆盖 `password=topsecret`，无法支撑实际 MySQL 密钥变量不会泄漏的声明。
+
+### Verified Behavior
+
+- 主脚本使用 `ProcessStartInfo`、`ssh -n`、独立异步 `ReadToEndAsync` 读取 stdout/stderr，并在读取任务启动后等待进程退出，未发现管道死锁路径。
+- exit=0 时 stderr 按非空行逐行检查，仅允许精确正则匹配 `close - IO is still pending on closed socket. read:<n>, write:<n>, io:<hex>`；混合未知行会失败。
+- exit 非 0、未知 stderr 和空 stdout 均明确失败；成功返回仅使用修剪后的 stdout。
+- 数据库结果仍使用固定 `yyyy-MM-dd HH:mm:ss.ffffff` 的 `ParseExact`，随后输出 `yyyy-MM-ddTHH:mm:ss.ffffffZ`，没有放宽或 fallback。
+
+### Verification Evidence
+
+1. 聚焦部署合同：PASS，5/5；但现有非零用例仅使用通用 `password=topsecret`，未覆盖 Finding。
+2. 完整 P2 定向测试：PASS，35/35，0 失败、0 错误。
+3. `show-int-ruoyi-trusted-time.ps1` 与 `resolve-trusted-time-ssh-result.ps1` PowerShell AST：PASS。
+4. Backend evidence validator：PASS，`Backend API evidence is valid.`；该验证器只验证证据结构，不能推翻上述可复现泄漏。
+5. `git diff --check`：PASS，仅有 Windows LF/CRLF 提示。
+6. 本轮没有执行远程连接、脚本真实采集或服务启动。
+
+### Required Correction
+
+- 脱敏必须至少完整覆盖 `MYSQL_ROOT_PASSWORD`、`MYSQL_PWD` 以及已有通用秘密键，并正确处理单引号/双引号包裹或含空格的值；不得在错误消息中保留值的任何片段。
+- 将上述实际变量名和带空格引号值加入可执行 RED/GREEN 测试，再复跑聚焦与完整 P2 门禁。
+
+## P2 SSH 诊断脱敏修订独立复验
+
+P2 PASS：本节结论取代上一轮 P2 SSH stderr 分流修订 FAIL。实际 MySQL 密钥键和通用秘密键均已采用显式、大小写不敏感的完整赋值脱敏；独立运行矩阵未发现秘密片段残留，非秘密诊断保持可读。
+
+### Independent Redaction Matrix
+
+独立直接加载 `resolve-trusted-time-ssh-result.ps1`，对以下键逐一运行 exit=255 失败路径：
+
+```text
+MYSQL_ROOT_PASSWORD
+MYSQL_PWD
+PASSWORD
+PASSWD
+TOKEN
+SECRET
+ACCESS_KEY
+SECRET_KEY
+API_KEY
+```
+
+每个键分别验证未引号值、单引号含空格值、双引号含空格值，并混用大小写，共 27 个赋值场景。每次均断言错误包含 `<REDACTED>`，且合成秘密的所有词片段都不存在。结果：PASS。
+
+另独立验证 mysql `-p` 的未引号、单引号含空格、双引号含空格三种形式，均整体替换为 `-p<REDACTED>`；验证 `host=prod node=audit reason=connection_refused retry=disabled` 四项非秘密诊断全部保留。结果：PASS。
+
+### Implementation Review
+
+- 赋值正则显式列出九类秘密键，使用 `(?i)` 实现大小写不敏感匹配；值分支完整匹配双引号、单引号或无引号值。
+- mysql `-p` 使用独立正则并覆盖相同三种值形式。
+- 替换只针对秘密键或 `-p` 参数，未对普通 `host/node/reason/retry` 键做泛化删除。
+- exit 非 0 与未知 stderr 均在抛出前调用同一脱敏函数；成功路径仍只返回 stdout。
+
+### Re-verification Evidence
+
+1. 聚焦部署合同：PASS，`Tests run: 6, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+2. 完整 P2 定向测试：PASS，`Tests run: 36, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+3. 两个 PowerShell 文件 AST：PASS。
+4. Backend evidence validator：PASS，`Backend API evidence is valid.`。
+5. `git diff --check`：PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+6. 本轮没有连接远程服务器、执行真实采集或启动服务。
+
+### Test Coverage Note
+
+- 仓库内第 6 个聚焦测试覆盖实际 MySQL 两个键、大小写及三种赋值格式的代表组合，并证明非秘密诊断保留；`PASSWD`、`API_KEY` 和 mysql `-p` 的具体运行行为由本节独立 30 组矩阵补充验证。当前实现与 backend evidence 声明一致。
+
+## P2 旧版 timedatectl 与阈值透传独立复验
+
+P2 PASS：旧版 timedatectl 输出已按同一可信时间语义规范化，否定或冲突信号继续失败关闭；部署 compose 将批准阈值作为 backend 必填环境变量显式透传，不存在默认值。本节维持最新 P2 PASS 结论。
+
+### Timedatectl Compatibility Review
+
+- 旧格式仅出现 `NTP synchronized: yes` 与 `NTP enabled: yes` 时，分别规范化为 `systemClockSynchronized=true`、`ntpServiceState=active`；聚焦测试实际断言这两个结构化值和最终 PASS。
+- 旧格式 `NTP synchronized: no` 或 `NTP enabled: no` 任一出现时分别产生“系统时钟未同步”或“NTP service 不是 active”，参数化测试证明最终 BLOCKED。
+- 新旧同步字段并存时，`allPresentSignalsAffirmative` 对每个已出现值分别要求 `yes`；任一 `no` 或其它值使布尔结果为 false。
+- 新旧 NTP 服务字段并存时，新字段必须为 `active` 且旧字段必须为 `yes`；新字段非 active 直接保留为失败状态，旧字段非 yes 统一为 inactive。双肯定才返回 active。
+- 对 `RuntimeTrustedTimeParser` 的差异审查确认，除新增四个旧字段模式、同步/NTP 归一化和两个私有辅助函数外，其它选中源、Leap、Stratum、服务器目标、UTC 格式、Last/RMS 必填及偏差阈值逻辑未改动。
+
+### Deployment Contract
+
+- `int-ruoyi-test/docker-compose.yml` 的 backend `environment` 显式包含：
+
+```yaml
+INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS: ${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS:?INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS is required}
+```
+
+- `${VAR:?...}` 要求变量存在且非空；源码及合同测试均确认没有 `${INTRUOYI_TRUSTED_TIME_MAX_OFFSET_MILLIS:-...}` 默认值，不会静默采用阈值。
+
+### Re-verification Evidence
+
+1. Parser 与部署合同聚焦测试：PASS，`Tests run: 26, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`；其中 parser 20 项、部署合同 6 项。
+2. 完整 P2 定向测试：PASS，`Tests run: 39, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+3. `show-int-ruoyi-trusted-time.ps1`、`resolve-trusted-time-ssh-result.ps1` PowerShell AST：PASS。
+4. Backend evidence validator：PASS，`Backend API evidence is valid.`。
+5. `git diff --check`：PASS，仅有 Windows LF/CRLF 提示，无空白错误。
+6. 本轮没有连接正式服或审查服，没有执行远程脚本或启动服务。
+
+### Boundary
+
+- 本轮证明本地解析和部署合同成立；真实审查服旧版 timedatectl 输出以及正式部署变量是否已配置，仍需经授权的远程只读验证，不能由本地 PASS 外推。
+
+## P4 审查服术语修订真实复验
+
+P4 FAIL：术语修订的后端与前端静态合同通过，刷新后的探针状态已把 `backup` 显示为“审查服”；但真实运行态巡检无法执行时间采集，正式服和审查服两项均为 BLOCKED，同时整页“最近操作”的历史可见内容仍出现“备份服务器/备份服”旧称。当前不满足“真实时间项通过”和“整页不再显示用户可见旧称”的验收要求。
+
+### Independent Local Regression
+
+1. `mvn -pl yudao-module-infra -am "-Dtest=RuntimeControlAuditServerTerminologyTest,RuntimeOpsTrustedTime*Test,RuntimeOpsInspection*Test,RuntimeControlSpringWiringTest,RuntimeControlCanonicalContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：PASS，`Tests run: 40, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`；其中 `RuntimeControlAuditServerTerminologyTest` 1/1 PASS。
+2. `node --check tests/e2e/runtime-control-trusted-time-static.spec.js` 与 `node tests/e2e/runtime-control-trusted-time-static.spec.js`：PASS。
+3. `node --check tests/e2e/runtime-control-release-package-static.spec.js` 与 `node tests/e2e/runtime-control-release-package-static.spec.js`：PASS。
+4. 运行态预检：分支 `codex/timestamp_20260907`；前端 `8161` PID `62604`、命令行指向当前 worktree；后端 `48161` PID `74544`、运行当前 worktree `yudao-server-exec.jar`，health 为 `UP`。
+
+### Real Playwright Path
+
+- 使用全新 Playwright CLI session `timestamp-p4-term`，从 `http://127.0.0.1:8161/login?redirect=/index` 以本机 E2E 身份标签 `芋道源码/admin` 登录；报告不记录密码、令牌或 Cookie。
+- 经真实菜单“基础设施” -> “监控中心” -> “运行控制台”进入 `http://127.0.0.1:8161/infra/monitors/runtime-control`。
+- 点击“执行巡检”，页面自然请求 `POST /admin-api/infra/runtime-control/inspection-runs` 返回 HTTP 200，生成巡检 ID `1`、整体 `NO_GO`。
+- 点击“导出时间戳证据”，页面自然请求 `GET /admin-api/infra/runtime-control/inspection-runs/1/time-evidence.zip` 返回 HTTP 200，浏览器实际下载 `可信时间证据_巡检1.zip`。没有使用 API、`fetch`、APIRequest 或 shell HTTP 替代巡检和导出动作。
+- 点击页面“刷新”后，探针状态的审查服后端、前端和 website 三行均显示“审查服”，不再显示英文 `Backup`，证明共享环境映射在该区域生效。
+
+### Findings
+
+1. 真实巡检无法采集时间证据。正式服 `172.30.30.57` 和审查服 `172.30.30.59` 两行的时间源、Last/RMS、Leap 和检查时间均为 `-`，状态均为“已阻断”；页面原因一致为：`运行控制台脚本不存在：D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\deploy\show-int-ruoyi-trusted-time.ps1`。运行页的容量路径也显示 `D:\ProjectPackage\Int\IntRuoyi\...`，与当前 worktree 不一致，说明后端有效 `repo-root/state-dir` 没有按本任务运行态生效。该证据与“后端 repoRoot/stateDir 均指向本 worktree”的前置声明矛盾，不能把 health `UP` 当作时间巡检可用。
+2. 整页旧称仍未清零。“最近操作”历史行仍可见 `上线备份服务器`、`E2E上线发布包A到备份服务器` 和 `上线备份服务器 completed`；Playwright 对页面文本查找 `备份服` 得到 3 个匹配。当前静态合同只覆盖代码映射，未覆盖已保存历史展示字段，因而无法证明整页统一口径。
+
+### Downloaded ZIP Verification
+
+- ZIP 固定且仅包含 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt`；HTML 和 JSON 的 SHA-256 重新计算均与清单一致。
+- JSON 巡检 ID 为 `1`、整体状态为 `NO_GO`，包含 `trusted-time-prod` 与 `trusted-time-audit`，主机精确为 `172.30.30.57`、`172.30.30.59`。
+- 两条时间项状态均为 `BLOCKED`，原因均为上述错误 repo root 下采集脚本不存在；因此 ZIP 导出功能本身通过，但不能证明正式服/审查服时间同步状态通过。
+
+### Browser Diagnostics
+
+- Playwright console：`Errors: 0`、`Warnings: 0`。
+- 登录、菜单、巡检 POST 和 ZIP 下载 GET 均由页面自然触发且 HTTP 200。
+- 本轮没有外部图片证书错误；Iconify 请求均为 HTTP 200。
+
+### Required Corrections
+
+- 使用项目标准分支启动方式重启任务自有后端，确保 `--yudao.runtime-control.repo-root=D:/IntRuoyiWorktree/timestamp_20260907/IntRuoyiBackend`、任务 `state-dir` 和批准阈值在有效运行配置中可证明生效；重新通过页面执行巡检，必须看到正式服和审查服两行真实来源、Last/RMS、Leap、检查时间及“通过”。
+- 对“最近操作”中的历史 `actionName/reason/summary` 明确展示策略：保留原始审计值时，应另用统一显示字段/安全展示映射输出“审查服”，且原始值只能保留在审计证据中；不得修改历史审计事实。增加包含旧历史记录的服务或页面回归测试，证明整页用户可见文本无 `Backup`、`备份服`、`备用服务器`。
+- 修订后必须重新运行同一真实 Playwright 路径和 ZIP 核验；当前 P4 不能放行。
+
+## P4 审查服术语与可信时间最终独立复验
+
+P4 PASS：本节取代上一节 P4 FAIL。任务自有后端已按正确 `repo-root/state-dir` 启动，真实页面巡检中正式服与审查服可信时间均通过；探针区域和最近操作区域不再显示 `Backup`、`备份服`、`备份服务器` 或 `备用服务器`，浏览器下载的证据包可独立校验。
+
+### Runtime Preflight
+
+- 首次预检时 `8161/48161` 均未监听，因此独立测试明确暂停 E2E 并通知主 Agent，没有把静态测试当作运行态成功。
+- 服务恢复后再次核验：前端 `8161` PID `37540`，命令行指向当前 worktree 的 Vite；后端 `48161` PID `42784`，运行当前 worktree 的 `yudao-server-exec.jar`。
+- 后端命令行明确包含 `--server.port=48161`、`--yudao.runtime-control.repo-root=D:/IntRuoyiWorktree/timestamp_20260907/IntRuoyiBackend` 和 `--yudao.runtime-control.state-dir=D:/IntRuoyiWorktree/timestamp_20260907/.runtime/runtime-control`；health 为 `UP`。
+
+### Independent Regression
+
+1. 后端定向测试：PASS，`Tests run: 40, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。命令覆盖 `RuntimeControlAuditServerTerminologyTest`、`RuntimeOpsTrustedTime*Test`、`RuntimeOpsInspection*Test`、`RuntimeControlSpringWiringTest` 和 `RuntimeControlCanonicalContractTest`。
+2. `runtime-control-trusted-time-static.spec.js` 语法检查与执行：PASS；其中可执行断言把历史 `Backup`、`备份服`、`备份服务器`、`备用服务器` 映射为审查服口径，同时保留技术路径 `Backup/ReleasePackage/r1`。
+3. `runtime-control-release-package-static.spec.js` 语法检查与执行：PASS。
+4. `pnpm ts:check`：PASS，退出码 `0`。
+
+### Real Playwright Path
+
+- 使用全新 Playwright CLI session `timestamp-p4-retest`，从真实登录页以测试身份标签 `芋道源码/admin` 登录，经菜单“基础设施” -> “监控中心” -> “运行控制台”进入页面；报告不记录密码、令牌或 Cookie。
+- 在页面点击“执行巡检”，页面自然请求 `POST /admin-api/infra/runtime-control/inspection-runs` 返回 HTTP 200，生成巡检 ID `3`、完成时间 `2026-09-08 09:56:25`；整体因相邻本地探针和日志目录问题保持 `NO_GO`，没有伪装成功。
+- 正式服 `172.30.30.57`：时间源 `139.199.214.202`，Last `-0.312 ms`，RMS `0.571 ms`，Leap `Normal`，检查时间 `2026-09-08 09:56:22`，状态“通过”。
+- 审查服 `172.30.30.59`：时间源 `139.199.214.202`，Last `-0.232 ms`，RMS `0.186 ms`，Leap `Normal`，检查时间 `2026-09-08 09:56:25`，状态“通过”。
+- 对探针区域单独读取页面自然文本，审查服三行均显示“审查服”；该区域不存在 `Backup`、`备份服`、`备份服务器` 或 `备用服务器`。最近操作区域自然文本为“暂无操作记录”，同样不存在四类旧称；历史旧值的非空投影由上述可执行静态合同覆盖。
+- 在同一页面点击“导出时间戳证据”，页面自然请求 `GET /admin-api/infra/runtime-control/inspection-runs/3/time-evidence.zip` 返回 HTTP 200，并真实下载 `可信时间证据_巡检3.zip`。巡检和导出动作均未使用 API、`fetch`、APIRequest 或 shell HTTP 代替。
+
+### Downloaded Evidence Verification
+
+- ZIP 固定且仅包含 `审查摘要.html`、`原始证据.json`、`SHA256SUMS.txt`。
+- 重新按文件字节计算 HTML 与 JSON 的 SHA-256，均与 `SHA256SUMS.txt` 一致。
+- `原始证据.json` 的巡检 ID 为 `3`、整体状态为 `NO_GO`；`trusted-time-prod` 与 `trusted-time-audit` 均为 `PASS`，主机精确为 `172.30.30.57`、`172.30.30.59`，两项时间源、Last/RMS、Leap、检查时间及服务器/数据库 UTC 字段完整。
+- `审查摘要.html` 保留 `NO_GO`，没有因两条时间项通过而篡改整体巡检结论。
+
+### Browser Diagnostics
+
+- Playwright console：`Errors: 0`、`Warnings: 0`；唯一 info 为系统欢迎日志。
+- 浏览器请求清单证明登录、巡检 POST 和证据 ZIP GET 均由真实页面自然触发且返回 HTTP 200。
+- 可信时间区域截图：`.playwright-cli/element-2026-09-08T02-02-13-085Z.png`；最终页面快照和下载 ZIP 均位于本任务 worktree 的 `.playwright-cli` 临时目录，供主 Agent 收尾时按规则处理。
+
+### Final Decision
+
+- P4-AC1：PASS，术语、可信时间、巡检和导出定向回归全部通过。
+- P4-AC2：PASS，TypeScript 与前端静态合同通过。
+- P4-AC3：PASS，正式服与审查服真实时间证据均由页面巡检取得并通过阈值判定。
+- P4-AC4：PASS，真实页面导出、固定三文件、SHA-256 和异常整体状态保留均已验证。
+
+最终结论：P4 PASS，可以进入主 Agent 的状态同步与收尾门禁。

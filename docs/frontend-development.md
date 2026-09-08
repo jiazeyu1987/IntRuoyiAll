@@ -909,3 +909,4 @@
 - Verification: 静态合同完整截取导出函数并证明不调用巡检；覆盖时间源、Last/RMS 偏差、Leap、检查时间、状态、无 ID 禁用、异常可导出、真实错误提示和“审查服”口径；最后运行 `pnpm ts:check`。
 - Forbidden action: 禁止以当前时间、业务时间或旧展示字段回退正式签名时间；禁止因巡检异常隐藏导出入口；禁止把下载请求失败包装成成功。
 - Evidence: `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`。
+- Historical audit display extension: 已保存操作记录中的 `actionLabel/reason/summary` 属于原始审计事实，不得为改文案而回写；页面应优先按稳定动作码映射当前显示名，并对历史自由文本中的已知旧环境称谓做只读展示投影。投影必须保留 `Backup/...` 等技术路径原值，静态合同与真实非空历史页面同时证明旧称不可见、原始 VO 未被修改。

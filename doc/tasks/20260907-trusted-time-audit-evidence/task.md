@@ -16,7 +16,7 @@
 - [x] M1：签名时间边界修复。
 - [x] M2：时间巡检和证据 ZIP 导出。
 - [x] M3：运行控制台状态与导出按钮。
-- [x] M4：定向回归完成；未获授权的远程/E2E 明确记为 NOT_RUN。
+- [x] M4：定向回归、远程只读核查与真实页面 E2E 闭环完成。
 
 ## Expected Verification
 
@@ -35,7 +35,7 @@
 
 ## Current Status
 
-ready_for_closeout：本地实现和独立验证已通过；等待 Git 提交/推送与 worktree 收尾授权。
+ready_for_closeout：P1-P4 实现及独立验证全部通过；等待任务清理预检、实现提交和推送收尾。
 
 ## Cleanup Keep
 

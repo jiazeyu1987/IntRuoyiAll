@@ -26,6 +26,10 @@ class RuntimeTrustedTimeParser {
     private static final Pattern CLOCK_SYNCHRONIZED = Pattern.compile(
             "(?im)^\\s*System clock synchronized\\s*:\\s*(\\S+)\\s*$");
     private static final Pattern NTP_SERVICE = Pattern.compile("(?im)^\\s*NTP service\\s*:\\s*(\\S+)\\s*$");
+    private static final Pattern LEGACY_NTP_SYNCHRONIZED = Pattern.compile(
+            "(?im)^\\s*NTP synchronized\\s*:\\s*(\\S+)\\s*$");
+    private static final Pattern LEGACY_NTP_ENABLED = Pattern.compile(
+            "(?im)^\\s*NTP enabled\\s*:\\s*(\\S+)\\s*$");
 
     private final double maxOffsetMillis;
 
@@ -82,9 +86,13 @@ class RuntimeTrustedTimeParser {
         evidence.setLastOffsetMillis(secondsToMillis(find(LAST_OFFSET, output.getChronycTracking())));
         evidence.setRmsOffsetMillis(secondsToMillis(find(RMS_OFFSET, output.getChronycTracking())));
         evidence.setLeapStatus(find(LEAP_STATUS, output.getChronycTracking()));
-        evidence.setSystemClockSynchronized("yes".equalsIgnoreCase(
-                find(CLOCK_SYNCHRONIZED, output.getTimedatectlStatus())));
-        evidence.setNtpServiceState(find(NTP_SERVICE, output.getTimedatectlStatus()));
+        String clockSynchronized = find(CLOCK_SYNCHRONIZED, output.getTimedatectlStatus());
+        String legacyNtpSynchronized = find(LEGACY_NTP_SYNCHRONIZED, output.getTimedatectlStatus());
+        evidence.setSystemClockSynchronized(allPresentSignalsAffirmative(
+                clockSynchronized, "yes", legacyNtpSynchronized, "yes"));
+        evidence.setNtpServiceState(normalizeNtpServiceState(
+                find(NTP_SERVICE, output.getTimedatectlStatus()),
+                find(LEGACY_NTP_ENABLED, output.getTimedatectlStatus())));
         evidence.setServerTimeUtc(StrUtil.trim(output.getServerTimeUtc()));
         evidence.setDatabaseTimeUtc(StrUtil.trim(output.getDatabaseTimeUtc()));
         evidence.setCheckedAtUtc(StrUtil.trim(output.getCheckedAtUtc()));
@@ -190,5 +198,27 @@ class RuntimeTrustedTimeParser {
         } catch (DateTimeParseException ex) {
             return false;
         }
+    }
+
+    private boolean allPresentSignalsAffirmative(String first, String firstAffirmative,
+                                                 String second, String secondAffirmative) {
+        if (first == null && second == null) {
+            return false;
+        }
+        return (first == null || firstAffirmative.equalsIgnoreCase(first))
+                && (second == null || secondAffirmative.equalsIgnoreCase(second));
+    }
+
+    private String normalizeNtpServiceState(String serviceState, String legacyEnabled) {
+        if (serviceState == null && legacyEnabled == null) {
+            return null;
+        }
+        if (serviceState != null && !"active".equalsIgnoreCase(serviceState)) {
+            return serviceState;
+        }
+        if (legacyEnabled != null && !"yes".equalsIgnoreCase(legacyEnabled)) {
+            return "inactive";
+        }
+        return "active";
     }
 }

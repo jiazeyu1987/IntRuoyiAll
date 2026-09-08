@@ -107,6 +107,14 @@
 
 涉及文件：
 
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/framework/runtimecontrol/config/RuntimeControlProperties.java`
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeControlOperationAction.java`
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/RuntimeRemoteRootDiskServiceImpl.java`
+- `IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/runtimecontrol/vo/RuntimeControlRemoteRootCleanupReqVO.java`
+- `IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/runtimecontrol/`
+- `IntRuoyiFronted/src/views/infra/runtime-control/components/shared.ts`
+- `IntRuoyiFronted/src/views/infra/runtime-control/index.vue`
+- `IntRuoyiFronted/tests/e2e/runtime-control-trusted-time-static.spec.js`
 - `doc/tasks/20260907-trusted-time-audit-evidence/execution-log.md`
 - `doc/tasks/20260907-trusted-time-audit-evidence/test-report.md`
 
@@ -121,6 +129,8 @@
 2. 运行 branch runtime port guard。
 3. 获得授权后才配置/验证正式服、审查服 chrony。
 4. 获得明确 E2E 授权后才使用 Playwright 走真实页面巡检和下载。
+5. 运行控制台面向用户的环境、动作和错误文案统一显示“审查服”；保留 `backup`、`BackupServerHost`、`promote-backup` 等技术接口名。
+6. 最近操作保留服务端历史审计原值，但环境、动作、原因和摘要在展示层统一旧称，禁止改写历史记录。
 
 ### Acceptance
 
@@ -129,6 +139,7 @@
 ### Verification Gates
 
 - 本地定向回归通过。
+- 后端合同测试及真实页面均不得显示旧称 `Backup`、`备份服` 或 `备用服务器`。
 - 远程与 E2E 未获授权时明确记录为未执行，不能冒充完整环境闭环。
 
 ## Rollback or Stop Conditions
