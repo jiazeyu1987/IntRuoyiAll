@@ -66,4 +66,10 @@ PARTIAL: `task-closeout-cleanup --mode apply` -> 临时 evidence 文件已删除
 
 ## Remaining Blocker
 
-- 本地 `int_main` 已合并，当前领先 `origin/int_main`；按项目规则，未推送前不能将 `task.md` 标记为 `completed`。
+- RESOLVED：`git push origin int_main` -> PASS，`origin/int_main` 已从 `ebb2b6c1e` 推进到 `52a4a0a2a`。
+
+## Final Closeout
+
+GREEN: `git push origin int_main` -> PASS，本地 `int_main` 首轮合并结果已推送。
+
+GREEN: `task.md` 状态更新为 `completed` -> PASS，最终状态记录准备提交并推送。

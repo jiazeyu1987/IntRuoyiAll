@@ -2,7 +2,7 @@
 
 ## Result
 
-T1-T8 定向实现验证通过。本地 `int_main` 已包含电子签名整改、主工作区 baseline 和合并修正；但尚未推送到 `origin/int_main`，因此按项目规则暂不标记 `completed`。
+T1-T8 定向实现验证通过。本地 `int_main` 已包含电子签名整改、主工作区 baseline 和合并修正，并已推送到 `origin/int_main`。任务状态已更新为 `completed`。
 
 ## Passed Commands
 
@@ -27,8 +27,8 @@ T1-T8 定向实现验证通过。本地 `int_main` 已包含电子签名整改�
 - 配置 WORM/不可改写归档存储并保存写入回执。
 - 建立复核调度和 SOP 培训记录。
 - 执行真实前端 E2E 和备份恢复演练。
-- 推送本地 `int_main` 到 `origin/int_main` 后，方可按项目规则把任务状态改为 `completed`。
+- 已推送本地 `int_main` 到 `origin/int_main`；生产环境仍需补齐上述真实迁移、外部设施和运行证据。
 
 ## Closeout Status
 
-本地合并已完成。`task-closeout-cleanup` preview 通过；apply 删除了临时 evidence 文件并推进本地合并，但删除 worktree 目录时因 Windows 权限失败。三份任务文档已在主工作区重建并准备强制纳入收尾提交。当前状态保持 `ready_for_closeout`，等待推送授权。
+本地合并已完成。`task-closeout-cleanup` preview 通过；apply 删除了临时 evidence 文件并推进本地合并，但删除 worktree 目录时因 Windows 权限失败。随后已删除残留空目录、释放端口登记、在主工作区重建三份任务文档、提交并推送。当前状态为 `completed`。

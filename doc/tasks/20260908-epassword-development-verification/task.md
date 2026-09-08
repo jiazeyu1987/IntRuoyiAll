@@ -44,7 +44,7 @@
 
 ## Current Status
 
-ready_for_closeout：T1-T8 代码与任务级证据已完成；实现提交、主工作区 baseline 提交、任务分支合并和本地 `int_main` 合并均已完成。由于尚未获得推送授权，按项目规则暂不标记 `completed`。
+completed：T1-T8 代码与任务级证据已完成；实现提交、主工作区 baseline 提交、任务分支合并、本地 `int_main` 合并和 `origin/int_main` 推送均已完成。最终后端打包验证通过，任务收尾完成。
 
 ## Cleanup Keep
 
