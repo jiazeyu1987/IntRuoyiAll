@@ -20,3 +20,9 @@ GREEN: mvn.cmd -pl yudao-module-system -DskipTests compile -> PASS。
 - 修复前端新增页面 CSS 单行声明和 media query 写法，使 stylelint 通过。
 - 修复临时角色授权审计操作者名称，Controller 改为读取 `AdminUserService#getUser(loginUserId).getUsername()`，不再把用户 ID 字符串写入 username 字段。
 - 修正文档证据中审批/撤销接口方法，与当前最小实现 POST 接口保持一致。
+
+## int_main Integration
+
+GREEN: git cherry-pick b74d02956 58402cd33 d940e7899 -> PASS，已只融合临时角色授权任务提交，未把早先备份任务提交混入 `int_main`。
+GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-temporary-role-grant-minimal --mode preview -> PASS，无 delete、无 blocked。
+GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-temporary-role-grant-minimal --mode apply -> PASS，无删除项。

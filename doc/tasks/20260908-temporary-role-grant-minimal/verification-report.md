@@ -24,4 +24,5 @@
 
 - 未执行真实 E2E，因为本轮用户未明确要求 E2E。
 - admin 未修改，仍可用于测试。
-- 当前实现已提交并推送；自动 closeout apply、快进合并和 worktree 删除需等 `int_main` 与当前分支整理到可 ff-only 的关系后再执行。
+- 已通过 cherry-pick 将临时角色授权任务提交融合进 `int_main`，未融合早先备份任务提交。
+- cleanup preview/apply 在 `int_main` 上通过，无删除项。

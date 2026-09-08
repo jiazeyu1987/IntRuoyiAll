@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout：通用临时角色授权最小闭环已完成实现与定向验证，进入收尾清理预览。
+completed：通用临时角色授权最小闭环已融合进 `int_main`，验证和 cleanup apply 已通过。
 
 ## 设计约束检查
 
