@@ -51,6 +51,7 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 - `git rebase int_main` -> PASS，任务分支已基于本地 `int_main` `ebb2b6c1` 重放，无冲突。
 - post-rebase regression -> PASS，Java 44 tests、Python 123 tests、真实 E2E 脚本语法、标准列表静态 E2E、最小闭环静态 E2E、`pnpm ts:check` 全部通过。
 - post-rebase `.pytest-temp` cleanup -> PASS。
+- project experience consolidation -> PASS，长期经验已合并到 `docs/worktree-memory.md`，覆盖 worktree 运行控制台 repo root 显式设置要求。
 
 ## Updated Development Document Reanalysis
 

@@ -232,9 +232,9 @@
 ### 主工作区端口被并行任务占用时的成对运行态门禁
 
 - Trigger: 主工作区 `8081/48081` 被无关任务、旧 Jar 或无法替换的共享运行态占用，但当前任务仍需要真实前端路径 E2E 验证。
-- Preflight check: 先确认占用进程命令行、Jar 路径、端口和任务归属；若不是当前任务运行态，不得停止或覆盖。随后在 `D:\IntRuoyiWorktree\` 使用 `scripts\runtime\reserve-worktree-slot.ps1` 取得正式 slot，并用同一 worktree 的后端 Jar 与前端 Vite 组成成对端口运行态。
-- Blocker: 主端口占用进程归属不明、worktree 未登记 slot、前端代理仍指向主工作区后端、后端 Jar 不是当前修复产物、或无法证明前后端 PID 均来自当前 worktree 时必须停止。
-- Verification: 记录 slot、前端端口、后端端口、前后端 PID 和命令行归属；确认后端 health 为 `UP`、前端 HTTP 200、真实 Playwright 使用 worktree 前端 URL，并验证目标列表和业务进度输出。
+- Preflight check: 先确认占用进程命令行、Jar 路径、端口和任务归属；若不是当前任务运行态，不得停止或覆盖。随后在 `D:\IntRuoyiWorktree\` 使用 `scripts\runtime\reserve-worktree-slot.ps1` 取得正式 slot，并用同一 worktree 的后端 Jar 与前端 Vite 组成成对端口运行态。涉及运行控制台/备份计划页面时，还必须显式设置 `INTRUOYI_RUNTIME_CONTROL_REPO_ROOT` 指向当前 worktree 的 `IntRuoyiBackend`，否则 `backupOps.configPath` 可能落到旧默认仓库路径。
+- Blocker: 主端口占用进程归属不明、worktree 未登记 slot、前端代理仍指向主工作区后端、后端 Jar 不是当前修复产物、运行控制台 repo root 指向旧路径、或无法证明前后端 PID 均来自当前 worktree 时必须停止。
+- Verification: 记录 slot、前端端口、后端端口、前后端 PID 和命令行归属；确认后端 health 为 `UP`、前端 HTTP 200、真实 Playwright 使用 worktree 前端 URL，并验证目标列表和业务进度输出。备份计划只读 E2E 还要记录 repo root 显式值、status/history API 结果和页面回显。
 - Forbidden action: 禁止强杀并行任务进程、把旧 `48081` Jar 当作修复验证、只替换嵌套 class 拼混合 Jar、前端走 worktree 但后端仍代理到主工作区、或在未确认运行态成对归属前宣称真实 E2E 通过。
 - Evidence: `doc/tasks/20260802-third-party-feedback-import-list-progress/verification-report.md`，第三方报工导入修复在主 `48081` 被 DCC 任务占用时，使用 slot 9 的 `8090/48090` 成对运行态完成真实导入验证。
 
