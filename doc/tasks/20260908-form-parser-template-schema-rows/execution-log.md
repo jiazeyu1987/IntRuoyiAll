@@ -30,6 +30,8 @@ BDD: 批记录总对应解析保持 parse-only -> Given 用户只在表单解析
 - GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260908-form-parser-template-schema-rows\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260908-form-parser-template-schema-rows\bug-regression-evidence.md` -> PASS, `Bug regression evidence is valid.`
 - GREEN: task-scoped `git diff --check` with `git add --intent-to-add -f` for new task files -> PASS, only CRLF normalization warnings.
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id 20260908-form-parser-template-schema-rows --mode preview` -> PASS, keep `task.md`, `execution-log.md`, `verification-report.md`; delete only `backend-api-evidence.md` and `bug-regression-evidence.md`; no blocked paths or warnings.
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id 20260908-form-parser-template-schema-rows --mode apply` -> PASS, deleted `backend-api-evidence.md` and `bug-regression-evidence.md`; no blocked paths or warnings.
 
 ## Work Notes
 
@@ -48,3 +50,4 @@ BDD: 批记录总对应解析保持 parse-only -> Given 用户只在表单解析
 - 2026-09-08: 真实 `.doc` 对齐 `批记录总对应.json` 时发现热合参数存在旧 Word 遗留前缀括号，已在参考值标准化处只剥离“括号后直接接数字”的噪声。
 - 2026-09-08: 服务层总识别 JSON 原使用 Fastjson 序列化 Java record 会得到 `{}`，已改为 Jackson 序列化，并覆盖 `importPilotDoc`、parse-only 接口和 `recognizeUploadedRoute` 的总识别 JSON 生成点。
 - 2026-09-08: 按 project-experience-consolidation 技能，把“批记录总对应 JSON 与 Jimu schema 是两种合同、Java record 总识别结果需 Jackson 序列化、parse-only 不写库”的复用经验合并到 `docs/system/shared-word-template-parser-design.md`。
+- 2026-09-08: `task-closeout-cleanup` preview/apply 通过，只删除已归档到默认保留记录的 `backend-api-evidence.md` 和 `bug-regression-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`；因未获 Git 提交/推送授权，任务状态保持 `ready_for_closeout`。

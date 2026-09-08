@@ -29,7 +29,7 @@
 
 ready_for_closeout
 
-实现与验证已完成：生产批记录按钮已改为下载 `product/schemaVersion/processes` 批记录总识别 JSON；真实 `.doc` 与 `批记录总对应.json` 语义等价回归、前端静态合同、类型检查、evidence validator 和 task-scoped diff check 均已通过。因本轮未获 Git 提交/推送授权，收尾后不标记 completed。
+实现、验证和 task-closeout-cleanup 已完成：生产批记录按钮已改为下载 `product/schemaVersion/processes` 批记录总识别 JSON；真实 `.doc` 与 `批记录总对应.json` 语义等价回归、前端静态合同、类型检查、evidence validator、task-scoped diff check 和 cleanup preview/apply 均已通过。因本轮未获 Git 提交/推送授权，当前不标记 completed。
 
 ## 设计约束检查
 

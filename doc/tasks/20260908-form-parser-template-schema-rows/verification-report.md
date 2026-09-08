@@ -21,6 +21,7 @@ PASS
 - 旧 Word 热合参数前缀括号已标准化，`135±10`、`1.8±0.5` 等值能识别为 numeric UI。
 - 总识别 JSON 生成点已从 Fastjson record 序列化改为 Jackson 序列化，避免返回 `{}`。
 - `backend-api-evidence.md` 和 `bug-regression-evidence.md` 均通过对应 validator；核心结论已归档到本报告。
+- `task-closeout-cleanup` preview/apply 已通过，只删除已归档的临时 evidence 文件，保留核心任务记录。
 
 ## Commands
 
@@ -32,6 +33,8 @@ PASS
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260908-form-parser-template-schema-rows\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260908-form-parser-template-schema-rows\bug-regression-evidence.md` -> PASS, `Bug regression evidence is valid.`
 - task-scoped `git diff --check` with `git add --intent-to-add -f` for new task files -> PASS, only CRLF normalization warnings.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id 20260908-form-parser-template-schema-rows --mode preview` -> PASS, keep core task records, delete only temporary evidence files.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id 20260908-form-parser-template-schema-rows --mode apply` -> PASS, deleted only temporary evidence files.
 
 ## Not Run
 

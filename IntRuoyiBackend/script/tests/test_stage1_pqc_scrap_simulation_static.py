@@ -28,6 +28,21 @@ def test_stage1_pqc_simulation_writes_positive_scrap_quantity_to_pqc_payload():
     assert not missing, "Stage1 PQC simulation scrap contract missing: " + ", ".join(missing)
 
 
+def test_stage1_pqc_simulation_normalizes_already_confirmed_pqc_events():
+    source = read(SIMULATION_SERVICE)
+
+    required = [
+        "normalizeConfirmedPqcSimulationSubmission(activeOrder, task, simulationStage, simulationRunId);",
+        "private void normalizeConfirmedPqcSimulationSubmission(",
+        "processPoolEventMapper.selectByIdForUpdate(task.getSubmittedEventId())",
+        "normalizePqcSimulationPayload(event.getRawPayload(), scrapQuantity, inspectionResult)",
+        ".setRawPayload(normalizedPayload)",
+        ".setInspectionResult(inspectionResult)",
+    ]
+    missing = [item for item in required if item not in source]
+    assert not missing, "Stage1 confirmed PQC normalization contract missing: " + ", ".join(missing)
+
+
 def test_pqc_loss_report_uses_pqc_scrap_quantity_only():
     source = read(FRONTEND_DETAIL)
 
