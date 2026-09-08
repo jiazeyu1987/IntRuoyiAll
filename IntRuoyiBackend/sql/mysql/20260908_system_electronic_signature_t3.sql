@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `system_electronic_signature` (
   `module_code` varchar(64) NOT NULL COMMENT '业务模块编码',
   `action_code` varchar(64) NOT NULL COMMENT '签名动作编码',
   `subject_type` varchar(64) NOT NULL COMMENT '被签对象类型',
-  `subject_id` varchar(512) NOT NULL COMMENT '被签对象编号',
+  `subject_id` varchar(2048) NOT NULL COMMENT '被签对象编号',
   `subject_version` varchar(128) NOT NULL COMMENT '被签对象版本',
   `actor_id` bigint NOT NULL COMMENT '签名人用户编号',
   `meaning_code` varchar(64) NOT NULL COMMENT '签名含义编码',

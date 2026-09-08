@@ -15,7 +15,7 @@ BEGIN
            AND column_name = 'subject_id'
     ) THEN
         ALTER TABLE `system_electronic_signature`
-            MODIFY COLUMN `subject_id` varchar(512) NOT NULL COMMENT '被签对象编号';
+            MODIFY COLUMN `subject_id` varchar(2048) NOT NULL COMMENT '被签对象编号';
     END IF;
 END$$
 DELIMITER ;

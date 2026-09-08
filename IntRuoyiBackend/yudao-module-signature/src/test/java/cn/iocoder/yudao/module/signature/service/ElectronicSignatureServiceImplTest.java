@@ -194,6 +194,24 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testSign_acceptsFullDccApprovalSubjectIdentityBeyondLegacyCapacity() {
+        String fullDccSubjectId = "DCC_APPROVAL_CONTEXT:" + "A".repeat(900);
+        ElectronicSignatureCommand command = buildCommand("idem-dcc-long-subject", fullDccSubjectId,
+                "V1", "DCC 审批通过");
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+
+            ElectronicSignatureResult result = signatureService.sign(command);
+
+            ElectronicSignatureRecordDO record = signatureRecordMapper.selectById(result.signatureId());
+            assertEquals(fullDccSubjectId, record.getSubjectId());
+            assertEquals(921, record.getSubjectId().length());
+            assertEquals(1, signatureQueryService.listBySubject("TEST", "TEST_RECORD", fullDccSubjectId).size());
+        }
+    }
+
+    @Test
     public void testComplianceReview_createsQuarterlySpecialAndEscalatesOverdue() {
         LocalDateTime plannedAt = LocalDateTime.of(2026, 9, 8, 9, 0);
         Long quarterlyId = complianceReviewService.createQuarterlyReview("ALL_MODULES", 101L, 102L,
@@ -266,7 +284,12 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     }
 
     private ElectronicSignatureCommand buildCommand(String idempotencyKey, String expectedSubjectVersion, String reason) {
-        return new ElectronicSignatureCommand("TEST", "APPROVE", "TEST_RECORD", "R001",
+        return buildCommand(idempotencyKey, "R001", expectedSubjectVersion, reason);
+    }
+
+    private ElectronicSignatureCommand buildCommand(String idempotencyKey, String subjectId,
+                                                    String expectedSubjectVersion, String reason) {
+        return new ElectronicSignatureCommand("TEST", "APPROVE", "TEST_RECORD", subjectId,
                 expectedSubjectVersion, "Signer@2026", reason, idempotencyKey, "2026-09-08T09:00:00", "Asia/Shanghai");
     }
 
@@ -291,7 +314,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
                 @Override
                 public SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command) {
                     assertEquals(101L, command.actorId());
-                    return new SignatureSubjectSnapshot("TEST_RECORD", "R001", "V1",
+                    return new SignatureSubjectSnapshot("TEST_RECORD", command.subjectId(), "V1",
                             "{\"name\":\"record\",\"version\":\"V1\"}",
                             null, null, null, "PI001", "TASK001", "APPROVE_NODE", 1);
                 }
