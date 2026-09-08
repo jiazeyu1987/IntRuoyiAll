@@ -70,9 +70,9 @@ def test_unified_signature_subject_id_capacity_supports_encoded_business_identit
     repair_migration = (ROOT / "sql/mysql/20260908_system_electronic_signature_subject_id_capacity.sql").read_text(encoding="utf-8")
     test_schema = (ROOT / "yudao-module-signature/src/test/resources/sql/create_tables.sql").read_text(encoding="utf-8")
 
-    assert "`subject_id` varchar(512) NOT NULL" in base_migration
-    assert "MODIFY COLUMN `subject_id` varchar(512) NOT NULL" in repair_migration
-    assert '"subject_id" varchar(512) not null' in test_schema
+    assert "`subject_id` varchar(2048) NOT NULL" in base_migration
+    assert "MODIFY COLUMN `subject_id` varchar(2048) NOT NULL" in repair_migration
+    assert '"subject_id" varchar(2048) not null' in test_schema
 
 
 def test_bpm_t5_approval_signatures_delegate_to_unified_kernel():
