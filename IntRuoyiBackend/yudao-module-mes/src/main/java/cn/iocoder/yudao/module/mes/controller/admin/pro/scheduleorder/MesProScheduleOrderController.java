@@ -15,6 +15,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrderReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteImpactRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDailyCompareRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderExportExcelVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderOperationLogRespVO;
@@ -200,9 +202,16 @@ public class MesProScheduleOrderController {
     @Operation(summary = "批量删除排产工单")
     @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:delete')")
     public CommonResult<Boolean> deleteScheduleOrders(
-            @Valid @RequestBody MesProScheduleOrderBatchReqVO reqVO) {
+            @Valid @RequestBody MesProScheduleOrderDeleteReqVO reqVO) {
         scheduleOrderService.deleteScheduleOrders(reqVO);
         return success(true);
+    }
+
+    @GetMapping("/delete-impact")
+    @Operation(summary = "预览删除排产工单的影响")
+    @PreAuthorize("@ss.hasPermission('mes:pro-schedule-order:delete')")
+    public CommonResult<MesProScheduleOrderDeleteImpactRespVO> getDeleteImpact(@RequestParam("id") Long id) {
+        return success(scheduleOrderService.getDeleteImpact(id));
     }
 
     @GetMapping("/get")

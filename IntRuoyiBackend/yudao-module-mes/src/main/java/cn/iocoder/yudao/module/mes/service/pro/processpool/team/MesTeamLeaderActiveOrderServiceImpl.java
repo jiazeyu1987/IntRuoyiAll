@@ -2426,7 +2426,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private List<PlannedPqcTask> preparePqcTaskPlan(MesProcessPoolActiveOrderDO activeOrder,
                                                      ActiveOrderQaSource qaSource) {
-        List<PlannedPqcTask> plans = new ArrayList<>();
+        Map<PlannedPqcTaskIdentity, PlannedPqcTask> plans = new LinkedHashMap<>();
         for (MesQaInspectionRegulationProcessDO qaProcess : qaSource.processes()) {
             List<MesQaInspectionRegulationItemDO> processItems = qaSource.items().stream()
                     .filter(item -> Objects.equals(qaProcess.getId(), item.getQaProcessId()))
@@ -2457,12 +2457,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         String qaItemCode = requireQaItemCode(activeOrder, qaProcess, item);
                         Integer plannedQuantity = resolveInspectionQuantity(activeOrder, List.of(item),
                                 rule.inspectionType());
-                        plans.add(new PlannedPqcTask(qaProcess, item, qaItemCode, rule, plannedQuantity));
+                        addPlannedPqcTask(activeOrder, plans,
+                                new PlannedPqcTask(qaProcess, item, qaItemCode, rule, plannedQuantity));
                     }
                     continue;
                 }
                 Integer plannedQuantity = resolveInspectionQuantity(activeOrder, processItems, rule.inspectionType());
-                plans.add(new PlannedPqcTask(qaProcess, null, "", rule, plannedQuantity));
+                addPlannedPqcTask(activeOrder, plans,
+                        new PlannedPqcTask(qaProcess, null, "", rule, plannedQuantity));
             }
         }
         if (plans.isEmpty()) {
@@ -2470,7 +2472,25 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     "已发布 QA 规程未生成任何检验任务，workOrderId=" + activeOrder.getWorkOrderId()
                             + "，regulationVersionId=" + qaSource.version().getId());
         }
-        return plans;
+        return new ArrayList<>(plans.values());
+    }
+
+    private static void addPlannedPqcTask(MesProcessPoolActiveOrderDO activeOrder,
+                                          Map<PlannedPqcTaskIdentity, PlannedPqcTask> plans,
+                                          PlannedPqcTask plan) {
+        PlannedPqcTaskIdentity identity = PlannedPqcTaskIdentity.of(plan);
+        PlannedPqcTask existing = plans.get(identity);
+        if (existing == null) {
+            plans.put(identity, plan);
+            return;
+        }
+        if (!Objects.equals(existing.plannedQuantity(), plan.plannedQuantity())) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "同一PQC任务身份存在不同计划检验数量，activeOrderId=" + activeOrder.getId()
+                            + "，qaProcessId=" + plan.qaProcess().getId()
+                            + "，qaItemCode=" + plan.qaItemCode()
+                            + "，inspectionRuleKey=" + plan.rule().ruleKey());
+        }
     }
 
     private int insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder,
@@ -2569,7 +2589,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         MesPqcInspectionTaskDO existing = pqcInspectionTaskMapper.selectByQaIdentity(task.getActiveOrderId(),
                 task.getRouteProcessId(), task.getProcessId(),
                 task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode(), task.getInspectionRuleKey(),
-                task.getBusinessDate());
+                task.getInspectionType(), task.getBusinessDate(), task.getShiftCode(), task.getRoundNo());
         if (existing != null) {
             throw exception(PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT, identityText(task));
         }
@@ -2933,6 +2953,18 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                   String qaItemCode,
                                   PqcInspectionRule rule,
                                   Integer plannedQuantity) {
+    }
+
+    private record PlannedPqcTaskIdentity(Long qaProcessId,
+                                          String qaItemCode,
+                                          String inspectionRuleKey,
+                                          String inspectionType,
+                                          String shiftCode) {
+
+        private static PlannedPqcTaskIdentity of(PlannedPqcTask task) {
+            return new PlannedPqcTaskIdentity(task.qaProcess().getId(), task.qaItemCode(),
+                    task.rule().ruleKey(), task.rule().inspectionType(), task.rule().shiftCode());
+        }
     }
 
     private record ActiveOrderRouteSource(Long routeId, Long routeVersionId,

@@ -145,6 +145,24 @@ public class MesProScheduleOrderDO extends BaseDO {
 
     private String manualFinishedReason;
 
+    /**
+     * 是否已撤出排产体系。该字段与框架逻辑删除相互独立。
+     */
+    private Boolean removedFromSchedule;
+
+    private LocalDateTime removedFromScheduleTime;
+
+    private Long removedFromScheduleBy;
+
+    private String removedFromScheduleReason;
+
+    private Integer removedFromScheduleStatus;
+
+    /**
+     * 是否存在生产事实，存在时禁止来源生产工单直接重新入池。
+     */
+    private Boolean reentryBlocked;
+
     private String sourceSnapshotJson;
 
     private String routeSnapshotJson;

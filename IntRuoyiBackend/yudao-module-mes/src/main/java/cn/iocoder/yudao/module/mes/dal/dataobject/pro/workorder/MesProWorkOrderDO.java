@@ -130,6 +130,10 @@ public class MesProWorkOrderDO extends TenantBaseDO {
      */
     private String drawingNumber;
     /**
+     * REF.NO.
+     */
+    private String refNo;
+    /**
      * 排产状态
      */
     private String scheduleStatus;

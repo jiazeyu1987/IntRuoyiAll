@@ -143,3 +143,18 @@
 - GREEN: int_main-clean-partial-apply -> PASS. Applied the clean code/script/task-record portion into `E:\IntRuoyi` without touching unrelated unstaged MES/frontline changes.
 - GREEN: int_main-document-merge -> PASS. Manually merged the six document files that already had `int_main` local edits, preserving the current authorization notes and adding the missing registration E2E wording.
 - GREEN: int_main-commit -> PASS. Created `int_main` commit `acfcd7a39` for the fused registration E2E verification changes.
+
+## 2026-09-07 int_main Post-Fusion E2E Attempt
+
+- USER_AUTHORIZATION: User explicitly authorized restarting `int_main` local backend `48081` and frontend `8081` if needed before the post-fusion E2E.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS. Confirmed `int_main` runtime ports remain frontend `8081` and backend `48081`.
+- BLOCKED: `IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component full -WorktreeName int_main` -> FAIL. Standard full restart could not build `yudao-server` because `yudao-module-mes` test compilation failed at `MesProScheduleOrderServiceImplTest.java:3066` with `MesProScheduleOrderBatchReqVO` not assignable to `MesProScheduleOrderDeleteReqVO`.
+- BLOCKED: post-fusion-registration-e2e -> `48081` is not listening after the failed standard restart, so the registration E2E cannot prove behavior against the fused `int_main` backend runtime. Per the runtime code-source gate, no Playwright registration E2E was started against an unavailable or stale backend.
+- USER_AUTHORIZATION: User requested fixing the blocker first and then continuing the E2E.
+- GREEN: `IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component full -WorktreeName int_main` -> PASS on rerun. Standard full restart rebuilt and started the fused `int_main` runtime: frontend `8081`, backend `48081`, backend health `UP`.
+- REGRESSION: `int-main-post-fusion-r1` -> 14 PASS, 1 FAIL. `download-search-targeted` timed out because the Element Plus date picker exposed month navigation buttons as `Previous Month` / `Next Month`, while the script only looked for Chinese accessible names.
+- FIX: `registration-certificate-download-search-targeted.spec.cjs` now accepts both Chinese and English date picker month button accessible names.
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\registration-certificate-download-search-targeted.spec.cjs` -> PASS.
+- GREEN: targeted `download-search-targeted` rerun `int-main-post-fusion-download-r2` -> PASS.
+- GREEN: `int-main-post-fusion-r2` -> PASS. Summary path: `doc/tasks/20260906-registration-all-e2e-worktree/artifacts/int-main-post-fusion-r2/summary.json`.
+- RESULT: 15 PASS, 0 FAIL, 0 BLOCKED in the final fused `int_main` round: `action-panel`, `upload-admin-role-approval`, `change-continue-approval`, `change-submit-approval`, `change-remaining`, `change-ui-smoke`, `download-search-targeted`, `list-sort`, `real-flow`, `renewal-lifecycle`, `renewal-row-dialog`, `upload-button`, `upload-submit-repro`, `reminder-sort-runtime`, and `business-time-simulation`.

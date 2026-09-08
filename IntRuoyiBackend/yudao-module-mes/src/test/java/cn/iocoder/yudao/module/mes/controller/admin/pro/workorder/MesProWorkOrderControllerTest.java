@@ -130,6 +130,7 @@ class MesProWorkOrderControllerTest {
                 .auxiliaryCode("K20260113")
                 .businessStatus("424")
                 .drawingNumber("255ACSXXXX")
+                .refNo("REF-2026-001")
                 .scheduleStatus("未排产")
                 .plannedStartTime(LocalDateTime.of(2026, 3, 25, 0, 0))
                 .plannedEndTime(LocalDateTime.of(2026, 3, 26, 0, 0))
@@ -163,6 +164,7 @@ class MesProWorkOrderControllerTest {
         assertEquals("K20260113", row.getAuxiliaryCode());
         assertEquals("424", row.getBusinessStatus());
         assertEquals("255ACSXXXX", row.getDrawingNumber());
+        assertEquals("REF-2026-001", row.getRefNo());
         assertEquals("未排产", row.getScheduleStatus());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), row.getPlannedStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 26, 0, 0), row.getPlannedEndTime());

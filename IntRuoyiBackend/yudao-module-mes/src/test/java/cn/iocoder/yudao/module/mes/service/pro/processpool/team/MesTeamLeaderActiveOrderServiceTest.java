@@ -276,7 +276,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(defaultPqcItems());
         lenient().when(pqcInspectionTaskMapper.selectListByActiveOrderId(8101L))
                 .thenReturn(frozenPqcTasks());
-        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any(), any(), any()))
+        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any(), any(), any(),
+                        any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
@@ -777,6 +778,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(Set.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
                 taskCaptor.getAllValues().stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
+        verify(pqcInspectionTaskMapper).selectByQaIdentity(eq(8101L), eq(928601L), eq(6001L),
+                eq(9902L), eq(19902L), eq("PATROL-001"), eq("PATROL_AM"),
+                eq("PATROL"), any(LocalDate.class), eq("AM"), eq(1));
+        verify(pqcInspectionTaskMapper).selectByQaIdentity(eq(8101L), eq(928601L), eq(6001L),
+                eq(9902L), eq(19902L), eq("PATROL-001"), eq("PATROL_PM"),
+                eq("PATROL"), any(LocalDate.class), eq("PM"), eq(1));
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> Objects.equals(19902L, task.getQaProcessId())
                         && Objects.equals(9902L, task.getRegulationVersionId())
@@ -1059,6 +1066,38 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(Set.of("FIRST", "PATROL_AM", "PATROL_PM"),
                 tasks.stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void shouldDeduplicateSamePqcTaskIdentityWhenRegulationContainsRepeatedQaItemRows() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(1),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(false, "项目不适用末检"));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
+                qaProcess(9902L, 19902L, "QA-P1", "清洗", 1)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(
+                pqcItem(9902L, 19902L, "FIRST", 3, null)
+                        .setItemCode("FIRST-001").setItemName("首检外观"),
+                pqcItem(9902L, 19902L, "PATROL", null, new BigDecimal("5.000000"))
+                        .setItemCode("PQC-IDI-001-I001").setItemName("外观"),
+                pqcItem(9902L, 19902L, "PATROL", null, new BigDecimal("5.000000"))
+                        .setItemCode("PQC-IDI-001-I001").setItemName("外观")));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(3)).insert(taskCaptor.capture());
+        assertEquals(Set.of("FIRST", "PATROL_AM", "PATROL_PM"),
+                taskCaptor.getAllValues().stream()
+                        .map(MesPqcInspectionTaskDO::getInspectionRuleKey)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertTrue(taskCaptor.getAllValues().stream()
+                .filter(task -> task.getInspectionRuleKey().startsWith("PATROL"))
+                .allMatch(task -> "PQC-IDI-001-I001".equals(task.getQaItemCode())));
     }
 
     @Test
@@ -1422,7 +1461,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubSuccessfulActiveOrderInsert();
         when(pqcInspectionTaskMapper.selectByQaIdentity(eq(8101L), eq(928601L), eq(6001L),
                 eq(9902L), eq(19902L),
-                eq("FIRST-001"), eq("FIRST"), any(LocalDate.class)))
+                eq("FIRST-001"), eq("FIRST"), eq("FIRST"), any(LocalDate.class), eq("FIRST"), eq(1)))
                 .thenReturn(MesPqcInspectionTaskDO.builder().id(990001L).build());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));

@@ -38,6 +38,12 @@ export interface MesProScheduleOrderVO {
   manualFinishedTime?: string
   manualFinishedBy?: number
   manualFinishedReason?: string
+  removedFromSchedule?: boolean
+  removedFromScheduleTime?: string
+  removedFromScheduleBy?: number
+  removedFromScheduleReason?: string
+  removedFromScheduleStatus?: number
+  reentryBlocked?: boolean
   latestStartTime?: string
   plannedStartTime?: string
   plannedEndTime?: string
@@ -55,6 +61,7 @@ export interface MesProScheduleOrderVO {
   capacitySnapshotJson?: string
   remark: string
   createTime: string
+  updateTime: string
 }
 
 export interface MesProScheduleOrderProcessVO {
@@ -293,6 +300,30 @@ export interface MesProScheduleOrderBatchReqVO {
   reason: string
 }
 
+export interface MesProScheduleOrderDeleteReqVO {
+  items: Array<{
+    id: number
+    expectedUpdateTime: string
+  }>
+  reason: string
+}
+
+export interface MesProScheduleOrderDeleteImpactVO {
+  id: number
+  code: string
+  status: number
+  frozen?: boolean
+  progressPercent: number
+  updateTime: string
+  pendingTaskCount: number
+  inProgressTaskCount: number
+  finishedTaskCount: number
+  feedbackCount: number
+  activeOrderCount: number
+  productionFactsRetained: boolean
+  reentryBlockedAfterRemoval: boolean
+}
+
 export interface MesProScheduleOrderActionReqVO {
   id: number
   reason: string
@@ -304,12 +335,14 @@ export interface MesProScheduleOrderPageReqVO {
   code?: string
   erpWorkOrderCode?: string
   currentProcessId?: number
+  currentProcessKeyword?: string
   productCode?: string
   productName?: string
   promiseDate?: string[]
   status?: number
   frozen?: boolean
   completionFilter?: 'INCOMPLETE' | 'ALL' | 'COMPLETED'
+  removedFromSchedule?: boolean
   sortField?: string
   sortOrder?: 'asc' | 'desc'
   exportColumns?: string[]
@@ -399,7 +432,9 @@ const normalizeScheduleOrder = (row: MesProScheduleOrderVO): MesProScheduleOrder
     plannedStartTime: normalizeDateTimeValue(row.plannedStartTime),
     plannedEndTime: normalizeDateTimeValue(row.plannedEndTime),
     frozenTime: normalizeDateTimeValue(row.frozenTime),
-    manualFinishedTime: normalizeDateTimeValue(row.manualFinishedTime)
+    manualFinishedTime: normalizeDateTimeValue(row.manualFinishedTime),
+    removedFromScheduleTime: normalizeDateTimeValue(row.removedFromScheduleTime),
+    updateTime: normalizeDateTimeValue(row.updateTime) || ''
   }
 }
 
@@ -523,8 +558,19 @@ export const MesProScheduleOrderApi = {
     return await request.post({ url: '/mes/pro/schedule-order/revoke-manual-finish', data })
   },
 
-  deleteScheduleOrders: async (data: MesProScheduleOrderBatchReqVO) => {
+  deleteScheduleOrders: async (data: MesProScheduleOrderDeleteReqVO) => {
     return await request.delete({ url: '/mes/pro/schedule-order/batch-delete', data })
+  },
+
+  getDeleteImpact: async (id: number) => {
+    const data = await request.get<MesProScheduleOrderDeleteImpactVO>({
+      url: '/mes/pro/schedule-order/delete-impact',
+      params: { id }
+    })
+    return {
+      ...data,
+      updateTime: normalizeDateTimeValue(data.updateTime) || ''
+    }
   },
 
   getOperationLog: async (scheduleOrderId: number) => {

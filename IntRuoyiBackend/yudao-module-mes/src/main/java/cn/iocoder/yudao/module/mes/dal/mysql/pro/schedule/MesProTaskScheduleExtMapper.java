@@ -32,6 +32,16 @@ public interface MesProTaskScheduleExtMapper extends BaseMapperX<MesProTaskSched
                 .in(MesProTaskScheduleExtDO::getScheduleOrderProcessId, scheduleOrderProcessIds));
     }
 
+    default List<MesProTaskScheduleExtDO> selectListByScheduleOrderIds(Collection<Long> scheduleOrderIds) {
+        if (scheduleOrderIds == null || scheduleOrderIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProTaskScheduleExtDO>()
+                .in(MesProTaskScheduleExtDO::getScheduleOrderId, scheduleOrderIds)
+                .orderByAsc(MesProTaskScheduleExtDO::getScheduleOrderId)
+                .orderByAsc(MesProTaskScheduleExtDO::getTaskId));
+    }
+
     default void deleteByTaskIds(Collection<Long> taskIds) {
         if (taskIds == null || taskIds.isEmpty()) {
             return;

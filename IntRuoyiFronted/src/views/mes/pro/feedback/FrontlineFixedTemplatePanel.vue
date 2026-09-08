@@ -261,21 +261,43 @@
               :aria-label="`${formatPqcInspectionTitle(activePqcTabItem)}检验详情`"
             >
               <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
-                <label
+                <div
                   v-if="hasPqcEquipmentOptions(activePqcTabItem)"
                   class="pqc-select-card"
                   data-pqc-equipment-card
                   :class="{
-                    'is-selected': Boolean(getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId),
-                    'is-empty': !getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId
+                    'is-selected': hasCompletedPqcEquipmentSelection(activePqcTabItem),
+                    'is-empty': !hasCompletedPqcEquipmentSelection(activePqcTabItem),
+                    'is-custom': isPqcCustomEquipmentSelection(activePqcTabItem.key)
                   }"
                 >
                   <span>
                     <strong>检验设备</strong>
-                    <span>{{ getPqcSelectedEquipmentLabel(activePqcTabItem) }}</span>
+                    <input
+                      v-if="isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                      class="pqc-select-custom-input"
+                      :value="getPqcCustomEquipmentText(activePqcTabItem.key)"
+                      maxlength="64"
+                      data-pqc-custom-equipment-input
+                      aria-label="手动输入检验设备"
+                      placeholder="请输入检验设备"
+                      @input="updatePqcCustomEquipmentText(activePqcTabItem.key, $event)"
+                    />
+                    <span v-else>{{ getPqcSelectedEquipmentLabel(activePqcTabItem) }}</span>
                   </span>
-                  <em aria-hidden="true">&gt;</em>
+                  <button
+                    v-if="isPqcCustomEquipmentSelection(activePqcTabItem.key)"
+                    type="button"
+                    class="pqc-select-custom-return"
+                    data-pqc-custom-equipment-return
+                    aria-label="返回检验设备选项"
+                    @click="returnToPqcEquipmentOptions(activePqcTabItem.key)"
+                  >
+                    选项
+                  </button>
+                  <em v-else aria-hidden="true">&gt;</em>
                   <select
+                    v-if="!isPqcCustomEquipmentSelection(activePqcTabItem.key)"
                     class="pqc-select-native"
                     :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId ?? ''"
                     data-pqc-equipment-select
@@ -290,8 +312,9 @@
                     >
                       {{ formatPqcEquipmentLabel(option) }}
                     </option>
+                    <option :value="FRONTLINE_OTHER_OPTION_VALUE">{{ FRONTLINE_OTHER_OPTION_LABEL }}</option>
                   </select>
-                </label>
+                </div>
 
                 <button
                   type="button"
@@ -963,8 +986,8 @@
                   -
                 </button>
                 <el-select
-                  v-else-if="isSelectParameter(parameter)"
-                  class="device-value device-select"
+                  v-else-if="isSelectParameter(parameter) && !isProductionSelectParameterCustom(activeProductionDevice.key, parameter)"
+                  class="device-value device-select frontline-production-device-param-select"
                   :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
                   :model-value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
                   :aria-label="parameter.parameterName || parameter.parameterCode"
@@ -973,6 +996,7 @@
                   allow-create
                   default-first-option
                   data-frontline-select-parameter
+                  placeholder="请选择"
                   @update:model-value="updateProductionDeviceSelectParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
                 >
                   <el-option label="请选择" value="" />
@@ -982,7 +1006,36 @@
                     :value="option"
                     :label="option"
                   />
+                  <el-option
+                    :label="FRONTLINE_OTHER_OPTION_LABEL"
+                    :value="FRONTLINE_OTHER_OPTION_VALUE"
+                  />
                 </el-select>
+                <div
+                  v-else-if="isSelectParameter(parameter)"
+                  class="frontline-production-device-select-custom"
+                  data-frontline-production-select-custom
+                >
+                  <input
+                    class="device-value frontline-production-device-select-custom-input"
+                    :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                    :value="getProductionDeviceCustomParameterValue(activeProductionDevice.key, parameter.parameterCode)"
+                    :aria-label="`手动输入${parameter.parameterName || parameter.parameterCode}`"
+                    :disabled="payloadLoading"
+                    maxlength="128"
+                    placeholder="请输入"
+                    data-frontline-production-select-custom-input
+                    @input="updateProductionDeviceCustomParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
+                  />
+                  <button
+                    type="button"
+                    :disabled="payloadLoading"
+                    data-frontline-production-select-custom-return
+                    @click="returnToProductionSelectOptions(activeProductionDevice.key, parameter.parameterCode)"
+                  >
+                    选项
+                  </button>
+                </div>
                 <label
                   v-else-if="isBooleanParameter(parameter)"
                   class="frontline-production-device-boolean"
@@ -1527,6 +1580,12 @@ interface PqcItemSelection {
   selectedEquipmentNumber?: string
 }
 
+interface PqcResolvedEquipmentSelection {
+  selection: PqcItemSelection
+  selectedOption?: FrontlinePqcEquipmentOptionVO
+  customEquipmentText?: string
+}
+
 type PqcTaskDraftKey = string
 
 interface PqcTaskDraftState {
@@ -1544,6 +1603,9 @@ const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
 })
 
 const message = useMessage()
+
+const FRONTLINE_OTHER_OPTION_VALUE = '__FRONTLINE_OTHER__'
+const FRONTLINE_OTHER_OPTION_LABEL = '其他（手动输入）'
 
 const PARAMETER_AUDIT_REASON_TEXT = {
   DEVICE_ID_MISSING: '参数读数缺少设备',
@@ -2190,6 +2252,20 @@ const isTextStandardParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =
 const isSelectParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
   parameter.valueType === 'SELECT'
 
+const isProductionSelectParameterCustom = (
+  deviceKey: string,
+  parameter: FrontlineRuntimeDeviceParameterVO
+) => {
+  const value = getProductionDeviceParameter(deviceKey, parameter.parameterCode)
+  if (value === FRONTLINE_OTHER_OPTION_VALUE) {
+    return true
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return false
+  }
+  return !(parameter.optionValues || []).includes(value)
+}
+
 const isBooleanParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
   parameter.valueType === 'BOOLEAN'
 
@@ -2423,6 +2499,7 @@ const clearProductionMaterialDrafts = () => {
 const syncProductionMaterialDrafts = (materials: ProductionMaterialOption[]) => {
   if (!materials.length) {
     clearProductionMaterialDrafts()
+    ensureProductionDefaultDeviceSelection(visibleDeviceCards.value)
     return
   }
   const materialKeys = new Set(materials.map((material) => material.key))
@@ -2888,8 +2965,36 @@ const updateProductionDeviceSelectParameter = (
   parameterKey: ProductionDeviceParameterKey,
   value: string
 ) => {
+  if (value === FRONTLINE_OTHER_OPTION_VALUE) {
+    ensureProductionDeviceParameters(deviceKey)[parameterKey] = FRONTLINE_OTHER_OPTION_VALUE
+    return
+  }
   const normalized = value.trim()
   ensureProductionDeviceParameters(deviceKey)[parameterKey] = normalized || undefined
+}
+
+const getProductionDeviceCustomParameterValue = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey
+) => {
+  const value = getProductionDeviceParameter(deviceKey, parameterKey)
+  return value === FRONTLINE_OTHER_OPTION_VALUE || typeof value !== 'string' ? '' : value
+}
+
+const updateProductionDeviceCustomParameter = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey,
+  event: Event
+) => {
+  const value = (event.target as HTMLInputElement).value
+  ensureProductionDeviceParameters(deviceKey)[parameterKey] = value || FRONTLINE_OTHER_OPTION_VALUE
+}
+
+const returnToProductionSelectOptions = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey
+) => {
+  ensureProductionDeviceParameters(deviceKey)[parameterKey] = undefined
 }
 
 const updateProductionDeviceBooleanParameter = (
@@ -3207,9 +3312,33 @@ const getUniquePqcEquipmentOptions = (item: PqcInspectionItem) => {
 const formatPqcEquipmentLabel = (option: FrontlinePqcEquipmentOptionVO) =>
   [option.equipmentName, option.equipmentNumber].filter(Boolean).join(' / ')
 
+const isPqcCustomEquipmentSelection = (itemKey: PqcInspectionItemKey) => {
+  const selection = getPqcItemSelection(itemKey)
+  return !selection.selectedEquipmentId && Boolean(selection.selectedEquipmentNumber)
+}
+
+const getPqcCustomEquipmentText = (itemKey: PqcInspectionItemKey) => {
+  const value = getPqcItemSelection(itemKey).selectedEquipmentNumber || ''
+  return value === FRONTLINE_OTHER_OPTION_VALUE ? '' : value
+}
+
+const hasCompletedPqcEquipmentSelection = (item: PqcInspectionItem) => {
+  const selection = getPqcItemSelection(item.key)
+  if (selection.selectedEquipmentId) {
+    return Boolean(selection.selectedEquipmentNumber)
+  }
+  const customText = selection.selectedEquipmentNumber?.trim()
+  return Boolean(customText && customText !== FRONTLINE_OTHER_OPTION_VALUE)
+}
+
 const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Event) => {
   const value = (event.target as HTMLSelectElement).value
   const selection = getPqcItemSelection(itemKey)
+  if (value === FRONTLINE_OTHER_OPTION_VALUE) {
+    selection.selectedEquipmentId = undefined
+    selection.selectedEquipmentNumber = FRONTLINE_OTHER_OPTION_VALUE
+    return
+  }
   const selectedEquipmentId = value ? Number(value) : undefined
   const item = pqcInspectionItemMap.value[itemKey]
   const selectedOption = item?.equipmentOptions.find((option) => option.equipmentId === selectedEquipmentId)
@@ -3218,6 +3347,19 @@ const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Ev
   }
   selection.selectedEquipmentId = selectedEquipmentId
   selection.selectedEquipmentNumber = selectedOption?.equipmentNumber
+}
+
+const updatePqcCustomEquipmentText = (itemKey: PqcInspectionItemKey, event: Event) => {
+  const value = (event.target as HTMLInputElement).value
+  const selection = getPqcItemSelection(itemKey)
+  selection.selectedEquipmentId = undefined
+  selection.selectedEquipmentNumber = value || FRONTLINE_OTHER_OPTION_VALUE
+}
+
+const returnToPqcEquipmentOptions = (itemKey: PqcInspectionItemKey) => {
+  const selection = getPqcItemSelection(itemKey)
+  selection.selectedEquipmentId = undefined
+  selection.selectedEquipmentNumber = undefined
 }
 
 const openPqcStandardDialog = (itemKey: PqcInspectionItemKey) => {
@@ -3390,12 +3532,17 @@ const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {
 }
 
 const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
-  const selectedEquipmentId = getPqcItemSelection(item.key).selectedEquipmentId
+  const selection = getPqcItemSelection(item.key)
+  const selectedEquipmentId = selection.selectedEquipmentId
   const selectedOption = item.equipmentOptions.find((option) =>
     option.equipmentId === selectedEquipmentId
   )
   if (selectedOption) {
     return formatPqcEquipmentLabel(selectedOption)
+  }
+  const customText = selection.selectedEquipmentNumber?.trim()
+  if (customText && customText !== FRONTLINE_OTHER_OPTION_VALUE) {
+    return customText
   }
   return hasPqcEquipmentOptions(item) ? '可选检验设备' : ''
 }
@@ -3425,7 +3572,7 @@ const formatPqcMethodSummary = (item: PqcInspectionItem) =>
 const formatPqcInspectionTitle = (item: PqcInspectionItem) =>
   formatPqcMethodSummary(item)
 
-function assertPqcItemEquipmentSelection(item: PqcInspectionItem) {
+function assertPqcItemEquipmentSelection(item: PqcInspectionItem): PqcResolvedEquipmentSelection {
   const selection = getPqcItemSelection(item.key)
   if (!hasPqcEquipmentOptions(item)) {
     if (selection.selectedEquipmentId || selection.selectedEquipmentNumber) {
@@ -3433,8 +3580,14 @@ function assertPqcItemEquipmentSelection(item: PqcInspectionItem) {
     }
     return { selection, selectedOption: undefined }
   }
-  if (!selection.selectedEquipmentId) {
-    throw new Error(`${item.label}未选择检验设备。`)
+  const customEquipmentText = selection.selectedEquipmentNumber?.trim()
+  if (!selection.selectedEquipmentId && customEquipmentText
+      && customEquipmentText !== FRONTLINE_OTHER_OPTION_VALUE) {
+    return { selection, selectedOption: undefined, customEquipmentText }
+  }
+  if (!selection.selectedEquipmentId && (!customEquipmentText
+      || customEquipmentText === FRONTLINE_OTHER_OPTION_VALUE)) {
+    return { selection, selectedOption: undefined }
   }
   if (!selection.selectedEquipmentNumber) {
     throw new Error(`${item.label}未选择设备编号。`)
@@ -3535,7 +3688,7 @@ const buildPqcItemResultsPayload = (
   taskOption: PqcTaskOptionSnapshot | undefined = activePqcTaskOption.value
 ): FrontlinePqcItemResultSubmitReqVO[] =>
   (taskOption?.inspectionItems || []).map(mapPqcInspectionItem).map((item) => {
-    const { selection, selectedOption } = assertPqcItemEquipmentSelection(item)
+    const { selection, selectedOption, customEquipmentText } = assertPqcItemEquipmentSelection(item)
     const payload: FrontlinePqcItemResultSubmitReqVO = {
       itemCode: item.key,
       sampleValues: getPqcExactPieceValuesForTask(item.key, taskOption)
@@ -3543,6 +3696,8 @@ const buildPqcItemResultsPayload = (
     if (selectedOption) {
       payload.selectedEquipmentId = selection.selectedEquipmentId
       payload.selectedEquipmentNumber = selection.selectedEquipmentNumber
+    } else if (customEquipmentText) {
+      payload.selectedEquipmentNumber = customEquipmentText
     }
     return payload
   }).filter((item) =>
@@ -3554,14 +3709,14 @@ const buildPqcItemDetailsPayload = (
   taskOption: PqcTaskOptionSnapshot | undefined = activePqcTaskOption.value
 ) =>
   (taskOption?.inspectionItems || []).map(mapPqcInspectionItem).map((item) => {
-    const { selection, selectedOption } = requirePqcItemSelection(item)
+    const { selection, selectedOption, customEquipmentText } = requirePqcItemSelection(item)
     return {
       itemCode: item.key,
       itemName: item.itemName,
       selectedEquipmentId: selectedOption ? selection.selectedEquipmentId : undefined,
       selectedEquipmentCode: selectedOption?.equipmentCode,
       selectedEquipmentName: selectedOption?.equipmentName,
-      selectedEquipmentNumber: selectedOption ? selection.selectedEquipmentNumber : undefined,
+      selectedEquipmentNumber: selectedOption ? selection.selectedEquipmentNumber : customEquipmentText,
       standardText: item.acceptanceStandard,
       standardLowerLimit: item.standardLowerLimit,
       standardUpperLimit: item.standardUpperLimit,
@@ -4360,7 +4515,11 @@ const assertProductionSubmissionReady = () => {
       .filter((parameter) => {
         const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
         if (isBooleanParameter(parameter)) return typeof value !== 'boolean'
-        if (isSelectParameter(parameter)) return typeof value !== 'string' || !value.trim()
+        if (isSelectParameter(parameter)) {
+          return typeof value !== 'string'
+            || !value.trim()
+            || value === FRONTLINE_OTHER_OPTION_VALUE
+        }
         return toFiniteProductionParameterNumber(value) === undefined
       })
       .map((parameter) => `${device.label}：${parameter.parameterName || parameter.parameterCode}`)
@@ -5041,7 +5200,7 @@ const buildProductionDeviceParameterReadingsFromDraft = (
         }
         if (isSelectParameter(parameter)) {
           const textValue = typeof value === 'string' ? value.trim() : ''
-          if (!textValue) {
+          if (!textValue || textValue === FRONTLINE_OTHER_OPTION_VALUE) {
             return undefined
           }
           return {
@@ -6858,6 +7017,97 @@ onUnmounted(() => {
     text-align-last: center;
   }
 
+  .frontline-production-device-param-select {
+    grid-column: 2 / 5;
+    width: 100%;
+    height: 72px;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 32px;
+    font-weight: 900;
+
+    :deep(.el-select__wrapper) {
+      height: 72px;
+      min-height: 72px;
+      padding: 0 42px;
+      border: 3px solid var(--frontline-line);
+      border-radius: 14px;
+      background: #f8faf8;
+      box-sizing: border-box;
+      box-shadow: none;
+      color: var(--frontline-ink);
+      text-align: center;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    :deep(.el-select__selected-item),
+    :deep(.el-select__placeholder) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      color: var(--frontline-ink);
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+    }
+
+    :deep(.el-select__placeholder.is-transparent) {
+      color: #4b5f55;
+    }
+
+    :deep(.el-select__input) {
+      width: 100%;
+      height: auto;
+      min-width: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--frontline-ink);
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+      box-shadow: none;
+    }
+
+    :deep(.el-select__caret) {
+      flex: 0 0 auto;
+      color: #7f8f86;
+    }
+  }
+
+  .frontline-production-device-select-custom {
+    grid-column: 2 / 5;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 10px;
+    min-width: 0;
+    height: 72px;
+
+    .frontline-production-device-select-custom-input {
+      width: 100%;
+      min-width: 0;
+      height: 72px;
+      padding: 0 18px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+
+    button {
+      height: 72px;
+      border: 3px solid var(--frontline-line);
+      border-radius: 14px;
+      background: #ffffff;
+      color: var(--frontline-dark);
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+  }
+
   span {
     font-size: 26px;
     font-weight: 900;
@@ -7205,6 +7455,39 @@ onUnmounted(() => {
   height: 100%;
   cursor: pointer;
   opacity: 0;
+}
+
+.pqc-select-card.is-custom {
+  grid-template-columns: minmax(0, 1fr) 64px;
+  overflow: visible;
+}
+
+.pqc-select-custom-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border: 2px solid var(--frontline-line);
+  border-radius: 8px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pqc-select-custom-return {
+  height: 38px;
+  border: 2px solid var(--frontline-line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--frontline-dark);
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .pqc-fact-card {

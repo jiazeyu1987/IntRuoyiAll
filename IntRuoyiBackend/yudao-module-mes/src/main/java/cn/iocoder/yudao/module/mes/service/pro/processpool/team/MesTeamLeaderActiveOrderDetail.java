@@ -13,10 +13,12 @@ import java.util.List;
 public class MesTeamLeaderActiveOrderDetail {
 
     private Long activeOrderId;
+    private Integer version;
     private Long workOrderId;
     private String workOrderCode;
     private String batchCode;
     private BigDecimal workOrderQuantity;
+    private String drawingNumber;
     private String productCode;
     private String productName;
     private String productSpecification;
@@ -31,6 +33,7 @@ public class MesTeamLeaderActiveOrderDetail {
         private Long processId;
         private String processCode;
         private String processName;
+        private Boolean keyFlag;
         private BigDecimal requiredQuantity;
         private BigDecimal submittedQuantity;
         private Integer submissionCount;
@@ -83,6 +86,8 @@ public class MesTeamLeaderActiveOrderDetail {
         private String submitterName;
         private String reviewerName;
         private LocalDateTime submittedAt;
+        private SignatureDetail submitterSignature;
+        private SignatureDetail reviewerSignature;
         private Boolean quantityConflict;
         private List<SubmissionDeviceDetail> devices = List.of();
         private List<SubmissionDeviceParameterDetail> deviceParameters = List.of();
@@ -155,10 +160,22 @@ public class MesTeamLeaderActiveOrderDetail {
         private String shiftCode;
         private Integer roundNo;
         private Integer actualInspectionQuantity;
+        private Integer scrapQuantity;
         private String taskStatus;
         private String submitterName;
         private String reviewerName;
+        private List<SignatureDetail> submitterSignatures = List.of();
+        private List<SignatureDetail> reviewerSignatures = List.of();
         private List<PqcSubmissionItemDetail> items = List.of();
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SignatureDetail {
+        private Long signatureId;
+        private String signerName;
+        private LocalDateTime signedAt;
+        private String role;
     }
 
     @Data

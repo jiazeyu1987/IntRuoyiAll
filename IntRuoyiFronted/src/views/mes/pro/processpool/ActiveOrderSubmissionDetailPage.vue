@@ -7,6 +7,8 @@
         :loading="loading"
         :error="error"
         @retry="loadDetail"
+        @open-batch-execution-production-form="handleOpenBatchExecutionSubmissionForm('production', $event)"
+        @open-batch-execution-pqc-form="handleOpenBatchExecutionSubmissionForm('pqc')"
       />
     </div>
   </ContentWrap>
@@ -14,11 +16,14 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ActiveOrderSubmissionDetailPanel from './components/ActiveOrderSubmissionDetailPanel.vue'
 import {
   getTeamLeaderActiveOrderDetail,
+  simulateStage2_5BackfillBatchExecution,
+  type Stage2_5BackfillBatchExecutionSimulationRespVO,
+  type TeamLeaderActiveOrderProcessDetailRespVO,
   type TeamLeaderActiveOrderDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
@@ -26,11 +31,17 @@ import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
 defineOptions({ name: 'MesProcessPoolActiveOrderSubmissionDetail' })
 
 const route = useRoute()
+const router = useRouter()
 
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const sourceWorkOrder = ref<ProWorkOrderVO>()
 const loading = ref(false)
 const error = ref('')
+const batchExecutionOpening = ref(false)
+const batchExecutionOpenResultCache = new Map<
+  number,
+  Stage2_5BackfillBatchExecutionSimulationRespVO
+>()
 
 const resolveErrorMessage = (errorValue: unknown, fallback: string) => {
   if (errorValue instanceof Error && errorValue.message) return errorValue.message
@@ -87,6 +98,58 @@ const loadDetail = async () => {
     ElMessage.error(error.value)
   } finally {
     loading.value = false
+  }
+}
+
+const requireCurrentDetail = () => {
+  if (!detail.value?.activeOrderId) {
+    throw new Error('活跃订单详情尚未加载，无法打开批次执行表单')
+  }
+  if (detail.value.version === undefined || detail.value.version === null) {
+    throw new Error('活跃订单详情缺少当前版本，无法安全生成或打开批次执行')
+  }
+  return detail.value
+}
+
+const resolveBatchExecutionOpenResult = async (
+  currentDetail: TeamLeaderActiveOrderDetailRespVO
+) => {
+  const cached = batchExecutionOpenResultCache.get(currentDetail.activeOrderId)
+  if (cached?.batchExecutionId) return cached
+  const result = await simulateStage2_5BackfillBatchExecution({
+    simulationRunId: `DETAIL-FORM-${Date.now()}`,
+    activeOrderId: currentDetail.activeOrderId,
+    expectedVersion: currentDetail.version
+  })
+  batchExecutionOpenResultCache.set(currentDetail.activeOrderId, result)
+  return result
+}
+
+const handleOpenBatchExecutionSubmissionForm = async (
+  mode: 'production' | 'pqc',
+  process?: TeamLeaderActiveOrderProcessDetailRespVO
+) => {
+  if (batchExecutionOpening.value) return
+  batchExecutionOpening.value = true
+  try {
+    const currentDetail = requireCurrentDetail()
+    const result = await resolveBatchExecutionOpenResult(currentDetail)
+    const query: Record<string, string | number> = {
+      id: result.batchExecutionId,
+      simulationRunId: result.simulationRunId,
+      formSlotType: mode === 'production' ? 'MAIN' : 'PROCESS_INSPECTION'
+    }
+    if (mode === 'production' && process?.routeProcessId) {
+      query.routeProcessId = process.routeProcessId
+    }
+    await router.push({
+      path: '/mes/pro/feedback/edhr-batch-execution/detail',
+      query
+    })
+  } catch (openError) {
+    ElMessage.error(resolveErrorMessage(openError, '打开批次执行表单失败'))
+  } finally {
+    batchExecutionOpening.value = false
   }
 }
 

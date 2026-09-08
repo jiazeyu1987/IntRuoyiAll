@@ -51,4 +51,16 @@
 ## Notes
 
 - Role/menu and company-scope baseline adjustments were performed only after the user explicitly authorized this task's required permission adjustments.
-- No Git commit or push was performed.
+- The post-fusion date-picker E2E script fix and recheck records are present in the working tree; no Git commit or push was performed for this follow-up recheck.
+
+## int_main Post-Fusion Recheck
+
+- Status: PASS
+- Command: `IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component full -WorktreeName int_main`
+- Result: standard full restart passed on rerun and refreshed the fused `int_main` runtime.
+- Runtime: frontend `8081` reachable; backend `48081` health `UP`.
+- First fused round: `int-main-post-fusion-r1` produced 14 PASS and 1 FAIL. The failed case was `download-search-targeted`, caused by date picker month buttons exposing English accessible names.
+- Fix verification: `node --check IntRuoyiFronted\tests\e2e\registration-certificate-download-search-targeted.spec.cjs` passed; targeted `download-search-targeted` rerun `int-main-post-fusion-download-r2` passed.
+- Final fused round: `int-main-post-fusion-r2`.
+- Summary: `doc/tasks/20260906-registration-all-e2e-worktree/artifacts/int-main-post-fusion-r2/summary.json`.
+- Result count: 15 PASS, 0 FAIL, 0 BLOCKED.

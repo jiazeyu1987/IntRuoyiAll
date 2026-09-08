@@ -78,6 +78,43 @@ import static org.mockito.Mockito.when;
 class MesFrontlinePqcContextServiceTest {
 
     @Test
+    void resolveSelectedEquipmentAcceptsTrimmedManualEquipmentTextWithoutId() {
+        MesFrontlinePqcInspectionItem item = new MesFrontlinePqcInspectionItem(
+                "ID-001", "外观", "目视", "合格", "检验设备", "全检",
+                null, null, "", null, true, "QUALITATIVE",
+                List.of(new MesFrontlinePqcInspectionItem.EquipmentOption(
+                        1101L, "EQ-001", "放大镜", "B09031", false, 1)));
+        MesFrontlinePqcSubmitCommand.ItemResult result = MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                .itemCode("ID-001")
+                .selectedEquipmentNumber("  临时专用检具 A-01  ")
+                .sampleValues(List.of("合格"))
+                .build();
+
+        MesFrontlinePqcInspectionItem.EquipmentOption resolved =
+                MesFrontlinePqcContextServiceImpl.resolveSelectedEquipment(item, result);
+
+        assertNull(resolved.equipmentId());
+        assertNull(resolved.equipmentCode());
+        assertNull(resolved.equipmentName());
+        assertEquals("临时专用检具 A-01", resolved.equipmentNumber());
+    }
+
+    @Test
+    void resolveSelectedEquipmentAllowsEmptySelectionWhenEquipmentOptionsExist() {
+        MesFrontlinePqcInspectionItem item = new MesFrontlinePqcInspectionItem(
+                "ID-001", "牢固度", "拉力检验", "合格", "压力表", "全检",
+                null, null, "", null, true, "QUALITATIVE",
+                List.of(new MesFrontlinePqcInspectionItem.EquipmentOption(
+                        1101L, "EQ-001", "压力表", "B09031", false, 1)));
+        MesFrontlinePqcSubmitCommand.ItemResult result = MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                .itemCode("ID-001")
+                .sampleValues(List.of("合格"))
+                .build();
+
+        assertNull(MesFrontlinePqcContextServiceImpl.resolveSelectedEquipment(item, result));
+    }
+
+    @Test
     void processResponseKeepsTaskIdentityOnlyInTaskOptions() {
         Set<String> forbiddenProcessFields = Set.of(
                 "pqcTaskId", "inspectionRuleKey", "taskStatus", "inspectionType",

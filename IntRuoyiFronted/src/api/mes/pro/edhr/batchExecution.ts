@@ -438,6 +438,7 @@ export interface EdhrBatchExecutionRespVO {
   batchExecutionCode?: string
   workOrderId?: number
   workOrderCode?: string
+  activeOrderId?: number
   batchCode?: string
   attemptNo?: number
   sourceRejectedBatchExecutionId?: number

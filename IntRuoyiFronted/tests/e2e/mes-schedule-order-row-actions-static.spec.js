@@ -16,10 +16,10 @@ assert(operationColumnMatch, '排产工单页面必须存在行操作列模板�
 
 const operationColumnSource = operationColumnMatch[1]
 const activeRowActionsMatch = operationColumnSource.match(
-  /<div v-else class="schedule-order-pool__row-actions">([\s\S]*?)<\/div>/
+  /<div class="schedule-order-pool__row-actions">([\s\S]*?)<\/div>/
 )
 
-assert(activeRowActionsMatch, '排产工单页面必须存在非冻结行操作模板。')
+assert(activeRowActionsMatch, '排产工单页面必须存在统一行操作模板。')
 
 const activeRowActionsSource = activeRowActionsMatch[1]
 
@@ -28,6 +28,18 @@ assert(
     activeRowActionsSource
   ),
   '排产工单行操作必须保留查看按钮。'
+)
+
+assert(
+  /v-if="!row\.removedFromSchedule"[\s\S]*?v-hasPermi="\['mes:pro-schedule-order:delete'\]"[\s\S]*?@click="openDeleteDialog\(row\)"/.test(
+    activeRowActionsSource
+  ),
+  '排产工单所有未删除状态都必须提供有权限控制的删除操作。'
+)
+
+assert(
+  activeRowActionsSource.includes('v-if="!row.removedFromSchedule && row.frozen"'),
+  '冻结工单必须保留解冻操作。'
 )
 
 assert(
@@ -52,14 +64,12 @@ assert(
 )
 
 for (const forbidden of [
-  'openUnfreezeDialog(row)',
   'openOperationLogDialog(row)',
   ':command="`${row.id}:compare`"',
   ':command="`${row.id}:process`"',
   ':command="`${row.id}:delete`"',
   ':command="`${row.id}:trace`"',
   '更多',
-  '解冻',
   '追溯'
 ]) {
   assert(!activeRowActionsSource.includes(forbidden), `排产工单行操作不应再包含：${forbidden}`)

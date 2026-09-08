@@ -949,7 +949,10 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
                     Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
                     currentTaskCount.intValue(), latestUpdatedTask != null ? latestUpdatedTask.getUpdateTime() : null, true);
         }
-        List<MesProScheduleOrderDO> activeScheduleOrders = scheduleOrderMapper.selectEffectiveListByWorkOrderIds(historicalWorkOrderIds);
+        List<MesProScheduleOrderDO> activeScheduleOrders = scheduleOrderMapper
+                .selectEffectiveListByWorkOrderIds(historicalWorkOrderIds).stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getRemovedFromSchedule()))
+                .toList();
         activeScheduleOrders = activeScheduleOrders.stream()
                 .filter(item -> !ObjUtil.equal(item.getStatus(), cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum.FINISHED.getStatus()))
                 .filter(item -> !ObjUtil.equal(item.getStatus(), cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum.CANCELED.getStatus()))

@@ -95,6 +95,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(2, detail.getProcesses().size());
         MesTeamLeaderActiveOrderDetail.ProcessDetail roughWash = detail.getProcesses().get(0);
         assertEquals(new BigDecimal("100.000000"), roughWash.getRequiredQuantity());
+        assertEquals(Boolean.TRUE, roughWash.getKeyFlag());
         assertEquals(new BigDecimal("70"), roughWash.getSubmittedQuantity());
         assertEquals(2, roughWash.getSubmissionCount());
         assertEquals("张三", roughWash.getSubmissions().get(0).getSubmitterName());
@@ -546,6 +547,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .setProcessId(processId)
                 .setProcessCode("P-" + processId)
                 .setProcessName(processName)
+                .setKeyFlag(true)
                 .setRequiredQuantity(new BigDecimal(requiredQuantity))
                 .setEventId(eventId)
                 .setSubmittedQuantity(submittedQuantity == null ? null : new BigDecimal(submittedQuantity))

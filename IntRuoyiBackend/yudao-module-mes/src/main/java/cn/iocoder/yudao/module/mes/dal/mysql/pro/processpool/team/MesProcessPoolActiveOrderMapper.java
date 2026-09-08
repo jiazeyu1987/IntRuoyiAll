@@ -118,6 +118,16 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .last("FOR UPDATE"));
     }
 
+    default List<MesProcessPoolActiveOrderDO> selectHistoryByWorkOrderId(Long workOrderId) {
+        if (workOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, List.of("ACTIVE", "REMOVED"))
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectHistoryByWorkOrderIds(Collection<Long> workOrderIds) {
         if (workOrderIds == null || workOrderIds.isEmpty()) {
             return List.of();

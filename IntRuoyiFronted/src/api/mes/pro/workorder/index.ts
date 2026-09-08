@@ -34,6 +34,7 @@ export interface ProWorkOrderVO {
   auxiliaryCode: string
   businessStatus: string
   drawingNumber: string
+  refNo: string
   scheduleStatus: string
   plannedStartTime: Date
   plannedEndTime: Date

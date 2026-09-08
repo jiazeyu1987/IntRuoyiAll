@@ -41,6 +41,8 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
                 .inIfPresent(MesProScheduleOrderDO::getProductId, productIds)
                 .eqIfPresent(MesProScheduleOrderDO::getDiffStatus, reqVO.getDiffStatus())
                 .betweenIfPresent(MesProScheduleOrderDO::getPromiseDate, reqVO.getPromiseDate());
+        queryWrapper.eq(MesProScheduleOrderDO::getRemovedFromSchedule,
+                Boolean.TRUE.equals(reqVO.getRemovedFromSchedule()));
         if (MesProScheduleOrderCompletionFilterEnum.INCOMPLETE.getValue().equals(reqVO.getCompletionFilter())) {
             queryWrapper.in(MesProScheduleOrderDO::getStatus,
                     MesProScheduleOrderStatusEnum.PREPARE.getStatus(),
@@ -95,8 +97,19 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
     default MesProScheduleOrderDO selectEffectiveByWorkOrderId(Long workOrderId) {
         return selectOne(new LambdaQueryWrapperX<MesProScheduleOrderDO>()
                 .eq(MesProScheduleOrderDO::getWorkOrderId, workOrderId)
+                .and(wrapper -> wrapper.eq(MesProScheduleOrderDO::getRemovedFromSchedule, Boolean.FALSE)
+                        .or().eq(MesProScheduleOrderDO::getReentryBlocked, Boolean.TRUE))
                 .ne(MesProScheduleOrderDO::getStatus, MesProScheduleOrderStatusEnum.FINISHED.getStatus())
-                .ne(MesProScheduleOrderDO::getStatus, MesProScheduleOrderStatusEnum.CANCELED.getStatus()));
+                .ne(MesProScheduleOrderDO::getStatus, MesProScheduleOrderStatusEnum.CANCELED.getStatus())
+                .orderByAsc(MesProScheduleOrderDO::getRemovedFromSchedule)
+                .orderByDesc(MesProScheduleOrderDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProScheduleOrderDO selectByIdForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<MesProScheduleOrderDO>()
+                .eq(MesProScheduleOrderDO::getId, id)
+                .last("FOR UPDATE"));
     }
 
     default List<MesProScheduleOrderDO> selectListByWorkOrderIds(Collection<Long> workOrderIds) {
@@ -131,6 +144,8 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
         }
         return selectList(new LambdaQueryWrapperX<MesProScheduleOrderDO>()
                 .in(MesProScheduleOrderDO::getWorkOrderId, workOrderIds)
+                .and(wrapper -> wrapper.eq(MesProScheduleOrderDO::getRemovedFromSchedule, Boolean.FALSE)
+                        .or().eq(MesProScheduleOrderDO::getReentryBlocked, Boolean.TRUE))
                 .ne(MesProScheduleOrderDO::getStatus, MesProScheduleOrderStatusEnum.FINISHED.getStatus())
                 .ne(MesProScheduleOrderDO::getStatus, MesProScheduleOrderStatusEnum.CANCELED.getStatus())
                 .orderByDesc(MesProScheduleOrderDO::getId));
@@ -142,6 +157,7 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
                         MesProScheduleOrderStatusEnum.PREPARE.getStatus(),
                         MesProScheduleOrderStatusEnum.SCHEDULED.getStatus(),
                         MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .eq(MesProScheduleOrderDO::getRemovedFromSchedule, Boolean.FALSE)
                 .eq(MesProScheduleOrderDO::getFrozen, Boolean.FALSE)
                 .orderByAsc(MesProScheduleOrderDO::getPromiseDate)
                 .orderByAsc(MesProScheduleOrderDO::getPriorityNo)
@@ -154,6 +170,7 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
                         MesProScheduleOrderStatusEnum.PREPARE.getStatus(),
                         MesProScheduleOrderStatusEnum.SCHEDULED.getStatus(),
                         MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .eq(MesProScheduleOrderDO::getRemovedFromSchedule, Boolean.FALSE)
                 .eq(MesProScheduleOrderDO::getFrozen, Boolean.FALSE)
                 .orderByAsc(MesProScheduleOrderDO::getPromiseDate)
                 .orderByAsc(MesProScheduleOrderDO::getPriorityNo)
@@ -162,6 +179,7 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
 
     default List<MesProScheduleOrderDO> selectListWithoutRoute() {
         return selectList(new LambdaQueryWrapperX<MesProScheduleOrderDO>()
+                .eq(MesProScheduleOrderDO::getRemovedFromSchedule, Boolean.FALSE)
                 .eq(MesProScheduleOrderDO::getAutoSchedulable, Boolean.FALSE)
                 .isNull(MesProScheduleOrderDO::getRouteId)
                 .orderByAsc(MesProScheduleOrderDO::getPromiseDate)
@@ -178,6 +196,7 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
                         MesProScheduleOrderStatusEnum.PREPARE.getStatus(),
                         MesProScheduleOrderStatusEnum.SCHEDULED.getStatus(),
                         MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .eq(MesProScheduleOrderDO::getRemovedFromSchedule, Boolean.FALSE)
                 .eq(MesProScheduleOrderDO::getAutoSchedulable, Boolean.TRUE)
                 .eq(MesProScheduleOrderDO::getFrozen, Boolean.FALSE)
                 .orderByAsc(MesProScheduleOrderDO::getPromiseDate)
@@ -204,6 +223,9 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
         updateObj.setUncompletedQuantity(uncompletedQuantity);
         updateObj.setProgressPercent(progressPercent);
         updateObj.setStatus(status);
+        if (completedQuantity != null && completedQuantity.compareTo(BigDecimal.ZERO) > 0) {
+            updateObj.setReentryBlocked(Boolean.TRUE);
+        }
         return updateById(updateObj);
     }
 

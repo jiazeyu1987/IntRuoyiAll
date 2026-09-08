@@ -36,11 +36,11 @@
 - 本次是否只允许测试服。
 - 本次 releaseTag。
 - 目标测试服务器是否为 `172.30.30.58`。
-- 是否明确禁止正式服、备份服、`mark-tested`、`promote-prod`、`promote-backup`。
+- 是否明确禁止正式服、审查服、`mark-tested`、`promote-prod`、`promote-backup`。
 
 ### Fail Fast
 
-- 用户未明确授权正式服或备份服，却出现正式服/备份服动作。
+- 用户未明确授权正式服或审查服，却出现正式服/审查服动作。
 - 发布目标、服务器或 releaseTag 无法确认。
 - 想复用旧 releaseTag 拼接新构建、新测试服结果或旧成功记录。
 
@@ -115,7 +115,7 @@ corepack pnpm@10.25.0 --version
 
 ### 必查项
 
-- build preview 只包含构建动作，不包含正式服、备份服、恢复、回滚或推广动作。
+- build preview 只包含构建动作，不包含正式服、审查服、恢复、回滚或推广动作。
 - build operation 最终为 `SUCCESS`。
 - 发布包目录存在。
 - `manifest.json` 存在且为来源权威。
@@ -152,7 +152,7 @@ corepack pnpm@10.25.0 --version
 ### Fail Fast
 
 - 预览动作不是测试服。
-- 参数来自正式服或备份服模板。
+- 参数来自正式服或审查服模板。
 - required SQL 依赖未验证 live data。
 - 测试服数据修复缺少授权、备份、ROLLBACK 演练或引用保持验证。
 
@@ -328,7 +328,7 @@ ssh root@172.30.30.58 bash -s
 ### Blocker
 
 - preview 无法明确证明 `ServerHost=172.30.30.58` 或 `environment=test`。
-- preview 中出现正式服/备份服的实际 `ServerHost`、`RemoteAppDir` 或 promote/mark-tested 动作。
+- preview 中出现正式服/审查服的实际 `ServerHost`、`RemoteAppDir` 或 promote/mark-tested 动作。
 - release-info、运行控制台或页面无法证明版本号与变更说明来自本次 releaseTag。
 
 ### Verification

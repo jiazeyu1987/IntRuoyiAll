@@ -269,6 +269,67 @@ class MesStage1ActiveOrderCompleteSimulationServiceImplTest {
     }
 
     @Test
+    void simulatedTemplateWithoutBindingsResolvesFormalPickListsFromSourceActiveOrder() {
+        TenantContextHolder.setTenantId(1L);
+        MesProcessPoolActiveOrderDO copiedTemplate = activeOrder(396L)
+                .setSimulated(Boolean.TRUE);
+        MesProWorkOrderDO copiedWorkOrder = workOrder()
+                .setCode("SIM-COPY-FORMAL-WO-001")
+                .setRemark("[MES_STAGE1_SIMULATION][simulationRunId=copy][actorUserId=3001][sourceActiveOrderId=1009200001]");
+        MesProcessPoolActiveOrderDO sourceActiveOrder = activeOrder(1009200001L)
+                .setWorkOrderId(9101L);
+        MesProWorkOrderDO sourceWorkOrder = workOrder()
+                .setId(9101L)
+                .setCode("FORMAL-WO-001");
+        ErpKingdeeProductionPickListDO firstHeader = formalPickList(9001L, "FID-9001", "PICK-9001");
+        ErpKingdeeProductionPickListDO secondHeader = formalPickList(9002L, "FID-9002", "PICK-9002");
+        ErpKingdeeProductionPickListItemDO firstItem = formalPickListItem(9101L, 9001L)
+                .setProductionOrderNo("FORMAL-WO-001");
+        ErpKingdeeProductionPickListItemDO secondItem = formalPickListItem(9102L, 9002L)
+                .setProductionOrderNo("FORMAL-WO-001");
+        when(bindingMapper.selectListByActiveOrderId(396L)).thenReturn(List.of());
+        when(activeOrderMapper.selectById(1009200001L)).thenReturn(sourceActiveOrder);
+        when(workOrderMapper.selectById(9101L)).thenReturn(sourceWorkOrder);
+        when(pickListItemMapper.selectListByProductionOrderNo("FORMAL-WO-001"))
+                .thenReturn(List.of(firstItem, secondItem));
+        when(pickListMapper.selectById(9001L)).thenReturn(firstHeader);
+        when(pickListMapper.selectById(9002L)).thenReturn(secondHeader);
+
+        @SuppressWarnings("unchecked")
+        List<MesProcessPoolActiveOrderPickListBindingDO> bindings = ReflectionTestUtils.invokeMethod(
+                service, "resolveTemplateBindings", copiedTemplate, copiedWorkOrder, command(396L));
+
+        assertEquals(List.of(9001L, 9002L), bindings.stream()
+                .map(MesProcessPoolActiveOrderPickListBindingDO::getPickListId).toList());
+        verify(pickListItemMapper).selectListByProductionOrderNo("FORMAL-WO-001");
+        verify(pickListItemMapper, never()).selectListByProductionOrderNo("SIM-COPY-FORMAL-WO-001");
+    }
+
+    @Test
+    void stage1FixturePointsToUltimateFormalSourceActiveOrderForSimulationCopy() {
+        TenantContextHolder.setTenantId(1L);
+        MesProcessPoolActiveOrderDO copiedTemplate = activeOrder(396L)
+                .setSimulated(Boolean.TRUE)
+                .setSimulationStage("LATEST_VERSION_COPY");
+        MesProWorkOrderDO copiedWorkOrder = workOrder()
+                .setCode("SIM-COPY-FORMAL-WO-001")
+                .setRemark("[SIM-COPY][sourceActiveOrderId=1009200001][simulationRunId=SIMCOPY-unit]");
+        MesProcessPoolActiveOrderDO sourceActiveOrder = activeOrder(1009200001L)
+                .setWorkOrderId(9101L)
+                .setSimulated(Boolean.FALSE);
+        MesProWorkOrderDO sourceWorkOrder = workOrder()
+                .setId(9101L)
+                .setCode("FORMAL-WO-001");
+        when(activeOrderMapper.selectById(1009200001L)).thenReturn(sourceActiveOrder);
+        when(workOrderMapper.selectById(9101L)).thenReturn(sourceWorkOrder);
+
+        Long sourceActiveOrderId = ReflectionTestUtils.invokeMethod(service,
+                "resolveFormalPickListSourceActiveOrderId", copiedTemplate, copiedWorkOrder);
+
+        assertEquals(1009200001L, sourceActiveOrderId);
+    }
+
+    @Test
     void incompleteFormalPickListFailsTheEntireResolution() {
         TenantContextHolder.setTenantId(1L);
         MesProWorkOrderDO workOrder = workOrder();

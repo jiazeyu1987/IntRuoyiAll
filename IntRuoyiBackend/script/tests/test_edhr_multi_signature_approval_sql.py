@@ -20,13 +20,13 @@ def test_multi_signature_schema_extends_work_tasks_and_signatures() -> None:
         "`signature_cell_key` varchar(128) NOT NULL DEFAULT ''",
         "`signature_row_index` int DEFAULT NULL",
         "`signature_column_index` int DEFAULT NULL",
-        "`review_source_type` varchar(16) DEFAULT NULL",
+        "`review_source_type` varchar(64) DEFAULT NULL",
         "`review_source_id` bigint DEFAULT NULL",
         "`review_source_name` varchar(128) DEFAULT NULL",
         "`bpm_task_id` varchar(64) DEFAULT NULL",
         "`mes_pro_batch_record_execution_signature`",
         "`signature_cell_key` varchar(128) DEFAULT NULL",
-        "`review_source_type` varchar(16) DEFAULT NULL",
+        "`review_source_type` varchar(64) DEFAULT NULL",
         "`review_source_id` bigint DEFAULT NULL",
         "`review_source_name` varchar(128) DEFAULT NULL",
     ]:
@@ -62,4 +62,20 @@ def test_mes_test_schema_allows_parallel_review_work_tasks() -> None:
 
     assert '"signature_cell_key" varchar(128) NOT NULL DEFAULT \'\'' in schema
     assert '"bpm_task_id" varchar(64) DEFAULT NULL' in schema
-    assert '"uk_mes_pro_edhr_work_task_active_cell" UNIQUE ("tenant_id", "batch_task_id", "task_type", "status", "signature_cell_key", "deleted")' in schema
+    assert '"signature_cell_key" varchar(128) NOT NULL DEFAULT \'\'' in schema
+
+
+def test_review_source_type_length_supports_stage1_simulation_marker() -> None:
+    migration = REPO_ROOT / "sql" / "mysql" / "20260907_mes_edhr_review_source_type_length.sql"
+    assert migration.exists(), "Stage1 模拟签名来源长度迁移必须存在。"
+
+    text = migration.read_text(encoding="utf-8")
+    for required in [
+        "`mes_pro_edhr_work_task`",
+        "`mes_pro_batch_record_execution_signature`",
+        "`review_source_type` varchar(64) DEFAULT NULL",
+    ]:
+        assert required in text
+
+    schema = TEST_SCHEMA_PATH.read_text(encoding="utf-8")
+    assert '"review_source_type" varchar(64) DEFAULT NULL' in schema

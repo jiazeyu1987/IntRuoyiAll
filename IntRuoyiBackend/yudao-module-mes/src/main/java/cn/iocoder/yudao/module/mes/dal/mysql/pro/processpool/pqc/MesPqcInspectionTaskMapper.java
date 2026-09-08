@@ -123,7 +123,10 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                                                       Long regulationVersionId,
                                                       Long qaProcessId, String qaItemCode,
                                                       String inspectionRuleKey,
-                                                      LocalDate businessDate) {
+                                                      String inspectionType,
+                                                      LocalDate businessDate,
+                                                      String shiftCode,
+                                                      Integer roundNo) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
                 .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
                 .eq(MesPqcInspectionTaskDO::getRouteProcessId, routeProcessId)
@@ -132,7 +135,10 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
                 .eq(MesPqcInspectionTaskDO::getQaItemCode, qaItemCode)
                 .eq(MesPqcInspectionTaskDO::getInspectionRuleKey, inspectionRuleKey)
-                .eq(MesPqcInspectionTaskDO::getBusinessDate, businessDate));
+                .eq(MesPqcInspectionTaskDO::getInspectionType, inspectionType)
+                .eq(MesPqcInspectionTaskDO::getBusinessDate, businessDate)
+                .eq(MesPqcInspectionTaskDO::getShiftCode, shiftCode)
+                .eq(MesPqcInspectionTaskDO::getRoundNo, roundNo));
     }
 
     default MesPqcInspectionTaskDO selectPendingByQaOverlayIdentity(Long activeOrderId, Long regulationVersionId,

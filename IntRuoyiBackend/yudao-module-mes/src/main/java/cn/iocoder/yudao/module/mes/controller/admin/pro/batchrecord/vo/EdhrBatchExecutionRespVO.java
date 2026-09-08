@@ -18,6 +18,8 @@ public class EdhrBatchExecutionRespVO {
 
     private String workOrderCode;
 
+    private Long activeOrderId;
+
     private String batchCode;
 
     private LocalDateTime createTime;

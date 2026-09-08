@@ -24,7 +24,7 @@
 - Data：涉及 `system_role`、`system_role_menu`，以及本机正式菜单在测试服缺失时的 `system_menu` / `system_tenant_package.menu_ids`；不修改 `system_user_role`。
 - API：不修改接口合同；登录权限响应会随角色菜单配置变化。
 - Test：必须生成全角色差异矩阵、危险权限差异、角色/用户绑定不变量、精确缓存失效和真实账号复验清单。
-- Release：仅授权测试服务器；不得扩展到备份服或正式服。
+- Release：仅授权测试服务器；不得扩展到审查服或正式服。
 - Operations：写入前必须重新建立覆盖全部目标行的精确快照和恢复脚本，并使用测试环境发布互斥锁。
 
 ## Decision
@@ -41,7 +41,7 @@ accept：接受“全部角色权限平移”，按以下正式边界执行：
 ## Required Approvals
 
 - 用户已在当前任务中明确授权测试服务器全部角色权限平移。
-- 未授权备份服、正式服、角色删除、用户角色绑定变更或全库缓存清理。
+- 未授权审查服、正式服、角色删除、用户角色绑定变更或全库缓存清理。
 
 ## Downstream Skill Reruns
 

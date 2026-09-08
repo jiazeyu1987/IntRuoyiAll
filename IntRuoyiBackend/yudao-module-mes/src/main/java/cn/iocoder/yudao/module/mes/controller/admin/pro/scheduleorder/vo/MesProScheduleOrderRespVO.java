@@ -120,6 +120,24 @@ public class MesProScheduleOrderRespVO {
     @Schema(description = "人工完成原因")
     private String manualFinishedReason;
 
+    @Schema(description = "是否已撤出排产体系", example = "false")
+    private Boolean removedFromSchedule;
+
+    @Schema(description = "撤出排产时间")
+    private LocalDateTime removedFromScheduleTime;
+
+    @Schema(description = "撤出排产操作人", example = "1")
+    private Long removedFromScheduleBy;
+
+    @Schema(description = "撤出排产原因")
+    private String removedFromScheduleReason;
+
+    @Schema(description = "撤出时状态", example = "2")
+    private Integer removedFromScheduleStatus;
+
+    @Schema(description = "是否因存在生产事实禁止重新入池", example = "true")
+    private Boolean reentryBlocked;
+
     @Schema(description = "最晚开工时间")
     private LocalDateTime latestStartTime;
 
@@ -170,5 +188,8 @@ public class MesProScheduleOrderRespVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "最后更新时间")
+    private LocalDateTime updateTime;
 
 }

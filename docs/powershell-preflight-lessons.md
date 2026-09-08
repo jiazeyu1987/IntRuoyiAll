@@ -170,7 +170,7 @@ PowerShell 5.1/7 中执行 SSH、bash 片段、HTTP host:port、release-info JSO
 
 ## 2026-07-14 远端验收工具可用性门禁
 
-- Trigger: Windows 本机通过 SSH 在测试服、正式服或备份服执行发布后验收脚本，脚本需要解析 `.env`、Docker 镜像、health、HTTP、PDF worker、`release-info.json`、release lock 或 migration 状态。
+- Trigger: Windows 本机通过 SSH 在测试服、正式服或审查服执行发布后验收脚本，脚本需要解析 `.env`、Docker 镜像、health、HTTP、PDF worker、`release-info.json`、release lock 或 migration 状态。
 - Preflight check: 远端脚本不得默认目标机存在 `python3`、`jq`、`node` 等解析工具；若计划使用这些工具，先执行 `command -v <tool>` 并把工具可用性作为显式断言。通用发布验收优先使用 POSIX shell、`grep`、`sed`、`awk`、`curl`、`docker` 和 MySQL heredoc 等目标机已确认能力。
 - Blocker: `python3: command not found`、`jq: command not found`、工具预检失败、SSH 在业务断言前退出，或无法证明远端是否执行过发布状态检查。
 - Verification: 失败证据必须区分 carrier/tooling 失败与服务器运行态失败；改写后记录 SSH exit code、`.env IMAGE_TAG`、backend/frontend image tag、backend health、frontend HTTP、PDF worker HTTP、release-info、release lock 和 migration failed count 的结构化断言。

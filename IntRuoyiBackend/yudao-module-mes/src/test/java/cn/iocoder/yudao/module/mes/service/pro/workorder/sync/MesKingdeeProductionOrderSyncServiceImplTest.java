@@ -95,6 +95,8 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
     @Test
     void syncWorkOrders_autoCreatesItemUnitTypeAndWorkOrder() {
         ErpKingdeeProductionOrder order = buildOrder();
+        order.setDrawingNumber("DRAWING-001");
+        order.setRefNo("REF-001");
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(null);
@@ -136,6 +138,8 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         verify(workOrderMapper, org.mockito.Mockito.times(2)).updateById(updateCaptor.capture());
         List<MesProWorkOrderDO> updates = updateCaptor.getAllValues();
         assertEquals(501L, updates.get(0).getId());
+        assertEquals("DRAWING-001", updates.get(0).getDrawingNumber());
+        assertEquals("REF-001", updates.get(0).getRefNo());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), updates.get(0).getPlannedStartTime());
         assertEquals(MesProWorkOrderStatusEnum.CONFIRMED.getStatus(), updates.get(1).getStatus());
         assertEquals(501L, updates.get(1).getId());
@@ -173,6 +177,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         order.setAuxiliaryCode("K20260113");
         order.setBusinessStatus("424");
         order.setDrawingNumber("255ACSXXXX");
+        order.setRefNo("REF-2026-001");
         order.setScheduleStatus("未排产");
         MesProWorkOrderDO existing = MesProWorkOrderDO.builder()
                 .id(501L)
@@ -201,6 +206,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertEquals("K20260113", update.getAuxiliaryCode());
         assertEquals("424", update.getBusinessStatus());
         assertEquals("255ACSXXXX", update.getDrawingNumber());
+        assertEquals("REF-2026-001", update.getRefNo());
         assertEquals("未排产", update.getScheduleStatus());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), update.getPlannedStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), update.getPlannedEndTime());
@@ -217,6 +223,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         order.setAuxiliaryCode(null);
         order.setBusinessStatus(null);
         order.setDrawingNumber(null);
+        order.setRefNo(null);
         order.setScheduleStatus(null);
         MesProWorkOrderDO existing = MesProWorkOrderDO.builder()
                 .id(501L)
@@ -243,6 +250,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertNull(update.getAuxiliaryCode());
         assertNull(update.getBusinessStatus());
         assertNull(update.getDrawingNumber());
+        assertNull(update.getRefNo());
         assertNull(update.getScheduleStatus());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), update.getPlannedStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), update.getPlannedEndTime());

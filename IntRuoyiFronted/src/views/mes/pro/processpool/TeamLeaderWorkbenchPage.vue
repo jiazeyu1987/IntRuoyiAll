@@ -9697,12 +9697,8 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.success(
       `Stage1 已完成：当前活跃订单 ${result.activeOrderId}，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}。`
     )
-    const generatedActiveOrderId = requirePositiveNumber(
-      result.activeOrderId,
-      'Stage1测试活跃订单记录ID不能为空'
-    )
     await loadActiveOrders()
-    navigateActiveOrderSubmissionDetail(generatedActiveOrderId, row.workOrderCode)
+    navigateActiveOrderSubmissionDetail(activeOrderId)
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(

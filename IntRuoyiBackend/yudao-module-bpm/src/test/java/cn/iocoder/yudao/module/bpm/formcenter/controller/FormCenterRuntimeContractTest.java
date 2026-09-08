@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormBpmReworkR
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormBpmTaskCompletedReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormBpmTaskCreatedReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormCenterTemplateImportReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormCenterTemplateParseJsonReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormCenterTemplateParseJsonRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormEffectPendingPageReqVO;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
@@ -83,6 +85,17 @@ class FormCenterRuntimeContractTest {
         assertArrayEquals(new String[]{"/templates/import-doc"}, importDoc.getAnnotation(PostMapping.class).value());
         assertEquals("@ss.hasPermission('form:template:create')",
                 importDoc.getAnnotation(PreAuthorize.class).value());
+
+        Method parseProductionBatchRecordJson = FormCenterController.class.getDeclaredMethod(
+                "parseProductionBatchRecordJson", FormCenterTemplateParseJsonReqVO.class);
+        assertArrayEquals(new String[]{"/parser/production-batch-record/json"},
+                parseProductionBatchRecordJson.getAnnotation(PostMapping.class).value());
+        assertEquals("@ss.hasPermission('form:parser:production-batch-record')",
+                parseProductionBatchRecordJson.getAnnotation(PreAuthorize.class).value());
+        ParameterizedType parseReturnType = (ParameterizedType) parseProductionBatchRecordJson.getGenericReturnType();
+        assertEquals("cn.iocoder.yudao.framework.common.pojo.CommonResult<"
+                        + FormCenterTemplateParseJsonRespVO.class.getName() + ">",
+                parseReturnType.getTypeName());
 
         Method resolve = FormCenterController.class.getDeclaredMethod("resolveAction",
                 cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO.class);

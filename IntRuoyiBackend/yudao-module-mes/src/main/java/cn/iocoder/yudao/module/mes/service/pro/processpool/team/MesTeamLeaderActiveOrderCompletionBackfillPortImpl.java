@@ -123,7 +123,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                 || activeOrder.getRouteId() == null || activeOrder.getRouteVersionId() == null) {
             throw sourceMissing(activeOrder, "WORK_ORDER_BATCH_ROUTE");
         }
-        FormalProductIssue formalProductIssue = lockedFormalProductIssue(activeOrder);
+        FormalProductIssues formalProductIssues = lockedFormalProductIssues(activeOrder);
         List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings = pickListBindingMapper
                 .selectListByActiveOrderId(activeOrder.getId());
         if (pickListBindings == null || pickListBindings.isEmpty()) {
@@ -141,10 +141,11 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             items.stream().map(MesProcessPoolActiveOrderPickListBindingItemDO::getId)
                     .filter(Objects::nonNull).forEach(batchSourceIds::add);
         }
-        batchSourceIds.add(formalProductIssue.issue().getId());
-        formalProductIssue.details().stream().map(MesWmProductIssueDetailDO::getId)
+        formalProductIssues.issues().stream().map(MesWmProductIssueDO::getId)
                 .filter(Objects::nonNull).forEach(batchSourceIds::add);
-        String sourceSeed = canonicalSourceSeed(activeOrder, workOrder, formalProductIssue, pickListBindings,
+        formalProductIssues.allDetails().stream().map(MesWmProductIssueDetailDO::getId)
+                .filter(Objects::nonNull).forEach(batchSourceIds::add);
+        String sourceSeed = canonicalSourceSeed(activeOrder, workOrder, formalProductIssues, pickListBindings,
                 pickListItems,
                 snapshots, allocations, completions, tasks, details);
         String sourceSeedHash = sha256(sourceSeed);
@@ -501,7 +502,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
 
     private static String canonicalSourceSeed(MesProcessPoolActiveOrderDO order,
                                                MesProWorkOrderDO workOrder,
-                                               FormalProductIssue formalProductIssue,
+                                               FormalProductIssues formalProductIssues,
                                                List<MesProcessPoolActiveOrderPickListBindingDO> pickListBindings,
                                                Map<Long, List<MesProcessPoolActiveOrderPickListBindingItemDO>> pickListItems,
                                                List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
@@ -523,8 +524,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         workOrderBinding.put("productId", workOrder.getProductId());
         workOrderBinding.put("batchCode", workOrder.getBatchCode());
         seed.put("workOrderBinding", workOrderBinding);
-        seed.put("formalProductIssue", formalProductIssue.issue());
-        seed.put("formalProductIssueDetails", formalProductIssue.details());
+        seed.put("formalProductIssues", formalProductIssues.issues());
+        seed.put("formalProductIssueDetails", formalProductIssues.detailsByIssue());
         seed.put("pickListBindings", pickListBindings);
         seed.put("pickListBindingItems", pickListItems);
         seed.put("snapshots", snapshots);
@@ -548,34 +549,43 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         return JsonUtils.toJsonString(snapshot);
     }
 
-    private FormalProductIssue lockedFormalProductIssue(MesProcessPoolActiveOrderDO activeOrder) {
+    private FormalProductIssues lockedFormalProductIssues(MesProcessPoolActiveOrderDO activeOrder) {
         List<MesWmProductIssueDO> issues = productIssueMapper
                 .selectListByWorkOrderIdForUpdate(activeOrder.getWorkOrderId());
         List<MesWmProductIssueDO> finished = issues == null ? List.of() : issues.stream()
                 .filter(Objects::nonNull)
                 .filter(issue -> Objects.equals(activeOrder.getWorkOrderId(), issue.getWorkOrderId())
                         && Objects.equals(MesWmProductIssueStatusEnum.FINISHED.getStatus(), issue.getStatus()))
+                .sorted(Comparator.comparing(MesWmProductIssueDO::getId))
                 .toList();
-        if (finished.size() != 1 || finished.get(0).getId() == null) {
-            throw sourceMissing(activeOrder, "FORMAL_PRODUCT_ISSUE_UNIQUE_FINISHED");
+        if (finished.isEmpty() || finished.stream().anyMatch(issue -> issue.getId() == null)) {
+            throw sourceMissing(activeOrder, "FORMAL_PRODUCT_ISSUE_FINISHED");
         }
-        MesWmProductIssueDO issue = finished.get(0);
-        List<MesWmProductIssueDetailDO> details = productIssueDetailMapper
-                .selectListByIssueIdForUpdate(issue.getId());
-        if (details == null || details.isEmpty() || details.stream().anyMatch(detail ->
-                detail == null || detail.getId() == null || !Objects.equals(issue.getId(), detail.getIssueId())
-                        || detail.getLineId() == null || detail.getMaterialStockId() == null
-                        || detail.getItemId() == null || detail.getQuantity() == null
-                        || detail.getQuantity().signum() <= 0 || detail.getBatchId() == null
-                        || StrUtil.isBlank(detail.getBatchCode()))) {
-            throw sourceMissing(activeOrder, "FORMAL_PRODUCT_ISSUE_DETAIL");
+        Map<Long, List<MesWmProductIssueDetailDO>> detailsByIssue = new LinkedHashMap<>();
+        for (MesWmProductIssueDO issue : finished) {
+            List<MesWmProductIssueDetailDO> details = productIssueDetailMapper
+                    .selectListByIssueIdForUpdate(issue.getId());
+            if (details == null || details.isEmpty() || details.stream().anyMatch(detail ->
+                    detail == null || detail.getId() == null || !Objects.equals(issue.getId(), detail.getIssueId())
+                            || detail.getLineId() == null || detail.getMaterialStockId() == null
+                            || detail.getItemId() == null || detail.getQuantity() == null
+                            || detail.getQuantity().signum() <= 0 || detail.getBatchId() == null
+                            || StrUtil.isBlank(detail.getBatchCode()))) {
+                throw sourceMissing(activeOrder, "FORMAL_PRODUCT_ISSUE_DETAIL:" + issue.getId());
+            }
+            detailsByIssue.put(issue.getId(), details.stream()
+                    .sorted(Comparator.comparing(MesWmProductIssueDetailDO::getId))
+                    .toList());
         }
-        return new FormalProductIssue(issue, details.stream()
-                .sorted(Comparator.comparing(MesWmProductIssueDetailDO::getId))
-                .toList());
+        return new FormalProductIssues(finished, detailsByIssue);
     }
 
-    private record FormalProductIssue(MesWmProductIssueDO issue, List<MesWmProductIssueDetailDO> details) {
+    private record FormalProductIssues(List<MesWmProductIssueDO> issues,
+                                       Map<Long, List<MesWmProductIssueDetailDO>> detailsByIssue) {
+
+        private List<MesWmProductIssueDetailDO> allDetails() {
+            return detailsByIssue.values().stream().flatMap(List::stream).toList();
+        }
     }
 
     private static String sha256(String value) {

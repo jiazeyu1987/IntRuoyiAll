@@ -91,6 +91,16 @@ public interface MesProTaskMapper extends BaseMapperX<MesProTaskDO> {
                 .orderByDesc(MesProTaskDO::getId));
     }
 
+    default List<MesProTaskDO> selectListByIdsForUpdate(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProTaskDO>()
+                .in(MesProTaskDO::getId, ids)
+                .orderByAsc(MesProTaskDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProTaskDO> selectListByStartTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
         return selectList(new LambdaQueryWrapperX<MesProTaskDO>()
                 .geIfPresent(MesProTaskDO::getStartTime, startTime)

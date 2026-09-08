@@ -19,6 +19,8 @@ public interface FormCenterRuntimeService {
 
     FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long applicantUserId);
 
+    FormCenterTemplateParseJsonRespVO parseProductionBatchRecordJson(FormCenterTemplateParseJsonReqVO reqVO);
+
     FormPolicyRespVO savePolicy(FormPolicySaveReqVO reqVO);
 
     void publishPolicy(Long policyId);

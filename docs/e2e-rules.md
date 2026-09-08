@@ -820,6 +820,7 @@
 - Verification: 证据需包含真实点击写入按钮、确认弹框、目标写请求 HTTP 状态、详情弹框标题/提示 DOM 文本、再次点击来源详情后的弹框标题/提示、关键内容 DOM 断言和截图路径；业务通过依据必须来自页面可见内容。
 - Forbidden action: 禁止用直接调用写接口、解析接口 JSON、手工拼详情 URL、跳过页签点击、或只看 toast 成功替代真实页面详情验证。
 - Evidence: `doc/tasks/20260904-stage1-pqc-empty-detail-fix/verification-report.md`，Stage1 来源订单点击后自动打开新测试单详情，并复验来源行详情继续显示本次 Stage1 结果。
+- Detail-load extension: 验证详情页新增 tab、汇总表或只读表单时，必须先断言详情页无业务错误且目标详情面板根节点已进入正常渲染态；若页面显示“缺少快照/缺少正式身份/加载失败”等业务错误，应把它记录为数据链路阻塞，并通过正式前端入口恢复或重建后再验收 tab。不得把源码中 tab 存在、Vite 模块已更新或页面 URL 正确当作真实页面可见通过。Evidence: `doc/tasks/20260907-stage1-summary-tab-visible/verification-report.md`。
 
 ## 写入型审批 E2E 旧在途单据门禁
 

@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProS
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderBatchReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrderReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderCreateFromWorkOrdersReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderDeleteImpactRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightRespVO;
@@ -84,7 +86,12 @@ public interface MesProScheduleOrderService {
     /**
      * 批量删除排产工单。
      */
-    void deleteScheduleOrders(@Valid MesProScheduleOrderBatchReqVO reqVO);
+    void deleteScheduleOrders(@Valid MesProScheduleOrderDeleteReqVO reqVO);
+
+    /**
+     * 预览删除对排产任务和生产事实的影响。
+     */
+    MesProScheduleOrderDeleteImpactRespVO getDeleteImpact(Long id);
 
     /**
      * 获得排产工单。
