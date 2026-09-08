@@ -634,3 +634,26 @@ Detailed evidence: `p4-runtime-evidence.md`. P4 remains in progress; independent
 `BLOCKED: second shared runtime conflict -> another active PQC表单 task stopped exact PID23612 and began its own int_main rebuild/restart with a different 112146 Jar; the failed candidate request did not reach the target backend log, so it is runtime-downtime evidence rather than a DCC product defect`
 
 The independently owned restart was not stopped or replaced. Playwright was closed with no remaining browser session. P4 remains in progress and requires a stable exclusive 48081 window before resuming UI-only business writes.
+
+## P4 Local Acceptance: 48081 Restart And Own Playwright E2E
+
+`BDD: 本地 P4 验收走真实前端 -> Given 48081/8081 均为本地 int_main 运行态且测试租户账号可登录，When 使用 Playwright 通过真实页面访问 DCC 发布后续、工作台影响评估和上传页并提交一份任务自有新文件，Then 页面入口、查询接口、上传预览和提交审批均成功；不得用 API 或数据库写入替代页面业务动作`
+
+`GREEN: restart-int-ruoyi-local.ps1 -Component backend -> PASS, 30-module Maven build success, 48081 health UP, frontend 8081 HTTP 200, runtime jar SHA256 B17DBD3C909BE74DEFE04578DCC092D18355672CE7768C1C460743F4406729D9`
+
+`GREEN: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-page-e2e.cjs -> PASS, real login and navigation; 发布后续管理页 marker visible with /dcc/publication-followups/management-page HTTP 200 code 0; 工作台影响评估 marker visible with /dcc/publication-followups/my-impact-tasks HTTP 200 code 0; pageErrors and consoleErrors empty`
+
+`GREEN: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-precheck.cjs -> PASS, real upload page visible; DCC 项目、文件分类、关联文件控件、选择文件、选择 PDF and 提交审批 controls visible; project options and taxonomy options loaded from live frontend requests`
+
+`RED: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-submit-e2e.cjs -> FAIL, expected seed project lacks a valid 14-character DCC product code; backend rejected submit with MDM_PRODUCT_DCC_CODE_INVALID before any approval publication flow`
+
+`GREEN: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-submit-e2e.cjs -> PASS after switching to a visible valid DCC test project; Playwright selected project/category through the UI, uploaded the source document, clicked 提交审批 and received submit code 0 for task-owned file DCC-P4-20260908064319ZPS7`
+
+### P4 Local Acceptance Evidence
+
+- Page E2E result: `doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-page-e2e-result.json`
+- Upload precheck result: `doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-precheck-result.json`
+- Upload submit result: `doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json`
+- Upload submit screenshot: `doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e.png`
+
+Current P4 local blocker: none for page reachability, upload precheck or new-file submit-to-approval. Full publication-followup closure still requires approving and publishing the submitted file from the real frontend, then verifying the follow-up batch, notification, and related-file impact task pages.

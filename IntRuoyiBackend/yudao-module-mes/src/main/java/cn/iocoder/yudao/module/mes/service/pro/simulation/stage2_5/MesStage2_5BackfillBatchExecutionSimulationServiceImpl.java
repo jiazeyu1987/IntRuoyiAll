@@ -202,6 +202,10 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         requireOwnedActiveOrder(template, validated);
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(template);
         MesProcessPoolActiveOrderPickListBindingDO templateBinding = requireBinding(template);
+        MesProEdhrBatchExecutionDO existingBatch = selectExistingBatchBeforeCompletion(template, templateWorkOrder);
+        if (existingBatch != null) {
+            return existingBatchResult(validated, existingBatch, cleanedRunId);
+        }
         MesProcessPoolActiveOrderDO activeOrder = template;
 
         var completion = activeOrderCompletionService.complete(validated.getActorUserId(),
@@ -234,6 +238,52 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setCompletionReceiptId(receipt.getId())
                 .setDetailPath(DETAIL_PATH + "?id=" + batch.getId()
                         + "&simulationRunId=" + validated.getSimulationRunId())
+                .setBatchExecutionSnapshot(snapshot)
+                .setBlockers(List.of());
+    }
+
+    private MesProEdhrBatchExecutionDO selectExistingBatchBeforeCompletion(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProWorkOrderDO workOrder) {
+        if (activeOrder == null || workOrder == null || workOrder.getId() == null
+                || blank(workOrder.getBatchCode()) || activeOrder.getRouteId() == null) {
+            return null;
+        }
+        return batchExecutionMapper.selectByContext(
+                workOrder.getId(), workOrder.getBatchCode(), activeOrder.getRouteId());
+    }
+
+    private MesStage2_5BackfillBatchExecutionSimulationResult existingBatchResult(
+            MesStage2_5BackfillBatchExecutionSimulationCommand command,
+            MesProEdhrBatchExecutionDO existingBatch,
+            String cleanedRunId) {
+        if (existingBatch == null || existingBatch.getId() == null) {
+            throw new IllegalStateException("BATCH_EXECUTION_CREATE_OR_OPEN_FAILED");
+        }
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("schemaVersion", MesStage4DossierUploadSimulationContractValidator.SCHEMA_VERSION);
+        snapshot.put("simulationRunId", command.getSimulationRunId());
+        snapshot.put("sourceInputContract", "existingBatchExecution.v1");
+        snapshot.put("batchExecutionId", String.valueOf(existingBatch.getId()));
+        snapshot.put("batchExecutionCode", existingBatch.getBatchExecutionCode());
+        snapshot.put("batchCode", existingBatch.getBatchCode());
+        snapshot.put("activeContextKey", activeContextKey(existingBatch));
+        snapshot.put("activeOrderId", String.valueOf(command.getActiveOrderId()));
+        snapshot.put("workOrderId", String.valueOf(existingBatch.getWorkOrderId()));
+        snapshot.put("workOrderCode", existingBatch.getWorkOrderCode());
+        snapshot.put("routeId", String.valueOf(existingBatch.getRouteId()));
+        snapshot.put("routeVersionId", String.valueOf(existingBatch.getRouteVersionId()));
+        snapshot.put("routeVersionNo", existingBatch.getRouteVersionNo());
+        snapshot.put("status", "EXISTING_BATCH_EXECUTION_OPENED");
+        snapshot.put("blockers", List.of());
+        return new MesStage2_5BackfillBatchExecutionSimulationResult()
+                .setSimulationRunId(command.getSimulationRunId())
+                .setCleanedSimulationRunId(cleanedRunId)
+                .setBatchExecutionId(existingBatch.getId())
+                .setBatchExecutionCode(existingBatch.getBatchExecutionCode())
+                .setCompletionReceiptId(null)
+                .setDetailPath(DETAIL_PATH + "?id=" + existingBatch.getId()
+                        + "&simulationRunId=" + command.getSimulationRunId())
                 .setBatchExecutionSnapshot(snapshot)
                 .setBlockers(List.of());
     }

@@ -45,3 +45,12 @@
 - Subagent-driven P1 execution and Git commit/push are authorized for the current turn.
 - Database writes, real E2E and `int_main` restart remain outside the current authorization and are deferred to P4.
 - The separate DCC related-file migration metadata fix is implemented and will be committed before P1 starts.
+
+## P4 Local Acceptance 2026-09-08
+
+- Result: PASS for local runtime restart, DCC publication-followup page reachability, workbench impact-assessment page reachability, upload-page precheck, and real frontend new-file submit-to-approval.
+- Runtime: local `int_main` backend `48081` health `UP`; frontend `8081` HTTP 200; runtime jar SHA256 `B17DBD3C909BE74DEFE04578DCC092D18355672CE7768C1C460743F4406729D9`.
+- Page E2E: real login opened `/dcc/controlled-file/publication-followup` and `/dcc/controlled-file/workbench`; target DCC GET requests returned HTTP 200 with business code 0; no page errors or console errors were recorded.
+- Upload precheck: real upload page loaded project, category and related-file controls; visible controls included source upload, PDF upload and submit approval.
+- Upload submit: first run exposed a test-data precondition (`MDM_PRODUCT_DCC_CODE_INVALID`) on an invalid project; rerun selected valid test project `T07注册证临时项目`, category `技术调研报告`, uploaded the source document and submitted file `DCC-P4-20260908064319ZPS7` successfully through the page.
+- Remaining scope: approval, publish, publication-followup batch, notification delivery and related-file impact task closure are not yet claimed by this local E2E.
