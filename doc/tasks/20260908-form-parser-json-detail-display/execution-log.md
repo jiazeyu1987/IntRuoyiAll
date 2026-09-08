@@ -24,3 +24,5 @@ BDD: 展示输出物料与工序设备参数对应 -> Given `批记录总对应.
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260908-form-parser-json-detail-display --mode apply` -> PASS, 已删除临时 `frontend-feature-evidence.md`，保留核心任务记录。
 - BLOCKED-NON-GATE: `pnpm exec eslint src\views\form-center\parser\index.vue tests\e2e\form-parser-json-download-static.spec.cjs` -> 持续运行超过正常时长且无输出，确认 ESLint 子进程几乎不耗 CPU 后仅终止本轮自有 ESLint 进程；该命令未列入当前任务完成门禁。
 - Experience: 已把“批记录总识别 JSON 展示不得伪造输出物料到设备的一对一关系”的经验合并到 `docs/system/shared-word-template-parser-design.md`。
+- COMMIT: implementation -> `dc9ee471c9481e3c78cbe4a353b6d95b4b82ae22`, files: `IntRuoyiFronted/src/views/form-center/parser/index.vue`, `IntRuoyiFronted/tests/e2e/form-parser-json-download-static.spec.cjs`, `docs/system/shared-word-template-parser-design.md`, `doc/tasks/20260908-form-parser-json-detail-display/task.md`, `doc/tasks/20260908-form-parser-json-detail-display/execution-log.md`, `doc/tasks/20260908-form-parser-json-detail-display/verification-report.md`。
+- STATUS: completed -> 用户在 2026-09-09 授权继续后，进入最终提交/推送收尾。

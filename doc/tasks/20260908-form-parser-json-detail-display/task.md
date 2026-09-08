@@ -21,9 +21,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-已实现表单解析页的生产批记录 JSON 展开明细：输入物料、输出物料、输出物料-设备-参数对应、设备组、参数范围、默认值、实际值、完整 JSON 与工序 JSON 均可核对；cleanup preview/apply 已通过。受当前轮次未明确授权 Git 提交/推送限制，未执行最终提交收尾。
+已实现表单解析页的生产批记录 JSON 展开明细：输入物料、输出物料、输出物料-设备-参数对应、设备组、参数范围、默认值、实际值、完整 JSON 与工序 JSON 均可核对；cleanup preview/apply 已通过。实现提交：`dc9ee471c9481e3c78cbe4a353b6d95b4b82ae22`。
 
 ## 设计约束检查
 
