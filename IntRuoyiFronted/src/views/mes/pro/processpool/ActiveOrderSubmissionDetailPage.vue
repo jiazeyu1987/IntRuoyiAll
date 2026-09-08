@@ -4,6 +4,9 @@
       <ActiveOrderSubmissionDetailPanel
         :detail="detail"
         :source-work-order="sourceWorkOrder"
+        :production-material-lists="productionMaterialLists"
+        :production-material-list-loading="productionMaterialListLoading"
+        :production-material-list-error="productionMaterialListError"
         :loading="loading"
         :error="error"
         @retry="loadDetail"
@@ -27,6 +30,10 @@ import {
   type TeamLeaderActiveOrderDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
+import {
+  ErpProductionMaterialListApi,
+  type ErpProductionMaterialListVO
+} from '@/api/erp/production/material-list'
 
 defineOptions({ name: 'MesProcessPoolActiveOrderSubmissionDetail' })
 
@@ -35,6 +42,9 @@ const router = useRouter()
 
 const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const sourceWorkOrder = ref<ProWorkOrderVO>()
+const productionMaterialLists = ref<ErpProductionMaterialListVO[]>([])
+const productionMaterialListLoading = ref(false)
+const productionMaterialListError = ref('')
 const loading = ref(false)
 const error = ref('')
 const batchExecutionOpening = ref(false)
@@ -77,11 +87,54 @@ const loadSourceWorkOrder = async (sourceWorkOrderCode: string) => {
   return rows[0]
 }
 
+const resolveDisplayedProductionOrderNo = (
+  detailResult: TeamLeaderActiveOrderDetailRespVO,
+  sourceWorkOrderCode: string,
+  sourceWorkOrderResult?: ProWorkOrderVO
+) => {
+  const displayedCode = sourceWorkOrderResult?.code || sourceWorkOrderCode || detailResult.workOrderCode
+  if (!displayedCode) {
+    throw new Error('当前详情缺少生产订单编号，无法查询生产用料清单')
+  }
+  return displayedCode
+}
+
+const loadProductionMaterialLists = async (productionOrderNo: string) => {
+  productionMaterialListLoading.value = true
+  productionMaterialListError.value = ''
+  productionMaterialLists.value = []
+  try {
+    const pageSize = 100
+    const rows: ErpProductionMaterialListVO[] = []
+    let pageNo = 1
+    let total = 0
+    do {
+      const data = await ErpProductionMaterialListApi.getPage({
+        pageNo,
+        pageSize,
+        productionOrderNo
+      })
+      const pageRows = Array.isArray(data?.list) ? data.list : []
+      rows.push(...pageRows)
+      total = Number(data?.total ?? rows.length)
+      pageNo += 1
+      if (!pageRows.length) break
+    } while (rows.length < total)
+    productionMaterialLists.value = rows
+  } catch (loadError) {
+    productionMaterialListError.value = resolveErrorMessage(loadError, '生产用料清单加载失败')
+  } finally {
+    productionMaterialListLoading.value = false
+  }
+}
+
 const loadDetail = async () => {
   loading.value = true
   error.value = ''
   detail.value = undefined
   sourceWorkOrder.value = undefined
+  productionMaterialLists.value = []
+  productionMaterialListError.value = ''
   try {
     const sourceWorkOrderCode = resolveSourceWorkOrderCode()
     const [detailResult, sourceWorkOrderResult] = await Promise.all([
@@ -93,6 +146,12 @@ const loadDetail = async () => {
     }
     detail.value = detailResult
     sourceWorkOrder.value = sourceWorkOrderResult
+    const productionOrderNo = resolveDisplayedProductionOrderNo(
+      detailResult,
+      sourceWorkOrderCode,
+      sourceWorkOrderResult
+    )
+    await loadProductionMaterialLists(productionOrderNo)
   } catch (loadError) {
     error.value = resolveErrorMessage(loadError, '工序提交详情加载失败')
     ElMessage.error(error.value)

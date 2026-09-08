@@ -797,6 +797,129 @@
           <el-empty v-else :image-size="56" description="暂无补料单物料批号" />
         </el-tab-pane>
         <el-tab-pane
+          label="生产用料清单"
+          name="productionMaterialLists"
+          data-team-leader-active-order-detail-production-material-list-tab
+        >
+          <el-alert
+            v-if="productionMaterialListError"
+            :title="productionMaterialListError"
+            type="error"
+            :closable="false"
+            show-icon
+            class="team-leader-workbench__production-material-list-error"
+          />
+          <div
+            v-else-if="productionMaterialListDocuments.length"
+            v-loading="productionMaterialListLoading"
+            class="team-leader-workbench__production-material-list-documents"
+            data-active-order-production-material-list-documents
+          >
+            <section
+              v-for="document in productionMaterialListDocuments"
+              :key="document.key"
+              class="team-leader-workbench__production-material-list-document"
+              data-active-order-production-material-list-document
+            >
+              <h3>生产用料清单</h3>
+              <div class="team-leader-workbench__production-material-list-head">
+                <div>
+                  <span>生产订单号：</span>
+                  <strong>{{ document.productionOrderNo }}</strong>
+                </div>
+                <div>
+                  <span>生产车间：</span>
+                  <strong>{{ document.workshopName }}</strong>
+                </div>
+                <div>
+                  <span>单据编号：</span>
+                  <strong>{{ document.sourceBillNo }}</strong>
+                </div>
+                <div>
+                  <span>产品代码：</span>
+                  <strong>{{ document.productCode }}</strong>
+                </div>
+                <div>
+                  <span>产品名称：</span>
+                  <strong>{{ document.productName }}</strong>
+                </div>
+                <div>
+                  <span>规格型号：</span>
+                  <strong>{{ document.productSpecification }}</strong>
+                </div>
+                <div>
+                  <span>单位：</span>
+                  <strong>{{ document.unitName }}</strong>
+                </div>
+                <div>
+                  <span>生产数量：</span>
+                  <strong>{{ document.productionQuantity }}</strong>
+                </div>
+                <div>
+                  <span>生产组织：</span>
+                  <strong>{{ document.productionOrganization }}</strong>
+                </div>
+              </div>
+              <table class="team-leader-workbench__production-material-list-table">
+                <thead>
+                  <tr>
+                    <th>序号</th>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th>规格型号</th>
+                    <th>单位</th>
+                    <th>图号</th>
+                    <th>应发数量</th>
+                    <th>实际用量</th>
+                    <th>需求日期</th>
+                    <th>仓库</th>
+                    <th>发料方式</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowIndex) in document.rows" :key="row.id || row.sourceEntryId || rowIndex">
+                    <td>{{ rowIndex + 1 }}</td>
+                    <td>{{ row.childMaterialCode || '' }}</td>
+                    <td>{{ row.childMaterialName || '' }}</td>
+                    <td>{{ row.childMaterialSpecification || '' }}</td>
+                    <td>{{ row.childUnitName || '' }}</td>
+                    <td>{{ resolveProductionMaterialListDrawingNo(row) }}</td>
+                    <td>{{ formatTraceQuantity(row.requiredQuantity) }}</td>
+                    <td>{{ resolveProductionMaterialListActualUsage(row) }}</td>
+                    <td>{{ formatDate(row.demandTime) }}</td>
+                    <td>{{ resolveProductionMaterialListWarehouse(row) }}</td>
+                    <td>{{ row.issueMethod || '' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="team-leader-workbench__production-material-list-footer">
+                <div>
+                  <span>创建人：</span>
+                  <strong>{{ document.creatorName }}</strong>
+                </div>
+                <div>
+                  <span>创建日期：</span>
+                  <strong>{{ document.createDate }}</strong>
+                </div>
+                <div>
+                  <span>审核人：</span>
+                  <strong>{{ document.auditorName }}</strong>
+                </div>
+                <div>
+                  <span>审核日期：</span>
+                  <strong>{{ document.auditDate }}</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+          <el-empty
+            v-else
+            v-loading="productionMaterialListLoading"
+            :image-size="56"
+            description="暂无生产用料清单"
+          />
+        </el-tab-pane>
+        <el-tab-pane
           v-if="displayMode === 'full'"
           label="生产工单"
           name="workOrder"
@@ -1335,11 +1458,15 @@ import type {
   TeamLeaderActiveOrderSupplementMaterialDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import type { ProWorkOrderVO } from '@/api/mes/pro/workorder'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 import { formatDateTimeValue } from '@/utils/formatTime'
 
 const props = defineProps<{
   detail?: TeamLeaderActiveOrderDetailRespVO
   sourceWorkOrder?: ProWorkOrderVO
+  productionMaterialLists?: ErpProductionMaterialListVO[]
+  productionMaterialListLoading?: boolean
+  productionMaterialListError?: string
   loading?: boolean
   error?: string
   embedded?: boolean
@@ -1450,6 +1577,8 @@ const activeOrderWorkOrderDisplay = computed(() => {
       productSpecification: source.productSpecification || '-',
       productCode: source.productCode || '-',
       productName: source.productName || '-',
+      unitName: source.unitMeasureName || '',
+      workshopName: source.workshopName || '',
       createTime: formatDateTime(source.createTime)
     }
   }
@@ -1461,8 +1590,102 @@ const activeOrderWorkOrderDisplay = computed(() => {
     productSpecification: detail?.productSpecification || '-',
     productCode: detail?.productCode || '-',
     productName: detail?.productName || '-',
+    unitName: '',
+    workshopName: '',
     createTime: formatDateTime(detail?.workOrderCreateTime)
   }
+})
+
+interface ProductionMaterialListDocument {
+  key: string
+  sourceBillNo: string
+  productionOrderNo: string
+  productCode: string
+  productName: string
+  productSpecification: string
+  unitName: string
+  productionQuantity: string
+  workshopName: string
+  productionOrganization: string
+  creatorName: string
+  createDate: string
+  auditorName: string
+  auditDate: string
+  rows: ErpProductionMaterialListVO[]
+}
+
+const readProductionMaterialListText = (
+  row: ErpProductionMaterialListVO | undefined,
+  keys: string[]
+) => {
+  if (!row) return ''
+  const record = row as unknown as Record<string, unknown>
+  for (const key of keys) {
+    const value = record[key]
+    if (value !== undefined && value !== null && String(value).trim()) {
+      return String(value).trim()
+    }
+  }
+  return ''
+}
+
+const formatProductionMaterialListQuantity = (value: number | string | undefined) => {
+  if (value === undefined || value === null || value === '') return ''
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? String(Math.round(parsed)) : String(value)
+}
+
+const formatDate = (value?: string | number | Date) => {
+  const text = formatDateTime(value)
+  if (!text || text === '-') return ''
+  return text.split(' ')[0]
+}
+
+const resolveProductionMaterialListDrawingNo = (row: ErpProductionMaterialListVO) =>
+  readProductionMaterialListText(row, ['drawingNumber', 'drawingNo', 'blueprintNo', 'figureNo'])
+
+const resolveProductionMaterialListActualUsage = (row: ErpProductionMaterialListVO) =>
+  formatProductionMaterialListQuantity(
+    readProductionMaterialListText(row, ['actualQuantity', 'actualUsageQuantity', 'actualUsage'])
+  )
+
+const resolveProductionMaterialListWarehouse = (row: ErpProductionMaterialListVO) =>
+  readProductionMaterialListText(row, ['warehouseName', 'stockName', 'warehouse'])
+
+const productionMaterialListDocuments = computed<ProductionMaterialListDocument[]>(() => {
+  const grouped = new Map<string, ErpProductionMaterialListVO[]>()
+  for (const row of props.productionMaterialLists ?? []) {
+    const sourceBillNo = String(row.sourceBillNo || '').trim()
+    if (!sourceBillNo) continue
+    if (!grouped.has(sourceBillNo)) {
+      grouped.set(sourceBillNo, [])
+    }
+    grouped.get(sourceBillNo)?.push(row)
+  }
+  return Array.from(grouped.entries()).map(([sourceBillNo, rows]) => {
+    const first = rows[0]
+    return {
+      key: sourceBillNo,
+      sourceBillNo,
+      productionOrderNo: first.productionOrderNo || activeOrderWorkOrderDisplay.value.workOrderCode || '',
+      productCode: first.productCode || activeOrderWorkOrderDisplay.value.productCode || '',
+      productName: activeOrderWorkOrderDisplay.value.productName === '-' ? '' : activeOrderWorkOrderDisplay.value.productName,
+      productSpecification:
+        activeOrderWorkOrderDisplay.value.productSpecification === '-'
+          ? ''
+          : activeOrderWorkOrderDisplay.value.productSpecification,
+      unitName: activeOrderWorkOrderDisplay.value.unitName,
+      productionQuantity:
+        activeOrderWorkOrderDisplay.value.quantity === '-' ? '' : activeOrderWorkOrderDisplay.value.quantity,
+      workshopName: activeOrderWorkOrderDisplay.value.workshopName,
+      productionOrganization: readProductionMaterialListText(first, ['productionOrganization', 'organizationName']),
+      creatorName: readProductionMaterialListText(first, ['creatorName', 'creator', 'createUserName']),
+      createDate: formatDate(first.createTime),
+      auditorName: readProductionMaterialListText(first, ['auditorName', 'auditUserName', 'reviewerName']),
+      auditDate: formatDate(readProductionMaterialListText(first, ['auditTime', 'auditDate', 'reviewTime'])),
+      rows
+    }
+  })
 })
 
 const visibleProductionProcesses = computed(() => {
@@ -2915,6 +3138,111 @@ watch(
 .team-leader-workbench__work-order-list-emphasis,
 .team-leader-workbench__work-order-list-link {
   font-weight: 700;
+}
+
+.team-leader-workbench__production-material-list-error {
+  margin-bottom: 12px;
+}
+
+.team-leader-workbench__production-material-list-documents {
+  display: grid;
+  gap: 18px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.team-leader-workbench__production-material-list-document {
+  display: grid;
+  gap: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__production-material-list-document h3 {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-lighter);
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__production-material-list-head {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.team-leader-workbench__production-material-list-head > div,
+.team-leader-workbench__production-material-list-footer > div {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-right: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color);
+}
+
+.team-leader-workbench__production-material-list-head > div:nth-child(3n),
+.team-leader-workbench__production-material-list-footer > div:nth-child(4n) {
+  border-right: 0;
+}
+
+.team-leader-workbench__production-material-list-head > div:nth-last-child(-n + 3),
+.team-leader-workbench__production-material-list-footer > div {
+  border-bottom: 0;
+}
+
+.team-leader-workbench__production-material-list-head span,
+.team-leader-workbench__production-material-list-footer span {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.team-leader-workbench__production-material-list-head strong,
+.team-leader-workbench__production-material-list-footer strong {
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__production-material-list-table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.team-leader-workbench__production-material-list-table th,
+.team-leader-workbench__production-material-list-table td {
+  min-height: 32px;
+  padding: 7px 6px;
+  border-right: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color);
+  text-align: center;
+  vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.team-leader-workbench__production-material-list-table th {
+  background: var(--el-fill-color-light);
+  font-weight: 700;
+}
+
+.team-leader-workbench__production-material-list-table th:last-child,
+.team-leader-workbench__production-material-list-table td:last-child {
+  border-right: 0;
+}
+
+.team-leader-workbench__production-material-list-footer {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .team-leader-workbench__active-order-pqc-card {
