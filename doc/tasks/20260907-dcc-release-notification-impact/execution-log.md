@@ -499,6 +499,16 @@ Correction: default assignee page predicate is now `(task_status <> 'COMPLETED' 
 
 Default-work predicate blocker: none. No Git, database, E2E, restart, evidence-file or task-state/test-report change was performed.
 
+## P4 Executor Pass: Timeline And Runtime Preflight
+
+`BDD: 发布后续完整时间线按服务端事实排序 -> Given 发布批次包含通知 materialize/attempt/retry/sent/failed 和影响任务 materialize/start/reassign/decide/reopen/link/resolve 审计，When 有权限用户打开文件详情或文控展开批次，Then 后端按当前页 batch IDs 聚合全部事件，以 occurredAt、事件来源和审计主键稳定排序，返回字符串事件/对象 ID、中文动作/状态/决定/关系方向及已脱敏错误摘要；前端只渲染响应，不自行拼接历史`
+
+`BDD: 时间线查询继续执行当前权限 -> Given 普通用户通过通知打开文件详情，When 当前 VIEW 已撤销，Then timeline 查询先由 controlled-file detail 授权拒绝且不读取审计；文控管理页仍需 Controller 和 Service 的 doc_control+approve+manage 三重校验`
+
+`BDD: 时间线页面状态完整 -> Given 时间线加载中、无事件、服务端失败或窄屏设备，When 用户查看详情发布后续或管理批次展开区，Then 页面分别显示 loading/empty/error，事件文本不暴露内部码，移动端内容可滚动且不重叠`
+
+`BDD: P4 真实验收只走页面 -> Given 干净 detached worktree 已构建并完成正式 migration/restart、测试租户账号与两份 DCC-P4-<timestamp> 新文件前置有效，When 后续获准运行 Playwright，Then 发布、站内信查看、两类决定、小版本升大版或关联开放版、文控查看/重试全部由可见页面完成；API/DB 仅在动作完成后只读核验，脚本和证据不保存密码/token`
+
 ## P3 Independent Gate
 
 `GREEN: independent tester final rerun -> PASS, P3 focused 27 tests; P1+P2+P3 adjacent 316 tests; platform idempotency 26 tests; all 0 failures/errors`
@@ -516,3 +526,79 @@ Project experience consolidation: extended the existing publication-followup and
 P3 runtime note: real MySQL first/repeat migration, 48081 deployment and Playwright workflow remain P4 gates and are not claimed here. No Git operation was performed under the current authorization.
 
 `GREEN: P3 implementation commit/push -> PASS, P3 backend/frontend/migration/tests, independent evidence, task state and consolidated experience committed as 45817f5c0 and pushed to origin/int_main; unrelated working-tree changes were excluded`
+
+### P4 Timeline RED
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupQueryServiceTest#getFileFollowup_reusesCurrentDetailAuthorizationAndAggregatesReasonsOnBackend' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, expected timeline response model and tenant-scoped notification/impact audit batch queries did not exist`
+
+`RED: node tests/e2e/dcc-detail-publication-followup-static.spec.js -> FAIL, expected the controlled-file detail follow-up panel and API contract to expose the server-projected timeline`
+
+`RED: node tests/e2e/dcc-release-impact-workbench-static.spec.js -> FAIL, expected the document-control management batch expansion to render the server-projected timeline`
+
+### P4 Timeline Implementation
+
+- Added a backend timeline projection that merges batch creation, notification audits and impact-assessment audits for current-page batch IDs only. Events use string IDs, Chinese action/status/decision/direction labels, persisted sanitized error summaries and stable `occurredAt + source order + audit ID` ordering.
+- Reused the current controlled-file detail authorization before any timeline audit read. Existing document-control management Controller and Service permission checks remain unchanged.
+- Added one shared frontend timeline component and used it in controlled-file detail and publication-followup management expansion. The component renders the backend sequence without reconstructing history and includes empty, error-summary accessibility and narrow-screen layout states.
+- Existing audit tables already contain every required P4 fact, so no additive schema migration was necessary for this slice.
+- Added a sanitized runtime preflight at `doc/tasks/20260907-dcc-release-notification-impact/p4-runtime-preflight.md`. It records the future clean-detached-worktree build/migration/restart prerequisites, formal page entry points, `DCC-P4-<timestamp>` data shape, UI-only Playwright path, read-only post-action checks and credential/token redaction gates. No runtime action or Playwright execution occurred.
+
+### P4 Timeline GREEN
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupQueryServiceTest#getFileFollowup_reusesCurrentDetailAuthorizationAndAggregatesReasonsOnBackend,DccPublicationNotificationTransactionIntegrationTest#timelineQueryUsesRealAuditMappersCurrentViewGuardAndStableCrossSourceOrdering' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 2 tests / 0 failures / 0 errors`
+
+`GREEN: P1+P2+P3+P4 adjacent DCC suite -> PASS, 318 tests / 0 failures / 0 errors`
+
+`GREEN: mvn -o -pl yudao-module-system '-Dtest=NotifyMessageBusinessKeyIdempotencyTest,NotifyMessageSendApiImplTest,NotifySendServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 26 tests / 0 failures / 0 errors`
+
+`GREEN: python -X utf8 -m pytest script/tests/test_dcc_publication_followup_sql.py script/tests/test_dcc_publication_impact_assessment_sql.py script/tests/test_dcc_publication_notification_sql.py -q -> PASS, 9 tests`
+
+`GREEN: release migration dependency closure -> PASS, migrationCount=15`
+
+`GREEN: node tests/e2e/dcc-release-impact-workbench-static.spec.js; node tests/e2e/dcc-detail-publication-followup-static.spec.js; node tests/e2e/dcc-publication-notify-navigation-static.spec.js -> PASS, 3 frontend static contracts`
+
+`GREEN: $env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS`
+
+`GREEN: targeted timeline/frontend ESLint -> PASS; scoped git diff --check -> PASS, line-ending warnings only`
+
+`GREEN: P4 preflight redaction and UI-only contract scan -> PASS; no password, token, API-write helper or database-write instruction is persisted`
+
+P4 code-gate blocker: none. Runtime acceptance remains intentionally pending a reviewed commit and clean detached worktree, real MySQL migration, owned runtime restart and UI-only Playwright execution. This executor did not modify runtime data, start or stop services, execute E2E, or perform Git operations. Formal task state, test report, verification report and evidence files remain main-Agent owned and were not modified by this executor.
+
+## P4 Timeline Context Correction
+
+`BDD: 通知时间线保留每次发送次数 -> Given 通知审计包含 ATTEMPT、RETRY、SENT 或 FAILED 的 attemptCount，When 用户查看发布后续时间线，Then 每条对应事件返回并显示本次累计尝试次数；MATERIALIZE 等无发送尝试语义的事件保持为空，不把审计初始化值伪装为发送次数`
+
+`BDD: 转派时间线保留原负责人和新负责人 -> Given REASSIGN 审计冻结 assigneeBefore 与 assigneeAfter，When 用户查看时间线，Then 两个 Long ID 均以字符串返回并明确显示“原负责人/新负责人”；START、DECIDE 等无转派语义事件保持为空`
+
+`BDD: 关联与解决时间线保留精确版本身份 -> Given LINK_REVISION 或 RESOLVE_REVISION 审计冻结 linkedRevisionControlledFileId，When 用户查看时间线，Then 返回并显示精确字符串 ID；仅当任务冻结的关联 ID 与该审计 ID 一致时显示 linkedRevisionVersion，历史审计缺少可匹配版本快照时明确显示版本号未记录，不读取当前其它版本猜测`
+
+`RED: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupQueryServiceTest#getFileFollowup_reusesCurrentDetailAuthorizationAndAggregatesReasonsOnBackend,DccPublicationNotificationTransactionIntegrationTest#timelineQueryUsesRealAuditMappersCurrentViewGuardAndStableCrossSourceOrdering' '-Dsurefire.failIfNoSpecifiedTests=true' test -> FAIL at testCompile, 22 expected errors because the timeline VO had no attemptCount, assigneeBefore, assigneeAfter, linkedRevisionControlledFileId or linkedRevisionVersion contract`
+
+`RED: node tests/e2e/dcc-detail-publication-followup-static.spec.js; node tests/e2e/dcc-release-impact-workbench-static.spec.js -> FAIL at the first expected contract assertion because the timeline API and shared UI did not expose attempt count, reassignment identities or linked revision identity/version context`
+
+Root cause: the immutable audit rows already stored notification `attemptCount`, reassignment `assigneeBefore/assigneeAfter` and linked revision ID, but the P4 timeline projection only copied common status/reason/message fields. The frontend contract therefore had no way to show the action-specific audit context.
+
+Correction:
+
+- Timeline responses now expose `attemptCount`, `assigneeBefore`, `assigneeAfter`, `linkedRevisionControlledFileId` and `linkedRevisionVersion`. Every Long identity is converted to a decimal string.
+- Only ATTEMPT/RETRY/SENT/FAILED project attempt count; MATERIALIZE leaves it null. Only REASSIGN projects assignees and requires a recorded new assignee; START/DECIDE leave reassignment fields null.
+- Only LINK_REVISION/RESOLVE_REVISION project the immutable audit revision ID. The task's frozen version string is reused only when its linked ID exactly equals that audit ID; a historical mismatched ID keeps the exact ID and null version instead of guessing from the task's newer linkage.
+- The shared timeline UI displays “发送尝试次数”, “原负责人/新负责人” and “关联版本 ID”. Legitimately absent old assignee or linked version is shown as “未记录/版本号未记录”; unrelated events render no fabricated context.
+- The real H2 timeline case covers MATERIALIZE, FAILED, SENT, START, REASSIGN, DECIDE, LINK_REVISION and RESOLVE_REVISION, including IDs above JavaScript's safe integer and a historical linked ID whose version must remain null. The service contract directly covers ATTEMPT, RETRY, FAILED and SENT attempt counts.
+
+`GREEN: mvn -o -pl yudao-module-dcc '-Dtest=DccPublicationFollowupQueryServiceTest#getFileFollowup_reusesCurrentDetailAuthorizationAndAggregatesReasonsOnBackend,DccPublicationNotificationTransactionIntegrationTest#timelineQueryUsesRealAuditMappersCurrentViewGuardAndStableCrossSourceOrdering' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 2 tests / 0 failures / 0 errors`
+
+`GREEN: P1+P2+P3+P4 adjacent DCC suite after the final context assertions -> PASS, 318 tests / 0 failures / 0 errors`
+
+`GREEN: mvn -o -pl yudao-module-system '-Dtest=NotifyMessageBusinessKeyIdempotencyTest,NotifyMessageSendApiImplTest,NotifySendServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=true' test -> PASS, 26 tests / 0 failures / 0 errors`
+
+`GREEN: python -X utf8 -m pytest script/tests/test_dcc_publication_followup_sql.py script/tests/test_dcc_publication_impact_assessment_sql.py script/tests/test_dcc_publication_notification_sql.py -q -> PASS, 9 tests`
+
+`GREEN: complete release migration dependency closure through 20260907_dcc_publication_notification -> PASS, migrationCount=15`
+
+`GREEN: node tests/e2e/dcc-release-impact-workbench-static.spec.js; node tests/e2e/dcc-detail-publication-followup-static.spec.js; node tests/e2e/dcc-publication-notify-navigation-static.spec.js -> PASS, 3 frontend static contracts`
+
+`GREEN: pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> PASS; targeted P4 frontend ESLint -> PASS; mvn -o -pl yudao-module-dcc -DskipTests compile -> PASS`
+
+Regression risk is limited to the read-only timeline projection and shared rendering component. No schema change was needed because the formal audit rows already contain the facts. Runtime Playwright acceptance and independent tester re-review remain the P4 gates; no Git, database write, restart or E2E action was performed.

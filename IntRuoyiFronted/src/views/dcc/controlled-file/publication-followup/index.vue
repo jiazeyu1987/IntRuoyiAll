@@ -79,6 +79,10 @@
                   </el-table-column>
                 </el-table>
               </section>
+              <section data-testid="dcc-management-publication-timeline">
+                <h2>完整时间线</h2>
+                <PublicationFollowupTimeline :timeline="row.timeline" />
+              </section>
               <section>
                 <h2>影响评估</h2>
                 <el-table :data="row.impactTasks" size="small" empty-text="无需评估">
@@ -140,6 +144,7 @@ import {
   relationDirectionLabel,
   revisionTrackingStatusLabel
 } from '../shared/publicationFollowupPresentation'
+import PublicationFollowupTimeline from '../shared/PublicationFollowupTimeline.vue'
 
 defineOptions({ name: 'DccControlledFilePublicationFollowup' })
 const router = useRouter()

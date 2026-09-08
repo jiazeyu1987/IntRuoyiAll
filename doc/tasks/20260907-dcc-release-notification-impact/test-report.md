@@ -4,7 +4,7 @@
 
 - Evaluation mode: phase-gated independent verification
 - Validation surface: source review plus local Maven/SQL contract execution
-- Phase: P1 发布后续账本与冻结快照 + P2 影响评估任务与升版跟踪 + P3 幂等通知与真实前端入口
+- Phase: P1-P3 passed + P4 complete-timeline code gate passed; runtime acceptance pending
 - Database writes: not run; P1/P2/P3 首次、重复迁移按计划留到 P4
 - E2E and service restart: not run
 - Tester-owned change: only this `test-report.md`
@@ -146,6 +146,51 @@
 - Evidence refs: `doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md:5`, `doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md:5`, `doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md:12`
 - Notes: all three evidence artifacts now describe P3 scope, behavior, RED/GREEN results and deferred P4 runtime boundaries. Exact stale-placeholder scan found zero matches; backend, database and frontend official validators all passed independently.
 
+### P4-AC1: 审计、回归与真实验收目标
+
+- Result: passed at code gate; runtime pending
+- Covers: AC-17
+- Command run: 14-test P4 focused query/H2 suite and 318-test P1-P4 adjacent suite plus platform/SQL/frontend/type/lint/compile/diff gates
+- Environment proof: local source review, Maven/H2 and frontend static validation only; no runtime migration, service restart, browser or E2E
+- Evidence refs: `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccPublicationTimelineEventRespVO.java`, `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicationFollowupQueryServiceImpl.java:272`, `IntRuoyiFronted/src/views/dcc/controlled-file/shared/PublicationFollowupTimeline.vue:15`
+- Notes: permission, pagination, ordering and shared rendering pass. The corrected projection preserves notification attempt count, reassignment before/after assignee identity and linked-revision identity/version context without converting Long IDs to JavaScript numbers. Real runtime acceptance remains pending.
+
+### P4-AC2: 发布后续完整时间线
+
+- Result: passed
+- Covers: AC-17
+- Command run: P4 timeline source/test review and focused H2/query suite
+- Environment proof: production audit DOs, timeline VO/builder and shared frontend component
+- Evidence refs: `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccPublicationImpactAuditDO.java:33`, `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccPublicationNotificationAuditDO.java:29`, `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccPublicationTimelineEventRespVO.java:8`
+- Notes: ATTEMPT/RETRY/SENT/FAILED expose their recorded attempt count while MATERIALIZE remains empty. REASSIGN exposes string-safe before/after assignee IDs while unrelated impact events remain empty. LINK_REVISION/RESOLVE_REVISION expose the exact audit revision ID; a version is shown only when the task's current linked ID matches that audit ID, otherwise the UI explicitly says the version number was not recorded.
+
+### P4-AC3: 静态与运行态完整门禁
+
+- Result: blocked
+- Covers: AC-17, AC-18
+- Command run: all authorized code/static gates completed; runtime actions intentionally not run
+- Environment proof: `p4-runtime-preflight.md` is planning-only and contains no literal secret or executable migration/restart/E2E action
+- Evidence refs: `doc/tasks/20260907-dcc-release-notification-impact/p4-runtime-preflight.md:5`
+- Notes: backend, SQL, frontend contracts, type check and lint are green. Real MySQL first/repeat migration, clean runtime build/restart, Playwright workflow and read-only reconciliation remain pending and are not claimed.
+
+### P4-AC4: 独立 tester 放行
+
+- Result: passed at code gate
+- Covers: AC-17
+- Command run: independent code-gate review
+- Environment proof: requirement-to-source/test comparison
+- Evidence refs: `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicationFollowupQueryServiceTest.java:75`, `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicationNotificationTransactionIntegrationTest.java:213`
+- Notes: independent rerun proves ordering, current VIEW, Chinese shared UI, sanitized errors, all four notification attempt actions, REASSIGN identities, LINK/RESOLVE revision identities, mismatched historical-version handling and IDs beyond JavaScript's safe integer. Runtime release remains separately blocked by the intentionally deferred migration/restart/E2E gate.
+
+### P4-AC5: P4 验证证据
+
+- Result: blocked
+- Covers: AC-17, AC-18
+- Command run: code-gate evidence recorded below
+- Environment proof: code gate only
+- Evidence refs: this report, `doc/tasks/20260907-dcc-release-notification-impact/p4-runtime-preflight.md`
+- Notes: code-gate evidence is complete and passed. Full milestone verification still requires separately authorized runtime migration, restart and UI-only Playwright acceptance.
+
 ## Verification Commands
 
 - Transaction integration: `mvn -o -pl yudao-module-dcc "-Dtest=DccPublicationFollowupTransactionIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=true" test` -> passed, `1 test, 0 failures, 0 errors`.
@@ -173,6 +218,13 @@
 - Targeted ESLint: P3 API, detail panel, workbench, management, presentation and notification-navigation files -> passed.
 - P3 compile and scoped diff: DCC compile passed; tracked diff check had line-ending warnings only; 44 untracked P3 files had zero trailing-whitespace findings.
 - Evidence closure: `validate_backend_api.py`, `validate_database_schema.py` and `validate_frontend_feature.py` against the three task evidence files -> passed; exact P2-only/Pending placeholder scan -> `0` findings.
+- P4 focused query/H2 suite: `DccPublicationFollowupQueryServiceTest,DccPublicationNotificationTransactionIntegrationTest` -> passed, `14 tests, 0 failures, 0 errors`.
+- P1-P4 adjacent suite: 24 affected DCC classes -> passed, `318 tests, 0 failures, 0 errors`.
+- P4 platform idempotency suite: three system notification classes -> passed, `26 tests, 0 failures, 0 errors`.
+- P4 SQL/migration: three publication SQL contracts -> passed, `9 tests`; complete dependency closure -> passed, `migrationCount=15`.
+- P4 frontend: workbench, detail timeline and notification navigation static contracts -> passed, `3 contracts`; relaxed `vue-tsc` and targeted ESLint passed.
+- P4 compile/diff: DCC compile and scoped tracked diff check passed; the one untracked P4 timeline component had zero trailing whitespace.
+- Runtime preflight safety: literal secret scan and executable DB/restart/Playwright/API action scan -> `0` findings; file remains `Prepared only`.
 
 ## Business Acceptance Verdict
 
@@ -192,18 +244,20 @@
 - AC-04: passed.
 - AC-05: passed; notification navigation still reaches the currently authorized detail endpoint and grants no VIEW permission.
 - AC-15: passed.
-- AC-17: passed at the P3 local contract level; H2 and frontend contracts retain unresolved revision work and preserve explicit completed filtering. Real page/database reconciliation remains a P4 gate.
+- AC-17: passed at P4 code gate; complete timeline context, ordering, access and shared Chinese rendering are independently covered.
+- AC-18: blocked; real Playwright was not authorized or executed in this code-gate pass.
 
 ## Final Verdict
 
-- Outcome: passed
-- Phase: P3
-- Passed phase ids: P1-AC1, P1-AC2, P1-AC3, P1-AC4, P1-AC5, P2-AC1, P2-AC2, P2-AC3, P2-AC4, P2-AC5, P3-AC1, P3-AC2, P3-AC3, P3-AC4, P3-AC5
-- Failed phase ids:
+- Outcome: passed at P4 code gate
+- Phase: P4 runtime pending
+- Passed phase ids: P1-AC1, P1-AC2, P1-AC3, P1-AC4, P1-AC5, P2-AC1, P2-AC2, P2-AC3, P2-AC4, P2-AC5, P3-AC1, P3-AC2, P3-AC3, P3-AC4, P3-AC5, P4-AC1, P4-AC2, P4-AC4
+- Blocked phase ids: P4-AC3, P4-AC5
 - Verified business ids: AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-08, AC-09, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17
-- Failed business ids:
-- Corrective gap: none
-- Summary: P3 passes. Product behavior passed the 2-test correction, 27-test focused, 316-test adjacent, 26-test platform, SQL, migration and frontend gates; the three formal evidence artifacts are now complete and independently validator-clean.
+- Failed business ids: none
+- Blocked business ids: AC-18
+- Corrective gap: closed. The projection and shared UI now preserve the required action-specific immutable-audit context, and focused H2/query plus frontend contracts cover it.
+- Summary: P4 code gate passes. Runtime migration, owned service restart and real UI-only Playwright acceptance remain pending and were not executed.
 
 ## Open Issues
 
@@ -211,4 +265,5 @@
 - The prior AC-13 blocker is closed: a lost-race now uses `tenant_id + id + deleted = 0 ... FOR UPDATE` as a MySQL REPEATABLE READ current read. Legitimate newer task state remains authoritative, while inconsistent same-work CAS misses still surface `PUBLICATION_IMPACT_VERSION_CONFLICT`.
 - The prior workbench blocker is closed: default H2 paging returns task ids 20/21/22 for PENDING, COMPLETED+NOT_STARTED and COMPLETED+REVISION_LINKED, excludes completed no-revision/resolved ids 23/24, and explicit COMPLETED filtering returns ids 21/22/23/24.
 - Execution-log correctly withdraws its earlier self-referential validator claim; the subsequently refreshed backend, database and frontend evidence now independently validate and contain no Pending placeholders.
-- P1/P2/P3 runtime MySQL first/repeat migration and real Playwright workflow remain intentionally deferred to P4. This report does not claim either runtime gate was executed.
+- The prior P4 timeline projection gap is closed: notification attempt count, reassignment identities and exact linked-revision identities are now returned and rendered with string-safe IDs and explicit no-guess version behavior.
+- P1/P2/P3 runtime MySQL first/repeat migration, service restart, real Playwright workflow and read-only runtime reconciliation remain pending. This report does not claim any runtime gate passed.
