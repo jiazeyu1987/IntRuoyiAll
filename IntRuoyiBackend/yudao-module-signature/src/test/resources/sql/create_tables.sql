@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS "system_electronic_signature" (
     "module_code" varchar(64) not null,
     "action_code" varchar(64) not null,
     "subject_type" varchar(64) not null,
-    "subject_id" varchar(128) not null,
+    "subject_id" varchar(512) not null,
     "subject_version" varchar(128) not null,
     "actor_id" bigint not null,
     "meaning_code" varchar(64) not null,

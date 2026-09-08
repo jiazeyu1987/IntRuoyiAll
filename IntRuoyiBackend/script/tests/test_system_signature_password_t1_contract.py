@@ -65,6 +65,16 @@ def test_unified_electronic_signature_t3_kernel_contract():
     assert "signedAt" not in command
 
 
+def test_unified_signature_subject_id_capacity_supports_encoded_business_identity():
+    base_migration = (ROOT / "sql/mysql/20260908_system_electronic_signature_t3.sql").read_text(encoding="utf-8")
+    repair_migration = (ROOT / "sql/mysql/20260908_system_electronic_signature_subject_id_capacity.sql").read_text(encoding="utf-8")
+    test_schema = (ROOT / "yudao-module-signature/src/test/resources/sql/create_tables.sql").read_text(encoding="utf-8")
+
+    assert "`subject_id` varchar(512) NOT NULL" in base_migration
+    assert "MODIFY COLUMN `subject_id` varchar(512) NOT NULL" in repair_migration
+    assert '"subject_id" varchar(512) not null' in test_schema
+
+
 def test_bpm_t5_approval_signatures_delegate_to_unified_kernel():
     pom = (ROOT / "yudao-module-bpm/pom.xml").read_text(encoding="utf-8")
     approval_center = (ROOT / "yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/approval/service/ApprovalCenterServiceImpl.java").read_text(encoding="utf-8")
