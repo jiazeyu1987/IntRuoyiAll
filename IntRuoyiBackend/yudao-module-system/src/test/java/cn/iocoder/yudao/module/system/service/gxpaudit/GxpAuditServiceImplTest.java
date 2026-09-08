@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.system.service.gxpaudit;
 
 import cn.iocoder.yudao.framework.security.core.LoginUser;
-import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO;
@@ -12,6 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Map;
@@ -36,7 +36,7 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         loginUser.setId(1001L);
         loginUser.setTenantId(1L);
         loginUser.setInfo(Map.of("username", "qa.admin", LoginUser.INFO_KEY_NICKNAME, "质量管理员"));
-        SecurityFrameworkUtils.setLoginUser(loginUser, null);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(loginUser, null));
         insertPolicy("edhr.execution.field.update", "EDHR", "EDHR_FIELD", "UPDATE",
                 "REQUIRED_CATEGORY_AND_TEXT", "NOT_REQUIRED");
         insertPolicy("signature.record.create", "SIGNATURE", "SIGNATURE_RECORD", "CREATE",
@@ -175,3 +175,4 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     }
 
 }
+

@@ -23,3 +23,5 @@ GREEN: pending -> record passing commands after implementation.
 
 - 任务从文档任务中拆出，后续代码、测试、CI 证据均记录在本目录。
 - E2E 未由用户当轮明确要求，本任务默认不执行 Playwright E2E。
+
+RED: mvn -pl yudao-module-system "-Dtest=GxpAuditPersistenceModelTest,GxpAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected fixture reason before GREEN: SecurityFrameworkUtils.setLoginUser(null request) cannot build WebAuthenticationDetails; test must set Authentication directly without bypassing audit actor resolution.
