@@ -385,6 +385,7 @@ class BackupPlanServiceImplTest {
 
         assertEquals(7L, operationGateway.operatorUserId);
         assertEquals("FULL", operationGateway.backupKind);
+        assertEquals("test", operationGateway.targetEnvironment);
         assertEquals("backup-now", operation.getAction());
     }
 
@@ -449,11 +450,13 @@ class BackupPlanServiceImplTest {
 
         private Long operatorUserId;
         private String backupKind;
+        private String targetEnvironment;
 
         @Override
-        public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind) {
+        public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind, String targetEnvironment) {
             operatorUserId = loginUserId;
             this.backupKind = backupKind;
+            this.targetEnvironment = targetEnvironment;
             RuntimeControlOperationRespVO operation = new RuntimeControlOperationRespVO();
             operation.setAction("backup-now");
             return operation;

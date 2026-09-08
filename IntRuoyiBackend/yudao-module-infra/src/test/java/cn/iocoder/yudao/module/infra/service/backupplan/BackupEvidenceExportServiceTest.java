@@ -138,6 +138,37 @@ class BackupEvidenceExportServiceTest {
         assertEquals(9, entries.size());
     }
 
+    @Test
+    void exportLatestShouldBlockWhenSourceManifestOrChecksumIsMissing() throws Exception {
+        BackupPlanStatusRespVO status = new BackupPlanStatusRespVO();
+        status.setHealthStatus("正常");
+        status.setPlanStatus("已开启");
+        status.setFullSchedule("SUN 01:00");
+        status.setIncrementalSchedule("02:00");
+        status.setRetentionSource("质量批准的记录保存期限矩阵 QA-RET-2026-01");
+        status.setQualityApprovalRef("QA-SIGN-20260907");
+        status.setRepositoryEnvironment("test");
+        status.setMaxFreshnessHours(25);
+        RuntimeControlBackupPointRespVO point = backupPoint("20260907-020000", "RECOVERABLE", "PASSED");
+        when(backupPlanService.getStatus()).thenReturn(status);
+        when(backupDrillService.listBackupPoints()).thenReturn(List.of(point));
+        when(backupRepository.isRegularFile("Backup/manifest.json")).thenReturn(false);
+        when(backupRepository.isRegularFile("Backup/checksums.txt")).thenReturn(false);
+        when(backupRepository.isRegularFile("Backup/rehearsal-report.json")).thenReturn(true);
+        when(backupRepository.readText("Backup/rehearsal-report.json")).thenReturn("""
+                {"status":"PASSED","completedAt":"2026-09-07T02:30:00+08:00"}
+                """);
+        when(operationStore.listLatest(100)).thenReturn(List.of());
+
+        BackupEvidenceExportService.ExportResult result = service.exportLatest();
+        Map<String, byte[]> entries = unzip(result.content());
+
+        JsonNode manifest = objectMapper.readTree(entries.get("evidence-manifest.json"));
+        assertEquals("BLOCKED", manifest.path("overallVerdict").asText());
+        assertTrue(manifest.path("blockers").toString().contains("最新备份点 manifest 缺失"));
+        assertTrue(manifest.path("blockers").toString().contains("最新备份点 checksum 清单缺失"));
+    }
+
     private RuntimeControlBackupPointRespVO backupPoint(String backupId, String recoverability, String rehearsal) {
         RuntimeControlBackupPointRespVO point = new RuntimeControlBackupPointRespVO();
         point.setBackupId(backupId);

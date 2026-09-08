@@ -63,3 +63,10 @@ The authoritative worktree for this verification is now `D:\IntRuoyiWorktree\tmp
 
 - Git commit/push has completed and the task branch has been rebased onto local `int_main`; cleanup preview is still blocked by dirty main worktree `E:\IntRuoyi`, so the task remains `ready_for_closeout` instead of `completed`.
 - Playwright real read-only E2E has completed. Real backup write, restore rehearsal against remote/test/prod targets, and production-grade evidence still require target environment preconditions and, for production-grade actions, explicit `PROD` confirmation.
+
+## Static Code Analysis Follow-up
+
+- Finding fixed: 手动备份网关不得硬编码 `prod` / `PROD`；现在目标环境由 `BackupPlanServiceImpl` 从严格读取的备份计划配置传入，当前最小闭环只允许 `test`。
+- Finding fixed: 审查证据 PASS 判定必须包含最新备份点源 manifest 和 checksum 清单存在性；缺失时 `overallVerdict=BLOCKED`。
+- Regression evidence: `doc/tasks/20260907-backup-minimal-closure-implementation/bug-regression-evidence.md`。
+- Final static-analysis verification: bug regression evidence validator PASS；Java focused regression PASS，46 tests；Python backup tooling regression PASS，123 tests；frontend static script / E2E syntax / `pnpm ts:check` PASS。

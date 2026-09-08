@@ -74,6 +74,7 @@ class BackupPlanMinimalClosureTest {
 
         assertEquals(7L, operationGateway.loginUserId);
         assertEquals("INCREMENTAL", operationGateway.backupKind);
+        assertEquals("test", operationGateway.targetEnvironment);
     }
 
     @Test
@@ -127,11 +128,13 @@ class BackupPlanMinimalClosureTest {
     private static class FakeOperationGateway implements BackupPlanOperationGateway {
         private Long loginUserId;
         private String backupKind;
+        private String targetEnvironment;
 
         @Override
-        public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind) {
+        public RuntimeControlOperationRespVO backupNow(Long loginUserId, String backupKind, String targetEnvironment) {
             this.loginUserId = loginUserId;
             this.backupKind = backupKind;
+            this.targetEnvironment = targetEnvironment;
             return new RuntimeControlOperationRespVO();
         }
     }

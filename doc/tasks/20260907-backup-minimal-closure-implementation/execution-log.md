@@ -116,3 +116,27 @@ BLOCKED: task-closeout-cleanup preview -> `python C:\Users\BJB110\.codex\skills\
 - GREEN: post-rebase frontend regression -> PASS，`node --check tests\e2e\system-backup-plan-real-readonly.e2e.js`、`node tests\e2e\system-backup-plan-standard-list-static.spec.js`、`node tests\e2e\system-backup-minimal-closure-static.spec.js`、`pnpm ts:check` 通过。
 - GREEN: post-rebase cleanup temp artifact -> PASS，删除 `D:\IntRuoyiWorktree\tmp_auth_20260907\IntRuoyiBackend\.pytest-temp`；删除前确认目标位于当前 worktree 后端根目录内且目录名为 `.pytest-temp`。
 - GREEN: project experience consolidation -> PASS，按 `project-experience-consolidation` 将“worktree 备份计划真实只读 E2E 必须显式设置 `INTRUOYI_RUNTIME_CONTROL_REPO_ROOT`”合并到 `docs/worktree-memory.md` 的成对运行态门禁；未新建长期经验文档。
+
+## 2026-09-08 Static Code Analysis Fix
+
+BDD: 手动备份不得绕过生产确认 -> Given 备份计划页面触发立即备份 When 后端构造运行控制台请求 Then 目标环境必须来自已校验的备份计划配置，网关不得硬编码 `prod` 或自行补 `PROD`。
+BDD: 证据包缺源文件不得 PASS -> Given 最新备份点声明可恢复但源 manifest 或 checksum 清单缺失 When 导出审查证据 Then `overallVerdict` 必须为 `BLOCKED` 并列出缺失项。
+
+- Static analysis finding 1: `RuntimeControlBackupPlanOperationGateway.backupNow()` 硬编码 `targetEnvironment=prod` 和 `prodConfirmText=PROD`，页面按钮会绕过运行控制台生产确认门禁。
+- Static analysis finding 2: `BackupEvidenceExportService.isPass()` 未要求源 manifest/checksum 存在，证据包可能缺关键源文件但仍 PASS。
+- RED: `mvn.cmd -pl yudao-module-infra '-Dtest=BackupEvidenceExportServiceTest#exportLatestShouldBlockWhenSourceManifestOrChecksumIsMissing' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> FAIL，expected `BLOCKED` but was `PASS`。
+- GREEN: `mvn.cmd -pl yudao-module-infra '-Dtest=BackupPlanServiceImplTest,BackupPlanMinimalClosureTest,RuntimeControlBackupPlanOperationGatewayTest,BackupEvidenceExportServiceTest,WindowsBackupPlanSchedulerGatewayTest,RuntimeBackupDrillServiceImplTest,RuntimeControlOperationActionBackupConfirmTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS，46 tests。
+
+Implemented:
+
+- `BackupPlanServiceImpl.backupNow()` 读取严格备份计划配置、校验脚本存在后，把 `backup.repositoryEnvironment` 传入 operation gateway。
+- `RuntimeControlBackupPlanOperationGateway.backupNow()` 不再硬编码 `prod` / `PROD`，只透传已校验目标环境；当前最小闭环配置仍只能是 `test`。
+- `BackupEvidenceExportService` 将源 manifest 和 checksum 清单纳入 PASS 条件，缺失时输出 BLOCKED blocker。
+- 新增 `RuntimeControlBackupPlanOperationGatewayTest` 和证据缺失回归测试。
+
+Verification:
+
+- GREEN: bug regression evidence validator -> PASS，`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260907-backup-minimal-closure-implementation\bug-regression-evidence.md`。
+- GREEN: static-analysis Java regression -> PASS，`mvn.cmd -pl yudao-module-infra '-Dtest=BackupPlanServiceImplTest,BackupPlanMinimalClosureTest,RuntimeControlBackupPlanOperationGatewayTest,BackupEvidenceExportServiceTest,WindowsBackupPlanSchedulerGatewayTest,RuntimeBackupDrillServiceImplTest,RuntimeControlOperationActionBackupConfirmTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`，46 tests。
+- GREEN: static-analysis Python regression -> PASS，`python -X utf8 -m pytest --basetemp .pytest-temp script\tests\test_backup_minimal_closure.py script\tests\test_backup_ops_manifest_tooling.py script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_backup_ops_tooling.py script\tests\test_system_backup_plan_menu_sql.py -q`，123 tests。
+- GREEN: static-analysis frontend checks -> PASS，`node tests\e2e\system-backup-minimal-closure-static.spec.js`、`node --check tests\e2e\system-backup-plan-real-readonly.e2e.js`、`pnpm ts:check`。

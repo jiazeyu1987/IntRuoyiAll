@@ -98,7 +98,9 @@ public class BackupPlanServiceImpl implements BackupPlanService {
         if (!BACKUP_KINDS.contains(normalizedKind)) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_INVALID, "backupKind");
         }
-        return operationGateway.backupNow(loginUserId, normalizedKind);
+        BackupPlanSchedule schedule = readSchedule(true);
+        assertBackupScriptsExist(schedule);
+        return operationGateway.backupNow(loginUserId, normalizedKind, schedule.getRepositoryEnvironment());
     }
 
     @Override

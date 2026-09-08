@@ -59,8 +59,8 @@ public class BackupEvidenceExportService {
         String checksumText = readOptionalText(latest == null ? null : latest.getChecksumPath());
         String rehearsalText = readOptionalText(latest == null ? null : latest.getRehearsalReportPath());
         JsonNode sourceRehearsal = parseJson(latest == null ? null : latest.getRehearsalReportPath(), rehearsalText);
-        String conclusion = isPass(status, latest, sourceRehearsal) ? "PASS" : "BLOCKED";
-        List<String> blockers = blockers(status, latest, sourceRehearsal);
+        String conclusion = isPass(status, latest, manifestText, checksumText, sourceRehearsal) ? "PASS" : "BLOCKED";
+        List<String> blockers = blockers(status, latest, manifestText, checksumText, sourceRehearsal);
 
         LinkedHashMap<String, byte[]> files = new LinkedHashMap<>();
         files.put("审查摘要.txt", summary(status, latest, points, sourceRehearsal, conclusion, blockers)
@@ -83,15 +83,17 @@ public class BackupEvidenceExportService {
     }
 
     private boolean isPass(BackupPlanStatusRespVO status, RuntimeControlBackupPointRespVO latest,
-                           JsonNode rehearsal) {
+                           String manifestText, String checksumText, JsonNode rehearsal) {
         return "正常".equals(status.getHealthStatus())
                 && latest != null
+                && StrUtil.isNotBlank(manifestText)
+                && StrUtil.isNotBlank(checksumText)
                 && "RECOVERABLE".equals(latest.getRecoverabilityStatus())
                 && "PASSED".equalsIgnoreCase(rehearsal.path("status").asText());
     }
 
     private List<String> blockers(BackupPlanStatusRespVO status, RuntimeControlBackupPointRespVO latest,
-                                  JsonNode rehearsal) {
+                                  String manifestText, String checksumText, JsonNode rehearsal) {
         List<String> blockers = new ArrayList<>();
         if (!"正常".equals(status.getHealthStatus())) {
             blockers.add(StrUtil.blankToDefault(status.getBlockedReason(), "备份计划状态不是正常"));
@@ -103,6 +105,12 @@ public class BackupEvidenceExportService {
         if (!"RECOVERABLE".equals(latest.getRecoverabilityStatus())) {
             blockers.addAll(latest.getUnrecoverableReasons() == null
                     ? List.of("最新备份点不可恢复") : latest.getUnrecoverableReasons());
+        }
+        if (StrUtil.isBlank(manifestText)) {
+            blockers.add("最新备份点 manifest 缺失");
+        }
+        if (StrUtil.isBlank(checksumText)) {
+            blockers.add("最新备份点 checksum 清单缺失");
         }
         if (!"PASSED".equalsIgnoreCase(rehearsal.path("status").asText())) {
             blockers.add("最新备份点恢复演练未通过");
