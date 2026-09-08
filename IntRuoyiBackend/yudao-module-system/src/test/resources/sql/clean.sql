@@ -1,3 +1,5 @@
+DELETE FROM "system_temporary_role_grant";
+DELETE FROM "system_temporary_role_grant_audit";
 DELETE FROM "system_dept";
 DELETE FROM "system_dict_data";
 DELETE FROM "system_codex_test_artifact";

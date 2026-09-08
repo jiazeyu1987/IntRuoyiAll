@@ -57,6 +57,14 @@
 - Forbidden action: 禁止写后修正、禁止把日志菜单名称当权限来源、禁止引入 fallback 让普通用户先保存再清理。
 - Evidence: `doc/tasks/20260827-login-security-controls/verification-report.md`
 
+## 临时角色授权闭环门禁
+
+- Trigger: 临时权限、临时角色、紧急授权、限时授权、`PermissionService.hasAnyPermissions`、`system_user_role`、权限使用审计。
+- Preflight check: 临时授权必须有独立授权表和审计表，状态至少区分待审批、有效、撤销、过期；申请必须有原因和未来有效截止时间；运行态权限判断只能合并当前有效且未过期的临时角色。临时授权不得写入永久 `system_user_role`，也不得靠前端隐藏按钮冒充到期回收。
+- Blocker: 临时角色被保存成永久用户角色、缺少到期时间仍可申请、审批前可生效、到期/撤销后仍可放行、或临时角色放行接口时没有 USE 审计记录，必须停止并补齐后端回归。
+- Verification: 后端测试必须覆盖申请有效期校验、审批后生效、撤销/过期后失效、永久角色放行不记录临时 USE、仅临时角色放行时记录 USE；SQL 静态测试必须证明迁移不写入 `system_user_role`。
+- Forbidden action: 禁止把临时授权作为永久角色分配的补丁；禁止用 admin 或超级管理员权限解释临时授权闭环已完成；禁止在权限检查失败时默认通过或补齐角色。
+
 ## MES 一线设备账号权限门禁
 
 ### 权限角色授权必须走登录用户标准权限解析
