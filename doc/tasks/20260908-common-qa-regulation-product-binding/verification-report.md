@@ -41,3 +41,11 @@
 - PASS: QA 分支 rebase -> `codex/qa_extra_2026` 已 rebase 到主干基线之后，当前 HEAD `74bfc27de`，可继续执行 ff-only 合并和 worktree closeout。
 - Current closeout status: 验证完成、cleanup 完成、主干基线完成；等待最终 ff-only 合并、worktree 删除和 completed 记录。
 
+
+## Final Closeout Result
+
+- PASS: `codex/qa_extra_2026` 已 ff-only 合并入 `int_main` 并推送。
+- PASS: `D:\IntRuoyiWorktree\qa_extra_2026` 已删除，`git worktree list` 不再显示该 worktree。
+- PASS: 端口登记表中 `qa_extra_2026` 已更新为 `active=false`，slot `37` / `8212` / `48212` 已释放。
+- PASS: 任务最终状态为 `completed`。
+- Note: 主干在收尾过程中有其它并行任务持续产生无关改动；本任务最终提交只包含当前任务收尾记录，不混入无关文件。

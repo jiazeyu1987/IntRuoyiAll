@@ -78,3 +78,12 @@
 - GREEN: 主工作区既有脏改动基线提交 -> `5c0310dd0 chore: 保存主干现有工作区基线`，并已推送 `origin/int_main`。
 - GREEN: `codex/qa_extra_2026` rebase 到 `int_main` 基线 `5c0310dd0` 之后 -> PASS，当前 QA 分支 HEAD `74bfc27de`。
 
+
+## 2026-09-08 Final Closeout
+
+- GREEN: `codex/qa_extra_2026` 最终 rebase 到 `origin/int_main` 后推送 -> PASS，远端 QA 分支 HEAD `31bc2038f`。
+- GREEN: `E:\IntRuoyi` 主干执行 `git merge --ff-only codex/qa_extra_2026` -> PASS，合并提交范围包含 `6d081f095` 和 `31bc2038f`。
+- GREEN: `git push origin int_main` -> PASS，远端 `origin/int_main` 已推进到 `31bc2038f`，后续主干残留基线提交已推进到 `603dc0cd3`。
+- GREEN: `git worktree remove --force D:\IntRuoyiWorktree\qa_extra_2026` -> PASS，目录存在性检查为 `False`。
+- GREEN: 端口登记表 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` -> `qa_extra_2026` 已标记 `active=false`，slot `37`、端口 `8212/48212` 已释放，`cleanupTask=20260908-common-qa-regulation-product-binding`。
+- GREEN: 最终任务记录更新为 `completed`，仅暂存并提交本任务 `task.md`、`execution-log.md`、`verification-report.md`。

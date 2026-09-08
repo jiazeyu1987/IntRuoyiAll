@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout：qa_extra_2026 worktree 内开发验证文档已补齐，用户指定 A/B Word 源路径已完成直接读取、哈希一致性、表 2 解析和文档门禁验证，任务目录 cleanup 已应用；主工作区既有脏改动已按用户授权提交为独立基线，当前可继续执行 ff-only 合并、worktree 删除和最终 completed 记录。
+completed：通用检验规程与产品绑定开发验证文档已完成；A/B 指定 Word 源路径直读验证、任务目录 cleanup、主干基线提交、QA 分支 ff-only 合并、主干推送、worktree 删除和端口登记释放均已完成。
 
 ## 设计约束检查
 
@@ -56,3 +56,4 @@ ready_for_closeout：qa_extra_2026 worktree 内开发验证文档已补齐，用
 
 - 先前阻塞：`E:\IntRuoyi` 主工作区存在其它任务脏改动，且包含本任务同名经验文档 `docs/backend-development.md` 改动。
 - 解除方式：用户明确要求“先提交主干,然后合并”，已将主工作区既有脏改动作为独立基线提交 `5c0310dd0` 并推送 `origin/int_main`；随后将 `codex/qa_extra_2026` rebase 到该基线之后，满足后续 ff-only 合并前置条件。
+
