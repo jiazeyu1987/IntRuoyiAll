@@ -65,3 +65,26 @@ GREEN: python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config
 BLOCKED: PASS FOR OPERATIONAL COMPLIANCE -> runtime NTP, WORM/Object Lock, backup restore rehearsal, periodic review SOP execution, QA signature, training records, DB role separation and privileged audit externalization are real environment/quality records and are not present in this code-only implementation turn.
 
 GREEN: project-experience-consolidation -> PASS, reusable GxP business-evidence boundary merged into `docs/backend-development.md#GxP-业务写入统一审计接入门禁` and routed from `docs/experience-index.md`; no new long-term experience document created.
+
+GREEN: baseline commit -> PASS, `f42b4c1111645b7baea4648542866cbbc71c1833` committed current dirty worktree per `docs/task-closeout-rules.md` baseline exception before push.
+Baseline commit file list:
+- IntRuoyiBackend/config/gxp-audit-policy.yaml
+- IntRuoyiBackend/script/backup-ops/scripts/modules/Infra/ObjectOps.psm1
+- IntRuoyiBackend/script/backup-ops/scripts/modules/Infra/SshOps.psm1
+- IntRuoyiBackend/script/tests/test_backup_minimal_closure.py
+- IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFilePublishServiceImpl.java
+- IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFilePublishServiceTest.java
+- IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesProBatchRecordReportControllerTest.java
+- doc/tasks/20260908-gxp-audit-trail-implementation/backend-api-evidence.md
+- doc/tasks/20260908-gxp-audit-trail-implementation/execution-log.md
+- doc/tasks/20260908-gxp-audit-trail-implementation/task.md
+- doc/tasks/20260908-gxp-audit-trail-implementation/verification-report.md
+- docs/backend-development.md
+- docs/experience-index.md
+- docs/csv-validation/CSV-INT-20260908-7.1-7.4/现场记录表单册.docx
+- docs/csv-validation/CSV-INT-20260908-7.1-7.4/现场证据包-正式交付版.docx
+- docs/csv-validation/CSV-INT-20260908-7.1-7.4/签字与审批汇总表.docx
+- docs/csv-validation/IntRuoyi-eDHR-CSV/现场证据包.xlsx
+- docs/csv-validation/SOP-EDHR-090-文档培训版本控制-受控草案.docx
+- docs/csv-validation/SOP-EDHR-系统操作手册编写与批准模板.docx
+- docs/csv-validation/TRN-EDHR-培训课程大纲与考核标准-受控草案.docx
