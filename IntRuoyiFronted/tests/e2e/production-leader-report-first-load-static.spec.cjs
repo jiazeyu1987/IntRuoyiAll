@@ -35,10 +35,10 @@ assert.match(
   /watch\(activeProductionModuleTab[\s\S]*tab === 'activeOrder'[\s\S]*loadActiveOrders\(\)/,
   '活跃订单必须在首次进入活跃订单页签时加载。'
 )
-assert.match(
+assert.doesNotMatch(
   source,
   /watch\(activeProductionModuleTab[\s\S]*tab === 'processConfig'[\s\S]*loadProcessConfigRows\(\)/,
-  '工序配置必须在首次进入工序配置页签时加载。'
+  '工序配置迁移后不应再保留首次进入生产组长模块页签的加载分支。'
 )
 assert.match(
   source,

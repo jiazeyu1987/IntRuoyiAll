@@ -70,11 +70,6 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
-      <el-tab-pane
-        label="工序配置"
-        name="processConfig"
-        data-production-leader-module-tab-process-config
-      />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -518,11 +513,6 @@
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
-      />
-      <el-tab-pane
-        label="工序配置"
-        name="processConfig"
-        data-production-leader-module-tab-process-config
       />
     </el-tabs>
     <div
@@ -1484,11 +1474,6 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
-      <el-tab-pane
-        label="工序配置"
-        name="processConfig"
-        data-production-leader-module-tab-process-config
-      />
     </el-tabs>
     <div
       v-if="showProductionResponsibleRoutes"
@@ -2120,11 +2105,6 @@
         name="activeOrder"
         data-production-leader-module-tab-active-order
       />
-      <el-tab-pane
-        label="工序配置"
-        name="processConfig"
-        data-production-leader-module-tab-process-config
-      />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -2235,11 +2215,6 @@
         label="活跃订单池"
         name="activeOrder"
         data-production-leader-module-tab-active-order
-      />
-      <el-tab-pane
-        label="工序配置"
-        name="processConfig"
-        data-production-leader-module-tab-process-config
       />
     </el-tabs>
     <div
@@ -4340,7 +4315,7 @@ const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detai
   'management'
 )
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'processConfig'
+  'personnel' | 'report' | 'reportHistory' | 'activeOrder'
 >('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
@@ -4658,8 +4633,7 @@ const showProductionResponsibleRoutes = computed(
     (responsibleRouteLoading.value ||
       responsibleRouteRows.value.length > 0 ||
       activeProductionModuleTab.value === 'personnel' ||
-      activeProductionModuleTab.value === 'activeOrder' ||
-      activeProductionModuleTab.value === 'processConfig')
+      activeProductionModuleTab.value === 'activeOrder')
 )
 const pageTitle = computed(() => props.title)
 const pageSubtitle = computed(() => props.subtitle)
@@ -4689,9 +4663,7 @@ const showProductionActiveOrderModule = computed(
     (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'activeOrder')
 )
 const showProductionProcessConfigModule = computed(
-  () =>
-    isProductionLeader.value &&
-    (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'processConfig')
+  () => isProductionLeader.value && !showProductionModuleTabs.value
 )
 const showProductionConfigModule = computed(
   () => isProductionLeader.value && !showProductionModuleTabs.value
@@ -8542,17 +8514,6 @@ watch(activeProductionModuleTab, async (tab) => {
     })
     await loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
-    })
-  }
-  if (tab === 'processConfig' && activeLeaderTab.value === 'PRODUCTION') {
-    await loadResponsibleRoutes().catch((error) => {
-      ElMessage.error(resolveErrorMessage(error, '负责工艺路线加载失败'))
-    })
-    await loadTeamDeviceOptions().catch((error) => {
-      ElMessage.error(resolveErrorMessage(error, '班组设备列表加载失败'))
-    })
-    await loadProcessConfigRows().catch((error) => {
-      ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
     })
   }
 })

@@ -442,16 +442,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         try {
             sourceBytes = fileService.getFileContent(sourceFile.getConfigId(), sourceFile.getPath());
         } catch (Exception ex) {
-            if (allowPdfStampFailurePassThrough) {
-                // NAS no-approval transfer imports historical PDFs that may be browser-readable
-                // while still being unstampable by PDFBox. Keep the original PDF active only in
-                // this explicit NAS transfer path instead of failing the whole directory import.
-                log.warn("[resolveStampedPublishedArtifact][fileId({}) sourceFileId({})] "
-                                + "NAS transfer stamp failed, publish original PDF instead. reason={}",
-                        file.getId(), sourceFile.getId(),
-                        StrUtil.blankToDefault(ex.getMessage(), ex.getClass().getSimpleName()));
-                return new PublishedArtifact(sourceFile.getId(), null, null);
-            }
             throw new ServiceException(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(),
                     StrUtil.blankToDefault(ex.getMessage(), "Controlled file stamp generation failed"));
         }
@@ -470,16 +460,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             LocalDateTime stampedAt = LocalDateTime.now();
             return new PublishedArtifact(stampedFile.getId(), stampedFile.getId(), stampedAt);
         } catch (Exception ex) {
-            if (allowPdfStampFailurePassThrough) {
-                // NAS no-approval transfer imports historical PDFs that may be browser-readable
-                // while still being unstampable by PDFBox. Keep the original PDF active only in
-                // this explicit NAS transfer path instead of failing the whole directory import.
-                log.warn("[stampAndStorePdf][fileId({}) sourceFileId({})] "
-                                + "NAS transfer stamp failed, publish original PDF instead. reason={}",
-                        file.getId(), sourceFile.getId(),
-                        StrUtil.blankToDefault(ex.getMessage(), ex.getClass().getSimpleName()));
-                return new PublishedArtifact(sourceFile.getId(), null, null);
-            }
             throw new ServiceException(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(),
                     StrUtil.blankToDefault(ex.getMessage(), "Controlled file stamp generation failed"));
         }

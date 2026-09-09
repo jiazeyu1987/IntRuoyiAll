@@ -924,3 +924,5 @@
 - Historical audit display extension: 已保存操作记录中的 `actionLabel/reason/summary` 属于原始审计事实，不得为改文案而回写；页面应优先按稳定动作码映射当前显示名，并对历史自由文本中的已知旧环境称谓做只读展示投影。投影必须保留 `Backup/...` 等技术路径原值，静态合同与真实非空历史页面同时证明旧称不可见、原始 VO 未被修改。
 - Signature selection extension: eDHR 表单或只读表单展示“最新签名”时，必须先按服务器生成的 `signedAt` 比较，再用数值签名 ID 处理同秒并列；API 若按 `signedAt DESC, id DESC` 返回，同秒场景不能因稳定排序而选中低 ID 旧记录。缺少有效 ID 或服务器签署时间应失败关闭，不得用 `0`、客户端当前时间、业务发生时间或旧展示字段参与排序。
 - CSV evidence entrypoint extension: 审批、签名、可信时间和备份审查等需要交给审查老师统一查找的证据导出入口，应在电子签名治理的 CSV 质量包页签集中呈现；集中入口只能跳转或引导到已有正式页面执行导出，权限、前置条件、下载失败和阻断原因仍由正式页面暴露。静态合同必须锁定入口 ID、中文标题、正式路由和权限码，禁止在 CSV 页签中用 fetch/mock/默认成功伪造导出。
+- Static contract cwd extension: 依赖 `process.cwd()` 拼接 `src/...` 的前端静态合同必须在 `IntRuoyiFronted` 目录运行；依赖后端相对路径的合同必须在 `IntRuoyiBackend` 或仓库根目录按脚本约定运行。组合门禁不得因为 PowerShell 默认继续执行而吞掉前置命令的路径错误，失败命令需要在正确 cwd 单独重跑并记录真实结果。
+- ESLint wrapper extension: 若 `pnpm exec eslint`、`npx eslint` 或 `.cmd` 包装层长时间无输出，应先按 PID 确认没有重复 lint 进程，再用项目目录下 `require('eslint')` 的 Node API 按文件或小批量执行同一 ESLint 包；Node API `errorCount=0` 可以作为源码定向 lint 证据，但必须记录包装层卡住是工具层现象，不能把中断的包装命令标记为 PASS。

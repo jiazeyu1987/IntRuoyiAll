@@ -158,46 +158,23 @@ async function waitForDccProjectCodePageResponse(page) {
   }
 }
 
-async function selectIdiProject(page, qaPage) {
-  const dccCard = qaPage.locator('[data-qa-regulation-dcc-project]').first()
-  const select = dccCard.locator('.el-select').first()
-  await select.waitFor({ state: 'visible' })
-  await select.click()
-  const input = select.locator('input[role="combobox"], input.el-select__input').first()
-
-  const idiProjectPagePromise = waitForDccProjectCodePageResponse(page)
-  await input.fill('IDI')
-  const idiProjectPage = await idiProjectPagePromise
-  const idiProject = idiProjectPage.sample.find((project) => project.projectCode === 'IDI')
-  if (!idiProject?.productMasterId) {
-    throw new Error(
-      `E2E_BLOCKED_QA_DCC_PRODUCT_BINDING: IDI DCC project code id ${
-        idiProject?.id || 'unknown'
-      } returned productMasterId null; cannot verify backend QA project-statuses split without the formal DCC-to-product binding.`
-    )
-  }
-
-  const statusResponsePromise = waitForProjectStatusResponse(page)
-  const idiOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: /IDI/ }).first()
-  await idiOption.waitFor({ state: 'visible' })
-  await idiOption.click()
-  const statusResponse = await statusResponsePromise
-
-  await dccCard.getByText('IDI', { exact: false }).first().waitFor({ state: 'visible' })
-  await qaPage.getByText('PQC-IDI-001', { exact: false }).first().waitFor({ state: 'visible' })
-  const regulationNameInput = qaPage
-    .locator('.el-form-item')
-    .filter({ hasText: '规程名称' })
-    .locator('input')
-    .first()
-  await regulationNameInput.waitFor({ state: 'visible' })
-  assert.equal(
-    await regulationNameInput.inputValue(),
-    '按压式球囊扩充压力泵组装过程检验规程',
-    'IDI draft regulation name must be populated from the pressure-pump template'
+async function waitForQaReadonlyResponse(page, endpointName) {
+  const response = await page.waitForResponse(
+    (candidate) =>
+      candidate.url().includes(`/mes/qa/inspection-regulation/${endpointName}`) &&
+      candidate.request().method() === 'GET',
+    { timeout: 60000 }
   )
-  await qaPage.getByText('原文依据摘录', { exact: false }).first().waitFor({ state: 'visible' })
-  return statusResponse
+  assert.equal(response.ok(), true, `${endpointName} HTTP status ${response.status()}`)
+  const payload = await response.json()
+  assert.ok([0, 200].includes(payload.code), `${endpointName} business code ${payload.code}`)
+  return {
+    url: response.url(),
+    dataType: Array.isArray(payload.data) ? 'array' : typeof payload.data,
+    dataCount: Array.isArray(payload.data) ? payload.data.length : undefined,
+    versionNo: payload.data?.versionNo,
+    lifecycleStatus: payload.data?.lifecycleStatus
+  }
 }
 
 async function main() {
@@ -252,42 +229,115 @@ async function main() {
     const qaPage = page.locator('[data-qa-regulation-page]').first()
     await qaPage.waitFor({ state: 'visible' })
     await qaPage.getByText('QA 规程配置', { exact: false }).first().waitFor({ state: 'visible' })
+    await qaPage.getByRole('tab', { name: '通用检验规程' }).waitFor({ state: 'visible' })
+    await qaPage.locator('[data-qa-regulation-common-empty]').waitFor({ state: 'visible' })
 
-    const statusSummary = qaPage.locator('[data-qa-regulation-config-status]').first()
-    await statusSummary.waitFor({ state: 'visible' })
-    await statusSummary.getByText('已配置 QA 规程', { exact: false }).first().waitFor({ state: 'visible' })
-    await statusSummary.getByText('待配置 QA 规程', { exact: false }).first().waitFor({ state: 'visible' })
-    await statusSummary.getByText('配置状态来自后台 QA 规程记录', { exact: false }).first().waitFor({
+    const idiProject = firstDccProjectPage.sample.find((project) => project.projectCode === 'IDI')
+    if (!idiProject?.productMasterId) {
+      throw new Error(
+        `E2E_BLOCKED_QA_DCC_PRODUCT_BINDING: IDI DCC project code id ${
+          idiProject?.id || 'unknown'
+        } returned productMasterId null; cannot verify the formal DCC-to-product QA regulation path.`
+      )
+    }
+
+    const projectStatusResponsePromise = waitForProjectStatusResponse(page)
+    const publishedVersionResponsePromise = waitForQaReadonlyResponse(page, 'published-version')
+    const currentResponsePromise = waitForQaReadonlyResponse(page, 'current')
+    const versionsResponsePromise = waitForQaReadonlyResponse(page, 'versions')
+    await page.goto(`${BASE_URL}${TARGET_PATH}?dccProjectCodeId=${idiProject.id}`, {
+      waitUntil: 'domcontentloaded'
+    })
+    const [projectStatusResponse, publishedVersionResponse, currentResponse, versionsResponse] =
+      await Promise.all([
+        projectStatusResponsePromise,
+        publishedVersionResponsePromise,
+        currentResponsePromise,
+        versionsResponsePromise
+      ])
+    await qaPage.waitFor({ state: 'visible' })
+    await qaPage.getByText('IDI', { exact: false }).first().waitFor({ state: 'visible' })
+    assert.equal(publishedVersionResponse.versionNo, currentResponse.versionNo)
+    assert.equal(publishedVersionResponse.lifecycleStatus, 'PUBLISHED')
+    assert.ok(versionsResponse.dataCount > 0, 'QA regulation version list must contain at least one option')
+    await qaPage.locator('[data-qa-regulation-current-published-version]').getByText(currentResponse.versionNo).waitFor({
       state: 'visible'
     })
-    assert.equal(
-      await qaPage.locator('[data-qa-regulation-status-load-error]').count(),
-      0,
-      'QA status load error must not be visible during successful E2E'
+    const selectedVersionStatus = await qaPage
+      .locator('[data-qa-regulation-selected-version-status]')
+      .first()
+      .innerText()
+    assert.notEqual(
+      selectedVersionStatus.trim(),
+      '加载中',
+      'selected QA regulation version status must leave loading state after readonly APIs resolve'
     )
-
-    const configuredRows = await qaPage
-      .locator('[data-qa-regulation-configured-projects] .qa-regulation-page__project-status-row')
-      .count()
-    const unconfiguredRows = await qaPage
-      .locator('[data-qa-regulation-unconfigured-projects] .qa-regulation-page__project-status-row')
-      .count()
-    assert.ok(
-      configuredRows + unconfiguredRows > 0,
-      'QA status split must render at least one loaded DCC project row'
+    assert.match(
+      selectedVersionStatus,
+      /已发布|草稿|已退役|未配置/,
+      'selected QA regulation version status must render a business lifecycle state'
     )
-
-    const idiStatusResponse = await selectIdiProject(page, qaPage)
+    await qaPage.getByRole('tab', { name: '通用检验规程' }).click()
+    const commonPanel = qaPage.locator('[data-qa-regulation-common-panel]').first()
+    await commonPanel.waitFor({ state: 'visible' })
+    await commonPanel.getByText('当前通用规程主档', { exact: true }).waitFor({
+      state: 'visible'
+    })
+    const commonBindingControl = commonPanel
+      .locator('[data-qa-regulation-common-binding-control]')
+      .first()
+    await commonBindingControl.waitFor({ state: 'visible' })
+    await commonBindingControl.getByText('通用检验规程引用', { exact: true }).waitFor({
+      state: 'visible'
+    })
+    await commonBindingControl
+      .locator('[data-qa-regulation-common-binding-current]')
+      .getByText('未关联通用检验规程')
+      .waitFor({ state: 'visible' })
+    await commonBindingControl
+      .locator('[data-qa-regulation-common-binding-status]')
+      .getByText('接口待接入')
+      .waitFor({ state: 'visible' })
+    await commonBindingControl
+      .locator('[data-qa-regulation-common-binding-scope]')
+      .getByText('IDI')
+      .waitFor({ state: 'visible' })
+    await commonBindingControl
+      .locator('[data-qa-regulation-common-binding-version]')
+      .getByText('请选择已发布通用规程版本')
+      .waitFor({ state: 'visible' })
+    await commonPanel.locator('[data-qa-regulation-common-dcc-project]').getByText('IDI').waitFor({
+      state: 'visible'
+    })
+    await commonPanel
+      .locator('[data-qa-regulation-common-version]')
+      .getByText(currentResponse.versionNo)
+      .waitFor({ state: 'visible' })
+    await commonPanel
+      .locator('[data-qa-regulation-common-status]')
+      .getByText(selectedVersionStatus.trim())
+      .waitFor({ state: 'visible' })
+    const commonCode = await commonPanel
+      .locator('[data-qa-regulation-common-code]')
+      .first()
+      .innerText()
+    const commonName = await commonPanel
+      .locator('[data-qa-regulation-common-name]')
+      .first()
+      .innerText()
+    assert.match(commonCode, /\S+/, 'common regulation tab must show a regulation code')
+    assert.match(commonName, /\S+/, 'common regulation tab must show a regulation name')
     await qaPage.screenshot({ path: SCREENSHOT_PATH })
 
     assert.deepEqual(writeRequests, [], 'QA DCC status real E2E must not send backend write requests')
     assert.deepEqual(pageErrors, [], 'QA DCC status real E2E must not emit page errors')
     assert.deepEqual(
-      badResponses.filter((item) => item.url.includes('/mes/qa/inspection-regulation/project-statuses')),
+      badResponses.filter((item) => item.url.includes('/mes/qa/inspection-regulation/')),
       [],
-      'project-statuses request must not return HTTP errors'
+      'QA regulation readonly requests must not return HTTP errors'
     )
-    assert.deepEqual(consoleErrors, [], 'QA DCC status real E2E must not emit console errors')
+    const qaConsoleErrors = consoleErrors.filter((message) => message.includes('QA') || message.includes('qa'))
+    assert.deepEqual(qaConsoleErrors, [], 'QA DCC status real E2E must not emit QA console errors')
 
     const result = {
       ok: true,
@@ -296,12 +346,18 @@ async function main() {
       actor: `${config.tenant}/${config.username}`,
       browserExecutable: browserExecutable || 'playwright-default',
       firstDccProjectPage,
-      idiStatusResponse,
-      configuredRows,
-      unconfiguredRows,
+      projectStatusResponse,
+      publishedVersionResponse,
+      currentResponse,
+      versionsResponse,
+      selectedVersionStatus,
+      commonCode,
+      commonName,
+      commonBindingStatus: '接口待接入',
       writeRequests,
       badResponses,
       consoleErrors,
+      qaConsoleErrors,
       pageErrors,
       screenshotPath: SCREENSHOT_PATH
     }

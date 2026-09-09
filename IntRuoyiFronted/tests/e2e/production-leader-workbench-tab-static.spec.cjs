@@ -31,8 +31,7 @@ const expectedProductionTabs = [
   ['人员管理', 'personnel', 'personnel'],
   ['报工管理', 'report', 'report'],
   ['报工历史', 'reportHistory', 'report-history'],
-  ['活跃订单池', 'activeOrder', 'active-order'],
-  ['工序配置', 'processConfig', 'process-config']
+  ['活跃订单池', 'activeOrder', 'active-order']
 ]
 
 assert.ok(productionTabStripCount > 0, '生产组长模块 tabs 必须存在。')
@@ -67,8 +66,13 @@ assert.doesNotMatch(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'processConfig'[\s\S]*>\('report'\)/,
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'activeOrder'[\s\S]*>\('report'\)/,
   'activeProductionModuleTab 必须保留剩余模块类型，并默认进入报工管理。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /data-production-leader-module-tab-process-config|<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  '生产组长模块 tab 条不得继续显示工序配置。'
 )
 assert.doesNotMatch(
   teamLeaderWorkbench,

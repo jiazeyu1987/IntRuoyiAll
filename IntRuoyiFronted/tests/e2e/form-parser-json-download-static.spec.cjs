@@ -50,18 +50,21 @@ assertIncludes(parserPage, 'JSON.stringify')
 assertIncludes(parserPage, 'JSON.parse(totalRecognitionJson)')
 assertIncludes(parserPage, 'processes')
 assertIncludes(parserPage, 'product')
-assertIncludes(parserPage, 'type="expand"')
+assertIncludes(parserPage, '<el-tree')
+assertIncludes(parserPage, 'batchRecordTreeData')
+assertIncludes(parserPage, 'buildBatchRecordTreeData')
+assertIncludes(parserPage, 'buildProcessTreeNode')
+assertIncludes(parserPage, 'buildInputMaterialTreeNode')
+assertIncludes(parserPage, 'buildOutputMaterialTreeNode')
+assertIncludes(parserPage, 'buildEquipmentDeviceTreeNodes')
+assertIncludes(parserPage, 'buildParameterTreeNode')
+assertIncludes(parserPage, 'buildExtraFieldNodes')
 assertIncludes(parserPage, '输入物料')
 assertIncludes(parserPage, '输出物料')
-assertIncludes(parserPage, '输出物料-设备-参数对应')
-assertIncludes(parserPage, 'JSON 未提供单个输出物料与设备的一对一字段')
-assertIncludes(parserPage, '设备与参数')
-assertIncludes(parserPage, '完整 JSON')
-assertIncludes(parserPage, '工序 JSON')
+assertIncludes(parserPage, '设备参数')
 assertIncludes(parserPage, '物料名称(编号)')
 assertIncludes(parserPage, '设备名称(编号)')
-assertIncludes(parserPage, '输出物料对应设备')
-assertIncludes(parserPage, '参数范围')
+assertIncludes(parserPage, '目标范围')
 assertIncludes(parserPage, '默认值')
 assertIncludes(parserPage, '最小值')
 assertIncludes(parserPage, '最大值')
@@ -81,9 +84,56 @@ assertIncludes(parserPage, 'formatNameCode')
 assertIncludes(parserPage, 'formatParameterRange')
 assertIncludes(parserPage, 'formatSelectionMode')
 assertIncludes(parserPage, 'formatEquipmentGroupOptions')
-assertIncludes(parserPage, 'formatProcessEquipmentOptions')
-assertIncludes(parserPage, 'buildOutputEquipmentParameterRows')
-assertIncludes(parserPage, 'formatJson')
+assertIncludes(parserPage, 'renderParameterUiPreview')
+assertIncludes(parserPage, 'isNumberParameterControl')
+assertIncludes(parserPage, 'isSelectParameterControl')
+assertIncludes(parserPage, 'parameterPreviewValues')
+assertIncludes(parserPage, 'initializeParameterPreviewValues')
+assertIncludes(parserPage, 'getParameterPreviewValue')
+assertIncludes(parserPage, 'setParameterPreviewValue')
+assertIncludes(parserPage, 'toNumberModelValue')
+assertIncludes(parserPage, 'toSelectModelValue')
+assertIncludes(parserPage, 'form-parser-tree')
+assertIncludes(parserPage, 'form-parser-tree-node')
+assertIncludes(parserPage, 'form-parser-tree-parameter-ui')
+assertIncludes(parserPage, '<el-input-number')
+assertIncludes(parserPage, '<el-select')
+assertIncludes(parserPage, '目标范围')
+assertNotIncludes(
+  parserPage,
+  '<el-table',
+  '表单解析结果只能保留一个树状图，不得继续展示表格'
+)
+assertNotIncludes(
+  parserPage,
+  '<el-descriptions',
+  '表单解析结果只能保留一个树状图，不得继续展示描述面板'
+)
+assertNotIncludes(
+  parserPage,
+  '<el-collapse',
+  '表单解析结果只能保留一个树状图，不得继续展示独立 JSON 折叠面板'
+)
+assertNotIncludes(
+  parserPage,
+  'type="expand"',
+  '表单解析结果不能再依赖表格展开行'
+)
+assertNotIncludes(
+  parserPage,
+  'formatProcessParameterSummary',
+  '树状图展示后应删除纯文本参数摘要逻辑'
+)
+assertNotIncludes(
+  parserPage,
+  'buildOutputEquipmentParameterRows',
+  '树状图展示后应删除旧的输出物料-设备-参数表格行构建逻辑'
+)
+assertNotIncludes(
+  parserPage,
+  '完整 JSON',
+  '所有数据必须进入树状图，不再单独显示完整 JSON 面板'
+)
 assertNotIncludes(
   parserPage,
   'importTemplateDoc',

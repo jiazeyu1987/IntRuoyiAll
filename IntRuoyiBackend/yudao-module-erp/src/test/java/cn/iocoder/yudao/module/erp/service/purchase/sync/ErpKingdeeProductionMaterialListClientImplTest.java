@@ -43,13 +43,15 @@ class ErpKingdeeProductionMaterialListClientImplTest {
                 .andExpect(content().string(containsString("FDocumentStatus")))
                 .andExpect(content().string(containsString("FMaterialID.FNumber")))
                 .andExpect(content().string(containsString("FMaterialID2.FNumber")))
+                .andExpect(content().string(containsString("FMaterialID2.F_PAEZ_TUHAO")))
+                .andExpect(content().string(containsString("FNeedDate")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FProductId"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FMoStatus"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FPlanBeginDate"))))
                 .andExpect(content().string(containsString("FModifyDate+%3E%3D+%272026-06-12+08%3A00%3A00%27")))
                 .andExpect(content().string(containsString("FModifyDate+%3C+%272026-06-12+09%3A00%3A00%27")))
                 .andRespond(withSuccess("""
-                        [[1001,"PPBOM0030888","AW.106.03.08.10","CODXMO20260",1,"C","A001.02.014.300","造影导管软端","4F","标准件",3,1000,"支",1,"直接领料","2026-06-12T08:30:00"]]
+                        [[1001,"PPBOM0030888","AW.106.03.08.10","CODXMO20260",1,"C","A001.02.014.300","造影导管软端","4F","标准件",3,1000,"支","ZYDG-001",1,"直接领料","2026-06-13","2026-06-12T08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionMaterialList> rows = client.fetchProductionMaterialListsModifiedBetween(properties,
@@ -65,8 +67,9 @@ class ErpKingdeeProductionMaterialListClientImplTest {
         assertEquals("CODXMO20260", row.getProductionOrderNo());
         assertEquals("C", row.getProductionOrderStatus());
         assertEquals("A001.02.014.300", row.getChildMaterialCode());
+        assertEquals("ZYDG-001", row.getDrawingNumber());
         assertEquals(new BigDecimal("1"), row.getRequiredQuantity());
-        assertEquals(null, row.getDemandTime());
+        assertEquals(LocalDateTime.of(2026, 6, 13, 0, 0), row.getDemandTime());
         assertEquals(LocalDateTime.of(2026, 6, 12, 8, 30), row.getSourceModifyTime());
         server.verify();
     }
@@ -90,7 +93,7 @@ class ErpKingdeeProductionMaterialListClientImplTest {
                 .andExpect(content().string(containsString("%22StartRow%22%3A0")))
                 .andExpect(content().string(containsString("%22Limit%22%3A1")))
                 .andRespond(withSuccess("""
-                        [[1001,"PPBOM0030818","YXN.037.011.1002","881MO090863",1,"C","A001.02.014.300","造影导管软端","4F","标准件",3,1000,"支",1,"直接领料","2024-02-12 08:30:00"]]
+                        [[1001,"PPBOM0030818","YXN.037.011.1002","881MO090863",1,"C","A001.02.014.300","造影导管软端","4F","标准件",3,1000,"支","ZYDG-001",1,"直接领料","2024-02-13","2024-02-12 08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))

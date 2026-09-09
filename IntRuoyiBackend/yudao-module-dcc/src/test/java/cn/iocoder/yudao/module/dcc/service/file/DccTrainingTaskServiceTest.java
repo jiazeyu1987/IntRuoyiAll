@@ -268,4 +268,25 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
         assertEquals(1L, result.getTotal());
         assertEquals("受控文件名称A", result.getList().get(0).getFileName());
     }
+
+    @Test
+    void getMyTrainingTaskPage_missingControlledFile_skipsStaleProgress() {
+        when(trainingProgressMapper.selectListByUserId(99L)).thenReturn(List.of(
+                DccControlledFileTrainingProgressDO.builder()
+                        .id(1005L)
+                        .controlledFileId(904L)
+                        .userId(99L)
+                        .requiredViewSeconds(600)
+                        .accumulatedViewSeconds(300)
+                        .build()));
+        when(controlledFileMapper.selectById(904L)).thenReturn(null);
+        DccTrainingTaskPageReqVO reqVO = new DccTrainingTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+
+        PageResult<DccTrainingTaskRespVO> result = trainingTaskService.getMyTrainingTaskPage(99L, reqVO);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getList().isEmpty());
+    }
 }

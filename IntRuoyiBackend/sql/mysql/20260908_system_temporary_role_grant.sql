@@ -174,7 +174,7 @@ CREATE TEMPORARY TABLE `tmp_system_temporary_role_grant_menu` (
 INSERT INTO `tmp_system_temporary_role_grant_menu`
   (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `component`, `component_name`)
 VALUES
-  (901200, '临时角色授权', 'system:temporary-role-grant:query', 2, 120, 1, 'temporary-role-grant', 'system/temporary-role-grant/index', 'SystemTemporaryRoleGrant'),
+  (901200, '临时角色授权', 'system:temporary-role-grant:query', 2, 120, 101, 'temporary-role-grant', 'system/temporary-role-grant/index', 'SystemTemporaryRoleGrant'),
   (901201, '新增临时角色授权', 'system:temporary-role-grant:create', 3, 1, 901200, '', NULL, NULL),
   (901202, '审批临时角色授权', 'system:temporary-role-grant:approve', 3, 2, 901200, '', NULL, NULL),
   (901203, '撤销临时角色授权', 'system:temporary-role-grant:revoke', 3, 3, 901200, '', NULL, NULL),

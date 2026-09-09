@@ -28,6 +28,9 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.tenant.TenantPackageMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
@@ -45,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.security.MessageDigest;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
@@ -59,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Locale;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.sql.DataSource;
@@ -145,6 +150,8 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
     private TenantPackageMapper tenantPackageMapper;
     @Resource
     private DataSource dataSource;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     private JdbcTemplate jdbcTemplate;
 
@@ -222,7 +229,8 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         if (!Boolean.TRUE.equals(precheck.getValid())) {
             throw exception(CONFIG_PACKAGE_REFERENCE_MISSING, String.join("；", precheck.getBlockingErrors()));
         }
-        String currentSnapshotSha256 = hashSnapshot(loadCurrentSnapshot(true).sheets(), true);
+        Snapshot beforeSnapshot = loadCurrentSnapshot(true);
+        String currentSnapshotSha256 = hashSnapshot(beforeSnapshot.sheets(), true);
         if (!StrUtil.equals(currentSnapshotSha256, targetSnapshotSha256)
                 || !StrUtil.equals(currentSnapshotSha256, precheck.getTargetSnapshotSha256())) {
             throw exception(CONFIG_PACKAGE_SNAPSHOT_MISMATCH);
@@ -248,6 +256,9 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
                 sheet -> pkg.sheets().getOrDefault(sheet, List.of()).size(),
                 (first, second) -> first,
                 LinkedHashMap::new));
+        Snapshot afterSnapshot = loadCurrentSnapshot(true);
+        String afterSnapshotSha256 = hashSnapshot(afterSnapshot.sheets(), true);
+        appendImportAudit(pkg, currentSnapshotSha256, afterSnapshotSha256, counts);
         return new SystemConfigPackageImportRespVO()
                 .setRestored(true)
                 .setTargetSnapshotSha256(currentSnapshotSha256)
@@ -520,6 +531,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         Long userId = parseLong(row.get("用户ID"));
         user.setId(userId);
         user.setUsername(row.get("用户账号"));
+        user.setCanonicalUsername(canonicalizeUsername(row.get("用户账号")));
         if (restorePasswordHash) {
             user.setPassword(row.get(HEADER_PASSWORD_HASH));
             user.setPasswordUpdateTime(parseDateTime(row.get("密码更新时间")));
@@ -1099,6 +1111,45 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         return sha256(builder.toString());
     }
 
+    private void appendImportAudit(PackageWorkbook pkg, String beforeSnapshotSha256, String afterSnapshotSha256,
+                                   Map<String, Integer> counts) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Map<String, Object> beforeState = new LinkedHashMap<>();
+        beforeState.put("tenantId", tenantId);
+        beforeState.put("snapshotSha256", beforeSnapshotSha256);
+        Map<String, Object> afterState = new LinkedHashMap<>();
+        afterState.put("tenantId", tenantId);
+        afterState.put("snapshotSha256", afterSnapshotSha256);
+        afterState.put("sourceTenantId", pkg.sourceTenantId());
+        afterState.put("packageSha256", pkg.packageSha256());
+        afterState.put("restoredCounts", counts);
+        String beforeJson = json(beforeState);
+        String afterJson = json(afterState);
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId("system.config-package.import")
+                .subjectId("SYSTEM_CONFIG_PACKAGE:" + tenantId)
+                .subjectVersion(afterSnapshotSha256)
+                .reason("确认覆盖导入系统配置包")
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(beforeSnapshotSha256)
+                        .canonicalJson(beforeJson)
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(afterSnapshotSha256)
+                        .canonicalJson(afterJson)
+                        .build())
+                .idempotencyKey("system.config-package.import:" + tenantId + ":" + beforeSnapshotSha256 + ":" + pkg.packageSha256())
+                .requestId("system.config-package.import:" + tenantId)
+                .source("SystemConfigPackageServiceImpl")
+                .build());
+    }
+
+    private String json(Map<String, ?> value) {
+        return com.alibaba.fastjson.JSON.toJSONString(value);
+    }
+
     private static String sha256(String content) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -1111,6 +1162,13 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         } catch (Exception exception) {
             throw new IllegalStateException("SHA-256 unavailable", exception);
         }
+    }
+
+    private static String canonicalizeUsername(String username) {
+        if (StrUtil.isBlank(username)) {
+            return username;
+        }
+        return Normalizer.normalize(StrUtil.trim(username), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
     private static void requireContent(byte[] content) {

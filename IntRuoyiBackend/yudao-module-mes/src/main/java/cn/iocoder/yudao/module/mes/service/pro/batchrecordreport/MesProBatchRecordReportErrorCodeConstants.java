@@ -126,4 +126,12 @@ public interface MesProBatchRecordReportErrorCodeConstants {
             new ErrorCode(1_040_509_070, "所选 DCC 项目代码与导入产品名称不一致：{} / {}");
     ErrorCode PRO_BATCH_RECORD_REPORT_DCC_PROJECT_PRODUCT_MISSING =
             new ErrorCode(1_040_509_071, "DCC 项目代码未绑定有效产品主数据，不能用于导入 Word：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_PARSED_TABLE_INVALID =
+            new ErrorCode(1_040_509_080, "电子批记录解析表格结构无效：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID =
+            new ErrorCode(1_040_509_081, "电子批记录导入完整性校验失败：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID =
+            new ErrorCode(1_040_509_082, "批记录总识别 JSON 完整性校验失败：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_DELETE_CONTROLLED_FORBIDDEN =
+            new ErrorCode(1_040_509_083, "电子批记录报表属于受控批记录版本，不能物理删除，请通过升版或作废审批流程处理：{}");
 }

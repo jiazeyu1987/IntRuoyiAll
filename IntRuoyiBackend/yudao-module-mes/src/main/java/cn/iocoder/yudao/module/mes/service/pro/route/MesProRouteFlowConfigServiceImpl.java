@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
@@ -11,6 +12,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowBatchRecordRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowBatchRecordSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
@@ -18,12 +21,17 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowFormBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterDeviceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderItemSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
@@ -32,6 +40,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
@@ -58,6 +69,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -109,6 +121,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VER
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_IDENTITY_NOT_FOUND;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_DEVICE_UNAVAILABLE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED;
 
 @Service
 @Validated
@@ -146,8 +162,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
     public static final String ROUTE_START_PRODUCTION_LEADERS_KEY = "routeStartProductionLeaders";
     private static final String BATCH_RECORD_ROLE_CATEGORY_CODE = "batch-record";
+    private static final String DEVICE_STATUS_ENABLED = "ENABLED";
     private static final int BATCH_RECORD_ATTACHMENT_MIN_USERS = 2;
     private static final int BATCH_RECORD_ATTACHMENT_MAX_USERS = 4;
+    private static final Set<String> DEVICE_PARAMETER_NUMERIC_VALUE_TYPES = Set.of(
+            MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER,
+            MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL);
     private static final Set<String> READABLE_CANDIDATE_STATUSES = Set.of(
             MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
             MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
@@ -184,6 +204,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private MesProRouteProcessService routeProcessService;
     @Resource
     private MesProProcessMapper processMapper;
+    @Resource
+    private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
+    @Resource
+    private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
+    @Resource
+    private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
     @Resource
     private MesProRouteFlowConfigMapper routeFlowConfigMapper;
     @Resource
@@ -973,6 +999,78 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     @Transactional(rollbackFor = Exception.class)
     public void saveRouteFlowConfigForConfigPackageImport(MesProRouteFlowConfigSaveReqVO saveReqVO) {
         saveRouteFlowConfigInternal(saveReqVO, false);
+    }
+
+    @Override
+    public MesProRouteProcessDeviceParameterRespVO getRouteProcessDeviceParameterConfig(Long routeProcessId) {
+        MesProRouteProcessDO routeProcess = requireRouteProcessForDeviceParameter(routeProcessId);
+        MesProProcessDO process = processMapper.selectById(routeProcess.getProcessId());
+        List<MesProcessPoolTeamProcessDeviceDO> bindings = selectEnabledProcessDeviceBindings(
+                routeProcess.getProcessId());
+        Set<Long> deviceIds = bindings.stream()
+                .map(MesProcessPoolTeamProcessDeviceDO::getDeviceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, MesProcessPoolTeamDeviceDO> deviceMap = deviceIds.isEmpty()
+                ? Collections.emptyMap()
+                : convertMap(teamDeviceMapper.selectBatchIds(deviceIds), MesProcessPoolTeamDeviceDO::getId);
+        Map<Long, List<MesProcessPoolDeviceParameterRuleDO>> rulesByDeviceId = selectRouteDeviceParameterRules(
+                routeProcess, deviceIds);
+        List<MesProRouteProcessDeviceParameterDeviceRespVO> devices = deviceIds.stream()
+                .map(deviceMap::get)
+                .filter(device -> device != null && Boolean.TRUE.equals(device.getEnabled())
+                        && DEVICE_STATUS_ENABLED.equals(device.getDeviceStatus()))
+                .sorted(Comparator.comparing(MesProcessPoolTeamDeviceDO::getDeviceCode,
+                        Comparator.nullsLast(String::compareTo)))
+                .map(device -> toRouteDeviceParameterDeviceResp(device, rulesByDeviceId.get(device.getId())))
+                .toList();
+        return new MesProRouteProcessDeviceParameterRespVO()
+                .setRouteProcessId(routeProcess.getId())
+                .setProcessId(routeProcess.getProcessId())
+                .setProcessName(process == null ? null : process.getName())
+                .setDevices(devices);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long saveRouteProcessDeviceParameterRule(@Valid MesProRouteDeviceParameterRuleSaveReqVO saveReqVO) {
+        List<String> optionValues = normalizeRouteDeviceParameterOptionValues(saveReqVO.getOptionValues());
+        String defaultText = normalizeRouteDeviceParameterText(saveReqVO.getDefaultText());
+        validateRouteDeviceParameterRule(saveReqVO, optionValues, defaultText);
+        MesProRouteProcessDO routeProcess = requireRouteProcessForDeviceParameter(saveReqVO.getRouteProcessId());
+        MesProcessPoolTeamDeviceDO device = requireRouteDevice(saveReqVO.getDeviceId());
+        assertDeviceMappedToRouteProcess(routeProcess, device);
+        String parameterCode = normalizeRouteDeviceParameterText(saveReqVO.getParameterCode());
+        MesProcessPoolDeviceParameterRuleDO existing = deviceParameterRuleMapper.selectOne(
+                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcess.getId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getDeviceId, device.getId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getParameterCode, parameterCode));
+        MesProcessPoolDeviceParameterRuleDO rule = MesProcessPoolDeviceParameterRuleDO.builder()
+                .id(existing == null ? null : existing.getId())
+                .leaderUserId(null)
+                .routeProcessId(routeProcess.getId())
+                .processId(routeProcess.getProcessId())
+                .deviceId(device.getId())
+                .parameterCode(parameterCode)
+                .parameterName(normalizeRouteDeviceParameterText(saveReqVO.getParameterName()))
+                .unit(normalizeRouteDeviceParameterText(saveReqVO.getUnit()))
+                .lowerLimit(saveReqVO.getLowerLimit())
+                .upperLimit(saveReqVO.getUpperLimit())
+                .defaultValue(saveReqVO.getTargetValue())
+                .valueType(normalizeRouteDeviceParameterText(saveReqVO.getValueType()))
+                .standardText(normalizeRouteDeviceParameterText(saveReqVO.getStandardText()))
+                .optionValuesJson(optionValues.isEmpty() ? null : JSON.toJSONString(optionValues))
+                .defaultText(defaultText)
+                .decimalScale(saveReqVO.getDecimalScale())
+                .enabled(Boolean.TRUE)
+                .build();
+        if (existing == null) {
+            deviceParameterRuleMapper.insert(rule);
+        } else {
+            deviceParameterRuleMapper.updateById(rule);
+        }
+        return rule.getId();
     }
 
     @Override
@@ -2855,6 +2953,172 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         if (StrUtil.isBlank(binding.getSharedFormKey()) || StrUtil.isBlank(binding.getFillableScopeJson())) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_CONDITION_CONFIG_MISSING);
         }
+    }
+
+    private MesProRouteProcessDO requireRouteProcessForDeviceParameter(Long routeProcessId) {
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectById(routeProcessId);
+        if (routeProcess == null || routeProcess.getProcessId() == null) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
+        }
+        return routeProcess;
+    }
+
+    private List<MesProcessPoolTeamProcessDeviceDO> selectEnabledProcessDeviceBindings(Long processId) {
+        if (processId == null) {
+            return Collections.emptyList();
+        }
+        return processDeviceMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamProcessDeviceDO>()
+                .eq(MesProcessPoolTeamProcessDeviceDO::getProcessId, processId)
+                .eq(MesProcessPoolTeamProcessDeviceDO::getEnabled, Boolean.TRUE)
+                .orderByAsc(MesProcessPoolTeamProcessDeviceDO::getId));
+    }
+
+    private Map<Long, List<MesProcessPoolDeviceParameterRuleDO>> selectRouteDeviceParameterRules(
+            MesProRouteProcessDO routeProcess, Set<Long> deviceIds) {
+        if (deviceIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return deviceParameterRuleMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcess.getId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getProcessId, routeProcess.getProcessId())
+                        .in(MesProcessPoolDeviceParameterRuleDO::getDeviceId, deviceIds)
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getDeviceId)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getParameterCode)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getId))
+                .stream()
+                .collect(Collectors.groupingBy(MesProcessPoolDeviceParameterRuleDO::getDeviceId,
+                        LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private MesProRouteProcessDeviceParameterDeviceRespVO toRouteDeviceParameterDeviceResp(
+            MesProcessPoolTeamDeviceDO device, List<MesProcessPoolDeviceParameterRuleDO> rules) {
+        return new MesProRouteProcessDeviceParameterDeviceRespVO()
+                .setDeviceId(device.getId())
+                .setDeviceCode(device.getDeviceCode())
+                .setDeviceName(device.getDeviceName())
+                .setDeviceStatus(device.getDeviceStatus())
+                .setParameters(rules == null ? Collections.emptyList() : rules.stream()
+                        .map(this::toRouteDeviceParameterResp)
+                        .toList());
+    }
+
+    private MesProRouteDeviceParameterRespVO toRouteDeviceParameterResp(MesProcessPoolDeviceParameterRuleDO rule) {
+        return new MesProRouteDeviceParameterRespVO()
+                .setRuleId(rule.getId())
+                .setParameterCode(rule.getParameterCode())
+                .setParameterName(rule.getParameterName())
+                .setUnit(rule.getUnit())
+                .setValueType(rule.getValueType())
+                .setStandardText(rule.getStandardText())
+                .setLowerLimit(rule.getLowerLimit())
+                .setTargetValue(rule.getDefaultValue())
+                .setUpperLimit(rule.getUpperLimit())
+                .setOptionValues(parseRouteDeviceParameterOptionValues(rule.getOptionValuesJson()))
+                .setDefaultText(rule.getDefaultText())
+                .setDecimalScale(rule.getDecimalScale());
+    }
+
+    private MesProcessPoolTeamDeviceDO requireRouteDevice(Long deviceId) {
+        MesProcessPoolTeamDeviceDO device = teamDeviceMapper.selectById(deviceId);
+        if (device == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "deviceId=" + deviceId);
+        }
+        if (!Boolean.TRUE.equals(device.getEnabled()) || !DEVICE_STATUS_ENABLED.equals(device.getDeviceStatus())) {
+            throw exception(PRO_PROCESS_POOL_TEAM_DEVICE_UNAVAILABLE, device.getId(), device.getDeviceStatus());
+        }
+        return device;
+    }
+
+    private void assertDeviceMappedToRouteProcess(MesProRouteProcessDO routeProcess, MesProcessPoolTeamDeviceDO device) {
+        boolean mapped = selectEnabledProcessDeviceBindings(routeProcess.getProcessId()).stream()
+                .anyMatch(binding -> Objects.equals(binding.getDeviceId(), device.getId())
+                        && Objects.equals(binding.getLeaderUserId(), device.getLeaderUserId()));
+        if (!mapped) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "processDeviceBinding");
+        }
+    }
+
+    private void validateRouteDeviceParameterRule(MesProRouteDeviceParameterRuleSaveReqVO reqVO,
+                                                  List<String> optionValues,
+                                                  String defaultText) {
+        if (reqVO == null || reqVO.getRouteProcessId() == null || reqVO.getDeviceId() == null
+                || StrUtil.isBlank(reqVO.getParameterCode()) || StrUtil.isBlank(reqVO.getParameterName())
+                || StrUtil.isBlank(reqVO.getValueType()) || StrUtil.isBlank(reqVO.getStandardText())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "routeDeviceParameterRule");
+        }
+        String valueType = reqVO.getValueType();
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(valueType)) {
+            if (reqVO.getLowerLimit() != null || reqVO.getUpperLimit() != null || reqVO.getTargetValue() != null) {
+                throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqVO.getParameterCode());
+            }
+            return;
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(valueType)) {
+            if (reqVO.getLowerLimit() != null || reqVO.getUpperLimit() != null || reqVO.getTargetValue() != null
+                    || optionValues.isEmpty() || defaultText == null || !optionValues.contains(defaultText)) {
+                throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqVO.getParameterCode());
+            }
+            return;
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_BOOLEAN.equals(valueType)) {
+            BigDecimal targetValue = reqVO.getTargetValue();
+            boolean binaryDefault = targetValue != null && (BigDecimal.ZERO.compareTo(targetValue) == 0
+                    || BigDecimal.ONE.compareTo(targetValue) == 0);
+            if (reqVO.getLowerLimit() != null || reqVO.getUpperLimit() != null || !binaryDefault
+                    || !optionValues.isEmpty() || defaultText != null || reqVO.getDecimalScale() != null) {
+                throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqVO.getParameterCode());
+            }
+            return;
+        }
+        if (!DEVICE_PARAMETER_NUMERIC_VALUE_TYPES.contains(valueType)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "routeDeviceParameterRule.valueType");
+        }
+        if (reqVO.getDecimalScale() != null && (reqVO.getDecimalScale() < 0 || reqVO.getDecimalScale() > 6)) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqVO.getParameterCode());
+        }
+        validateRouteDeviceParameterRange(reqVO.getParameterCode(), reqVO.getLowerLimit(),
+                reqVO.getUpperLimit(), reqVO.getTargetValue());
+    }
+
+    private void validateRouteDeviceParameterRange(String parameterCode, BigDecimal lowerLimit,
+                                                   BigDecimal upperLimit, BigDecimal targetValue) {
+        if (lowerLimit != null && upperLimit != null && lowerLimit.compareTo(upperLimit) > 0) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
+        }
+        if (targetValue != null && lowerLimit != null && targetValue.compareTo(lowerLimit) < 0) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
+        }
+        if (targetValue != null && upperLimit != null && targetValue.compareTo(upperLimit) > 0) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
+        }
+    }
+
+    private List<String> normalizeRouteDeviceParameterOptionValues(List<String> values) {
+        if (values == null) {
+            return Collections.emptyList();
+        }
+        return values.stream()
+                .map(this::normalizeRouteDeviceParameterText)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+    }
+
+    private List<String> parseRouteDeviceParameterOptionValues(String optionValuesJson) {
+        if (StrUtil.isBlank(optionValuesJson)) {
+            return Collections.emptyList();
+        }
+        return JSON.parseArray(optionValuesJson, String.class).stream()
+                .map(this::normalizeRouteDeviceParameterText)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private String normalizeRouteDeviceParameterText(String value) {
+        String trimmed = StrUtil.trim(value);
+        return StrUtil.isBlank(trimmed) ? null : trimmed;
     }
 
     private String nullToEmpty(Object value) {

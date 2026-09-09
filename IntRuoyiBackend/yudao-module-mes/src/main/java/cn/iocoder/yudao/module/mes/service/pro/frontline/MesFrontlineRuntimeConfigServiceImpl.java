@@ -352,7 +352,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private Map<Long, List<MesFrontlineDeviceParameterOption>> listParameterOptions(
             MesFrontlineRouteProcessCandidate process, Set<Long> deviceIds, Set<Long> leaderUserIds,
             ParameterRuntimeSnapshot parameterSnapshot) {
-        if (deviceIds.isEmpty() || leaderUserIds.isEmpty()) {
+        if (deviceIds.isEmpty()) {
             return Map.of();
         }
         if (!MesDeviceParameterSnapshotCodec.SOURCE_CURRENT_ROUTE_PROCESS_AT_SUBMIT.equals(
@@ -363,7 +363,6 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
                         .eq(MesProcessPoolDeviceParameterRuleDO::getProcessId, process.processId())
                         .in(MesProcessPoolDeviceParameterRuleDO::getDeviceId, deviceIds)
-                        .in(MesProcessPoolDeviceParameterRuleDO::getLeaderUserId, leaderUserIds)
                         .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE));
         return rules.stream()
                 .filter(rule -> routeProcessMatches(rule.getRouteProcessId(), process.routeProcessId()))

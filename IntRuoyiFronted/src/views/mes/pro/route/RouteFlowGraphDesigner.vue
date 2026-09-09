@@ -1451,6 +1451,75 @@
                         </span>
                       </div>
                     </div>
+                    <div
+                      v-else-if="selectedProcessDetailField.key === 'deviceParameters'"
+                      class="route-flow-graph-designer__record-binding-list"
+                      data-flow-panel="route-process-device-parameter-config"
+                    >
+                      <div class="route-flow-graph-designer__record-binding-toolbar">
+                        <span>设备参数</span>
+                        <el-button
+                          data-flow-action="refresh-route-process-device-parameters"
+                          :disabled="routeProcessDeviceParameterLoading"
+                          link
+                          size="small"
+                          type="primary"
+                          @click="loadSelectedRouteProcessDeviceParameterConfig"
+                        >
+                          刷新
+                        </el-button>
+                      </div>
+                      <el-skeleton
+                        v-if="routeProcessDeviceParameterLoading"
+                        animated
+                        class="route-flow-graph-designer__process-detail-loading"
+                      >
+                        <template #template>
+                          <el-skeleton-item variant="text" />
+                        </template>
+                      </el-skeleton>
+                      <el-empty
+                        v-else-if="!selectedRouteProcessDeviceParameterDevices.length"
+                        description="当前工序未关联设备参数"
+                        :image-size="56"
+                      />
+                      <div
+                        v-for="device in selectedRouteProcessDeviceParameterDevices"
+                        v-else
+                        :key="device.deviceId"
+                        class="route-flow-graph-designer__record-binding-item"
+                        :data-route-process-device-id="device.deviceId"
+                      >
+                        <div class="route-flow-graph-designer__record-binding-header">
+                          <span class="route-flow-graph-designer__record-binding-label">
+                            {{ formatRouteProcessDeviceParameterDeviceLabel(device) }}
+                          </span>
+                        </div>
+                        <div
+                          v-for="parameter in device.parameters || []"
+                          :key="`${device.deviceId}-${parameter.parameterCode}`"
+                          class="route-flow-graph-designer__selected-field-value"
+                          :data-route-process-device-parameter="parameter.parameterCode"
+                        >
+                          <span>
+                            {{ parameter.parameterName || parameter.parameterCode }}
+                          </span>
+                          <strong>
+                            {{ formatRouteProcessDeviceParameterValue(parameter) }}
+                          </strong>
+                          <el-button
+                            data-flow-action="save-route-process-device-parameter-rule"
+                            :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
+                            link
+                            size="small"
+                            type="primary"
+                            @click="saveSelectedRouteProcessDeviceParameterRule(device, parameter)"
+                          >
+                            保存规则
+                          </el-button>
+                        </div>
+                      </div>
+                    </div>
                     <el-input-number
                       v-else-if="selectedProcessDetailField.key === 'productionQuantityFactor'"
                       :model-value="selectedProcessAttributes.productionQuantityFactor"
@@ -1761,6 +1830,9 @@ import {
 import {
   ProRouteFlowConfigApi,
   type ProRouteBatchRecordAttachmentOwnerVO,
+  type ProRouteDeviceParameterVO,
+  type ProRouteProcessDeviceParameterConfigVO,
+  type ProRouteProcessDeviceParameterDeviceVO,
   type ProRouteFlowBatchRecordVO,
   type ProRouteFlowFormBindingSaveVO,
   type ProRouteFlowFormBindingVO,
@@ -2103,6 +2175,7 @@ const PROCESS_DETAIL_EDITABLE_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>
   'successors',
   'keyFlag',
   'checkFlag',
+  'deviceParameters',
   'batchRecordFormNames',
   FORM_SLOT_AGGREGATE_FIELD_KEY
 ])
@@ -2308,6 +2381,9 @@ const routeStartProductionLeaders = ref<RouteStartProductionLeaderDraft[]>([])
 const routeStartProductionLeaderProductionLines =
   ref<ProRouteStartProductionLeaderProductionLineVO[]>([])
 const routeStartProductionLeadersBaseline = ref('')
+const routeProcessDeviceParameterLoading = ref(false)
+const routeProcessDeviceParameterSaving = ref(false)
+const routeProcessDeviceParameterConfig = ref<ProRouteProcessDeviceParameterConfigVO>()
 let routeStartProductionLeaderDraftSequence = 0
 const releaseApprovalRuleForm = reactive<ReleaseApprovalRuleForm>({
   candidateSourceType: 'USER',
@@ -3164,6 +3240,44 @@ const formatRouteProcessMaterialSummaryLine = (item: MdItemVO) =>
 
 const isRouteProcessMaterialDetailField = (fieldKey?: ProcessDetailFieldKey) =>
   fieldKey === 'inputMaterialIds' || fieldKey === 'outputMaterialIds'
+
+const selectedRouteProcessDeviceParameterDevices = computed(
+  () => routeProcessDeviceParameterConfig.value?.devices || []
+)
+
+const buildRouteProcessDeviceParameterSummaryValue = () => {
+  const devices = selectedRouteProcessDeviceParameterDevices.value
+  if (!routeProcessDeviceParameterConfig.value) return '点击查看设备参数'
+  if (devices.length === 0) return '未配置'
+  const parameterCount = devices.reduce(
+    (total, device) => total + (device.parameters?.length || 0),
+    0
+  )
+  return `${devices.length} 台设备 / ${parameterCount} 个参数`
+}
+
+const formatRouteProcessDeviceParameterDeviceLabel = (
+  device: ProRouteProcessDeviceParameterDeviceVO
+) =>
+  [device.deviceCode, device.deviceName].filter(Boolean).join(' / ') ||
+  `设备 ${device.deviceId}`
+
+const formatRouteProcessDeviceParameterValue = (parameter: ProRouteDeviceParameterVO) =>
+  [
+    parameter.standardText,
+    parameter.unit ? `单位：${parameter.unit}` : '',
+    parameter.lowerLimit !== undefined && parameter.lowerLimit !== null
+      ? `下限：${parameter.lowerLimit}`
+      : '',
+    parameter.upperLimit !== undefined && parameter.upperLimit !== null
+      ? `上限：${parameter.upperLimit}`
+      : '',
+    parameter.targetValue !== undefined && parameter.targetValue !== null
+      ? `目标：${parameter.targetValue}`
+      : ''
+  ]
+    .filter(Boolean)
+    .join('；') || '-'
 
 const getSelectedRouteProcessMaterialIds = (kind: RouteProcessMaterialKind) =>
   kind === 'input'
@@ -4523,6 +4637,13 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
       loading: attributeLoading
     },
     {
+      key: 'deviceParameters',
+      label: getRouteProcessSettingColumnLabel('deviceParameters', '设备参数'),
+      value: buildRouteProcessDeviceParameterSummaryValue(),
+      links: [],
+      loading: routeProcessDeviceParameterLoading.value
+    },
+    {
       key: 'resourceStatus',
       label: getRouteProcessSettingColumnLabel('resourceStatus', '资源状态'),
       value: routeProcess?.resourceStatusReason || getRouteProcessResourceStatusLabel(routeProcess?.resourceStatus),
@@ -4767,6 +4888,69 @@ const selectProcessDetailField = (
 
 const handleSelectProcessDetailField = (fieldKey: ProcessDetailFieldKey) => {
   selectProcessDetailField(fieldKey, { persist: true })
+  if (fieldKey === 'deviceParameters') {
+    void loadSelectedRouteProcessDeviceParameterConfig()
+  }
+}
+
+const resetSelectedRouteProcessDeviceParameterConfig = () => {
+  routeProcessDeviceParameterConfig.value = undefined
+}
+
+const loadSelectedRouteProcessDeviceParameterConfig = async () => {
+  const routeProcessId = selectedRouteProcessId.value
+  if (!routeProcessId) {
+    throw new Error('设备参数加载失败：缺少选中路线工序。')
+  }
+  routeProcessDeviceParameterLoading.value = true
+  try {
+    routeProcessDeviceParameterConfig.value =
+      await ProRouteFlowConfigApi.getRouteProcessDeviceParameterConfig(routeProcessId)
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '加载设备参数失败'))
+    throw error
+  } finally {
+    routeProcessDeviceParameterLoading.value = false
+  }
+}
+
+const saveSelectedRouteProcessDeviceParameterRule = async (
+  device: ProRouteProcessDeviceParameterDeviceVO,
+  parameter: ProRouteDeviceParameterVO
+) => {
+  if (recordBindingEditorDisabled.value) return
+  const routeProcessId = selectedRouteProcessId.value
+  if (!routeProcessId) {
+    throw new Error('设备参数保存失败：缺少选中路线工序。')
+  }
+  if (!device.deviceId || !parameter.parameterCode || !parameter.standardText || !parameter.valueType) {
+    throw new Error('设备参数保存失败：缺少设备、参数编码、标准值或值类型。')
+  }
+  routeProcessDeviceParameterSaving.value = true
+  try {
+    await ProRouteFlowConfigApi.saveRouteProcessDeviceParameterRule({
+      routeProcessId,
+      deviceId: device.deviceId,
+      parameterCode: parameter.parameterCode,
+      parameterName: parameter.parameterName,
+      unit: parameter.unit,
+      standardText: parameter.standardText,
+      lowerLimit: parameter.lowerLimit,
+      upperLimit: parameter.upperLimit,
+      targetValue: parameter.targetValue,
+      valueType: parameter.valueType,
+      optionValues: parameter.optionValues,
+      defaultText: parameter.defaultText,
+      decimalScale: parameter.decimalScale
+    })
+    message.success('设备参数规则已保存')
+    await loadSelectedRouteProcessDeviceParameterConfig()
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '设备参数规则保存失败'))
+    throw error
+  } finally {
+    routeProcessDeviceParameterSaving.value = false
+  }
 }
 
 const normalizeCapacitySourceFocus = () => {
@@ -9198,6 +9382,10 @@ const handleBeforeUnload = (event: BeforeUnloadEvent) => {
 }
 
 watch(selectedRouteProcessId, () => {
+  resetSelectedRouteProcessDeviceParameterConfig()
+  if (selectedProcessDetailFieldKey.value === 'deviceParameters') {
+    void loadSelectedRouteProcessDeviceParameterConfig()
+  }
   void loadSelectedProcessDetail(selectedNode.value)
 })
 

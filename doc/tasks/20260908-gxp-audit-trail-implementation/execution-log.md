@@ -22,6 +22,18 @@ BDD: DCC publish approval request writes unified audit in same transaction -> Gi
 
 BDD: DCC publish approval request does not fabricate electronic signature identity -> Given DCC publish only starts the approval workflow and is not itself an electronic signature record, When the unified audit command is built, Then `signatureRecordId` remains absent and signature evidence is supplied only by the separate electronic signature operation.
 
+BDD: System permission assignment writes unified audit in same transaction -> Given role-menu, user-role, or role-data-scope configuration is changed, When the assignment service commits the change, Then it appends the registered `system.permission.*.assign` operation through `GxpAuditService.append` with subject identity and before/after permission state before transaction commit.
+
+BDD: System permission assignment rolls back when unified audit append fails -> Given unified audit append fails during a permission assignment, When the role-menu or user-role assignment has changed database rows, Then the surrounding transaction rolls back and no successful permission state is committed.
+
+BDD: System configuration package import writes unified audit in same transaction -> Given a confirmed system configuration package import passes precheck and snapshot matching, When the package replaces configuration rows, Then it appends `system.config-package.import` with before/after snapshot hashes and restored counts before transaction commit.
+
+BDD: System configuration package import rolls back when unified audit append fails -> Given unified audit append fails after configuration replacement, When the import attempts to return success, Then the transaction rolls back to the previous configuration snapshot and no default-success import response is returned.
+
+BDD: eDHR field update writes unified audit in same transaction -> Given an eDHR field value save writes the local field audit batch, item hash chain and signature binding, When `MesProBatchRecordExecutionFieldAuditServiceImpl.saveChanges` returns success, Then it must also append `edhr.execution.field.update` through `GxpAuditService.append` with signature id, before/after field audit head hashes, cell value hashes, revision, reason category/text and idempotency key.
+
+BDD: eDHR field update rolls back when unified audit append fails -> Given an eDHR field value save has inserted field audit batch, items and signature evidence inside the transaction, When the unified audit append contract fails, Then the field projection, audit batch, audit items and signature record all roll back and no default-success eDHR save result is returned.
+
 ## TDD Evidence
 
 RED: pending -> write focused failing tests/contracts before production implementation.
@@ -62,6 +74,14 @@ GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#
 
 GREEN: python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/gxp-audit-policy.yaml -> PASS, operations=8, annotations=7, sha256=61a0206128d8d0d0fbf41b736a22639eddd3569af8638c628fac554dd41f13e6 after DCC policy correction.
 
+RED: mvn -pl yudao-module-system -am "-Dtest=PermissionServiceTest#assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignRoleDataScopeShouldAppendUnifiedGxpAudit,SystemConfigPackageServiceImplTest#importPackageShouldAppendUnifiedGxpAudit+importPackageShouldRollbackWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected TDD reason: permission assignment methods had no `GxpAuditService.append`; configuration package fixture also exposed missing `canonical_username` handling before GREEN.
+
+GREEN: mvn -pl yudao-module-system "-Dtest=PermissionServiceTest#assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignRoleDataScopeShouldAppendUnifiedGxpAudit,SystemConfigPackageServiceImplTest#importPackageShouldAppendUnifiedGxpAudit+importPackageShouldRollbackWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 5 tests passed; permission assignment and configuration package import now append unified audit in the same transaction and reject default success when append fails.
+
+GREEN: python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/gxp-audit-policy.yaml -> PASS, operations=8, annotations=7, sha256=61a0206128d8d0d0fbf41b736a22639eddd3569af8638c628fac554dd41f13e6 after system permission/config package connection.
+
+GREEN: python -m py_compile script/gxp_audit_coverage_gate.py; python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/gxp-audit-policy.yaml -> PASS; coverage gate now prunes generated directories such as `target`, `.git`, `node_modules`, `dist`, and `build` during directory traversal so CI does not spend time scanning generated source trees.
+
 BLOCKED: PASS FOR OPERATIONAL COMPLIANCE -> runtime NTP, WORM/Object Lock, backup restore rehearsal, periodic review SOP execution, QA signature, training records, DB role separation and privileged audit externalization are real environment/quality records and are not present in this code-only implementation turn.
 
 GREEN: project-experience-consolidation -> PASS, reusable GxP business-evidence boundary merged into `docs/backend-development.md#GxP-业务写入统一审计接入门禁` and routed from `docs/experience-index.md`; no new long-term experience document created.
@@ -90,3 +110,7 @@ Baseline commit file list:
 - docs/csv-validation/TRN-EDHR-培训课程大纲与考核标准-受控草案.docx
 
 BLOCKED: git push origin int_main -> FAIL, GitHub push blocked by user-level Git proxy `http.https://github.com.proxy=http://127.0.0.1:7890`; `git push origin int_main` failed with `Could not connect to server`, leaving local `int_main` ahead of `origin/int_main` by 2 commits.
+
+BLOCKED: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_appendsUnifiedGxpAuditWithSignatureAndStateEnvelope+saveChanges_rollsBackFieldAuditWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL before reaching the new RED assertions, because existing non-task route-device-parameter changes in `MesProRouteFlowConfigServiceImpl` reference missing methods (`requireRouteProcessForDeviceParameter`, `selectEnabledProcessDeviceBindings`, `selectRouteDeviceParameterRules`, `toRouteDeviceParameterDeviceResp`, `normalizeRouteDeviceParameterOptionValues`, `normalizeRouteDeviceParameterText`, `validateRouteDeviceParameterRule`, `requireRouteDevice`, `assertDeviceMappedToRouteProcess`). Strict TDD cannot continue production implementation until this MES compile prerequisite is restored or the user explicitly authorizes fixing that separate route configuration work.
+
+BLOCKED: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_appendsUnifiedGxpAuditWithSignatureAndStateEnvelope+saveChanges_rollsBackFieldAuditWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL after the route-device-parameter main compile blocker was fixed, but still before reaching the new eDHR RED assertions because MES `testCompile` has existing non-task missing DCC test dependencies/packages (`cn.iocoder.yudao.module.dcc.api.projectcode`, `cn.iocoder.yudao.module.dcc.signature.*`, `DccElectronicSignatureAuthorizationService`, `DccProjectCodeMapper`, `DccProjectCodeDO`, `cn.iocoder.yudao.module.dcc.enums`). Strict TDD cannot continue production implementation until MES test compilation is restored or the user explicitly authorizes repairing that separate dependency drift.

@@ -87,7 +87,7 @@ operations:
     subjectType: SYSTEM_CONFIGURATION
     actionType: IMPORT
     reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
-    signaturePolicy: REQUIRED
+    signaturePolicy: NOT_REQUIRED
     statePolicy: PRESENT_TO_PRESENT
     retentionClass: GXP_SYSTEM_CONFIGURATION
     testIds: [BDD-AT-01, BDD-AT-05, BDD-AT-08]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,7 @@ REQUIRED_FIELDS = {
 ALLOWED_SOURCE_TYPES = {"SERVICE_METHOD", "JOB", "MIGRATION", "SCRIPT"}
 ALLOWED_APPLICABILITY = {"GXP", "NOT_APPLICABLE"}
 REQUIRED_HIGH_RISK_DOMAINS = {"EDHR", "DCC", "SIGNATURE", "SYSTEM", "RELEASE"}
+SKIPPED_DIRS = {".git", ".idea", ".mvn", "node_modules", "target", "dist", "build", ".pytest_cache"}
 
 
 @dataclass(frozen=True)
@@ -71,17 +73,20 @@ def discover_annotations(root: Path) -> dict[str, str]:
         re.MULTILINE,
     )
     result: dict[str, str] = {}
-    for java_file in root.rglob("*.java"):
-        if "\\target\\" in str(java_file):
-            continue
-        text = java_file.read_text(encoding="utf-8")
-        package_match = re.search(r"^package\s+([\w.]+);", text, re.MULTILINE)
-        class_match = re.search(r"\bclass\s+(\w+)", text)
-        if not package_match or not class_match:
-            continue
-        fqcn = f"{package_match.group(1)}.{class_match.group(1)}"
-        for operation_id, method_name in pattern.findall(text):
-            result[operation_id] = f"{fqcn}#{method_name}"
+    for current_dir, dir_names, file_names in os.walk(root):
+        dir_names[:] = [name for name in dir_names if name not in SKIPPED_DIRS]
+        for file_name in file_names:
+            if not file_name.endswith(".java"):
+                continue
+            java_file = Path(current_dir) / file_name
+            text = java_file.read_text(encoding="utf-8")
+            package_match = re.search(r"^package\s+([\w.]+);", text, re.MULTILINE)
+            class_match = re.search(r"\bclass\s+(\w+)", text)
+            if not package_match or not class_match:
+                continue
+            fqcn = f"{package_match.group(1)}.{class_match.group(1)}"
+            for operation_id, method_name in pattern.findall(text):
+                result[operation_id] = f"{fqcn}#{method_name}"
     return result
 
 

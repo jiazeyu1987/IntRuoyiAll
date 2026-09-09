@@ -233,6 +233,15 @@
 - Forbidden action: 禁止把 `/prefill` 返回值或前端 `hydrateDraftState` 当作已保存结果；禁止前端写空值兜底、查询接口隐式写库、直接 SQL 回填、把专用业务来源当成通用不支持字段抛错，或绕过字段审计链。
 - Evidence: `doc/tasks/20260727-edhr-cell-link-auto-persist-design/verification-report.md`；`doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/verification-report.md`；`doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md`；`doc/tasks/20260812-process-pool-all-fields-cell-link/verification-report.md`；`doc/tasks/20260814-batch-record-repeat-row-link-implementation/verification-report.md`；`doc/tasks/20260814-batch-record-process-parameter-fields-fix/verification-report.md`；`doc/tasks/20260830-dcc-rough-wash-device-filter-bug/verification-report.md`；`doc/tasks/20260830-dcc-process-device-type-parameter-catalog/verification-report.md`。
 
+### eDHR 字段审计 Recordbook 写入不得夹值或格式降级
+
+- Trigger: `/mes/pro/batch-record-execution/field-audit/save-changes`、`RECORDBOOK_UNRESTRICTED`、字段审计保存、记录本来源值同步批记录单元格、数值上下限、日期/日期时间格式、字符串长度约束。
+- Preflight check: Recordbook 来源值必须先校验 snapshot 声明的 `valueType`、必填、数值 `min/max/scale/precision`、文本长度、日期和日期时间格式，再进入签名、字段审计、附件绑定和 `cell_values_json` 持久化；合法值应原样进入 recordbook 与 batch-record 审计值，不得生成另一个被加工后的批记录值。
+- Blocker: 发现超范围数值被夹到 `min/max`、非法日期/日期时间作为文本落库、超长字符串继续保存、先记录签名再发现值非法，或 `recordbookValueJson` 与 `batchRecordValueJson` 因静默转换不一致时必须停止。
+- Verification: 后端合同必须覆盖 recordbook 超范围数值拒绝、非法日期拒绝、合法数值不转换保存，并验证失败路径不调用签名服务、不更新 `cell_values_json`。
+- Forbidden action: 禁止用 `RECORDBOOK_UNRESTRICTED` 绕过受控批记录字段约束；禁止把“记录本可宽松录入”实现成批记录端自动夹值、自动改格式或默认成功。
+- Evidence: `doc/tasks/20260909-high-priority-data-validation/verification-report.md`。
+
 ## eDHR 批记录 Word 表格解析门禁
 
 ### 全局行形态优先于模板特例
@@ -732,6 +741,33 @@
 - Forbidden action: 禁止把产品名称字符串作为 DCC 唯一身份，禁止按路线名称匹配或猜测路线，禁止枚举同名 DCC 或多条产品路线后任取一条，禁止用 MDM `productMasterId` 当 MES 物料 ID。DCC `project_code -> mes_md_item.code -> mes_pro_route_product` 只允许在用户已选定唯一 DCC 身份且该 DCC 尚无正式路线绑定时正向定位已有路线；不得反向推断 DCC 身份，也不得在正式 DCC 绑定已存在时覆盖其优先级。
 - Evidence: `doc/tasks/20260813-batch-record-import-dcc-binding/verification-report.md`；`doc/tasks/20260812-word-route-disabled-restore-dedup/verification-report.md`。
 
+### Word/图片导入转换必须先校验解析结构与持久化计数
+
+- Trigger: eDHR Word、图片或总识别 JSON 导入、`parseWordByFileName`、路线识别、附加表单槽位导入、DCC 项目代码总识别 JSON 同步。
+- Preflight check: 文件解析后必须统一校验解析表格非空、表序号为正且唯一、声明行数与实际 rows 一致、单元格非空、rowSpan/colSpan/logicColSpan 有效、列索引非负；生成 Jimu 报表后必须校验生成报表数等于解析表数，`created + updated` 等于解析表数，且每条生成结果具备 `reportId/reportCode`。总识别 JSON 在同步或落库前必须重新解析并确认存在 `product`、`schemaVersion` 和非空 `processes`；DCC JSON 更新必须校验影响行数恰好为 1。
+- Blocker: 解析表为空、表序号重复或无效、行数不一致、单元格跨度非法、JSON 缺关键字段、导入计数不守恒、DCC JSON 更新影响 0 行或多行时必须 fail-fast 并回滚；不得用空列表、默认表、截断文本、忽略异常或只看 HTTP 200 继续。
+- Verification: 后端合同至少覆盖解析结构门禁、导入计数守恒、总识别 JSON 结构校验和更新影响行数校验，并同时跑相邻 parse-only 与 DCC 身份合同，防止把解析-only 接口扩成写入口或弱化 DCC 身份。
+- Forbidden action: 禁止在转换失败时补默认字段、跳过坏表、静默丢行/丢列、把部分报表生成当作完整成功、或让 JSON 同步失败后继续返回导入成功。
+- Evidence: `doc/tasks/20260909-data-integrity-controls-6.1-6.5/verification-report.md`。
+
+### DCC 受控文件发布不得以未盖章源文件降级成功
+
+- Trigger: DCC 受控文件发布、NAS transfer no-approval import、PDF 盖章、`skipGovernance`/`allowPdfStampFailurePassThrough`、撤回文件删除。
+- Preflight check: 发布产物必须是盖章 PDF；读取源文件或盖章失败必须抛 `CONTROLLED_FILE_STAMP_GENERATION_FAILED`，不得发布原 PDF。撤回文件删除只能删除业务记录，不得顺手物理删除 `sourceFileId`、`originalFileId`、`drawingPdfFileId` 等源文件产物；附件/源文件保留策略应走正式归档、保留或受控清理任务。
+- Blocker: 出现 `publish original PDF instead`、`new PublishedArtifact(sourceFile.getId(), null, null)`、撤回删除调用 `deleteUnreferencedArtifacts` 或 `fileService.deleteFileList` 清源文件时必须停止。
+- Verification: DCC 后端合同必须覆盖盖章失败无降级、撤回删除不物理删除源文件；回归命令为 `mvn -pl yudao-module-dcc -Dtest=DccControlledFileHighPriorityDataValidationContractTest test`。
+- Forbidden action: 禁止用 `skipGovernance`、NAS 导入、历史 PDF 可浏览或前端隐藏按钮绕过盖章失败；禁止把撤回业务记录删除扩展成源文件物理清理。
+- Evidence: `doc/tasks/20260909-high-priority-data-validation/verification-report.md`。
+
+### 批记录生成报表物理删除必须排除受控版本数据
+
+- Trigger: 删除生成的电子批记录 Jimu 报表、按报表 ID 批量删除、按批记录名称清理、按表单槽位删除、删除全部批记录模板，且 `MesProBatchRecordReportDO` 已关联 `batchRecordDefinitionId` 或 `batchRecordVersionId`。
+- Preflight check: 所有生成报表物理删除入口必须先走统一删除链路；直接删除和直接批量删除遇到受控批记录定义/版本数据必须 fail-fast，清理类接口只能跳过受控报表并返回 `skippedControlledReportCount`。执行 `forceUnbind` 前必须先过滤可删除报表，不能对受控报表解绑后再发现不能删。
+- Blocker: 槽位删除直接调用 `jimuReportGateway.deleteReport` 或 `deleteHardByReportId`、受控版本报表可被物理删除、删除响应无法区分已绑定跳过和受控跳过、或解绑范围包含受控版本报表时必须停止。
+- Verification: 后端合同必须断言存在 `validateReportDeletionAllowed`、`isControlledBatchRecordReport`、受控删除错误码、`skippedControlledReportCount`，并确认按批记录名称和表单槽位删除不绕过统一删除链路。
+- Forbidden action: 禁止为了清理页面数据硬删已受控批记录版本报表；禁止用 `forceUnbind`、删除全部确认、前端隐藏按钮或吞异常绕过版本治理；受控数据应通过升版、作废、审批或正式归档策略处理。
+- Evidence: `doc/tasks/20260909-data-integrity-controls-6.1-6.5/verification-report.md`。
+
 ### Word 工艺路线导入必须锁定唯一未结束候选
 
 - Trigger: eDHR Word 只导入工艺路线、当前 ACTIVE 路线存在 `DRAFT`、`PENDING_APPROVAL` 或 `READY_TO_PUBLISH` 候选、重复上传同一 Word、候选版本并发状态变化。
@@ -971,6 +1007,15 @@
 - Verification: 除单元和静态 migration 合同外，必须使用真实测试事务管理器与真实核心 Mapper，定点注入一条子快照写入失败；同时断言旧正式对象、当前对象、正式指针和所有账本子表均回滚，只有既有独立失败事务可以记录失败状态，完成事件不得发出。
 - Concurrency verification: 自动投影必须覆盖“另一 resolver 已完成”“管理员并发更正/改链”“同一关系出现无法解释的 CAS miss”三类分支，并用真实事务证明前两类不回滚 ACTIVE/正式指针且不重复审计，第三类仍显式失败。
 - Forbidden action: 禁止 catch 账本异常后继续标记发布成功，禁止把通知发送放进生效主事务，禁止用 mock TransactionTemplate 冒充数据库回滚证据，禁止用管理员权限或目录上下文扩大关联方名单。
+
+## 个人待办聚合悬空关系隔离门禁
+
+- Trigger: 个人中心、个人工作台、菜单角标、我的分发、我的培训、审批待办或其它“我的待办”聚合接口从后续任务表、进度表、收件人表投影业务对象；页面报 `Controlled file does not exist` 或某个业务对象不存在导致整页加载失败。
+- Preflight check: 先区分列表聚合投影和详情/操作入口；列表聚合只展示仍存在且当前状态可见的业务对象，悬空后续任务关系应作为不可展示的过期投影过滤；详情、预览、确认、签收、审批等指定 ID 操作仍必须 fail-fast。
+- Blocker: 列表聚合中任一悬空子关系会中断整页、用 mock/默认成功掩盖错误、或把详情操作的缺失对象错误也改成静默跳过时必须停止。
+- Verification: 后端回归同时覆盖分发/培训等聚合列表的悬空关系被过滤、缺失主对象不进入列表、其它有效待办仍返回；详情和操作接口的缺失对象异常保持不变；前端个人中心系统异常静态合同通过。
+- Forbidden action: 禁止 catch 通用异常后返回空页，禁止删除待办关系冒充修复，禁止前端吞掉全局错误替代后端投影隔离，禁止把聚合列表过滤规则扩散到正式业务操作。
+- Evidence: `doc/tasks/20260906-user-profile-system-exception-fix/verification-report.md`。
 
 ## 可信时间与正式签名时间边界门禁
 

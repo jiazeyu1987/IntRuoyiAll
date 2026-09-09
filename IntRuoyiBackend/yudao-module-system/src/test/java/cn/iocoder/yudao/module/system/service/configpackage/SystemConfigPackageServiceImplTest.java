@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.configpackage;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.controller.admin.configpackage.vo.SystemConfigPackageImportRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.configpackage.vo.SystemConfigPackagePrecheckRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -15,14 +16,18 @@ import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleTypeEnum;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -37,6 +42,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Import(SystemConfigPackageServiceImpl.class)
 class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
@@ -63,6 +71,8 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
     private AdminUserMapper userMapper;
     @Resource
     private DataSource dataSource;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
 
     private JdbcTemplate jdbcTemplate;
 
@@ -210,6 +220,61 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void importPackageShouldAppendUnifiedGxpAudit() throws Exception {
+        seedConfigPackageMenu("配置包中心");
+        seedRole(10L, "配置管理员");
+        seedRoleMenu(100L, 10L, 9000L);
+        seedUser(20L, "operator", "source-password-hash");
+        byte[] desiredPackage = service.exportPackage();
+
+        jdbcTemplate.update("DELETE FROM system_role_menu WHERE tenant_id = 1");
+        jdbcTemplate.update("DELETE FROM system_role WHERE tenant_id = 1");
+        jdbcTemplate.update("DELETE FROM system_menu");
+        jdbcTemplate.update("DELETE FROM system_users WHERE tenant_id = 1");
+        seedMenu(9000L, "配置包中心-已漂移", "system/config-package/index");
+        seedRole(10L, "配置管理员-已漂移");
+        seedUser(20L, "operator", "target-password-hash");
+
+        SystemConfigPackagePrecheckRespVO precheck = service.precheck(desiredPackage, AVAILABLE_COMPONENTS);
+        SystemConfigPackageImportRespVO result = service.importPackage(
+                desiredPackage, true, precheck.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS);
+
+        assertTrue(result.getRestored());
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.config-package.import", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_CONFIG_PACKAGE:1", auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
+    }
+
+    @Test
+    void importPackageShouldRollbackWhenUnifiedGxpAuditAppendFails() throws Exception {
+        seedConfigPackageMenu("配置包中心");
+        seedRole(10L, "配置管理员");
+        seedRoleMenu(100L, 10L, 9000L);
+        seedUser(20L, "operator", "source-password-hash");
+        byte[] desiredPackage = service.exportPackage();
+
+        jdbcTemplate.update("DELETE FROM system_role_menu WHERE tenant_id = 1");
+        jdbcTemplate.update("DELETE FROM system_role WHERE tenant_id = 1");
+        jdbcTemplate.update("DELETE FROM system_menu");
+        jdbcTemplate.update("DELETE FROM system_users WHERE tenant_id = 1");
+        seedMenu(9000L, "配置包中心-已漂移", "system/config-package/index");
+        seedRole(10L, "配置管理员-已漂移");
+        seedUser(20L, "operator", "target-password-hash");
+        SystemConfigPackagePrecheckRespVO precheck = service.precheck(desiredPackage, AVAILABLE_COMPONENTS);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.importPackage(desiredPackage, true, precheck.getTargetSnapshotSha256(), AVAILABLE_COMPONENTS));
+
+        assertEquals("配置包中心-已漂移", menuMapper.selectById(9000L).getName());
+        assertEquals("配置管理员-已漂移", roleMapper.selectById(10L).getName());
+        assertEquals("target-password-hash", userMapper.selectById(20L).getPassword());
+    }
+
+    @Test
     void importPackageShouldAllowCrossTenantNewUserWhenPasswordHashesArePreserved() throws Exception {
         seedConfigPackageMenu("配置包中心");
         seedRole(10L, "配置管理员");
@@ -320,6 +385,7 @@ class SystemConfigPackageServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = new AdminUserDO();
         user.setId(id);
         user.setUsername(username);
+        user.setCanonicalUsername(username);
         user.setPassword(password);
         user.setNickname(username);
         user.setRemark("");

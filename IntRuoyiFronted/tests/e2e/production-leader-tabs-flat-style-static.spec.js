@@ -24,9 +24,14 @@ const assertProductionTabs = (block, label) => {
     /class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"[\s\S]*data-production-leader-module-tabs/,
     `${label} must render production module tabs with the shared flat underline style.`
   )
-  for (const tabLabel of ['人员管理', '报工管理', '报工历史', '活跃订单池', '工序配置']) {
+  for (const tabLabel of ['人员管理', '报工管理', '报工历史', '活跃订单池']) {
     assert.match(block, new RegExp(`label="${tabLabel}"`), `${label} must keep ${tabLabel} tab visible.`)
   }
+  assert.doesNotMatch(
+    block,
+    /data-production-leader-module-tab-process-config|<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+    `${label} must not keep migrated 工序配置 as a production module tab.`
+  )
 }
 
 assert.match(
@@ -95,16 +100,10 @@ assert.doesNotMatch(source, /data-production-leader-module-tab-exception|showPro
 assert.match(activeOrderBlock, /data-team-leader-report-active-order-abnormal[\s\S]*data-team-leader-abnormal-report-dialog/,
   '活跃订单池必须承载行内报异常入口和对话框。')
 
-const processConfigBlock = sliceContentWrapByMarker('data-team-leader-process-config-tab')
-assert.match(
-  processConfigBlock,
-  /'team-leader-workbench__production-module-card':\s*showProductionModuleTabs/,
-  '工序配置 content card must use compact production module card padding.'
-)
-assertProductionTabs(processConfigBlock, '工序配置')
-assert.ok(
-  processConfigBlock.indexOf('data-production-leader-module-tabs') < processConfigBlock.indexOf('<el-table'),
-  '工序配置 module tabs must appear before the unified process config table.'
+assert.doesNotMatch(
+  source,
+  /data-production-leader-module-tab-process-config|<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  '工序配置迁移后不得继续出现在生产组长模块 tab 条中。'
 )
 
 const configBlock = sliceContentWrapByMarker('data-team-leader-config-center')

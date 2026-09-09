@@ -3,9 +3,11 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.route;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerInitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
@@ -66,6 +68,23 @@ public class MesProRouteFlowConfigController {
         saveReqVO.setUseType("BATCH");
         routeFlowConfigService.saveRouteFlowConfig(saveReqVO);
         return success(true);
+    }
+
+    @GetMapping("/process-device-parameters")
+    @Operation(summary = "获得工艺路线工序设备参数配置")
+    @Parameter(name = "routeProcessId", description = "路线工序编号", required = true)
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-route:batch-record-config:query')")
+    public CommonResult<MesProRouteProcessDeviceParameterRespVO> getRouteProcessDeviceParameterConfig(
+            @RequestParam("routeProcessId") Long routeProcessId) {
+        return success(routeFlowConfigService.getRouteProcessDeviceParameterConfig(routeProcessId));
+    }
+
+    @PostMapping("/process-device-parameter-rule/save")
+    @Operation(summary = "保存工艺路线工序设备参数规则")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<Long> saveRouteProcessDeviceParameterRule(
+            @Valid @RequestBody MesProRouteDeviceParameterRuleSaveReqVO saveReqVO) {
+        return success(routeFlowConfigService.saveRouteProcessDeviceParameterRule(saveReqVO));
     }
 
     @GetMapping("/batch-record-attachment-owners")

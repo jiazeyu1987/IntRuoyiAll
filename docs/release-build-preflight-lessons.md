@@ -55,6 +55,7 @@
      `mvn -f E:\IntRuoyi\IntRuoyiBackend\pom.xml -pl yudao-server -DskipTests clean`
    - 如果 `yudao-server\target\yudao-server.jar` 被 Java 进程占用，先让本机后端运行在复制出的 runtime jar 上，释放 target jar 后再构建。
    - 不要在 target jar 被锁时反复点构建按钮。
+   - 本地后端重启会走多模块编译；若阻塞在非目标模块的接口/实现签名漂移，先对失败模块跑定向 `mvn -pl <module> -DskipTests compile`，用最小签名对齐修复，再回到原重启链路。不要跳过失败模块或用旧 Jar 冒充新运行态。
 
 5. 先验证真实 E2E 预览边界。
    - 构建预览必须包含 `-Mode build-release`、`-Component intruoyi`、`-SkipDatabaseSync`、`-SkipMinioSync`。

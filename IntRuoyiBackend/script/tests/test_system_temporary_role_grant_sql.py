@@ -39,6 +39,10 @@ def test_temporary_role_grant_migration_declares_schema_and_job() -> None:
     for snippet in required:
         assert snippet in sql
 
+    assert (
+        "(901200, '临时角色授权', 'system:temporary-role-grant:query', 2, 120, 101,"
+    ) in sql
+
 
 def test_temporary_role_grant_migration_does_not_seed_business_grants() -> None:
     sql = SQL_PATH.read_text(encoding="utf-8").upper()

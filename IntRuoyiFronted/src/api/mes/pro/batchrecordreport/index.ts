@@ -137,6 +137,7 @@ export interface BatchRecordReportDeleteAllRespVO {
   deletedReportCount: number
   deletedMetadataCount: number
   skippedBoundReportCount: number
+  skippedControlledReportCount: number
   unboundRouteProcessCount?: number
   deletedRouteFlowBindingCount?: number
   unboundRouteFlowProcessConfigCount?: number

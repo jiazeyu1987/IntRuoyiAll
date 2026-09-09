@@ -26,7 +26,7 @@ def test_ssh_error_messages_redact_inline_passwords() -> None:
     script = f"""
 $ErrorActionPreference = 'Stop'
 Import-Module '{module}' -Force -DisableNameChecking
-$text = "mysql -uroot -p'123456'; MYSQL_PWD=abc123 mysqldump --password=secret -v /tmp/backup-point:/backup-point"
+$text = "mysql -uroot -p'123456'; MYSQL_PWD=abc123 mysqldump --password=secret -e MC_ACCESS_KEY=rag_flow -e MC_SECRET_KEY=infini_rag_flow -v /tmp/backup-point:/backup-point"
 Protect-BackupSshSensitiveText -Text $text
 """
     result = _run_powershell(script)
@@ -272,6 +272,16 @@ def test_backup_and_rehearsal_modes_share_a_nonblocking_global_mutex() -> None:
     assert "WaitOne(0)" in source
     assert "Another backup or rehearsal operation is already running" in source
     assert "ReleaseMutex" in source
+
+
+def test_rehearsal_supports_explicit_test_target_environment() -> None:
+    source = (BACKUP_ROOT / "scripts" / "backup-ops.ps1").read_text(encoding="utf-8")
+    resolver = source.split("function Resolve-BackupOpsTargetEnvironmentConfig", 1)[1].split(
+        "function Get-MissingBackupOpsPrerequisites", 1
+    )[0]
+
+    assert "$supportedTestTargetModes = @('backup-now', 'backup-scheduled', 'rollback-app', 'restore-data', 'rehearsal')" in resolver
+    assert "backup-now, backup-scheduled, rollback-app, restore-data and rehearsal" in resolver
 
 
 def test_remote_retention_deletes_only_whole_full_chains() -> None:
@@ -583,8 +593,25 @@ def test_remote_object_copy_skips_existing_hash_addressed_payloads_before_mc_cop
 
     assert existing_check >= 0
     assert existing_check < copy_index
-    assert '[ "$existing" = "$repo" ]' in remote_export
-    assert "printf ''%s\\t%s\\n'' \"$repo\" \"$repo\"" in remote_export
+    assert '[ "$existing" != "$repo" ]' in remote_export
+    assert "printf ''%s\\t%s\\n'' \"$repo\" \"$existing\"" in remote_export
+
+
+def test_remote_object_copy_hardlinks_existing_etag_payloads_as_sha256_before_mc_copy() -> None:
+    object_source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "ObjectOps.psm1").read_text(
+        encoding="utf-8"
+    )
+    remote_export = object_source.split("function Export-BackupObjectSnapshotToRemoteNas", 1)[1].split(
+        "function Import-BackupObjectSnapshotFromRemoteNas", 1
+    )[0]
+
+    existing_etag_check = remote_export.find('if [ -f "/object-store/$repo" ]; then')
+    copy_index = remote_export.find('if mc cp "src/\' + $bucket + \'/$rel" "$incoming" >/dev/null; then')
+
+    assert existing_etag_check >= 0
+    assert existing_etag_check < copy_index
+    assert 'ln "/object-store/$repo" "/object-store/$existing"' in remote_export
+    assert "printf ''%s\\t%s\\n'' \"$repo\" \"$existing\"" in remote_export
 
 
 def test_full_dcc_manifest_does_not_reuse_a_previous_restore_point() -> None:

@@ -181,7 +181,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         } catch (Exception ex) {
             throw new IllegalArgumentException("批记录总识别 JSON 无法解析", ex);
         }
-        saveProjectCodeBatchRecordTotalRecognitionJson(dccProjectCodeId, totalRecognitionJson);
+        validateTotalRecognitionJsonIntegrity(totalRecognitionJson);
+        updateProjectCodeTotalRecognitionJson(dccProjectCodeId, totalRecognitionJson);
         recognitionDeviceSyncService.sync(dccProjectCodeId, totalRecognitionJson);
     }
 
@@ -231,6 +232,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         String sourceFileName = normalizeFileName(file.getOriginalFilename());
         String sha256 = sha256(bytes);
         List<MesProBatchRecordParsedTable> parsedTables = imageParser.parse(sourceFileName, bytes);
+        validateParsedTablesIntegrity(parsedTables, "image:" + sourceFileName);
         if (parsedTables.isEmpty()) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMAGE_OUTPUT_INVALID);
         }
@@ -265,6 +267,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         }
         List<MesProBatchRecordParsedTable> parsedTables = recognizer.recognize(
                 samplePath, bytes, samplePath.getFileName().toString());
+        validateParsedTablesIntegrity(parsedTables, "fixed-route:" + normalizedRouteKey);
         List<MesProBatchRecordParsedTable> sourceTables = docParser.parse(bytes);
         MesProBatchRecordDocumentFrame documentFrame = docParser.extractDocumentFrame(bytes);
         attachDocumentFrame(parsedTables, documentFrame);
@@ -879,6 +882,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     normalizedRouteKey);
         }
         List<MesProBatchRecordParsedTable> parsedTables = recognizer.recognize(null, bytes, sourceFileName);
+        validateParsedTablesIntegrity(parsedTables, "uploaded-route:" + normalizedRouteKey);
         attachDocumentFrame(parsedTables, extractDocumentFrameByFileName(bytes, sourceFileName));
         routeGenerationService.validateUploadedWordRoute(parsedTables);
         String totalRecognitionJson = buildTotalRecognitionJson(sourceFileName, parsedTables);
@@ -974,25 +978,32 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .skippedProductNames(routeResult == null ? List.of() : routeResult.skippedProductNames())
                 .reports(importResult.reports())
                 .build();
-        saveProjectCodeBatchRecordTotalRecognitionJson(selectedDccProjectCode.getId(), totalRecognitionJson);
+        updateProjectCodeTotalRecognitionJson(selectedDccProjectCode.getId(), totalRecognitionJson);
         return result.withTotalRecognitionJson(totalRecognitionJson);
     }
 
     private String buildTotalRecognitionJson(String sourceFileName, List<MesProBatchRecordParsedTable> parsedTables) {
         try {
-            return OBJECT_MAPPER.writeValueAsString(
+            String json = OBJECT_MAPPER.writeValueAsString(
                     new MesProBatchRecordTotalRecognitionExtractor().extract(sourceFileName, parsedTables));
+            validateTotalRecognitionJsonIntegrity(json);
+            return json;
         } catch (JsonProcessingException ex) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                     ex.getMessage());
         }
     }
 
-    private void saveProjectCodeBatchRecordTotalRecognitionJson(Long dccProjectCodeId, String totalRecognitionJson) {
-        dccProjectCodeMapper.updateById(DccProjectCodeDO.builder()
+    private void updateProjectCodeTotalRecognitionJson(Long dccProjectCodeId, String totalRecognitionJson) {
+        validateTotalRecognitionJsonIntegrity(totalRecognitionJson);
+        int updated = dccProjectCodeMapper.updateById(DccProjectCodeDO.builder()
                 .id(dccProjectCodeId)
                 .batchRecordTotalRecognitionJson(totalRecognitionJson)
                 .build());
+        if (updated != 1) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
+                    "DCC项目代码总识别JSON更新影响行数异常：" + updated);
+        }
     }
 
     private void activateInitialVersionWithoutApproval(MesProBatchRecordVersionDO version) {
@@ -1998,7 +2009,9 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteGeneratedReport(String reportId) {
-        deleteGeneratedReports(List.of(reportId), false);
+        MesProBatchRecordReportDO report = requireMetadata(reportId);
+        validateReportDeletionAllowed(report);
+        deleteGeneratedReports(List.of(report), false, false);
     }
 
     @Override
@@ -2007,6 +2020,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<MesProBatchRecordReportDO> reports = normalizeReportIds(reportIds).stream()
                 .map(this::requireMetadata)
                 .toList();
+        reports.forEach(this::validateReportDeletionAllowed);
         return deleteGeneratedReports(reports, Boolean.TRUE.equals(forceUnbind), false);
     }
 
@@ -2017,13 +2031,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         String normalizedFormSlotType = normalizeExtraFormSlotType(formSlotType);
         List<MesProBatchRecordReportDO> reports = reportMapper.selectListByBatchRecordNameAndFormSlotType(
                 normalizedBatchRecordName, normalizedFormSlotType);
-        for (MesProBatchRecordReportDO report : reports) {
-            validateReportNotBound(report.getReportId());
-        }
-        for (MesProBatchRecordReportDO report : reports) {
-            jimuReportGateway.deleteReport(report.getReportId());
-            reportMapper.deleteHardByReportId(report.getReportId());
-        }
+        deleteGeneratedReports(reports, false, false);
     }
 
     @Override
@@ -2048,20 +2056,32 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         int deletedReportCount = 0;
         int deletedMetadataCount = 0;
         int skippedBoundReportCount = 0;
+        int skippedControlledReportCount = 0;
         int unboundRouteProcessCount = 0;
         int deletedRouteFlowBindingCount = 0;
         int unboundRouteFlowProcessConfigCount = 0;
-        Set<Long> affectedDefinitionIds = reports.stream()
+        List<MesProBatchRecordReportDO> deletableReports = new ArrayList<>();
+        for (MesProBatchRecordReportDO report : reports) {
+            if (isControlledBatchRecordReport(report)) {
+                if (!skipBoundReports) {
+                    validateReportDeletionAllowed(report);
+                }
+                skippedControlledReportCount++;
+                continue;
+            }
+            deletableReports.add(report);
+        }
+        Set<Long> affectedDefinitionIds = deletableReports.stream()
                 .map(MesProBatchRecordReportDO::getBatchRecordDefinitionId)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         if (!forceUnbindEnabled && !skipBoundReports) {
-            for (MesProBatchRecordReportDO report : reports) {
+            for (MesProBatchRecordReportDO report : deletableReports) {
                 validateReportNotBound(report.getReportId());
             }
         }
-        if (forceUnbindEnabled && !reports.isEmpty()) {
-            List<String> reportIds = reports.stream()
+        if (forceUnbindEnabled && !deletableReports.isEmpty()) {
+            List<String> reportIds = deletableReports.stream()
                     .map(MesProBatchRecordReportDO::getReportId)
                     .filter(StrUtil::isNotBlank)
                     .toList();
@@ -2071,7 +2091,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 unboundRouteFlowProcessConfigCount = routeFlowProcessConfigMapper.unbindBatchRecordReportIds(reportIds);
             }
         }
-        for (MesProBatchRecordReportDO report : reports) {
+        for (MesProBatchRecordReportDO report : deletableReports) {
             String reportId = report.getReportId();
             if (!forceUnbindEnabled && isReportBound(reportId)) {
                 skippedBoundReportCount++;
@@ -2086,6 +2106,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .setDeletedMetadataCount(deletedMetadataCount)
                 .setDeletedReportCount(deletedReportCount)
                 .setSkippedBoundReportCount(skippedBoundReportCount)
+                .setSkippedControlledReportCount(skippedControlledReportCount)
                 .setUnboundRouteProcessCount(unboundRouteProcessCount)
                 .setDeletedRouteFlowBindingCount(deletedRouteFlowBindingCount)
                 .setUnboundRouteFlowProcessConfigCount(unboundRouteFlowProcessConfigCount);
@@ -2102,9 +2123,14 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         int deletedReportCount = 0;
         int deletedMetadataCount = 0;
         int skippedBoundReportCount = 0;
+        int skippedControlledReportCount = 0;
         List<MesProBatchRecordReportDO> reports = reportMapper.selectListByReportCategoryId(categoryId);
         for (MesProBatchRecordReportDO report : reports) {
             String reportId = report.getReportId();
+            if (isControlledBatchRecordReport(report)) {
+                skippedControlledReportCount++;
+                continue;
+            }
             if (isReportBound(reportId)) {
                 skippedBoundReportCount++;
                 continue;
@@ -2116,7 +2142,19 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return new BatchRecordReportDeleteAllRespVO()
                 .setDeletedMetadataCount(deletedMetadataCount)
                 .setDeletedReportCount(deletedReportCount)
-                .setSkippedBoundReportCount(skippedBoundReportCount);
+                .setSkippedBoundReportCount(skippedBoundReportCount)
+                .setSkippedControlledReportCount(skippedControlledReportCount);
+    }
+
+    private void validateReportDeletionAllowed(MesProBatchRecordReportDO report) {
+        if (isControlledBatchRecordReport(report)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DELETE_CONTROLLED_FORBIDDEN,
+                    report.getReportId());
+        }
+    }
+
+    private boolean isControlledBatchRecordReport(MesProBatchRecordReportDO report) {
+        return report != null && (report.getBatchRecordDefinitionId() != null || report.getBatchRecordVersionId() != null);
     }
 
     private MesProBatchRecordImportResult saveGeneratedReports(List<MesProBatchRecordParsedTable> parsedTables,
@@ -2285,6 +2323,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     .build());
         }
 
+        validateImportPersistenceIntegrity(parsedTables, reports, createdCount, updatedCount);
         reports.sort(Comparator.comparing(MesProBatchRecordReportView::sourceTableIndex));
         return MesProBatchRecordImportResult.builder()
                 .importedCount(reports.size())
@@ -3188,7 +3227,115 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     }
 
     private List<MesProBatchRecordParsedTable> parseWordByFileName(byte[] bytes, String sourceFileName) {
-        return docParser.parseWord(bytes, normalizeFileName(sourceFileName));
+        List<MesProBatchRecordParsedTable> parsedTables = docParser.parseWord(bytes, normalizeFileName(sourceFileName));
+        validateParsedTablesIntegrity(parsedTables, "word:" + normalizeFileName(sourceFileName));
+        return parsedTables;
+    }
+
+    private void validateParsedTablesIntegrity(List<MesProBatchRecordParsedTable> parsedTables, String source) {
+        if (parsedTables == null || parsedTables.isEmpty()) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID,
+                    0);
+        }
+        Set<Integer> tableIndexes = new LinkedHashSet<>();
+        for (int tablePosition = 0; tablePosition < parsedTables.size(); tablePosition++) {
+            MesProBatchRecordParsedTable parsedTable = parsedTables.get(tablePosition);
+            if (parsedTable == null) {
+                throwParsedTableInvalid(source, "第 " + (tablePosition + 1) + " 个表格为空");
+            }
+            if (parsedTable.getSourceTableIndex() == null || parsedTable.getSourceTableIndex() <= 0) {
+                throwParsedTableInvalid(source, "表格 sourceTableIndex 无效：" + parsedTable.getSourceTableIndex());
+            }
+            if (!tableIndexes.add(parsedTable.getSourceTableIndex())) {
+                throwParsedTableInvalid(source, "表格 sourceTableIndex 重复：" + parsedTable.getSourceTableIndex());
+            }
+            if (parsedTable.getRows() == null || parsedTable.getRows().isEmpty()) {
+                throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex() + "没有解析行");
+            }
+            if (parsedTable.getRowCount() != null && parsedTable.getRowCount() != parsedTable.getRows().size()) {
+                throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                        + "行数不一致：" + parsedTable.getRowCount() + "/" + parsedTable.getRows().size());
+            }
+            if (parsedTable.getColumnCount() != null && parsedTable.getColumnCount() <= 0) {
+                throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                        + "列数无效：" + parsedTable.getColumnCount());
+            }
+            validateParsedRowsIntegrity(parsedTable, source);
+        }
+    }
+
+    private void validateParsedRowsIntegrity(MesProBatchRecordParsedTable parsedTable, String source) {
+        for (int rowIndex = 0; rowIndex < parsedTable.getRows().size(); rowIndex++) {
+            List<MesProBatchRecordParsedCell> row = parsedTable.getRows().get(rowIndex);
+            if (row == null) {
+                throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                        + "第" + (rowIndex + 1) + "行为空");
+            }
+            for (int cellIndex = 0; cellIndex < row.size(); cellIndex++) {
+                MesProBatchRecordParsedCell cell = row.get(cellIndex);
+                if (cell == null) {
+                    throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                            + "第" + (rowIndex + 1) + "行第" + (cellIndex + 1) + "格为空");
+                }
+                if (cell.getRowSpan() <= 0 || cell.getColSpan() <= 0) {
+                    throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                            + "第" + (rowIndex + 1) + "行第" + (cellIndex + 1) + "格跨度无效");
+                }
+                if (cell.getLogicalColSpan() != null && cell.getLogicalColSpan() <= 0) {
+                    throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                            + "第" + (rowIndex + 1) + "行第" + (cellIndex + 1) + "格逻辑跨度无效");
+                }
+                if (cell.getColumnIndex() != null && cell.getColumnIndex() < 0) {
+                    throwParsedTableInvalid(source, "表" + parsedTable.getSourceTableIndex()
+                            + "第" + (rowIndex + 1) + "行第" + (cellIndex + 1) + "格列索引无效");
+                }
+            }
+        }
+    }
+
+    private void validateImportPersistenceIntegrity(List<MesProBatchRecordParsedTable> parsedTables,
+                                                    List<MesProBatchRecordReportView> reports,
+                                                    int createdCount,
+                                                    int updatedCount) {
+        if (parsedTables == null || reports == null || reports.size() != parsedTables.size()) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
+                    "解析表格数与生成报表数不一致");
+        }
+        if (createdCount + updatedCount != parsedTables.size()) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
+                    "新建/更新计数与解析表格数不一致");
+        }
+        for (MesProBatchRecordReportView report : reports) {
+            if (report == null || StrUtil.isBlank(report.reportId()) || StrUtil.isBlank(report.reportCode())) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_INTEGRITY_INVALID,
+                        "生成报表缺少 reportId 或 reportCode");
+            }
+        }
+    }
+
+    private void validateTotalRecognitionJsonIntegrity(String totalRecognitionJson) {
+        if (StrUtil.isBlank(totalRecognitionJson)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                    "JSON为空");
+        }
+        JSONObject root;
+        try {
+            root = JSON.parseObject(totalRecognitionJson);
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                    ex.getMessage());
+        }
+        JSONArray processes = root.getJSONArray("processes");
+        if (root.getJSONObject("product") == null || root.getInteger("schemaVersion") == null
+                || processes == null || processes.isEmpty()) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TOTAL_RECOGNITION_JSON_INVALID,
+                    "缺少 product、schemaVersion 或 processes");
+        }
+    }
+
+    private void throwParsedTableInvalid(String source, String reason) {
+        throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSED_TABLE_INVALID,
+                source + " / " + reason);
     }
 
     private MesProBatchRecordDocumentFrame extractDocumentFrameByFileName(byte[] bytes, String sourceFileName) {

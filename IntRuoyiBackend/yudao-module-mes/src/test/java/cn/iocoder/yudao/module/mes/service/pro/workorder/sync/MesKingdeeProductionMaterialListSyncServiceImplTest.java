@@ -98,6 +98,10 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
         assertEquals(601L, saved.getWorkOrderBomId());
         assertEquals(20L, saved.getProductId());
         assertEquals(30L, saved.getChildMaterialId());
+        assertEquals("ZYDG-001", saved.getDrawingNumber());
+        assertEquals(BigDecimal.ONE, saved.getRequiredQuantity());
+        assertEquals(LocalDateTime.of(2026, 6, 12, 0, 0), saved.getDemandTime());
+        assertEquals("直接领料", saved.getIssueMethod());
     }
 
     @Test
@@ -235,6 +239,7 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 .numerator(new BigDecimal("3"))
                 .denominator(new BigDecimal("1000"))
                 .childUnitName("支")
+                .drawingNumber("ZYDG-001")
                 .requiredQuantity(BigDecimal.ONE)
                 .issueMethod("直接领料")
                 .demandTime(LocalDateTime.of(2026, 6, 12, 0, 0))

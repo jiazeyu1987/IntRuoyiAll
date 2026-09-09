@@ -234,7 +234,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         if (!isDccControlledFileBusinessKey(businessKey)) {
             return null;
         }
-        DccControlledFileRespVO file = requireControlledFile(businessKey);
+        DccControlledFileDO file = requireControlledFileSnapshotForTodo(businessKey);
         return ApprovalTaskSummary.builder()
                 .id("DCC:" + SOURCE_TASK_TYPE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.DCC)
@@ -557,19 +557,18 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         return businessKey;
     }
 
-    private DccControlledFileRespVO requireControlledFile(String businessKey) {
-        Long fileId = parseBusinessKey(businessKey);
-        DccControlledFileRespVO file = workflowService.getControlledFile(fileId);
-        if (file == null) {
-            throw new IllegalStateException("APPROVAL_BUSINESS_OBJECT_REQUIRED: DCC controlled file not found "
-                    + businessKey);
-        }
-        return file;
-    }
-
     private DccControlledFileDO requireControlledFileSnapshot(String businessKey) {
         Long fileId = parseBusinessKey(businessKey);
         return controlledFileMapper.selectByIdIncludingDeleted(fileId);
+    }
+
+    private DccControlledFileDO requireControlledFileSnapshotForTodo(String businessKey) {
+        DccControlledFileDO file = requireControlledFileSnapshot(businessKey);
+        if (file == null || Boolean.TRUE.equals(file.getDeleted())) {
+            throw new IllegalStateException("APPROVAL_BUSINESS_OBJECT_REQUIRED: DCC controlled file summary snapshot not found "
+                    + businessKey);
+        }
+        return file;
     }
 
     private DccControlledFileDO requireControlledFileSnapshotForTimeline(String businessKey) {

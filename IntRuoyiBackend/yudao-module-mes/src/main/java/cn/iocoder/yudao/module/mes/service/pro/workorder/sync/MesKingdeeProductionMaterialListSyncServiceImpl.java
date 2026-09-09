@@ -121,6 +121,7 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
                 .numerator(row.getNumerator())
                 .denominator(row.getDenominator())
                 .childUnitName(row.getChildUnitName())
+                .drawingNumber(row.getDrawingNumber())
                 .requiredQuantity(row.getRequiredQuantity())
                 .issueMethod(row.getIssueMethod())
                 .demandTime(row.getDemandTime())

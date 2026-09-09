@@ -594,9 +594,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     public void deleteWithdrawnControlledFile(Long userId, Long id) {
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         validateWithdrawnApplicantAction(userId, file);
-        Set<Long> artifactFileIds = collectWithdrawnArtifactFileIds(file);
         controlledFileMapper.deleteById(id);
-        deleteUnreferencedArtifacts(artifactFileIds);
     }
 
     @Override

@@ -79,6 +79,10 @@ function Protect-BackupSshSensitiveText {
 
     $redacted = $Text
     $redacted = $redacted -replace '(?i)(MYSQL_PWD=)[^\s;]+', '$1<hidden>'
+    $redacted = $redacted -replace "(?i)(MC_ACCESS_KEY=)'[^']*'", '$1''<hidden>'''
+    $redacted = $redacted -replace '(?i)(MC_ACCESS_KEY=)[^\s;]+', '$1<hidden>'
+    $redacted = $redacted -replace "(?i)(MC_SECRET_KEY=)'[^']*'", '$1''<hidden>'''
+    $redacted = $redacted -replace '(?i)(MC_SECRET_KEY=)[^\s;]+', '$1<hidden>'
     $redacted = $redacted -replace '(?i)(password=)[^\s;]+', '$1<hidden>'
     $redacted = $redacted -replace '(?i)(--password=)[^\s;]+', '$1<hidden>'
     $redacted = $redacted -replace "(?i)(^|\s)-p[^\s;|]+", '$1-p<hidden>'

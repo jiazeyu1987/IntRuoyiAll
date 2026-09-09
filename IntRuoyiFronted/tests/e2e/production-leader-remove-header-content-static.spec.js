@@ -21,8 +21,7 @@ const productionBlocks = [
   ['data-team-leader-production-personnel-tab', '人员管理'],
   ['data-team-leader-report-workbench', '报工管理'],
   ['data-team-leader-active-order-pool-tab', '活跃订单池'],
-  ['data-role-matrix-daily-close', '看板'],
-  ['data-team-leader-process-config-tab', '工序配置']
+  ['data-role-matrix-daily-close', '看板']
 ]
 
 for (const [marker, label] of productionBlocks) {

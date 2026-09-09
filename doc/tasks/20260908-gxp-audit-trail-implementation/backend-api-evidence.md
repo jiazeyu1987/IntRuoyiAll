@@ -47,6 +47,10 @@ BDD: DCC publish approval request writes unified audit in same transaction -> Gi
 
 BDD: DCC publish approval request does not fabricate electronic signature identity -> Given DCC publish only starts the approval workflow and is not itself an electronic signature record, When the unified audit command is built, Then `signatureRecordId` remains absent and signature evidence is supplied only by the separate electronic signature operation.
 
+BDD: System permission assignment writes unified audit in same transaction -> Given role-menu, user-role, or role-data-scope configuration is changed, When the assignment service commits the change, Then it appends the registered `system.permission.*.assign` operation through `GxpAuditService.append` with subject identity and before/after permission state before transaction commit.
+
+BDD: System configuration package import writes unified audit in same transaction -> Given a confirmed system configuration package import passes precheck and snapshot matching, When the package replaces configuration rows, Then it appends `system.config-package.import` with before/after snapshot hashes and restored counts before transaction commit.
+
 ## RED Command and Expected Failure
 
 RED: `mvn -pl yudao-module-system "-Dtest=GxpAuditPersistenceModelTest,GxpAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected fixture reason: `SecurityFrameworkUtils.setLoginUser(null request)` cannot build `WebAuthenticationDetails`; test fixture was corrected to set Spring Security authentication directly.
@@ -56,6 +60,8 @@ RED: `python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/
 RED: `mvn -pl yudao-module-signature -am "-Dtest=ElectronicSignatureServiceImplTest#testSign_successBindsActorServerTimeAndContentHash+testSign_auditAppendFailureRollsBackSignatureRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected implementation reason: electronic signature service did not yet call unified `GxpAuditService.append`; first implementation attempt exposed duplicate legacy `signature.gxp` Mapper conflict, which was resolved by removing the obsolete local audit implementation.
 
 RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect+publishControlledFile_auditAppendFailureRejectsPublishResult" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected TDD/compiler reason before production implementation: DCC publish audit assertions were added before service support; first RED also exposed a missing `assertThrows` static import in the new test.
+
+RED: `mvn -pl yudao-module-system -am "-Dtest=PermissionServiceTest#assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignRoleDataScopeShouldAppendUnifiedGxpAudit,SystemConfigPackageServiceImplTest#importPackageShouldAppendUnifiedGxpAudit+importPackageShouldRollbackWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected TDD reason: system permission assignment and configuration package import did not yet append unified GxP audit; the first run also exposed missing test/production `canonical_username` handling for configuration package users.
 
 ## GREEN Command and Passing Result
 
@@ -73,13 +79,18 @@ GREEN: `mvn -pl yudao-module-signature -am "-Dtest=ElectronicSignatureServiceImp
 
 GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect+publishControlledFile_auditAppendFailureRejectsPublishResult" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests passed.
 
+GREEN: `mvn -pl yudao-module-system "-Dtest=PermissionServiceTest#assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure+assignRoleDataScopeShouldAppendUnifiedGxpAudit,SystemConfigPackageServiceImplTest#importPackageShouldAppendUnifiedGxpAudit+importPackageShouldRollbackWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests passed.
+
 ## Contract or Integration Verification
 
 - Unit tests verify append success, full evidence fields, server actor resolution, missing policy, missing reason, missing state, missing required signature, idempotency replay and idempotency conflict.
 - Electronic signature service now calls the unified system `GxpAuditService.append` in the same Spring transaction after signature record insert; append failure propagates and rolls back the signature record.
 - DCC publish approval request now calls unified system `GxpAuditService.append` in the same Spring transaction after approval form submit; append failure propagates and prevents a successful publish response.
 - DCC publish approval request policy uses `signaturePolicy: NOT_REQUIRED` because this write starts an approval workflow and must not fabricate `signatureRecordId`; separate electronic signature records remain governed by `signature.record.create`.
+- System permission assignment methods now call unified system `GxpAuditService.append` in the same transaction after role-menu, user-role, or role-data-scope changes; append failure propagates and rolls back row changes for covered assignment paths.
+- System configuration package import now calls unified system `GxpAuditService.append` in the same transaction after package replacement; append failure propagates and rolls back the configuration replacement. The policy uses `signaturePolicy: NOT_REQUIRED` for the current import endpoint because no signature record is captured by that API; if QA approval/e-sign is required later, the API must be extended to collect and pass a real signature record rather than fabricating one.
 - Coverage gate verifies all annotated GxP write operations are present in policy, source locators resolve, high-risk domains EDHR/DCC/SIGNATURE/SYSTEM/RELEASE are registered, and policy shape is complete.
+- Coverage gate now prunes generated directories at traversal time, preserving the “unregistered write fails CI” rule while avoiding stale `target` or build output from slowing or distorting the scan.
 - Initial high-risk annotated entry points: eDHR field audit save, DCC controlled file publish, electronic signature sign, role-menu assignment, user-role assignment, role-data-scope assignment, system config package import.
 
 ## Observability Touchpoints
@@ -89,4 +100,4 @@ Current implementation writes stable event id, ledger sequence, event hash, oper
 ## Blockers and Downstream Needs
 
 - Actual production operational compliance remains BLOCKED until NTP, WORM/Object Lock, backup restore rehearsal, periodic review SOP, QA signature and training evidence exist.
-- Some first-batch domain methods are currently registered/annotated for coverage, but not all domain write methods have been refactored to call `GxpAuditService.append` with complete before/after snapshots. Electronic signature and DCC publish approval request are now connected; eDHR, permission/role configuration, system configuration and release/migration paths still require the same conversion.
+- Some first-batch domain methods are currently registered/annotated for coverage, but not all domain write methods have been refactored to call `GxpAuditService.append` with complete before/after snapshots. Electronic signature, DCC publish approval request, permission/role configuration, and system configuration package import are now connected; eDHR and release/migration paths still require the same conversion.

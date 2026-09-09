@@ -650,7 +650,6 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
         List<MesProcessPoolDeviceParameterRuleDO> rules = parameterRuleMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
-                        .eq(MesProcessPoolDeviceParameterRuleDO::getLeaderUserId, leaderUserId)
                         .eq(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, snapshot.getRouteProcessId())
                         .eq(MesProcessPoolDeviceParameterRuleDO::getProcessId, snapshot.getProcessId())
                         .eq(MesProcessPoolDeviceParameterRuleDO::getDeviceId, defaultDevice.deviceId())

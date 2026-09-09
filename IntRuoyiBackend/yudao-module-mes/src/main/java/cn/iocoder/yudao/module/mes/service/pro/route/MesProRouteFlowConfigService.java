@@ -2,9 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerInitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteProcessDeviceParameterRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
@@ -22,6 +24,10 @@ public interface MesProRouteFlowConfigService {
     void saveRouteFlowConfig(@Valid MesProRouteFlowConfigSaveReqVO saveReqVO);
 
     void saveRouteFlowConfigForConfigPackageImport(@Valid MesProRouteFlowConfigSaveReqVO saveReqVO);
+
+    MesProRouteProcessDeviceParameterRespVO getRouteProcessDeviceParameterConfig(Long routeProcessId);
+
+    Long saveRouteProcessDeviceParameterRule(@Valid MesProRouteDeviceParameterRuleSaveReqVO saveReqVO);
 
     List<MesProRouteBatchRecordAttachmentOwnerRespVO> getBatchRecordAttachmentOwners(Long routeId,
                                                                                      Long routeVersionId);

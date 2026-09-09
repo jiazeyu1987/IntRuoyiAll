@@ -22,8 +22,13 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="报工历史"\s+name="reportHistory"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="报工历史"\s+name="reportHistory"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"/,
   'Shared workbench must render the retained production function tabs.'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /data-production-leader-module-tab-process-config|<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  'Shared workbench must not render the migrated 工序配置 as a production function tab.'
 )
 assert.doesNotMatch(
   teamLeaderWorkbench,
@@ -41,7 +46,7 @@ assert.doesNotMatch(
   'Production module tab state must not retain the removed config key.'
 )
 
-for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'ProcessConfig']) {
+for (const moduleName of ['Personnel', 'Report', 'ActiveOrder']) {
   assert.match(
     teamLeaderWorkbench,
     new RegExp(`const\\s+showProduction${moduleName}Module\\s*=\\s*computed\\([\\s\\S]*activeProductionModuleTab`),
@@ -94,65 +99,18 @@ assert.match(
   /data-team-leader-active-order-pool-tab[\s\S]*data-team-leader-report-active-order-abnormal[\s\S]*data-team-leader-abnormal-report-dialog/,
   '异常上报必须合并到活跃订单池行操作。'
 )
+const productionProcessConfigGate = teamLeaderWorkbench.match(
+  /const\s+showProductionProcessConfigModule\s*=\s*computed\([\s\S]*?(?=const\s+showProductionConfigModule)/
+)?.[0] || ''
 assert.match(
-  teamLeaderWorkbench,
-  /<ContentWrap[\s\S]*v-if="showProductionProcessConfigModule"[\s\S]*data-team-leader-process-config-tab/,
-  '工序配置 tab must own loss, device, and parameter maintenance.'
-)
-assert.match(
-  teamLeaderWorkbench,
-  /data-team-leader-process-config-tab[\s\S]*<el-button[\s\S]{0,180}data-team-leader-process-config-create-entry[\s\S]{0,180}@click="openCreateProcessConfigDataDialog"[\s\S]{0,80}>\s*新增\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
-  '工序配置模块头部“新增”按钮必须打开新增配置入口，不能继续执行列表刷新。'
+  productionProcessConfigGate,
+  /isProductionLeader\.value\s*&&\s*!showProductionModuleTabs\.value/,
+  '工序配置面板只允许保留在非模块化旧工作台中。'
 )
 assert.doesNotMatch(
-  teamLeaderWorkbench,
-  /data-team-leader-process-config-tab[\s\S]*<el-button\s+:loading="processConfigLoading"\s+@click="loadProcessConfigRows">\s*刷新\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
-  '工序配置模块头部操作按钮不得继续显示“刷新”。'
-)
-assert.doesNotMatch(
-  teamLeaderWorkbench,
-  /data-team-leader-process-config-tab[\s\S]*<el-button[\s\S]{0,160}@click="loadProcessConfigRows"[\s\S]{0,80}>\s*新增\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
-  '工序配置模块头部“新增”按钮不得继续绑定 loadProcessConfigRows。'
-)
-assert.match(
-  teamLeaderWorkbench,
-  /<el-dialog[\s\S]{0,220}v-model="processConfigCreateDialogVisible"[\s\S]{0,220}data-team-leader-process-config-create-dialog[\s\S]*data-team-leader-process-config-create-process[\s\S]*v-for="row in processConfigRows"[\s\S]*data-team-leader-process-config-create-type[\s\S]*DEVICE_BINDING[\s\S]*PARAMETER_RULE[\s\S]*@click="confirmCreateProcessConfigData"/,
-  '工序配置顶部新增入口必须只提供设备映射和参数标准，并由确认动作进入正式维护弹窗。'
-)
-assert.doesNotMatch(
-  teamLeaderWorkbench,
-  /<el-radio-button\s+label="LOSS_REASON">损耗原因<\/el-radio-button>/,
-  '顶部新增入口不得继续暴露损耗原因。'
-)
-assert.match(
-  teamLeaderWorkbench,
-  /const\s+ensureProcessConfigRowsLoadedForCreate\s*=\s*async\s*\(\)\s*=>\s*{[\s\S]*await\s+loadProcessConfigRows\(\)[\s\S]*当前账号没有可新增的路线工序，请先在工艺路线的工序开始配置中授权生产组长[\s\S]*}/,
-  '工序配置新增入口在候选路线工序为空时必须先调用正式列表接口重新加载，不能直接阻断新增。'
-)
-assert.match(
-  teamLeaderWorkbench,
-  /const\s+openCreateProcessConfigDataDialog\s*=\s*async\s*\(\)\s*=>\s*{[\s\S]*await\s+ensureProcessConfigRowsLoadedForCreate\(\)[\s\S]*resetProcessConfigCreateForm\(\)[\s\S]*processConfigCreateDialogVisible\.value\s*=\s*true/,
-  '工序配置新增入口必须等待路线工序候选加载完成后再打开新增弹窗。'
-)
-assert.doesNotMatch(
-  teamLeaderWorkbench,
-  /暂无可新增的路线工序，请先确认工序配置列表已加载/,
-  '工序配置新增入口不得在未主动加载候选路线工序时提示用户先确认列表加载。'
-)
-assert.match(
-  teamLeaderWorkbench,
-  /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openProcessConfigDeviceDialog\(row\)[\s\S]*openProcessConfigParameterDialog\(row,\s*device,\s*undefined,\s*\{\s*create:\s*true\s*\}\)/,
-  '顶部新增入口必须按类型复用设备映射和参数标准的正式保存弹窗。'
-)
-assert.doesNotMatch(
-  teamLeaderWorkbench,
-  /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openCreateLossReason\(row\)/,
-  '顶部新增确认逻辑不得继续转入损耗新增。'
-)
-assert.match(
-  teamLeaderWorkbench,
-  /createType:\s*'DEVICE_BINDING'\s+as ProcessConfigCreateType/,
-  '顶部新增类型必须默认设备映射。'
+  productionProcessConfigGate,
+  /activeProductionModuleTab|['"]processConfig['"]/,
+  '工序配置面板不得再作为生产组长模块页签进入。'
 )
 const productionConfigGate = teamLeaderWorkbench.match(
   /const\s+showProductionConfigModule\s*=\s*computed\([\s\S]*?(?=const\s+showPqcPersonnelModule)/

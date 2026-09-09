@@ -31,14 +31,6 @@
             >
               立即增量备份
             </el-button>
-            <el-button
-              :loading="evidenceExportLoading"
-              @click="handleExportEvidence"
-              v-hasPermi="['system:backup-plan:evidence-export']"
-            >
-              <Icon icon="ep:download" class="mr-4px" />
-              导出审查证据
-            </el-button>
           </div>
         </div>
       </template>
@@ -290,11 +282,9 @@ import { ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { checkPermi } from '@/utils/permission'
 import { formatDateTimeValue } from '@/utils/formatTime'
-import { downloadByData } from '@/utils/filt'
 import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
 import {
   backupNow,
-  downloadBackupEvidence,
   disableBackupPlan,
   enableBackupPlan,
   getBackupPlanHistoryPage,
@@ -339,7 +329,6 @@ const historyLoading = ref(false)
 const saveLoading = ref(false)
 const toggleLoading = ref(false)
 const backupNowKind = ref<BackupKind>()
-const evidenceExportLoading = ref(false)
 const status = ref<BackupPlanStatusVO>()
 const historyList = ref<BackupPlanBackupPointVO[]>([])
 const total = ref(0)
@@ -551,19 +540,6 @@ const handleBackupNow = async (backupKind: BackupKind) => {
     message.error(error?.message || '立即' + label + '备份提交失败')
   } finally {
     backupNowKind.value = undefined
-  }
-}
-
-const handleExportEvidence = async () => {
-  evidenceExportLoading.value = true
-  try {
-    const blob = await downloadBackupEvidence()
-    downloadByData(blob, 'IntRuoyi-备份审查证据.zip', blob.type || 'application/zip')
-    message.success('备份审查证据已导出')
-  } catch (error: any) {
-    message.error(error?.message || '备份审查证据导出失败')
-  } finally {
-    evidenceExportLoading.value = false
   }
 }
 

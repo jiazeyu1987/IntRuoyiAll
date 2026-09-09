@@ -104,6 +104,15 @@
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`；`doc/tasks/20260828-batch-record-mappable-cells-int-main-e2e/verification-report.md`，融合后批记录可映射格子 E2E 先因旧按钮文案“规则”和按钮加载禁用态校准失败，最终按当前“填写配置”入口并等待“正式化可映射格子”按钮可点击后通过真实页面验证。
 
+### 页面演进后的 E2E 选择器与加载态门禁
+
+- Trigger: 真实 E2E 脚本等待历史 `data-*`、旧状态分组、旧编号文案或旧表格区域超时；手工真实页面探针显示目标接口均已返回成功，但页面状态标签仍停在“加载中”。
+- Preflight check: 先按当前源码和真实 DOM 重新确认稳定锚点，避免把旧选择器超时写成产品业务失败；对于只读状态页，应同时监听页面自然请求的目标接口、页面可见状态标签、目标写请求数和目标链路 console error。若页面接口已完成但 loading 仍可见，应检查状态计算优先级是否被残留 loading 标记覆盖，而不是增加等待时间或吞掉错误。
+- Blocker: 脚本仍绑定旧 DOM、旧业务编号或旧分组文案，或者只看接口成功但没有断言页面状态离开 loading 时，不能宣称真实 E2E PASS。
+- Verification: 修复后证据需记录旧脚本 RED、当前页面结构断言、目标接口 HTTP/业务码、状态标签业务文本、目标写请求数和目标链路 console error；非目标全局角标/外部资源错误应单独归因，不能混入目标链路失败或成功。
+- Forbidden action: 禁止用更长 timeout、隐藏 loading、API-only 查询、旧 result JSON、或忽略所有 console error 来冒充页面可用。
+- Evidence: `doc/tasks/20260909-qa-regulation-e2e-status-fix/verification-report.md`，QA 规程页旧脚本等待已删除状态区失败；更新当前页面断言后发现接口成功但状态标签仍显示“加载中”，修复生命周期状态优先级后真实 E2E 通过。
+
 ### E2E 显式目标环境变量门禁
 
 - Trigger: 真实 E2E 需要通过环境变量指定租户、账号、目标业务 ID、批次号、workTaskId、baseUrl 或其它显式目标。

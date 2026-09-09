@@ -17,10 +17,13 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -28,6 +31,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static cn.hutool.core.collection.ListUtil.toList;
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
@@ -64,6 +68,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private SystemEntitlementService systemEntitlementService;
     @MockitoBean
     private TemporaryRoleGrantService temporaryRoleGrantService;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
 
     @BeforeEach
     public void setUpTemporaryRoleGrantMock() {
@@ -267,6 +273,25 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure() {
+        Long roleId = 1L;
+        RoleMenuDO existing = randomPojo(RoleMenuDO.class).setRoleId(roleId).setMenuId(100L);
+        roleMenuMapper.insert(existing);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class, () -> permissionService.assignRoleMenu(roleId, asSet(200L)));
+
+        assertEquals(asSet(100L), roleMenuMapper.selectListByRoleId(roleId).stream()
+                .map(RoleMenuDO::getMenuId).collect(Collectors.toSet()));
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.permission.role-menu.assign", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_ROLE:" + roleId, auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
+    }
+
+    @Test
     public void testProcessRoleDeleted() {
         // 准备参数
         Long roleId = randomLongId();
@@ -380,6 +405,25 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         assertEquals(200L, userRoleDOList.get(0).getRoleId());
         assertEquals(1L, userRoleDOList.get(1).getUserId());
         assertEquals(300L, userRoleDOList.get(1).getRoleId());
+    }
+
+    @Test
+    public void assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure() {
+        Long userId = 1L;
+        UserRoleDO existing = randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(100L);
+        userRoleMapper.insert(existing);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class, () -> permissionService.assignUserRole(userId, asSet(200L)));
+
+        assertEquals(asSet(100L), userRoleMapper.selectListByUserId(userId).stream()
+                .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.permission.user-role.assign", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_USER:" + userId, auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
     }
 
     @Test
@@ -560,6 +604,22 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds);
         // 断言
         verify(roleService).updateRoleDataScope(eq(roleId), eq(dataScope), eq(dataScopeDeptIds));
+    }
+
+    @Test
+    public void assignRoleDataScopeShouldAppendUnifiedGxpAudit() {
+        Long roleId = 1L;
+        Integer dataScope = DataScopeEnum.DEPT_CUSTOM.getScope();
+        Set<Long> dataScopeDeptIds = asSet(10L, 20L);
+
+        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds);
+
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("system.permission.role-data-scope.assign", auditCaptor.getValue().getOperationId());
+        assertEquals("SYSTEM_ROLE:" + roleId, auditCaptor.getValue().getSubjectId());
+        assertNotNull(auditCaptor.getValue().getBeforeState());
+        assertNotNull(auditCaptor.getValue().getAfterState());
     }
 
     @Test

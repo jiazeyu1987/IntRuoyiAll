@@ -24,7 +24,6 @@
           <el-button
             link
             type="primary"
-            v-hasPermi="[entrypoint.permission]"
             :loading="approvalEvidenceExportingId === entrypoint.id"
             @click="handleApprovalEvidenceEntrypoint(entrypoint)"
           >

@@ -72,7 +72,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
         }
         DccControlledFileDO file = controlledFileMapper.selectById(distribution.getControlledFileId());
         if (file == null) {
-            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            return null;
         }
         if (!DISTRIBUTION_VISIBLE_FILE_STATUSES.contains(file.getStatus())) {
             return null;

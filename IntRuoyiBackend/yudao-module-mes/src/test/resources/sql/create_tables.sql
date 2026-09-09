@@ -454,6 +454,7 @@ CREATE TABLE IF NOT EXISTS "mes_kingdee_production_material_list" (
     "numerator" decimal(24,6) DEFAULT NULL,
     "denominator" decimal(24,6) DEFAULT NULL,
     "child_unit_name" varchar(32) DEFAULT NULL,
+    "drawing_number" varchar(128) DEFAULT NULL,
     "required_quantity" decimal(24,6) NOT NULL,
     "issue_method" varchar(64) DEFAULT NULL,
     "demand_time" timestamp DEFAULT NULL,

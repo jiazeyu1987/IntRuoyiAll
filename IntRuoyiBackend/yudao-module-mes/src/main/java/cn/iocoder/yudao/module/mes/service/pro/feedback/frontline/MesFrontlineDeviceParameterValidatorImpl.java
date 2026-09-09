@@ -65,9 +65,9 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
             return;
         }
         MesProcessPoolTeamDeviceDO device = requireEnabledDevice(selectedDevice.getDeviceId());
-        Set<Long> leaderUserIds = requireProcessDeviceLeaders(processId, device);
+        requireProcessDeviceBinding(processId, device);
         Map<String, MesProcessPoolDeviceParameterRuleDO> rulesByParameterCode =
-                listEnabledParameterRules(routeProcessId, processId, device.getId(), leaderUserIds);
+                listEnabledParameterRules(routeProcessId, processId, device.getId());
         Set<String> submittedParameterCodes = new LinkedHashSet<>();
         for (MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading
                 : deviceParameterReadings == null ? List.<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO>of()
@@ -181,29 +181,24 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
         return device;
     }
 
-    private Set<Long> requireProcessDeviceLeaders(Long processId, MesProcessPoolTeamDeviceDO device) {
+    private void requireProcessDeviceBinding(Long processId, MesProcessPoolTeamDeviceDO device) {
         List<MesProcessPoolTeamProcessDeviceDO> bindings = processDeviceMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolTeamProcessDeviceDO>()
                         .eq(MesProcessPoolTeamProcessDeviceDO::getProcessId, processId)
                         .eq(MesProcessPoolTeamProcessDeviceDO::getDeviceId, device.getId())
                         .eq(MesProcessPoolTeamProcessDeviceDO::getEnabled, Boolean.TRUE));
-        Set<Long> leaderUserIds = bindings.stream()
-                .filter(binding -> Objects.equals(binding.getLeaderUserId(), device.getLeaderUserId()))
-                .map(MesProcessPoolTeamProcessDeviceDO::getLeaderUserId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (leaderUserIds.isEmpty()) {
+        boolean mapped = bindings.stream()
+                .anyMatch(binding -> Objects.equals(binding.getLeaderUserId(), device.getLeaderUserId()));
+        if (!mapped) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, device.getId());
         }
-        return leaderUserIds;
     }
 
     private Map<String, MesProcessPoolDeviceParameterRuleDO> listEnabledParameterRules(
-            Long routeProcessId, Long processId, Long deviceId, Set<Long> leaderUserIds) {
+            Long routeProcessId, Long processId, Long deviceId) {
         return parameterRuleMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
                         .eq(MesProcessPoolDeviceParameterRuleDO::getProcessId, processId)
                         .eq(MesProcessPoolDeviceParameterRuleDO::getDeviceId, deviceId)
-                        .in(MesProcessPoolDeviceParameterRuleDO::getLeaderUserId, leaderUserIds)
                         .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE))
                 .stream()
                 .filter(rule -> routeProcessMatches(rule.getRouteProcessId(), routeProcessId))

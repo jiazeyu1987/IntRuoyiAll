@@ -25,6 +25,12 @@ export type ProRouteFlowArchiveVisibility =
   | 'INTERNAL_REVIEW'
   | 'AUDIT_ONLY'
   | 'ATTACHMENT_REFERENCE'
+export type ProRouteDeviceParameterValueType =
+  | 'INTEGER'
+  | 'DECIMAL'
+  | 'TEXT_STANDARD'
+  | 'SELECT'
+  | 'BOOLEAN'
 
 export interface ProRouteBatchRecordAttachmentOwnerVO {
   attachmentCode: string
@@ -209,6 +215,52 @@ export interface ProRouteFlowProcessConfigSaveVO {
   remark?: string | null
 }
 
+export interface ProRouteDeviceParameterVO {
+  ruleId?: number | null
+  parameterCode: string
+  parameterName?: string | null
+  unit?: string | null
+  valueType: ProRouteDeviceParameterValueType
+  standardText: string
+  lowerLimit?: number | null
+  targetValue?: number | null
+  upperLimit?: number | null
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
+}
+
+export interface ProRouteProcessDeviceParameterDeviceVO {
+  deviceId: number
+  deviceCode?: string | null
+  deviceName?: string | null
+  deviceStatus?: string | null
+  parameters?: ProRouteDeviceParameterVO[]
+}
+
+export interface ProRouteProcessDeviceParameterConfigVO {
+  routeProcessId: number
+  processId?: number | null
+  processName?: string | null
+  devices?: ProRouteProcessDeviceParameterDeviceVO[]
+}
+
+export interface ProRouteDeviceParameterRuleSaveVO {
+  routeProcessId: number
+  deviceId: number
+  parameterCode: string
+  parameterName?: string | null
+  unit?: string | null
+  standardText: string
+  lowerLimit?: number | null
+  upperLimit?: number | null
+  targetValue?: number | null
+  valueType: ProRouteDeviceParameterValueType
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
+}
+
 export interface ProRouteFlowConfigSaveVO {
   routeId: number
   routeVersionId: MesRouteId
@@ -249,6 +301,20 @@ export const ProRouteFlowConfigApi = {
       url: '/mes/pro/route/flow-config/batch-record/save',
       data,
       ...options
+    })
+  },
+
+  getRouteProcessDeviceParameterConfig: async (routeProcessId: number) => {
+    return await request.get<ProRouteProcessDeviceParameterConfigVO>({
+      url: '/mes/pro/route/flow-config/process-device-parameters',
+      params: { routeProcessId }
+    })
+  },
+
+  saveRouteProcessDeviceParameterRule: async (data: ProRouteDeviceParameterRuleSaveVO) => {
+    return await request.post<number>({
+      url: '/mes/pro/route/flow-config/process-device-parameter-rule/save',
+      data
     })
   },
 

@@ -98,7 +98,8 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
     @Override
     public PageResult<DccTrainingTaskRespVO> getMyTrainingTaskPage(Long userId, DccTrainingTaskPageReqVO reqVO) {
         List<DccTrainingTaskRespVO> rows = trainingProgressMapper.selectListByUserId(userId).stream()
-                .map(this::buildTaskRow)
+                .map(this::buildTaskRowOrNull)
+                .filter(java.util.Objects::nonNull)
                 .filter(row -> matchesTaskFilter(row, reqVO))
                 .sorted(Comparator.comparing(
                                 DccTrainingTaskRespVO::getPublishedTime,
@@ -241,6 +242,16 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
 
     private DccTrainingTaskRespVO buildTaskRow(Long progressId, Long userId) {
         return buildTaskRow(loadOwnedProgress(userId, progressId));
+    }
+
+    private DccTrainingTaskRespVO buildTaskRowOrNull(DccControlledFileTrainingProgressDO progress) {
+        DccControlledFileDO file = controlledFileMapper.selectById(progress.getControlledFileId());
+        if (file == null) {
+            return null;
+        }
+        DccTrainingTaskRespVO respVO = new DccTrainingTaskRespVO();
+        fillCommonTaskFields(respVO, progress, file);
+        return respVO;
     }
 
     private DccTrainingTaskRespVO buildTaskRow(DccControlledFileTrainingProgressDO progress) {

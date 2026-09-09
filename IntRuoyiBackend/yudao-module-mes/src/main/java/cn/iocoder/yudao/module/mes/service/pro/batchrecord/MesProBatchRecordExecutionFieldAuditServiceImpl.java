@@ -1412,12 +1412,9 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             JsonNode newValueNode = MesProBatchRecordExecutionFieldAuditHasher.toJsonNode(change.getNewValueJson());
             if (recordbookMode) {
                 validateRecordbookSourceShape(field, newValueNode);
-            } else {
-                validateSnapshotConstraints(change, field, newValueNode, skipNumberBounds);
             }
-            JsonNode batchRecordValueNode = recordbookMode
-                    ? resolveBatchRecordValueNode(field, newValueNode)
-                    : newValueNode;
+            validateSnapshotConstraints(change, field, newValueNode, skipNumberBounds);
+            JsonNode batchRecordValueNode = newValueNode;
             String batchRecordValueJson = canonicalizeNewValue(change.getValueType(), batchRecordValueNode);
             String batchRecordValueDisplay = recordbookMode && !Objects.equals(newValueJson, batchRecordValueJson)
                     ? displayValue(batchRecordValueNode)
@@ -1529,22 +1526,6 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         boolean belowMin = min != null && value.compareTo(min) < 0;
         boolean aboveMax = max != null && value.compareTo(max) > 0;
         return belowMin || aboveMax ? new NonBlockingLimitWarning(value, min, max) : null;
-    }
-
-    private JsonNode resolveBatchRecordValueNode(SnapshotField field, JsonNode sourceNode) {
-        if (field.valueType() != MesProBatchRecordExecutionFieldAuditValueType.NUMBER || !sourceNode.isNumber()) {
-            return sourceNode;
-        }
-        BigDecimal value = MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(sourceNode.decimalValue());
-        BigDecimal min = decimalConstraint(field.constraints(), "min");
-        BigDecimal max = decimalConstraint(field.constraints(), "max");
-        if (min != null && value.compareTo(min) < 0) {
-            value = min;
-        }
-        if (max != null && value.compareTo(max) > 0) {
-            value = max;
-        }
-        return DecimalNode.valueOf(MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(value));
     }
 
     private void validateNumberConstraints(SnapshotField field, JsonNode valueNode, boolean skipNumberBounds) {

@@ -1753,6 +1753,8 @@ function Invoke-BackupOpsRemoteRetentionInternal {
         '# retention-audit: manifest/manifest.json objects/manifest-object-inventory.json object-store repositoryKey',
         "command -v python3 >/dev/null || { echo 'python3 is required for BackupPackage retention cleanup' >&2; exit 70; }",
         "command -v base64 >/dev/null || { echo 'base64 is required for BackupPackage retention cleanup' >&2; exit 70; }",
+        "command -v find >/dev/null || { echo 'find is required for BackupPackage retention cleanup' >&2; exit 70; }",
+        "find '$backupPointsRoot' -mindepth 1 -maxdepth 1 -type d -print >/dev/null",
         "export BACKUP_ROOT=$backupPointsRoot",
         "export KEEP_DAYS=$keepDays",
         "export KEEP_LAST_POINTS=$keepLast",

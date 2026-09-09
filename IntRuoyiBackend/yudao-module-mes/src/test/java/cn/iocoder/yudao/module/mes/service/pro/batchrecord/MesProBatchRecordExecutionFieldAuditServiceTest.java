@@ -35,14 +35,14 @@ import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -73,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -141,6 +142,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     private DeptApi deptApi;
     @MockitoBean
     private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
 
     @BeforeEach
     void setUpTenant() {
@@ -213,6 +216,67 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
         verify(permissionGateService, never()).requireAbility(any());
         verify(signatureService).attachFieldChangeSignature(any());
+    }
+
+    @Test
+    void saveChanges_appendsUnifiedGxpAuditWithSignatureAndStateEnvelope() {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
+                "rowIndex", 1,
+                "columnIndex", 2,
+                "value", "36.6"
+        )));
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson);
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
+
+        MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(
+                saveCommand(execution, beforeHash, "idem-gxp-ledger-001",
+                        new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6"))));
+
+        ArgumentCaptor<GxpAuditCommand> captor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(captor.capture());
+        GxpAuditCommand audit = captor.getValue();
+        assertEquals("edhr.execution.field.update", audit.getOperationId());
+        assertEquals("MES_PRO_BATCH_RECORD_EXECUTION:" + execution.getId(), audit.getSubjectId());
+        assertEquals(String.valueOf(result.getFieldAuditRevision()), audit.getSubjectVersion());
+        assertEquals("CORRECTION:operator correction", audit.getReason());
+        assertEquals("idem-gxp-ledger-001", audit.getIdempotencyKey());
+        assertEquals("501", audit.getSignatureRecordId());
+        assertNotNull(audit.getSignatureContentHash());
+        assertEquals("HEAD_HASH", audit.getBeforeState().getState());
+        assertEquals(MesProBatchRecordExecutionFieldAuditHasher.GENESIS_HEAD_HASH,
+                audit.getBeforeState().getObjectVersion());
+        assertEquals("HEAD_HASH", audit.getAfterState().getState());
+        assertEquals(result.getFieldAuditHeadHash(), audit.getAfterState().getObjectVersion());
+        assertTrue(audit.getAfterState().getCanonicalJson().contains("\"changedFieldCount\":1"));
+    }
+
+    @Test
+    void saveChanges_rollsBackFieldAuditWhenUnifiedGxpAuditAppendFails() {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
+                "rowIndex", 1,
+                "columnIndex", 2,
+                "value", "36.6"
+        )));
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson);
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
+        doThrow(new IllegalStateException("unified audit append failed")).when(gxpAuditService).append(any());
+
+        assertThrows(IllegalStateException.class, () -> fieldAuditService.saveChanges(
+                saveCommand(execution, beforeHash, "idem-gxp-ledger-rollback",
+                        new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6")))));
+
+        MesProBatchRecordExecutionDO unchanged = executionMapper.selectById(execution.getId());
+        assertEquals(beforeHash, unchanged.getCellValuesHash());
+        assertEquals(0L, unchanged.getFieldAuditRevision());
+        assertEquals(MesProBatchRecordExecutionFieldAuditHasher.GENESIS_HEAD_HASH,
+                unchanged.getFieldAuditHeadHash());
+        assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        assertTrue(itemMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        assertTrue(signatureMapper.selectListByExecutionId(execution.getId()).isEmpty());
     }
 
     @Test
@@ -1020,14 +1084,37 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                         && containsInternalTraceNonBlockingLimitMetadata(audit)));
     }
 
-    @ParameterizedTest
-    @CsvSource({
-            "50, 40",
-            "30, 30",
-            "10, 20"
-    })
-    void saveChanges_recordbookModeClampsNumberAndStoresRecordbookAndBatchValues(
-            String recordbookValue, String expectedBatchRecordValue) throws Exception {
+    @Test
+    void saveChanges_recordbookModeRejectsOutOfRangeNumberBeforeSignature() {
+        MesProBatchRecordExecutionDO execution = insertDraftExecutionWithCellRule("[]",
+                "NUMBER", Map.of("min", 20, "max", 40), "℃", false)
+                .setRecordCategory("BATCH_RECORD")
+                .setValidationProfile("CONTROLLED_BATCH")
+                .setRecordbookEnabled(Boolean.TRUE);
+        executionMapper.updateById(execution);
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues("[]");
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand command =
+                saveCommand(execution, beforeHash, "idem-recordbook-reject-out-of-range", null, null)
+                        .setFillCarrier("RECORDBOOK")
+                        .setFillMode("RECORDBOOK_UNRESTRICTED");
+        command.getChanges().get(0)
+                .setNewValueJson(new BigDecimal("50"))
+                .setNewValueDisplay("50");
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> fieldAuditService.saveChanges(command));
+
+        assertEquals(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_CONSTRAINT_VIOLATION.getCode(),
+                exception.getCode());
+        assertTrue(exception.getMessage().contains("大于最大值 40"));
+        MesProBatchRecordExecutionDO unchanged = executionMapper.selectById(execution.getId());
+        assertEquals("[]", unchanged.getCellValuesJson());
+        assertEquals(beforeHash, unchanged.getCellValuesHash());
+        verify(signatureService, never()).recordFieldChangeSignature(any());
+    }
+
+    @Test
+    void saveChanges_recordbookModeStoresValidatedNumberWithoutTransformingIt() throws Exception {
         MesProBatchRecordExecutionDO execution = insertDraftExecutionWithCellRule("[]",
                 "NUMBER", Map.of("min", 20, "max", 40), "℃", false)
                 .setRecordCategory("BATCH_RECORD")
@@ -1037,12 +1124,12 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues("[]");
         mockFieldChangeSignature();
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand command =
-                saveCommand(execution, beforeHash, "idem-recordbook-clamp-" + recordbookValue, null, null)
+                saveCommand(execution, beforeHash, "idem-recordbook-valid-number", null, null)
                         .setFillCarrier("RECORDBOOK")
                         .setFillMode("RECORDBOOK_UNRESTRICTED");
         command.getChanges().get(0)
-                .setNewValueJson(new BigDecimal(recordbookValue))
-                .setNewValueDisplay(recordbookValue);
+                .setNewValueJson(new BigDecimal("30"))
+                .setNewValueDisplay("30");
 
         MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(command);
 
@@ -1051,18 +1138,18 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         JsonNode savedCell = JsonUtils.getObjectMapper()
                 .readTree(updated.getCellValuesJson())
                 .get(0);
-        assertEquals(expectedBatchRecordValue,
+        assertEquals("30",
                 savedCell.get("value").decimalValue().stripTrailingZeros().toPlainString());
-        assertEquals(expectedBatchRecordValue, savedCell.get("valueDisplay").asText());
+        assertEquals("30", savedCell.get("valueDisplay").asText());
         List<MesProBatchRecordExecutionFieldAuditItemDO> items = itemMapper.selectListByBatchId(result.getAuditBatchId());
         assertEquals(1, items.size());
         MesProBatchRecordExecutionFieldAuditItemDO item = items.get(0);
-        assertEquals(recordbookValue, item.getRecordbookValueJson());
-        assertEquals(recordbookValue, item.getRecordbookValueDisplay());
-        assertEquals(expectedBatchRecordValue, item.getBatchRecordValueJson());
-        assertEquals(expectedBatchRecordValue, item.getBatchRecordValueDisplay());
-        assertEquals(expectedBatchRecordValue, item.getNewValueJson());
-        assertEquals(expectedBatchRecordValue, item.getNewValueDisplay());
+        assertEquals("30", item.getRecordbookValueJson());
+        assertEquals("30", item.getRecordbookValueDisplay());
+        assertEquals("30", item.getBatchRecordValueJson());
+        assertEquals("30", item.getBatchRecordValueDisplay());
+        assertEquals("30", item.getNewValueJson());
+        assertEquals("30", item.getNewValueDisplay());
         verify(operationAuditService).record(argThat(audit ->
                 "FIELD_CHANGE".equals(audit.getOperationType())
                         && "BATCH_RECORD".equals(audit.getRecordCategory())
@@ -1085,22 +1172,22 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                         .setFillMode("RECORDBOOK_UNRESTRICTED");
         command.getChanges().get(0)
                 .setValueType(MesProBatchRecordExecutionFieldAuditValueType.STRING)
-                .setNewValueJson("abc")
-                .setNewValueDisplay("abc");
+                .setNewValueJson("ab")
+                .setNewValueDisplay("ab");
 
         MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(command);
 
         MesProBatchRecordExecutionFieldAuditItemDO item =
                 itemMapper.selectListByBatchId(result.getAuditBatchId()).get(0);
-        assertEquals("\"abc\"", item.getRecordbookValueJson());
-        assertEquals("abc", item.getRecordbookValueDisplay());
-        assertEquals("\"abc\"", item.getBatchRecordValueJson());
-        assertEquals("abc", item.getBatchRecordValueDisplay());
-        assertEquals("\"abc\"", item.getNewValueJson());
+        assertEquals("\"ab\"", item.getRecordbookValueJson());
+        assertEquals("ab", item.getRecordbookValueDisplay());
+        assertEquals("\"ab\"", item.getBatchRecordValueJson());
+        assertEquals("ab", item.getBatchRecordValueDisplay());
+        assertEquals("\"ab\"", item.getNewValueJson());
     }
 
     @Test
-    void saveChanges_recordbookModeKeepsDateValueWithoutBatchFormatValidation() throws Exception {
+    void saveChanges_recordbookModeRejectsInvalidDateBeforeSignature() {
         MesProBatchRecordExecutionDO execution = insertDraftExecutionWithCellRule("[]",
                 "DATE", Map.of(), "", false)
                 .setRecordCategory("BATCH_RECORD")
@@ -1108,7 +1195,6 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                 .setRecordbookEnabled(Boolean.TRUE);
         executionMapper.updateById(execution);
         String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues("[]");
-        mockFieldChangeSignature();
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand command =
                 saveCommand(execution, beforeHash, "idem-recordbook-date", null, null)
                         .setFillCarrier("RECORDBOOK")
@@ -1118,15 +1204,13 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                 .setNewValueJson("not-a-standard-date")
                 .setNewValueDisplay("not-a-standard-date");
 
-        MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(command);
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> fieldAuditService.saveChanges(command));
 
-        MesProBatchRecordExecutionFieldAuditItemDO item =
-                itemMapper.selectListByBatchId(result.getAuditBatchId()).get(0);
-        assertEquals("\"not-a-standard-date\"", item.getRecordbookValueJson());
-        assertEquals("not-a-standard-date", item.getRecordbookValueDisplay());
-        assertEquals("\"not-a-standard-date\"", item.getBatchRecordValueJson());
-        assertEquals("not-a-standard-date", item.getBatchRecordValueDisplay());
-        assertEquals("\"not-a-standard-date\"", item.getNewValueJson());
+        assertEquals(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_CONSTRAINT_VIOLATION.getCode(),
+                exception.getCode());
+        assertTrue(exception.getMessage().contains("日期格式不符合规则"));
+        verify(signatureService, never()).recordFieldChangeSignature(any());
     }
 
     @Test

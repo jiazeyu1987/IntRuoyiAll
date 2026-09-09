@@ -48,276 +48,83 @@
     <el-empty v-if="!lastResult" description="请选择生产批记录 Word 文件" />
 
     <div v-else class="form-parser-result">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="解析类型">{{ lastResult.parseTypeName }}</el-descriptions-item>
-        <el-descriptions-item label="源文件">{{ lastResult.sourceFileName }}</el-descriptions-item>
-        <el-descriptions-item label="产品">
-          {{ lastResult.mapping.product?.name || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="产品编码">
-          {{ lastResult.mapping.product?.code || '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="Schema版本">
-          {{ lastResult.mapping.schemaVersion }}
-        </el-descriptions-item>
-        <el-descriptions-item label="工序数">
-          {{ lastResult.mapping.processes.length }}
-        </el-descriptions-item>
-        <el-descriptions-item label="下载文件">{{ lastDownloadName }}</el-descriptions-item>
-      </el-descriptions>
-      <el-collapse class="form-parser-json-collapse">
-        <el-collapse-item title="完整 JSON" name="full-json">
-          <pre class="form-parser-json">{{ formatJson(lastResult.mapping) }}</pre>
-        </el-collapse-item>
-      </el-collapse>
-      <el-table
-        class="form-parser-result__table"
-        :data="lastResult.mapping.processes"
-        border
-        stripe
+      <el-tree
+        class="form-parser-tree"
+        :data="batchRecordTreeData"
+        default-expand-all
+        :expand-on-click-node="false"
+        :indent="24"
+        node-key="id"
       >
-        <el-table-column type="expand" width="48">
-          <template #default="{ row, $index }">
-            <div class="form-parser-detail">
-              <section class="form-parser-detail__section">
-                <div class="form-parser-detail__title">输入物料</div>
-                <el-table
-                  :data="row.inputs || []"
-                  border
-                  empty-text="无输入物料"
-                  size="small"
-                >
-                  <el-table-column label="物料名称(编号)" min-width="220">
-                    <template #default="{ row: material }">
-                      {{ formatNameCode(material) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="名称" min-width="160" prop="name" />
-                  <el-table-column label="编号" min-width="180">
-                    <template #default="{ row: material }">
-                      {{ formatValue(material.code) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="来源标记" width="110">
-                    <template #default="{ row: material }">
-                      {{ formatValue(material.sourceCodeLabel) }}
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-
-              <section class="form-parser-detail__section">
-                <div class="form-parser-detail__title">输出物料</div>
-                <el-table
-                  :data="row.outputs || []"
-                  border
-                  empty-text="无输出物料"
-                  size="small"
-                >
-                  <el-table-column label="物料名称(编号)" min-width="220">
-                    <template #default="{ row: material }">
-                      {{ formatNameCode(material) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="名称" min-width="160" prop="name" />
-                  <el-table-column label="编号" min-width="180">
-                    <template #default="{ row: material }">
-                      {{ formatValue(material.code) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="来源标记" width="110">
-                    <template #default="{ row: material }">
-                      {{ formatValue(material.sourceCodeLabel) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="输出物料对应设备（工序级）" min-width="220">
-                    <template #default>
-                      {{ formatProcessEquipmentOptions(row) }}
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-
-              <section class="form-parser-detail__section">
-                <div class="form-parser-detail__title">输出物料-设备-参数对应</div>
-                <div class="form-parser-detail__hint">
-                  JSON 未提供单个输出物料与设备的一对一字段；此处按同一工序下的设备组关联展示。
-                </div>
-                <el-table
-                  :data="buildOutputEquipmentParameterRows(row)"
-                  border
-                  empty-text="无输出物料或设备参数"
-                  size="small"
-                >
-                  <el-table-column label="输出物料名称(编号)" min-width="220">
-                    <template #default="{ row: relation }">
-                      {{ formatNameCode(relation.outputMaterial) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="设备名称(编号)" min-width="240">
-                    <template #default="{ row: relation }">
-                      {{ relation.equipmentNames }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="选择模式" width="100">
-                    <template #default="{ row: relation }">
-                      {{ formatSelectionMode(relation.selectionMode) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="参数名称" min-width="150">
-                    <template #default="{ row: relation }">
-                      {{ relation.parameter?.name || '无参数' }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="参数范围" min-width="140">
-                    <template #default="{ row: relation }">
-                      {{ formatParameterRange(relation.parameter) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="默认值" min-width="110">
-                    <template #default="{ row: relation }">
-                      {{ formatValue(relation.parameter?.ui?.defaultValue) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="单位" width="90">
-                    <template #default="{ row: relation }">
-                      {{ formatValue(relation.parameter?.ui?.unit) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="实际值" width="100">
-                    <template #default="{ row: relation }">
-                      {{ formatValue(relation.parameter?.actualValue) }}
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </section>
-
-              <section class="form-parser-detail__section">
-                <div class="form-parser-detail__title">设备与参数</div>
-                <div v-if="row.equipmentGroups?.length" class="form-parser-equipment-groups">
-                  <div
-                    v-for="(group, groupIndex) in row.equipmentGroups"
-                    :key="`${row.name}-${groupIndex}`"
-                    class="form-parser-equipment-group"
-                  >
-                    <div class="form-parser-equipment-group__head">
-                      <span>设备组 {{ groupIndex + 1 }}</span>
-                      <el-tag size="small" type="success">
-                        选择模式：{{ formatSelectionMode(group.selectionMode) }}
-                      </el-tag>
-                    </div>
-                    <el-table
-                      :data="group.equipmentOptions || []"
-                      border
-                      empty-text="无设备"
-                      size="small"
-                    >
-                      <el-table-column label="设备名称(编号)" min-width="220">
-                        <template #default="{ row: equipment }">
-                          {{ formatNameCode(equipment) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="名称" min-width="160" prop="name" />
-                      <el-table-column label="编号" min-width="160">
-                        <template #default="{ row: equipment }">
-                          {{ formatValue(equipment.code) }}
-                        </template>
-                      </el-table-column>
-                    </el-table>
-                    <el-table
-                      :data="group.parameters || []"
-                      border
-                      empty-text="无参数"
-                      size="small"
-                    >
-                      <el-table-column label="设备名称(编号)" min-width="220">
-                        <template #default>
-                          {{ formatEquipmentGroupOptions(group) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="参数名称" min-width="150" prop="name" />
-                      <el-table-column label="参数范围" min-width="140">
-                        <template #default="{ row: parameter }">
-                          {{ formatParameterRange(parameter) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="默认值" min-width="120">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.defaultValue) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="最小值" min-width="100">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.min) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="最大值" min-width="100">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.max) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="步长" min-width="90">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.step) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="单位" min-width="90">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.unit) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="控件" min-width="100">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.control) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="显示名" min-width="110">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.displayName) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="可选项" min-width="180">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.ui?.options) }}
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="实际值" min-width="100">
-                        <template #default="{ row: parameter }">
-                          {{ formatValue(parameter.actualValue) }}
-                        </template>
-                      </el-table-column>
-                    </el-table>
-                  </div>
-                </div>
-                <el-empty v-else description="无设备与参数" :image-size="44" />
-              </section>
-
-              <el-collapse class="form-parser-json-collapse">
-                <el-collapse-item title="工序 JSON" :name="`${row.name}-${$index}-json`">
-                  <pre class="form-parser-json">{{ formatJson(row) }}</pre>
-                </el-collapse-item>
-              </el-collapse>
+        <template #default="{ data }">
+          <div :class="['form-parser-tree-node', `form-parser-tree-node--${data.kind}`]">
+            <div class="form-parser-tree-node__line">
+              <span class="form-parser-tree-node__label">{{ data.label }}</span>
+              <span v-if="data.valueText" class="form-parser-tree-node__value">
+                {{ data.valueText }}
+              </span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="工序名称" min-width="180" prop="name" />
-        <el-table-column label="关键/特殊工序" width="130">
-          <template #default="{ row }">
-            <el-tag :type="row.criticalProcess ? 'danger' : 'info'">
-              {{ row.criticalProcess ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="投入物料数" width="120">
-          <template #default="{ row }">{{ row.inputs?.length || 0 }}</template>
-        </el-table-column>
-        <el-table-column label="产出物料数" width="120">
-          <template #default="{ row }">{{ row.outputs?.length || 0 }}</template>
-        </el-table-column>
-        <el-table-column label="设备组数" width="110">
-          <template #default="{ row }">{{ row.equipmentGroups?.length || 0 }}</template>
-        </el-table-column>
-      </el-table>
+            <div v-if="data.meta?.length" class="form-parser-tree-node__meta">
+              <span
+                v-for="meta in data.meta"
+                :key="`${data.id}-${meta.label}`"
+                class="form-parser-tree-node__meta-item"
+              >
+                {{ meta.label }}：{{ meta.value }}
+              </span>
+            </div>
+            <div v-if="data.parameter" class="form-parser-tree-parameter-ui">
+              <div class="form-parser-tree-parameter-ui__label">
+                <span>{{ getParameterDisplayName(data.parameter) }}</span>
+                <span
+                  v-if="shouldShowParameterTargetRange(data.parameter)"
+                  class="form-parser-tree-parameter-ui__range"
+                >
+                  目标范围：{{ formatParameterTargetRange(data.parameter) }}
+                </span>
+              </div>
+              <div class="form-parser-tree-parameter-ui__control">
+                <el-input-number
+                  v-if="isNumberParameterControl(data.parameter)"
+                  :controls="true"
+                  :max="toNumberModelValue(data.parameter.ui?.max)"
+                  :min="toNumberModelValue(data.parameter.ui?.min)"
+                  :model-value="toNumberModelValue(getParameterPreviewValue(data as BatchRecordTreeNode))"
+                  :step="toNumberModelValue(data.parameter.ui?.step)"
+                  @update:model-value="setParameterPreviewValue(data as BatchRecordTreeNode, $event)"
+                />
+                <el-select
+                  v-else-if="isSelectParameterControl(data.parameter)"
+                  :model-value="toSelectModelValue(getParameterPreviewValue(data as BatchRecordTreeNode))"
+                  placeholder="-"
+                  @update:model-value="setParameterPreviewValue(data as BatchRecordTreeNode, $event)"
+                >
+                  <el-option
+                    v-for="option in data.parameter.ui?.options || []"
+                    :key="formatValue(option)"
+                    :label="formatValue(option)"
+                    :value="formatValue(option)"
+                  />
+                </el-select>
+                <el-input
+                  v-else-if="isTextParameterControl(data.parameter)"
+                  :model-value="toTextModelValue(getParameterPreviewValue(data as BatchRecordTreeNode))"
+                  @update:model-value="setParameterPreviewValue(data as BatchRecordTreeNode, $event)"
+                />
+                <el-tag v-else type="warning">
+                  未识别控件：{{ formatValue(data.parameter.ui?.control) }}
+                </el-tag>
+                <span
+                  v-if="formatValue(data.parameter.ui?.unit) !== '-'"
+                  class="form-parser-tree-parameter-ui__unit"
+                >
+                  {{ formatValue(data.parameter.ui?.unit) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </el-tree>
     </div>
   </ContentWrap>
 </template>
@@ -377,13 +184,6 @@ interface BatchRecordTotalRecognitionProcess {
   equipmentGroups?: BatchRecordTotalRecognitionEquipmentGroup[]
 }
 
-interface BatchRecordOutputEquipmentParameterRow {
-  outputMaterial: BatchRecordTotalRecognitionMaterial
-  equipmentNames: string
-  selectionMode?: string
-  parameter?: BatchRecordTotalRecognitionParameter
-}
-
 interface BatchRecordTotalRecognitionJson {
   product: BatchRecordTotalRecognitionProduct
   schemaVersion: number
@@ -396,13 +196,45 @@ interface ProductionBatchRecordParseResult {
   mapping: BatchRecordTotalRecognitionJson
 }
 
+interface BatchRecordTreeMeta {
+  label: string
+  value: string
+}
+
+interface BatchRecordTreeNode {
+  id: string
+  label: string
+  kind:
+    | 'root'
+    | 'product'
+    | 'process'
+    | 'section'
+    | 'material'
+    | 'equipment'
+    | 'parameter'
+    | 'field'
+    | 'empty'
+  valueText?: string
+  meta?: BatchRecordTreeMeta[]
+  parameter?: BatchRecordTotalRecognitionParameter
+  previewValueKey?: string
+  children?: BatchRecordTreeNode[]
+}
+
 const message = useMessage()
 const uploadRef = ref<UploadInstance>()
 const fileList = ref<UploadUserFile[]>([])
 const productionLoading = ref(false)
 const lastResult = ref<ProductionBatchRecordParseResult>()
 const lastDownloadName = ref('')
+const parameterPreviewValues = reactive<Record<string, unknown>>({})
 const JSON_EXTENSION = '.json'
+const batchRecordTreeData = computed<BatchRecordTreeNode[]>(() => {
+  if (!lastResult.value) {
+    return []
+  }
+  return buildBatchRecordTreeData(lastResult.value, lastDownloadName.value)
+})
 
 const handleProductionBatchRecord = () => {
   if (productionLoading.value) {
@@ -442,6 +274,7 @@ const parseAndDownloadProductionBatchRecord = async (file: File) => {
       file
     )
     const mapping = parseTotalRecognitionJson(totalRecognitionJson)
+    initializeParameterPreviewValues(mapping)
     const downloadName = buildJsonDownloadName(file.name)
     const jsonBlob = new Blob([JSON.stringify(mapping, null, 2)], {
       type: 'application/json;charset=utf-8'
@@ -538,38 +371,433 @@ const formatSelectionMode = (selectionMode?: string) => {
   return formatValue(selectionMode)
 }
 
+const renderParameterUiPreview = (group?: BatchRecordTotalRecognitionEquipmentGroup) => {
+  return group?.parameters || []
+}
+
+const buildParameterPreviewValueKey = (
+  processIndex: number,
+  outputIndex: number,
+  groupIndex: number,
+  equipmentIndex: number,
+  parameterIndex: number
+) => {
+  return `${processIndex}:${outputIndex}:${groupIndex}:${equipmentIndex}:${parameterIndex}`
+}
+
+const initializeParameterPreviewValues = (mapping: BatchRecordTotalRecognitionJson) => {
+  Object.keys(parameterPreviewValues).forEach((key) => {
+    delete parameterPreviewValues[key]
+  })
+  mapping.processes.forEach((process, processIndex) => {
+    const outputIndexes = process.outputs?.length
+      ? process.outputs.map((_, outputIndex) => outputIndex)
+      : [-1]
+    const equipmentGroups = process.equipmentGroups || []
+    outputIndexes.forEach((outputIndex) => {
+      equipmentGroups.forEach((group, groupIndex) => {
+        const equipmentIndexes = group.equipmentOptions?.length
+          ? group.equipmentOptions.map((_, equipmentIndex) => equipmentIndex)
+          : [-1]
+      const parameters = group.parameters || []
+        equipmentIndexes.forEach((equipmentIndex) => {
+          parameters.forEach((parameter, parameterIndex) => {
+            const previewKey = buildParameterPreviewValueKey(
+              processIndex,
+              outputIndex,
+              groupIndex,
+              equipmentIndex,
+              parameterIndex
+            )
+            parameterPreviewValues[previewKey] = parameter.ui?.defaultValue
+          })
+        })
+      })
+    })
+  })
+}
+
+const getParameterPreviewValue = (node: BatchRecordTreeNode) => {
+  const key = node.previewValueKey
+  if (!key) {
+    return node.parameter?.ui?.defaultValue
+  }
+  if (Object.prototype.hasOwnProperty.call(parameterPreviewValues, key)) {
+    return parameterPreviewValues[key]
+  }
+  return node.parameter?.ui?.defaultValue
+}
+
+const setParameterPreviewValue = (node: BatchRecordTreeNode, value: unknown) => {
+  if (!node.previewValueKey) {
+    return
+  }
+  parameterPreviewValues[node.previewValueKey] = value
+}
+
+const getParameterDisplayName = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  const displayName = formatValue(parameter?.ui?.displayName)
+  if (displayName !== '-') {
+    return displayName
+  }
+  return formatValue(parameter?.name)
+}
+
+const toNumberModelValue = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return undefined
+}
+
+const toSelectModelValue = (value: unknown): string | undefined => {
+  const formatted = formatValue(value)
+  if (formatted === '-') {
+    return undefined
+  }
+  return formatted
+}
+
+const toTextModelValue = (value: unknown): string => {
+  const formatted = formatValue(value)
+  if (formatted === '-') {
+    return ''
+  }
+  return formatted
+}
+
+const isNumberParameterControl = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  return parameter?.ui?.control === 'number'
+}
+
+const isSelectParameterControl = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  return parameter?.ui?.control === 'select'
+}
+
+const isTextParameterControl = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  return parameter?.ui?.control === 'text' || parameter?.ui?.control === 'input'
+}
+
+const formatParameterTargetRange = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  const min = formatValue(parameter?.ui?.min)
+  const max = formatValue(parameter?.ui?.max)
+  const unit = formatValue(parameter?.ui?.unit)
+  if (min !== '-' && max !== '-') {
+    return `${min} - ${max}${unit === '-' ? '' : ` ${unit}`}`
+  }
+  return formatParameterRange(parameter)
+}
+
+const shouldShowParameterTargetRange = (parameter?: BatchRecordTotalRecognitionParameter) => {
+  if (
+    toNumberModelValue(parameter?.ui?.min) !== undefined &&
+    toNumberModelValue(parameter?.ui?.max) !== undefined
+  ) {
+    return true
+  }
+  const referenceValue = formatValue(parameter?.referenceValue)
+  return /[-~～至±]/.test(referenceValue)
+}
+
 const formatEquipmentGroupOptions = (group?: BatchRecordTotalRecognitionEquipmentGroup) => {
   return (group?.equipmentOptions || []).map((equipment) => formatNameCode(equipment)).join('、') || '-'
 }
 
-const formatProcessEquipmentOptions = (process?: BatchRecordTotalRecognitionProcess) => {
-  return (
-    process?.equipmentGroups
-      ?.flatMap((group) => group.equipmentOptions || [])
-      .map((equipment) => formatNameCode(equipment))
-      .join('、') || '-'
-  )
+const buildMeta = (label: string, value: unknown): BatchRecordTreeMeta => ({
+  label,
+  value: formatValue(value)
+})
+
+const createEmptyTreeNode = (id: string, label: string): BatchRecordTreeNode => ({
+  id,
+  kind: 'empty',
+  label,
+  valueText: '-'
+})
+
+const isRecordValue = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-const buildOutputEquipmentParameterRows = (
-  process?: BatchRecordTotalRecognitionProcess
-): BatchRecordOutputEquipmentParameterRow[] => {
-  const outputs = process?.outputs || []
-  const equipmentGroups = process?.equipmentGroups || []
-  if (!outputs.length || !equipmentGroups.length) {
+const buildUnknownValueTreeNode = (id: string, label: string, value: unknown): BatchRecordTreeNode => {
+  if (Array.isArray(value)) {
+    return {
+      id,
+      kind: 'field',
+      label,
+      meta: [buildMeta('数量', value.length)],
+      children: value.length
+        ? value.map((item, index) => buildUnknownValueTreeNode(`${id}-${index}`, `第 ${index + 1} 项`, item))
+        : [createEmptyTreeNode(`${id}-empty`, '空数组')]
+    }
+  }
+  if (isRecordValue(value)) {
+    const entries = Object.entries(value)
+    return {
+      id,
+      kind: 'field',
+      label,
+      children: entries.length
+        ? entries.map(([key, childValue]) => buildUnknownValueTreeNode(`${id}-${key}`, key, childValue))
+        : [createEmptyTreeNode(`${id}-empty`, '空对象')]
+    }
+  }
+  return {
+    id,
+    kind: 'field',
+    label,
+    valueText: formatValue(value)
+  }
+}
+
+const buildExtraFieldNodes = (
+  source: unknown,
+  knownKeys: string[],
+  parentId: string
+): BatchRecordTreeNode[] => {
+  if (!isRecordValue(source)) {
     return []
   }
-  return outputs.flatMap((outputMaterial) =>
-    equipmentGroups.flatMap((group) => {
-      const parameters = group.parameters?.length ? group.parameters : [undefined]
-      return parameters.map((parameter) => ({
-        outputMaterial,
-        equipmentNames: formatEquipmentGroupOptions(group),
-        selectionMode: group.selectionMode,
-        parameter
-      }))
+  const knownKeySet = new Set(knownKeys)
+  return Object.entries(source)
+    .filter(([key]) => !knownKeySet.has(key))
+    .map(([key, value]) => buildUnknownValueTreeNode(`${parentId}-extra-${key}`, `额外字段：${key}`, value))
+}
+
+const buildBatchRecordTreeData = (
+  result: ProductionBatchRecordParseResult,
+  downloadName: string
+): BatchRecordTreeNode[] => {
+  const mapping = result.mapping
+  return [
+    {
+      id: 'batch-record-recognition-root',
+      kind: 'root',
+      label: '生产批记录解析结果',
+      meta: [
+        buildMeta('解析类型', result.parseTypeName),
+        buildMeta('源文件', result.sourceFileName),
+        buildMeta('下载文件', downloadName),
+        buildMeta('Schema版本', mapping.schemaVersion),
+        buildMeta('工序数', mapping.processes.length)
+      ],
+      children: [
+        {
+          id: 'batch-record-product',
+          kind: 'product',
+          label: '产品',
+          meta: [buildMeta('名称', mapping.product?.name), buildMeta('编号', mapping.product?.code)],
+          children: buildExtraFieldNodes(mapping.product, ['name', 'code'], 'batch-record-product')
+        },
+        {
+          id: 'batch-record-processes',
+          kind: 'section',
+          label: '工序',
+          meta: [buildMeta('数量', mapping.processes.length)],
+          children: mapping.processes.length
+            ? mapping.processes.map((process, processIndex) => buildProcessTreeNode(process, processIndex))
+            : [createEmptyTreeNode('batch-record-processes-empty', '无工序')]
+        },
+        ...buildExtraFieldNodes(mapping, ['product', 'schemaVersion', 'processes'], 'batch-record-root')
+      ]
+    }
+  ]
+}
+
+const buildProcessTreeNode = (
+  process: BatchRecordTotalRecognitionProcess,
+  processIndex: number
+): BatchRecordTreeNode => {
+  const processId = `process-${processIndex}`
+  const children: BatchRecordTreeNode[] = [
+    {
+      id: `${processId}-inputs`,
+      kind: 'section',
+      label: '输入物料',
+      meta: [buildMeta('数量', process.inputs?.length || 0)],
+      children: process.inputs?.length
+        ? process.inputs.map((material, inputIndex) =>
+            buildInputMaterialTreeNode(material, processIndex, inputIndex)
+          )
+        : [createEmptyTreeNode(`${processId}-inputs-empty`, '无输入物料')]
+    },
+    {
+      id: `${processId}-outputs`,
+      kind: 'section',
+      label: '输出物料',
+      meta: [buildMeta('数量', process.outputs?.length || 0)],
+      children: process.outputs?.length
+        ? process.outputs.map((material, outputIndex) =>
+            buildOutputMaterialTreeNode(material, process, processIndex, outputIndex)
+          )
+        : [createEmptyTreeNode(`${processId}-outputs-empty`, '无输出物料')]
+    }
+  ]
+  if (!process.outputs?.length) {
+    children.push({
+      id: `${processId}-equipment-without-output`,
+      kind: 'section',
+      label: '设备',
+      meta: [buildMeta('设备组数', process.equipmentGroups?.length || 0)],
+      children: buildEquipmentDeviceTreeNodes(processIndex, -1, process.equipmentGroups || [])
     })
-  )
+  }
+  children.push(...buildExtraFieldNodes(process, ['name', 'criticalProcess', 'inputs', 'outputs', 'equipmentGroups'], processId))
+  return {
+    id: processId,
+    kind: 'process',
+    label: `工序：${formatValue(process.name)}`,
+    meta: [
+      buildMeta('关键/特殊工序', process.criticalProcess ? '是' : '否'),
+      buildMeta('投入物料数', process.inputs?.length || 0),
+      buildMeta('产出物料数', process.outputs?.length || 0),
+      buildMeta('设备组数', process.equipmentGroups?.length || 0)
+    ],
+    children
+  }
+}
+
+const buildInputMaterialTreeNode = (
+  material: BatchRecordTotalRecognitionMaterial,
+  processIndex: number,
+  inputIndex: number
+): BatchRecordTreeNode => {
+  const materialId = `process-${processIndex}-input-${inputIndex}`
+  return {
+    id: materialId,
+    kind: 'material',
+    label: `输入物料：${formatNameCode(material)}`,
+    meta: [
+      buildMeta('物料名称(编号)', formatNameCode(material)),
+      buildMeta('名称', material.name),
+      buildMeta('编号', material.code),
+      buildMeta('来源标记', material.sourceCodeLabel)
+    ],
+    children: buildExtraFieldNodes(material, ['name', 'code', 'sourceCodeLabel'], materialId)
+  }
+}
+
+const buildOutputMaterialTreeNode = (
+  material: BatchRecordTotalRecognitionMaterial,
+  process: BatchRecordTotalRecognitionProcess,
+  processIndex: number,
+  outputIndex: number
+): BatchRecordTreeNode => {
+  const materialId = `process-${processIndex}-output-${outputIndex}`
+  return {
+    id: materialId,
+    kind: 'material',
+    label: `输出物料：${formatNameCode(material)}`,
+    meta: [
+      buildMeta('物料名称(编号)', formatNameCode(material)),
+      buildMeta('名称', material.name),
+      buildMeta('编号', material.code),
+      buildMeta('来源标记', material.sourceCodeLabel)
+    ],
+    children: [
+      ...buildEquipmentDeviceTreeNodes(processIndex, outputIndex, process.equipmentGroups || []),
+      ...buildExtraFieldNodes(material, ['name', 'code', 'sourceCodeLabel'], materialId)
+    ]
+  }
+}
+
+const buildEquipmentDeviceTreeNodes = (
+  processIndex: number,
+  outputIndex: number,
+  equipmentGroups: BatchRecordTotalRecognitionEquipmentGroup[]
+): BatchRecordTreeNode[] => {
+  if (!equipmentGroups.length) {
+    return [createEmptyTreeNode(`process-${processIndex}-output-${outputIndex}-equipment-empty`, '无设备')]
+  }
+  return equipmentGroups.flatMap((group, groupIndex) => {
+    const equipmentOptions = group.equipmentOptions?.length ? group.equipmentOptions : [undefined]
+    const parameters = renderParameterUiPreview(group)
+    return equipmentOptions.map((equipment, equipmentIndex) => {
+      const equipmentId = `process-${processIndex}-output-${outputIndex}-group-${groupIndex}-equipment-${equipmentIndex}`
+      const equipmentLabel = equipment ? `设备：${formatNameCode(equipment)}` : `设备组 ${groupIndex + 1}`
+      return {
+        id: equipmentId,
+        kind: 'equipment',
+        label: equipmentLabel,
+        meta: [
+          buildMeta('设备名称(编号)', equipment ? formatNameCode(equipment) : formatEquipmentGroupOptions(group)),
+          buildMeta('设备组', groupIndex + 1),
+          buildMeta('选择模式', formatSelectionMode(group.selectionMode)),
+          buildMeta('参数数', parameters.length)
+        ],
+        children: [
+          ...(parameters.length
+            ? parameters.map((parameter, parameterIndex) =>
+                buildParameterTreeNode(
+                  parameter,
+                  processIndex,
+                  outputIndex,
+                  groupIndex,
+                  equipmentIndex,
+                  parameterIndex
+                )
+              )
+            : [createEmptyTreeNode(`${equipmentId}-parameters-empty`, '无设备参数')]),
+          ...(equipment
+            ? buildExtraFieldNodes(equipment, ['name', 'code', 'sourceCodeLabel'], equipmentId)
+            : []),
+          ...buildExtraFieldNodes(group, ['equipmentOptions', 'parameters', 'selectionMode'], equipmentId)
+        ]
+      }
+    })
+  })
+}
+
+const buildParameterTreeNode = (
+  parameter: BatchRecordTotalRecognitionParameter,
+  processIndex: number,
+  outputIndex: number,
+  groupIndex: number,
+  equipmentIndex: number,
+  parameterIndex: number
+): BatchRecordTreeNode => {
+  const parameterId = `process-${processIndex}-output-${outputIndex}-group-${groupIndex}-equipment-${equipmentIndex}-parameter-${parameterIndex}`
+  const ui = parameter.ui
+  return {
+    id: parameterId,
+    kind: 'parameter',
+    label: `设备参数：${getParameterDisplayName(parameter)}`,
+    parameter,
+    previewValueKey: buildParameterPreviewValueKey(
+      processIndex,
+      outputIndex,
+      groupIndex,
+      equipmentIndex,
+      parameterIndex
+    ),
+    meta: [
+      buildMeta('参数名称', parameter.name),
+      buildMeta('参考值', parameter.referenceValue),
+      buildMeta('实际值', parameter.actualValue),
+      buildMeta('控件', ui?.control),
+      buildMeta('默认值', ui?.defaultValue),
+      buildMeta('最小值', ui?.min),
+      buildMeta('最大值', ui?.max),
+      buildMeta('步长', ui?.step),
+      buildMeta('单位', ui?.unit),
+      buildMeta('显示名', ui?.displayName),
+      buildMeta('可选项', ui?.options)
+    ],
+    children: [
+      ...buildExtraFieldNodes(parameter, ['name', 'referenceValue', 'actualValue', 'ui'], parameterId),
+      ...buildExtraFieldNodes(
+        ui,
+        ['control', 'defaultValue', 'step', 'min', 'max', 'unit', 'displayName', 'options'],
+        `${parameterId}-ui`
+      )
+    ]
+  }
 }
 
 const formatValue = (value: unknown): string => {
@@ -584,8 +812,6 @@ const formatValue = (value: unknown): string => {
   }
   return String(value)
 }
-
-const formatJson = (value: unknown) => JSON.stringify(value, null, 2)
 
 const resolveParseErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as { response?: { data?: { msg?: string } } })?.response?.data?.msg
@@ -642,88 +868,124 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
 .form-parser-result {
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
-.form-parser-result__table {
+.form-parser-tree {
   width: 100%;
-
-  :deep(.el-table__expanded-cell) {
-    padding: 0;
-  }
-}
-
-.form-parser-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px;
-  background: #f8fafc;
-}
-
-.form-parser-detail__section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-parser-detail__title {
-  color: #111827;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 22px;
-}
-
-.form-parser-equipment-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.form-parser-equipment-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  padding: 8px 0;
   background: #fff;
 }
 
-.form-parser-equipment-group__head {
+.form-parser-tree-node {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.form-parser-tree-node__line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: #111827;
+  min-width: 0;
+  gap: 8px;
+}
+
+.form-parser-tree-node__label {
+  color: #0f172a;
   font-size: 13px;
   font-weight: 700;
   line-height: 20px;
 }
 
-.form-parser-json-collapse {
-  :deep(.el-collapse-item__content) {
-    padding-bottom: 0;
+.form-parser-tree-node__value {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.form-parser-tree-node__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.form-parser-tree-node__meta-item {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  line-height: 18px;
+  word-break: break-word;
+}
+
+.form-parser-tree-node--root > .form-parser-tree-node__line .form-parser-tree-node__label,
+.form-parser-tree-node--process > .form-parser-tree-node__line .form-parser-tree-node__label {
+  color: #111827;
+  font-size: 14px;
+}
+
+.form-parser-tree-node--parameter {
+  padding: 10px 0;
+}
+
+.form-parser-tree-parameter-ui {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(140px, 220px) minmax(260px, 420px);
+  gap: 10px;
+  max-width: 720px;
+  padding: 10px;
+  border: 1px solid #d7e2db;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.form-parser-tree-parameter-ui__label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.form-parser-tree-parameter-ui__range {
+  color: #315c52;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.form-parser-tree-parameter-ui__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  :deep(.el-input-number) {
+    width: 210px;
+  }
+
+  :deep(.el-select),
+  :deep(.el-input) {
+    width: 280px;
+    max-width: 100%;
   }
 }
 
-.form-parser-json {
-  max-height: 360px;
-  margin: 0;
-  overflow: auto;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #111827;
-  color: #f9fafb;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-:deep(.el-table .cell) {
-  word-break: break-word;
+.form-parser-tree-parameter-ui__unit {
+  flex: 0 0 auto;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 @media (max-width: 720px) {
@@ -745,9 +1007,8 @@ const resolveParseErrorMessage = (error: unknown, fallback: string) => {
     }
   }
 
-  .form-parser-equipment-group__head {
-    align-items: flex-start;
-    flex-direction: column;
+  .form-parser-tree-parameter-ui {
+    grid-template-columns: 1fr;
   }
 }
 </style>

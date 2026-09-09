@@ -26,6 +26,7 @@ public class ErpKingdeeProductionMaterialList {
     private BigDecimal numerator;
     private BigDecimal denominator;
     private String childUnitName;
+    private String drawingNumber;
     private BigDecimal requiredQuantity;
     private String issueMethod;
     private LocalDateTime demandTime;
@@ -33,4 +34,3 @@ public class ErpKingdeeProductionMaterialList {
     private String rawPayload;
 
 }
-

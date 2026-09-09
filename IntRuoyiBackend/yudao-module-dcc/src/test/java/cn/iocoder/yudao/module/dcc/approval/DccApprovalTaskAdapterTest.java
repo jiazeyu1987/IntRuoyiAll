@@ -12,7 +12,6 @@ import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileApproveTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
@@ -79,7 +78,7 @@ class DccApprovalTaskAdapterTest {
         when(processInstanceService.getProcessInstanceMap(java.util.Set.of("pi-1")))
                 .thenReturn(Map.of("pi-1", processInstance));
 
-        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        DccControlledFileDO file = new DccControlledFileDO();
         file.setId(6001L);
         file.setTitle("DCC-SOP-001");
         file.setFileNumber("SOP-001");
@@ -87,7 +86,7 @@ class DccApprovalTaskAdapterTest {
         file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
         file.setProcessInstanceId("pi-1");
-        when(workflowService.getControlledFile(6001L)).thenReturn(file);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6001L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
                 .id(7001L)
                 .name("SOP 文件")
@@ -128,6 +127,7 @@ class DccApprovalTaskAdapterTest {
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(bpmTaskService).getTaskTodoPage(eq(100L), captor.capture());
         assertEquals("dcc-controlled-file-approval", captor.getValue().getProcessDefinitionKey());
+        verify(workflowService, never()).getControlledFile(anyLong());
     }
 
     @Test
@@ -147,14 +147,14 @@ class DccApprovalTaskAdapterTest {
         when(processInstanceService.getProcessInstanceMap(Set.of("pi-final")))
                 .thenReturn(Map.of("pi-final", processInstance));
 
-        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        DccControlledFileDO file = new DccControlledFileDO();
         file.setId(6004L);
         file.setTitle("DCC-SOP-004");
         file.setFileNumber("SOP-004");
         file.setVersionNo("A");
         file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_APPROVAL");
-        when(workflowService.getControlledFile(6004L)).thenReturn(file);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6004L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
                 .id(7001L)
                 .name("SOP 文件")
@@ -165,6 +165,46 @@ class DccApprovalTaskAdapterTest {
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
 
         assertEquals(Set.of("PROCESS_IN_MODULE"), page.getList().get(0).getAvailableActions());
+    }
+
+    @Test
+    void pageTodoUsesSnapshotNotControlledFileViewPermission() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-matrix-review");
+        when(task.getName()).thenReturn("审核会签");
+        when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("pi-matrix-review");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(bpmTaskService.getTaskTodoPage(eq(1074L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getBusinessKey()).thenReturn("2054545668044070330");
+        when(processInstance.getStartUserId()).thenReturn("1");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-matrix-review")))
+                .thenReturn(Map.of("pi-matrix-review", processInstance));
+
+        DccControlledFileDO file = new DccControlledFileDO();
+        file.setId(2054545668044070330L);
+        file.setTitle("P4 受控文件");
+        file.setFileNumber("DCC-P4-202609081528-NEW");
+        file.setVersionNo("A/1");
+        file.setCategoryId(7001L);
+        file.setStatus("PENDING_MATRIX_REVIEW");
+        when(controlledFileMapper.selectByIdIncludingDeleted(2054545668044070330L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(1074L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("DCC-P4-202609081528-NEW", page.getList().get(0).getBusinessCode());
+        assertEquals(Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE"), page.getList().get(0).getAvailableActions());
+        verify(workflowService, never()).getControlledFile(anyLong());
     }
 
     @Test
@@ -256,14 +296,14 @@ class DccApprovalTaskAdapterTest {
         when(processInstanceService.getProcessInstanceMap(Set.of("pi-form-action", "pi-dcc")))
                 .thenReturn(Map.of("pi-form-action", formProcess, "pi-dcc", dccProcess));
 
-        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        DccControlledFileDO file = new DccControlledFileDO();
         file.setId(6001L);
         file.setTitle("DCC-SOP-001");
         file.setFileNumber("SOP-001");
         file.setVersionNo("A");
         file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
-        when(workflowService.getControlledFile(6001L)).thenReturn(file);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6001L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
                 .id(7001L)
                 .name("SOP 文件")
@@ -322,14 +362,14 @@ class DccApprovalTaskAdapterTest {
                     return result;
                 });
 
-        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        DccControlledFileDO file = new DccControlledFileDO();
         file.setId(6008L);
         file.setTitle("DCC-SOP-008");
         file.setFileNumber("SOP-008");
         file.setVersionNo("A");
         file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
-        when(workflowService.getControlledFile(6008L)).thenReturn(file);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6008L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
                 .id(7001L)
                 .name("SOP 文件")
@@ -588,14 +628,14 @@ class DccApprovalTaskAdapterTest {
         when(processInstanceService.getProcessInstanceMap(Set.of("pi-global")))
                 .thenReturn(Map.of("pi-global", processInstance));
 
-        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        DccControlledFileDO file = new DccControlledFileDO();
         file.setId(6010L);
         file.setTitle("DCC-SOP-010");
         file.setFileNumber("SOP-010");
         file.setVersionNo("A");
         file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
-        when(workflowService.getControlledFile(6010L)).thenReturn(file);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6010L)).thenReturn(file);
         when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
                 .id(7001L)
                 .name("SOP 文件")

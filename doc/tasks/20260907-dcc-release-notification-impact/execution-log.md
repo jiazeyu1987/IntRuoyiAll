@@ -745,3 +745,37 @@ BDD: 审批中心打开 DCC 详情 -> Given DCC task row supplies detailRoute an
 GREEN: code inspection -> PASS, approval-center resolveDccApprovalDetailLocation at src/views/approval-center/index.vue:894-933 preserves DCC detail path and appends approval query; detail route beforeEnter at src/router/modules/remaining.ts:1193-1203 explicitly allows approval handling; detail index onMounted at src/views/dcc/controlled-file/detail/index.vue:6474-6476 invokes reloadAll; loadData at :4416-4430 calls getControlledFile(controlledFileId), and API workflow.ts:1747-1749 maps to /dcc/controlled-files/{id}.
 
 CONCLUSION: no obvious source-code defect explains a direct detail page with zero GET request. That symptom is consistent with Vite dynamic-import/runtime failure or navigation not mounting the detail component (previous sessions showed Failed to fetch dynamically imported module and connection-refused errors). When the component mounts normally, GET is unconditional before approval detail loading. No source files were changed.
+
+## P4 Approval Center Permission-Gate Regression Fix
+
+`BDD: 会签人应能在审批中心看到自己被分配的 DCC 待办 -> Given DCC-P4-202609081528-NEW 已进入审核会签且 BPM task 已分配给 admin / zhaojie, When assignee 通过真实审批中心查看待办, Then 待办摘要应基于 BPM 分配可见并显示业务编号；后续审批动作仍必须走 DCC workflow 权限与电子签名校验，不得因为普通受控文件查看权限缺失而隐藏已分配待办。`
+
+`RED: Playwright approval-center inspect -> FAIL, database shows file 2054545668044070330 at PENDING_MATRIX_REVIEW with BPM MATRIX_REVIEW tasks for assignee 1 and 1074, but real approval-center page shows 暂无审批任务 / Controlled file does not exist / Current user cannot access this controlled file.`
+
+Root cause: `DccApprovalTaskAdapter` mapped TODO summaries through `workflowService.getControlledFile(fileId)`, which is the normal controlled-file detail permission path. Approval-center TODO visibility should be authorized by the BPM task assignment; using the normal detail permission gate hides legitimate approval tasks before the assignee can act.
+
+Fix: TODO summary now reads a controlled-file snapshot via `controlledFileMapper.selectByIdIncludingDeleted(fileId)` and rejects missing/deleted files fail-fast. Approve/reject processing remains delegated to `workflowService.approveTask` / `workflowService.rejectTask`, so this does not grant publish/detail bypass.
+
+`GREEN: mvn -pl yudao-module-dcc "-Dtest=DccApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 16 tests / 0 failures / 0 errors.`
+
+Runtime note: this backend code change was made after the user's reported frontend/backend restart. A new backend rebuild/restart is required before rerunning the real Playwright approval/publish closure; no publish, notification or impact-task closure is claimed yet.
+
+## P4 Runtime Restart Blocked By Unrelated MES Compile Error
+
+`BDD: 修复后的 DCC 后端必须真实承载 48081 -> Given DCC approval-center permission-gate regression has a passing targeted test, When rebuilding and restarting local 48081, Then server Jar must include the fixed DCC module before real Playwright approval/publish writes are attempted.`
+
+`GREEN: DCC module compile inside restart build -> PASS, yudao-module-dcc built successfully during the 31-module restart chain.`
+
+`BLOCKED: powershell -ExecutionPolicy Bypass -File IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend -> FAIL, yudao-module-mes compile failed before yudao-server packaging: MesProRouteFlowConfigServiceImpl does not implement saveRouteProcessDeviceParameterRule(MesProRouteDeviceParameterRuleSaveReqVO).`
+
+Runtime impact: server Jar packaging was skipped and 48081 is not listening after the failed restart; 8081 remains listening. Real Playwright approval/publish closure was not run because it would test an offline backend rather than the fixed DCC runtime.
+
+## P4 Runtime Restart Blocked By MES Test Compile Debt
+
+`BDD: 标准后端重启必须完成完整 server packaging -> Given MES main compile blocker was fixed, When running restart-int-ruoyi-local.ps1 -Component backend again, Then yudao-server packaging must complete and 48081 health must be UP before DCC Playwright approval/publish writes can resume.`
+
+`GREEN: MES main compile during restart -> PASS, previous MesProRouteFlowConfigServiceImpl interface mismatch did not recur.`
+
+`BLOCKED: restart-int-ruoyi-local.ps1 -Component backend -> FAIL, yudao-module-mes testCompile failed on existing/stale tests referencing missing production classes and nested classes, including MesProBatchRecordGenericDetailFormNormalizer.Spec, MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity, MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.FieldWrite/TargetResolution, MesP0* contract classes and route schedule/controller tests.`
+
+Runtime impact: standard backend restart did not package `yudao-server`, and `48081` remains offline while `8081` remains listening. The DCC fixed runtime is still not loaded, so no real Playwright approval/publish closure was run.

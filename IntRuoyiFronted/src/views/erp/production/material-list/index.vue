@@ -185,6 +185,22 @@
         prop="childUnitName"
         min-width="120"
       />
+      <el-table-column label="图号" align="center" prop="drawingNumber" min-width="140" />
+      <el-table-column
+        label="应发数量"
+        align="center"
+        prop="requiredQuantity"
+        :formatter="erpCountTableColumnFormatter"
+        width="120"
+      />
+      <el-table-column
+        label="需求日期"
+        align="center"
+        prop="demandTime"
+        :formatter="dateFormatter"
+        width="180"
+      />
+      <el-table-column label="发料方式" align="center" prop="issueMethod" min-width="120" />
       <el-table-column label="对应生产订单" align="center" min-width="180">
         <template #default="{ row }">
           <el-link v-if="row.workOrderId" type="primary" @click="handleOpenWorkOrder(row)">

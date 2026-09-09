@@ -18,6 +18,9 @@ public class BatchRecordReportDeleteAllRespVO {
     @Schema(description = "因已绑定工艺路线工序而保留的报表数量", example = "3")
     private Integer skippedBoundReportCount;
 
+    @Schema(description = "因属于受控批记录版本而保留的报表数量", example = "2")
+    private Integer skippedControlledReportCount;
+
     @Schema(description = "已解除的工艺路线工序默认批记录绑定数量", example = "2")
     private Integer unboundRouteProcessCount;
 

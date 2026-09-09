@@ -18,6 +18,7 @@ export type RouteProcessSettingColumnKey =
   | 'batchRecordFormNames'
   | 'inputMaterialIds'
   | 'outputMaterialIds'
+  | 'deviceParameters'
   | 'resourceStatus'
   | 'predecessor'
   | 'successors'
@@ -40,6 +41,7 @@ export const routeProcessSettingsDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'batchRecordFormNames', label: '批记录表单', minWidth: 180 },
   { key: 'inputMaterialIds', label: '输入物料', minWidth: 180 },
   { key: 'outputMaterialIds', label: '输出物料', minWidth: 180 },
+  { key: 'deviceParameters', label: '设备参数', minWidth: 180 },
   { key: 'resourceStatus', label: '资源状态', width: 110 },
   { key: 'predecessor', label: '前置工序', minWidth: 140 },
   { key: 'successors', label: '后续工序', minWidth: 180 },

@@ -18,6 +18,9 @@ import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.baomidou.dynamic.datasource.annotation.DSTransactional;
@@ -70,6 +73,8 @@ public class PermissionServiceImpl implements PermissionService {
     private SystemEntitlementService systemEntitlementService;
     @Resource
     private TemporaryRoleGrantService temporaryRoleGrantService;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Override
     public boolean hasAnyPermissions(Long userId, String... permissions) {
@@ -200,6 +205,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
             @CacheEvict(value = RedisKeyConstants.MENU_ROLE_ID_LIST,
             allEntries = true),
@@ -210,8 +216,10 @@ public class PermissionServiceImpl implements PermissionService {
     public void assignRoleMenu(Long roleId, Set<Long> menuIds) {
         // 获得角色拥有菜单编号
         Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectListByRoleId(roleId), RoleMenuDO::getMenuId);
+        Set<Long> beforeMenuIds = sortedLongSet(dbMenuIds);
         // 计算新增和删除的菜单编号
         Set<Long> menuIdList = CollUtil.emptyIfNull(menuIds);
+        Set<Long> afterMenuIds = sortedLongSet(menuIdList);
         Collection<Long> createMenuIds = CollUtil.subtract(menuIdList, dbMenuIds);
         Collection<Long> deleteMenuIds = CollUtil.subtract(dbMenuIds, menuIdList);
         // 执行新增和删除。对于已经授权的菜单，不用做任何处理
@@ -226,6 +234,8 @@ public class PermissionServiceImpl implements PermissionService {
         if (CollUtil.isNotEmpty(deleteMenuIds)) {
             roleMenuMapper.deleteListByRoleIdAndMenuIds(roleId, deleteMenuIds);
         }
+        appendPermissionAudit("system.permission.role-menu.assign", "SYSTEM_ROLE:" + roleId,
+                "分配角色菜单权限", Map.of("menuIds", beforeMenuIds), Map.of("menuIds", afterMenuIds));
     }
 
     @Override
@@ -278,6 +288,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @DSTransactional // 多数据源，使用 @DSTransactional 保证本地事务，以及数据源的切换
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
     @GxpWriteOperation(operationId = "system.permission.user-role.assign")
     public void assignUserRole(Long userId, Set<Long> roleIds) {
@@ -285,8 +296,10 @@ public class PermissionServiceImpl implements PermissionService {
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectListByUserId(userId),
                 UserRoleDO::getRoleId);
         validateAssignableUserRoles(dbRoleIds, roleIds);
+        Set<Long> beforeRoleIds = sortedLongSet(dbRoleIds);
         // 计算新增和删除的角色编号
         Set<Long> roleIdList = CollUtil.emptyIfNull(roleIds);
+        Set<Long> afterRoleIds = sortedLongSet(roleIdList);
         Collection<Long> createRoleIds = CollUtil.subtract(roleIdList, dbRoleIds);
         Collection<Long> deleteMenuIds = CollUtil.subtract(dbRoleIds, roleIdList);
         // 执行新增和删除。对于已经授权的角色，不用做任何处理
@@ -301,6 +314,8 @@ public class PermissionServiceImpl implements PermissionService {
         if (!CollectionUtil.isEmpty(deleteMenuIds)) {
             userRoleMapper.deleteListByUserIdAndRoleIdIds(userId, deleteMenuIds);
         }
+        appendPermissionAudit("system.permission.user-role.assign", "SYSTEM_USER:" + userId,
+                "分配用户角色", Map.of("roleIds", beforeRoleIds), Map.of("roleIds", afterRoleIds));
     }
 
     private void validateAssignableUserRoles(Collection<Long> currentRoleIds, Collection<Long> targetRoleIds) {
@@ -398,9 +413,17 @@ public class PermissionServiceImpl implements PermissionService {
     // ========== 用户-部门的相关方法  ==========
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "system.permission.role-data-scope.assign")
     public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds) {
+        RoleDO beforeRole = roleService.getRole(roleId);
+        Map<String, Object> beforeState = roleDataScopeState(beforeRole);
         roleService.updateRoleDataScope(roleId, dataScope, dataScopeDeptIds);
+        Map<String, Object> afterState = new LinkedHashMap<>();
+        afterState.put("dataScope", dataScope);
+        afterState.put("dataScopeDeptIds", sortedLongSet(dataScopeDeptIds));
+        appendPermissionAudit("system.permission.role-data-scope.assign", "SYSTEM_ROLE:" + roleId,
+                "分配角色数据权限", beforeState, afterState);
     }
 
     @Override
@@ -472,6 +495,42 @@ public class PermissionServiceImpl implements PermissionService {
      */
     private PermissionServiceImpl getSelf() {
         return SpringUtil.getBean(getClass());
+    }
+
+    private void appendPermissionAudit(String operationId, String subjectId, String reason,
+                                       Map<String, ?> beforeState, Map<String, ?> afterState) {
+        String beforeJson = toJsonString(beforeState);
+        String afterJson = toJsonString(afterState);
+        gxpAuditService.append(GxpAuditCommand.builder()
+                .operationId(operationId)
+                .subjectId(subjectId)
+                .subjectVersion(String.valueOf(Objects.hash(beforeJson, afterJson)))
+                .reason(reason)
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(String.valueOf(beforeJson.hashCode()))
+                        .canonicalJson(beforeJson)
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PRESENT")
+                        .objectVersion(String.valueOf(afterJson.hashCode()))
+                        .canonicalJson(afterJson)
+                        .build())
+                .idempotencyKey(operationId + ":" + subjectId + ":" + Integer.toHexString(Objects.hash(beforeJson, afterJson)))
+                .requestId(operationId + ":" + subjectId)
+                .source("PermissionServiceImpl")
+                .build());
+    }
+
+    private Map<String, Object> roleDataScopeState(RoleDO role) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("dataScope", role == null ? null : role.getDataScope());
+        state.put("dataScopeDeptIds", sortedLongSet(role == null ? null : role.getDataScopeDeptIds()));
+        return state;
+    }
+
+    private Set<Long> sortedLongSet(Collection<Long> values) {
+        return values == null ? Set.of() : new TreeSet<>(values);
     }
 
 }
