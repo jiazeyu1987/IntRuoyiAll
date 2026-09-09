@@ -9,6 +9,9 @@ import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,8 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
     private FormCenterRuntimeService formCenterRuntimeService;
     @Resource
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -54,7 +59,9 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
             startUserSelectAssignees = approvalRouteAssigneeResolver.resolveStartUserSelectAssignees(file, userId);
         }
         submitReqVO.setStartUserSelectAssignees(startUserSelectAssignees);
-        return formCenterRuntimeService.submitInstance(draft.getId(), submitReqVO, userId);
+        FormInstanceRespVO submitted = formCenterRuntimeService.submitInstance(draft.getId(), submitReqVO, userId);
+        gxpAuditService.append(buildGxpAuditCommand(file, reqVO, submitted));
+        return submitted;
     }
 
     private DccControlledFileDO requirePublishRequest(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
@@ -93,5 +100,55 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
         formData.put("controlledFileId", file.getId());
         formData.put("reason", reqVO.getReason());
         return formData;
+    }
+
+    private GxpAuditCommand buildGxpAuditCommand(DccControlledFileDO file,
+                                                 DccControlledFilePublishReqVO reqVO,
+                                                 FormInstanceRespVO submitted) {
+        String objectVersion = StrUtil.blankToDefault(file.getVersionNo(), String.valueOf(file.getId()));
+        return GxpAuditCommand.builder()
+                .operationId("dcc.controlled-file.publish")
+                .subjectId("CONTROLLED_FILE:" + file.getId())
+                .subjectVersion(objectVersion)
+                .reason(reqVO.getReason())
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state(file.getStatus())
+                        .objectVersion(objectVersion)
+                        .canonicalJson(fileStateJson(file))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("PUBLISH_APPROVAL_STARTED")
+                        .objectVersion(objectVersion)
+                        .canonicalJson(publishApprovalStateJson(file, submitted))
+                        .build())
+                .idempotencyKey(reqVO.getIdempotencyKey())
+                .requestId(StrUtil.blankToDefault(submitted.getBpmProcessInstanceId(), String.valueOf(submitted.getId())))
+                .source("DccControlledFilePublishServiceImpl.publishControlledFile")
+                .build();
+    }
+
+    private String fileStateJson(DccControlledFileDO file) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("controlledFileId", file.getId());
+        payload.put("masterId", file.getMasterId());
+        payload.put("fileNumber", file.getFileNumber());
+        payload.put("fileName", file.getFileName());
+        payload.put("versionNo", file.getVersionNo());
+        payload.put("status", file.getStatus());
+        payload.put("productCode", file.getProductCode());
+        payload.put("categoryId", file.getCategoryId());
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload);
+    }
+
+    private String publishApprovalStateJson(DccControlledFileDO file, FormInstanceRespVO submitted) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("controlledFileId", file.getId());
+        payload.put("versionNo", file.getVersionNo());
+        payload.put("fromStatus", file.getStatus());
+        payload.put("approvalState", "PUBLISH_APPROVAL_STARTED");
+        payload.put("formInstanceId", submitted.getId());
+        payload.put("formInstanceStatus", submitted.getStatus());
+        payload.put("bpmProcessInstanceId", submitted.getBpmProcessInstanceId());
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload);
     }
 }

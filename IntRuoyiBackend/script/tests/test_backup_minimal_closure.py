@@ -26,7 +26,7 @@ def test_ssh_error_messages_redact_inline_passwords() -> None:
     script = f"""
 $ErrorActionPreference = 'Stop'
 Import-Module '{module}' -Force -DisableNameChecking
-$text = "mysql -uroot -p'123456'; MYSQL_PWD=abc123 mysqldump --password=secret"
+$text = "mysql -uroot -p'123456'; MYSQL_PWD=abc123 mysqldump --password=secret -v /tmp/backup-point:/backup-point"
 Protect-BackupSshSensitiveText -Text $text
 """
     result = _run_powershell(script)
@@ -35,9 +35,10 @@ Protect-BackupSshSensitiveText -Text $text
     assert "123456" not in result.stdout
     assert "abc123" not in result.stdout
     assert "secret" not in result.stdout
-    assert "-p'<hidden>'" in result.stdout
+    assert "-p<hidden>" in result.stdout
     assert "MYSQL_PWD=<hidden>" in result.stdout
     assert "--password=<hidden>" in result.stdout
+    assert "/tmp/backup-point:/backup-point" in result.stdout
 
 
 def test_payload_checksums_cover_all_local_recovery_files() -> None:
@@ -567,6 +568,23 @@ def test_remote_object_copy_retries_transient_nas_write_errors_with_final_fail_f
     assert 'if mc cp "src/\' + $bucket + \'/$rel" "$incoming" >/dev/null; then' in remote_export
     assert '[ "$attempt" -ge 3 ]' in remote_export
     assert 'attempt=$((attempt + 1))' in remote_export
+
+
+def test_remote_object_copy_skips_existing_hash_addressed_payloads_before_mc_copy() -> None:
+    object_source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "ObjectOps.psm1").read_text(
+        encoding="utf-8"
+    )
+    remote_export = object_source.split("function Export-BackupObjectSnapshotToRemoteNas", 1)[1].split(
+        "function Import-BackupObjectSnapshotFromRemoteNas", 1
+    )[0]
+
+    existing_check = remote_export.find('if [ -f "/object-store/$repo" ]; then')
+    copy_index = remote_export.find('if mc cp "src/\' + $bucket + \'/$rel" "$incoming" >/dev/null; then')
+
+    assert existing_check >= 0
+    assert existing_check < copy_index
+    assert '[ "$existing" = "$repo" ]' in remote_export
+    assert "printf ''%s\\t%s\\n'' \"$repo\" \"$repo\"" in remote_export
 
 
 def test_full_dcc_manifest_does_not_reuse_a_previous_restore_point() -> None:

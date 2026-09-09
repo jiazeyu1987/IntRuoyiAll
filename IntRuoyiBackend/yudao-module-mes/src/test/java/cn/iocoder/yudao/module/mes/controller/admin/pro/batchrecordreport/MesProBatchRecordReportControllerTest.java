@@ -38,6 +38,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -293,6 +294,67 @@ class MesProBatchRecordReportControllerTest {
                 deleteByNameMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
         assertEquals("false",
                 deleteByNameMethod.getParameters()[1].getAnnotation(RequestParam.class).defaultValue());
+    }
+
+    @Test
+    void contractMappings_protectBatchRecordTemplateImportUpdateAndDeleteEndpoints() throws Exception {
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("importPilotDoc", MultipartFile.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("importImage", MultipartFile.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("recognizeFixedRoute", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("recognizeUploadedRoute",
+                        MultipartFile.class, String.class, String.class, Long.class, Boolean.class, String.class,
+                        Long.class, String.class, List.class, Boolean.class, List.class, List.class, Boolean.class,
+                        Long.class, Long.class, Long.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("preflightUploadedRoute",
+                        String.class, String.class, Long.class, List.class));
+        assertPreAuthorize("mes:pro-batch-record-template:import",
+                MesProBatchRecordReportController.class.getDeclaredMethod("uploadExtraFormSlot",
+                        MultipartFile.class, String.class, String.class));
+
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getGeneratedReportPage",
+                        BatchRecordReportPageReqVO.class));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getDesignerPath", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("existsBatchRecordName",
+                        String.class, String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getBatchRecordNameOptions"));
+        assertPreAuthorize("mes:pro-batch-record-template:query",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getProductNameOptions",
+                        String.class, Boolean.class));
+
+        assertPreAuthorize("mes:pro-batch-record-template:update",
+                MesProBatchRecordReportController.class.getDeclaredMethod("getEditPath", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:update",
+                MesProBatchRecordReportController.class.getDeclaredMethod("renameGeneratedReport",
+                        BatchRecordReportRenameReqVO.class));
+
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod("deleteGeneratedReport", String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod("deleteGeneratedReports",
+                        BatchRecordReportBatchDeleteReqVO.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod(
+                        "deleteGeneratedReportByBatchRecordNameAndFormSlotType", String.class, String.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod(
+                        "deleteGeneratedReportsByBatchRecordName", String.class, Boolean.class));
+        assertPreAuthorize("mes:pro-batch-record-template:delete",
+                MesProBatchRecordReportController.class.getDeclaredMethod("deleteAllGeneratedReports", String.class));
+    }
+
+    private void assertPreAuthorize(String permission, Method method) {
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+        assertNotNull(preAuthorize, method.getName() + " must require " + permission);
+        assertEquals("@ss.hasPermission('" + permission + "')", preAuthorize.value());
     }
 
     @Test

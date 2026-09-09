@@ -18,6 +18,10 @@ BDD: Electronic signature writes unified audit in same transaction -> Given an a
 
 BDD: Electronic signature rolls back when unified audit append fails -> Given the unified audit append contract rejects or fails, When electronic signature creation calls the audit contract, Then the signature record insert rolls back and no default-success signature result is returned.
 
+BDD: DCC publish approval request writes unified audit in same transaction -> Given a controlled DCC file is ready to publish and a user submits a publish reason, When `DccControlledFilePublishServiceImpl.publishControlledFile` creates and submits the approval form, Then it appends `dcc.controlled-file.publish` through `GxpAuditService.append` before transaction commit with file identity, version, reason, idempotency key, and before/after state.
+
+BDD: DCC publish approval request does not fabricate electronic signature identity -> Given DCC publish only starts the approval workflow and is not itself an electronic signature record, When the unified audit command is built, Then `signatureRecordId` remains absent and signature evidence is supplied only by the separate electronic signature operation.
+
 ## TDD Evidence
 
 RED: pending -> write focused failing tests/contracts before production implementation.
@@ -52,4 +56,12 @@ GREEN: python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config
 
 GREEN: mvn -pl yudao-module-signature -am "-Dtest=ElectronicSignatureServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 11 tests passed; signature service regression remains green after removing the duplicate local GxP audit implementation.
 
+RED: mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect+publishControlledFile_auditAppendFailureRejectsPublishResult" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected TDD/compiler reason before production implementation: DCC publish audit assertions were added before service support; first RED also exposed a missing `assertThrows` static import in the new test.
+
+GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect+publishControlledFile_auditAppendFailureRejectsPublishResult" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 2 tests passed; DCC publish approval request writes unified audit append command and audit append failure does not return a successful publish result.
+
+GREEN: python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/gxp-audit-policy.yaml -> PASS, operations=8, annotations=7, sha256=61a0206128d8d0d0fbf41b736a22639eddd3569af8638c628fac554dd41f13e6 after DCC policy correction.
+
 BLOCKED: PASS FOR OPERATIONAL COMPLIANCE -> runtime NTP, WORM/Object Lock, backup restore rehearsal, periodic review SOP execution, QA signature, training records, DB role separation and privileged audit externalization are real environment/quality records and are not present in this code-only implementation turn.
+
+GREEN: project-experience-consolidation -> PASS, reusable GxP business-evidence boundary merged into `docs/backend-development.md#GxP-业务写入统一审计接入门禁` and routed from `docs/experience-index.md`; no new long-term experience document created.

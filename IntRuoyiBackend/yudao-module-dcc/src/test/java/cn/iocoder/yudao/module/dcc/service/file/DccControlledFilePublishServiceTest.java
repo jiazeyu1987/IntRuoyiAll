@@ -10,6 +10,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePub
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -22,6 +25,9 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PUBLISH_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -39,6 +45,8 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
     private FormCenterRuntimeService formCenterRuntimeService;
     @Mock
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
+    @Mock
+    private GxpAuditService gxpAuditService;
 
     @InjectMocks
     private DccControlledFilePublishServiceImpl publishService;
@@ -66,6 +74,7 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
         when(formCenterRuntimeService.submitInstance(eq(57L), any(FormInstanceSubmitReqVO.class), eq(99L)))
                 .thenReturn(submitted);
+        when(gxpAuditService.append(any())).thenReturn(new GxpAuditAppendResult(9101L, 1L, "a".repeat(64), false));
 
         FormInstanceRespVO result = publishService.publishControlledFile(99L, 920L, reqVO);
 
@@ -95,6 +104,51 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         assertEquals(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)),
                 submitCaptor.getValue().getStartUserSelectAssignees());
         verify(finalizationService, never()).applyApprovedPublishControlledFile(any(), any(), any());
+
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        GxpAuditCommand auditCommand = auditCaptor.getValue();
+        assertEquals("dcc.controlled-file.publish", auditCommand.getOperationId());
+        assertEquals("CONTROLLED_FILE:920", auditCommand.getSubjectId());
+        assertEquals("V2.0", auditCommand.getSubjectVersion());
+        assertEquals("Release V2.0 after revision approval", auditCommand.getReason());
+        assertEquals("DCC-PUBLISH-920-V2", auditCommand.getIdempotencyKey());
+        assertEquals("READY_TO_PUBLISH", auditCommand.getBeforeState().getState());
+        assertEquals("PUBLISH_APPROVAL_STARTED", auditCommand.getAfterState().getState());
+        assertEquals("V2.0", auditCommand.getBeforeState().getObjectVersion());
+        assertEquals("V2.0", auditCommand.getAfterState().getObjectVersion());
+        assertEquals("DccControlledFilePublishServiceImpl.publishControlledFile", auditCommand.getSource());
+        assertEquals("process-57", auditCommand.getRequestId());
+        assertNull(auditCommand.getSignatureRecordId());
+    }
+
+    @Test
+    void publishControlledFile_auditAppendFailureRejectsPublishResult() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("Release V2.0 after revision approval");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-V2-AUDIT-FAIL");
+        when(controlledFileMapper.selectById(920L)).thenReturn(DccControlledFileDO.builder()
+                .id(920L)
+                .categoryId(18L)
+                .productCode("PRD-002")
+                .versionNo("V2.0")
+                .status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus())
+                .build());
+        FormInstanceRespVO draft = new FormInstanceRespVO();
+        draft.setId(57L);
+        FormInstanceRespVO submitted = new FormInstanceRespVO();
+        submitted.setId(57L);
+        submitted.setStatus("IN_APPROVAL");
+        submitted.setBpmProcessInstanceId("process-57");
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
+        when(formCenterRuntimeService.submitInstance(eq(57L), any(FormInstanceSubmitReqVO.class), eq(99L)))
+                .thenReturn(submitted);
+        when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
+
+        assertThrows(IllegalStateException.class, () -> publishService.publishControlledFile(99L, 920L, reqVO));
+
+        verify(formCenterRuntimeService).submitInstance(eq(57L), any(FormInstanceSubmitReqVO.class), eq(99L));
+        verify(gxpAuditService).append(any());
     }
 
     @Test

@@ -8,7 +8,7 @@
 
 1. completed - M1 数据模型与统一审计核心：已建立统一审计账本表、策略登记表、覆盖登记表、hash/封存水位、只追加约束。
 2. completed - M2 统一内部审计接口：已实现 `GxpAuditService.append(GxpAuditCommand)` 内部写入契约、策略校验、原因/签名/before-after 校验、幂等载荷 hash 和事件 hash。
-3. in_progress - M3 首批 GxP 高风险链路接入：已登记并注解 eDHR、DCC、电子签名、权限/角色配置、系统配置、发布/迁移变更；电子签名 `sign` 已接入统一 `GxpAuditService.append` 并验证审计失败回滚；仍需继续逐业务方法接入完整 before/after。
+3. in_progress - M3 首批 GxP 高风险链路接入：已登记并注解 eDHR、DCC、电子签名、权限/角色配置、系统配置、发布/迁移变更；电子签名 `sign` 与 DCC 发布审批发起 `publishControlledFile` 已接入统一 `GxpAuditService.append` 并验证审计失败不返回成功；仍需继续逐业务方法接入完整 before/after。
 4. completed - M4 测试与 CI 门禁：已补自动化测试、SQL 合同、覆盖检查脚本，并在 Maven CI 中加入“未登记写入口即失败”的覆盖检查。
 5. blocked - M5 运行态证据：NTP、WORM/Object Lock、备份恢复演练、周期审查 SOP、质量负责人签署、培训记录等真实运行证据尚未提供，不能标记运行合规 PASS。
 
@@ -30,4 +30,4 @@
 
 ## Current Status
 
-in_progress - M1/M2/M4 已完成；M3 已完成电子签名同事务统一审计 append 切片，剩余 eDHR、DCC、权限/角色配置、系统配置、发布/迁移变更仍需逐入口接入；M5 运行态证据仍 blocked，当前不得宣称 `PASS FOR OPERATIONAL COMPLIANCE`。
+in_progress - M1/M2/M4 已完成；M3 已完成电子签名和 DCC 发布审批发起两个同事务统一审计 append 切片，剩余 eDHR、权限/角色配置、系统配置、发布/迁移变更仍需逐入口接入；M5 运行态证据仍 blocked，当前不得宣称 `PASS FOR OPERATIONAL COMPLIANCE`。

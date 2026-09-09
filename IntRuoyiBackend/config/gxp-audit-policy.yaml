@@ -22,7 +22,7 @@ operations:
     subjectType: DCC_CONTROLLED_FILE
     actionType: PUBLISH
     reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
-    signaturePolicy: REQUIRED
+    signaturePolicy: NOT_REQUIRED
     statePolicy: PRESENT_TO_PRESENT
     retentionClass: GXP_CONTROLLED_DOCUMENT
     testIds: [BDD-AT-01, BDD-AT-03, BDD-AT-06]

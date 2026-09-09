@@ -43,6 +43,10 @@ BDD: Electronic signature writes unified audit in same transaction -> Given an a
 
 BDD: Electronic signature rolls back when unified audit append fails -> Given the unified audit append contract rejects or fails, When electronic signature creation calls the audit contract, Then the signature record insert rolls back and no default-success signature result is returned.
 
+BDD: DCC publish approval request writes unified audit in same transaction -> Given a controlled DCC file is ready to publish and a user submits a publish reason, When `DccControlledFilePublishServiceImpl.publishControlledFile` creates and submits the approval form, Then it appends `dcc.controlled-file.publish` through `GxpAuditService.append` before transaction commit with file identity, version, reason, idempotency key, and before/after state.
+
+BDD: DCC publish approval request does not fabricate electronic signature identity -> Given DCC publish only starts the approval workflow and is not itself an electronic signature record, When the unified audit command is built, Then `signatureRecordId` remains absent and signature evidence is supplied only by the separate electronic signature operation.
+
 ## RED Command and Expected Failure
 
 RED: `mvn -pl yudao-module-system "-Dtest=GxpAuditPersistenceModelTest,GxpAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected fixture reason: `SecurityFrameworkUtils.setLoginUser(null request)` cannot build `WebAuthenticationDetails`; test fixture was corrected to set Spring Security authentication directly.
@@ -50,6 +54,8 @@ RED: `mvn -pl yudao-module-system "-Dtest=GxpAuditPersistenceModelTest,GxpAuditS
 RED: `python -X utf8 script/gxp_audit_coverage_gate.py --root . --policy config/gxp-audit-policy.yaml` -> FAIL, expected scanner reason: service method source locator resolver looked at repository root instead of module `src/main/java` trees.
 
 RED: `mvn -pl yudao-module-signature -am "-Dtest=ElectronicSignatureServiceImplTest#testSign_successBindsActorServerTimeAndContentHash+testSign_auditAppendFailureRollsBackSignatureRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected implementation reason: electronic signature service did not yet call unified `GxpAuditService.append`; first implementation attempt exposed duplicate legacy `signature.gxp` Mapper conflict, which was resolved by removing the obsolete local audit implementation.
+
+RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect+publishControlledFile_auditAppendFailureRejectsPublishResult" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected TDD/compiler reason before production implementation: DCC publish audit assertions were added before service support; first RED also exposed a missing `assertThrows` static import in the new test.
 
 ## GREEN Command and Passing Result
 
@@ -65,10 +71,14 @@ GREEN: `mvn -pl yudao-module-signature -am "-Dtest=ElectronicSignatureServiceImp
 
 GREEN: `mvn -pl yudao-module-signature -am "-Dtest=ElectronicSignatureServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests passed.
 
+GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFilePublishServiceTest#publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect+publishControlledFile_auditAppendFailureRejectsPublishResult" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests passed.
+
 ## Contract or Integration Verification
 
 - Unit tests verify append success, full evidence fields, server actor resolution, missing policy, missing reason, missing state, missing required signature, idempotency replay and idempotency conflict.
 - Electronic signature service now calls the unified system `GxpAuditService.append` in the same Spring transaction after signature record insert; append failure propagates and rolls back the signature record.
+- DCC publish approval request now calls unified system `GxpAuditService.append` in the same Spring transaction after approval form submit; append failure propagates and prevents a successful publish response.
+- DCC publish approval request policy uses `signaturePolicy: NOT_REQUIRED` because this write starts an approval workflow and must not fabricate `signatureRecordId`; separate electronic signature records remain governed by `signature.record.create`.
 - Coverage gate verifies all annotated GxP write operations are present in policy, source locators resolve, high-risk domains EDHR/DCC/SIGNATURE/SYSTEM/RELEASE are registered, and policy shape is complete.
 - Initial high-risk annotated entry points: eDHR field audit save, DCC controlled file publish, electronic signature sign, role-menu assignment, user-role assignment, role-data-scope assignment, system config package import.
 
@@ -79,4 +89,4 @@ Current implementation writes stable event id, ledger sequence, event hash, oper
 ## Blockers and Downstream Needs
 
 - Actual production operational compliance remains BLOCKED until NTP, WORM/Object Lock, backup restore rehearsal, periodic review SOP, QA signature and training evidence exist.
-- Some first-batch domain methods are currently registered/annotated for coverage, but not all domain write methods have been refactored to call `GxpAuditService.append` with complete before/after snapshots. Electronic signature is now connected; eDHR, DCC, permission/role configuration, system configuration and release/migration paths still require the same conversion.
+- Some first-batch domain methods are currently registered/annotated for coverage, but not all domain write methods have been refactored to call `GxpAuditService.append` with complete before/after snapshots. Electronic signature and DCC publish approval request are now connected; eDHR, permission/role configuration, system configuration and release/migration paths still require the same conversion.

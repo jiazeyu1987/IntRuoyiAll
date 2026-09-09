@@ -78,11 +78,12 @@ function Protect-BackupSshSensitiveText {
     }
 
     $redacted = $Text
-    $redacted = $redacted -replace "-p'[^']*'", "-p'<hidden>'"
-    $redacted = $redacted -replace '-p"[^"]*"', '-p"<hidden>"'
     $redacted = $redacted -replace '(?i)(MYSQL_PWD=)[^\s;]+', '$1<hidden>'
     $redacted = $redacted -replace '(?i)(password=)[^\s;]+', '$1<hidden>'
     $redacted = $redacted -replace '(?i)(--password=)[^\s;]+', '$1<hidden>'
+    $redacted = $redacted -replace "(?i)(^|\s)-p[^\s;|]+", '$1-p<hidden>'
+    $redacted = $redacted -replace "-p'[^']*'", "-p'<hidden>'"
+    $redacted = $redacted -replace '-p"[^"]*"', '-p"<hidden>"'
     return $redacted
 }
 
