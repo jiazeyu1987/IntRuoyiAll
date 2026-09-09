@@ -88,3 +88,5 @@ Baseline commit file list:
 - docs/csv-validation/SOP-EDHR-090-文档培训版本控制-受控草案.docx
 - docs/csv-validation/SOP-EDHR-系统操作手册编写与批准模板.docx
 - docs/csv-validation/TRN-EDHR-培训课程大纲与考核标准-受控草案.docx
+
+BLOCKED: git push origin int_main -> FAIL, GitHub push blocked by user-level Git proxy `http.https://github.com.proxy=http://127.0.0.1:7890`; `git push origin int_main` failed with `Could not connect to server`, leaving local `int_main` ahead of `origin/int_main` by 2 commits.
