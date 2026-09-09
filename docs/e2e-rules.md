@@ -98,6 +98,7 @@
 - Preflight check: 验收文档包含写入型用户路径时，还必须同时确认真实页面入口、前端 route、权限 meta、页面主按钮和写 API wrapper 全链路存在；只有 API wrapper 或只读追溯页存在时，不得宣称写路径已实现。
 - Preflight check: 复用历史真实脚本前，必须先按当前源码或真实 DOM 核对入口按钮文案、稳定锚点和可点击条件；按钮已 visible 但仍受 loading、navigationLoading、saving 或权限状态禁用时，脚本应等待正式可点击状态并记录禁用来源，不能把瞬时 disabled 或旧文案定位失败直接写成产品功能失败。
 - Preflight check: 电子签名记录或证据导出 E2E 必须先核对当前正式路由；统一治理已接管的场景应走 `/signature-governance/signature-records` 的真实列表与行内 PDF 操作，旧 `/dcc/controlled-file/signatures` 返回 404 时应记录为脚本入口过期，不得判定导出能力失败。
+- Preflight check: 证据导出入口已统一到 CSV 质量包时，E2E 必须先断言 `/signature-governance/csv-package` 的统一入口数量、入口标签、按钮动作和旧页面导出入口清理结果；登录页脚本不得误点租户下拉导致用户名输入框定位失败，应保持目标租户可见后再填写账号密码。
 - Preflight check: Element Plus 弹窗标题可能使用业务文件名、编号或动态标题；脚本等待弹窗时应锚定真实 DOM 中稳定可见的业务文本或 `data-testid`，不得硬等旧固定标题。打开预览、抽屉或遮罩后继续操作底层页面按钮前，必须先关闭覆盖层并等待其隐藏，不能把遮罩拦截点击误判为业务按钮不可用或下载失败。
 - Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失，或当前源码/DOM 已证明入口文案和历史脚本定位不一致且未修正脚本时，必须停止并记录具体前置缺口。
 - Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
