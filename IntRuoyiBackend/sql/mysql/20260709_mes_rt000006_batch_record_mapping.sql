@@ -6,7 +6,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 DROP PROCEDURE IF EXISTS ensure_mes_rt000006_batch_record_mapping;
 DELIMITER $$
 CREATE PROCEDURE ensure_mes_rt000006_batch_record_mapping()
-BEGIN
+migration_body: BEGIN
   SET @target_route_id = 922067;
   SET @target_route_code = 'RT000006';
   SET @target_route_name = '球囊扩张压力泵';
@@ -18,12 +18,21 @@ BEGIN
     SELECT COUNT(1)
       FROM `mes_pro_route` route
      WHERE route.`id` = @target_route_id
+       AND route.`deleted` = b'0'
+  ) = 0 THEN
+    LEAVE migration_body;
+  END IF;
+
+  IF (
+    SELECT COUNT(1)
+      FROM `mes_pro_route` route
+     WHERE route.`id` = @target_route_id
        AND route.`code` COLLATE utf8mb4_unicode_ci = @target_route_code COLLATE utf8mb4_unicode_ci
        AND route.`name` COLLATE utf8mb4_unicode_ci = @target_route_name COLLATE utf8mb4_unicode_ci
        AND route.`deleted` = b'0'
   ) <> 1 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Missing RT000006 pressure pump route';
+      SET MESSAGE_TEXT = 'RT000006 pressure pump route identity mismatch';
   END IF;
 
   IF (

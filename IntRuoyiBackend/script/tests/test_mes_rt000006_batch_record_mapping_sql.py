@@ -23,9 +23,9 @@ def test_rt000006_mapping_script_targets_only_confirmed_pressure_pump_route():
         "922067",
         "RT000006",
         "球囊扩张压力泵",
-        "mes_pro_route_use_config",
-        "mes_pro_route_use_process_config",
-        "mes_pro_route_use_process_batch_record",
+        "mes_pro_route_flow_config",
+        "mes_pro_route_flow_process_config",
+        "mes_pro_route_flow_process_batch_record",
         "mes_pro_edhr_process_form_permission_rule",
         "mes_pro_batch_record_report",
     ]:
@@ -51,12 +51,20 @@ def test_rt000006_mapping_script_is_name_based_and_uses_existing_roles():
         assert token in sql, f"migration must map by existing process/report/role data: {token}"
 
 
-def test_rt000006_mapping_script_fails_fast_for_missing_prerequisites():
+def test_rt000006_mapping_script_is_not_applicable_when_target_route_is_absent():
+    upper_sql = executable_sql(read_sql())
+
+    assert "MIGRATION_BODY: BEGIN" in upper_sql
+    assert "LEAVE MIGRATION_BODY" in upper_sql
+    assert "MISSING RT000006 PRESSURE PUMP ROUTE" not in upper_sql
+    assert "RT000006 PRESSURE PUMP ROUTE IDENTITY MISMATCH" in upper_sql
+
+
+def test_rt000006_mapping_script_fails_fast_for_present_route_prerequisites():
     upper_sql = executable_sql(read_sql())
 
     for token in [
         "SIGNAL SQLSTATE '45000'",
-        "MISSING RT000006 PRESSURE PUMP ROUTE",
         "MISSING RT000006 PRESSURE PUMP ROLE",
         "MISSING RT000006 BATCH RECORD REPORT",
         "DUPLICATE RT000006 BATCH RECORD REPORT",
@@ -73,7 +81,7 @@ def test_rt000006_mapping_script_is_idempotent_and_non_destructive():
         "LEFT JOIN",
         "IS NULL",
         "WHERE NOT EXISTS",
-        "UPDATE `MES_PRO_ROUTE_USE_PROCESS_CONFIG`",
+        "UPDATE `MES_PRO_ROUTE_FLOW_PROCESS_CONFIG`",
         "UPDATE `MES_PRO_EDHR_PROCESS_FORM_PERMISSION_RULE`",
     ]:
         assert token in upper_sql, f"migration must be idempotent with token: {token}"
