@@ -19,10 +19,21 @@ DEFAULT_TYPE = "schema"
 DEFAULT_RISK_LEVEL = "medium"
 METADATA_PATTERN = re.compile(r"^\s*--\s*release-migration\s*:\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
 ROLLBACK_METADATA_PATTERN = re.compile(r"^\s*--\s*rollback-migration\s*:", re.IGNORECASE | re.MULTILINE)
+NON_RELEASE_SQL_DIRECTORIES = {"target-preflight"}
 
 
 def is_rollback_migration(path: Path) -> bool:
     return ROLLBACK_METADATA_PATTERN.search(path.read_text(encoding="utf-8")) is not None
+
+
+def is_release_migration_candidate(path: Path) -> bool:
+    return (
+        path.is_file()
+        and path.name.startswith("20")
+        and path.suffix == ".sql"
+        and not (NON_RELEASE_SQL_DIRECTORIES & set(path.parts))
+        and not is_rollback_migration(path)
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -100,7 +111,7 @@ def build_migration_manifest(
     seen: dict[str, Path] = {}
     if sql_paths is None:
         paths = sorted(
-            (path for path in root.rglob("20*.sql") if not is_rollback_migration(path)),
+            (path for path in root.rglob("20*.sql") if is_release_migration_candidate(path)),
             key=lambda item: item.relative_to(root).as_posix(),
         )
     else:

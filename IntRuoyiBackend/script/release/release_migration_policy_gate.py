@@ -10,6 +10,7 @@ from script.release.release_migration_manifest import (
     ROLLBACK_METADATA_PATTERN,
     MigrationManifestError,
     build_migration_manifest,
+    is_release_migration_candidate,
     is_rollback_migration,
 )
 
@@ -34,7 +35,7 @@ def _load_frozen_registry(path: Path | str | None) -> dict[str, str]:
 def _resolve_sql_paths(sql_root: Path, sql_paths: list[Path | str] | None) -> list[Path]:
     if sql_paths is None:
         return sorted(
-            (path for path in sql_root.rglob("20*.sql") if not is_rollback_migration(path)),
+            (path for path in sql_root.rglob("20*.sql") if is_release_migration_candidate(path)),
             key=lambda item: item.relative_to(sql_root).as_posix(),
         )
     resolved: list[Path] = []
