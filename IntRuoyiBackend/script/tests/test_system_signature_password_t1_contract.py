@@ -13,7 +13,11 @@ def test_signature_password_migration_adds_history_and_state_columns():
     assert "CALL intruoyi_add_system_users_esign_t1_column('password_credential_status'" in migration
     assert "CREATE TABLE IF NOT EXISTS `system_user_password_history`" in migration
     assert "`password_hash` varchar(100) NOT NULL" in migration
-    assert "UNIQUE KEY `uk_system_users_tenant_canonical_username` (`tenant_id`, `canonical_username`)" in migration
+    assert "CALL intruoyi_add_system_users_esign_t1_column('active_canonical_username'" in migration
+    assert "CASE WHEN `deleted` = b''0'' THEN `canonical_username` ELSE NULL END" in migration
+    assert "WHERE CAST(`deleted` AS UNSIGNED) = 0" in migration
+    assert "ADD UNIQUE KEY `uk_system_users_tenant_active_canonical_username` (`tenant_id`, `active_canonical_username`)" in migration
+    assert "ADD UNIQUE KEY `uk_system_users_tenant_canonical_username` (`tenant_id`, `canonical_username`)" not in migration
     assert migration.count("DELIMITER ;") >= 2
 
 
@@ -24,7 +28,9 @@ def test_system_test_schema_contains_signature_password_t1_fields():
     assert '"password_credential_status" varchar(32) not null default \'ACTIVE\'' in schema
     assert 'CREATE TABLE IF NOT EXISTS "system_user_password_history"' in schema
     assert '"password_hash" varchar(100) not null' in schema
-    assert 'unique ("tenant_id", "canonical_username")' in schema
+    assert '"active_canonical_username" varchar(64)' in schema
+    assert 'unique ("tenant_id", "active_canonical_username")' in schema
+    assert 'unique ("tenant_id", "canonical_username")' not in schema
 
 
 def test_password_policy_uses_90_day_expiry_boundary():

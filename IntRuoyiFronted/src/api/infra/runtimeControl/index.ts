@@ -5,6 +5,7 @@ export type RuntimeOpsInspectionStatus = 'PASS' | 'WARN' | 'BLOCKED' | 'NO_GO'
 export type RuntimeControlSiteMessageStatus = 'SENT' | 'FAILED' | 'BLOCKED'
 export type RuntimeControlCandidateStatus = 'AVAILABLE' | 'BLOCKED'
 export type RuntimeControlPublishScope = 'code-only' | 'with-data'
+export type RuntimeControlAppReleaseScope = 'app-release'
 export type RuntimeControlTargetEnvironment = 'test' | 'prod' | 'backup'
 export type RuntimeControlRootDiskTargetEnvironment = 'test' | 'prod' | 'backup'
 
@@ -62,6 +63,11 @@ export interface RuntimeControlActionReqVO {
   sqlPath?: string
   selectedImageCandidateId?: string
   selectedRecoverySetCandidateId?: string
+}
+
+export interface RuntimeControlReleaseWorkflowCreateReqVO {
+  reason: string
+  sourceSelectionId: string
 }
 
 export interface RuntimeControlActionPreviewVO {

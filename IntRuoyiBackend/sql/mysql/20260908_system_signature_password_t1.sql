@@ -1,6 +1,6 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
 -- 统一电子签名 T1：账户密码状态、密码历史和永久用户名唯一。
--- 发布前置：若同一租户内历史或当前用户名已重复，本迁移 fail fast，不自动合并账户。
+-- 发布前置：若同一租户内未删除用户名已重复，本迁移 fail fast，不自动合并账户；已删除历史账号允许保留重复审计记录。
 
 DROP PROCEDURE IF EXISTS intruoyi_add_system_users_esign_t1_column;
 
@@ -31,6 +31,10 @@ CALL intruoyi_add_system_users_esign_t1_column('password_credential_status',
 
 CALL intruoyi_add_system_users_esign_t1_column('canonical_username',
     'varchar(64) NULL COMMENT ''规范化用户账号：trim + lower-case + Unicode NFC'' AFTER `username`'
+);
+
+CALL intruoyi_add_system_users_esign_t1_column('active_canonical_username',
+    'varchar(64) GENERATED ALWAYS AS (CASE WHEN `deleted` = b''0'' THEN `canonical_username` ELSE NULL END) STORED COMMENT ''未删除账号唯一键辅助列'' AFTER `canonical_username`'
 );
 
 UPDATE `system_users`
@@ -66,9 +70,10 @@ BEGIN
           FROM (
                 SELECT `tenant_id`, `canonical_username`, COUNT(*) AS duplicate_count
                   FROM `system_users`
+                 WHERE CAST(`deleted` AS UNSIGNED) = 0
                  GROUP BY `tenant_id`, `canonical_username`
-                HAVING COUNT(*) > 1
-               ) duplicate_users
+                 HAVING COUNT(*) > 1
+                ) duplicate_users
     ) THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'system_users contains duplicate tenant canonical username values; resolve identities before adding permanent unique index';
@@ -77,7 +82,7 @@ BEGIN
     ALTER TABLE `system_users`
         MODIFY COLUMN `canonical_username` varchar(64) NOT NULL COMMENT '规范化用户账号：trim + lower-case + Unicode NFC';
 
-    IF NOT EXISTS (
+    IF EXISTS (
         SELECT 1
           FROM information_schema.STATISTICS
          WHERE table_schema = DATABASE()
@@ -85,7 +90,18 @@ BEGIN
            AND index_name = 'uk_system_users_tenant_canonical_username'
     ) THEN
         ALTER TABLE `system_users`
-            ADD UNIQUE KEY `uk_system_users_tenant_canonical_username` (`tenant_id`, `canonical_username`);
+            DROP INDEX `uk_system_users_tenant_canonical_username`;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM information_schema.STATISTICS
+         WHERE table_schema = DATABASE()
+           AND table_name = 'system_users'
+           AND index_name = 'uk_system_users_tenant_active_canonical_username'
+    ) THEN
+        ALTER TABLE `system_users`
+            ADD UNIQUE KEY `uk_system_users_tenant_active_canonical_username` (`tenant_id`, `active_canonical_username`);
     END IF;
 END$$
 DELIMITER ;

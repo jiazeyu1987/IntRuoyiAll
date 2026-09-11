@@ -449,9 +449,10 @@ CREATE TABLE IF NOT EXISTS "system_users" (
     "updater" varchar(64) default '',
     "update_time" timestamp not null default current_timestamp,
     "deleted" bit not null default false,
+    "active_canonical_username" varchar(64) generated always as (case when "deleted" = false then "canonical_username" else null end),
     "tenant_id" bigint not null default  '0',
     primary key ("id"),
-    unique ("tenant_id", "canonical_username")
+    unique ("tenant_id", "active_canonical_username")
 ) comment '用户信息表';
 
 CREATE TABLE IF NOT EXISTS "system_user_password_history" (
