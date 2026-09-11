@@ -1,0 +1,19 @@
+{
+  "environment": "test",
+  "server": "172.30.30.58",
+  "capturedAt": "2026-09-11T17:05:00+08:00",
+  "migrationId": "20260911_mes_scheduler_schedule_order_delete_permission",
+  "targetPermission": "mes:pro-schedule-order:delete",
+  "targetRoleCount": 2,
+  "targetMenuCount": 1,
+  "targetActiveGrantCount": 0,
+  "targetRows": [
+    { "tenantId": 1, "roleId": 910216, "roleMenuId": null, "deleted": null },
+    { "tenantId": 122, "roleId": 910235, "roleMenuId": 905577, "deleted": true, "creator": "1", "updater": "mes-smart-role-scope" },
+    { "tenantId": 122, "roleId": 910235, "roleMenuId": 906066, "deleted": true, "creator": "1", "updater": "mes-smart-role-scope" }
+  ],
+  "nonTargetDeleteActiveCount": 11,
+  "nonTargetDeleteActiveHash": "5a9110cf5e26d5254e2d47e9f3696adfc6839eb45e9f3fff1923eacb98dcfd78",
+  "userRoleCount": 2370,
+  "userRoleHash": "c41baac22b4c72d3ffd4f365b3513ca8f81127e60c8329bda4b6b9d6de518b95"
+}

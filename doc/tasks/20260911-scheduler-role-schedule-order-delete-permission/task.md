@@ -9,8 +9,8 @@
 1. [completed] 记录数据库、权限与 worktree 前置门禁，读取真实表结构和现有迁移模式。
 2. [completed] 新增失败合同测试，锁定目标角色、唯一菜单、幂等写入、非目标隔离和回滚要求。
 3. [completed] 实现前向迁移与 target preflight，完成 GREEN、回归与迁移策略验证。
-4. [pending] 提交并推送任务分支，应用测试服并完成 Playwright 真实页面验收。
-5. [pending] 融合主线、清理 worktree 和槽位，完成任务记录。
+4. [completed] 提交并推送任务分支，应用测试服并完成 Playwright 真实页面验收。
+5. [blocked] 融合主线、清理 worktree 和槽位；主工作区存在其它任务脏改动，按规则保留分支与 worktree。
 
 ## Expected Verification
 
@@ -36,8 +36,26 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 ## Cleanup Keep
 
 - doc/tasks/20260911-scheduler-role-schedule-order-delete-permission/rollback.sql
+- doc/tasks/20260911-scheduler-role-schedule-order-delete-permission/test-server-preapply-backup.json
+
+## Cleanup Candidates
+
+- output/playwright/20260911-scheduler-delete-permission/
+
+## Final Verification
+
+- 测试服迁移执行成功：租户 1 和租户 122 的活动 `mes_scheduler` 各有且仅有一条有效删除权限绑定，重复活动组为 0。
+- 非目标删除权限保持 `count=11` 且 SHA256 与写入前一致；`system_user_role` 保持 `count=2370` 且 SHA256 与写入前一致。
+- `zhaojie` fresh 登录权限响应包含 `mes:pro-schedule-order:delete`；排产工单页加载 20 行并显示 20 个删除按钮，无权限/系统错误。
+- 未点击删除按钮，未修改工单；未操作正式服、审查服或备份服。
+
+## Blocker
+
+- `task-closeout-cleanup` preview 正确阻断：主工作区 `E:\IntRuoyi` 存在其它任务的 staged/dirty/untracked 改动，当前分支不能执行安全 `ff-only` 融合。
+- 影响仅限 Git 主线融合、临时产物 cleanup 和 worktree/slot 42 删除；测试服权限迁移及 `zhaojie` 页面验收均已通过。
+- 已推送并保护分支 `origin/codex/20260911-scheduler-delete-permission`；不得在主工作区未清洁时强行合并或删除 worktree。

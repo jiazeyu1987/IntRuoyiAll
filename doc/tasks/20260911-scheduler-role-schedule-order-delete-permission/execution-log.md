@@ -27,3 +27,19 @@ GREEN: database-schema-evidence-validator -> PASS, `validate_database_schema.py 
 GREEN: project-experience-consolidation -> PASS, 现有 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-09-10-安装包构建前必须执行结构迁移演练与目标只读预检` 已明确非结构迁移必须位于 `sql/mysql/target-preflight` 且为只读合同；本次复用 r44 已验证候选过滤规则，无新的独立长期经验，未新建或重复追加经验文档。
 
 GREEN: branch-runtime-port-guard-before-commit -> PASS, 分支 `codex/20260911-scheduler-delete-permission` 使用登记 slot 42，guard 返回 frontend 8257/backend 48257；未启动本地服务。
+
+GREEN: implementation-commit-push -> PASS, 实现提交 `41467d6c2` 已推送到 `origin/codex/20260911-scheduler-delete-permission`；提交仅包含本任务迁移、preflight、迁移候选过滤、测试和任务证据。
+
+BLOCKER: first-test-server-snapshot-query -> CONTAINED, 只读 target preflight 已 PASS，但后续快照 SQL 有一处引号遗漏并以 MySQL 1064 停止；未执行迁移、测试服零写入。修正只读查询后重新取得完整快照。
+
+GREEN: test-server-target-preflight-and-backup -> PASS, `TARGET_PREFLIGHT_PASS`；活动排产员角色 2、唯一活动删除菜单 1、目标有效绑定 0。冻结非目标删除授权 `count=11` 及 SHA256、全部用户角色 `count=2370` 及 SHA256；精确目标历史行写入 `test-server-preapply-backup.json`，回滚脚本已就绪。
+
+GREEN: test-server-migration-apply -> PASS, 仅执行已提交 migrationId `20260911_mes_scheduler_schedule_order_delete_permission`；租户 1 新增绑定 `roleMenuId=907132`，租户 122 恢复历史绑定 `roleMenuId=905577`，两个活动排产员角色各恰好一条有效绑定，重复活动组 0。
+
+GREEN: test-server-non-target-integrity -> PASS, 非目标删除权限仍为 `count=11` 且 SHA256 与 pre-state 一致；`system_user_role` 仍为 `count=2370` 且 SHA256 与 pre-state 一致，证明未扩大其它角色或改变用户角色绑定。
+
+BLOCKER: redis-auth-probe -> CONTAINED, 首次精确缓存扫描按容器环境变量尝试认证，但测试服 Redis 明确未配置默认用户密码而拒绝 AUTH；未删除任何键。按真实配置无认证只读扫描 `*menu_role_ids*` 返回空集合，因此没有现存菜单角色缓存需要清理，未执行全库清空。
+
+GREEN: playwright-zhaojie-delete-visible -> PASS, 使用项目 Playwright 1.60.0，`芋道源码/zhaojie` fresh 登录成功；权限响应 HTTP 200/业务码 0 且包含 `mes:pro-schedule-order:delete`，排产工单页加载 20 行、删除按钮 20 个、无权限/系统错误；未点击删除按钮。
+
+BLOCKER: task-closeout-cleanup-preview -> 主工作区 `E:\IntRuoyi` 存在其它任务 staged/dirty/untracked 改动，preview 返回 `Main worktree is dirty and cannot receive ff-only merge`；未运行 apply，未删除临时脚本、证据、worktree 或 slot 42。业务权限已生效，阻塞仅限 Git 融合与物理收尾。

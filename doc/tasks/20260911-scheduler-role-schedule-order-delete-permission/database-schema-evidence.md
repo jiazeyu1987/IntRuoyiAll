@@ -60,8 +60,10 @@
 - 测试服 schema 只读核对：`system_role_menu` 包含 `id/role_id/menu_id/creator/updater/deleted/tenant_id` 所需字段。
 - 测试服活动排产员角色：租户 1 与 122 各唯一一个。
 - 删除菜单：全库唯一活动菜单 `5586 / mes:pro-schedule-order:delete / type=3`。
-- 测试服写入与 Playwright fresh 登录验证待实现提交和推送后执行。
+- 测试服执行后两个目标角色各有且仅有一条活动绑定，重复活动组 0。
+- 非目标删除权限和用户角色计数/哈希与写入前一致。
+- `zhaojie` fresh 登录权限响应和页面按钮验证通过。
 
 ## Blockers
 
-- 无当前实现 blocker；测试服写入尚未执行。
+- 无数据库或页面验收 blocker；仅剩 Git 主线融合与 worktree 收尾检查。
