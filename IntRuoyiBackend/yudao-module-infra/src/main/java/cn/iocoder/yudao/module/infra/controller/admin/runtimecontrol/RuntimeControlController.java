@@ -24,6 +24,8 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlProbeLatestRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleasePackageRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseStatusRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowCreateReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestartReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRollbackCandidateRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestoreCandidateRespVO;
@@ -45,6 +47,7 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeControlServic
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeIncidentService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeStorageGuardService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeRemoteRootDiskService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -97,6 +100,8 @@ public class RuntimeControlController {
     private RuntimeIncidentService runtimeIncidentService;
     @Resource
     private RuntimeRemoteRootDiskService runtimeRemoteRootDiskService;
+    @Resource
+    private ReleaseWorkflowService releaseWorkflowService;
 
     @GetMapping("/overview")
     @Operation(summary = "获得运行控制台总览")
@@ -146,6 +151,40 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<RuntimeControlReleaseStatusRespVO> getReleaseStatus() {
         return success(runtimeControlService.getReleaseStatus());
+    }
+
+    @PostMapping("/release-workflows")
+    @Operation(summary = "创建程序发布工作流")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> createReleaseWorkflow(
+            @Valid @RequestBody RuntimeControlReleaseWorkflowCreateReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowService.create(
+                requireLoginUserId(), reqVO.getReason(), reqVO.getSourceSelectionId())));
+    }
+
+    @GetMapping("/release-workflows")
+    @Operation(summary = "获得程序发布工作流")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
+    public CommonResult<List<RuntimeControlReleaseWorkflowRespVO>> getReleaseWorkflows() {
+        return success(releaseWorkflowService.list().stream()
+                .map(RuntimeControlReleaseWorkflowRespVO::from)
+                .toList());
+    }
+
+    @GetMapping("/release-workflows/{workflowId}")
+    @Operation(summary = "获得程序发布工作流详情")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> getReleaseWorkflow(
+            @PathVariable("workflowId") String workflowId) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowService.require(workflowId)));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/cancel")
+    @Operation(summary = "取消程序发布工作流")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> cancelReleaseWorkflow(
+            @PathVariable("workflowId") String workflowId) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowService.cancel(workflowId)));
     }
 
     @GetMapping("/operations/{operationId}/log")

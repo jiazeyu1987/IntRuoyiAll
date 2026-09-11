@@ -16,7 +16,7 @@ public class RuntimeControlReleasePackageRespVO {
     @Schema(description = "发布包目录名")
     private String packageDirectoryName;
 
-    @Schema(description = "release-manifest.json 路径")
+    @Schema(description = "唯一权威 manifest.json 路径")
     private String manifestPath;
 
     @Schema(description = "构建时间")
@@ -24,6 +24,15 @@ public class RuntimeControlReleasePackageRespVO {
 
     @Schema(description = "发布范围")
     private String publishScope;
+
+    @Schema(description = "不可变程序包摘要")
+    private String packageDigest;
+
+    @Schema(description = "维护仓与 IntRuoyi 根仓来源")
+    private List<SourceRoot> sourceRoots;
+
+    @Schema(description = "maintenance/backend/frontend 来源角色")
+    private List<SourceRole> sourceRoles;
 
     @Schema(description = "发布包组件范围：full/intruoyi/backend/frontend/website")
     private String component;
@@ -63,4 +72,21 @@ public class RuntimeControlReleasePackageRespVO {
 
     @Schema(description = "阻断原因")
     private List<String> blockedReasons;
+
+    @Data
+    public static class SourceRoot {
+        private String rootRole;
+        private String normalizedRoot;
+        private String approvedCommit;
+        private String commit;
+        private Boolean dirty;
+    }
+
+    @Data
+    public static class SourceRole {
+        private String sourceRole;
+        private String rootRole;
+        private String relativePath;
+        private String commit;
+    }
 }

@@ -29,6 +29,77 @@ public final class ReleaseSourceFreezeContract {
         return new SourceFreezeEvidence(verificationPoint, List.copyOf(roots.values()), roles);
     }
 
+    public static SourceFreezeEvidence verifyAgain(SourceFreezeEvidence expected,
+                                                   VerificationPoint verificationPoint,
+                                                   List<GitRootEvidence> gitRoots,
+                                                   List<SourceRoleEvidence> sourceRoles) {
+        if (expected == null) {
+            throw new IllegalStateException("SOURCE_FREEZE_EVIDENCE_MISSING");
+        }
+        Map<String, SourceRoleEvidence> expectedRoles = rolesByName(expected.sourceRoles());
+        Map<String, SourceRoleEvidence> actualRoles = rolesByName(sourceRoles);
+        for (String role : List.of("maintenance", "backend", "frontend")) {
+            SourceRoleEvidence before = expectedRoles.get(role);
+            SourceRoleEvidence current = actualRoles.get(role);
+            if (!before.rootRole().equals(current.rootRole())) {
+                throw new IllegalStateException("SOURCE_ROLE_ROOT_DRIFT: " + role);
+            }
+            if (!before.relativePath().equals(current.relativePath())) {
+                throw new IllegalStateException("SOURCE_ROLE_PATH_DRIFT: " + role);
+            }
+            if (!normalizeCommit(before.commit()).equals(normalizeCommit(current.commit()))) {
+                throw new IllegalStateException("SOURCE_ROLE_COMMIT_DRIFT: " + role);
+            }
+        }
+
+        SourceFreezeEvidence current = verify(verificationPoint, gitRoots, sourceRoles);
+        Map<String, GitRootEvidence> expectedRoots = rootsByRole(expected.gitRoots());
+        Map<String, GitRootEvidence> actualRoots = rootsByRole(current.gitRoots());
+        for (String rootRole : List.of("maintenance", "application")) {
+            GitRootEvidence before = expectedRoots.get(rootRole);
+            GitRootEvidence after = actualRoots.get(rootRole);
+            if (!before.normalizedRoot().equals(after.normalizedRoot())) {
+                throw new IllegalStateException("SOURCE_ROOT_PATH_DRIFT: " + rootRole);
+            }
+            if (!before.approvedCommit().equals(after.approvedCommit())) {
+                throw new IllegalStateException("SOURCE_ROOT_COMMIT_DRIFT: " + rootRole);
+            }
+        }
+        return current;
+    }
+
+    private static Map<String, SourceRoleEvidence> rolesByName(List<SourceRoleEvidence> roles) {
+        if (roles == null || roles.size() != 3) {
+            throw new IllegalStateException("SOURCE_ROLE_SET_DRIFT");
+        }
+        Map<String, SourceRoleEvidence> result = new LinkedHashMap<>();
+        for (SourceRoleEvidence role : roles) {
+            if (role == null || result.put(role.sourceRole(), role) != null) {
+                throw new IllegalStateException("SOURCE_ROLE_SET_DRIFT");
+            }
+        }
+        if (!result.keySet().equals(REQUIRED_ROLE_ROOTS.keySet())) {
+            throw new IllegalStateException("SOURCE_ROLE_SET_DRIFT");
+        }
+        return result;
+    }
+
+    private static Map<String, GitRootEvidence> rootsByRole(List<GitRootEvidence> roots) {
+        if (roots == null || roots.size() != 2) {
+            throw new IllegalStateException("SOURCE_ROOT_SET_DRIFT");
+        }
+        Map<String, GitRootEvidence> result = new LinkedHashMap<>();
+        for (GitRootEvidence root : roots) {
+            if (root == null || result.put(root.rootRole(), root) != null) {
+                throw new IllegalStateException("SOURCE_ROOT_SET_DRIFT");
+            }
+        }
+        if (!result.keySet().equals(REQUIRED_ROOTS)) {
+            throw new IllegalStateException("SOURCE_ROOT_SET_DRIFT");
+        }
+        return result;
+    }
+
     private static Map<String, GitRootEvidence> verifyRoots(List<GitRootEvidence> values) {
         if (values == null || values.size() != 2) {
             throw new IllegalStateException("SOURCE_ROOT_SET_INVALID");

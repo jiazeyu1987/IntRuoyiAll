@@ -496,7 +496,7 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         String directoryName = item.getName();
         String packagePath = StrUtil.blankToDefault(item.getPath(), releasePackagesRoot() + "/" + directoryName)
                 .replace("\\", "/");
-        String manifestPath = packagePath + "/release-manifest.json";
+        String manifestPath = packagePath + "/manifest.json";
         List<String> blockedReasons = new ArrayList<>();
         respVO.setReleaseTag(directoryName);
         respVO.setPackageDirectoryName(directoryName);
@@ -504,47 +504,59 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
 
         List<String> packageFileNames = listReleasePackageFileNames(nasConfig, packagePath, blockedReasons);
         JsonNode manifest = null;
-        if (packageFileNames.contains("release-manifest.json")) {
-            manifest = readReleasePackageJson(nasConfig, manifestPath, "release-manifest.json", blockedReasons);
+        if (packageFileNames.contains("manifest.json")) {
+            manifest = readReleasePackageJson(nasConfig, manifestPath, "manifest.json", blockedReasons);
         } else {
-            blockedReasons.add("缺少 release-manifest.json");
+            blockedReasons.add("缺少 manifest.json");
         }
         if (manifest != null) {
             String releaseTag = text(manifest, "releaseTag");
             if (StrUtil.isNotBlank(releaseTag)) {
                 respVO.setReleaseTag(releaseTag);
             }
-            String packageDirectoryName = text(manifest, "packageDirectoryName");
+            String packageDirectoryName = text(manifest, "packageId");
             respVO.setPackageDirectoryName(packageDirectoryName);
             respVO.setImageTag(packageDirectoryName);
-            respVO.setBuiltAt(text(manifest, "builtAt"));
+            respVO.setBuiltAt(text(manifest, "createdAt"));
             respVO.setPublishScope(text(manifest, "publishScope"));
+            respVO.setPackageDigest(text(manifest, "packageDigest"));
+            respVO.setSourceRoots(readSourceRoots(manifest.get("sourceRoots")));
+            respVO.setSourceRoles(readSourceRoles(manifest.get("sourceRoles")));
             String component = text(manifest, "component");
             respVO.setComponent(component);
             Boolean includeShowroomBuildPackage = booleanValue(manifest, "includeShowroomBuildPackage");
             respVO.setIncludeShowroomBuildPackage(includeShowroomBuildPackage);
             if (StrUtil.isBlank(component)) {
-                blockedReasons.add("release-manifest.json 缺少 component");
+                blockedReasons.add("manifest.json 缺少 component");
             } else if (!List.of("full", "intruoyi", "backend", "frontend", "website").contains(component)) {
-                blockedReasons.add("release-manifest.json component 非法");
+                blockedReasons.add("manifest.json component 非法");
             }
             if (includeShowroomBuildPackage == null) {
-                blockedReasons.add("release-manifest.json 缺少 includeShowroomBuildPackage");
+                blockedReasons.add("manifest.json 缺少 includeShowroomBuildPackage");
             }
             Boolean onlyOfficeIncluded = booleanValue(manifest, "onlyOfficeIncluded");
             respVO.setOnlyOfficeIncluded(onlyOfficeIncluded);
             if (onlyOfficeIncluded == null) {
-                blockedReasons.add("release-manifest.json 缺少 onlyOfficeIncluded");
+                blockedReasons.add("manifest.json 缺少 onlyOfficeIncluded");
             }
             if (StrUtil.isBlank(packageDirectoryName)) {
-                blockedReasons.add("release-manifest.json 缺少 packageDirectoryName");
+                blockedReasons.add("manifest.json 缺少 packageId");
             } else if (!directoryName.equals(packageDirectoryName)) {
-                blockedReasons.add("release-manifest packageDirectoryName 与目录不一致");
+                blockedReasons.add("manifest packageId 与目录不一致");
+            }
+            if (StrUtil.isBlank(respVO.getPackageDigest())) {
+                blockedReasons.add("manifest.json 缺少 packageDigest");
+            }
+            if (respVO.getSourceRoots().size() != 2) {
+                blockedReasons.add("manifest.json 缺少 sourceRoots");
+            }
+            if (respVO.getSourceRoles().size() != 3) {
+                blockedReasons.add("manifest.json 缺少 sourceRoles");
             }
             boolean checksumPresent = hasReleasePackageChecksum(manifest);
             respVO.setChecksumPresent(checksumPresent);
             if (!checksumPresent) {
-                blockedReasons.add("release-manifest.json 缺少 artifact sha256");
+                blockedReasons.add("manifest.json 缺少 artifact sha256");
             }
         } else {
             respVO.setChecksumPresent(false);
@@ -614,6 +626,39 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             }
         }
         return false;
+    }
+
+    private List<RuntimeControlReleasePackageRespVO.SourceRoot> readSourceRoots(JsonNode sourceRoots) {
+        if (sourceRoots == null || !sourceRoots.isArray()) {
+            return List.of();
+        }
+        List<RuntimeControlReleasePackageRespVO.SourceRoot> result = new ArrayList<>();
+        for (JsonNode sourceRoot : sourceRoots) {
+            RuntimeControlReleasePackageRespVO.SourceRoot item = new RuntimeControlReleasePackageRespVO.SourceRoot();
+            item.setRootRole(text(sourceRoot, "rootRole"));
+            item.setNormalizedRoot(text(sourceRoot, "normalizedRoot"));
+            item.setApprovedCommit(text(sourceRoot, "approvedCommit"));
+            item.setCommit(text(sourceRoot, "commit"));
+            item.setDirty(booleanValue(sourceRoot, "dirty"));
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<RuntimeControlReleasePackageRespVO.SourceRole> readSourceRoles(JsonNode sourceRoles) {
+        if (sourceRoles == null || !sourceRoles.isArray()) {
+            return List.of();
+        }
+        List<RuntimeControlReleasePackageRespVO.SourceRole> result = new ArrayList<>();
+        for (JsonNode sourceRole : sourceRoles) {
+            RuntimeControlReleasePackageRespVO.SourceRole item = new RuntimeControlReleasePackageRespVO.SourceRole();
+            item.setSourceRole(text(sourceRole, "sourceRole"));
+            item.setRootRole(text(sourceRole, "rootRole"));
+            item.setRelativePath(text(sourceRole, "relativePath"));
+            item.setCommit(text(sourceRole, "commit"));
+            result.add(item);
+        }
+        return result;
     }
 
     private String text(JsonNode node, String fieldName) {

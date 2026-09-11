@@ -191,21 +191,23 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
 
     private JsonNode readReleaseManifest(String directoryName, String manifestPath, List<String> blockedReasons) {
         if (!releasePackageRepository.isRegularFile(manifestPath)) {
-            blockedReasons.add("缺少 release-manifest.json");
+            blockedReasons.add("缺少 manifest.json");
             return null;
         }
         try {
             JsonNode manifest = objectMapper.readTree(releasePackageRepository.readText(manifestPath));
-            String packageDirectoryName = text(manifest, "packageDirectoryName");
-            if (StrUtil.isNotBlank(packageDirectoryName) && !directoryName.equals(packageDirectoryName)) {
-                blockedReasons.add("release-manifest packageDirectoryName 与目录不一致");
+            String packageDirectoryName = text(manifest, "packageId");
+            if (StrUtil.isBlank(packageDirectoryName)) {
+                blockedReasons.add("manifest.json 缺少 packageId");
+            } else if (!directoryName.equals(packageDirectoryName)) {
+                blockedReasons.add("manifest packageId 与目录不一致");
             }
             return manifest;
         } catch (ServiceException ex) {
-            blockedReasons.add("release-manifest.json 读取失败：" + ex.getMessage());
+            blockedReasons.add("manifest.json 读取失败：" + ex.getMessage());
             return null;
         } catch (IOException ex) {
-            blockedReasons.add("release-manifest.json 解析失败：" + ex.getMessage());
+            blockedReasons.add("manifest.json 解析失败：" + ex.getMessage());
             return null;
         }
     }
@@ -219,9 +221,9 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
     }
 
     private String releasePackageImageTag(String directoryName, JsonNode manifest, List<String> blockedReasons) {
-        String packageDirectoryName = text(manifest, "packageDirectoryName");
+        String packageDirectoryName = text(manifest, "packageId");
         if (StrUtil.isBlank(packageDirectoryName)) {
-            blockedReasons.add("release-manifest.json 缺少 packageDirectoryName");
+            blockedReasons.add("manifest.json 缺少 packageId");
             return "";
         }
         if (!directoryName.equals(packageDirectoryName)) {
@@ -498,7 +500,7 @@ public class RuntimeOpsCandidateServiceImpl implements RuntimeOpsCandidateServic
     }
 
     private String releasePackageManifestPath(RuntimeReleasePackageNasRepository.ReleasePackageDir releasePackageDir) {
-        return releasePackageRepository.childPath(releasePackageDir, "release-manifest.json");
+        return releasePackageRepository.childPath(releasePackageDir, "manifest.json");
     }
 
     private record ManifestEvidence(JsonNode node, String sha256) {

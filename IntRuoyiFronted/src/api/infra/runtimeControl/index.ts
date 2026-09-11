@@ -6,6 +6,21 @@ export type RuntimeControlSiteMessageStatus = 'SENT' | 'FAILED' | 'BLOCKED'
 export type RuntimeControlCandidateStatus = 'AVAILABLE' | 'BLOCKED'
 export type RuntimeControlPublishScope = 'code-only' | 'with-data'
 export type RuntimeControlAppReleaseScope = 'app-release'
+export type RuntimeControlReleaseWorkflowState =
+  | 'SOURCE_FREEZING'
+  | 'PREFLIGHTING'
+  | 'TESTING'
+  | 'BUILDING'
+  | 'READY'
+  | 'TEST_DEPLOYING'
+  | 'TEST_DEPLOYED'
+  | 'TESTED'
+  | 'PROD_PREVIEW'
+  | 'PROMOTING_PROD'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELED'
+  | 'RECOVERY_REQUIRED'
 export type RuntimeControlTargetEnvironment = 'test' | 'prod' | 'backup'
 export type RuntimeControlRootDiskTargetEnvironment = 'test' | 'prod' | 'backup'
 
@@ -66,6 +81,28 @@ export interface RuntimeControlActionReqVO {
 }
 
 export interface RuntimeControlReleaseWorkflowCreateReqVO {
+  reason: string
+  sourceSelectionId: string
+}
+
+export interface RuntimeControlReleaseWorkflowVO {
+  workflowId: string
+  releaseTag: string
+  publishScope: RuntimeControlAppReleaseScope
+  presetId: string
+  presetVersion: string
+  state: RuntimeControlReleaseWorkflowState
+  stateVersion: number
+  attempt: number
+  operationId?: string
+  errorCode?: string
+  failedStage?: string
+  retryable: boolean
+  evidenceRefs?: string[]
+  createdAt?: RuntimeControlDateTime
+  updatedAt?: RuntimeControlDateTime
+  lastHeartbeatAt?: RuntimeControlDateTime
+  requestedBy?: string
   reason: string
   sourceSelectionId: string
 }
@@ -568,6 +605,35 @@ export const getRuntimeControlReleasePackages = () => {
 export const getRuntimeControlReleaseStatus = () => {
   return request.get<RuntimeControlReleaseStatusVO>({
     url: '/infra/runtime-control/release-status',
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const createRuntimeControlReleaseWorkflow = (data: RuntimeControlReleaseWorkflowCreateReqVO) => {
+  return request.post<RuntimeControlReleaseWorkflowVO>({
+    url: '/infra/runtime-control/release-workflows',
+    data,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const getRuntimeControlReleaseWorkflows = () => {
+  return request.get<RuntimeControlReleaseWorkflowVO[]>({
+    url: '/infra/runtime-control/release-workflows',
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const getRuntimeControlReleaseWorkflow = (workflowId: string) => {
+  return request.get<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}`,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const cancelRuntimeControlReleaseWorkflow = (workflowId: string) => {
+  return request.post<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/cancel`,
     timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
   })
 }

@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 public final class ReleaseDigestContract {
@@ -27,7 +26,7 @@ public final class ReleaseDigestContract {
                 throw invalidPath("artifact is null");
             }
             String path = normalizePath(artifact.path());
-            if (!caseFoldedPaths.add(path.toLowerCase(Locale.ROOT))) {
+            if (!caseFoldedPaths.add(asciiCaseFold(path))) {
                 throw invalidPath("case-folded path collision: " + path);
             }
             byte[] content = artifact.content();
@@ -67,6 +66,13 @@ public final class ReleaseDigestContract {
 
     private static boolean hasControlCharacter(String value) {
         return value.codePoints().anyMatch(codePoint -> codePoint < 32 || codePoint == 127);
+    }
+
+    private static String asciiCaseFold(String value) {
+        StringBuilder folded = new StringBuilder(value.length());
+        value.codePoints().forEach(codePoint ->
+                folded.appendCodePoint(codePoint >= 'A' && codePoint <= 'Z' ? codePoint + ('a' - 'A') : codePoint));
+        return folded.toString();
     }
 
     private static IllegalArgumentException invalidPath(String message) {

@@ -55,8 +55,43 @@ class ReleaseSourceFreezeTest {
         assertTrue(drift.getCause().getMessage().contains("SOURCE_HEAD_DRIFT"));
     }
 
+    @Test
+    void secondFreezeRejectsRootAndRoleEvidenceDriftEvenWhenHeadIsClean() throws Exception {
+        ReflectionApi api = ReflectionApi.load();
+        List<Object> roots = List.of(
+                api.root("maintenance", "D:/release/m", "a".repeat(40), "a".repeat(40), false),
+                api.root("application", "D:/release/a", "b".repeat(40), "b".repeat(40), false));
+        List<Object> roles = List.of(
+                api.role("maintenance", "maintenance", ".", "a".repeat(40)),
+                api.role("backend", "application", "IntRuoyiBackend", "b".repeat(40)),
+                api.role("frontend", "application", "IntRuoyiFronted", "b".repeat(40)));
+        Object first = api.verify("BEFORE_BUILD", roots, roles);
+
+        List<Object> movedRoots = List.of(
+                api.root("maintenance", "D:/other/m", "a".repeat(40), "a".repeat(40), false),
+                api.root("application", "D:/release/a", "b".repeat(40), "b".repeat(40), false));
+        assertDrift(api, first, movedRoots, roles, "SOURCE_ROOT_PATH_DRIFT");
+        assertDrift(api, first, roots, List.of(
+                api.role("maintenance", "application", ".", "a".repeat(40)), roles.get(1), roles.get(2)),
+                "SOURCE_ROLE_ROOT_DRIFT");
+        assertDrift(api, first, roots, List.of(
+                roles.get(0), api.role("backend", "application", "backend", "b".repeat(40)), roles.get(2)),
+                "SOURCE_ROLE_PATH_DRIFT");
+        assertDrift(api, first, roots, List.of(
+                roles.get(0), roles.get(1),
+                api.role("frontend", "application", "IntRuoyiFronted", "c".repeat(40))),
+                "SOURCE_ROLE_COMMIT_DRIFT");
+    }
+
+    private static void assertDrift(ReflectionApi api, Object first, List<Object> roots,
+                                    List<Object> roles, String code) {
+        InvocationTargetException error = assertThrows(InvocationTargetException.class,
+                () -> api.verifyAgain(first, roots, roles));
+        assertTrue(error.getCause().getMessage().contains(code));
+    }
+
     private record ReflectionApi(Class<?> contractClass, Class<?> pointClass, Constructor<?> rootConstructor,
-                                 Constructor<?> roleConstructor, Method verifyMethod) {
+                                 Constructor<?> roleConstructor, Method verifyMethod, Method verifyAgainMethod) {
 
         static ReflectionApi load() {
             try {
@@ -65,10 +100,12 @@ class ReleaseSourceFreezeTest {
                 Class<?> point = Class.forName(contract.getName() + "$VerificationPoint");
                 Class<?> root = Class.forName(contract.getName() + "$GitRootEvidence");
                 Class<?> role = Class.forName(contract.getName() + "$SourceRoleEvidence");
+                Class<?> evidence = Class.forName(contract.getName() + "$SourceFreezeEvidence");
                 return new ReflectionApi(contract, point,
                         root.getConstructor(String.class, String.class, String.class, String.class, boolean.class),
                         role.getConstructor(String.class, String.class, String.class, String.class),
-                        contract.getMethod("verify", point, List.class, List.class));
+                        contract.getMethod("verify", point, List.class, List.class),
+                        contract.getMethod("verifyAgain", evidence, point, List.class, List.class));
             } catch (ReflectiveOperationException exception) {
                 throw new AssertionError("required P1 source-freeze contract is missing", exception);
             }
@@ -86,6 +123,12 @@ class ReleaseSourceFreezeTest {
         Object verify(String point, List<Object> roots, List<Object> roles) throws Exception {
             Object enumValue = Enum.valueOf((Class<? extends Enum>) pointClass, point);
             return verifyMethod.invoke(null, enumValue, roots, roles);
+        }
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        Object verifyAgain(Object expected, List<Object> roots, List<Object> roles) throws Exception {
+            Object point = Enum.valueOf((Class<? extends Enum>) pointClass, "BEFORE_PACKAGE");
+            return verifyAgainMethod.invoke(null, expected, point, roots, roles);
         }
 
         Object access(Object value, String accessor) throws Exception {

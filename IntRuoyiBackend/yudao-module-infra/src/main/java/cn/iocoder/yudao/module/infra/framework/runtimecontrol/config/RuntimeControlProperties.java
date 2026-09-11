@@ -33,6 +33,7 @@ public class RuntimeControlProperties implements InitializingBean {
     private List<String> components = List.of("intruoyi-frontend", "intruoyi-backend", "intruoyi-full", "website-frontend");
     private BackupOps backupOps = new BackupOps();
     private ReleasePackage releasePackage = new ReleasePackage();
+    private ReleaseWorkflow releaseWorkflow = new ReleaseWorkflow();
     private StorageGuard storageGuard = new StorageGuard();
 
     public static RuntimeControlProperties createDefaultForTests(Path stateDir) {
@@ -150,6 +151,10 @@ public class RuntimeControlProperties implements InitializingBean {
         if (statusCommandTimeout == null || statusCommandTimeout.isZero() || statusCommandTimeout.isNegative()) {
             throw new IllegalArgumentException("yudao.runtime-control.status-command-timeout must be greater than 0");
         }
+        if (releaseWorkflow == null) {
+            throw new IllegalArgumentException("yudao.runtime-control.release-workflow is required");
+        }
+        releaseWorkflow.validate();
         Map<String, Environment> normalized = defaultEnvironments();
         environments.forEach((key, configured) -> normalized.put(key, mergeEnvironmentDefaults(key, configured, normalized.get(key))));
         environments = normalized;
@@ -340,6 +345,35 @@ public class RuntimeControlProperties implements InitializingBean {
         private String backendRuntimeBaseImage = "";
         private String backendRuntimeBaseDigest = "";
         private String backendRuntimeBaseVersion = "";
+    }
+
+    @Data
+    public static class ReleaseWorkflow {
+        private String presetId = "preset-app-release";
+        private String presetVersion = "1";
+        private Duration heartbeatTimeout = Duration.ofMinutes(15);
+        private Duration leaseTtl = Duration.ofMinutes(30);
+        private boolean productionWriteEnabled;
+        private List<String> secretRefs = List.of("release.nas.ssh", "release.registry");
+
+        public void validate() {
+            if (presetId == null || !presetId.matches("[a-z0-9][a-z0-9.-]{2,63}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.preset-id is invalid");
+            }
+            if (presetVersion == null || !presetVersion.matches("[0-9]+")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.preset-version is invalid");
+            }
+            if (heartbeatTimeout == null || heartbeatTimeout.isZero() || heartbeatTimeout.isNegative()) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.heartbeat-timeout must be greater than 0");
+            }
+            if (leaseTtl == null || leaseTtl.isZero() || leaseTtl.isNegative()) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.lease-ttl must be greater than 0");
+            }
+            if (secretRefs == null || secretRefs.isEmpty() || secretRefs.stream().anyMatch(value ->
+                    value == null || value.isBlank() || value.contains("=") || value.contains("\\n"))) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.secret-refs are invalid");
+            }
+        }
     }
 
     @Data

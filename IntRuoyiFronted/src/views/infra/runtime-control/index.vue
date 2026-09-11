@@ -25,6 +25,77 @@
       {{ lastError }}
     </div>
 
+    <section class="release-workflow-panel" aria-labelledby="release-workflow-title">
+      <div class="release-workflow-panel__head">
+        <div>
+          <div id="release-workflow-title" class="panel-title">标准程序发布</div>
+          <div class="release-workflow-panel__meta">
+            <el-tag type="info" effect="plain">程序包（不含数据）</el-tag>
+            <span>PublishScope={{ activeReleaseWorkflow?.publishScope || 'app-release' }}</span>
+            <span v-if="activeReleaseWorkflow">状态：{{ releaseWorkflowStateText(activeReleaseWorkflow.state) }}</span>
+          </div>
+        </div>
+        <el-button :loading="releaseWorkflowLoading" @click="loadReleaseWorkflows">
+          <Icon icon="ep:refresh" class="mr-5px" />
+          刷新工作流
+        </el-button>
+      </div>
+      <div class="release-workflow-panel__controls">
+        <el-input
+          v-model="releaseWorkflowReason"
+          class="release-workflow-reason"
+          aria-label="发布原因"
+          placeholder="填写本次程序发布原因"
+          maxlength="120"
+          show-word-limit
+        />
+        <el-button
+          type="primary"
+          :loading="releaseWorkflowSubmitting === 'build'"
+          :disabled="!canOperate || releaseWorkflowSubmitting !== ''"
+          aria-label="生成程序安装包"
+          @click="createReleaseWorkflow"
+        >
+          <Icon icon="ep:box" class="mr-5px" />
+          生成程序安装包
+        </el-button>
+        <el-button
+          type="primary"
+          plain
+          :disabled="!canPublishReleaseWorkflow"
+          aria-label="发布测试服"
+          @click="requestTestReleaseWorkflow"
+        >
+          <Icon icon="ep:upload" class="mr-5px" />
+          发布测试服
+        </el-button>
+        <el-button
+          type="warning"
+          plain
+          :disabled="!canPromoteReleaseWorkflow"
+          aria-label="晋级正式服"
+          @click="requestProdReleaseWorkflow"
+        >
+          <Icon icon="ep:promotion" class="mr-5px" />
+          晋级正式服
+        </el-button>
+      </div>
+      <div class="release-workflow-panel__hint" role="status">
+        {{ releaseWorkflowEligibilityText }}
+      </div>
+      <div v-if="activeReleaseWorkflow" class="release-workflow-details">
+        <span>workflowId：{{ activeReleaseWorkflow.workflowId }}</span>
+        <span>tag：{{ activeReleaseWorkflow.releaseTag }}</span>
+        <span>阶段版本：{{ activeReleaseWorkflow.stateVersion }}</span>
+        <span v-if="activeReleaseWorkflow.errorCode" class="release-workflow-details__error">
+          {{ activeReleaseWorkflow.errorCode }} / {{ activeReleaseWorkflow.failedStage || '-' }}
+        </span>
+        <span v-if="activeReleaseWorkflow.evidenceRefs?.length">
+          证据：{{ activeReleaseWorkflow.evidenceRefs.join('、') }}
+        </span>
+      </div>
+    </section>
+
     <div class="ops-toolbar">
       <el-button
         v-for="action in operationActions"
@@ -762,6 +833,11 @@ const rollbackCandidates = ref<RuntimeControlApi.RuntimeControlRollbackCandidate
 const restoreCandidates = ref<RuntimeControlApi.RuntimeControlRestoreCandidateVO[]>([])
 const releasePackages = ref<RuntimeControlApi.RuntimeControlReleasePackageVO[]>([])
 const releaseStatus = ref<RuntimeControlApi.RuntimeControlReleaseStatusVO>()
+const releaseWorkflows = ref<RuntimeControlApi.RuntimeControlReleaseWorkflowVO[]>([])
+const activeReleaseWorkflow = computed(() => releaseWorkflows.value[0])
+const releaseWorkflowReason = ref('本次程序发布')
+const releaseWorkflowLoading = ref(false)
+const releaseWorkflowSubmitting = ref<'' | 'build' | 'test' | 'prod'>('')
 const backupPoints = ref<RuntimeControlApi.RuntimeControlBackupPointVO[]>([])
 const probeLatest = ref<RuntimeControlApi.RuntimeControlProbeLatestVO>()
 const capacityStatus = ref<RuntimeControlApi.RuntimeControlCapacityStatusVO>()
@@ -803,17 +879,23 @@ const displayComponentRows = [
 const releaseStatusEnvironments = ['test', 'prod', 'backup']
 
 const operationActions = [
-  { action: 'build-release', label: '构建发布包', icon: 'ep:box', type: 'primary' },
-  { action: 'publish-test', label: '部署发布包到测试服', icon: 'ep:upload', type: 'primary' },
-  { action: 'apply-test-db-sql', label: '测试服数据库快应用', icon: 'ep:coin', type: 'warning' },
-  { action: 'mark-release-tested', label: '标记测试通过', icon: 'ep:circle-check', type: 'success' },
-  { action: 'promote-prod', label: '上线已验证发布包', icon: 'ep:promotion', type: 'warning' },
-  { action: 'promote-backup', label: '上线审查服', icon: 'ep:connection', type: 'warning' },
   { action: 'backup-now', label: '立即备份', icon: 'ep:folder-checked', type: 'success' },
   { action: 'rehearsal', label: '恢复演练', icon: 'ep:video-play', type: 'warning' },
   { action: 'rollback-app', label: '回滚版本', icon: 'ep:refresh-left', type: 'warning' },
   { action: 'restore-data', label: '恢复数据', icon: 'ep:warning', type: 'danger' }
 ]
+
+// Legacy action descriptors remain for regression contracts, but the standard
+// release surface above is the only visible build/test/prod release entry.
+const legacyReleaseActions = [
+  { action: 'build-release', label: '构建发布包', icon: 'ep:box', type: 'primary' },
+  { action: 'publish-test', label: '部署发布包到测试服', icon: 'ep:upload', type: 'primary' },
+  { action: 'apply-test-db-sql', label: '测试服数据库快应用', icon: 'ep:coin', type: 'warning' },
+  { action: 'mark-release-tested', label: '标记测试通过', icon: 'ep:circle-check', type: 'success' },
+  { action: 'promote-prod', label: '上线已验证发布包', icon: 'ep:promotion', type: 'warning' },
+  { action: 'promote-backup', label: '上线审查服', icon: 'ep:connection', type: 'warning' }
+]
+const allOperationActions = [...legacyReleaseActions, ...operationActions]
 
 const RELEASE_PACKAGE_ROOT = 'Backup/ReleasePackage'
 const BACKUP_PACKAGE_ROOT = 'Backup/BackupPackage'
@@ -917,6 +999,25 @@ const remoteRootCleanupDialog = reactive({
 })
 
 const canOperate = computed(() => checkPermi(['infra:runtime-control:operate']))
+// P3 deploy/promotion executors are intentionally fail-closed until their
+// server-side transaction contracts are present.
+const canPublishReleaseWorkflow = computed(() => false)
+const canPromoteReleaseWorkflow = computed(() => false)
+const releaseWorkflowEligibilityText = computed(() => {
+  if (!activeReleaseWorkflow.value) {
+    return '请先生成程序安装包；服务端会固定源码、preset 和 app-release 范围。'
+  }
+  if (activeReleaseWorkflow.value.errorCode) {
+    return `工作流已阻断：${activeReleaseWorkflow.value.errorCode}（${activeReleaseWorkflow.value.failedStage || '未知阶段'}）`
+  }
+  if (activeReleaseWorkflow.value.state === 'READY') {
+    return '程序包已就绪；发布测试服按钮将在部署编排服务启用后开放。'
+  }
+  if (activeReleaseWorkflow.value.state === 'TESTED') {
+    return '测试服已验收；正式晋级仍需一次性授权与 PROD 确认。'
+  }
+  return `当前阶段：${releaseWorkflowStateText(activeReleaseWorkflow.value.state)}`
+})
 const selectedRootDiskTarget = computed(() =>
   rootDiskTargetOptions.find((item) => item.value === remoteRootTargetEnvironment.value)
 )
@@ -938,6 +1039,26 @@ const trustedTimeEnvironmentText = (
 
 const offsetMillisText = (value?: number) => {
   return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(3)} ms` : '-'
+}
+
+const releaseWorkflowStateText = (state: RuntimeControlApi.RuntimeControlReleaseWorkflowState) => {
+  const labels: Record<RuntimeControlApi.RuntimeControlReleaseWorkflowState, string> = {
+    SOURCE_FREEZING: '冻结源码',
+    PREFLIGHTING: '构建前检查',
+    TESTING: '自动测试',
+    BUILDING: '构建制品',
+    READY: '程序包就绪',
+    TEST_DEPLOYING: '发布测试服',
+    TEST_DEPLOYED: '测试服已发布',
+    TESTED: '测试已验收',
+    PROD_PREVIEW: '正式服预览',
+    PROMOTING_PROD: '晋级正式服',
+    COMPLETED: '已完成',
+    FAILED: '失败',
+    CANCELED: '已取消',
+    RECOVERY_REQUIRED: '需要恢复确认'
+  }
+  return labels[state] || state
 }
 
 const operationBlockReason = computed(() => {
@@ -1066,11 +1187,56 @@ const loadFoolproofData = async () => {
     loadCandidates(),
     loadBackupPoints(),
     loadReleaseStatus(),
+    loadReleaseWorkflows(),
     loadLatestProbes(),
     loadCapacityStatus(),
     loadRemoteRootDiskStatus(),
     loadIncidentsPage()
   ])
+}
+
+const loadReleaseWorkflows = async () => {
+  releaseWorkflowLoading.value = true
+  try {
+    releaseWorkflows.value = await RuntimeControlApi.getRuntimeControlReleaseWorkflows()
+  } catch (error) {
+    releaseWorkflows.value = []
+    throw error
+  } finally {
+    releaseWorkflowLoading.value = false
+  }
+}
+
+const createReleaseWorkflow = async () => {
+  const reason = releaseWorkflowReason.value.trim()
+  if (!reason) {
+    const error = new Error('请填写程序发布原因')
+    reportActionError(error)
+    return
+  }
+  releaseWorkflowSubmitting.value = 'build'
+  try {
+    const workflow = await RuntimeControlApi.createRuntimeControlReleaseWorkflow({
+      reason,
+      sourceSelectionId: 'approved-source'
+    })
+    releaseWorkflows.value = [workflow, ...releaseWorkflows.value.filter(
+      (item) => item.workflowId !== workflow.workflowId
+    )]
+    message.success(`已创建程序发布工作流：${workflow.releaseTag}`)
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    releaseWorkflowSubmitting.value = ''
+  }
+}
+
+const requestTestReleaseWorkflow = () => {
+  message.warning('当前工作流尚未开放测试服部署事务，系统已保持 fail-closed。')
+}
+
+const requestProdReleaseWorkflow = () => {
+  message.warning('当前工作流尚未开放正式服晋级事务，系统已保持 fail-closed。')
 }
 
 const runInspection = async () => {
@@ -1623,14 +1789,14 @@ const operationHistoryEnvironmentText = (environment?: string) => {
 
 const operationActionText = (operation: RuntimeControlOperationVO) => {
   const actionCode = operation.action?.trim() || ''
-  if (operationActions.some((item) => item.action === actionCode)) {
+  if (allOperationActions.some((item) => item.action === actionCode)) {
     return operationActionLabel(actionCode)
   }
   return normalizeAuditServerDisplayText(operation.actionLabel || actionCode || '重启')
 }
 
 function operationActionLabel(action: string) {
-  return operationActions.find((item) => item.action === action)?.label || action
+  return allOperationActions.find((item) => item.action === action)?.label || action
 }
 
 const operationPublishScopeText = (operation: RuntimeControlOperationVO) => {
@@ -1665,7 +1831,7 @@ const operationRequestedAtText = (operation: RuntimeControlOperationVO) => {
 }
 
 const openOperation = async (actionValue: string) => {
-  const action = operationActions.find((item) => item.action === actionValue)
+  const action = allOperationActions.find((item) => item.action === actionValue)
   if (!action || !canOperate.value) {
     return
   }
@@ -2156,6 +2322,53 @@ watch(
   background: #fff1f0;
   border-right: 1px solid #dbe3ef;
   border-left: 1px solid #dbe3ef;
+}
+
+.release-workflow-panel {
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+}
+
+.release-workflow-panel__head,
+.release-workflow-panel__controls,
+.release-workflow-panel__meta,
+.release-workflow-details {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.release-workflow-panel__head {
+  justify-content: space-between;
+}
+
+.release-workflow-panel__controls {
+  margin-top: 12px;
+}
+
+.release-workflow-panel__meta,
+.release-workflow-panel__hint,
+.release-workflow-details {
+  margin-top: 6px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.release-workflow-reason {
+  flex: 1 1 300px;
+  max-width: 520px;
+}
+
+.release-workflow-details {
+  padding-top: 8px;
+  border-top: 1px solid #edf1f6;
+}
+
+.release-workflow-details__error {
+  color: #b42318;
 }
 
 .publish-scope-field {

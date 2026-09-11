@@ -63,7 +63,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("rollback:26-05-30_00-11-31", candidate.getCandidateId());
         assertEquals("26-05-30 00:11:31", candidate.getReleaseTag());
         assertEquals("26-05-30_00-11-31", candidate.getImageTag());
-        assertEquals("nas-release-packages/26-05-30_00-11-31/release-manifest.json",
+        assertEquals("nas-release-packages/26-05-30_00-11-31/manifest.json",
                 candidate.getManifestPath());
         assertEquals("nas-release-packages/26-05-30_00-11-31/prod-latest.json",
                 candidate.getProdHistoryPath());
@@ -77,7 +77,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void listRollbackCandidatesShouldBlockReleasePackageWhenReleaseManifestIsMissing() throws Exception {
+    void listRollbackCandidatesShouldBlockReleasePackageWhenManifestIsMissing() throws Exception {
         createReleasePackageDirectory("26-05-30_00-11-31");
 
         List<RuntimeControlRollbackCandidateRespVO> candidates = candidateService.listRollbackCandidates();
@@ -85,9 +85,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(1, candidates.size());
         assertEquals("BLOCKED", candidates.get(0).getStatus());
         assertTrue(candidates.get(0).getBlockedReasons().stream()
-                .anyMatch(reason -> reason.contains("release-manifest.json")));
-        assertTrue(candidates.get(0).getBlockedReasons().stream()
-                .noneMatch(reason -> reason.equals("缺少 manifest.json")));
+                .anyMatch(reason -> reason.equals("缺少 manifest.json")));
     }
 
     @Test
@@ -119,8 +117,8 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void listRollbackCandidatesShouldBlockCompatibilityEvidenceWithoutPackageDirectoryName() throws Exception {
         Path root = createReleasePackageDirectory("26-05-30_00-11-31");
-        java.nio.file.Files.writeString(root.resolve("release-manifest.json"),
-                "{\"releaseTag\":\"26-05-30 00:11:31\",\"packageDirectoryName\":\"26-05-30_00-11-31\"}");
+        java.nio.file.Files.writeString(root.resolve("manifest.json"),
+                "{\"releaseTag\":\"26-05-30 00:11:31\",\"packageId\":\"26-05-30_00-11-31\"}");
         java.nio.file.Files.writeString(root.resolve("prod-latest.json"),
                 "{\"releaseTag\":\"26-05-30 00:11:31\",\"packageDirectoryName\":\"26-05-30_00-11-31\","
                         + "\"action\":\"deploy\",\"environment\":\"prod\"}");
@@ -144,7 +142,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
         List<RuntimeControlRollbackCandidateRespVO> candidates = candidateService.listRollbackCandidates();
 
         assertEquals(1, candidates.size());
-        assertEquals("nas-release-packages/26-05-29_21-05-42/release-manifest.json",
+        assertEquals("nas-release-packages/26-05-29_21-05-42/manifest.json",
                 candidates.get(0).getManifestPath());
     }
 
@@ -159,9 +157,9 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void listRollbackCandidatesShouldBlockWhenReleaseManifestPackageDirectoryNameIsMissing() throws Exception {
+    void listRollbackCandidatesShouldBlockWhenManifestPackageIdIsMissing() throws Exception {
         Path root = createReleasePackageDirectory("26-05-30_00-11-31");
-        java.nio.file.Files.writeString(root.resolve("release-manifest.json"),
+        java.nio.file.Files.writeString(root.resolve("manifest.json"),
                 "{\"releaseTag\":\"26-05-30 00:11:31\"}");
 
         List<RuntimeControlRollbackCandidateRespVO> candidates = candidateService.listRollbackCandidates();
@@ -169,7 +167,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(1, candidates.size());
         assertEquals("BLOCKED", candidates.get(0).getStatus());
         assertTrue(candidates.get(0).getBlockedReasons().stream()
-                .anyMatch(reason -> reason.contains("packageDirectoryName")));
+                .anyMatch(reason -> reason.contains("packageId")));
     }
 
     @Test
@@ -215,7 +213,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void listRollbackCandidatesShouldBlockWhenManifestPackageDirectoryDiffersFromDirectory() throws Exception {
+    void listRollbackCandidatesShouldBlockWhenManifestPackageIdDiffersFromDirectory() throws Exception {
         createReleasePackage("26-05-30_00-11-31", "26-05-30 00:11:31", "26-05-30_00-11-32");
 
         List<RuntimeControlRollbackCandidateRespVO> candidates = candidateService.listRollbackCandidates();
@@ -223,7 +221,7 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(1, candidates.size());
         assertEquals("BLOCKED", candidates.get(0).getStatus());
         assertTrue(candidates.get(0).getBlockedReasons().stream()
-                .anyMatch(reason -> reason.contains("packageDirectoryName")));
+                .anyMatch(reason -> reason.contains("packageId")));
     }
 
     @Test
@@ -320,8 +318,8 @@ class RuntimeRollbackCandidateServiceImplTest extends BaseMockitoUnitTest {
     private void createReleasePackageWithoutProdHistory(String directoryName, String releaseTag,
                                                         String packageDirectoryName) throws Exception {
         Path root = createReleasePackageDirectory(directoryName);
-        java.nio.file.Files.writeString(root.resolve("release-manifest.json"),
-                "{\"releaseTag\":\"" + releaseTag + "\",\"packageDirectoryName\":\"" + packageDirectoryName + "\"}");
+        java.nio.file.Files.writeString(root.resolve("manifest.json"),
+                "{\"releaseTag\":\"" + releaseTag + "\",\"packageId\":\"" + packageDirectoryName + "\"}");
         writeRollbackCompatibility(root, packageDirectoryName);
     }
 

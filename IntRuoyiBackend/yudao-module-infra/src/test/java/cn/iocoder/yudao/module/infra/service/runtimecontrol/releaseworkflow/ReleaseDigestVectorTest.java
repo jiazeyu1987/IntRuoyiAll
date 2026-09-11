@@ -51,6 +51,17 @@ class ReleaseDigestVectorTest {
         assertTrue(collision.getCause().getMessage().contains("PACKAGE_PATH_INVALID"));
     }
 
+    @Test
+    void foldsAsciiCaseOnlyAndKeepsNonAsciiUtf8BytesDistinct() throws Exception {
+        ReflectionApi api = ReflectionApi.load();
+        Object result = api.calculate(List.of(
+                api.artifact("Z/Ä.txt", "UP\n"),
+                api.artifact("z/ä.txt", "low\n")));
+
+        assertEquals("050f30bf371902978119b425701935f0b98f461ee22803d75fffcc2c3844dd75",
+                api.access(result, "packageDigest"));
+    }
+
     private record ReflectionApi(Class<?> contract, Constructor<?> artifactConstructor, Method calculate,
                                  Method manifestDigest) {
 
