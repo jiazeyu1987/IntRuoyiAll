@@ -46,6 +46,15 @@
 - 验证方式：授权前记录缺失绑定作为 RED；授权后核对 active 用户角色绑定数、目标菜单链授权数、非目标角色未新增该菜单，并精确清理该用户权限缓存；缺少目标账号密码时，菜单本人登录 E2E 应标记为阻塞项而不是 API-only 冒充通过。
 - 禁止做法：禁止把同名角色跨租户复制、给管理员或宽权限角色绕过、用前端隐藏代替权限授权、输出或记录密码/哈希/Cookie、为了验收重置业务用户密码。
 
+### 远端危险按钮缺失诊断门禁
+
+- Trigger: 远端账号能进入业务页面、列表也能正常加载，但删除、审批、发布、导出等危险按钮不可见。
+- Preflight check: 先从前端 `v-hasPermi` / `checkPermi` 取得精确 permission，再核对按钮额外的行状态条件；随后用目标账号 fresh 登录，检查 `/admin-api/system/auth/get-permission-info` 的 `permissions`，并只读核对该账号全部有效角色、`system_role_menu`、`system_menu` 和正式角色白名单。
+- Blocker: 目标账号登录权限响应不含精确 permission，或正式角色白名单明确排除该危险权限时，按钮隐藏属于授权边界；若业务确认该角色应具备此能力，必须单独走正式权限变更，不得直接归因于前端缓存。
+- Verification: 记录目标账号/租户标签、页面 URL、列表是否正常加载、精确 permission 是否存在、按钮可见数量、活动角色及角色菜单绑定；前端和后端必须使用同一 permission，且不能通过实际执行危险操作来证明按钮权限。
+- Forbidden action: 禁止改前端去掉权限指令、给账号临时绑定管理员角色、复用其它账号 token、清空全库权限缓存、点击最终删除/发布/审批确认，或仅凭“页面可进入”推断账号拥有按钮权限。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260911-zhaojie-production-order-delete-diagnosis\verification-report.md`。
+
 ### 审批中心入口角色菜单隔离门禁
 
 - Trigger: 账号只应拥有审批中心入口，但登录后看到 MES、ERP、DCC、智能排产、报工或其它业务模块父级菜单。
