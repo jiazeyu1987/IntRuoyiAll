@@ -17,6 +17,15 @@
 - MySQL 幂等新增列必须使用 `information_schema.COLUMNS` 守护过程；不得使用 MySQL 运行库不接受的 `ADD COLUMN IF NOT EXISTS`。测试 H2 对 generated column 的语法可不同，必须同时保留 H2 夹具合同和 MySQL migration 合同。
 - 迁移验证至少包含：完整 `dependsOn` 闭包的 policy gate、首次/重复执行静态合同、历史数据零写入证据，以及运行后端实际连接库的 schema 复核。运行 Jar 未包含新接口或 schema 未执行时，禁止用 API/页面假设已部署。
 
+### MySQL 被索引字符列扩容顺序门禁
+
+- Trigger: 前向迁移扩大已被普通索引或唯一索引覆盖的 `varchar` 长度，尤其是 `utf8mb4` 字段和历史完整索引。
+- Preflight check: 先从旧结构冻结目标索引、列顺序、前缀长度和字符集；计算扩容后的最坏索引字节数。若旧索引在新长度下会超过 MySQL 限制，迁移必须按“删除旧索引 -> 扩容字段 -> 建立合规前缀/新索引”的顺序执行。
+- Blocker: 先 `MODIFY COLUMN` 后删不兼容索引、合同只检查语句存在不检查顺序、或仅在已手工扩容的测试库重复执行成功时必须停止。
+- Verification: 静态合同锁定三个语句的位置顺序；获得数据库写入授权后，再用真实旧表结构首次执行、重复执行并核对字段和索引定义。
+- Forbidden action: 禁止把已收敛的新库重复执行当作旧库升级证据，禁止通过缩短业务值、改字符集或删除唯一约束绕过索引容量问题。
+- Evidence: `doc/tasks/20260911-dcc-p4-review-round2-fixes/verification-report.md`。
+
 ### 运行态迁移漂移系统异常门禁
 
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。

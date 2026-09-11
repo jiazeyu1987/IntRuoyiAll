@@ -38,3 +38,4 @@ BDD: Approval reason is authentic and mandatory -> Given an approval request or 
 ## Blockers
 
 - 未执行真实数据库迁移、运行态重启或 Playwright E2E；本轮提交代码不声明运行态合规通过。
+- CLOSEOUT: `task_closeout.py --task-id 20260911-dcc-p4-review-round2-fixes --mode preview` -> PASS；`--mode apply` -> PASS。临时技能 evidence 已删除，`task.md`、`execution-log.md`、`verification-report.md` 保留。因本轮未授权 Git 提交/推送，状态保持 `ready_for_closeout`。

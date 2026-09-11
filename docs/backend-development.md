@@ -32,9 +32,10 @@
 ## DCC Windchill 版本链路后端门禁
 
 - Trigger: DCC 受控文件升大版本、影响评估关联大版本、发布后旧正式版 supersede、签名证据响应、项目 OWNER/EDIT/VIEW 范围。
-- Preflight check: 升大版本和影响评估选/关联大版本必须读取正式项目访问规则，OWNER 以 `dccProjectCodeId` 为准，不能用 `requesterId` 替代；非 requester 的合法 OWNER 应可继续处理，原 requester 无 OWNER 时必须被拒绝。发布 supersede 只更新旧 ACTIVE 行状态与 `supersededByFileId`，不得在同一事务内先移动旧版物理文件；真正作废流程才进入 obsolete artifact move。签名响应给 DCC 页面时必须返回 DCC 投影 ID、DCC evidence HMAC 和投影 `signedAt`，不能把统一签名表 ID/摘要当成 DCC 证据身份。
+- Preflight check: 升大版本和影响评估选/关联大版本必须只读取 `dcc_project_access_rule` 的当前有效 OWNER，按 `dccProjectCodeId` 解析 USER/DEPT/ROLE/POSITION；不能用 `requesterId`、项目负责人文本、项目代码修正任务 `dcc_project_code_assignment` 或菜单权限替代。非 requester 的合法 OWNER 应可继续处理，原 requester 或修正任务负责人无 OWNER 时必须被拒绝。发布 supersede 只更新旧 ACTIVE 行状态与 `supersededByFileId`，不得在同一事务内先移动旧版物理文件；真正作废流程才进入 obsolete artifact move。签名响应给 DCC 页面时必须返回 DCC 投影 ID、DCC evidence HMAC 和投影 `signedAt`，不能把统一签名表 ID/摘要当成 DCC 证据身份。
 - Blocker: OWNER 被 requester 判断挡住、requester 绕过项目 OWNER 或分配硬范围、发布失败可能导致旧 ACTIVE 数据库路径仍在但物理文件已移动、验签使用的 `signedAt` 与计算 HMAC 的时间源不同，或重开影响任务后历史关联版本号无法从审计关联 ID 还原时必须停止。
-- Verification: 回归至少覆盖“非 requester 的 OWNER 可选/关联版本”“requester 无 OWNER 被拒绝”“发布后续快照失败不调用 obsolete move”“签名跨秒仍可验签且响应 ID 可直接查 DCC 投影”“requester 不绕过硬范围”“重开后 LINK_REVISION 时间线仍显示历史版本号”。Evidence: `doc/tasks/20260911-dcc-p4-review-blockers-fix/verification-report.md`。
+- Approval-reason rule: 审批意见属于签名审计事实，Controller VO、审批中心适配器和签名服务边界都必须拒绝空白；服务端不得把空值替换为“审批通过”等默认文案。签名服务应在授权、证据计算和任何落库动作之前校验原因。
+- Verification: 回归至少覆盖“修正任务负责人无 OWNER 被拒绝”“USER/DEPT/ROLE/POSITION OWNER 可解析”“EDIT/VIEW 不可升版”“非 requester 的 OWNER 可选/关联版本”“requester 无 OWNER 被拒绝”“空白审批意见在三层入口均失败且零签名写入”“发布后续快照失败不调用 obsolete move”“签名跨秒仍可验签且响应 ID 可直接查 DCC 投影”“requester 不绕过硬范围”“重开后 LINK_REVISION 时间线仍显示历史版本号”。Evidence: `doc/tasks/20260911-dcc-p4-review-round2-fixes/verification-report.md`。
 
 ### DCC 上传身份、授权与发布边界必须由后端闭环
 
