@@ -8,12 +8,15 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MesFrontlinePqcTaskOverlayTest {
 
     private static final long ACTIVE_ORDER_ID = 5001L;
     private static final long REGULATION_VERSION_ID = 8001L;
     private static final long QA_PROCESS_ID = 9001L;
+    private static final long ROUTE_PROCESS_ID = 7001L;
+    private static final long PROCESS_ID = 6001L;
     private static final LocalDate BUSINESS_DATE = LocalDate.of(2026, 8, 12);
 
     @Test
@@ -89,6 +92,54 @@ class MesFrontlinePqcTaskOverlayTest {
                 overlays.stream().map(overlay -> overlay.pqcTaskOption().pqcTaskId()).toList());
     }
 
+    @Test
+    void shouldKeepSameQaIdentityAcrossProductionProcessesSeparate() {
+        MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity first = expected(
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+        MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity second = expected(
+                ROUTE_PROCESS_ID + 1, PROCESS_ID + 1, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+
+        List<MesFrontlinePqcTaskOverlay> overlays = MesFrontlinePqcTaskOverlay.fromExpectedTasks(
+                List.of(first, second), List.of(
+                        task(1101L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
+                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1),
+                        task(1102L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID + 1, PROCESS_ID + 1,
+                                REGULATION_VERSION_ID, QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1)));
+
+        assertEquals(List.of(1101L, 1102L), overlays.stream()
+                .map(overlay -> overlay.pqcTaskOption().pqcTaskId()).toList());
+    }
+
+    @Test
+    void shouldKeepSameQaIdentityAcrossBusinessRoundsSeparate() {
+        MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity first = expected(
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+        MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity second = expected(
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE.plusDays(1), "NIGHT", 2);
+
+        List<MesFrontlinePqcTaskOverlay> overlays = MesFrontlinePqcTaskOverlay.fromExpectedTasks(
+                List.of(first, second), List.of(
+                        task(1201L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
+                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1),
+                        task(1202L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
+                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE.plusDays(1), "NIGHT", 2)));
+
+        assertEquals(List.of(1201L, 1202L), overlays.stream()
+                .map(overlay -> overlay.pqcTaskOption().pqcTaskId()).toList());
+    }
+
+    @Test
+    void shouldRejectDuplicateTasksWithCompleteOverlayIdentity() {
+        MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity expected = expected(
+                ROUTE_PROCESS_ID, PROCESS_ID, QA_PROCESS_ID, "PATROL_AM", "PATROL", BUSINESS_DATE, "DAY", 1);
+        assertThrows(IllegalStateException.class, () -> MesFrontlinePqcTaskOverlay.fromExpectedTask(expected,
+                List.of(
+                        task(1301L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
+                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1),
+                        task(1302L, ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
+                                QA_PROCESS_ID, "PATROL", "PATROL_AM", BUSINESS_DATE, "DAY", 1))));
+    }
+
     private static MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity expected(long qaProcessId,
                                                                             String inspectionRuleKey,
                                                                             String inspectionType) {
@@ -100,16 +151,24 @@ class MesFrontlinePqcTaskOverlayTest {
                                                                             String inspectionType,
                                                                             LocalDate businessDate,
                                                                             int roundNo) {
-        return new MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity(ACTIVE_ORDER_ID, REGULATION_VERSION_ID,
-                qaProcessId, itemCode(inspectionType), inspectionRuleKey, inspectionType, businessDate, "DAY", roundNo,
-                true, 5, List.of());
+        return expected(ROUTE_PROCESS_ID, PROCESS_ID, qaProcessId, inspectionRuleKey, inspectionType,
+                businessDate, "DAY", roundNo);
+    }
+
+    private static MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity expected(long routeProcessId, long processId,
+                                                                             long qaProcessId, String inspectionRuleKey,
+                                                                             String inspectionType, LocalDate businessDate,
+                                                                             String shiftCode, int roundNo) {
+        return new MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity(ACTIVE_ORDER_ID, routeProcessId, processId,
+                REGULATION_VERSION_ID, qaProcessId, itemCode(inspectionType), inspectionRuleKey, inspectionType,
+                businessDate, shiftCode, roundNo, true, 5, List.of());
     }
 
     private static MesPqcInspectionTaskDO task(long id, long activeOrderId, long regulationVersionId,
                                                long qaProcessId, String inspectionType,
                                                String inspectionRuleKey) {
-        return task(id, activeOrderId, regulationVersionId, qaProcessId, inspectionType, inspectionRuleKey,
-                BUSINESS_DATE, 1);
+        return task(id, activeOrderId, ROUTE_PROCESS_ID, PROCESS_ID, regulationVersionId, qaProcessId,
+                inspectionType, inspectionRuleKey, BUSINESS_DATE, "DAY", 1);
     }
 
     private static MesPqcInspectionTaskDO task(long id, long activeOrderId, long regulationVersionId,
@@ -117,16 +176,26 @@ class MesFrontlinePqcTaskOverlayTest {
                                                String inspectionRuleKey,
                                                LocalDate businessDate,
                                                int roundNo) {
+        return task(id, activeOrderId, ROUTE_PROCESS_ID, PROCESS_ID, regulationVersionId, qaProcessId,
+                inspectionType, inspectionRuleKey, businessDate, "DAY", roundNo);
+    }
+
+    private static MesPqcInspectionTaskDO task(long id, long activeOrderId, long routeProcessId, long processId,
+                                               long regulationVersionId, long qaProcessId, String inspectionType,
+                                               String inspectionRuleKey, LocalDate businessDate, String shiftCode,
+                                               int roundNo) {
         return MesPqcInspectionTaskDO.builder()
                 .id(id)
                 .activeOrderId(activeOrderId)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
                 .regulationVersionId(regulationVersionId)
                 .qaProcessId(qaProcessId)
                 .qaItemCode(itemCode(inspectionType))
                 .inspectionType(inspectionType)
                 .inspectionRuleKey(inspectionRuleKey)
                 .businessDate(businessDate)
-                .shiftCode("DAY")
+                .shiftCode(shiftCode)
                 .roundNo(roundNo)
                 .plannedInspectionQuantity(5)
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)

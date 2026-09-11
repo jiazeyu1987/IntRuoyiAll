@@ -2,6 +2,12 @@
 
 ## BDD Scenarios
 
+BDD: Project OWNER uses authoritative access rules -> Given a user only has an active project-code correction assignment, When a revision or submit operation asserts project OWNER, Then access is denied; only a current `dcc_project_access_rule` OWNER rule matching USER, DEPT, ROLE, or POSITION grants project ownership.
+
+BDD: Legacy GxP subject index upgrades safely -> Given an existing `gxp_audit_event.subject_id` has the legacy full-width index, When the forward migration runs, Then it drops the old subject index before widening the column and recreates the index with a 191-character prefix afterward.
+
+BDD: DCC approval reason is user-authored -> Given an approval request has a blank reason, When it enters through the DCC controller, approval-center adapter, or signature service, Then the request is rejected before workflow/signature persistence and no default approval reason is fabricated.
+
 BDD: GXP audit append success -> Given a registered GxP write operation with required reason and before/after state, When the business service commits the change through the audit contract, Then the audit event is appended in the same transaction with actor, timestamp, action, reason, before/after, hash and policy version.
 
 BDD: Missing audit policy blocks business write -> Given a GxP write operation is not registered in the approved policy, When the business service attempts to commit the change, Then the audit contract fails with GXP_AUDIT_POLICY_NOT_FOUND and the business data is rolled back.
@@ -146,6 +152,14 @@ BDD: M5 runtime evidence must fail closed -> Given the unified GxP audit softwar
 GREEN: M5 local read-only evidence collection -> PASS, 2026-09-09 18:08:26 +08:00; Windows Time service is `Running / Automatic`, `w32tm /query /status` reports source `time.windows.com,0x9` and last successful sync `2026/9/9 16:07:48`; local backend `http://127.0.0.1:48081/actuator/health` returned HTTP 200. This evidence is limited to the local validation environment and does not replace formal production chrony/NTP evidence.
 
 GREEN: M5 operational evidence documents -> PASS, added `m5-operational-compliance-evidence.md`, `m5-periodic-review-sop.md`, and `m5-signoff-training-record.md` with fail-closed status mapping, SOP steps, signoff/training templates and explicit forbidden substitute evidence.
+
+RED: M6 DCC targeted Maven regression -> FAIL, `DccSignatureVerificationServiceImpl` referenced the formal missing-reason error without importing it; after that compile fix, the adapter regression still failed because direct VO construction bypassed Bean Validation.
+
+GREEN: M6 DCC targeted Maven regression -> PASS, 35 tests; OWNER persistence, request validation, approval adapter validation and signature service validation are green.
+
+GREEN: M6 GxP SQL contract -> PASS, 6 tests; legacy subject index drop/widen/recreate order is locked.
+
+GREEN: full release migration policy gate -> PASS, 620 migrations; DCC project access migration and direct publish policy metadata are valid.
 
 INFO: Cleanup Keep updated -> `git check-ignore -v` shows the new M5 evidence files are hidden by `.git/info/exclude` rule `/doc/tasks/*/`; `task.md` now lists the three M5 files under `## Cleanup Keep` so closeout does not treat them as disposable artifacts.
 

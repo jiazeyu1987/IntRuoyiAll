@@ -226,12 +226,13 @@ CALL ensure_gxp_audit_core_column('gxp_audit_event', 'updater',
 CALL ensure_gxp_audit_core_column('gxp_audit_event', 'deleted',
     'ALTER TABLE `gxp_audit_event` ADD COLUMN `deleted` bit(1) NOT NULL DEFAULT b''0'' COMMENT ''是否删除'' AFTER `updater`');
 
+CALL drop_gxp_audit_core_index('gxp_audit_event', 'uk_gxp_audit_event_idempotency');
+CALL drop_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject');
+
 ALTER TABLE `gxp_audit_event`
     MODIFY COLUMN `subject_id` varchar(2048) NOT NULL COMMENT '对象编号',
     MODIFY COLUMN `idempotency_key` varchar(512) NOT NULL COMMENT '幂等键';
 
-CALL drop_gxp_audit_core_index('gxp_audit_event', 'uk_gxp_audit_event_idempotency');
-CALL drop_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject');
 CALL ensure_gxp_audit_core_index('gxp_audit_event', 'uk_gxp_audit_event_idempotency',
     'ALTER TABLE `gxp_audit_event` ADD UNIQUE KEY `uk_gxp_audit_event_idempotency` (`tenant_id`, `idempotency_key`)');
 CALL ensure_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject',

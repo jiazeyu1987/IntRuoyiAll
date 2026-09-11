@@ -342,7 +342,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
             reqVO.setTaskId(taskId);
             reqVO.setPassword(password);
-            reqVO.setReason(context.getReason());
+            reqVO.setReason(requireApprovalReason(context.getReason()));
             workflowService.approveTask(context.getLoginUserId(), fileId, reqVO);
             return;
         }
@@ -628,6 +628,13 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static String requireText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalStateException(message);
+        }
+        return value;
+    }
+
+    private static String requireApprovalReason(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("APPROVAL_REASON_REQUIRED: DCC approve requires reason");
         }
         return value;
     }

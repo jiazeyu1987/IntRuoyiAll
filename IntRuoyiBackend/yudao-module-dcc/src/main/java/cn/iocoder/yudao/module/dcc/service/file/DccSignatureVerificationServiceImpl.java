@@ -34,6 +34,8 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED;
 
 @Service
 @Validated
@@ -65,11 +67,11 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
     public DccUnifiedSignatureResult verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId, String taskId,
                                                                       String stageCode, String actionType,
                                                                       String password, String comment) {
+        String reasonText = requireReasonText(comment);
         electronicSignatureAuthorizationService.validateElectronicSignatureEnabled(actorId);
         String meaningCode = resolveMeaningCode(stageCode, actionType);
         AdminUserDO user = adminUserService.getUser(actorId);
         LocalDateTime signedAt = LocalDateTime.now().withNano(0);
-        String reasonText = normalizeReasonText(comment, meaningCode);
         SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, meaningCode);
         DccElectronicSignatureImageSnapshot imageSnapshot = signatureImageService.requireActiveSnapshot(actorId);
         DccControlledFileSignatureEvidence evidence = signatureEvidenceService.createEvidence(
@@ -193,8 +195,11 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
         return record;
     }
 
-    private static String normalizeReasonText(String comment, String meaningCode) {
-        return StrUtil.blankToDefault(StrUtil.trim(comment), resolveMeaningLabel(meaningCode));
+    private static String requireReasonText(String comment) {
+        if (StrUtil.isBlank(comment)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
+        }
+        return StrUtil.trim(comment);
     }
 
     private static String resolveMeaningLabel(String meaningCode) {

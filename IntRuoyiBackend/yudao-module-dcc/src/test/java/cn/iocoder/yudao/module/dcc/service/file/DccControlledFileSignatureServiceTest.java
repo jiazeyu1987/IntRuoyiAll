@@ -35,6 +35,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_LOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_PASSWORD_INVALID;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -192,28 +193,14 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void verifyPasswordAndCreateSignature_blankApproveCommentUsesAuditableDefaultReason() {
+    void verifyPasswordAndCreateSignature_blankApproveCommentIsRejectedBeforeEvidenceWrite() {
         TenantContextHolder.setTenantId(1L);
-        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
-        stubActorSnapshot(true);
-        when(signatureEvidenceService.createEvidence(
-                org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
-                .thenReturn(signatureEvidence());
-        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
-                .thenReturn(unifiedSignatureResult(7006L, LocalDateTime.of(2026, 9, 8, 10, 34, 0)));
-
-        signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-blank-approve",
-                "MATRIX_REVIEW", "APPROVE", "secret", "   ");
-
-        ArgumentCaptor<DccControlledFileSignatureEvidenceCreateReq> evidenceCaptor =
-                ArgumentCaptor.forClass(DccControlledFileSignatureEvidenceCreateReq.class);
-        verify(signatureEvidenceService).createEvidence(evidenceCaptor.capture());
-        assertEquals("审批通过", evidenceCaptor.getValue().getReasonText());
-
-        ArgumentCaptor<ElectronicSignatureCommand> commandCaptor =
-                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
-        verify(electronicSignatureService).sign(commandCaptor.capture());
-        assertEquals("审批通过", commandCaptor.getValue().reason());
+        assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
+                        99L, 900L, "task-blank-approve", "MATRIX_REVIEW", "APPROVE", "secret", "   "),
+                CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
+        verify(signatureEvidenceService, never()).createEvidence(any());
+        verify(electronicSignatureService, never()).sign(any());
+        verify(signatureMapper, never()).insert(any(DccControlledFileSignatureDO.class));
     }
 
     @Test

@@ -72,10 +72,12 @@ def test_core_sql_contains_existing_table_forward_migration_guards():
     assert "information_schema.STATISTICS" in text
     assert "CALL ensure_gxp_audit_core_column('gxp_audit_event', 'subject_id'" in text
     assert "CALL ensure_gxp_audit_core_column('gxp_audit_event', 'idempotency_key'" in text
-    assert "MODIFY COLUMN `subject_id` varchar(2048) NOT NULL COMMENT '对象编号'" in text
-    assert "MODIFY COLUMN `idempotency_key` varchar(512) NOT NULL COMMENT '幂等键'" in text
-    assert "CALL drop_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject')" in text
-    assert "CALL ensure_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject'" in text
+    drop_subject = text.index("CALL drop_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject')")
+    widen_subject = text.index("MODIFY COLUMN `subject_id` varchar(2048) NOT NULL COMMENT '对象编号'")
+    widen_idempotency = text.index("MODIFY COLUMN `idempotency_key` varchar(512) NOT NULL COMMENT '幂等键'")
+    create_subject = text.index("CALL ensure_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject'")
+    assert drop_subject < widen_subject < create_subject
+    assert drop_subject < widen_idempotency < create_subject
     assert "CALL ensure_gxp_audit_core_column('gxp_audit_policy_operation', 'deleted'" in text
 
 

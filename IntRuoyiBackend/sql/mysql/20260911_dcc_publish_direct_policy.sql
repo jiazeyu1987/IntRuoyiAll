@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260906_dcc_new_file_lifecycle_p4; type=data; riskLevel=medium
 -- Content approval is complete before READY_TO_PUBLISH.
 -- Publishing is an explicit document-control command, not a second four-stage approval.
 

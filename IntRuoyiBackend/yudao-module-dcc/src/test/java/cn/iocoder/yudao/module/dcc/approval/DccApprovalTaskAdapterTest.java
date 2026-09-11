@@ -222,6 +222,17 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
+    void reviewApproveRejectsBlankReasonBeforeWorkflow() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
+                        "DCC_CONTROLLED_FILE_TASK", "task-approve", "6001", "pi-1",
+                        ApprovalTaskReviewResult.APPROVE, "   ", "secret", false)));
+
+        assertEquals("APPROVAL_REASON_REQUIRED: DCC approve requires reason", error.getMessage());
+        verify(workflowService, never()).approveTask(anyLong(), anyLong(), any());
+    }
+
+    @Test
     void reviewRejectDelegatesToControlledFileWorkflow() {
         adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
                 "DCC_CONTROLLED_FILE_TASK", "task-reject", "6001", "pi-1",

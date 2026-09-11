@@ -586,5 +586,7 @@ public interface ErrorCodeConstants {
             "Current user is not the DCC project owner");
     ErrorCode CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_342,
             "Controlled file submit idempotency key conflicts with another request");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED = new ErrorCode(1_080_000_343,
+            "DCC approval signature reason is required");
 
 }

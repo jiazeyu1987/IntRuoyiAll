@@ -487,7 +487,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .toList();
         List<MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity> expectedTasks = pendingTasks.stream()
                 .map(task -> new MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity(
-                        activeOrder.getId(), regulationVersionId, qaProcessId,
+                        activeOrder.getId(), task.getRouteProcessId(), task.getProcessId(), regulationVersionId, qaProcessId,
                         task.getQaItemCode(), task.getInspectionRuleKey(), task.getInspectionType(), task.getBusinessDate(),
                         task.getShiftCode(), task.getRoundNo(), finalInspectionApplicable,
                         task.getPlannedInspectionQuantity(),

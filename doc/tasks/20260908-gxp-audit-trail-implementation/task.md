@@ -11,6 +11,7 @@
 3. completed - M3 首批 GxP 高风险链路接入：已登记并注解 eDHR、DCC、电子签名、权限/角色配置、系统配置、发布/迁移变更；电子签名 `sign`、DCC 发布审批发起 `publishControlledFile`、权限/角色配置三处 assign 入口、系统配置包导入、eDHR 字段保存已接入统一 `GxpAuditService.append` 并验证审计失败不返回成功；发布/迁移变更作为 MIGRATION source，需在 M5 运行态 release evidence/QA 签署中闭环。
 4. completed - M4 测试与 CI 门禁：已补自动化测试、SQL 合同、覆盖检查脚本，并在 Maven CI 中加入“未登记写入口即失败”的覆盖检查。
 5. blocked - M5 运行态证据：已新增 M5 证据矩阵、周期审查 SOP 草案、签署/培训模板，并采集本机只读时间同步与后端健康证据；正式 NTP、WORM/Object Lock、备份恢复演练、周期审查实际执行、质量负责人签署、培训记录、数据库权限分离和特权审计外送真实证据尚未提供，不能标记运行合规 PASS。
+6. completed - M6 复审阻塞修复：项目 OWNER 改用 `dcc_project_access_rule` 权威规则；GxP 旧库迁移按删索引、扩字段、建前缀索引顺序执行；DCC 审批意见在 VO、适配器和签名服务三层强制非空。
 
 ## Expected Verification
 
@@ -30,7 +31,7 @@
 
 ## Current Status
 
-blocked - M1/M2/M3/M4 代码侧已完成；本轮已补充 M5 运行态证据包、周期审查 SOP 草案、签署/培训模板，并记录本机只读 NTP 与后端健康证据。正式环境 NTP/WORM/备份恢复/周期审查执行/QA 签署/培训/DB 权限分离/特权审计外送证据未提供前，当前不得宣称 `PASS FOR OPERATIONAL COMPLIANCE`。
+blocked - M6 软件代码阻塞项已修复并通过定向验证；M5 正式运行合规证据仍缺失，因此整体任务不能标记 completed 或运行合规 PASS。
 
 ## Cleanup Keep
 
