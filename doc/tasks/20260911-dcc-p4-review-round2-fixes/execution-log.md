@@ -42,3 +42,5 @@ BDD: Approval reason is authentic and mandatory -> Given an approval request or 
 - IMPLEMENTATION COMMIT: `e3de87069 fix: complete DCC and PQC review blockers`。
 - EXPERIENCE COMMIT: `60311c1be docs: consolidate DCC review verification`。
 - AUTHORIZATION: 用户当轮明确要求提交前后端代码；最终 push 在 closeout commit 后核对。
+- CLOSEOUT COMMIT: `390e8283a docs: complete DCC task closeout`。
+- PUSH: `git push origin int_main` -> PASS，`51d02916f..390e8283a` 已推送到 `origin/int_main`。

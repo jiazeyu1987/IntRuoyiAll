@@ -67,3 +67,4 @@ FAIL: `node tests/e2e/dcc-upload-category-permission-static.spec.js` -> existing
 - Implementation commit: `e3de87069`，包含 DIRECT 发布策略迁移元数据修复。
 - task-closeout-cleanup preview/apply -> PASS；保留三份核心任务记录，无删除项、blocker 或 warning。
 - 用户当轮已授权 Git 提交/推送；软件代码范围标记 completed，未宣称真实数据库迁移或 E2E。
+- Closeout commit: `390e8283a`；`git push origin int_main` -> PASS，远端更新范围 `51d02916f..390e8283a`。
