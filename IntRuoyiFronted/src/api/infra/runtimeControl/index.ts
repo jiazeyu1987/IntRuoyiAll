@@ -85,6 +85,35 @@ export interface RuntimeControlReleaseWorkflowCreateReqVO {
   sourceSelectionId: string
 }
 
+export interface RuntimeControlReleaseWorkflowActionReqVO {
+  reason: string
+}
+
+export interface RuntimeControlReleaseWorkflowTestAcceptanceReqVO {
+  conclusion: string
+}
+
+export interface RuntimeControlReleaseWorkflowProdReqVO {
+  reason: string
+  authorizationGrantId: string
+  prodConfirmText: string
+}
+
+export interface RuntimeControlReleaseAuthorizationVO {
+  grantId: string
+  workflowId: string
+  releaseTag: string
+  packageDigest: string
+  manifestDigest: string
+  targetEnvironment: 'prod'
+  presetId: string
+  presetVersion: string
+  approvedScope: RuntimeControlAppReleaseScope
+  approver: string
+  issuedAt: RuntimeControlDateTime
+  validUntil: RuntimeControlDateTime
+}
+
 export interface RuntimeControlReleaseWorkflowVO {
   workflowId: string
   releaseTag: string
@@ -99,6 +128,8 @@ export interface RuntimeControlReleaseWorkflowVO {
   failedStage?: string
   retryable: boolean
   evidenceRefs?: string[]
+  packageDigest?: string
+  manifestDigest?: string
   createdAt?: RuntimeControlDateTime
   updatedAt?: RuntimeControlDateTime
   lastHeartbeatAt?: RuntimeControlDateTime
@@ -627,6 +658,46 @@ export const getRuntimeControlReleaseWorkflows = () => {
 export const getRuntimeControlReleaseWorkflow = (workflowId: string) => {
   return request.get<RuntimeControlReleaseWorkflowVO>({
     url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}`,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const publishRuntimeControlReleaseWorkflowToTest = (
+  workflowId: string,
+  data: RuntimeControlReleaseWorkflowActionReqVO
+) => {
+  return request.post<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/publish-test`,
+    data,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const acceptRuntimeControlReleaseWorkflowTest = (
+  workflowId: string,
+  data: RuntimeControlReleaseWorkflowTestAcceptanceReqVO
+) => {
+  return request.post<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/test-acceptance`,
+    data,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const authorizeRuntimeControlReleaseWorkflowProduction = (workflowId: string) => {
+  return request.post<RuntimeControlReleaseAuthorizationVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/production-authorization`,
+    timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
+  })
+}
+
+export const promoteRuntimeControlReleaseWorkflowProduction = (
+  workflowId: string,
+  data: RuntimeControlReleaseWorkflowProdReqVO
+) => {
+  return request.post<RuntimeControlReleaseWorkflowVO>({
+    url: `/infra/runtime-control/release-workflows/${encodeURIComponent(workflowId)}/promote-prod`,
+    data,
     timeout: RUNTIME_CONTROL_FOOLPROOF_REQUEST_TIMEOUT
   })
 }

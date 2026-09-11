@@ -24,6 +24,8 @@ public class RuntimeControlReleaseWorkflowRespVO {
     private String failedStage;
     private boolean retryable;
     private List<String> evidenceRefs;
+    private String packageDigest;
+    private String manifestDigest;
     private Instant createdAt;
     private Instant updatedAt;
     private Instant lastHeartbeatAt;
@@ -46,6 +48,8 @@ public class RuntimeControlReleaseWorkflowRespVO {
         result.failedStage = record.failedStage();
         result.retryable = record.retryable();
         result.evidenceRefs = record.evidenceRefs();
+        result.packageDigest = record.packageDigest();
+        result.manifestDigest = record.manifestDigest();
         result.createdAt = record.createdAt();
         result.updatedAt = record.updatedAt();
         result.lastHeartbeatAt = record.lastHeartbeatAt();

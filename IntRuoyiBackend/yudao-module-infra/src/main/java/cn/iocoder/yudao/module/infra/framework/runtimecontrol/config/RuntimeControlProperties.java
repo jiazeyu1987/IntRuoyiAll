@@ -349,6 +349,7 @@ public class RuntimeControlProperties implements InitializingBean {
 
     @Data
     public static class ReleaseWorkflow {
+        private String approvedSourceSelectionId = "approved-source";
         private String presetId = "preset-app-release";
         private String presetVersion = "1";
         private Duration heartbeatTimeout = Duration.ofMinutes(15);
@@ -357,6 +358,10 @@ public class RuntimeControlProperties implements InitializingBean {
         private List<String> secretRefs = List.of("release.nas.ssh", "release.registry");
 
         public void validate() {
+            if (approvedSourceSelectionId == null
+                    || !approvedSourceSelectionId.matches("[a-z0-9][a-z0-9.-]{2,63}")) {
+                throw new IllegalArgumentException("yudao.runtime-control.release-workflow.approved-source-selection-id is invalid");
+            }
             if (presetId == null || !presetId.matches("[a-z0-9][a-z0-9.-]{2,63}")) {
                 throw new IllegalArgumentException("yudao.runtime-control.release-workflow.preset-id is invalid");
             }

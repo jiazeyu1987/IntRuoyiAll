@@ -62,6 +62,7 @@
         <el-button
           type="primary"
           plain
+          :loading="releaseWorkflowSubmitting === 'test'"
           :disabled="!canPublishReleaseWorkflow"
           aria-label="发布测试服"
           @click="requestTestReleaseWorkflow"
@@ -72,6 +73,7 @@
         <el-button
           type="warning"
           plain
+          :loading="releaseWorkflowSubmitting === 'prod'"
           :disabled="!canPromoteReleaseWorkflow"
           aria-label="晋级正式服"
           @click="requestProdReleaseWorkflow"
@@ -87,12 +89,24 @@
         <span>workflowId：{{ activeReleaseWorkflow.workflowId }}</span>
         <span>tag：{{ activeReleaseWorkflow.releaseTag }}</span>
         <span>阶段版本：{{ activeReleaseWorkflow.stateVersion }}</span>
+        <span v-if="activeReleaseWorkflow.packageDigest">packageDigest：{{ activeReleaseWorkflow.packageDigest }}</span>
+        <span v-if="activeReleaseWorkflow.manifestDigest">manifestDigest：{{ activeReleaseWorkflow.manifestDigest }}</span>
         <span v-if="activeReleaseWorkflow.errorCode" class="release-workflow-details__error">
           {{ activeReleaseWorkflow.errorCode }} / {{ activeReleaseWorkflow.failedStage || '-' }}
         </span>
         <span v-if="activeReleaseWorkflow.evidenceRefs?.length">
           证据：{{ activeReleaseWorkflow.evidenceRefs.join('、') }}
         </span>
+        <el-button
+          v-if="activeReleaseWorkflow.state === 'TEST_DEPLOYED'"
+          link
+          type="primary"
+          :loading="releaseWorkflowSubmitting === 'test'"
+          @click="acceptReleaseWorkflowTest"
+        >
+          <Icon icon="ep:circle-check" class="mr-5px" />
+          记录测试验收
+        </el-button>
       </div>
     </section>
 
@@ -1001,8 +1015,12 @@ const remoteRootCleanupDialog = reactive({
 const canOperate = computed(() => checkPermi(['infra:runtime-control:operate']))
 // P3 deploy/promotion executors are intentionally fail-closed until their
 // server-side transaction contracts are present.
-const canPublishReleaseWorkflow = computed(() => false)
-const canPromoteReleaseWorkflow = computed(() => false)
+const canPublishReleaseWorkflow = computed(
+  () => canOperate.value && releaseWorkflowSubmitting.value === '' && activeReleaseWorkflow.value?.state === 'READY'
+)
+const canPromoteReleaseWorkflow = computed(
+  () => canOperate.value && releaseWorkflowSubmitting.value === '' && activeReleaseWorkflow.value?.state === 'TESTED'
+)
 const releaseWorkflowEligibilityText = computed(() => {
   if (!activeReleaseWorkflow.value) {
     return '请先生成程序安装包；服务端会固定源码、preset 和 app-release 范围。'
@@ -1231,12 +1249,84 @@ const createReleaseWorkflow = async () => {
   }
 }
 
-const requestTestReleaseWorkflow = () => {
-  message.warning('当前工作流尚未开放测试服部署事务，系统已保持 fail-closed。')
+const requestTestReleaseWorkflow = async () => {
+  const workflow = activeReleaseWorkflow.value
+  if (!workflow || workflow.state !== 'READY') return
+  releaseWorkflowSubmitting.value = 'test'
+  try {
+    const updated = await RuntimeControlApi.publishRuntimeControlReleaseWorkflowToTest(workflow.workflowId, {
+      reason: releaseWorkflowReason.value.trim() || '发布已验证程序包到测试服'
+    })
+    releaseWorkflows.value = [updated, ...releaseWorkflows.value.filter(
+      (item) => item.workflowId !== updated.workflowId
+    )]
+    message.success(`测试服发布已启动：${updated.releaseTag}`)
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    releaseWorkflowSubmitting.value = ''
+  }
 }
 
-const requestProdReleaseWorkflow = () => {
-  message.warning('当前工作流尚未开放正式服晋级事务，系统已保持 fail-closed。')
+const requestProdReleaseWorkflow = async () => {
+  const workflow = activeReleaseWorkflow.value
+  if (!workflow || workflow.state !== 'TESTED') return
+  try {
+    const result = await ElMessageBox.prompt(
+      `正式服 / ${workflow.releaseTag}\npackageDigest=${workflow.packageDigest}\nmanifestDigest=${workflow.manifestDigest}`,
+      '晋级正式服',
+      {
+        confirmButtonText: '确认晋级',
+        cancelButtonText: '取消',
+        inputPlaceholder: '输入 PROD',
+        inputValidator: (value) => value === 'PROD' || '必须准确输入 PROD'
+      }
+    )
+    releaseWorkflowSubmitting.value = 'prod'
+    const authorization = await RuntimeControlApi.authorizeRuntimeControlReleaseWorkflowProduction(
+      workflow.workflowId
+    )
+    const updated = await RuntimeControlApi.promoteRuntimeControlReleaseWorkflowProduction(
+      workflow.workflowId,
+      {
+        reason: releaseWorkflowReason.value.trim() || '晋级同一程序包到正式服',
+        authorizationGrantId: authorization.grantId,
+        prodConfirmText: result.value
+      }
+    )
+    releaseWorkflows.value = [updated, ...releaseWorkflows.value.filter(
+      (item) => item.workflowId !== updated.workflowId
+    )]
+    message.success(`正式服晋级已启动：${updated.releaseTag}`)
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') reportActionError(error)
+  } finally {
+    releaseWorkflowSubmitting.value = ''
+  }
+}
+
+const acceptReleaseWorkflowTest = async () => {
+  const workflow = activeReleaseWorkflow.value
+  if (!workflow || workflow.state !== 'TEST_DEPLOYED') return
+  const conclusion = releaseWorkflowReason.value.trim()
+  if (!conclusion) {
+    reportActionError(new Error('请填写测试验收结论'))
+    return
+  }
+  releaseWorkflowSubmitting.value = 'test'
+  try {
+    const updated = await RuntimeControlApi.acceptRuntimeControlReleaseWorkflowTest(workflow.workflowId, {
+      conclusion
+    })
+    releaseWorkflows.value = [updated, ...releaseWorkflows.value.filter(
+      (item) => item.workflowId !== updated.workflowId
+    )]
+    message.success('测试验收记录已提交')
+  } catch (error) {
+    reportActionError(error)
+  } finally {
+    releaseWorkflowSubmitting.value = ''
+  }
 }
 
 const runInspection = async () => {

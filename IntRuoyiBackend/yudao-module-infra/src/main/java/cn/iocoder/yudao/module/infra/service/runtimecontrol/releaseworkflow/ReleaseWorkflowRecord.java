@@ -26,6 +26,10 @@ public record ReleaseWorkflowRecord(
         String failedStage,
         boolean retryable,
         List<String> evidenceRefs,
+        String packageDigest,
+        String manifestDigest,
+        String testOperationId,
+        String testOperationEvidencePath,
         Instant createdAt,
         Instant updatedAt,
         Instant lastHeartbeatAt,
@@ -49,6 +53,10 @@ public record ReleaseWorkflowRecord(
             @JsonProperty("failedStage") String failedStage,
             @JsonProperty("retryable") boolean retryable,
             @JsonProperty("evidenceRefs") List<String> evidenceRefs,
+            @JsonProperty("packageDigest") String packageDigest,
+            @JsonProperty("manifestDigest") String manifestDigest,
+            @JsonProperty("testOperationId") String testOperationId,
+            @JsonProperty("testOperationEvidencePath") String testOperationEvidencePath,
             @JsonProperty("createdAt") Instant createdAt,
             @JsonProperty("updatedAt") Instant updatedAt,
             @JsonProperty("lastHeartbeatAt") Instant lastHeartbeatAt,
@@ -75,6 +83,16 @@ public record ReleaseWorkflowRecord(
         this.failedStage = trimToNull(failedStage);
         this.retryable = retryable;
         this.evidenceRefs = evidenceRefs == null ? List.of() : List.copyOf(evidenceRefs);
+        this.packageDigest = optionalDigest(packageDigest, "packageDigest");
+        this.manifestDigest = optionalDigest(manifestDigest, "manifestDigest");
+        if ((this.packageDigest == null) != (this.manifestDigest == null)) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_DIGEST_PAIR_INVALID");
+        }
+        this.testOperationId = trimToNull(testOperationId);
+        this.testOperationEvidencePath = trimToNull(testOperationEvidencePath);
+        if ((this.testOperationId == null) != (this.testOperationEvidencePath == null)) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_TEST_OPERATION_PAIR_INVALID");
+        }
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
         this.lastHeartbeatAt = Objects.requireNonNull(lastHeartbeatAt, "lastHeartbeatAt");
@@ -90,7 +108,7 @@ public record ReleaseWorkflowRecord(
         return new ReleaseWorkflowRecord(workflowId, releaseTag,
                 ReleaseWorkflowContract.PUBLISH_SCOPE, presetId, presetVersion,
                 State.SOURCE_FREEZING, 0, 1, null, null, null, false,
-                List.of(), createdAt, createdAt, createdAt, false, null,
+                List.of(), null, null, null, null, createdAt, createdAt, createdAt, false, null,
                 "server-created", "approved-source");
     }
 
@@ -98,7 +116,8 @@ public record ReleaseWorkflowRecord(
                                                      String sourceSelectionId) {
         return new ReleaseWorkflowRecord(workflowId, releaseTag, publishScope, presetId, presetVersion,
                 state, stateVersion, attempt, operationId, errorCode, failedStage, retryable,
-                evidenceRefs, createdAt, updatedAt, lastHeartbeatAt, zeroWriteEvidence,
+                evidenceRefs, packageDigest, manifestDigest, testOperationId, testOperationEvidencePath,
+                createdAt, updatedAt, lastHeartbeatAt, zeroWriteEvidence,
                 requestedBy, reason, sourceSelectionId);
     }
 
@@ -140,5 +159,15 @@ public record ReleaseWorkflowRecord(
             return null;
         }
         return value.trim();
+    }
+
+    private static String optionalDigest(String value, String name) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        if (!value.matches("[0-9a-fA-F]{64}")) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_" + name.toUpperCase() + "_INVALID");
+        }
+        return value.toLowerCase();
     }
 }

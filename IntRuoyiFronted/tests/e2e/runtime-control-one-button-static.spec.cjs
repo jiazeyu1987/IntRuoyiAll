@@ -36,6 +36,10 @@ for (const label of ['生成程序安装包', '发布测试服', '晋级正式�
 }
 assert.match(source, /createRuntimeControlReleaseWorkflow/)
 assert.match(source, /getRuntimeControlReleaseWorkflows/)
+assert.match(source, /publishRuntimeControlReleaseWorkflowToTest/)
+assert.match(source, /acceptRuntimeControlReleaseWorkflowTest/)
+assert.match(source, /authorizeRuntimeControlReleaseWorkflowProduction/)
+assert.match(source, /promoteRuntimeControlReleaseWorkflowProduction/)
 assert.match(source, /\/infra\/runtime-control\/release-workflows/)
 assert.doesNotMatch(
   page.match(/const operationActions\s*=\s*\[([\s\S]*?)\n\]/)?.[1] || '',

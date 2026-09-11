@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
 import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
 import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseDigestContract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -505,7 +506,11 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
         List<String> packageFileNames = listReleasePackageFileNames(nasConfig, packagePath, blockedReasons);
         JsonNode manifest = null;
         if (packageFileNames.contains("manifest.json")) {
-            manifest = readReleasePackageJson(nasConfig, manifestPath, "manifest.json", blockedReasons);
+            ManifestContent manifestContent = readReleasePackageManifest(nasConfig, manifestPath, blockedReasons);
+            if (manifestContent != null) {
+                manifest = manifestContent.node();
+                respVO.setManifestDigest(manifestContent.digest());
+            }
         } else {
             blockedReasons.add("缺少 manifest.json");
         }
@@ -626,6 +631,21 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
             }
         }
         return false;
+    }
+
+    private ManifestContent readReleasePackageManifest(NasConnectionConfig nasConfig, String path,
+                                                       List<String> blockedReasons) {
+        try {
+            NasFileReadResult result = nasBrowserService.readFile(nasConfig, path);
+            JsonNode node = objectMapper.readTree(new String(result.bytes(), StandardCharsets.UTF_8));
+            return new ManifestContent(node, ReleaseDigestContract.manifestDigest(result.bytes()));
+        } catch (ServiceException ex) {
+            blockedReasons.add("缺少 manifest.json");
+            return null;
+        } catch (IOException | IllegalArgumentException ex) {
+            blockedReasons.add("manifest.json 解析失败：" + ex.getMessage());
+            return null;
+        }
     }
 
     private List<RuntimeControlReleasePackageRespVO.SourceRoot> readSourceRoots(JsonNode sourceRoots) {
@@ -836,7 +856,12 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testConclusion");
             }
             reqVO.setTestConclusion(StrUtil.trim(reqVO.getTestConclusion()));
-            bindRecoverySetCandidate(reqVO);
+            if (StrUtil.isBlank(reqVO.getTestOperationId())) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationId");
+            }
+            if (StrUtil.isBlank(reqVO.getTestOperationEvidencePath())) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationEvidencePath");
+            }
         }
         if (action.requiresPublishScope()) {
             if (StrUtil.isBlank(reqVO.getPublishScope())) {
@@ -895,6 +920,12 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
                 || action == RuntimeControlOperationAction.PROMOTE_BACKUP) {
             validateRemoteDeployTargetHostConfig(action.resolveEnvironment(reqVO));
             validateReleaseTargetHostConfig();
+        }
+        if ((action == RuntimeControlOperationAction.PROMOTE_PROD
+                || action == RuntimeControlOperationAction.PROMOTE_BACKUP)
+                && (StrUtil.isBlank(reqVO.getTestOperationId())
+                || StrUtil.isBlank(reqVO.getTestOperationEvidencePath()))) {
+            throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "testOperationEvidence");
         }
         if (action.requiresResponsibilityGate()) {
             responsibilityService.validateRequiredOwners(action.resolveEnvironment(reqVO), action.getAction());
@@ -1167,5 +1198,8 @@ public class RuntimeControlServiceImpl implements RuntimeControlService {
     }
 
     private record RuntimeControlTerminalStatus(String status, String summary) {
+    }
+
+    private record ManifestContent(JsonNode node, String digest) {
     }
 }

@@ -28,6 +28,9 @@ public class RuntimeControlReleasePackageRespVO {
     @Schema(description = "不可变程序包摘要")
     private String packageDigest;
 
+    @Schema(description = "manifest.json 原始字节摘要")
+    private String manifestDigest;
+
     @Schema(description = "维护仓与 IntRuoyi 根仓来源")
     private List<SourceRoot> sourceRoots;
 

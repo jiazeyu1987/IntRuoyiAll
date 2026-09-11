@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -68,4 +70,10 @@ public class RuntimeControlActionReqVO {
 
     @Schema(description = "恢复集 Redis 策略，内部脚本参数，由服务端候选解析；请求传入将被拒绝")
     private String recoverySetRedisPolicy;
+
+    @JsonIgnore
+    private String testOperationId;
+
+    @JsonIgnore
+    private String testOperationEvidencePath;
 }

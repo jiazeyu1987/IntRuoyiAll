@@ -25,7 +25,11 @@ import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeC
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleasePackageRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseStatusRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowCreateReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowActionReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowTestAcceptanceReqVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseAuthorizationRespVO;
+import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlReleaseWorkflowProdReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestartReqVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRollbackCandidateRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.runtimecontrol.vo.RuntimeControlRestoreCandidateRespVO;
@@ -48,6 +52,7 @@ import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeIncidentServi
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeStorageGuardService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.RuntimeRemoteRootDiskService;
 import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowService;
+import cn.iocoder.yudao.module.infra.service.runtimecontrol.releaseworkflow.ReleaseWorkflowOrchestrator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -102,6 +107,8 @@ public class RuntimeControlController {
     private RuntimeRemoteRootDiskService runtimeRemoteRootDiskService;
     @Resource
     private ReleaseWorkflowService releaseWorkflowService;
+    @Resource
+    private ReleaseWorkflowOrchestrator releaseWorkflowOrchestrator;
 
     @GetMapping("/overview")
     @Operation(summary = "获得运行控制台总览")
@@ -158,7 +165,7 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
     public CommonResult<RuntimeControlReleaseWorkflowRespVO> createReleaseWorkflow(
             @Valid @RequestBody RuntimeControlReleaseWorkflowCreateReqVO reqVO) {
-        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowService.create(
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.startBuild(
                 requireLoginUserId(), reqVO.getReason(), reqVO.getSourceSelectionId())));
     }
 
@@ -167,8 +174,49 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<List<RuntimeControlReleaseWorkflowRespVO>> getReleaseWorkflows() {
         return success(releaseWorkflowService.list().stream()
+                .map(item -> releaseWorkflowOrchestrator.reconcile(item.workflowId()))
                 .map(RuntimeControlReleaseWorkflowRespVO::from)
                 .toList());
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/publish-test")
+    @Operation(summary = "发布程序包到测试服")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> publishReleaseWorkflowToTest(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowActionReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.startTestPublish(
+                workflowId, requireLoginUserId(), reqVO.getReason())));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/test-acceptance")
+    @Operation(summary = "记录程序包测试验收")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> acceptReleaseWorkflowTest(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowTestAcceptanceReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.acceptTest(
+                workflowId, requireLoginUserId(), reqVO.getConclusion())));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/production-authorization")
+    @Operation(summary = "创建一次性正式晋级授权")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseAuthorizationRespVO> authorizeReleaseWorkflowProduction(
+            @PathVariable("workflowId") String workflowId) {
+        return success(RuntimeControlReleaseAuthorizationRespVO.from(
+                releaseWorkflowOrchestrator.authorizeProduction(workflowId, requireLoginUserId())));
+    }
+
+    @PostMapping("/release-workflows/{workflowId}/promote-prod")
+    @Operation(summary = "晋级同一程序包到正式服")
+    @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
+    public CommonResult<RuntimeControlReleaseWorkflowRespVO> promoteReleaseWorkflowProduction(
+            @PathVariable("workflowId") String workflowId,
+            @Valid @RequestBody RuntimeControlReleaseWorkflowProdReqVO reqVO) {
+        return success(RuntimeControlReleaseWorkflowRespVO.from(
+                releaseWorkflowOrchestrator.startProductionPromotion(workflowId, requireLoginUserId(),
+                        reqVO.getReason(), reqVO.getAuthorizationGrantId(), reqVO.getProdConfirmText())));
     }
 
     @GetMapping("/release-workflows/{workflowId}")
@@ -176,7 +224,7 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:query')")
     public CommonResult<RuntimeControlReleaseWorkflowRespVO> getReleaseWorkflow(
             @PathVariable("workflowId") String workflowId) {
-        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowService.require(workflowId)));
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.reconcile(workflowId)));
     }
 
     @PostMapping("/release-workflows/{workflowId}/cancel")
@@ -184,7 +232,7 @@ public class RuntimeControlController {
     @PreAuthorize("@ss.hasPermission('infra:runtime-control:operate')")
     public CommonResult<RuntimeControlReleaseWorkflowRespVO> cancelReleaseWorkflow(
             @PathVariable("workflowId") String workflowId) {
-        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowService.cancel(workflowId)));
+        return success(RuntimeControlReleaseWorkflowRespVO.from(releaseWorkflowOrchestrator.cancel(workflowId)));
     }
 
     @GetMapping("/operations/{operationId}/log")

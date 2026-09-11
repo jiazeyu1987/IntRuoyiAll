@@ -153,9 +153,7 @@ public enum RuntimeControlOperationAction {
             case MARK_RELEASE_TESTED -> Map.of(
                     "releaseTag", StrUtil.blankToDefault(reqVO.getReleaseTag(), ""),
                     "testConclusion", StrUtil.blankToDefault(reqVO.getTestConclusion(), ""),
-                    "selectedRecoverySetCandidateId",
-                    StrUtil.blankToDefault(reqVO.getSelectedRecoverySetCandidateId(), ""),
-                    "recoverySetId", StrUtil.blankToDefault(reqVO.getRecoverySetId(), ""));
+                    "testOperationId", StrUtil.blankToDefault(reqVO.getTestOperationId(), ""));
             case BACKUP_NOW -> Map.of(
                     "targetEnvironment", StrUtil.blankToDefault(reqVO.getTargetEnvironment(), ""),
                     "backupKind", StrUtil.blankToDefault(reqVO.getBackupKind(), ""));
@@ -279,7 +277,10 @@ public enum RuntimeControlOperationAction {
             args.add("PROD");
         }
         if (requireTested) {
-            args.add("-RequireTested");
+            args.add("-TestOperationId");
+            args.add(StrUtil.trim(reqVO.getTestOperationId()));
+            args.add("-TestOperationEvidencePath");
+            args.add(StrUtil.trim(reqVO.getTestOperationEvidencePath()));
         }
         return args;
     }
@@ -359,16 +360,10 @@ public enum RuntimeControlOperationAction {
         args.add(StrUtil.trim(reqVO.getReleaseTag()));
         args.add("-TestConclusion");
         args.add(StrUtil.trim(reqVO.getTestConclusion()));
-        args.add("-SelectedRecoverySetCandidateId");
-        args.add(StrUtil.trim(reqVO.getSelectedRecoverySetCandidateId()));
-        args.add("-RecoverySetId");
-        args.add(StrUtil.trim(reqVO.getRecoverySetId()));
-        args.add("-RecoverySetManifestHash");
-        args.add(StrUtil.trim(reqVO.getRecoverySetManifestHash()));
-        args.add("-RecoverySetProgramVersion");
-        args.add(StrUtil.trim(reqVO.getRecoverySetProgramVersion()));
-        args.add("-RecoverySetRedisPolicy");
-        args.add(StrUtil.trim(reqVO.getRecoverySetRedisPolicy()));
+        args.add("-TestOperationId");
+        args.add(StrUtil.trim(reqVO.getTestOperationId()));
+        args.add("-TestOperationEvidencePath");
+        args.add(StrUtil.trim(reqVO.getTestOperationEvidencePath()));
         return args;
     }
 

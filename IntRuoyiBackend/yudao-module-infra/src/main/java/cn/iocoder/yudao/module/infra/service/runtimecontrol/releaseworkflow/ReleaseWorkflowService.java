@@ -46,6 +46,9 @@ public class ReleaseWorkflowService {
         String normalizedReason = validateReason(reason);
         String normalizedSourceSelectionId = requireText(sourceSelectionId, "sourceSelectionId");
         properties.getReleaseWorkflow().validate();
+        if (!properties.getReleaseWorkflow().getApprovedSourceSelectionId().equals(normalizedSourceSelectionId)) {
+            throw new IllegalArgumentException("RELEASE_WORKFLOW_SOURCE_SELECTION_NOT_APPROVED");
+        }
         ReleaseWorkflowRecord existing = store.list().stream()
                 .filter(record -> !record.state().isTerminal())
                 .filter(record -> normalizedReason.equals(record.reason()))
@@ -88,6 +91,27 @@ public class ReleaseWorkflowService {
                                                   String operationId) {
         return store.assignOperation(store.require(workflowId), expectedStateVersion,
                 requireOperationId(operationId), VERIFIER_ACTOR);
+    }
+
+    public ReleaseWorkflowRecord bindArtifacts(String workflowId, long expectedStateVersion,
+                                               String packageDigest, String manifestDigest) {
+        ReleaseWorkflowRecord current = store.require(workflowId);
+        if (current.stateVersion() != expectedStateVersion) {
+            throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
+                    current.stateVersion());
+        }
+        return store.bindArtifacts(current, packageDigest, manifestDigest, VERIFIER_ACTOR);
+    }
+
+    public ReleaseWorkflowRecord bindTestOperation(String workflowId, long expectedStateVersion,
+                                                   String operationId, String evidencePath) {
+        ReleaseWorkflowRecord current = store.require(workflowId);
+        if (current.stateVersion() != expectedStateVersion) {
+            throw new ReleaseWorkflowStore.CasConflictException(workflowId, expectedStateVersion,
+                    current.stateVersion());
+        }
+        return store.bindTestOperation(current, requireOperationId(operationId),
+                requireText(evidencePath, "testOperationEvidencePath"), VERIFIER_ACTOR);
     }
 
     public ReleaseWorkflowRecord verifyAdvance(String workflowId, long expectedStateVersion,
@@ -232,7 +256,7 @@ public class ReleaseWorkflowService {
     }
 
     private static String requireOperationId(String value) {
-        if (value == null || !value.matches("op-[a-z0-9-]{8,64}")) {
+        if (value == null || !value.matches("(?:op-)?[a-z0-9-]{8,64}")) {
             throw new IllegalArgumentException("RELEASE_WORKFLOW_OPERATION_ID_INVALID");
         }
         return value;

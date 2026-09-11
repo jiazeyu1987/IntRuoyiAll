@@ -102,7 +102,9 @@ public class ReleaseWorkflowStore {
                 current.workflowId(), current.releaseTag(), current.publishScope(), current.presetId(),
                 current.presetVersion(), targetState, current.stateVersion() + 1, current.attempt(),
                 current.operationId(), errorCode, failedStage, retryable,
-                evidenceRefs == null ? List.of() : evidenceRefs, current.createdAt(), now, now,
+                evidenceRefs == null ? List.of() : evidenceRefs, current.packageDigest(), current.manifestDigest(),
+                current.testOperationId(), current.testOperationEvidencePath(),
+                current.createdAt(), now, now,
                 zeroWriteEvidence, current.requestedBy(), current.reason(), current.sourceSelectionId());
         return persistEvent(envelope, updated, current.state(), targetState, actor, errorCode,
                 failedStage, retryable, updated.evidenceRefs(), now);
@@ -117,7 +119,7 @@ public class ReleaseWorkflowStore {
         if (current.state().isTerminal()) {
             throw new TerminalWorkflowException(current.workflowId(), current.state());
         }
-        if (operationId == null || !operationId.matches("op-[a-z0-9-]{8,64}")) {
+        if (operationId == null || !operationId.matches("(?:op-)?[a-z0-9-]{8,64}")) {
             throw new IllegalArgumentException("RELEASE_WORKFLOW_OPERATION_ID_INVALID");
         }
         Instant now = Instant.now();
@@ -125,7 +127,9 @@ public class ReleaseWorkflowStore {
                 current.workflowId(), current.releaseTag(), current.publishScope(), current.presetId(),
                 current.presetVersion(), current.state(), current.stateVersion() + 1, current.attempt(),
                 operationId, current.errorCode(), current.failedStage(), current.retryable(),
-                current.evidenceRefs(), current.createdAt(), now, now, current.zeroWriteEvidence(),
+                current.evidenceRefs(), current.packageDigest(), current.manifestDigest(),
+                current.testOperationId(), current.testOperationEvidencePath(),
+                current.createdAt(), now, now, current.zeroWriteEvidence(),
                 current.requestedBy(), current.reason(), current.sourceSelectionId());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
                 null, false, List.of(), now);
@@ -143,10 +147,51 @@ public class ReleaseWorkflowStore {
                 current.workflowId(), current.releaseTag(), current.publishScope(), current.presetId(),
                 current.presetVersion(), current.state(), current.stateVersion() + 1, current.attempt(),
                 current.operationId(), current.errorCode(), current.failedStage(), current.retryable(),
-                current.evidenceRefs(), current.createdAt(), now, heartbeatAt,
+                current.evidenceRefs(), current.packageDigest(), current.manifestDigest(),
+                current.testOperationId(), current.testOperationEvidencePath(),
+                current.createdAt(), now, heartbeatAt,
                 current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId());
         return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
                 null, false, List.of(), now);
+    }
+
+    public synchronized ReleaseWorkflowRecord bindArtifacts(ReleaseWorkflowRecord expected,
+                                                             String packageDigest,
+                                                             String manifestDigest,
+                                                             String actor) {
+        WorkflowEnvelope envelope = readEnvelope(expected.workflowId());
+        ReleaseWorkflowRecord current = requireVersion(expected, expected.stateVersion(), envelope.record());
+        if (current.state().isTerminal()) {
+            throw new TerminalWorkflowException(current.workflowId(), current.state());
+        }
+        Instant now = Instant.now();
+        ReleaseWorkflowRecord updated = new ReleaseWorkflowRecord(
+                current.workflowId(), current.releaseTag(), current.publishScope(), current.presetId(),
+                current.presetVersion(), current.state(), current.stateVersion() + 1, current.attempt(),
+                current.operationId(), current.errorCode(), current.failedStage(), current.retryable(),
+                current.evidenceRefs(), packageDigest, manifestDigest,
+                current.testOperationId(), current.testOperationEvidencePath(), current.createdAt(), now, now,
+                current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId());
+        return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
+                null, false, List.of("manifest.json"), now);
+    }
+
+    public synchronized ReleaseWorkflowRecord bindTestOperation(ReleaseWorkflowRecord expected,
+                                                                 String testOperationId,
+                                                                 String testOperationEvidencePath,
+                                                                 String actor) {
+        WorkflowEnvelope envelope = readEnvelope(expected.workflowId());
+        ReleaseWorkflowRecord current = requireVersion(expected, expected.stateVersion(), envelope.record());
+        Instant now = Instant.now();
+        ReleaseWorkflowRecord updated = new ReleaseWorkflowRecord(
+                current.workflowId(), current.releaseTag(), current.publishScope(), current.presetId(),
+                current.presetVersion(), current.state(), current.stateVersion() + 1, current.attempt(),
+                current.operationId(), current.errorCode(), current.failedStage(), current.retryable(),
+                current.evidenceRefs(), current.packageDigest(), current.manifestDigest(),
+                testOperationId, testOperationEvidencePath, current.createdAt(), now, now,
+                current.zeroWriteEvidence(), current.requestedBy(), current.reason(), current.sourceSelectionId());
+        return persistEvent(envelope, updated, current.state(), current.state(), actor, null,
+                null, false, List.of(testOperationEvidencePath), now);
     }
 
     public synchronized List<ReleaseWorkflowEvent> readJournal(String workflowId) {

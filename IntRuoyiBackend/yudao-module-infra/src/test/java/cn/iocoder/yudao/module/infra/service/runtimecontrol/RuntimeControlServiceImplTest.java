@@ -828,17 +828,12 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void executeMarkReleaseTestedShouldWriteTestedMarkerThroughScript() throws Exception {
         stubNasReleaseConfig();
-        RuntimeControlProperties properties = RuntimeControlProperties.createDefaultForTests(tempDir);
-        properties.getBackupOps().setNasBackupPointsRoot("nas-backup-points");
-        createRestoreCandidateFixture(properties, "20260525-215449", "20260525_200033");
-        RuntimeOpsCandidateService candidateService =
-                new RuntimeOpsCandidateServiceImpl(properties, new RuntimeControlNasBrowserServiceStub(tempDir));
-        String recoverySetCandidateId = candidateService.listRestoreCandidates().get(0).getCandidateId();
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("mark-release-tested");
         reqVO.setReason("测试服验证通过");
         reqVO.setTestConclusion("回归通过，允许上线正式服");
-        reqVO.setSelectedRecoverySetCandidateId(recoverySetCandidateId);
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
         RuntimeControlStatusResult testStatus = RuntimeControlStatusResult.running("HTTP 200", "running");
         testStatus.setCurrentReleaseTag("20260528_220000");
         doReturn(testStatus).when(commandExecutor).queryStatus(argThat(command -> "test".equals(command.getEnvironment())
@@ -857,11 +852,10 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                         && command.getArguments().contains("20260528_220000")
                         && command.getArguments().contains("-TestConclusion")
                         && command.getArguments().contains("回归通过，允许上线正式服")
-                        && command.getArguments().contains("-SelectedRecoverySetCandidateId")
-                        && command.getArguments().contains(recoverySetCandidateId)
-                        && command.getArguments().contains("-RecoverySetId")
-                        && command.getArguments().contains("20260525-215449")
-                        && command.getArguments().contains("-RecoverySetManifestHash")
+                        && command.getArguments().contains("-TestOperationId")
+                        && command.getArguments().contains("op-publish-test-success")
+                        && command.getArguments().contains("-TestOperationEvidencePath")
+                        && !command.getArguments().contains("-SelectedRecoverySetCandidateId")
                         && command.getArguments().contains("-NasConfigPath")), any());
         waitOperationStatus(result.getOperationId(), "succeeded");
     }
@@ -896,6 +890,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         assertServiceException(() -> runtimeControlService.executeAction(reqVO, "1001"),
                 ErrorCodeConstants.RUNTIME_CONTROL_PROD_GUARD_REQUIRED);
@@ -913,6 +909,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -941,6 +939,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -955,7 +955,9 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                         && command.getArguments().contains("prod")
                         && command.getArguments().contains("-ConfirmText")
                         && command.getArguments().contains("PROD")
-                        && command.getArguments().contains("-RequireTested")
+                        && !command.getArguments().contains("-RequireTested")
+                        && command.getArguments().contains("-TestOperationId")
+                        && command.getArguments().contains("op-publish-test-success")
                         && command.getArguments().contains("-ReleaseTag")
                         && command.getArguments().contains("20260528_220000")
                         && command.getArguments().contains("-RemoteMinioContainer")
@@ -975,6 +977,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线备用服务器");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -989,7 +993,9 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                         && command.getArguments().contains("backup")
                         && command.getArguments().contains("-ConfirmText")
                         && command.getArguments().contains("PROD")
-                        && command.getArguments().contains("-RequireTested")
+                        && !command.getArguments().contains("-RequireTested")
+                        && command.getArguments().contains("-TestOperationId")
+                        && command.getArguments().contains("op-publish-test-success")
                         && command.getArguments().contains("-ReleaseTag")
                         && command.getArguments().contains("20260528_220000")
                         && command.getArguments().contains("-RemoteReleaseRoot")
@@ -1025,6 +1031,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线备用服务器");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1042,6 +1050,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线备用服务器");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
@@ -1167,6 +1177,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("op-publish-test-success");
+        reqVO.setTestOperationEvidencePath(tempDir.resolve("publish-test-operation.json").toString());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> runtimeControlService.executeAction(reqVO, "1001"));
