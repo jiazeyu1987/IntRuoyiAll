@@ -53,6 +53,7 @@
 
 - Trigger: 资源池、MES 工序、工艺路线资源、报工映射等只读列表复用关系表组装跨主数据读模型，出现 `Missing route`、`Missing item`、`Missing process`、`Missing machinery` 或页面 `系统异常`。
 - Preflight check: 行组装前先收集关系表引用的正式主数据 ID，批量读取父表 map，并区分“全量只读资源池”与“指定对象详情/编辑”。全量只读资源池只能展示可解析到正式父表的数据；指定对象详情/编辑若缺正式父表必须 fail fast 并暴露缺失来源。
+- Preflight check: 页面入口报 `系统异常` 时必须同时核对当前页面接口和共享布局接口；若当前业务接口为 `code=0`，继续检查工作台角标、审批中心待办、通知计数等共享请求。先修正式 schema 漂移，再处理仍由活动流程指向已删除业务对象的孤儿待办；终止孤儿审批应优先走 BPM 管理端取消流程并记录业务键、流程实例、任务节点和取消原因。
 - Blocker: 单条历史孤儿关系导致整页 500、分页 total/count 包含不可解析关系、在循环中直接 `require(parent)` 拖垮全量列表、或缺失父表来源被改成空名称/未知对象/默认成功时必须停止。
 - Verification: 新增回归测试或静态合同覆盖一条有效关系加一条孤儿关系时只读列表返回有效行；同时用登录态 API 和真实页面证明业务码为 `0`、表格有行、无 `系统异常`。
 - Forbidden action: 禁止直接 SQL 删除业务关系来掩盖读模型缺陷，禁止 catch 后返回空页，禁止前端隐藏 toast，禁止用“未知路线/未知产品”等默认文案替代正式主数据完整性。
@@ -318,3 +319,12 @@
 - 记录 schema 核对命令和关键字段证据。
 - 记录 SQL 执行目标、租户范围、影响范围和回滚或清理方式。
 - 执行后核对受影响行数、菜单权限响应或业务页面结果。
+
+## 审计原因字段容量合同门禁
+
+- Trigger: 审计、失败原因、处理意见或异常摘要从上游服务写入数据库自由文本列。
+- Preflight check: 以服务层允许的最大长度作为 schema 下限，同时核对基础 schema、正式迁移和测试 schema；索引只覆盖必要身份字段，不因索引方便把原因文本缩短。
+- Blocker: Java/VO 允许长度大于数据库列、MySQL 会截断但 H2 测试 schema 未暴露、或仅修改基础建库脚本而没有增量迁移时必须停止。
+- Verification: SQL 合同断言正式迁移和全部 schema 定义一致；对现有测试库首次及重复执行迁移，并核对 `information_schema.columns` 的实际类型。
+- Forbidden action: 禁止截断后写入、吞掉 Data truncation、只扩大前端输入限制，或用另一列/JSON 临时保存溢出内容。
+- Evidence: `doc/tasks/20260907-dcc-release-notification-impact/verification-report.md`。

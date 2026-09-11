@@ -86,7 +86,7 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
                            MesKingdeeProductionMaterialListSyncResult result, boolean skipExisting) {
         MesKingdeeProductionMaterialListDO existing = materialListMapper.selectBySourceLine(row.getBillNo(),
                 row.getProductionOrderNo(), row.getProductionOrderLineNo(), row.getChildMaterialCode());
-        if (skipExisting && existing != null) {
+        if (skipExisting && existing != null && !shouldBackfillErpColumns(existing, row)) {
             result.addSkipped(row.getBillNo() + "|" + row.getProductionOrderNo() + "|"
                     + row.getProductionOrderLineNo() + "|" + row.getChildMaterialCode());
             return;
@@ -100,6 +100,12 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
         mapped.setId(existing.getId());
         materialListMapper.updateById(mapped);
         result.addUpdated(existing.getId());
+    }
+
+    private boolean shouldBackfillErpColumns(MesKingdeeProductionMaterialListDO existing,
+                                             ErpKingdeeProductionMaterialList row) {
+        return (StrUtil.isBlank(existing.getDrawingNumber()) && StrUtil.isNotBlank(row.getDrawingNumber()))
+                || (existing.getDemandTime() == null && row.getDemandTime() != null);
     }
 
     private MesKingdeeProductionMaterialListDO buildRow(ErpKingdeeProductionMaterialList row, MesProWorkOrderDO workOrder) {

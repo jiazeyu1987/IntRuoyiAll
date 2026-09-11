@@ -195,7 +195,7 @@
           <div class="frontline-pqc-fact-dialog__body is-standard">
             <article class="frontline-pqc-fact-dialog__detail" data-pqc-standard-detail-text>
               <span>标准说明</span>
-              <p>{{ activePqcStandardItem.acceptanceStandard || '未配置接收标准说明' }}</p>
+              <p>{{ activePqcStandardItem.standardText || '未配置接收标准说明' }}</p>
             </article>
           </div>
           <footer class="frontline-pqc-fact-dialog__footer">
@@ -314,6 +314,14 @@
                     </option>
                     <option :value="FRONTLINE_OTHER_OPTION_VALUE">{{ FRONTLINE_OTHER_OPTION_LABEL }}</option>
                   </select>
+                  <div
+                    v-if="getPqcSelectedEquipmentParameters(activePqcTabItem).length"
+                    class="pqc-equipment-parameter-summary"
+                    data-pqc-equipment-parameter-summary
+                  >
+                    <strong>设备参数</strong>
+                    <span>{{ formatPqcSelectedEquipmentParameters(activePqcTabItem) }}</span>
+                  </div>
                 </div>
 
                 <button
@@ -1452,6 +1460,10 @@ type ProductionMaterialDraftState = {
   deviceMeteringValidity: ProductionDeviceMeteringValidityDraft
 }
 type ProductionMaterialDeviceDraftState = Pick<ProductionMaterialDraftState, 'selectedDeviceKey' | 'selectedDeviceKeys' | 'deviceParameters' | 'deviceMeteringValidity'>
+type ProductionDeviceParameterValidationScope = Pick<
+  ProFrontlineFeedbackMaterialReqVO,
+  'materialName' | 'selectedDevices' | 'deviceParameterReadings'
+>
 type FrontlineEmployeeSwitchResult = {
   actualEmployeeId: number
   template?: {
@@ -1557,8 +1569,6 @@ interface PqcInspectionItem {
   type: 'number' | 'choice'
   inspectionMethod: string
   standardText: string
-  acceptanceStandard: string
-  processInspectionMethod: string
   inspectionTool: string | null
   samplingPlanText: string | null
   resultType: FrontlinePqcResultType
@@ -1631,7 +1641,8 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
     if (!reasonCode || !(reasonCode in PARAMETER_AUDIT_REASON_TEXT)) {
       throw new Error(`未知设备参数审计原因：${reasonCode || 'EMPTY'}`)
     }
-    return PARAMETER_AUDIT_REASON_TEXT[reasonCode as keyof typeof PARAMETER_AUDIT_REASON_TEXT]
+    const reason = PARAMETER_AUDIT_REASON_TEXT[reasonCode as keyof typeof PARAMETER_AUDIT_REASON_TEXT]
+    return item.materialName ? `${item.materialName}：${reason}` : reason
   })
   message.warning(`报工已成功，设备参数需复核：${[...new Set(warnings)].join('；')}`)
 }
@@ -1904,8 +1915,6 @@ const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspection
     type: isPqcNumericResultType(item.resultType) ? 'number' : 'choice',
     inspectionMethod: item.inspectionMethod || '',
     standardText: item.standardText || '',
-    acceptanceStandard: item.acceptanceStandard || item.standardText || '',
-    processInspectionMethod: item.processInspectionMethod || item.inspectionMethod || '',
     inspectionTool: item.inspectionTool,
     samplingPlanText: item.samplingPlanText,
     resultType: item.resultType,
@@ -2026,23 +2035,6 @@ const pqcTaskAvailabilityIssue = computed(() =>
     ? resolveFrontlinePqcTaskAvailabilityIssue(deviceState.selectedProcess)
     : undefined
 )
-
-const withPqcTaskOption = (
-  process: FrontlinePqcProcessVO,
-  option: PqcTaskOptionSnapshot | undefined
-): FrontlinePqcProcessVO => {
-  if (!option) {
-    return process
-  }
-  return {
-    ...process,
-    regulationVersionId: option.regulationVersionId,
-    qaProcessId: option.qaProcessId,
-    pqcTaskOptions: process.pqcTaskOptions.map((taskOption) =>
-      taskOption.pqcTaskId === option.pqcTaskId ? { ...taskOption, ...option } : taskOption
-    )
-  }
-}
 
 const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
   isFrontlinePqcProcess(deviceState.selectedProcess)
@@ -2840,7 +2832,7 @@ function normalizeProductionParameter(parameter: FrontlineRuntimeDeviceParameter
     Number.isInteger(decimalScale)
     ? Number(normalized.toFixed(decimalScale))
     : normalized
-  return Math.max(0, scaled)
+  return scaled
 }
 
 const toFiniteProductionParameterNumber = (value: unknown) => {
@@ -3054,14 +3046,7 @@ const buildProductionClearanceConfirmationPayload = () =>
   }))
 
 const buildProductionDeviceMeteringValidityPayload = () =>
-  visibleDeviceCards.value
-    .filter((device) => selectedProductionDeviceKeys.value.includes(device.key))
-    .map((device) => ({
-    deviceId: device.deviceId,
-    deviceCode: device.deviceCode,
-    deviceName: device.deviceName,
-    inMeteringValidityPeriod: isProductionDeviceMeteringValid(device.key)
-  }))
+  buildProductionDeviceMeteringValidityFromSelectedDevices(buildProductionSelectedDevicesPayload())
 
 const rememberProductionMaterialDeviceDrafts = () => {
   persistActiveProductionMaterialDraft()
@@ -3245,7 +3230,6 @@ const applyPqcTaskOptionToSelectedProcess = (option: PqcTaskOptionSnapshot) => {
     return
   }
   persistCurrentPqcTaskDraft()
-  deviceState.selectedProcess = withPqcTaskOption(process, option)
   deviceState.selectedEmployee = undefined
   deviceState.template = undefined
   context.actualEmployeeId = undefined
@@ -3311,6 +3295,40 @@ const getUniquePqcEquipmentOptions = (item: PqcInspectionItem) => {
 
 const formatPqcEquipmentLabel = (option: FrontlinePqcEquipmentOptionVO) =>
   [option.equipmentName, option.equipmentNumber].filter(Boolean).join(' / ')
+
+const getPqcSelectedEquipmentOption = (item: PqcInspectionItem) => {
+  const selectedEquipmentId = getPqcItemSelection(item.key).selectedEquipmentId
+  if (!selectedEquipmentId) {
+    return undefined
+  }
+  return item.equipmentOptions.find((option) => option.equipmentId === selectedEquipmentId)
+}
+
+const getPqcSelectedEquipmentParameters = (item: PqcInspectionItem) =>
+  getPqcSelectedEquipmentOption(item)?.parameters || []
+
+const formatPqcParameterRange = (parameter: NonNullable<FrontlinePqcEquipmentOptionVO['parameters']>[number]) => {
+  const unit = parameter.unit || ''
+  if (parameter.lowerLimit !== undefined && parameter.upperLimit !== undefined) {
+    return `范围 ${parameter.lowerLimit} - ${parameter.upperLimit}${unit}`
+  }
+  if (parameter.lowerLimit !== undefined) {
+    return `下限 ${parameter.lowerLimit}${unit}`
+  }
+  if (parameter.upperLimit !== undefined) {
+    return `上限 ${parameter.upperLimit}${unit}`
+  }
+  return parameter.standardText || ''
+}
+
+const formatPqcSelectedEquipmentParameters = (item: PqcInspectionItem) =>
+  getPqcSelectedEquipmentParameters(item)
+    .map((parameter) => {
+      const name = parameter.parameterName || parameter.parameterCode
+      const range = formatPqcParameterRange(parameter)
+      return range ? `${name}：${range}` : name
+    })
+    .join('；')
 
 const isPqcCustomEquipmentSelection = (itemKey: PqcInspectionItemKey) => {
   const selection = getPqcItemSelection(itemKey)
@@ -3551,8 +3569,8 @@ const formatPqcInspectionItemTabLabel = (item: PqcInspectionItem) =>
   item.itemName || '未配置检验项目名称'
 
 const formatPqcStandardSummary = (item: PqcInspectionItem) => {
-  if (item.acceptanceStandard) {
-    return item.acceptanceStandard
+  if (item.standardText) {
+    return item.standardText
   }
   return '未配置接收标准'
 }
@@ -3567,7 +3585,7 @@ const normalizePqcInspectionMethodLabel = (inspectionMethod: string) => {
 }
 
 const formatPqcMethodSummary = (item: PqcInspectionItem) =>
-  normalizePqcInspectionMethodLabel(item.processInspectionMethod) || '未配置检验方法'
+  normalizePqcInspectionMethodLabel(item.inspectionMethod) || '未配置检验方法'
 
 const formatPqcInspectionTitle = (item: PqcInspectionItem) =>
   formatPqcMethodSummary(item)
@@ -3717,12 +3735,12 @@ const buildPqcItemDetailsPayload = (
       selectedEquipmentCode: selectedOption?.equipmentCode,
       selectedEquipmentName: selectedOption?.equipmentName,
       selectedEquipmentNumber: selectedOption ? selection.selectedEquipmentNumber : customEquipmentText,
-      standardText: item.acceptanceStandard,
+      standardText: item.standardText,
       standardLowerLimit: item.standardLowerLimit,
       standardUpperLimit: item.standardUpperLimit,
       standardUnit: item.standardUnit,
       standardPrecision: item.standardPrecision,
-      inspectionMethod: item.processInspectionMethod,
+      inspectionMethod: item.inspectionMethod,
       resultType: item.resultType,
       sampleValues: getPqcExactPieceValuesForTask(item.key, taskOption)
     }
@@ -3964,9 +3982,7 @@ const markPqcTasksSubmittedAndSelectNext = (submittedPqcTaskIds: number[]) => {
   syncPqcSubmittedTasksInProcessOptions(process, submittedTaskIds)
   invalidateFrontlinePqcProcessCacheForActiveOrder(deviceState, process.activeOrderId)
   const nextOption = getDefaultPqcTaskOption(updatedProcess)
-  deviceState.selectedProcess = nextOption
-    ? withPqcTaskOption(updatedProcess, nextOption)
-    : updatedProcess
+  deviceState.selectedProcess = updatedProcess
   if (nextOption) {
     applyPqcTaskOptionToDraft(nextOption)
   } else {
@@ -4353,9 +4369,7 @@ const handleSelectProcess = async (
     showFrontlineError('生产填写只能选择MES工艺路线工序。')
     return
   }
-  const selectedProcess = isPqcMode.value && isFrontlinePqcProcess(process)
-    ? withPqcTaskOption(process, getDefaultPqcTaskOption(process))
-    : process
+  const selectedProcess = process
   if (shouldClosePickerImmediately) {
     closePicker()
   }
@@ -4473,21 +4487,16 @@ watch(currentLoginUserId, async () => {
   await handleSelectEmployee(employee)
 })
 
-const assertProductionSubmissionReady = () => {
+const assertProductionSubmissionReady = (): ProFrontlineFeedbackMaterialReqVO[] => {
   persistActiveProductionMaterialDraft()
+  const materialDetails = buildProductionMaterialDetailsPayload()
   if (configuredProductionMaterials.value.length > 0) {
-    const filledMaterials = configuredProductionMaterials.value.filter(
-      (material) => productionMaterialDrafts[material.key]?.outputQuantity !== undefined
-    )
-    if (filledMaterials.length === 0) {
+    if (materialDetails.length === 0) {
       throw new Error('请至少填写一个输出物料的完成数量')
     }
-    const invalidLossMaterials = filledMaterials.filter((material) => {
-      const materialDraft = productionMaterialDrafts[material.key]
-      const lossQuantity = Object.values(materialDraft.defectQuantities)
-        .reduce((total, quantity) => total + quantity, 0)
-      return lossQuantity > materialDraft.outputQuantity!
-    })
+    const invalidLossMaterials = materialDetails.filter(
+      (material) => material.lossQuantity > material.outputQuantity
+    )
     if (invalidLossMaterials.length) {
       throw new Error(`损耗数量不能大于完成数量：${invalidLossMaterials.map((material) => material.materialName).join('、')}`)
     }
@@ -4499,34 +4508,22 @@ const assertProductionSubmissionReady = () => {
       throw new Error('损耗数量不能大于完成数量')
     }
   }
-  const device = activeProductionDevice.value
-  if (!device) {
-    return
+  const meteringValidityByDevice = new Map<number, boolean>()
+  for (const material of materialDetails) {
+    for (const device of material.selectedDevices || []) {
+      const validity = device.inMeteringValidityPeriod !== false
+      const existing = meteringValidityByDevice.get(device.deviceId)
+      if (existing !== undefined && existing !== validity) {
+        throw new Error(`同一设备在不同物料中的计量状态不一致：${device.deviceCode || device.deviceName || device.deviceId}`)
+      }
+      meteringValidityByDevice.set(device.deviceId, validity)
+    }
   }
-  const selectedDevices = selectedProductionDeviceKeys.value
-    .map((key) => visibleDeviceCards.value.find((device) => device.key === key))
-    .filter((device): device is ProductionDeviceCard => Boolean(device))
-  if (!selectedDevices.length) {
-    return
-  }
-  const missingParameters = selectedDevices.flatMap((device) =>
-    getProductionSubmittableParameters(device)
-      .filter((parameter) => !isTextStandardParameter(parameter))
-      .filter((parameter) => {
-        const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
-        if (isBooleanParameter(parameter)) return typeof value !== 'boolean'
-        if (isSelectParameter(parameter)) {
-          return typeof value !== 'string'
-            || !value.trim()
-            || value === FRONTLINE_OTHER_OPTION_VALUE
-        }
-        return toFiniteProductionParameterNumber(value) === undefined
-      })
-      .map((parameter) => `${device.label}：${parameter.parameterName || parameter.parameterCode}`)
-  )
+  const missingParameters = findMissingProductionDeviceParameters(materialDetails)
   if (missingParameters.length) {
     throw new Error(`请填写设备参数：${missingParameters.join('、')}`)
   }
+  return materialDetails
 }
 
 const resolveProductionProgressQuantity = (materialDetails: ProFrontlineFeedbackMaterialReqVO[]) =>
@@ -4539,9 +4536,12 @@ const resolveProductionLossQuantity = (materialDetails: ProFrontlineFeedbackMate
     ? materialDetails.reduce((total, material) => total + material.lossQuantity, 0)
     : productionScrapQuantity.value
 
-const buildProductionFormalSubmitConfirmation = () => {
-  const materialDetails = buildProductionMaterialDetailsPayload()
+const buildProductionFormalSubmitConfirmation = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[] = buildProductionMaterialDetailsPayload()
+) => {
   const progressQuantity = resolveProductionProgressQuantity(materialDetails)
+  const selectedDevices = buildProductionSelectedDevicesForSubmitScope(materialDetails)
+  const deviceParameterReadings = buildProductionParameterReadingsForSubmitScope(materialDetails)
   const materialSummary = configuredProductionMaterials.value
     .flatMap((material) => {
       const detail = materialDetails.find((item) => item.materialId === material.materialId)
@@ -4551,22 +4551,24 @@ const buildProductionFormalSubmitConfirmation = () => {
       return `${material.materialName}=完成${detail.outputQuantity}件、损耗${detail.lossQuantity}件`
     })
     .join('；') || '无批记录物料'
-  const device = activeProductionDevice.value
-  const parameterSummary = device
-    ? getProductionSubmittableParameters(device).map((parameter) => {
-        const label = parameter.parameterName || parameter.parameterCode
-        if (isTextStandardParameter(parameter)) {
-          return `${label}=${parameter.standardText || '未配置'}`
-        }
-        const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
-        if (isBooleanParameter(parameter)) {
-          return `${label}=${value === true ? '是' : '否'}`
-        }
-        const status = resolveProductionParameterStatus(value, parameter)
-        const statusLabel = status === 'NORMAL' ? '' : '（参数异常）'
-        return `${label}=${value}${parameter.unit || ''}${statusLabel}`
-      }).join('、')
-    : ''
+  const deviceSummary = selectedDevices
+    .map((device) => device.deviceCode || device.deviceName || String(device.deviceId))
+    .join('、') || '无设备'
+  const parameterSummary = deviceParameterReadings.map((reading) => {
+    const value = reading.textValue ?? reading.value ?? ''
+    const statusLabel = reading.parameterStatus && reading.parameterStatus !== 'NORMAL'
+      ? '（参数异常）'
+      : ''
+    return `${reading.deviceCode || reading.deviceName || reading.deviceId}/${reading.parameterName || reading.parameterCode}=${value}${reading.unit || ''}${statusLabel}`
+  }).join('、')
+  const totalCompletionQuantity = materialDetails.reduce(
+    (total, material) => total + material.outputQuantity,
+    0
+  )
+  const totalLossQuantity = materialDetails.reduce(
+    (total, material) => total + material.lossQuantity,
+    0
+  )
   const clearanceSummary = buildProductionClearanceConfirmationPayload()
     .map((confirmation) => `${confirmation.label}=${confirmation.confirmed ? '是' : '否'}`)
     .join('、')
@@ -4576,14 +4578,10 @@ const buildProductionFormalSubmitConfirmation = () => {
     `实际员工：${selectedEmployeeLabel.value}`,
     `物料：${materialSummary}`,
     `工序进度：${progressQuantity}件`,
-    `完成数量：${productionDraft.outputQuantity}件`,
-    `损耗数量：${productionScrapQuantity.value}件`,
-    `设备：${device?.label || '无设备'}`,
-    `设备参数：${
-      activeProductionSelfCheckNarrative.value
-        ? '生产自检说明'
-        : parameterSummary || (device ? '无数值参数' : '无设备参数')
-    }`,
+    `完成数量合计：${totalCompletionQuantity}件`,
+    `损耗数量合计：${totalLossQuantity}件`,
+    `设备：${deviceSummary}`,
+    `设备参数：${parameterSummary || (selectedDevices.length ? '无数值参数' : '无设备参数')}`,
     `清场确认：${clearanceSummary}`,
     '正式提交后不可修改，请核对无误后确认。'
   ].join('；')
@@ -4651,17 +4649,19 @@ const handleProductionFormalSubmit = async () => {
     return
   }
   try {
-    assertProductionSubmissionReady()
-    Object.assign(draft.fieldValues, buildProductionFieldValues())
+    const materialDetails = assertProductionSubmissionReady()
+    Object.assign(draft.fieldValues, buildProductionFieldValues(materialDetails))
     assertFormalPayloadContext()
     const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
-    const confirmed = await requestProductionFormalSubmitConfirmation(buildProductionFormalSubmitConfirmation())
+    const confirmed = await requestProductionFormalSubmitConfirmation(
+      buildProductionFormalSubmitConfirmation(materialDetails)
+    )
     if (!confirmed) {
       return
     }
     const formalPayload = (() => {
       try {
-        return buildFrontlineFormalSubmitPayload(templatePayload)
+        return buildFrontlineFormalSubmitPayload(templatePayload, materialDetails)
       } finally {
         productionSignaturePassword.value = ''
       }
@@ -5027,7 +5027,8 @@ const buildFrontlineProductionSubmitIdempotencyKey = () => {
 }
 
 const buildFrontlineFormalSubmitPayload = (
-  rawPayload: FrontlineTemplatePayloadReqVO
+  rawPayload: FrontlineTemplatePayloadReqVO,
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[] = buildProductionMaterialDetailsPayload()
 ): ProFrontlineFeedbackSubmitReqVO => {
   const formalContext = readFrontlineFormalSubmitContext()
   assertProductionSubmitSnapshotContext(formalContext)
@@ -5036,15 +5037,12 @@ const buildFrontlineFormalSubmitPayload = (
   if (!signaturePassword) {
     throw new Error('请输入所选员工的电子签名密码。')
   }
-    const materialDetails = buildProductionMaterialDetailsPayload()
-    const progressQuantity = resolveProductionProgressQuantity(materialDetails)
-    const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
-  const equipmentParameters = Object.fromEntries(
-    selectedProductionDeviceKeys.value.flatMap((key) => {
-      const device = visibleDeviceCards.value.find((item) => item.key === key)
-      return device ? [[device.label, buildProductionDeviceParameterPayload(device.key)]] : []
-    })
-  )
+  const progressQuantity = resolveProductionProgressQuantity(materialDetails)
+  const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
+  const submittedSelectedDevices = buildProductionSelectedDevicesForSubmitScope(materialDetails)
+  const submittedDeviceParameterReadings =
+    buildProductionParameterReadingsForSubmitScope(materialDetails)
+  const equipmentParameters = buildProductionEquipmentParameterRulesPayloadFromMaterialDetails(materialDetails)
   const submitIdempotencyKey = buildFrontlineProductionSubmitIdempotencyKey()
   const recordbookPayload = formalContext.recordbookId
     ? {
@@ -5084,9 +5082,9 @@ const buildFrontlineFormalSubmitPayload = (
       scheduledQuantity: formalContext.scheduledQuantity,
       outputQuantity: progressQuantity,
       lossQuantity: totalLossQuantity,
-      lossDetails: buildProductionLossDetailsPayload(),
-      selectedDevices: buildProductionSelectedDevicesPayload(),
-      deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
+      lossDetails: buildProductionLossDetailsForSubmitScope(materialDetails),
+      selectedDevices: submittedSelectedDevices,
+      deviceParameterReadings: submittedDeviceParameterReadings,
       laborScrapQuantity: totalLossQuantity,
       materialScrapQuantity: 0,
       otherScrapQuantity: 0,
@@ -5149,7 +5147,8 @@ const buildProductionLossDetailsPayload = (): ProFrontlineLossDetailReqVO[] =>
   buildProductionLossDetailsFromDraft(productionDefectDraft)
 
 const buildProductionSelectedDeviceFromDevice = (
-  device?: ProductionDeviceCard
+  device: ProductionDeviceCard | undefined,
+  meteringValidityDraft: ProductionDeviceMeteringValidityDraft
 ): ProFrontlineSelectedDeviceReqVO | undefined => {
   if (!device) {
     return undefined
@@ -5157,19 +5156,139 @@ const buildProductionSelectedDeviceFromDevice = (
   return {
     deviceId: device.deviceId,
     deviceCode: device.deviceCode,
-    deviceName: device.deviceName || device.label
+    deviceName: device.deviceName || device.label,
+    inMeteringValidityPeriod: meteringValidityDraft[device.key] !== false
   }
 }
 
-const buildProductionSelectedDevicesFromKeys = (deviceKeys: string[]) =>
+const buildProductionSelectedDevicesFromKeys = (
+  deviceKeys: string[],
+  meteringValidityDraft: ProductionDeviceMeteringValidityDraft = deviceMeteringValidityDraft
+) =>
   deviceKeys
     .map((key) => visibleDeviceCards.value.find((device) => device.key === key))
     .filter((device): device is ProductionDeviceCard => Boolean(device))
-    .map(buildProductionSelectedDeviceFromDevice)
+    .map((device) => buildProductionSelectedDeviceFromDevice(device, meteringValidityDraft))
     .filter((device): device is ProFrontlineSelectedDeviceReqVO => Boolean(device))
 
 const buildProductionSelectedDevicesPayload = () =>
   buildProductionSelectedDevicesFromKeys(selectedProductionDeviceKeys.value)
+
+const buildProductionSelectedDevicesFromMaterialDetails = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => Array.from(
+  materialDetails
+    .flatMap((material) => material.selectedDevices || [])
+    .reduce((devices, device) => {
+      devices.set(device.deviceId, device)
+      return devices
+    }, new Map<number, ProFrontlineSelectedDeviceReqVO>())
+    .values()
+)
+
+const buildProductionParameterReadingsFromMaterialDetails = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => materialDetails.flatMap((material) => material.deviceParameterReadings || [])
+
+const buildProductionSelectedDevicesForSubmitScope = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => materialDetails.length
+  ? buildProductionSelectedDevicesFromMaterialDetails(materialDetails)
+  : buildProductionSelectedDevicesPayload()
+
+const buildProductionParameterReadingsForSubmitScope = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => materialDetails.length
+  ? buildProductionParameterReadingsFromMaterialDetails(materialDetails)
+  : buildProductionDeviceParameterReadingsPayload()
+
+const buildProductionDeviceMeteringValidityFromSelectedDevices = (
+  selectedDevices: ProFrontlineSelectedDeviceReqVO[]
+) => Array.from(
+  selectedDevices.reduce((devices, device) => {
+    devices.set(device.deviceId, {
+      deviceId: device.deviceId,
+      deviceCode: device.deviceCode,
+      deviceName: device.deviceName,
+      inMeteringValidityPeriod: device.inMeteringValidityPeriod !== false
+    })
+    return devices
+  }, new Map<number, ProFrontlineSelectedDeviceReqVO>()).values()
+)
+
+const buildProductionDeviceMeteringValidityForSubmitScope = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => buildProductionDeviceMeteringValidityFromSelectedDevices(
+  buildProductionSelectedDevicesForSubmitScope(materialDetails)
+)
+
+const buildProductionLossDetailsForSubmitScope = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => materialDetails.length
+  ? materialDetails.flatMap((material) => material.lossDetails || [])
+  : buildProductionLossDetailsPayload()
+
+const findProductionDeviceCardById = (deviceId?: number) =>
+  deviceId === undefined || deviceId === null
+    ? undefined
+    : visibleDeviceCards.value.find((device) => Number(device.deviceId) === Number(deviceId))
+
+const hasProductionRequiredParameterReading = (
+  readings: ProFrontlineDeviceParameterReadingReqVO[],
+  deviceId: number,
+  parameter: FrontlineRuntimeDeviceParameterVO
+) => {
+  const reading = readings.find((item) =>
+    Number(item.deviceId) === Number(deviceId) &&
+    item.parameterCode === parameter.parameterCode
+  )
+  if (!reading) {
+    return false
+  }
+  if (isBooleanParameter(parameter)) {
+    return reading.value === 0 || reading.value === 1
+  }
+  if (isSelectParameter(parameter)) {
+    return typeof reading.textValue === 'string' &&
+      Boolean(reading.textValue.trim()) &&
+      reading.textValue !== FRONTLINE_OTHER_OPTION_VALUE
+  }
+  return toFiniteProductionParameterNumber(reading.value) !== undefined
+}
+
+const formatProductionDeviceValidationLabel = (
+  scope: ProductionDeviceParameterValidationScope,
+  device: ProductionDeviceCard
+) => [scope.materialName, device.label].filter(Boolean).join(' / ')
+
+const findMissingProductionDeviceParameters = (
+  materialDetails: ProductionDeviceParameterValidationScope[]
+) => {
+  const validationScopes = materialDetails.length
+    ? materialDetails
+    : [{
+        materialName: selectedProcessLabel.value,
+        selectedDevices: buildProductionSelectedDevicesPayload(),
+        deviceParameterReadings: buildProductionDeviceParameterReadingsPayload()
+      }]
+  return validationScopes.flatMap((scope) =>
+    (scope.selectedDevices || []).flatMap((selectedDevice) => {
+      const device = findProductionDeviceCardById(selectedDevice.deviceId)
+      if (!device) {
+        return [`${scope.materialName || '未记录物料'}：设备未在当前工序快照中`]
+      }
+      const readings = scope.deviceParameterReadings || []
+      return getProductionSubmittableParameters(device)
+        .filter((parameter) => !isTextStandardParameter(parameter))
+        .filter((parameter) =>
+          !hasProductionRequiredParameterReading(readings, device.deviceId, parameter)
+        )
+        .map((parameter) =>
+          `${formatProductionDeviceValidationLabel(scope, device)}：${parameter.parameterName || parameter.parameterCode}`
+        )
+    })
+  )
+}
 
 const buildProductionDeviceParameterReadingsFromDraft = (
   device: ProductionDeviceCard | undefined,
@@ -5269,7 +5388,10 @@ const buildProductionMaterialDetailsPayload = (): ProFrontlineFeedbackMaterialRe
       return []
     }
     const lossDetails = buildProductionLossDetailsFromDraft(materialDraft.defectQuantities)
-    const selectedDevices = buildProductionSelectedDevicesFromKeys(materialDraft.selectedDeviceKeys || [])
+    const selectedDevices = buildProductionSelectedDevicesFromKeys(
+      materialDraft.selectedDeviceKeys || [],
+      materialDraft.deviceMeteringValidity
+    )
     return [{
       materialId: material.materialId,
       materialCode: material.materialCode,
@@ -5289,10 +5411,11 @@ const buildProductionMaterialDetailsPayload = (): ProFrontlineFeedbackMaterialRe
   })
 }
 
-const buildProductionEquipmentParameterRulesPayload = () =>
-  Object.fromEntries(selectedProductionDeviceKeys.value.flatMap((key) => {
-    const device = visibleDeviceCards.value.find((item) => item.key === key)
-    return device ? [[
+const buildProductionEquipmentParameterRulesPayloadFromDevices = (
+  devices: ProductionDeviceCard[]
+) =>
+  Object.fromEntries(
+    devices.map((device) => [
       device.label,
       getProductionSubmittableParameters(device).map((parameter) => ({
         parameterCode: parameter.parameterCode,
@@ -5306,8 +5429,31 @@ const buildProductionEquipmentParameterRulesPayload = () =>
         defaultText: parameter.defaultText,
         decimalScale: parameter.decimalScale
       }))
-    ]] : []
-  }))
+    ])
+  )
+
+const buildProductionEquipmentParameterRulesPayloadFromMaterialDetails = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
+) => {
+  if (!materialDetails.length) {
+    return buildProductionEquipmentParameterRulesPayload()
+  }
+  const submittedDeviceIds = new Set(
+    materialDetails.flatMap((material) =>
+      (material.selectedDevices || []).map((device) => device.deviceId)
+    )
+  )
+  return buildProductionEquipmentParameterRulesPayloadFromDevices(
+    visibleDeviceCards.value.filter((device) => submittedDeviceIds.has(device.deviceId))
+  )
+}
+
+const buildProductionEquipmentParameterRulesPayload = () =>
+  buildProductionEquipmentParameterRulesPayloadFromDevices(
+    selectedProductionDeviceKeys.value
+      .map((key) => visibleDeviceCards.value.find((item) => item.key === key))
+      .filter((device): device is ProductionDeviceCard => Boolean(device))
+  )
 
 const buildProductionStructuredRawPayload = (
   rawPayload: FrontlineTemplatePayloadReqVO,
@@ -5324,29 +5470,27 @@ const buildProductionStructuredRawPayload = (
     processId: formalContext.processId
   },
   materialDetails,
-  lossDetails: buildProductionLossDetailsPayload(),
-  lossReasonDetails: buildProductionLossDetailsPayload(),
-  selectedDevices: buildProductionSelectedDevicesPayload(),
-  deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
-  deviceMeteringValidity: buildProductionDeviceMeteringValidityPayload(),
+  lossDetails: buildProductionLossDetailsForSubmitScope(materialDetails),
+  lossReasonDetails: buildProductionLossDetailsForSubmitScope(materialDetails),
+  selectedDevices: buildProductionSelectedDevicesForSubmitScope(materialDetails),
+  deviceParameterReadings: buildProductionParameterReadingsForSubmitScope(materialDetails),
+  deviceMeteringValidity: buildProductionDeviceMeteringValidityForSubmitScope(materialDetails),
   clearanceConfirmations: buildProductionClearanceConfirmationPayload(),
-  equipmentParameterRules: buildProductionEquipmentParameterRulesPayload()
+  equipmentParameterRules: buildProductionEquipmentParameterRulesPayloadFromMaterialDetails(materialDetails)
 })
 
-const buildProductionFieldValues = () => {
-  const selectedDevices = buildProductionSelectedDevicesPayload()
+const buildProductionFieldValues = (
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[] = buildProductionMaterialDetailsPayload()
+) => {
+  const selectedDevices = buildProductionSelectedDevicesForSubmitScope(materialDetails)
   return {
     [FRONTLINE_FIELD_CODES.DEVICE]: selectedDevices.length
       ? selectedDevices.map((device) => device.deviceCode || device.deviceName).join('、')
       : '无设备',
-    [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: Object.fromEntries(
-      selectedProductionDeviceKeys.value.flatMap((key) => {
-        const device = visibleDeviceCards.value.find((item) => item.key === key)
-        return device ? [[device.label, buildProductionDeviceParameterPayload(device.key)]] : []
-      })
-    ),
-    [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
-    [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
+    [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]:
+      buildProductionEquipmentParameterRulesPayloadFromMaterialDetails(materialDetails),
+    [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: resolveProductionProgressQuantity(materialDetails),
+    [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: resolveProductionLossQuantity(materialDetails)
   }
 }
 
@@ -5695,7 +5839,11 @@ const formatProcessLabel = (
   }
   if (isFrontlinePqcProcess(process)) {
     const sortText = process.qaProcessSort ? `${process.qaProcessSort}. ` : ''
-    return `${sortText}${process.qaProcessName || process.qaProcessCode || process.qaProcessId}`
+    const sourceText =
+      process.regulationSourceType === 'COMMON_PACKAGING'
+        ? `（通用包装${process.regulationName || process.regulationCode ? `：${process.regulationName || process.regulationCode}` : ''}）`
+        : ''
+    return `${sortText}${process.qaProcessName || process.qaProcessCode || process.qaProcessId}${sourceText}`
   }
   const sortText = process.sort ? `${process.sort}. ` : ''
   return `${sortText}${process.processName || process.processCode || process.processId}`
@@ -7445,6 +7593,32 @@ onUnmounted(() => {
 
   &.is-empty span span {
     color: #7f8f86;
+  }
+}
+
+.pqc-equipment-parameter-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--frontline-line);
+
+  strong {
+    font-size: 15px;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    color: #435850;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

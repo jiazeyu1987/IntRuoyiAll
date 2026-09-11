@@ -75,6 +75,7 @@ class KingdeeProductionMaterialListSyncJobTest {
         ErpKingdeeSyncRuntimeService runtimeService = mock(ErpKingdeeSyncRuntimeService.class);
         MesKingdeeProductionMaterialListSyncResult result = new MesKingdeeProductionMaterialListSyncResult();
         result.addCreated(100L);
+        result.addUpdated(102L);
         result.addSkipped("BILL-101");
         when(syncService.syncAllSkipExisting()).thenReturn(result);
         when(runtimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
@@ -89,6 +90,7 @@ class KingdeeProductionMaterialListSyncJobTest {
         String output = job.execute(ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM);
 
         assertTrue(output.contains("full sync"));
+        assertTrue(output.contains("updated=1"));
         verify(syncService).syncAllSkipExisting();
         verify(syncService, never()).syncModifiedBetween(any(), any());
     }

@@ -24,6 +24,7 @@ import lombok.experimental.Accessors;
 public class MesQaInspectionRegulationDO extends TenantBaseDO {
 
     public static final String OWNER_MODULE_MES_QA = "MES_QA";
+    public static final String OWNER_MODULE_MES_QA_COMMON = "MES_QA_COMMON";
 
     @TableId
     private Long id;

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.system.service.permission;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleCategoryDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
@@ -94,9 +96,12 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
                 role.setDataScope(defaultDataScope(item.getDataScope()));
                 role.setDataScopeDeptIds(item.getDataScopeDeptIds());
                 roleMapper.insert(role);
-                permissionService.assignRoleMenu(role.getId(), menuIds);
+                permissionService.assignRoleMenu(role.getId(), menuIds, "权限角色配置包导入创建角色菜单权限",
+                        permissionAuditKey("role-package.create.role-menu", role.getId(), menuIds));
                 if (!Objects.equals(role.getType(), RoleTypeEnum.SYSTEM.getType())) {
-                    permissionService.assignRoleDataScope(role.getId(), role.getDataScope(), role.getDataScopeDeptIds());
+                    permissionService.assignRoleDataScope(role.getId(), role.getDataScope(), role.getDataScopeDeptIds(),
+                            "权限角色配置包导入创建角色数据权限",
+                            permissionAuditKey("role-package.create.data-scope", role.getId(), role.getDataScopeDeptIds()));
                 }
                 continue;
             }
@@ -108,11 +113,19 @@ public class RoleConfigPackageServiceImpl implements RoleConfigPackageService {
             existing.setDataScope(defaultDataScope(item.getDataScope()));
             existing.setDataScopeDeptIds(item.getDataScopeDeptIds());
             roleMapper.updateById(existing);
-            permissionService.assignRoleMenu(existing.getId(), menuIds);
+            permissionService.assignRoleMenu(existing.getId(), menuIds, "权限角色配置包导入更新角色菜单权限",
+                    permissionAuditKey("role-package.update.role-menu", existing.getId(), menuIds));
             if (!Objects.equals(existing.getType(), RoleTypeEnum.SYSTEM.getType())) {
-                permissionService.assignRoleDataScope(existing.getId(), existing.getDataScope(), existing.getDataScopeDeptIds());
+                permissionService.assignRoleDataScope(existing.getId(), existing.getDataScope(), existing.getDataScopeDeptIds(),
+                        "权限角色配置包导入更新角色数据权限",
+                        permissionAuditKey("role-package.update.data-scope", existing.getId(), existing.getDataScopeDeptIds()));
             }
         }
+    }
+
+    private String permissionAuditKey(String operation, Long subjectId, Set<Long> targetIds) {
+        return operation + ":" + subjectId + ":" + DigestUtil.sha256Hex(
+                new TreeSet<>(targetIds == null ? Set.<Long>of() : targetIds).toString());
     }
 
     private RoleConfigPackage parsePayload(byte[] content) {

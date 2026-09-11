@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleDeleteReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowBatchRecordRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowBatchRecordSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
@@ -1002,75 +1003,117 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     }
 
     @Override
-    public MesProRouteProcessDeviceParameterRespVO getRouteProcessDeviceParameterConfig(Long routeProcessId) {
-        MesProRouteProcessDO routeProcess = requireRouteProcessForDeviceParameter(routeProcessId);
-        MesProProcessDO process = processMapper.selectById(routeProcess.getProcessId());
-        List<MesProcessPoolTeamProcessDeviceDO> bindings = selectEnabledProcessDeviceBindings(
-                routeProcess.getProcessId());
-        Set<Long> deviceIds = bindings.stream()
-                .map(MesProcessPoolTeamProcessDeviceDO::getDeviceId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+    public MesProRouteProcessDeviceParameterRespVO getRouteProcessDeviceParameterConfig(
+            Long routeVersionId, Long routeProcessId) {
+        RouteProductionConfigContext context = requireRouteProductionConfigContext(routeVersionId, routeProcessId);
+        JSONObject processConfig = context.processConfig();
+        Set<Long> deviceIds = collectProductionConfigDeviceIds(processConfig);
         Map<Long, MesProcessPoolTeamDeviceDO> deviceMap = deviceIds.isEmpty()
                 ? Collections.emptyMap()
                 : convertMap(teamDeviceMapper.selectBatchIds(deviceIds), MesProcessPoolTeamDeviceDO::getId);
-        Map<Long, List<MesProcessPoolDeviceParameterRuleDO>> rulesByDeviceId = selectRouteDeviceParameterRules(
-                routeProcess, deviceIds);
+        if (deviceMap.size() != deviceIds.size()) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        Map<Long, List<JSONObject>> rulesByDeviceId = productionParameterRulesByDeviceId(processConfig, deviceIds);
         List<MesProRouteProcessDeviceParameterDeviceRespVO> devices = deviceIds.stream()
                 .map(deviceMap::get)
-                .filter(device -> device != null && Boolean.TRUE.equals(device.getEnabled())
-                        && DEVICE_STATUS_ENABLED.equals(device.getDeviceStatus()))
+                .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(MesProcessPoolTeamDeviceDO::getDeviceCode,
                         Comparator.nullsLast(String::compareTo)))
-                .map(device -> toRouteDeviceParameterDeviceResp(device, rulesByDeviceId.get(device.getId())))
+                .map(device -> toRouteDeviceParameterDeviceRespFromSnapshot(
+                        device, rulesByDeviceId.get(device.getId())))
                 .toList();
+        Long processId = processConfig.getLong("processId");
+        MesProProcessDO process = processId == null ? null : processMapper.selectById(processId);
         return new MesProRouteProcessDeviceParameterRespVO()
-                .setRouteProcessId(routeProcess.getId())
-                .setProcessId(routeProcess.getProcessId())
+                .setRouteVersionId(context.version().getId())
+                .setRouteSnapshotSha256(context.version().getRouteSnapshotSha256())
+                .setRouteProcessId(routeProcessId)
+                .setProcessId(processId)
                 .setProcessName(process == null ? null : process.getName())
                 .setDevices(devices);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long saveRouteProcessDeviceParameterRule(@Valid MesProRouteDeviceParameterRuleSaveReqVO saveReqVO) {
+    public MesProRouteProcessDeviceParameterRespVO saveRouteProcessDeviceParameterRule(
+            @Valid MesProRouteDeviceParameterRuleSaveReqVO saveReqVO) {
         List<String> optionValues = normalizeRouteDeviceParameterOptionValues(saveReqVO.getOptionValues());
         String defaultText = normalizeRouteDeviceParameterText(saveReqVO.getDefaultText());
         validateRouteDeviceParameterRule(saveReqVO, optionValues, defaultText);
-        MesProRouteProcessDO routeProcess = requireRouteProcessForDeviceParameter(saveReqVO.getRouteProcessId());
+        RouteProductionConfigContext context = requireRouteProductionConfigContext(
+                saveReqVO.getRouteVersionId(), saveReqVO.getRouteProcessId());
         MesProcessPoolTeamDeviceDO device = requireRouteDevice(saveReqVO.getDeviceId());
-        assertDeviceMappedToRouteProcess(routeProcess, device);
-        String parameterCode = normalizeRouteDeviceParameterText(saveReqVO.getParameterCode());
-        MesProcessPoolDeviceParameterRuleDO existing = deviceParameterRuleMapper.selectOne(
-                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
-                        .eq(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcess.getId())
-                        .eq(MesProcessPoolDeviceParameterRuleDO::getDeviceId, device.getId())
-                        .eq(MesProcessPoolDeviceParameterRuleDO::getParameterCode, parameterCode));
-        MesProcessPoolDeviceParameterRuleDO rule = MesProcessPoolDeviceParameterRuleDO.builder()
-                .id(existing == null ? null : existing.getId())
-                .leaderUserId(null)
-                .routeProcessId(routeProcess.getId())
-                .processId(routeProcess.getProcessId())
-                .deviceId(device.getId())
-                .parameterCode(parameterCode)
-                .parameterName(normalizeRouteDeviceParameterText(saveReqVO.getParameterName()))
-                .unit(normalizeRouteDeviceParameterText(saveReqVO.getUnit()))
-                .lowerLimit(saveReqVO.getLowerLimit())
-                .upperLimit(saveReqVO.getUpperLimit())
-                .defaultValue(saveReqVO.getTargetValue())
-                .valueType(normalizeRouteDeviceParameterText(saveReqVO.getValueType()))
-                .standardText(normalizeRouteDeviceParameterText(saveReqVO.getStandardText()))
-                .optionValuesJson(optionValues.isEmpty() ? null : JSON.toJSONString(optionValues))
-                .defaultText(defaultText)
-                .decimalScale(saveReqVO.getDecimalScale())
-                .enabled(Boolean.TRUE)
-                .build();
-        if (existing == null) {
-            deviceParameterRuleMapper.insert(rule);
-        } else {
-            deviceParameterRuleMapper.updateById(rule);
+        assertDeviceMappedToProductionConfig(context.processConfig(), device.getId());
+        String parameterCode = requireNormalizedParameterCode(saveReqVO.getParameterCode());
+        String originalParameterCode = StrUtil.isBlank(saveReqVO.getOriginalParameterCode())
+                ? parameterCode : requireNormalizedParameterCode(saveReqVO.getOriginalParameterCode());
+        JSONArray rules = context.processConfig().getJSONArray("parameterRules");
+        JSONObject existing = null;
+        JSONArray retained = new JSONArray();
+        for (Object raw : rules) {
+            JSONObject rule = requireProductionConfigObject(raw, "parameterRules[]");
+            boolean sameDevice = Objects.equals(device.getId(), rule.getLong("deviceId"));
+            String code = requireNormalizedParameterCode(rule.getString("parameterCode"));
+            if (sameDevice && (Objects.equals(code, originalParameterCode)
+                    || Objects.equals(code, parameterCode))) {
+                if (existing == null && Objects.equals(code, originalParameterCode)) {
+                    existing = rule;
+                }
+                continue;
+            }
+            retained.add(rule);
         }
-        return rule.getId();
+        JSONObject rule = existing == null ? new JSONObject(true) : new JSONObject(existing);
+        rule.put("routeProcessId", saveReqVO.getRouteProcessId());
+        rule.put("processId", context.processConfig().getLong("processId"));
+        rule.put("deviceId", device.getId());
+        rule.put("parameterCode", parameterCode);
+        rule.put("parameterName", normalizeRouteDeviceParameterText(saveReqVO.getParameterName()));
+        rule.put("unit", normalizeRouteDeviceParameterText(saveReqVO.getUnit()));
+        rule.put("lowerLimit", saveReqVO.getLowerLimit());
+        rule.put("upperLimit", saveReqVO.getUpperLimit());
+        rule.put("defaultValue", saveReqVO.getTargetValue());
+        rule.put("valueType", normalizeRouteDeviceParameterText(saveReqVO.getValueType()));
+        rule.put("standardText", normalizeRouteDeviceParameterText(saveReqVO.getStandardText()));
+        rule.put("optionValuesJson", optionValues.isEmpty() ? null : JSON.toJSONString(optionValues));
+        rule.put("defaultText", defaultText);
+        rule.put("decimalScale", saveReqVO.getDecimalScale());
+        rule.put("sort", existing == null ? retained.size() + 1 : existing.getInteger("sort"));
+        retained.add(rule);
+        context.processConfig().put("parameterRules", retained);
+        saveProductionProcessConfigs(context, saveReqVO.getExpectedRouteSnapshotSha256());
+        return getRouteProcessDeviceParameterConfig(saveReqVO.getRouteVersionId(), saveReqVO.getRouteProcessId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProRouteProcessDeviceParameterRespVO deleteRouteProcessDeviceParameterRule(
+            @Valid MesProRouteDeviceParameterRuleDeleteReqVO deleteReqVO) {
+        RouteProductionConfigContext context = requireRouteProductionConfigContext(
+                deleteReqVO.getRouteVersionId(), deleteReqVO.getRouteProcessId());
+        assertDeviceMappedToProductionConfig(context.processConfig(), deleteReqVO.getDeviceId());
+        String parameterCode = requireNormalizedParameterCode(deleteReqVO.getParameterCode());
+        JSONArray retained = new JSONArray();
+        boolean removed = false;
+        for (Object raw : context.processConfig().getJSONArray("parameterRules")) {
+            JSONObject rule = requireProductionConfigObject(raw, "parameterRules[]");
+            if (Objects.equals(deleteReqVO.getDeviceId(), rule.getLong("deviceId"))
+                    && Objects.equals(parameterCode,
+                    requireNormalizedParameterCode(rule.getString("parameterCode")))) {
+                removed = true;
+                continue;
+            }
+            retained.add(rule);
+        }
+        if (!removed) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "routeDeviceParameterRule=" + deleteReqVO.getDeviceId() + "|" + parameterCode);
+        }
+        context.processConfig().put("parameterRules", retained);
+        saveProductionProcessConfigs(context, deleteReqVO.getExpectedRouteSnapshotSha256());
+        return getRouteProcessDeviceParameterConfig(deleteReqVO.getRouteVersionId(),
+                deleteReqVO.getRouteProcessId());
     }
 
     @Override
@@ -1773,7 +1816,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         for (AdminUserDO user : selectedUsers) {
             Set<Long> nextRoleIds = new LinkedHashSet<>(permissionService.getUserRoleIdListByUserId(user.getId()));
             if (nextRoleIds.add(role.getId())) {
-                permissionService.assignUserRole(user.getId(), nextRoleIds);
+                permissionService.assignUserRole(user.getId(), nextRoleIds,
+                        "工艺路线批记录附件默认上传角色初始化",
+                        "mes.route.batch-attachment.user-role:" + user.getId() + ":" + role.getId());
             }
         }
         return selectedUsers.stream()
@@ -2953,6 +2998,157 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         if (StrUtil.isBlank(binding.getSharedFormKey()) || StrUtil.isBlank(binding.getFillableScopeJson())) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_CONDITION_CONFIG_MISSING);
         }
+    }
+
+    private RouteProductionConfigContext requireRouteProductionConfigContext(
+            Long routeVersionId, Long routeProcessId) {
+        if (routeVersionId == null || routeProcessId == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        MesProRouteVersionDO version = routeVersionMapper.selectById(routeVersionId);
+        if (version == null || StrUtil.isBlank(version.getRouteSnapshotJson())
+                || StrUtil.isBlank(version.getRouteSnapshotSha256())) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONObject snapshot = JSON.parseObject(version.getRouteSnapshotJson());
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
+        if (configSnapshots == null
+                || !Objects.equals(1, configSnapshots.getInteger("productionProcessConfigSchemaVersion"))) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONArray productionConfigs = configSnapshots.getJSONArray("productionProcessConfigs");
+        if (productionConfigs == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONObject processConfig = null;
+        for (Object raw : productionConfigs) {
+            JSONObject candidate = requireProductionConfigObject(raw, "productionProcessConfigs[]");
+            if (Objects.equals(routeProcessId, candidate.getLong("routeProcessId"))) {
+                if (processConfig != null) {
+                    throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                }
+                processConfig = candidate;
+            }
+        }
+        if (processConfig == null || processConfig.getLong("processId") == null
+                || processConfig.getJSONArray("lossReasons") == null
+                || processConfig.getJSONArray("deviceSelectionGroups") == null
+                || processConfig.getJSONArray("parameterRules") == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONObject flowGraph = configSnapshots.getJSONObject("flowGraph");
+        JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
+        Long configuredProcessId = processConfig.getLong("processId");
+        boolean matchingNode = nodes != null && nodes.stream()
+                .map(raw -> requireProductionConfigObject(raw, "flowGraph.nodes[]"))
+                .anyMatch(node -> Objects.equals(routeProcessId, node.getLong("routeProcessId"))
+                        && Objects.equals(configuredProcessId, node.getLong("processId")));
+        if (!matchingNode) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        return new RouteProductionConfigContext(version, productionConfigs, processConfig);
+    }
+
+    private static JSONObject requireProductionConfigObject(Object raw, String field) {
+        if (!(raw instanceof JSONObject object)) {
+            throw new IllegalArgumentException(field + " must be an object");
+        }
+        return object;
+    }
+
+    private static Set<Long> collectProductionConfigDeviceIds(JSONObject processConfig) {
+        Set<Long> deviceIds = new LinkedHashSet<>();
+        Set<String> groupKeys = new LinkedHashSet<>();
+        for (Object raw : processConfig.getJSONArray("deviceSelectionGroups")) {
+            JSONObject group = requireProductionConfigObject(raw, "deviceSelectionGroups[]");
+            String groupKey = group.getString("deviceGroupKey");
+            String selectionMode = group.getString("selectionMode");
+            JSONArray ids = group.getJSONArray("deviceIds");
+            if (StrUtil.isBlank(groupKey) || !groupKeys.add(groupKey)
+                    || (!"SINGLE".equals(selectionMode) && !"MULTIPLE".equals(selectionMode))
+                    || ids == null || ids.isEmpty()) {
+                throw new IllegalArgumentException("设备选择组配置不完整：" + groupKey);
+            }
+            for (Object rawId : ids) {
+                Long deviceId = rawId == null ? null : Long.valueOf(String.valueOf(rawId));
+                if (deviceId == null || deviceId <= 0 || !deviceIds.add(deviceId)) {
+                    throw new IllegalArgumentException("设备选择组设备身份缺失或重复：" + deviceId);
+                }
+            }
+        }
+        return deviceIds;
+    }
+
+    private static Map<Long, List<JSONObject>> productionParameterRulesByDeviceId(
+            JSONObject processConfig, Set<Long> deviceIds) {
+        Map<Long, List<JSONObject>> result = new LinkedHashMap<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (Object raw : processConfig.getJSONArray("parameterRules")) {
+            JSONObject rule = requireProductionConfigObject(raw, "parameterRules[]");
+            Long deviceId = rule.getLong("deviceId");
+            String parameterCode = requireNormalizedParameterCode(rule.getString("parameterCode"));
+            if (!deviceIds.contains(deviceId) || !keys.add(deviceId + "|" + parameterCode)) {
+                throw new IllegalArgumentException("设备参数身份不存在或重复：" + deviceId + "|" + parameterCode);
+            }
+            result.computeIfAbsent(deviceId, ignored -> new ArrayList<>()).add(rule);
+        }
+        result.values().forEach(rules -> rules.sort(Comparator
+                .comparing(rule -> requireNormalizedParameterCode(rule.getString("parameterCode")))));
+        return result;
+    }
+
+    private static String requireNormalizedParameterCode(String parameterCode) {
+        String normalized = cn.iocoder.yudao.module.mes.service.pro.processpool.team
+                .MesDeviceParameterSnapshotCodec.normalizeCode(parameterCode);
+        if (normalized == null) {
+            throw new IllegalArgumentException("设备参数编码不能为空");
+        }
+        return normalized;
+    }
+
+    private void assertDeviceMappedToProductionConfig(JSONObject processConfig, Long deviceId) {
+        if (!collectProductionConfigDeviceIds(processConfig).contains(deviceId)) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
+                    "routeProductionConfig.deviceId=" + deviceId);
+        }
+    }
+
+    private void saveProductionProcessConfigs(RouteProductionConfigContext context, String expectedSnapshotSha256) {
+        routeCandidateConfigService.saveConfigSnapshots(context.version().getId(), expectedSnapshotSha256, Map.of(
+                "productionProcessConfigSchemaVersion", 1,
+                "productionProcessConfigs", context.productionConfigs()));
+    }
+
+    private MesProRouteProcessDeviceParameterDeviceRespVO toRouteDeviceParameterDeviceRespFromSnapshot(
+            MesProcessPoolTeamDeviceDO device, List<JSONObject> rules) {
+        return new MesProRouteProcessDeviceParameterDeviceRespVO()
+                .setDeviceId(device.getId())
+                .setDeviceCode(device.getDeviceCode())
+                .setDeviceName(device.getDeviceName())
+                .setDeviceStatus(device.getDeviceStatus())
+                .setParameters(rules == null ? Collections.emptyList() : rules.stream()
+                        .map(this::toRouteDeviceParameterRespFromSnapshot)
+                        .toList());
+    }
+
+    private MesProRouteDeviceParameterRespVO toRouteDeviceParameterRespFromSnapshot(JSONObject rule) {
+        return new MesProRouteDeviceParameterRespVO()
+                .setRuleId(null)
+                .setParameterCode(requireNormalizedParameterCode(rule.getString("parameterCode")))
+                .setParameterName(rule.getString("parameterName"))
+                .setUnit(rule.getString("unit"))
+                .setValueType(rule.getString("valueType"))
+                .setStandardText(rule.getString("standardText"))
+                .setLowerLimit(rule.getBigDecimal("lowerLimit"))
+                .setTargetValue(rule.getBigDecimal("defaultValue"))
+                .setUpperLimit(rule.getBigDecimal("upperLimit"))
+                .setOptionValues(parseRouteDeviceParameterOptionValues(rule.getString("optionValuesJson")))
+                .setDefaultText(rule.getString("defaultText"))
+                .setDecimalScale(rule.getInteger("decimalScale"));
+    }
+
+    private record RouteProductionConfigContext(
+            MesProRouteVersionDO version, JSONArray productionConfigs, JSONObject processConfig) {
     }
 
     private MesProRouteProcessDO requireRouteProcessForDeviceParameter(Long routeProcessId) {

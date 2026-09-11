@@ -358,6 +358,44 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>mes-active-order-release-dossier-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesProductionReleaseApplySp1Test.java</testInclude>
+                                <testInclude>**/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java</testInclude>
+                                <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
+                                <testInclude>**/MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest.java</testInclude>
+                                <testInclude>**/MesPqcReleaseBatchExecutionServiceTest.java</testInclude>
+                                <testInclude>**/MesProductionReleaseManagerApprovalServiceTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesProductionReleaseApplySp1Test.java</include>
+                                <include>**/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java</include>
+                                <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
+                                <include>**/MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest.java</include>
+                                <include>**/MesPqcReleaseBatchExecutionServiceTest.java</include>
+                                <include>**/MesProductionReleaseManagerApprovalServiceTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
 </project>

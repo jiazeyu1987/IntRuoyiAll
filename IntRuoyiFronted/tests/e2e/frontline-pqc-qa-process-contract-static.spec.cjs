@@ -124,13 +124,13 @@ const taskOptionInterface = blockBetween(
   'export interface FrontlinePqcProductionSubmitCandidateVO {'
 )
 assert.match(
-  apiSource,
-  /export type FrontlinePqcBusinessDateResponse = string \| \[number, number, number\]/,
+  projectionSource,
+  /export type FrontlinePqcBusinessDateResponse = string \| \[number, number, number\] \| number\[\]/,
   'The PQC response contract must expose both the ISO date and Jackson LocalDate tuple shapes.'
 )
 assert.match(
-  apiSource,
-  /export interface FrontlinePqcTaskOptionResponseVO\s+extends Omit<FrontlinePqcTaskOptionVO, 'businessDate'>/,
+  projectionSource,
+  /export type FrontlinePqcTaskOptionResponseVO = Omit<FrontlinePqcTaskOptionVO, 'businessDate'> & \{/,
   'The raw PQC task response must stay separate from the normalized page task contract.'
 )
 assert.match(
@@ -226,7 +226,7 @@ assert.match(
 
 const helperBlock = blockBetween(
   apiSource,
-  'getPqcProcesses: async (activeOrderId: number)',
+  'getPqcProcesses: async (activeOrderId: number, actualEmployeeId?: number)',
   'getFrontlineEmployeeCandidates: async'
 )
 assert.match(
@@ -236,8 +236,8 @@ assert.match(
 )
 assert.match(
   helperBlock,
-  /params:\s*{\s*activeOrderId\s*}/,
-  'getPqcProcesses must send activeOrderId as the only request identity.'
+  /params:\s*{\s*activeOrderId,\s*actualEmployeeId\s*}/,
+  'getPqcProcesses must send activeOrderId plus the optional actual employee identity.'
 )
 assert.match(
   helperBlock,

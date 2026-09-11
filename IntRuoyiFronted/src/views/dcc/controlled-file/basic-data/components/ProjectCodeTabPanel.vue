@@ -776,6 +776,53 @@
       </el-descriptions>
 
       <div class="dcc-project-code-associated-heading">
+        <span>项目文件模板</span>
+        <div class="dcc-project-code-associated-heading-actions">
+          <el-button
+            class="scheme-d-btn scheme-d-btn--primary"
+            data-testid="dcc-project-file-template-edit"
+            size="small"
+            type="primary"
+            plain
+            :disabled="!selectedProjectCode?.id || projectFileTemplateLoading"
+            @click="openProjectFileTemplateEditor"
+            v-hasPermi="['dcc:project-code:update']"
+          >
+            <Icon icon="ep:edit" class="mr-5px" />
+            编辑模板
+          </el-button>
+          <el-tag class="scheme-d-tag" size="small" type="info">
+            共 {{ projectFileTemplateItems.length }} 项
+          </el-tag>
+        </div>
+      </div>
+      <div
+        v-loading="projectFileTemplateLoading"
+        data-testid="dcc-project-file-template-summary"
+      >
+        <el-alert
+          v-if="projectFileTemplateError"
+          class="mb-12px"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="projectFileTemplateError"
+        />
+        <el-table
+          v-else
+          :data="projectFileTemplateItems"
+          border
+          :show-overflow-tooltip="true"
+          empty-text="当前项目尚未配置文件模板"
+        >
+          <el-table-column label="阶段" prop="stageName" min-width="180" />
+          <el-table-column label="文件类型" prop="fileTypeName" min-width="220" />
+          <el-table-column label="文件名称" prop="fileName" min-width="280" />
+          <el-table-column label="完整分类" prop="taxonomyPath" min-width="360" />
+        </el-table>
+      </div>
+
+      <div class="dcc-project-code-associated-heading">
         <span>关联文档</span>
         <div class="dcc-project-code-associated-heading-actions">
           <span
@@ -960,6 +1007,11 @@
       </div>
     </div>
   </el-drawer>
+
+  <ProjectFileTemplateEditor
+    ref="projectFileTemplateEditorRef"
+    @saved="handleProjectFileTemplateSaved"
+  />
 
   <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="920px">
     <el-form label-width="96px">
@@ -1193,6 +1245,8 @@ import type {
   DccProjectCodeRespVO,
   DccProjectCodeSaveReqVO,
   DccProjectCodeUpdateReqVO,
+  DccProjectFileTemplateItemRespVO,
+  DccProjectFileTemplateRespVO,
   DccProductOnboardingCreateReqVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
@@ -1207,12 +1261,14 @@ import {
   getProjectCodeAssociatedFileAiCategoryCandidates,
   getProjectCode,
   getProjectCodeControlledFilesPage,
+  getProjectCodeFileTemplate,
   getProjectCodeImportTemplate,
   getProjectCodePage,
   importProjectCodeConfirm,
   importProjectCodePreview,
   updateProjectCode
 } from '@/api/dcc/controlledFile/projectCodes'
+import ProjectFileTemplateEditor from './ProjectFileTemplateEditor.vue'
 import {
   getDccProjectGovernanceStatus,
   type DccProjectGovernanceStatusVO
@@ -1409,6 +1465,10 @@ const qaRegulationStatusByDccProjectCodeId = ref<
 >({})
 const qaRegulationStatusPermissionDenied = ref(false)
 const selectedProjectCode = ref<DccProjectCodeRespVO | null>(null)
+const projectFileTemplateEditorRef = ref<InstanceType<typeof ProjectFileTemplateEditor>>()
+const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
+const projectFileTemplateLoading = ref(false)
+const projectFileTemplateError = ref('')
 const associatedNavigationFiles = ref<ControlledFileVO[]>([])
 const associatedFilesTotal = ref(0)
 const assignmentDialogVisible = ref(false)
@@ -2555,6 +2615,43 @@ const resetAssociatedFilesState = () => {
   resetAssociatedFilePage()
 }
 
+const resetProjectFileTemplateState = () => {
+  projectFileTemplateItems.value = []
+  projectFileTemplateError.value = ''
+}
+
+const loadProjectFileTemplateForDetail = async (
+  projectCodeId: number | string,
+  requestToken: number
+) => {
+  projectFileTemplateLoading.value = true
+  projectFileTemplateError.value = ''
+  try {
+    const template = await getProjectCodeFileTemplate(projectCodeId)
+    if (requestToken !== detailRequestSequence) return
+    projectFileTemplateItems.value = template.items || []
+  } catch (error) {
+    if (requestToken !== detailRequestSequence) return
+    projectFileTemplateItems.value = []
+    projectFileTemplateError.value = `项目文件模板加载失败：${resolveAiCategoryErrorMessage(error)}`
+  } finally {
+    if (requestToken === detailRequestSequence) {
+      projectFileTemplateLoading.value = false
+    }
+  }
+}
+
+const openProjectFileTemplateEditor = () => {
+  if (!selectedProjectCode.value?.id) return
+  projectFileTemplateEditorRef.value?.open(selectedProjectCode.value)
+}
+
+const handleProjectFileTemplateSaved = (template: DccProjectFileTemplateRespVO) => {
+  if (template.projectCodeId !== selectedProjectCode.value?.id) return
+  projectFileTemplateItems.value = template.items || []
+  projectFileTemplateError.value = ''
+}
+
 const getAssociatedFiles = async (
   projectCodeIdOverride?: number | string,
   requestToken?: number
@@ -3163,8 +3260,10 @@ const syncDetailFromRoute = async () => {
     detailDrawerVisible.value = false
     selectedProjectCode.value = null
     resetAssociatedFilesState()
+    resetProjectFileTemplateState()
     detailLoading.value = false
     associatedFilesLoading.value = false
+    projectFileTemplateLoading.value = false
     return
   }
   const id = queryProjectCodeId
@@ -3174,6 +3273,7 @@ const syncDetailFromRoute = async () => {
   if (!hasCurrentProjectCode) {
     selectedProjectCode.value = null
     resetAssociatedFilesState()
+    resetProjectFileTemplateState()
     detailLoading.value = true
   }
   let projectCodeLoaded = false
@@ -3189,6 +3289,7 @@ const syncDetailFromRoute = async () => {
       detailLoading.value = false
       if (projectCodeLoaded) {
         void loadAssociatedFilesForDetail(id, requestToken)
+        void loadProjectFileTemplateForDetail(id, requestToken)
       }
     }
   }
@@ -3204,6 +3305,7 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
   if (typeof projectCode === 'object' && projectCode !== null) {
     selectedProjectCode.value = projectCode
     resetAssociatedFilesState()
+    resetProjectFileTemplateState()
     detailLoading.value = false
   }
   detailDrawerVisible.value = true

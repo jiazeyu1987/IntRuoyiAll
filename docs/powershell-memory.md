@@ -283,6 +283,7 @@
 - Supplementary evidence: `doc/tasks/20260808-remove-pqc-extra-restrictions/verification-report.md`，一线 PQC 额外限制移除任务中，同一工作区多轮并发 Maven/`clean test`/`compile` 重建 `yudao-module-mes\target`，导致目标测试复跑在 testCompile 阶段出现大量 `target\classes` class 文件缺失；最终仅记录前端类型和静态合同 PASS，后端 Maven 动态验证保持 blocked，待无并发 Maven 窗口复跑。
 - Supplementary evidence: `doc/tasks/20260808-frontline-pqc-requirement-alignment/execution-log.md`，一线 PQC 需求口径对齐任务中，目标 Maven 首轮在 testCompile 前报 `yudao-module-mes\target\classes` 大量 class 缺失；确认源文件存在、等待同模块 Maven 释放并运行 `mvn -pl yudao-module-mes -DskipTests compile` 重建主类后，复跑标准目标 JUnit 到达 Surefire 且 7 个测试 PASS。
 - Supplementary evidence: `doc/tasks/20260908-data-integrity-remediation/execution-log.md`，数据完整性整改中，`-pl yudao-module-mes -am` 目标 JUnit 先后卡在 `IncrementalBuildHelper.beforeRebuildExecution`/`WinNTFileSystem.delete0` 与 `JavacFileManager`/`FSInfo.getJarClassPath`；任务仅中断自有 Maven，保留并行任务 Java，记录前端静态合同与后端源码合同 PASS，并把标准 Maven lifecycle 保持 blocked。
+- Supplementary evidence: `doc/tasks/20260911-commit-frontend-backend/execution-log.md`，提交门禁中 DCC `mvn clean` 因另一 Maven PID 正在写同一模块 target 而无法删除 `target/classes`；先只读确认 PID 与命令行，等待其自然退出，不强杀并行任务，再重跑同一 clean 定向命令取得 PASS。
 
 ### Maven javac/Lombok class 写入长时间运行门禁
 

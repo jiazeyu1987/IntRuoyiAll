@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerInitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteDeviceParameterRuleDeleteReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
@@ -20,6 +21,7 @@ import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -73,18 +75,28 @@ public class MesProRouteFlowConfigController {
     @GetMapping("/process-device-parameters")
     @Operation(summary = "获得工艺路线工序设备参数配置")
     @Parameter(name = "routeProcessId", description = "路线工序编号", required = true)
+    @Parameter(name = "routeVersionId", description = "路线版本编号", required = true)
     @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-route:batch-record-config:query')")
     public CommonResult<MesProRouteProcessDeviceParameterRespVO> getRouteProcessDeviceParameterConfig(
+            @RequestParam("routeVersionId") Long routeVersionId,
             @RequestParam("routeProcessId") Long routeProcessId) {
-        return success(routeFlowConfigService.getRouteProcessDeviceParameterConfig(routeProcessId));
+        return success(routeFlowConfigService.getRouteProcessDeviceParameterConfig(routeVersionId, routeProcessId));
     }
 
     @PostMapping("/process-device-parameter-rule/save")
     @Operation(summary = "保存工艺路线工序设备参数规则")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
-    public CommonResult<Long> saveRouteProcessDeviceParameterRule(
+    public CommonResult<MesProRouteProcessDeviceParameterRespVO> saveRouteProcessDeviceParameterRule(
             @Valid @RequestBody MesProRouteDeviceParameterRuleSaveReqVO saveReqVO) {
         return success(routeFlowConfigService.saveRouteProcessDeviceParameterRule(saveReqVO));
+    }
+
+    @DeleteMapping("/process-device-parameter-rule/delete")
+    @Operation(summary = "删除工艺路线候选版本工序设备参数规则")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<MesProRouteProcessDeviceParameterRespVO> deleteRouteProcessDeviceParameterRule(
+            @Valid @RequestBody MesProRouteDeviceParameterRuleDeleteReqVO deleteReqVO) {
+        return success(routeFlowConfigService.deleteRouteProcessDeviceParameterRule(deleteReqVO));
     }
 
     @GetMapping("/batch-record-attachment-owners")

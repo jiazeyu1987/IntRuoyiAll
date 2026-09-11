@@ -53,7 +53,7 @@ public class MesQaInspectionRegulationWordParser {
         try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(content))) {
             HeaderMetadata header = parseHeader(document);
             LocalDate effectiveDate = parseEffectiveDate(document, header.versionNo());
-            List<ParsedItem> items = parseInspectionItems(document);
+            List<ParsedItem> items = parseInspectionItems(document, header.regulationName());
             return new ParsedRegulation(header.regulationCode(), header.regulationName(),
                     header.versionNo(), effectiveDate, items, normalizeText(fileName));
         } catch (ServiceException ex) {
@@ -144,7 +144,7 @@ public class MesQaInspectionRegulationWordParser {
             for (int headerIndex = 0; headerIndex < grid.size(); headerIndex++) {
                 List<String> header = grid.get(headerIndex);
                 int versionColumn = findExactColumn(header, "版本");
-                int effectiveDateColumn = findExactColumn(header, "生效日期");
+                int effectiveDateColumn = findEffectiveDateColumn(header);
                 if (versionColumn < 0 || effectiveDateColumn < 0) {
                     continue;
                 }
@@ -158,15 +158,15 @@ public class MesQaInspectionRegulationWordParser {
             }
         }
         if (effectiveDates.isEmpty()) {
-            throw invalid("修订记录中不存在版本 " + versionNo + " 的生效日期");
+            throw invalid("修订记录中不存在版本 " + versionNo + " 的生效/实施日期");
         }
         if (effectiveDates.size() != 1) {
-            throw invalid("修订记录中版本 " + versionNo + " 的生效日期不唯一：" + effectiveDates);
+            throw invalid("修订记录中版本 " + versionNo + " 的生效/实施日期不唯一：" + effectiveDates);
         }
         return effectiveDates.iterator().next();
     }
 
-    private List<ParsedItem> parseInspectionItems(XWPFDocument document) {
+    private List<ParsedItem> parseInspectionItems(XWPFDocument document, String regulationName) {
         List<InspectionTable> matches = new ArrayList<>();
         for (XWPFTable table : document.getTables()) {
             List<List<String>> grid = buildLogicalGrid(table);
@@ -208,22 +208,17 @@ public class MesQaInspectionRegulationWordParser {
             String rowIdentity = serial.isEmpty() ? String.valueOf(items.size() + 1) : serial;
 
             InspectionColumns columns = inspectionTable.columns();
-            String processName = processValueAt(row, columns.processColumn());
-            List<String> processNames = splitProcessNames(processName);
-            List<String> itemPath = new ArrayList<>();
-            for (int itemColumn = columns.processColumn() + 1;
-                 itemColumn < columns.standardColumn(); itemColumn++) {
-                String segment = valueAt(row, itemColumn);
-                if (!segment.isEmpty()
-                        && (itemPath.isEmpty() || !Objects.equals(itemPath.get(itemPath.size() - 1), segment))) {
-                    itemPath.add(segment);
-                }
-            }
-            String itemName = String.join(" / ", itemPath);
+            List<String> processNames = resolveProcessNames(row, columns, regulationName);
+            String itemName = resolveItemName(row, columns);
             String standardText = valueAt(row, columns.standardColumn());
             String inspectionMethod = valueAt(row, columns.methodColumn());
             String inspectionTool = valueAt(row, columns.toolColumn());
             String samplingPlanText = valueAt(row, columns.samplingColumn());
+            if (columns.processNameFromRegulation()) {
+                itemName = inheritWhenBlank(itemName, previousItemName(items));
+                inspectionTool = inheritWhenBlank(inspectionTool, previousInspectionTool(items));
+                samplingPlanText = inheritWhenBlank(samplingPlanText, previousSamplingPlanText(items));
+            }
             if (processNames.isEmpty() || itemName.isEmpty() || standardText.isEmpty()
                     || inspectionMethod.isEmpty() || inspectionTool.isEmpty() || samplingPlanText.isEmpty()) {
                 throw invalid("检验内容表第 " + (rowIndex + 1) + " 行字段不完整");
@@ -319,6 +314,46 @@ public class MesQaInspectionRegulationWordParser {
         return List.of();
     }
 
+    private static List<String> resolveProcessNames(List<String> row, InspectionColumns columns,
+                                                    String regulationName) {
+        if (columns.processNameFromRegulation()) {
+            return List.of(regulationName);
+        }
+        return splitProcessNames(processValueAt(row, columns.processColumn()));
+    }
+
+    private static String resolveItemName(List<String> row, InspectionColumns columns) {
+        if (columns.itemNameColumn() >= 0) {
+            return valueAt(row, columns.itemNameColumn());
+        }
+        List<String> itemPath = new ArrayList<>();
+        for (int itemColumn = columns.processColumn() + 1;
+             itemColumn < columns.standardColumn(); itemColumn++) {
+            String segment = valueAt(row, itemColumn);
+            if (!segment.isEmpty()
+                    && (itemPath.isEmpty() || !Objects.equals(itemPath.get(itemPath.size() - 1), segment))) {
+                itemPath.add(segment);
+            }
+        }
+        return String.join(" / ", itemPath);
+    }
+
+    private static String previousItemName(List<ParsedItem> items) {
+        return items.isEmpty() ? "" : items.get(items.size() - 1).itemName();
+    }
+
+    private static String previousInspectionTool(List<ParsedItem> items) {
+        return items.isEmpty() ? "" : items.get(items.size() - 1).inspectionTool();
+    }
+
+    private static String previousSamplingPlanText(List<ParsedItem> items) {
+        return items.isEmpty() ? "" : items.get(items.size() - 1).samplingPlanText();
+    }
+
+    private static String inheritWhenBlank(String value, String inherited) {
+        return value.isEmpty() ? inherited : value;
+    }
+
     private static SamplingRule parseSamplingRule(String samplingPlanText, String serial) {
         Set<Integer> firstQuantities = collectIntegers(FIRST_QUANTITY_PATTERN, samplingPlanText);
         if (firstQuantities.size() > 1) {
@@ -330,12 +365,15 @@ public class MesQaInspectionRegulationWordParser {
         }
 
         Set<BigDecimal> patrolRatios = collectDecimals(AQL_PATTERN, samplingPlanText);
-        if (patrolRatios.size() != 1) {
+        if (patrolRatios.size() > 1) {
             throw invalid("检验项目序号 " + serial + " 必须包含唯一有效的 AQL 比例");
         }
-        BigDecimal patrolRatio = patrolRatios.iterator().next();
-        if (patrolRatio.compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal patrolRatio = patrolRatios.stream().findFirst().orElse(null);
+        if (patrolRatio != null && patrolRatio.compareTo(BigDecimal.ZERO) <= 0) {
             throw invalid("检验项目序号 " + serial + " 的 AQL 比例必须大于 0");
+        }
+        if (firstQuantity == null && patrolRatio == null) {
+            throw invalid("检验项目序号 " + serial + " 必须包含首检数量或唯一有效的 AQL 比例");
         }
         return new SamplingRule(firstQuantity, patrolRatio);
     }
@@ -376,8 +414,8 @@ public class MesQaInspectionRegulationWordParser {
         int inspectionItemColumn = findExactColumn(row, "检验项目");
         int standardColumn = findExactColumn(row, "接受标准");
         int methodColumn = findExactColumn(row, "检验方法");
-        int toolColumn = findExactColumn(row, "检验器具及设备");
-        int samplingColumn = findExactColumn(row, "抽样方案");
+        int toolColumn = findToolColumn(row);
+        int samplingColumn = findSamplingColumn(row);
         if (serialColumn < 0 || inspectionItemColumn < 0 || standardColumn < 0
                 || methodColumn < 0 || toolColumn < 0 || samplingColumn < 0) {
             return null;
@@ -387,11 +425,19 @@ public class MesQaInspectionRegulationWordParser {
                 && toolColumn < samplingColumn)) {
             throw invalid("检验内容表头列顺序无效");
         }
+        if (samplingColumn + 1 == EXPECTED_INSPECTION_COLUMNS) {
+            return new InspectionColumns(serialColumn, inspectionItemColumn, -1,
+                    standardColumn, methodColumn, toolColumn, samplingColumn, false);
+        }
+        if (samplingColumn + 1 == 6) {
+            return new InspectionColumns(serialColumn, -1, inspectionItemColumn,
+                    standardColumn, methodColumn, toolColumn, samplingColumn, true);
+        }
         if (samplingColumn + 1 != EXPECTED_INSPECTION_COLUMNS) {
             throw invalid("检验内容表必须包含 8 个逻辑列，实际末列位置为 " + (samplingColumn + 1));
         }
-        return new InspectionColumns(serialColumn, inspectionItemColumn,
-                standardColumn, methodColumn, toolColumn, samplingColumn);
+        return new InspectionColumns(serialColumn, inspectionItemColumn, -1,
+                standardColumn, methodColumn, toolColumn, samplingColumn, false);
     }
 
     private List<List<String>> buildLogicalGrid(XWPFTable table) {
@@ -484,6 +530,30 @@ public class MesQaInspectionRegulationWordParser {
         return -1;
     }
 
+    private static int findEffectiveDateColumn(List<String> row) {
+        int effectiveDateColumn = findExactColumn(row, "生效日期");
+        if (effectiveDateColumn >= 0) {
+            return effectiveDateColumn;
+        }
+        return findExactColumn(row, "实施日期");
+    }
+
+    private static int findToolColumn(List<String> row) {
+        int toolColumn = findExactColumn(row, "检验器具及设备");
+        if (toolColumn >= 0) {
+            return toolColumn;
+        }
+        return findExactColumn(row, "检具");
+    }
+
+    private static int findSamplingColumn(List<String> row) {
+        int samplingColumn = findExactColumn(row, "抽样方案");
+        if (samplingColumn >= 0) {
+            return samplingColumn;
+        }
+        return findExactColumn(row, "检验规则");
+    }
+
     private static String valueAt(List<String> row, int index) {
         return displayCellText(rawValueAt(row, index));
     }
@@ -543,8 +613,9 @@ public class MesQaInspectionRegulationWordParser {
                                    InspectionColumns columns) {
     }
 
-    private record InspectionColumns(int serialColumn, int processColumn, int standardColumn,
-                                     int methodColumn, int toolColumn, int samplingColumn) {
+    private record InspectionColumns(int serialColumn, int processColumn, int itemNameColumn,
+                                     int standardColumn, int methodColumn, int toolColumn,
+                                     int samplingColumn, boolean processNameFromRegulation) {
     }
 
     private record SamplingRule(Integer firstInspectionQuantity, BigDecimal patrolInspectionRatio) {

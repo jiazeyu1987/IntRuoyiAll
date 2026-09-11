@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_electronic_signature_t7; type=schema; riskLevel=medium
 -- T8: electronic signature trusted time, seal, privileged audit and archive recovery evidence.
 
 CREATE TABLE IF NOT EXISTS `system_electronic_signature_time_evidence` (

@@ -22,6 +22,12 @@ public class MesFrontlinePqcProcessRespVO {
     private Long dccProjectCodeId;
     @Schema(description = "QA 规程根编号")
     private Long regulationId;
+    @Schema(description = "QA 规程编码")
+    private String regulationCode;
+    @Schema(description = "QA 规程名称")
+    private String regulationName;
+    @Schema(description = "QA 规程来源类型：PRODUCT_QA/COMMON_PACKAGING")
+    private String regulationSourceType;
     @Schema(description = "QA 规程发布版本编号")
     private Long regulationVersionId;
     @Schema(description = "QA 工序编号")
@@ -136,5 +142,21 @@ public class MesFrontlinePqcProcessRespVO {
         private String equipmentNumber;
         private Boolean defaultFlag;
         private Integer sort;
+        private List<PqcDeviceParameter> parameters;
+    }
+
+    @Data
+    public static class PqcDeviceParameter {
+        private String parameterCode;
+        private String parameterName;
+        private String unit;
+        private BigDecimal lowerLimit;
+        private BigDecimal upperLimit;
+        private BigDecimal defaultValue;
+        private String valueType;
+        private String standardText;
+        private List<String> optionValues;
+        private String defaultText;
+        private Integer decimalScale;
     }
 }

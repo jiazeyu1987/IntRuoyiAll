@@ -11,6 +11,12 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProRouteProcessDeviceParameterRespVO {
 
+    @Schema(description = "路线版本编号")
+    private Long routeVersionId;
+
+    @Schema(description = "路线快照 SHA-256")
+    private String routeSnapshotSha256;
+
     @Schema(description = "路线工序编号")
     private Long routeProcessId;
 

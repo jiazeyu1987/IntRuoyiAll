@@ -121,8 +121,8 @@ export const validateDccApprovalActionForm = (
   if (!form.password?.trim()) {
     errors.password = '请输入登录密码完成电子签名'
   }
-  if (mode === 'reject' && !form.reason?.trim()) {
-    errors.reason = '请输入驳回原因'
+  if (!form.reason?.trim()) {
+    errors.reason = mode === 'reject' ? '请输入驳回原因' : '请输入审批意见'
   }
   return errors
 }
@@ -173,7 +173,7 @@ export const submitDccApprovalAction = async ({
       const payload: ControlledFileApproveTaskReqVO = {
         taskId,
         password: form.password,
-        reason: form.reason?.trim() || '',
+        reason: form.reason.trim(),
         sessionId: form.sessionId,
         stampedPdfUploadTicket: form.stampedPdfUploadTicket,
         confirmedDirectoryId: form.confirmedDirectoryId,

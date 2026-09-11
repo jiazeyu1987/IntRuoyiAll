@@ -83,11 +83,11 @@
             v-bind="sortColumnAttrs('principalCode')"
           />
           <el-table-column
-            v-if="isCompanyScopeColumnVisible('companyName')"
+            v-if="isCompanyScopeColumnVisible('companyDisplayLabel')"
             label="公司名称"
-            prop="companyName"
-            :min-width="getCompanyScopeColumnMinWidthString('companyName', 200)"
-            v-bind="sortColumnAttrs('companyName')"
+            prop="companyDisplayLabel"
+            :min-width="getCompanyScopeColumnMinWidthString('companyDisplayLabel', 200)"
+            v-bind="sortColumnAttrs('companyDisplayLabel')"
           />
           <el-table-column
             v-if="isCompanyScopeColumnVisible('companyCode')"
@@ -286,7 +286,7 @@ const companyScopeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'scopeType', label: '范围类型', width: 100, sortable: false },
   { key: 'principalName', label: '用户 / 角色', minWidth: 160, sortable: false },
   { key: 'principalCode', label: '账号 / 编码', minWidth: 160, sortable: false },
-  { key: 'companyName', label: '公司名称', minWidth: 200, sortable: false },
+  { key: 'companyDisplayLabel', label: '公司名称', minWidth: 200, sortable: false },
   { key: 'companyCode', label: '公司编码', minWidth: 160, sortable: false },
   { key: 'status', label: '状态', width: 100, sortable: false },
   { key: 'updateTime', label: '更新时间', width: 180, sortable: false },
@@ -455,7 +455,7 @@ const submitScopeForm = async () => {
 
 const handleDelete = async (row: MdmCompanyScopeRespVO) => {
   try {
-    await message.delConfirm(`确认删除授权公司“${row.companyName}”吗？`)
+    await message.delConfirm(`确认删除授权公司“${row.companyDisplayLabel}”吗？`)
   } catch {
     return
   }

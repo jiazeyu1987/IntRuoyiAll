@@ -262,7 +262,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         roleMenuMapper.insert(roleMenu02);
 
         // 调用
-        permissionService.assignRoleMenu(roleId, menuIds);
+        permissionService.assignRoleMenu(roleId, menuIds, "测试分配角色菜单权限", "TEST-ROLE-MENU-SUCCESS");
         // 断言
         List<RoleMenuDO> roleMenuList = roleMenuMapper.selectList();
         assertEquals(2, roleMenuList.size());
@@ -279,7 +279,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         roleMenuMapper.insert(existing);
         when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
 
-        assertThrows(IllegalStateException.class, () -> permissionService.assignRoleMenu(roleId, asSet(200L)));
+        assertThrows(IllegalStateException.class, () -> permissionService.assignRoleMenu(roleId, asSet(200L),
+                "测试分配角色菜单权限失败回滚", "TEST-ROLE-MENU-ROLLBACK"));
 
         assertEquals(asSet(100L), roleMenuMapper.selectListByRoleId(roleId).stream()
                 .map(RoleMenuDO::getMenuId).collect(Collectors.toSet()));
@@ -397,7 +398,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         userRoleMapper.insert(userRole02);
 
         // 调用
-        permissionService.assignUserRole(userId, roleIds);
+        permissionService.assignUserRole(userId, roleIds, "测试分配用户角色", "TEST-USER-ROLE-SUCCESS");
         // 断言
         List<UserRoleDO> userRoleDOList = userRoleMapper.selectList();
         assertEquals(2, userRoleDOList.size());
@@ -414,7 +415,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         userRoleMapper.insert(existing);
         when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
 
-        assertThrows(IllegalStateException.class, () -> permissionService.assignUserRole(userId, asSet(200L)));
+        assertThrows(IllegalStateException.class, () -> permissionService.assignUserRole(userId, asSet(200L),
+                "测试分配用户角色失败回滚", "TEST-USER-ROLE-ROLLBACK"));
 
         assertEquals(asSet(100L), userRoleMapper.selectListByUserId(userId).stream()
                 .map(UserRoleDO::getRoleId).collect(Collectors.toSet()));
@@ -449,7 +451,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
             return roles;
         });
 
-        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId)));
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId),
+                "测试普通用户禁止分配管理员角色", "TEST-USER-ROLE-ADMIN-FORBIDDEN"));
     }
 
     @Test
@@ -480,7 +483,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
                 randomPojo(MenuDO.class, o -> o.setId(logMenuId).setPermission("system:login-log:query"))
         ));
 
-        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId)));
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId),
+                "测试普通用户禁止分配日志权限", "TEST-USER-ROLE-LOG-FORBIDDEN"));
     }
 
     @Test
@@ -601,7 +605,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         Set<Long> dataScopeDeptIds = asSet(10L, 20L);
 
         // 调用
-        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds);
+        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds,
+                "测试分配角色数据权限", "TEST-ROLE-DATA-SCOPE-SUCCESS");
         // 断言
         verify(roleService).updateRoleDataScope(eq(roleId), eq(dataScope), eq(dataScopeDeptIds));
     }
@@ -612,7 +617,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         Integer dataScope = DataScopeEnum.DEPT_CUSTOM.getScope();
         Set<Long> dataScopeDeptIds = asSet(10L, 20L);
 
-        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds);
+        permissionService.assignRoleDataScope(roleId, dataScope, dataScopeDeptIds,
+                "测试分配角色数据权限审计", "TEST-ROLE-DATA-SCOPE-AUDIT");
 
         ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
         verify(gxpAuditService).append(auditCaptor.capture());

@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAutho
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityTrace;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDefectReasonOption;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
 import org.mockito.Mockito;
@@ -35,7 +36,10 @@ final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
                     1L, command.loginUserId(), command.routeId(), command.routeProcessId(), command.processId(),
                     command.workstationId(), List.of(), List.of(
                     new MesFrontlineTeamDeviceOption(501L, "PT-A-03", "压力泵", "ACTIVE",
-                            "DEFAULT", "SINGLE", List.of())),
+                            "DEFAULT", "SINGLE", List.of(new MesFrontlineDeviceParameterOption(
+                            "pressure", "压力", "MPa", new java.math.BigDecimal("20"),
+                            new java.math.BigDecimal("40"), new java.math.BigDecimal("30"),
+                            "DECIMAL", "20-40MPa", List.of(), null, 0)))),
                     List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗")),
                     materials,
                     null);

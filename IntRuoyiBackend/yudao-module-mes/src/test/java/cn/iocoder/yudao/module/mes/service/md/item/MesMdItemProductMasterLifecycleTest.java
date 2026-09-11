@@ -9,7 +9,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemTypeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.unitmeasure.MesMdUnitMeasureDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
-import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
 import cn.iocoder.yudao.module.mes.service.md.unitmeasure.MesMdUnitMeasureService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,8 +44,6 @@ class MesMdItemProductMasterLifecycleTest {
     @Mock
     private MesWmBarcodeService barcodeService;
     @Mock
-    private MesMdAutoCodeRecordService autoCodeRecordService;
-    @Mock
     private MdmProductApi mdmProductApi;
 
     private MesMdItemServiceImpl service;
@@ -58,7 +55,6 @@ class MesMdItemProductMasterLifecycleTest {
         ReflectionTestUtils.setField(service, "itemTypeService", itemTypeService);
         ReflectionTestUtils.setField(service, "unitMeasureService", unitMeasureService);
         ReflectionTestUtils.setField(service, "barcodeService", barcodeService);
-        ReflectionTestUtils.setField(service, "autoCodeRecordService", autoCodeRecordService);
         assertDoesNotThrow(() -> ReflectionTestUtils.setField(service, "mdmProductApi", mdmProductApi),
                 "MES item service must own an explicit MDM product validation boundary");
     }

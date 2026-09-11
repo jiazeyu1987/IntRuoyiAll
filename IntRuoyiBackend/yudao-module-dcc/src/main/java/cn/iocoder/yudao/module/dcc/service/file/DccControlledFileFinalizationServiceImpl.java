@@ -29,6 +29,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingAssig
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileDistributionStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileMasterStatusEnum;
@@ -276,7 +277,9 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     }
 
     private boolean isRevisionApprovalSplitCandidate(DccControlledFileDO file) {
-        return DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType());
+        return DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+                && (DccControlledFileChangeTypeEnum.NEW.getCode().equals(file.getChangeType())
+                || DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()));
     }
 
     private DccControlledFileDO requirePublishReadyCandidate(Long userId, Long id, boolean enforcePendingActionGuard) {
@@ -837,7 +840,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (previousActive == null) {
             throw new IllegalStateException("Previous active revision is missing for supersession");
         }
-        obsoleteFileStorageService.moveControlledFileArtifactsToObsoleteFolder(previousActive);
         controlledFileMapper.updateById(DccControlledFileDO.builder()
                 .id(previousActiveId)
                 .status(DccControlledFileStatusEnum.SUPERSEDED.getStatus())

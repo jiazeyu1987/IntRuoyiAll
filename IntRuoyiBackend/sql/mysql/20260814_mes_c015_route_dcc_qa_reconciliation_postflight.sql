@@ -107,6 +107,8 @@ BEGIN
       WHERE table_schema = DATABASE() AND table_name = 'mes_qa_inspection_regulation'
         AND column_name = 'active_dcc_project_code_id' AND extra LIKE '%STORED GENERATED%'
         AND LOWER(generation_expression) LIKE '%case%dcc_project_code_id%'
+        AND LOWER(generation_expression) LIKE '%owner_module%'
+        AND LOWER(generation_expression) LIKE '%mes_qa%'
    );
 
   INSERT INTO c015_reconciliation_postflight

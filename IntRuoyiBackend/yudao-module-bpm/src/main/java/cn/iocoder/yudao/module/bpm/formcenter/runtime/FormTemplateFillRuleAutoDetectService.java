@@ -58,7 +58,7 @@ public class FormTemplateFillRuleAutoDetectService {
         if (!DRAFT_STATUS.equals(sourceVersion.getStatus())) {
             FormTemplateVersionDO existingDraft = templateVersionMapper.selectDraftByTemplateId(
                     TenantContextHolder.getRequiredTenantId(), templateId);
-            if (existingDraft == null) {
+            if (existingDraft == null || !isDraftVersionAfterSource(existingDraft, sourceVersion)) {
                 String draftVersionNo = resolveNextDraftVersionNo(sourceVersion);
                 editableVersion = cloneAsDraft(sourceVersion, draftVersionNo);
                 templateVersionMapper.insert(editableVersion);
@@ -79,6 +79,54 @@ public class FormTemplateFillRuleAutoDetectService {
         respVO.setCandidateCount(candidates.size());
         respVO.setCandidates(candidates);
         return respVO;
+    }
+
+    private boolean isDraftVersionAfterSource(FormTemplateVersionDO existingDraft, FormTemplateVersionDO sourceVersion) {
+        return compareVersionNo(existingDraft.getVersionNo(), sourceVersion.getVersionNo()) > 0;
+    }
+
+    private int compareVersionNo(String leftVersionNo, String rightVersionNo) {
+        List<Long> left = parseVersionSegments(leftVersionNo);
+        List<Long> right = parseVersionSegments(rightVersionNo);
+        int length = Math.max(left.size(), right.size());
+        for (int index = 0; index < length; index++) {
+            long leftValue = index < left.size() ? left.get(index) : 0L;
+            long rightValue = index < right.size() ? right.get(index) : 0L;
+            if (leftValue != rightValue) {
+                return Long.compare(leftValue, rightValue);
+            }
+        }
+        return 0;
+    }
+
+    private List<Long> parseVersionSegments(String versionNo) {
+        if (versionNo == null || versionNo.trim().isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version number is blank");
+        }
+        Matcher matcher = AUTO_VERSION_PATTERN.matcher(versionNo.trim());
+        if (!matcher.matches()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version number cannot be compared: " + versionNo);
+        }
+        List<Long> segments = new ArrayList<>();
+        segments.add(parseVersionSegment(matcher.group(2), versionNo));
+        String suffix = matcher.group(3);
+        if (StrUtil.isNotBlank(suffix)) {
+            for (String segment : suffix.substring(1).split("\\.")) {
+                segments.add(parseVersionSegment(segment, versionNo));
+            }
+        }
+        return segments;
+    }
+
+    private Long parseVersionSegment(String segment, String versionNo) {
+        try {
+            return Long.valueOf(segment);
+        } catch (NumberFormatException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Template version number cannot be compared: " + versionNo);
+        }
     }
 
     private FormTemplateVersionDO requireCurrentTenantTemplateVersion(Long templateId, String versionNo) {

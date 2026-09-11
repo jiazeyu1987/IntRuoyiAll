@@ -1452,6 +1452,33 @@
                       </div>
                     </div>
                     <div
+                      v-else-if="selectedProcessDetailField.key === 'productionProcessConfig'"
+                      class="route-flow-graph-designer__record-binding-list"
+                      data-flow-panel="route-production-process-config-editor"
+                    >
+                      <div class="route-flow-graph-designer__record-binding-toolbar">
+                        <span>版本化生产配置</span>
+                        <el-button
+                          data-flow-action="save-route-production-process-config"
+                          :disabled="recordBindingEditorDisabled || !selectedNode"
+                          link
+                          size="small"
+                          type="primary"
+                          @click="saveSelectedProductionProcessConfig"
+                        >
+                          保存
+                        </el-button>
+                      </div>
+                      <el-input
+                        :model-value="ensureProductionProcessConfigJsonDraft(selectedNode)"
+                        data-route-process-setting-field="production-process-config-json"
+                        :disabled="recordBindingEditorDisabled"
+                        type="textarea"
+                        :autosize="{ minRows: 12, maxRows: 24 }"
+                        @update:model-value="(value) => updateProductionProcessConfigJsonDraft(selectedNode, String(value))"
+                      />
+                    </div>
+                    <div
                       v-else-if="selectedProcessDetailField.key === 'deviceParameters'"
                       class="route-flow-graph-designer__record-binding-list"
                       data-flow-panel="route-process-device-parameter-config"
@@ -1494,6 +1521,16 @@
                           <span class="route-flow-graph-designer__record-binding-label">
                             {{ formatRouteProcessDeviceParameterDeviceLabel(device) }}
                           </span>
+                          <el-button
+                            data-flow-action="add-route-process-device-parameter-rule"
+                            :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
+                            link
+                            size="small"
+                            type="primary"
+                            @click="openRouteProcessDeviceParameterDialog(device)"
+                          >
+                            新增参数
+                          </el-button>
                         </div>
                         <div
                           v-for="parameter in device.parameters || []"
@@ -1508,14 +1545,24 @@
                             {{ formatRouteProcessDeviceParameterValue(parameter) }}
                           </strong>
                           <el-button
-                            data-flow-action="save-route-process-device-parameter-rule"
+                            data-flow-action="edit-route-process-device-parameter-rule"
                             :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
                             link
                             size="small"
                             type="primary"
-                            @click="saveSelectedRouteProcessDeviceParameterRule(device, parameter)"
+                            @click="openRouteProcessDeviceParameterDialog(device, parameter)"
                           >
-                            保存规则
+                            编辑
+                          </el-button>
+                          <el-button
+                            data-flow-action="delete-route-process-device-parameter-rule"
+                            :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
+                            link
+                            size="small"
+                            type="danger"
+                            @click="deleteSelectedRouteProcessDeviceParameterRule(device, parameter)"
+                          >
+                            删除
                           </el-button>
                         </div>
                       </div>
@@ -1627,6 +1674,141 @@
           @click="handleRouteProcessAdd"
         >
           确定
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="routeProcessDeviceParameterDialogVisible"
+      append-to-body
+      data-testid="route-process-device-parameter-dialog"
+      title="设备参数"
+      width="520px"
+    >
+      <el-form
+        :model="routeProcessDeviceParameterForm"
+        label-width="96px"
+      >
+        <el-form-item label="设备">
+          <span>{{ routeProcessDeviceParameterDialogDeviceLabel }}</span>
+        </el-form-item>
+        <el-form-item label="参数编码">
+          <el-input
+            v-model="routeProcessDeviceParameterForm.parameterCode"
+            data-flow-field="route-process-device-parameter-code"
+            placeholder="请输入参数编码"
+          />
+        </el-form-item>
+        <el-form-item label="参数名称">
+          <el-input
+            v-model="routeProcessDeviceParameterForm.parameterName"
+            data-flow-field="route-process-device-parameter-name"
+            placeholder="请输入参数名称"
+          />
+        </el-form-item>
+        <el-form-item label="值类型">
+          <el-select
+            v-model="routeProcessDeviceParameterForm.valueType"
+            data-flow-field="route-process-device-parameter-value-type"
+            placeholder="请选择值类型"
+            style="width: 100%"
+          >
+            <el-option label="整数" value="INTEGER" />
+            <el-option label="小数" value="DECIMAL" />
+            <el-option label="下拉选项" value="SELECT" />
+            <el-option label="文本标准" value="TEXT_STANDARD" />
+            <el-option label="是否" value="BOOLEAN" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标准说明">
+          <el-input
+            v-model="routeProcessDeviceParameterForm.standardText"
+            data-flow-field="route-process-device-parameter-standard-text"
+            placeholder="请输入标准说明"
+          />
+        </el-form-item>
+        <template v-if="isRouteProcessDeviceParameterNumericForm">
+          <el-form-item label="下限">
+            <el-input-number
+              v-model="routeProcessDeviceParameterForm.lowerLimit"
+              :precision="routeProcessDeviceParameterForm.decimalScale ?? undefined"
+              controls-position="right"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="默认值">
+            <el-input-number
+              v-model="routeProcessDeviceParameterForm.targetValue"
+              :precision="routeProcessDeviceParameterForm.decimalScale ?? undefined"
+              controls-position="right"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="上限">
+            <el-input-number
+              v-model="routeProcessDeviceParameterForm.upperLimit"
+              :precision="routeProcessDeviceParameterForm.decimalScale ?? undefined"
+              controls-position="right"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="小数位">
+            <el-input-number
+              v-model="routeProcessDeviceParameterForm.decimalScale"
+              :min="0"
+              :max="6"
+              controls-position="right"
+              style="width: 100%"
+            />
+          </el-form-item>
+        </template>
+        <template v-else-if="routeProcessDeviceParameterForm.valueType === 'SELECT'">
+          <el-form-item label="选项">
+            <el-input
+              v-model="routeProcessDeviceParameterForm.optionValuesText"
+              data-flow-field="route-process-device-parameter-options"
+              placeholder="请输入选项，用逗号分隔"
+            />
+          </el-form-item>
+          <el-form-item label="默认选项">
+            <el-input
+              v-model="routeProcessDeviceParameterForm.defaultText"
+              data-flow-field="route-process-device-parameter-default-text"
+              placeholder="请输入默认选项"
+            />
+          </el-form-item>
+        </template>
+        <el-form-item
+          v-else-if="routeProcessDeviceParameterForm.valueType === 'BOOLEAN'"
+          label="默认值"
+        >
+          <el-select
+            v-model="routeProcessDeviceParameterForm.targetValue"
+            data-flow-field="route-process-device-parameter-boolean-default"
+            placeholder="请选择默认值"
+            style="width: 100%"
+          >
+            <el-option label="否" :value="0" />
+            <el-option label="是" :value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="单位">
+          <el-input
+            v-model="routeProcessDeviceParameterForm.unit"
+            data-flow-field="route-process-device-parameter-unit"
+            placeholder="请输入单位"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="routeProcessDeviceParameterDialogVisible = false">取消</el-button>
+        <el-button
+          data-flow-action="save-route-process-device-parameter-rule"
+          :loading="routeProcessDeviceParameterSaving"
+          type="primary"
+          @click="submitRouteProcessDeviceParameterRule"
+        >
+          保存
         </el-button>
       </template>
     </el-dialog>
@@ -1785,6 +1967,7 @@ import {
 import {
   ProRouteApi,
   type MesRouteId,
+  type ProRouteProductionProcessConfigVO,
   type ProRouteVO,
   type ProRouteScheduleConfigVO,
   type ProRouteVersionLifecycleStatus,
@@ -1830,6 +2013,7 @@ import {
 import {
   ProRouteFlowConfigApi,
   type ProRouteBatchRecordAttachmentOwnerVO,
+  type ProRouteDeviceParameterValueType,
   type ProRouteDeviceParameterVO,
   type ProRouteProcessDeviceParameterConfigVO,
   type ProRouteProcessDeviceParameterDeviceVO,
@@ -2126,6 +2310,10 @@ type SelectedProcessRouteConfigCache = {
   scheduleConfigs: ProRouteFlowProcessConfigVO[]
   batchConfigs: ProRouteFlowProcessConfigVO[]
   routeScheduleConfigs: ProRouteScheduleConfigVO[]
+  productionProcessConfigSnapshot: {
+    routeSnapshotSha256: string
+    productionProcessConfigs: ProRouteProductionProcessConfigVO[]
+  }
 }
 type RouteNodeBindingStatus = 'none' | 'bound' | 'missing'
 type CapacityWorkstationRepairMode = 'reuse' | 'create'
@@ -2171,6 +2359,7 @@ const PROCESS_DETAIL_HIDDEN_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>([
 ])
 const PROCESS_DETAIL_EDITABLE_FIELD_KEYS = new Set<RouteProcessSettingColumnKey>([
   'productionQuantityFactor',
+  'productionProcessConfig',
   'predecessor',
   'successors',
   'keyFlag',
@@ -2183,6 +2372,7 @@ const ROUTE_NODE_BINDING_STATUS_FIELD_KEYS = new Set<RouteProcessSettingColumnKe
   FORM_SLOT_AGGREGATE_FIELD_KEY,
   'batchRecordFormNames',
   'productionQuantityFactor',
+  'productionProcessConfig',
   'keyFlag',
   'checkFlag',
   'workstation'
@@ -2252,14 +2442,18 @@ const DEFAULT_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
   'processCode',
   'processName',
   'workstation',
+  'productionProcessConfig',
   'batchRecordFormNames',
   'inputMaterialIds',
-  'outputMaterialIds'
+  'outputMaterialIds',
+  'deviceParameters'
 ].filter((key): key is ProcessDetailFieldKey => PROCESS_DETAIL_FIELD_KEY_SET.has(key))
 const REQUIRED_PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = [
+  'productionProcessConfig',
   'batchRecordFormNames',
   'inputMaterialIds',
-  'outputMaterialIds'
+  'outputMaterialIds',
+  'deviceParameters'
 ].filter((key): key is ProcessDetailFieldKey => PROCESS_DETAIL_FIELD_KEY_SET.has(key))
 const CAPACITY_SOURCE_FOCUS_FIELD_KEYS: Record<string, ProcessDetailFieldKey[]> = {
   resource: ['workstation'],
@@ -2327,6 +2521,8 @@ const processFormBindingCopyPopoverVisible = ref(false)
 const processFormBindingCopySourceRouteProcessId = ref<number | null>(null)
 const selectedProcessAttributeDrafts = reactive<Record<number, SelectedProcessAttributesDraft>>({})
 const selectedProcessAttributeBaselines = reactive<Record<number, string>>({})
+const productionProcessConfigJsonDrafts = reactive<Record<number, string>>({})
+const productionProcessConfigJsonBaselines = reactive<Record<number, string>>({})
 const selectedProcessRouteConfigCache = ref<SelectedProcessRouteConfigCache>()
 const routeProcessKeyFlagBaselines = reactive<Record<number, boolean>>({})
 const routeProcessCheckFlagBaselines = reactive<Record<number, boolean>>({})
@@ -2384,6 +2580,36 @@ const routeStartProductionLeadersBaseline = ref('')
 const routeProcessDeviceParameterLoading = ref(false)
 const routeProcessDeviceParameterSaving = ref(false)
 const routeProcessDeviceParameterConfig = ref<ProRouteProcessDeviceParameterConfigVO>()
+let routeProcessDeviceParameterRequestId = 0
+const routeProcessDeviceParameterDialogVisible = ref(false)
+const routeProcessDeviceParameterDialogDevice =
+  ref<ProRouteProcessDeviceParameterDeviceVO>()
+const routeProcessDeviceParameterOriginalCode = ref<string>()
+const routeProcessDeviceParameterForm = reactive<{
+  parameterCode: string
+  parameterName: string
+  unit: string
+  valueType: ProRouteDeviceParameterValueType
+  standardText: string
+  lowerLimit?: number
+  targetValue?: number
+  upperLimit?: number
+  optionValuesText: string
+  defaultText: string
+  decimalScale?: number
+}>({
+  parameterCode: '',
+  parameterName: '',
+  unit: '',
+  valueType: 'DECIMAL',
+  standardText: '',
+  lowerLimit: undefined,
+  targetValue: undefined,
+  upperLimit: undefined,
+  optionValuesText: '',
+  defaultText: '',
+  decimalScale: 3
+})
 let routeStartProductionLeaderDraftSequence = 0
 const releaseApprovalRuleForm = reactive<ReleaseApprovalRuleForm>({
   candidateSourceType: 'USER',
@@ -3241,6 +3467,154 @@ const formatRouteProcessMaterialSummaryLine = (item: MdItemVO) =>
 const isRouteProcessMaterialDetailField = (fieldKey?: ProcessDetailFieldKey) =>
   fieldKey === 'inputMaterialIds' || fieldKey === 'outputMaterialIds'
 
+const findProductionProcessConfig = (routeProcessId?: number | null) =>
+  selectedProcessRouteConfigCache.value?.productionProcessConfigSnapshot.productionProcessConfigs.find(
+    (item) => Number(item.routeProcessId) === Number(routeProcessId)
+  )
+
+const normalizeProductionProcessConfig = (
+  config: ProRouteProductionProcessConfigVO
+): ProRouteProductionProcessConfigVO => ({
+  ...config,
+  routeProcessId: Number(config.routeProcessId),
+  processId: Number(config.processId),
+  lossReasons: Array.isArray(config.lossReasons) ? config.lossReasons : [],
+  deviceSelectionGroups: Array.isArray(config.deviceSelectionGroups)
+    ? config.deviceSelectionGroups
+    : [],
+  parameterRules: Array.isArray(config.parameterRules) ? config.parameterRules : []
+})
+
+const buildDefaultProductionProcessConfig = (
+  node: RouteFlowNodeVO
+): ProRouteProductionProcessConfigVO => ({
+  routeProcessId: node.routeProcessId,
+  processId: node.processId,
+  processCode: node.processCode,
+  processName: node.processName,
+  sort: node.sort,
+  overagePercent: null,
+  lossReasons: [],
+  deviceSelectionGroups: [],
+  parameterRules: []
+})
+
+const ensureProductionProcessConfigJsonDraft = (node?: RouteFlowNodeVO) => {
+  if (!node || !selectedProcessRouteConfigCache.value) return ''
+  const routeProcessId = Number(node.routeProcessId)
+  if (productionProcessConfigJsonDrafts[routeProcessId] === undefined) {
+    const config = findProductionProcessConfig(routeProcessId) ||
+      buildDefaultProductionProcessConfig(node)
+    const text = JSON.stringify(normalizeProductionProcessConfig(config), null, 2)
+    productionProcessConfigJsonDrafts[routeProcessId] = text
+    productionProcessConfigJsonBaselines[routeProcessId] = text
+  }
+  return productionProcessConfigJsonDrafts[routeProcessId]
+}
+
+const updateProductionProcessConfigJsonDraft = (
+  node: RouteFlowNodeVO | undefined,
+  value: string
+) => {
+  if (!node) return
+  productionProcessConfigJsonDrafts[Number(node.routeProcessId)] = value
+}
+
+const hasProductionProcessConfigJsonDraftChanges = (routeProcessId?: number) => {
+  const routeProcessIds = routeProcessId === undefined
+    ? Object.keys(productionProcessConfigJsonDrafts).map(Number)
+    : [Number(routeProcessId)]
+  return routeProcessIds.some((id) =>
+    productionProcessConfigJsonDrafts[id] !== productionProcessConfigJsonBaselines[id]
+  )
+}
+
+const syncProductionProcessConfigJsonDraftFromCache = (routeProcessId: number) => {
+  const config = findProductionProcessConfig(routeProcessId)
+  if (!config) {
+    throw new Error(`设备参数保存后未读取到最新生产配置：routeProcessId=${routeProcessId}`)
+  }
+  const text = JSON.stringify(normalizeProductionProcessConfig(config), null, 2)
+  productionProcessConfigJsonDrafts[routeProcessId] = text
+  productionProcessConfigJsonBaselines[routeProcessId] = text
+}
+
+const discardProductionProcessConfigJsonDraftChanges = () => {
+  Object.keys(productionProcessConfigJsonDrafts).forEach((key) => {
+    const routeProcessId = Number(key)
+    const baseline = productionProcessConfigJsonBaselines[routeProcessId]
+    if (baseline !== undefined) {
+      productionProcessConfigJsonDrafts[routeProcessId] = baseline
+    }
+  })
+}
+
+const parseProductionProcessConfigDraft = (
+  node: RouteFlowNodeVO
+): ProRouteProductionProcessConfigVO => {
+  const rawText = productionProcessConfigJsonDrafts[Number(node.routeProcessId)]
+  if (!rawText?.trim()) throw new Error('生产配置不能为空。')
+  const parsed = JSON.parse(rawText) as ProRouteProductionProcessConfigVO
+  if (
+    Number(parsed.routeProcessId) !== Number(node.routeProcessId) ||
+    Number(parsed.processId) !== Number(node.processId)
+  ) {
+    throw new Error('生产配置的路线工序身份与当前工序不一致。')
+  }
+  const config = normalizeProductionProcessConfig(parsed)
+  if (
+    config.overagePercent === undefined ||
+    config.overagePercent === null ||
+    !Number.isFinite(Number(config.overagePercent)) ||
+    Number(config.overagePercent) < 0 ||
+    Number(config.overagePercent) > 100
+  ) {
+    throw new Error('允许超量比例必须是 0 至 100 之间的数值。')
+  }
+  return config
+}
+
+const buildProductionProcessConfigSummary = () => {
+  const config = findProductionProcessConfig(selectedRouteProcessId.value)
+  if (!config) return '未配置'
+  return '损耗' + (config.lossReasons?.length || 0) +
+    '项；设备组' + (config.deviceSelectionGroups?.length || 0) +
+    '组；参数' + (config.parameterRules?.length || 0) + '项'
+}
+
+const saveSelectedProductionProcessConfig = async () => {
+  const node = selectedNode.value
+  const cache = selectedProcessRouteConfigCache.value
+  if (!node || !cache) {
+    message.error('生产配置保存失败：路线版本配置尚未加载。')
+    return
+  }
+  const routeVersionId = requireCandidateRouteVersionId('生产配置保存')
+  const parsedConfig = parseProductionProcessConfigDraft(node)
+  const configs = cache.productionProcessConfigSnapshot.productionProcessConfigs
+    .filter((item) => Number(item.routeProcessId) !== Number(node.routeProcessId))
+    .map(normalizeProductionProcessConfig)
+  configs.push(parsedConfig)
+  try {
+    await ProRouteApi.saveRouteProductionProcessConfig({
+      routeVersionId,
+      expectedRouteSnapshotSha256:
+        cache.productionProcessConfigSnapshot.routeSnapshotSha256,
+      schemaVersion: 1,
+      productionProcessConfigs: configs
+    })
+    const refreshed = await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
+    cache.productionProcessConfigSnapshot = refreshed
+    const text = JSON.stringify(parsedConfig, null, 2)
+    productionProcessConfigJsonDrafts[Number(node.routeProcessId)] = text
+    productionProcessConfigJsonBaselines[Number(node.routeProcessId)] = text
+    resetSelectedRouteProcessDeviceParameterConfig()
+    message.success('生产配置已保存')
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '生产配置保存失败'))
+  }
+}
+
 const selectedRouteProcessDeviceParameterDevices = computed(
   () => routeProcessDeviceParameterConfig.value?.devices || []
 )
@@ -3278,6 +3652,83 @@ const formatRouteProcessDeviceParameterValue = (parameter: ProRouteDeviceParamet
   ]
     .filter(Boolean)
     .join('；') || '-'
+
+const isRouteProcessDeviceParameterNumericForm = computed(() =>
+  ['INTEGER', 'DECIMAL'].includes(routeProcessDeviceParameterForm.valueType)
+)
+
+const routeProcessDeviceParameterDialogDeviceLabel = computed(() =>
+  routeProcessDeviceParameterDialogDevice.value
+    ? formatRouteProcessDeviceParameterDeviceLabel(routeProcessDeviceParameterDialogDevice.value)
+    : '-'
+)
+
+const splitRouteProcessDeviceParameterOptions = (value?: string | null) =>
+  String(value || '')
+    .split(/[,，、\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+const resetRouteProcessDeviceParameterForm = (
+  parameter?: ProRouteDeviceParameterVO
+) => {
+  routeProcessDeviceParameterOriginalCode.value = parameter?.parameterCode
+  routeProcessDeviceParameterForm.parameterCode = parameter?.parameterCode || ''
+  routeProcessDeviceParameterForm.parameterName = parameter?.parameterName || ''
+  routeProcessDeviceParameterForm.unit = parameter?.unit || ''
+  routeProcessDeviceParameterForm.valueType =
+    (parameter?.valueType as ProRouteDeviceParameterValueType | undefined) || 'DECIMAL'
+  routeProcessDeviceParameterForm.standardText = parameter?.standardText || ''
+  routeProcessDeviceParameterForm.lowerLimit = parameter?.lowerLimit ?? undefined
+  routeProcessDeviceParameterForm.targetValue = parameter?.targetValue ?? undefined
+  routeProcessDeviceParameterForm.upperLimit = parameter?.upperLimit ?? undefined
+  routeProcessDeviceParameterForm.optionValuesText = (parameter?.optionValues || []).join('，')
+  routeProcessDeviceParameterForm.defaultText = parameter?.defaultText || ''
+  routeProcessDeviceParameterForm.decimalScale = parameter?.decimalScale ?? 3
+}
+
+const openRouteProcessDeviceParameterDialog = (
+  device: ProRouteProcessDeviceParameterDeviceVO,
+  parameter?: ProRouteDeviceParameterVO
+) => {
+  routeProcessDeviceParameterDialogDevice.value = device
+  resetRouteProcessDeviceParameterForm(parameter)
+  routeProcessDeviceParameterDialogVisible.value = true
+}
+
+const reportRouteProcessDeviceParameterFormError = (errorMessage: string) => {
+  message.error(errorMessage)
+  return false
+}
+
+const validateRouteProcessDeviceParameterForm = (
+  parameterCode: string,
+  parameterName: string,
+  standardText: string,
+  optionValues: string[]
+) => {
+  if (!parameterCode || !parameterName || !standardText) {
+    return reportRouteProcessDeviceParameterFormError(
+      '设备参数保存失败：参数编码、参数名称和标准说明不能为空。'
+    )
+  }
+  if (routeProcessDeviceParameterForm.valueType === 'SELECT') {
+    const defaultText = routeProcessDeviceParameterForm.defaultText.trim()
+    if (!optionValues.length || !defaultText || !optionValues.includes(defaultText)) {
+      return reportRouteProcessDeviceParameterFormError(
+        '设备参数保存失败：下拉选项不能为空，默认选项必须在选项里。'
+      )
+    }
+  }
+  if (
+    routeProcessDeviceParameterForm.valueType === 'BOOLEAN' &&
+    routeProcessDeviceParameterForm.targetValue !== 0 &&
+    routeProcessDeviceParameterForm.targetValue !== 1
+  ) {
+    return reportRouteProcessDeviceParameterFormError('设备参数保存失败：是否类型必须选择默认值。')
+  }
+  return true
+}
 
 const getSelectedRouteProcessMaterialIds = (kind: RouteProcessMaterialKind) =>
   kind === 'input'
@@ -4637,6 +5088,13 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
       loading: attributeLoading
     },
     {
+      key: 'productionProcessConfig',
+      label: getRouteProcessSettingColumnLabel('productionProcessConfig', '生产配置'),
+      value: buildProductionProcessConfigSummary(),
+      links: [],
+      loading: attributeLoading
+    },
+    {
       key: 'deviceParameters',
       label: getRouteProcessSettingColumnLabel('deviceParameters', '设备参数'),
       value: buildRouteProcessDeviceParameterSummaryValue(),
@@ -4894,7 +5352,16 @@ const handleSelectProcessDetailField = (fieldKey: ProcessDetailFieldKey) => {
 }
 
 const resetSelectedRouteProcessDeviceParameterConfig = () => {
+  routeProcessDeviceParameterRequestId += 1
   routeProcessDeviceParameterConfig.value = undefined
+}
+
+const requireRouteProcessDeviceParameterVersionId = () => {
+  const routeVersionId = props.routeVersionEditContext?.routeVersionId
+  if (!routeVersionId) {
+    throw new Error('设备参数加载失败：缺少明确的路线版本。')
+  }
+  return routeVersionId
 }
 
 const loadSelectedRouteProcessDeviceParameterConfig = async () => {
@@ -4902,35 +5369,70 @@ const loadSelectedRouteProcessDeviceParameterConfig = async () => {
   if (!routeProcessId) {
     throw new Error('设备参数加载失败：缺少选中路线工序。')
   }
+  const routeVersionId = requireRouteProcessDeviceParameterVersionId()
+  const requestId = ++routeProcessDeviceParameterRequestId
   routeProcessDeviceParameterLoading.value = true
   try {
-    routeProcessDeviceParameterConfig.value =
-      await ProRouteFlowConfigApi.getRouteProcessDeviceParameterConfig(routeProcessId)
+    const config = await ProRouteFlowConfigApi.getRouteProcessDeviceParameterConfig(
+      routeVersionId,
+      routeProcessId
+    )
+    if (
+      requestId !== routeProcessDeviceParameterRequestId ||
+      Number(selectedRouteProcessId.value) !== Number(routeProcessId)
+    ) {
+      return
+    }
+    routeProcessDeviceParameterConfig.value = config
   } catch (error) {
+    if (requestId !== routeProcessDeviceParameterRequestId) return
     message.error(resolveErrorMessage(error, '加载设备参数失败'))
-    throw error
   } finally {
-    routeProcessDeviceParameterLoading.value = false
+    if (requestId === routeProcessDeviceParameterRequestId) {
+      routeProcessDeviceParameterLoading.value = false
+    }
   }
+}
+
+const refreshProductionProcessConfigSnapshot = async (routeVersionId: MesRouteId) => {
+  const cache = selectedProcessRouteConfigCache.value
+  if (!cache || String(cache.readableRouteVersionId) !== String(routeVersionId)) return
+  cache.productionProcessConfigSnapshot =
+    await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
 }
 
 const saveSelectedRouteProcessDeviceParameterRule = async (
   device: ProRouteProcessDeviceParameterDeviceVO,
   parameter: ProRouteDeviceParameterVO
 ) => {
-  if (recordBindingEditorDisabled.value) return
+  if (recordBindingEditorDisabled.value) return false
   const routeProcessId = selectedRouteProcessId.value
   if (!routeProcessId) {
-    throw new Error('设备参数保存失败：缺少选中路线工序。')
+    message.error('设备参数保存失败：缺少选中路线工序。')
+    return false
+  }
+  if (hasProductionProcessConfigJsonDraftChanges(routeProcessId)) {
+    message.error('设备参数保存失败：当前工序的版本化生产配置存在未保存修改，请先保存或撤销。')
+    return false
+  }
+  const routeVersionId = requireRouteProcessDeviceParameterVersionId()
+  const snapshotSha256 = routeProcessDeviceParameterConfig.value?.routeSnapshotSha256
+  if (!snapshotSha256) {
+    message.error('设备参数保存失败：缺少候选路线快照校验值，请刷新后重试。')
+    return false
   }
   if (!device.deviceId || !parameter.parameterCode || !parameter.standardText || !parameter.valueType) {
-    throw new Error('设备参数保存失败：缺少设备、参数编码、标准值或值类型。')
+    message.error('设备参数保存失败：缺少设备、参数编码、标准值或值类型。')
+    return false
   }
   routeProcessDeviceParameterSaving.value = true
   try {
-    await ProRouteFlowConfigApi.saveRouteProcessDeviceParameterRule({
+    const config = await ProRouteFlowConfigApi.saveRouteProcessDeviceParameterRule({
+      routeVersionId,
+      expectedRouteSnapshotSha256: snapshotSha256,
       routeProcessId,
       deviceId: device.deviceId,
+      originalParameterCode: routeProcessDeviceParameterOriginalCode.value,
       parameterCode: parameter.parameterCode,
       parameterName: parameter.parameterName,
       unit: parameter.unit,
@@ -4944,12 +5446,108 @@ const saveSelectedRouteProcessDeviceParameterRule = async (
       decimalScale: parameter.decimalScale
     })
     message.success('设备参数规则已保存')
-    await loadSelectedRouteProcessDeviceParameterConfig()
+    routeProcessDeviceParameterConfig.value = config
+    await refreshProductionProcessConfigSnapshot(routeVersionId)
+    syncProductionProcessConfigJsonDraftFromCache(routeProcessId)
+    return true
   } catch (error) {
     message.error(resolveErrorMessage(error, '设备参数规则保存失败'))
-    throw error
+    return false
   } finally {
     routeProcessDeviceParameterSaving.value = false
+  }
+}
+
+const deleteSelectedRouteProcessDeviceParameterRule = async (
+  device: ProRouteProcessDeviceParameterDeviceVO,
+  parameter: ProRouteDeviceParameterVO
+) => {
+  if (recordBindingEditorDisabled.value || routeProcessDeviceParameterSaving.value) return
+  const routeVersionId = requireRouteProcessDeviceParameterVersionId()
+  const routeProcessId = selectedRouteProcessId.value
+  const snapshotSha256 = routeProcessDeviceParameterConfig.value?.routeSnapshotSha256
+  if (!routeProcessId || !snapshotSha256) {
+    message.error('设备参数删除失败：缺少候选路线版本或快照校验值。')
+    return
+  }
+  if (hasProductionProcessConfigJsonDraftChanges(routeProcessId)) {
+    message.error('设备参数删除失败：当前工序的版本化生产配置存在未保存修改，请先保存或撤销。')
+    return
+  }
+  try {
+    await message.confirm(
+      `确认删除设备“${formatRouteProcessDeviceParameterDeviceLabel(device)}”的参数“${parameter.parameterName || parameter.parameterCode}”吗？`,
+      '删除设备参数'
+    )
+  } catch (error) {
+    if (isCancelError(error)) return
+    throw error
+  }
+  routeProcessDeviceParameterSaving.value = true
+  try {
+    routeProcessDeviceParameterConfig.value =
+      await ProRouteFlowConfigApi.deleteRouteProcessDeviceParameterRule({
+        routeVersionId,
+        expectedRouteSnapshotSha256: snapshotSha256,
+        routeProcessId,
+        deviceId: device.deviceId,
+        parameterCode: parameter.parameterCode
+      })
+    await refreshProductionProcessConfigSnapshot(routeVersionId)
+    syncProductionProcessConfigJsonDraftFromCache(routeProcessId)
+    message.success('设备参数已删除')
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '设备参数删除失败'))
+  } finally {
+    routeProcessDeviceParameterSaving.value = false
+  }
+}
+
+const submitRouteProcessDeviceParameterRule = async () => {
+  const device = routeProcessDeviceParameterDialogDevice.value
+  const routeProcessId = selectedRouteProcessId.value
+  if (!routeProcessId || !device?.deviceId) {
+    message.error('设备参数保存失败：缺少选中路线工序或设备。')
+    return
+  }
+  const parameterCode = routeProcessDeviceParameterForm.parameterCode.trim()
+  const parameterName = routeProcessDeviceParameterForm.parameterName.trim()
+  const standardText = routeProcessDeviceParameterForm.standardText.trim()
+  const optionValues = splitRouteProcessDeviceParameterOptions(
+    routeProcessDeviceParameterForm.optionValuesText
+  )
+  if (!validateRouteProcessDeviceParameterForm(parameterCode, parameterName, standardText, optionValues)) {
+    return
+  }
+  const saved = await saveSelectedRouteProcessDeviceParameterRule(device, {
+    parameterCode,
+    parameterName,
+    unit: routeProcessDeviceParameterForm.unit.trim() || undefined,
+    valueType: routeProcessDeviceParameterForm.valueType,
+    standardText,
+    lowerLimit: isRouteProcessDeviceParameterNumericForm.value
+      ? routeProcessDeviceParameterForm.lowerLimit ?? null
+      : null,
+    targetValue:
+      isRouteProcessDeviceParameterNumericForm.value ||
+      routeProcessDeviceParameterForm.valueType === 'BOOLEAN'
+        ? routeProcessDeviceParameterForm.targetValue ?? null
+        : null,
+    upperLimit: isRouteProcessDeviceParameterNumericForm.value
+      ? routeProcessDeviceParameterForm.upperLimit ?? null
+      : null,
+    optionValues:
+      routeProcessDeviceParameterForm.valueType === 'SELECT' ? optionValues : [],
+    defaultText:
+      routeProcessDeviceParameterForm.valueType === 'SELECT'
+        ? routeProcessDeviceParameterForm.defaultText.trim()
+        : undefined,
+    decimalScale: isRouteProcessDeviceParameterNumericForm.value
+      ? routeProcessDeviceParameterForm.decimalScale ?? null
+      : null
+  })
+  if (saved) {
+    routeProcessDeviceParameterDialogVisible.value = false
   }
 }
 
@@ -5144,6 +5742,12 @@ const buildSelectedProcessRouteConfigCacheKey = () =>
 const clearSelectedProcessRouteConfigCache = () => {
   selectedProcessRouteConfigCache.value = undefined
   selectedProcessRouteConfigCachePromise = undefined
+  Object.keys(productionProcessConfigJsonDrafts).forEach((key) => {
+    delete productionProcessConfigJsonDrafts[Number(key)]
+  })
+  Object.keys(productionProcessConfigJsonBaselines).forEach((key) => {
+    delete productionProcessConfigJsonBaselines[Number(key)]
+  })
 }
 
 const clearSelectedProcessAttributeDrafts = () => {
@@ -5422,16 +6026,25 @@ const loadSelectedProcessRouteConfigCache = async (
   if (!readableRouteVersionId) {
     throw new Error('加载工序属性失败：当前路线缺少激活版本。')
   }
-  const routeScheduleConfigs =
-    await ProRouteApi.getScheduleConfigListByRouteVersion(readableRouteVersionId)
+  const [routeScheduleConfigs, productionProcessConfigSnapshot] = await Promise.all([
+    ProRouteApi.getScheduleConfigListByRouteVersion(readableRouteVersionId),
+    ProRouteApi.getRouteProductionProcessConfig(readableRouteVersionId)
+  ])
   const cache = {
     key,
     routeInfo,
     readableRouteVersionId,
     scheduleConfigs,
     batchConfigs,
-    routeScheduleConfigs
+    routeScheduleConfigs,
+    productionProcessConfigSnapshot
   }
+  Object.keys(productionProcessConfigJsonDrafts).forEach((draftKey) => {
+    delete productionProcessConfigJsonDrafts[Number(draftKey)]
+  })
+  Object.keys(productionProcessConfigJsonBaselines).forEach((draftKey) => {
+    delete productionProcessConfigJsonBaselines[Number(draftKey)]
+  })
   selectedProcessRouteConfigCache.value = cache
   return cache
 }
@@ -7027,7 +7640,8 @@ const hasWorkspaceDraftChanges = () =>
   graphDirty.value ||
   hasSelectedProcessAttributeDraftChanges() ||
   hasRouteProcessUpdateDraftChanges() ||
-  hasRouteStartProductionLeaderDraftChanges()
+  hasRouteStartProductionLeaderDraftChanges() ||
+  hasProductionProcessConfigJsonDraftChanges()
 
 const discardWorkspaceDraftChanges = () => {
   graphDirty.value = false
@@ -7035,6 +7649,7 @@ const discardWorkspaceDraftChanges = () => {
   clearRouteProcessKeyFlagBaselines()
   clearRouteProcessCheckFlagBaselines()
   clearRouteProcessWorkstationIdBaselines()
+  discardProductionProcessConfigJsonDraftChanges()
 }
 
 const handleRequestBack = () => {

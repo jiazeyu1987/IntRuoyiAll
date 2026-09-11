@@ -26,6 +26,8 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -149,8 +151,10 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         assertEquals(existing.getCategoryId(), dbRole.getCategoryId());
         assertEquals(DataScopeEnum.DEPT_CUSTOM.getScope(), dbRole.getDataScope());
         assertEquals(Set.of(100L, 200L), dbRole.getDataScopeDeptIds());
-        verify(permissionService).assignRoleMenu(existing.getId(), Set.of(queryMenu.getId(), updateMenu.getId()));
-        verify(permissionService, never()).assignRoleDataScope(existing.getId(), dbRole.getDataScope(), dbRole.getDataScopeDeptIds());
+        verify(permissionService).assignRoleMenu(eq(existing.getId()), eq(Set.of(queryMenu.getId(), updateMenu.getId())),
+                eq("权限角色配置包导入更新角色菜单权限"), anyString());
+        verify(permissionService, never()).assignRoleDataScope(eq(existing.getId()), eq(dbRole.getDataScope()),
+                eq(dbRole.getDataScopeDeptIds()), anyString(), anyString());
     }
 
     @Test
@@ -189,8 +193,10 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
         assertEquals(categoryId, dbRole.getCategoryId());
         assertEquals(DataScopeEnum.DEPT_CUSTOM.getScope(), dbRole.getDataScope());
         assertEquals(Set.of(300L, 400L), dbRole.getDataScopeDeptIds());
-        verify(permissionService).assignRoleMenu(dbRole.getId(), Set.of(createMenu.getId(), updateMenu.getId()));
-        verify(permissionService, never()).assignRoleDataScope(dbRole.getId(), dbRole.getDataScope(), dbRole.getDataScopeDeptIds());
+        verify(permissionService).assignRoleMenu(eq(dbRole.getId()), eq(Set.of(createMenu.getId(), updateMenu.getId())),
+                eq("权限角色配置包导入创建角色菜单权限"), anyString());
+        verify(permissionService, never()).assignRoleDataScope(eq(dbRole.getId()), eq(dbRole.getDataScope()),
+                eq(dbRole.getDataScopeDeptIds()), anyString(), anyString());
     }
 
     @Test
@@ -301,7 +307,8 @@ class RoleConfigPackageServiceImplTest extends BaseDbUnitTest {
 
         RoleDO dbRole = roleMapper.selectByCode("scheduler");
         assertEquals(categoryId, dbRole.getCategoryId());
-        verify(permissionService).assignRoleMenu(dbRole.getId(), Set.of(targetMenu.getId()));
+        verify(permissionService).assignRoleMenu(eq(dbRole.getId()), eq(Set.of(targetMenu.getId())),
+                eq("权限角色配置包导入创建角色菜单权限"), anyString());
     }
 
     @Test

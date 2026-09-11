@@ -22,6 +22,13 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
     default List<DccControlledFileMasterDO> selectListByFileNumber(String fileNumber) {
         return selectList(DccControlledFileMasterDO::getFileNumber, fileNumber);
     }
+    default List<DccControlledFileMasterDO> selectListByLogicalIdentity(Long projectCodeId, Long taxonomyLeafId,
+                                                                          String normalizedFileNumber) {
+        return selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileMasterDO>()
+                .eq(DccControlledFileMasterDO::getDccProjectCodeId, projectCodeId)
+                .eq(DccControlledFileMasterDO::getFileTypeTaxonomyLeafId, taxonomyLeafId)
+                .eq(DccControlledFileMasterDO::getNormalizedFileNumber, normalizedFileNumber));
+    }
 
     @Select("""
             SELECT id,

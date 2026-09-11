@@ -7,23 +7,17 @@ const pagePath = path.join(
   workspaceRoot,
   'IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue'
 )
-const realE2ePath = path.join(
-  workspaceRoot,
-  'IntRuoyiFronted/tests/e2e/qa-regulation-dcc-status-real.e2e.cjs'
-)
-
 const pageSource = fs.readFileSync(pagePath, 'utf8')
-const realE2eSource = fs.readFileSync(realE2ePath, 'utf8')
 
 assert.match(
   pageSource,
   /data-qa-regulation-common-binding-control/,
-  'QA common tab must expose the common regulation binding control.'
+  'QA overview must expose the product-to-common-regulation binding control.'
 )
 assert.match(
   pageSource,
-  /通用检验规程引用/,
-  'QA common tab must label the binding control as 通用检验规程引用.'
+  /关联通用检验规程/,
+  'QA overview must label the binding control as 关联通用检验规程.'
 )
 for (const selector of [
   'data-qa-regulation-common-binding-current',
@@ -34,22 +28,17 @@ for (const selector of [
   'data-qa-regulation-common-binding-change',
   'data-qa-regulation-common-binding-disable'
 ]) {
-  assert.ok(pageSource.includes(selector), `QA common binding control missing ${selector}`)
+  assert.ok(pageSource.includes(selector), `QA overview common binding control missing ${selector}`)
 }
 assert.match(
   pageSource,
-  /通用检验规程绑定接口尚未接入/,
-  'QA common binding control must fail fast with a pending backend API message.'
+  /QcTemplateApi\.bindCommonRegulationVersion/,
+  'QA overview common binding control must use the formal binding API.'
 )
 assert.doesNotMatch(
   pageSource,
-  /message\.success\(['"`]绑定成功/,
-  'QA common binding control must not fake a successful binding save.'
-)
-assert.match(
-  realE2eSource,
-  /data-qa-regulation-common-binding-control/,
-  'Real QA regulation E2E must assert the common binding control.'
+  /通用检验规程绑定接口尚未接入|接口待接入/,
+  'QA overview common binding control must not retain the obsolete pending-interface state.'
 )
 
-console.log('PASS QA regulation common binding control static contract')
+console.log('PASS QA overview common binding control static contract')

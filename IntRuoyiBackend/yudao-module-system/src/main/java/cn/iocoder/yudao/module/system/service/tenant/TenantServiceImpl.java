@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.tenant;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
@@ -40,6 +41,7 @@ import org.springframework.validation.annotation.Validated;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
@@ -124,7 +126,8 @@ public class TenantServiceImpl implements TenantService {
         // 创建用户
         Long userId = userService.createUser(TenantConvert.INSTANCE.convert02(createReqVO));
         // 分配角色
-        permissionService.assignUserRole(userId, singleton(roleId));
+        permissionService.assignUserRole(userId, singleton(roleId), "租户创建时分配租户管理员角色",
+                permissionAuditKey("tenant.create.user-role", userId, singleton(roleId)));
         return userId;
     }
 
@@ -135,7 +138,8 @@ public class TenantServiceImpl implements TenantService {
                 .setSort(0).setRemark("系统自动生成");
         Long roleId = roleService.createRole(reqVO, RoleTypeEnum.SYSTEM.getType());
         // 分配权限
-        permissionService.assignRoleMenu(roleId, tenantPackage.getMenuIds());
+        permissionService.assignRoleMenu(roleId, tenantPackage.getMenuIds(), "租户创建时分配租户套餐菜单权限",
+                permissionAuditKey("tenant.create.role-menu", roleId, tenantPackage.getMenuIds()));
         return roleId;
     }
 
@@ -201,17 +205,24 @@ public class TenantServiceImpl implements TenantService {
             roles.forEach(role -> {
                 // 如果是租户管理员，重新分配其权限为租户套餐的权限
                 if (Objects.equals(role.getCode(), RoleCodeEnum.TENANT_ADMIN.getCode())) {
-                    permissionService.assignRoleMenu(role.getId(), menuIds);
+                    permissionService.assignRoleMenu(role.getId(), menuIds, "租户套餐变更同步租户管理员菜单权限",
+                            permissionAuditKey("tenant.package.role-menu", role.getId(), menuIds));
                     log.info("[updateTenantRoleMenu][租户管理员({}/{}) 的权限修改为({})]", role.getId(), role.getTenantId(), menuIds);
                     return;
                 }
                 // 如果是其他角色，则去掉超过套餐的权限
                 Set<Long> roleMenuIds = permissionService.getRoleMenuListByRoleId(role.getId());
                 roleMenuIds = CollUtil.intersectionDistinct(roleMenuIds, menuIds);
-                permissionService.assignRoleMenu(role.getId(), roleMenuIds);
+                permissionService.assignRoleMenu(role.getId(), roleMenuIds, "租户套餐变更收敛角色菜单权限",
+                        permissionAuditKey("tenant.package.role-menu", role.getId(), roleMenuIds));
                 log.info("[updateTenantRoleMenu][角色({}/{}) 的权限修改为({})]", role.getId(), role.getTenantId(), roleMenuIds);
             });
         });
+    }
+
+    private String permissionAuditKey(String operation, Long subjectId, Set<Long> targetIds) {
+        return operation + ":" + subjectId + ":" + DigestUtil.sha256Hex(
+                new TreeSet<>(targetIds == null ? Set.<Long>of() : targetIds).toString());
     }
 
     @Override

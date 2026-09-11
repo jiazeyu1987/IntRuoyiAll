@@ -6,25 +6,22 @@ const moduleRoot = path.resolve(__dirname, '../..')
 const read = (relativePath) =>
   fs.readFileSync(path.join(moduleRoot, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
-const parameterValidator = read(
-  'main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesFrontlineDeviceParameterValidatorImpl.java'
+const submitService = read(
+  'main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFrontlineFeedbackSubmitServiceImpl.java'
 )
 const teamRuntimeConfig = read(
   'main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderRuntimeConfigServiceImpl.java'
 )
 
-const routeProcessMatchStart = parameterValidator.indexOf('private static boolean routeProcessMatches')
-assert.ok(routeProcessMatchStart >= 0, 'device parameter validator must keep a routeProcessMatches helper.')
-const routeProcessMatchBlock = parameterValidator.slice(routeProcessMatchStart)
 assert.match(
-  routeProcessMatchBlock,
-  /return configuredRouteProcessId != null && Objects\.equals\(configuredRouteProcessId, routeProcessId\);/,
-  'Submit-time device parameter validation must use the same exact routeProcessId rule as runtime config.'
+  submitService,
+  /validateDeviceSelections[\s\S]*validateAndApplyParameterReading/,
+  'Submit-time device parameter validation must use the authorized runtime snapshot.'
 )
 assert.doesNotMatch(
-  routeProcessMatchBlock,
-  /configuredRouteProcessId == null \|\| Objects\.equals/,
-  'Submit-time validation must not require hidden routeProcessId-null parameters that the page did not display.'
+  submitService,
+  /parameterRuleMapper/,
+  'Submit-time validation must not query current parameter rules.'
 )
 
 assert.match(

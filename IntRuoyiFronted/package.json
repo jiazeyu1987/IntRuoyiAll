@@ -148,6 +148,7 @@
     "e2e:dcc:external-review-layout:static": "node tests/e2e/dcc-external-review-layout-static.spec.js",
     "e2e:dcc:print-template-placeholder-focus:static": "node tests/e2e/dcc-print-template-placeholder-focus-static.spec.js",
     "e2e:dcc:upload-layout:static": "node tests/e2e/dcc-upload-layout-static.spec.js",
+    "e2e:dcc:project-file-template:static": "node tests/e2e/dcc-project-file-template-static.spec.js",
     "e2e:dcc:upload-project-taxonomy-revision:static": "node tests/e2e/dcc-upload-project-taxonomy-revision-static.spec.js",
     "e2e:dcc:upload-category-taxonomy-binding:static": "node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js",
     "e2e:dcc:upload-product-autofill:static": "node tests/e2e/dcc-upload-product-autofill-static.spec.js",

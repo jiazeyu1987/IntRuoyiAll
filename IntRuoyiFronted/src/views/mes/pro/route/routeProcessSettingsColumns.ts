@@ -13,6 +13,7 @@ export type RouteProcessSettingColumnKey =
   | 'standardResource'
   | 'standardShiftCapacity'
   | 'productionQuantityFactor'
+  | 'productionProcessConfig'
   | 'shiftCapacity'
   | 'formSlots'
   | 'batchRecordFormNames'
@@ -36,6 +37,7 @@ export const routeProcessSettingsDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'standardResource', label: '标准资源', width: 105 },
   { key: 'standardShiftCapacity', label: '标准班次产能', width: 125 },
   { key: 'productionQuantityFactor', label: '生产系数', width: 130 },
+  { key: 'productionProcessConfig', label: '生产配置', minWidth: 220 },
   { key: 'shiftCapacity', label: '排产策略', width: 320 },
   { key: 'formSlots', label: '表单槽位', minWidth: 220 },
   { key: 'batchRecordFormNames', label: '批记录表单', minWidth: 180 },

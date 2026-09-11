@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 public class MesFrontlineParameterAuditItem {
 
     private Integer readingIndex;
+    private Long materialId;
+    private String materialName;
     private Long deviceId;
     private String parameterCode;
     private String parameterName;

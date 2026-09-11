@@ -70,6 +70,10 @@ def test_review_source_type_length_supports_stage1_simulation_marker() -> None:
     assert migration.exists(), "Stage1 模拟签名来源长度迁移必须存在。"
 
     text = migration.read_text(encoding="utf-8")
+    assert text.splitlines()[0] == (
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=20260611_mes_edhr_multi_signature_approval; type=schema; riskLevel=low"
+    )
     for required in [
         "`mes_pro_edhr_work_task`",
         "`mes_pro_batch_record_execution_signature`",

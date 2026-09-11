@@ -779,3 +779,121 @@ Runtime impact: server Jar packaging was skipped and 48081 is not listening afte
 `BLOCKED: restart-int-ruoyi-local.ps1 -Component backend -> FAIL, yudao-module-mes testCompile failed on existing/stale tests referencing missing production classes and nested classes, including MesProBatchRecordGenericDetailFormNormalizer.Spec, MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity, MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.FieldWrite/TargetResolution, MesP0* contract classes and route schedule/controller tests.`
 
 Runtime impact: standard backend restart did not package `yudao-server`, and `48081` remains offline while `8081` remains listening. The DCC fixed runtime is still not loaded, so no real Playwright approval/publish closure was run.
+
+## P4 Real Frontend Write Closure 2026-09-09
+
+`BDD: P4 必须用真实前端完成审批发布通知影响任务闭环 -> Given 本地 8081/48081 在线且用户授权执行真实前端写入闭环，When Playwright 登录真实前端并创建 DCC 测试文件、打开真实审批任务、点击审核通过，Then 审批、发布、通知发送和影响评估必须全部由前端页面动作推进；API/DB 只能用于只读核验，不能替代业务动作。`
+
+`GREEN: Test-NetConnection 127.0.0.1:8081 / 48081 and GET /actuator/health -> PASS, frontend and backend runtime reachable; backend health=UP.`
+
+`GREEN: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-precheck.cjs -> PASS, real upload page project/category/related-file controls available.`
+
+`RED: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-submit-e2e.cjs with runId=20260909P4A -> FAIL, expected route/upload timing to expose current readiness; page showed approval-chain timeout before submit.`
+
+`GREEN: node doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-submit-e2e.cjs with runId=20260909P4B -> PASS, Playwright selected project/category through the real UI, uploaded the source document, clicked 提交审批 and received submit code 0 for DCC-P4-20260909P4B / 2054545668044070331.`
+
+`READONLY: Flowable task inspection -> PASS, dcc_controlled_file 2054545668044070331 is PENDING_DOC_CONTROL_REVIEW with processInstanceId 7fd46866-ac25-11f1-b878-00155dde8c13; act_ru_task contains DOC_CONTROL_REVIEW task 81b33998-ac25-11f1-b878-00155dde8c13 assigned to admin.`
+
+`RED: node doc/tasks/20260907-dcc-release-notification-impact/p4-approval-publish-e2e.cjs -> FAIL by evidence despite script console PASS; evidence showed no-visible-todo for admin/zhaojie and publish-not-visible while file remained 待文控审核, so independent gate rejected the script PASS as insufficient.`
+
+`READONLY: backend log tail -> PASS, approval-center global TODO is polluted by an older stale DCC task 2054545668044070329 whose summary snapshot is missing; this causes /admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO to return system error.`
+
+`RED: node doc/tasks/20260907-dcc-release-notification-impact/p4-direct-approve-task-e2e.cjs -> FAIL, real detail page loaded file DCC-P4-20260909P4B, BPM task list and approval detail; task-action-readiness returned ready=true; clicking 审核通过 submitted /approve-task but backend returned HTTP 500.`
+
+`BLOCKED: backend approve-task log -> BLOCKED, ElectronicSignatureServiceImpl.sign queries gxp_audit_policy_operation, but runtime database lacks table gxp_audit_policy_operation. Existing official migration IntRuoyiBackend/sql/mysql/20260908_gxp_audit_trail_core.sql contains the table; applying it is a direct database write and was not performed under this Playwright-only write authorization.`
+
+## P4 GxP Audit Migration And Frontend Approval Resume 2026-09-09
+
+`BDD: GxP audit migration must support real DCC approval signatures -> Given a real DCC approval signature writes through ElectronicSignatureServiceImpl.sign, When GxpAuditService.append records signature.record.create, Then runtime schema and policy registry must accept the real DCC subject/idempotency payload and keep the business transaction auditable.`
+
+`RED: runtime schema check before migration -> FAIL, local test database had no gxp_audit_* tables.`
+
+`GREEN: apply IntRuoyiBackend/sql/mysql/20260908_gxp_audit_trail_core.sql twice -> PASS, runtime database contains gxp_audit_event, gxp_audit_ledger_sequence, gxp_audit_policy_version, gxp_audit_policy_operation, gxp_audit_coverage_report, gxp_audit_daily_manifest and gxp_audit_seal_watermark.`
+
+`RED: node p4-direct-approve-task-e2e.cjs for DCC-P4-20260909P4B -> FAIL, source infra_file row pointed to MinIO object dcc/original/20260909/RE-PP-IDI-01...docx but docker-minio-1 /data/yudao did not contain the object.`
+
+`GREEN: node p4-local-upload-submit-e2e.cjs with runId=20260909P4C and task-owned ASCII source copy -> PASS, real frontend created DCC-P4-20260909P4C / 2054545668044070332 and MinIO contains dcc/original/20260909/dcc-p4-source-ascii.docx.`
+
+`RED: python -m pytest IntRuoyiBackend/script/tests/test_gxp_audit_core_contract.py -q -> FAIL, gxp_audit_policy_operation lacked TenantBaseDO runtime fields update_time/creator/updater/deleted.`
+
+`GREEN: update official GxP core SQL and alter runtime test table -> PASS, policy_operation runtime base fields exist and contract test passes.`
+
+`RED: p4-direct-approve-task-e2e.cjs for DCC-P4-20260909P4C -> FAIL, GxP policy registry missing signature.record.create.`
+
+`GREEN: python IntRuoyiBackend/script/gxp_audit_coverage_gate.py --root IntRuoyiBackend --policy config/gxp-audit-policy.yaml -> PASS, operations=8, annotations=7, sha256=61a0206128d8d0d0fbf41b736a22639eddd3569af8638c628fac554dd41f13e6.`
+
+`GREEN: import IntRuoyiBackend/config/gxp-audit-policy.yaml into runtime test tenant=1 -> PASS, active signature.record.create policy row exists.`
+
+`RED: python -m pytest IntRuoyiBackend/script/tests/test_gxp_audit_core_contract.py -q -> FAIL, gxp_audit_event lacked TenantBaseDO runtime fields and DCC signature payload capacity.`
+
+`GREEN: update official GxP core SQL and alter runtime test table -> PASS, gxp_audit_event has update_time/creator/updater/deleted, idempotency_key varchar(512), subject_id varchar(2048), and subject index uses subject_id(191); contract test passes 4 tests.`
+
+`GREEN: node p4-direct-approve-task-e2e.cjs for DOC_CONTROL_REVIEW -> PASS, real frontend approved task ee0b6a3e-ac2c-11f1-b878-00155dde8c13; file advanced to PENDING_MATRIX_REVIEW and GxP audit event signature.record.create was written.`
+
+`GREEN: node p4-direct-approve-task-e2e.cjs for MATRIX_REVIEW admin task -> PASS, real frontend approved task 80f47556-ac33-11f1-b878-00155dde8c13.`
+
+`RED: node p4-direct-approve-task-e2e.cjs for MATRIX_REVIEW zhaojie task -> FAIL, zhaojie login succeeded but GET /admin-api/dcc/controlled-files/2054545668044070332 returned code 1080000012 Current user cannot access this controlled file; the user is still the active BPM assignee for task 80f55fbb-ac33-11f1-b878-00155dde8c13.`
+
+`BLOCKED: P4 remaining closure -> BLOCKED, current BPM task assignee cannot open the pending DCC file from the real frontend, so remaining matrix review, final approval, publish, notification and impact-task closure cannot be truthfully claimed without a code/data permission fix and backend restart.`
+
+## P4 Current BPM Assignee Detail Access Fix 2026-09-09
+
+`BDD: 当前审批任务处理人必须能打开待审 DCC 文件 -> Given DCC 文件处于 PENDING_MATRIX_REVIEW 且 Flowable 当前运行任务 assignee 为当前用户, When 当前用户打开 DCC 文件详情或预览待审原文件, Then 系统应基于当前 BPM 任务处理人身份放行详情/预览；下载仍按正式发布下载策略拒绝，未来阶段参与人不能提前访问。`
+
+Root cause: `DccControlledFileQueryServiceImpl` 的待审详情/预览权限只认申请人、目录管理员和当前阶段 route snapshot 参与人；真实运行态中 zhaojie 已经是 Flowable 当前 `MATRIX_REVIEW` 任务处理人，但 route snapshot 与当前任务分配不一致，导致审批动作前的详情读取被普通文件权限提前拒绝。
+
+`RED: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileQueryServiceTest#getControlledFile_pendingFileAllowsCurrentBpmAssigneeEvenWhenRouteSnapshotMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected current BPM assignee to open pending file detail, actual ServiceException code 1080000012 Current user cannot access this controlled file.`
+
+Fix: `DccControlledFileQueryServiceImpl` now checks `BpmTaskService.getRunningTaskListByProcessInstanceId(processInstanceId, null, null)` for a running task whose definition key matches the file's pending stage and whose assignee equals the current user. This grants only pending detail/preview visibility to the active task assignee; it does not grant download, final publish, or approval bypass.
+
+`GREEN: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileQueryServiceTest#getControlledFile_pendingFileAllowsCurrentBpmAssigneeEvenWhenRouteSnapshotMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 1 test / 0 failures / 0 errors.`
+
+`GREEN: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileQueryServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 98 tests / 0 failures / 0 errors.`
+
+`BLOCKED: runtime P4 continuation -> fixed code has not been rebuilt/restarted into local 48081 in this turn, and real Playwright approval/publish/notification/impact closure was not run.`
+
+
+## P4 Regression RED 2026-09-10
+- BDD: 最终文控批准在上传盖章 PDF、确认目录、选择有效分发部门并满足 ready=true 后 -> Given 当前任务为 DOC_CONTROL_APPROVAL 且研发部门存在有效收件人；When 通过真实前端提交确认签名；Then approve-task 应返回成功并持久化签名证据、推动流程进入发布后续。
+- RED: `node doc/tasks/20260907-dcc-release-notification-impact/p4-direct-approve-task-e2e.cjs` -> FAIL, approve-task HTTP 400 `DCC electronic signature evidence prerequisite is missing`; DB read-only check confirms no dcc_controlled_file_signature row for file 2054545668044070332.
+- Root cause under investigation: signature verification returned a unified signature result, but DCC signature projection row required by action response was absent.
+
+## P4 Final Runtime Closure 2026-09-10
+
+`BDD: DCC 审批签名必须同时形成统一签名事实和 DCC 可验证投影 -> Given 审批人在真实页面完成签名，When DCC 调用统一电子签名服务成功，Then 同一事务必须写入 DCC 签名投影，且投影保存 DCC HMAC 证据。`
+
+`RED: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileSignatureServiceTest" test -> FAIL, expected dcc_controlled_file_signature projection insert was not invoked.`
+
+`GREEN: same targeted test -> PASS, 12 tests; projection insert, actor/file/image evidence and HMAC_SHA256/key version assertions passed.`
+
+`BDD: 从既有版本发起大版本升级不得重新套用新文件目录模板 -> Given 影响评估选择既有版本作为大版本来源，When 创建下一大版本，Then 系统继承原 Master 身份并校验版本链，但不要求再次满足新建文件的项目目录模板选择。`
+
+`RED: DccControlledFileWorkflowServiceImplTest#createMajorRevision_fromSelectedA2... -> FAIL, existing revision path invoked projectFileTemplateService.validateUploadSelection.`
+
+`GREEN: same targeted test -> PASS, explicit REVISION source skips only new-upload template validation while identity/version-chain checks remain active.`
+
+`BDD: 已完成影响评估可通过管理页面重新打开并更正结论 -> Given 任务已完成且 rowVersion 当前，When 文控输入原因并点击重新打开，Then 调用 reopen 命令、刷新任务并保留不可变审计记录。`
+
+`RED: node tests/e2e/dcc-release-impact-workbench-static.spec.js -> FAIL, reopen API and visible management action were missing.`
+
+`GREEN: same static contract -> PASS, reopen API, reason prompt, expectedVersion and refresh contract are present.`
+
+`BDD: 审计失败原因必须完整持久化 -> Given 上游产生最长 2000 字符的失败原因，When 写入 dcc_controlled_file_access_log.reason，Then 正式迁移和测试 schema 不得以 varchar(255) 截断。`
+
+`RED: python -X utf8 -m pytest script/tests/test_dcc_access_log_reason_capacity_sql.py -q -> FAIL, formal capacity migration was missing.`
+
+`GREEN: same pytest command -> PASS, 1 test; formal/base/test schemas define varchar(2000), and the test-database migration passed first/repeat execution.`
+
+`BDD: P4 真实前端必须覆盖发布、通知、影响结论更正和升版跟踪 -> Given P4D A/1 关联 P4C A/1，When Playwright 完成审批发布、影响评估、重新打开、改判需要升版、创建并关联 P4C B/1，再审批发布 B/1，Then P4D 影响任务自动 RESOLVED，A/1 被 B/1 取代，反向影响任务可在真实工作台判定无需升版。`
+
+`GREEN: real frontend Playwright write closure -> PASS, task 1 followed MATERIALIZE -> START -> DECIDE(NO_REVISION_REQUIRED) -> REOPEN -> START -> DECIDE(REVISION_REQUIRED) -> LINK_REVISION(B/1) -> RESOLVE_REVISION; batch 3 task 2 followed MATERIALIZE -> START -> DECIDE(NO_REVISION_REQUIRED).`
+
+`GREEN: read-only MySQL reconciliation -> PASS, P4C A/1 SUPERSEDED, P4C B/1 ACTIVE, P4D A/1 ACTIVE; 3 publication batches COMPLETED; each batch has 7/7 SENT notifications; P4D and B/1 each have 5 VALID HMAC_SHA256 DCC signature projections.`
+
+`GREEN: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileSignatureServiceTest,DccApprovalTaskAdapterTest,DccControlledFileFinalizationServiceImplTest,DccControlledFileWorkflowServiceImplTest" -DfailIfNoTests=false test -> PASS, 162 tests / 0 failures / 0 errors.`
+
+`GREEN: 3 DCC frontend static contracts -> PASS, workbench/reopen, detail timeline and notification navigation.`
+
+`GREEN: after restoring post-reboot Docker dependencies and restarting 48081/8081, node p4-local-page-e2e.cjs with DCC-P4-20260910P4D -> PASS, pageErrors=0, consoleErrors=0; retained timelineText renders all 30 events including REOPEN, REVISION_REQUIRED, linked B/1 and published resolution.`
+
+`RESIDUAL: pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json -> FAIL outside DCC owned paths, current parallel MES file TeamLeaderWorkbenchPage.vue:6010 references overagePercent on inferred never. Independent tester classified this as unrelated repository-level residue and approved DCC P4.`

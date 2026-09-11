@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -43,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -75,6 +77,15 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
 
     @InjectMocks
     private DccSignatureVerificationServiceImpl signatureVerificationService;
+
+    @BeforeEach
+    void stubSignatureProjectionInsert() {
+        lenient().when(signatureMapper.insert(any(DccControlledFileSignatureDO.class))).thenAnswer(invocation -> {
+            DccControlledFileSignatureDO record = invocation.getArgument(0);
+            record.setId(8801L);
+            return 1;
+        });
+    }
 
     @AfterEach
     void clearTenantContext() {
@@ -127,16 +138,29 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         assertEquals("secret", commandCaptor.getValue().credential());
         assertEquals("looks good", commandCaptor.getValue().reason());
         assertTrue(commandCaptor.getValue().idempotencyKey().startsWith("DCC|99|900|task-1|MATRIX_REVIEW|APPROVE|MATRIX_REVIEW_APPROVE|901|A.1|"));
-        assertEquals(7001L, result.getSignatureId());
+        assertEquals(8801L, result.getSignatureId());
         assertEquals(900L, result.getControlledFileId());
         assertEquals(901L, result.getRevisionId());
         assertEquals("A.1", result.getVersionNo());
         assertEquals("MATRIX_REVIEW_APPROVE", result.getMeaningCode());
         assertEquals("NOT_APPLICABLE", result.getControlledCopyHashStatus());
         assertEquals("VALID", result.getEvidenceStatus());
-        assertEquals("unified-evidence-hash", result.getEvidenceHash());
-        assertEquals(unifiedSignedAt, result.getSignedAt());
+        assertEquals("6f2c91ab03d4aabb", result.getEvidenceHash());
         verify(signatureImageService).markReferenced(501L);
+        ArgumentCaptor<DccControlledFileSignatureDO> signatureCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        verify(signatureMapper).insert(signatureCaptor.capture());
+        assertEquals(signatureCaptor.getValue().getSignedAt(), result.getSignedAt());
+        assertEquals(900L, signatureCaptor.getValue().getControlledFileId());
+        assertEquals(901L, signatureCaptor.getValue().getRevisionId());
+        assertEquals("task-1", signatureCaptor.getValue().getTaskId());
+        assertEquals(99L, signatureCaptor.getValue().getActorId());
+        assertEquals("APPROVE", signatureCaptor.getValue().getActionType());
+        assertEquals("MATRIX_REVIEW_APPROVE", signatureCaptor.getValue().getMeaningCode());
+        assertEquals("VALID", signatureCaptor.getValue().getEvidenceStatus());
+        assertEquals("6f2c91ab03d4aabb", signatureCaptor.getValue().getEvidenceHash());
+        assertEquals("HMAC_SHA256", signatureCaptor.getValue().getEvidenceHashAlgorithm());
+        assertEquals("dcc-signature-2026-05", signatureCaptor.getValue().getEvidenceKeyVersion());
     }
 
     @Test
@@ -164,7 +188,32 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         verify(signatureEvidenceService).createEvidence(evidenceCaptor.capture());
         LocalDateTime expectedDatabaseValue = clockValue.withNano(0);
         assertEquals(expectedDatabaseValue, evidenceCaptor.getValue().getSignedAt());
-        assertEquals(unifiedSignedAt, result.getSignedAt());
+        assertEquals(expectedDatabaseValue, result.getSignedAt());
+    }
+
+    @Test
+    void verifyPasswordAndCreateSignature_blankApproveCommentUsesAuditableDefaultReason() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(
+                org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7006L, LocalDateTime.of(2026, 9, 8, 10, 34, 0)));
+
+        signatureVerificationService.verifyPasswordAndCreateSignature(99L, 900L, "task-blank-approve",
+                "MATRIX_REVIEW", "APPROVE", "secret", "   ");
+
+        ArgumentCaptor<DccControlledFileSignatureEvidenceCreateReq> evidenceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureEvidenceCreateReq.class);
+        verify(signatureEvidenceService).createEvidence(evidenceCaptor.capture());
+        assertEquals("审批通过", evidenceCaptor.getValue().getReasonText());
+
+        ArgumentCaptor<ElectronicSignatureCommand> commandCaptor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService).sign(commandCaptor.capture());
+        assertEquals("审批通过", commandCaptor.getValue().reason());
     }
 
     @Test

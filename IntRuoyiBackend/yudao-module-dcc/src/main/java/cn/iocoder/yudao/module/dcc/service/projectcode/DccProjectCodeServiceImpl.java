@@ -914,6 +914,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_NOT_CONFIRMABLE: status=" + batch.getStatus());
         }
         List<DccProjectCodeImportRowDO> rows = importRowMapper.selectListByBatchId(batchId);
+        validateImportBatchIntegrity(batch, rows);
         if (rows.stream().anyMatch(row -> row.getFailureReason() != null)) {
             throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_HAS_FAILURES: 请重新预览并修正失败行");
         }
@@ -1207,6 +1208,39 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private int countAction(List<DccProjectCodeImportRowDO> rows, String action) {
         return (int) rows.stream().filter(row -> action.equals(row.getImportAction())).count();
+    }
+
+    private void validateImportBatchIntegrity(DccProjectCodeImportBatchDO batch, List<DccProjectCodeImportRowDO> rows) {
+        if (CollUtil.isEmpty(rows)) {
+            throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: preview rows are empty");
+        }
+        Long batchId = batch.getId();
+        for (DccProjectCodeImportRowDO row : rows) {
+            if (!Objects.equals(batchId, row.getBatchId())) {
+                throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: row batch mismatch");
+            }
+            if (!DccProjectCodeImportActionConstants.CREATE.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.UPDATE.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.DISABLE.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.UNCHANGED.equals(row.getImportAction())
+                    && !DccProjectCodeImportActionConstants.INVALID.equals(row.getImportAction())) {
+                throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: action="
+                        + row.getImportAction());
+            }
+            if (DccProjectCodeImportActionConstants.INVALID.equals(row.getImportAction())
+                    && StrUtil.isBlank(row.getFailureReason())) {
+                throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: invalid row missing reason");
+            }
+        }
+        ImportSummary summary = summarize(rows);
+        if (!Objects.equals(batch.getTotalCount(), summary.totalCount())
+                || !Objects.equals(batch.getCreateCount(), summary.createCount())
+                || !Objects.equals(batch.getUpdateCount(), summary.updateCount())
+                || !Objects.equals(batch.getDisableCount(), summary.disableCount())
+                || !Objects.equals(batch.getUnchangedCount(), summary.unchangedCount())
+                || !Objects.equals(batch.getFailureCount(), summary.failureCount())) {
+            throw new IllegalStateException("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID: preview summary mismatch");
+        }
     }
 
     private DccProjectCodeImportPreviewRespVO toPreviewResp(DccProjectCodeImportBatchDO batch,

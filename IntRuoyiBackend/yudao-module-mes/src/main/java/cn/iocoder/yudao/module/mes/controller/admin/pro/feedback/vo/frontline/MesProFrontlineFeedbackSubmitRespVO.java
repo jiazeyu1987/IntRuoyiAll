@@ -44,6 +44,8 @@ public class MesProFrontlineFeedbackSubmitRespVO {
     public static class ParameterAuditItemRespVO {
 
         private Integer readingIndex;
+        private Long materialId;
+        private String materialName;
         private Long deviceId;
         private String parameterCode;
         private String parameterName;

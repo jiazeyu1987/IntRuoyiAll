@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileActionProjectionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileAccessExplanationRespVO;
@@ -103,6 +104,7 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import jakarta.annotation.Resource;
+import org.flowable.task.api.Task;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -282,6 +284,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private AdminUserApi adminUserApi;
     @Resource
     private BusinessFileAccessService businessFileAccessService;
+    @Resource
+    private BpmTaskService bpmTaskService;
+
     @Override
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, DccControlledFilePageReqVO reqVO) {
         Set<Long> requestedDirectoryIds = resolveRequestedDirectoryIds(reqVO);
@@ -1379,6 +1384,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private boolean canAccessDetail(Long userId, DccControlledFileDO file) {
+        if (hasCurrentRunningApprovalTask(userId, file)) {
+            return true;
+        }
         if (!isWithinAssignedFileScope(userId, file)) {
             return false;
         }
@@ -1410,6 +1418,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private boolean canReadBinary(Long userId, DccControlledFileDO file, DccAccessTypeEnum accessType,
                                   boolean hasDirectoryManagementPermission,
                                   Map<Long, Boolean> currentViewMatrixAccessByCategory) {
+        if (accessType == DccAccessTypeEnum.PREVIEW
+                && isPendingPreviewStatus(file.getStatus())
+                && file.getOriginalFileId() != null
+                && hasCurrentRunningApprovalTask(userId, file)) {
+            return true;
+        }
         if (!isWithinAssignedFileScope(userId, file)) {
             return false;
         }
@@ -1429,7 +1443,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     return true;
                 }
                 allowed = hasDirectoryManagementPermission
-                        || isCurrentRouteSnapshotParticipant(userId, file);
+                        || isCurrentRouteSnapshotParticipant(userId, file)
+                        || hasCurrentRunningApprovalTask(userId, file);
                 return allowed;
             }
             return false;
@@ -1450,7 +1465,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return true;
         }
         if (isPendingPreviewStatus(file.getStatus())) {
-            return isCurrentRouteSnapshotParticipant(userId, file);
+            return isCurrentRouteSnapshotParticipant(userId, file)
+                    || hasCurrentRunningApprovalTask(userId, file);
         }
         if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
             return false;
@@ -1626,6 +1642,24 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return routeSnapshotMapper.selectListByControlledFileId(file.getId()).stream()
                 .filter(snapshot -> StrUtil.equals(snapshot.getStageCode(), stageCode))
                 .anyMatch(snapshot -> parseResolvedUserIds(snapshot).contains(userId));
+    }
+
+    private boolean hasCurrentRunningApprovalTask(Long userId, DccControlledFileDO file) {
+        if (userId == null || file == null || StrUtil.isBlank(file.getProcessInstanceId())
+                || !isPendingPreviewStatus(file.getStatus())) {
+            return false;
+        }
+        String stageCode = resolvePendingStageCode(file.getStatus());
+        if (StrUtil.isBlank(stageCode)) {
+            return false;
+        }
+        List<Task> runningTasks = Objects.requireNonNull(
+                bpmTaskService.getRunningTaskListByProcessInstanceId(file.getProcessInstanceId(), null, null),
+                "runningTasks");
+        return runningTasks.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(task -> StrUtil.equals(task.getTaskDefinitionKey(), stageCode)
+                        && StrUtil.equals(task.getAssignee(), String.valueOf(userId)));
     }
 
     private String resolvePendingStageCode(String status) {
@@ -2352,8 +2386,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         if (isPendingPreviewStatus(file.getStatus())) {
             boolean participant = isCurrentRouteSnapshotParticipant(userId, file);
-            return new AccessReason(participant, participant ? "CURRENT_ROUTE_STAGE" : "DENIED",
-                    participant ? "当前阶段 route snapshot 参与人" : "不在当前文件当前阶段 route snapshot 参与人内");
+            if (participant) {
+                return new AccessReason(true, "CURRENT_ROUTE_STAGE", "当前阶段 route snapshot 参与人");
+            }
+            boolean currentAssignee = hasCurrentRunningApprovalTask(userId, file);
+            return new AccessReason(currentAssignee, currentAssignee ? "CURRENT_APPROVAL_TASK" : "DENIED",
+                    currentAssignee ? "当前运行审批任务处理人" : "不在当前文件当前阶段 route snapshot 参与人内，且不是当前运行审批任务处理人");
         }
         boolean matrixParticipant = canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory);
         return new AccessReason(matrixParticipant, matrixParticipant ? "CURRENT_VIEW_MATRIX" : "DENIED",
@@ -2391,8 +2429,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return new AccessReason(true, "DIRECTORY_ADMIN", "目录管理员");
         }
         boolean participant = isCurrentRouteSnapshotParticipant(userId, file);
-        return new AccessReason(participant, participant ? "CURRENT_ROUTE_STAGE" : "DENIED",
-                participant ? "当前阶段 route snapshot 参与人" : "不在当前文件当前阶段 route snapshot 参与人内");
+        if (participant) {
+            return new AccessReason(true, "CURRENT_ROUTE_STAGE", "当前阶段 route snapshot 参与人");
+        }
+        boolean currentAssignee = hasCurrentRunningApprovalTask(userId, file);
+        return new AccessReason(currentAssignee, currentAssignee ? "CURRENT_APPROVAL_TASK" : "DENIED",
+                currentAssignee ? "当前运行审批任务处理人" : "不在当前文件当前阶段 route snapshot 参与人内，且不是当前运行审批任务处理人");
     }
 
     private String resolveCurrentActiveVersionNo(DccControlledFileDO file, List<DccControlledFileDO> chainFiles) {
@@ -2437,6 +2479,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         boolean fullHistoryVisible = userId != null && userId.equals(file.getRequesterId())
                 || hasDirectoryManagementPermission
                 || isCurrentRouteSnapshotParticipant(userId, file)
+                || hasCurrentRunningApprovalTask(userId, file)
                 || hasHistoryManagementPermission(userId, file.getCategoryId());
         String currentActiveVersionNo = resolveCurrentActiveVersionNo(file, chainFiles);
         return chainFiles.stream()

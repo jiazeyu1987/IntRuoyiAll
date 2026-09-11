@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
 -- 统一电子签名 T1：账户密码状态、密码历史和永久用户名唯一。
 -- 发布前置：若同一租户内历史或当前用户名已重复，本迁移 fail fast，不自动合并账户。
 

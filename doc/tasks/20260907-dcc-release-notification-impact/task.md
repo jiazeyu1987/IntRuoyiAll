@@ -36,9 +36,19 @@
 
 ## Current Status
 
-blocked
+completed
 
 P1 发布后续账本、P2 影响评估任务和 P3 幂等通知及真实前端入口均已通过独立 tester；P4 本地运行态和页面/上传检查通过。`DCC-P4-202609081528-NEW` 的源对象实际可读，审批失败的真实根因是运行库缺少 `system_electronic_signature` 表；现有正式 T3/T7/T8 迁移已首次及重复执行成功。当前复测被共享前端中另一任务遗留的未解决 Git 冲突和 Vite 编译错误阻塞，待前端恢复后继续会签、发布、通知和影响任务闭环。
+
+2026-09-09 补充：本轮已修复阻塞标准后端重启的 System/DCC/MES 编译问题，并使用标准脚本重启 `int_main` 后端；`48081` 已监听，`/actuator/health` 返回 HTTP 200。DCC 真实前端审批、发布、通知和影响任务闭环本轮未执行，P4 仍保持 blocked。
+
+2026-09-09 P4 写入闭环补充：已使用真实前端创建并提交新的测试文件 `DCC-P4-20260909P4B`，文件 ID `2054545668044070331`，流程实例 `7fd46866-ac25-11f1-b878-00155dde8c13`。只读核对显示 Flowable 当前任务 `81b33998-ac25-11f1-b878-00155dde8c13` 已分配给 admin，真实详情页可加载当前文件和审批任务，`task-action-readiness` 返回 ready=true；点击“审核通过”后 `/admin-api/dcc/controlled-files/2054545668044070331/approve-task` 返回 HTTP 500。后端日志显示运行库缺少 `gxp_audit_policy_operation` 表；正式迁移文件为 `IntRuoyiBackend/sql/mysql/20260908_gxp_audit_trail_core.sql`。由于执行该迁移属于直接数据库写入，当前 Playwright 写入授权下未执行迁移，P4 仍 blocked。
+
+2026-09-09 GxP 迁移与 P4C 续验补充：已按授权执行 GxP audit 测试库迁移，补齐正式 SQL 与运行态表的 GxP 基础字段和 DCC 签名容量合同，并从 `IntRuoyiBackend/config/gxp-audit-policy.yaml` 导入正式策略登记。使用真实前端重新创建 `DCC-P4-20260909P4C`，完成文控审核和 admin 矩阵评审；当前阻塞在 zhaojie 的矩阵评审，原因是 zhaojie 虽为 BPM 当前任务处理人，但 DCC 文件详情接口返回 `1080000012 Current user cannot access this controlled file`。剩余会签、终批、发布、通知和影响任务闭环未声明通过。
+
+2026-09-09 当前审批人访问修复补充：已修复待审 DCC 文件详情/预览权限，新增“当前 Flowable 运行任务处理人”作为待审详情和待审原文件预览的放行条件，同时保持未发布文件下载拒绝。新增回归用例先 RED 后 GREEN；`DccControlledFileQueryServiceTest` 全类 98 条通过。当前代码尚未重启加载到 `48081`，真实前端 zhaojie 会签、终批、发布、通知和影响任务闭环仍未声明通过。
+
+2026-09-10 P4 最终闭环补充：真实前端已完成 P4D A/1 发布、影响任务重新打开并改判需要升版、创建/关联 P4C B/1、B/1 全审批与独立发布，以及反向影响任务无需升版结论。只读核验确认 P4C A/1 已被取代，P4C B/1 与 P4D A/1 生效，三个发布批次均完成且每批 7/7 通知已发送；P4D/B/1 各五条 DCC 签名均为 VALID + HMAC_SHA256。重启后真实页面只读 E2E 再次 PASS，并保留完整 30 项时间线文本。DCC 相邻 162 项测试和三项前端合同通过；独立 tester 已放行 P4-AC1 至 P4-AC5 和 AC-18。并行 MES 页面导致的全局 `vue-tsc` 红灯记录为仓库级残余问题，不归本任务修改。
 
 ## 设计约束检查
 
@@ -66,6 +76,24 @@ P1 发布后续账本、P2 影响评估任务和 P3 幂等通知及真实前端�
 - doc/tasks/20260907-dcc-release-notification-impact/task-state.json
 - doc/tasks/20260907-dcc-release-notification-impact/execution-log.md
 - doc/tasks/20260907-dcc-release-notification-impact/verification-report.md
+- doc/tasks/20260907-dcc-release-notification-impact/test-report.md
+- doc/tasks/20260907-dcc-release-notification-impact/backend-api-evidence.md
+- doc/tasks/20260907-dcc-release-notification-impact/database-schema-evidence.md
+- doc/tasks/20260907-dcc-release-notification-impact/frontend-feature-evidence.md
+- doc/tasks/20260907-dcc-release-notification-impact/bug-regression-evidence.md
+- doc/tasks/20260907-dcc-release-notification-impact/p4-runtime-evidence.md
+- doc/tasks/20260907-dcc-release-notification-impact/p4-runtime-preflight.md
 - doc/tasks/20260907-dcc-release-notification-impact/p4-local-page-e2e.cjs
 - doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-precheck.cjs
 - doc/tasks/20260907-dcc-release-notification-impact/p4-local-upload-submit-e2e.cjs
+- doc/tasks/20260907-dcc-release-notification-impact/p4-approval-center-inspect.cjs
+- doc/tasks/20260907-dcc-release-notification-impact/p4-approval-publish-e2e.cjs
+- doc/tasks/20260907-dcc-release-notification-impact/p4-direct-approve-task-e2e.cjs
+- doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/
+
+## Closeout Evidence
+
+- `task_closeout.py --mode preview` -> PASS, status `ready`, blocked/warnings 均为空；正式任务文档、独立测试报告和最终 Playwright 证据均在 keep 清单。
+- `task_closeout.py --mode apply` -> PASS, status `applied`; 删除 5165 个本任务旧 Playwright trace、临时运行日志、临时数据库备份和一次性启动产物。
+- 当前仓库是主工作区 `int_main`，不是额外 worktree；无需执行 worktree 合并或删除。
+- 最终状态：completed；P1-P4 和 AC-01 至 AC-18 均已完成并通过独立 tester。

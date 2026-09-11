@@ -471,6 +471,7 @@ BEGIN
       SELECT tenant_id, dcc_project_code_id
         FROM mes_qa_inspection_regulation
        WHERE deleted = b'0'
+         AND owner_module = 'MES_QA'
        GROUP BY tenant_id, dcc_project_code_id
       HAVING COUNT(1) > 1
     ) duplicate_qa
@@ -498,7 +499,9 @@ BEGIN
      AND table_name = 'mes_qa_inspection_regulation'
      AND column_name = 'active_dcc_project_code_id'
      AND (extra NOT LIKE '%STORED GENERATED%'
-          OR LOWER(generation_expression) NOT LIKE '%case%dcc_project_code_id%');
+          OR LOWER(generation_expression) NOT LIKE '%case%dcc_project_code_id%'
+          OR LOWER(generation_expression) NOT LIKE '%owner_module%'
+          OR LOWER(generation_expression) NOT LIKE '%mes_qa%');
 
   INSERT INTO c015_reconciliation_blocker_report
   SELECT 'qa_legacy_index_signature', NULL, SHA2('c015-qa-legacy-index-v1', 256), COUNT(1),

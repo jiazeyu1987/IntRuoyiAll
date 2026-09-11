@@ -118,7 +118,7 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
             rows.removeIf(row -> !containsIgnoreCase(row.getPrincipalName(), normalizedKeyword)
                     && !containsIgnoreCase(row.getPrincipalCode(), normalizedKeyword)
                     && !containsIgnoreCase(row.getCompanyCode(), normalizedKeyword)
-                    && !containsIgnoreCase(row.getCompanyName(), normalizedKeyword));
+                    && !containsIgnoreCase(row.getCompanyDisplayLabel(), normalizedKeyword));
         }
         rows.sort(Comparator
                 .comparing(MdmCompanyScopeRespVO::getUpdateTime,
@@ -521,7 +521,7 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
         response.setPrincipalCode(principalCode);
         response.setCompanyId(companyId);
         response.setCompanyCode(company.getEnterpriseCode());
-        response.setCompanyName(company.getName());
+        response.setCompanyDisplayLabel(company.getName());
         response.setStatus(status);
         response.setRevision(revision);
         response.setUpdateTime(updateTime);

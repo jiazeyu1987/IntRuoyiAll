@@ -1929,7 +1929,7 @@
           <el-input
             v-model="actionDialog.form.reason"
             :autosize="{ minRows: 3, maxRows: 6 }"
-            :placeholder="actionDialog.mode === 'reject' ? '请输入驳回原因' : '请输入审批意见（选填）'"
+            :placeholder="actionDialog.mode === 'reject' ? '请输入驳回原因' : '请输入审批意见'"
             type="textarea"
           />
         </el-form-item>

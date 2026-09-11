@@ -494,6 +494,7 @@ const submitForm = async () => {
       categoryId: formData.categoryId as number,
       directoryId: formData.directoryId as number,
       sessionId: previewUpload.value.sessionId,
+      idempotencyKey: previewUpload.value.sessionId,
       originalUploadTicket: previewUpload.value.uploadTicket,
       sourceUploadTicket: previewUpload.value.uploadTicket,
       sourceFileName: previewUpload.value.fileName,

@@ -35,10 +35,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED;
@@ -298,12 +300,19 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     private DccControlledFileMetadataImportPreviewRespVO evaluateImportRows(MultipartFile file, boolean applyUpdate,
                                                                             Long userId) {
         List<ImportRowDraft> drafts = parseWorkbook(file);
+        if (drafts.isEmpty()) {
+            throw new IllegalStateException("受控文件基础信息导入文件不能为空");
+        }
         List<DccControlledFileMetadataImportRowRespVO> rows = new ArrayList<>();
+        Set<Long> seenControlledFileIds = new HashSet<>();
         int updateCount = 0;
         int unchangedCount = 0;
         int failureCount = 0;
         for (ImportRowDraft draft : drafts) {
-            DccControlledFileMetadataImportRowRespVO row = evaluateImportRow(userId, draft, applyUpdate);
+            DccControlledFileMetadataImportRowRespVO row = draft.controlledFileId() != null
+                    && !seenControlledFileIds.add(draft.controlledFileId())
+                    ? invalidRow(draft, "受控文件ID在导入文件中重复")
+                    : evaluateImportRow(userId, draft, false);
             rows.add(row);
             if (ACTION_UPDATE.equals(row.getImportAction())) {
                 updateCount++;
@@ -313,13 +322,19 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
                 failureCount++;
             }
         }
-        return DccControlledFileMetadataImportPreviewRespVO.builder()
+        DccControlledFileMetadataImportPreviewRespVO preview = DccControlledFileMetadataImportPreviewRespVO.builder()
                 .totalCount(rows.size())
                 .updateCount(updateCount)
                 .unchangedCount(unchangedCount)
                 .failureCount(failureCount)
                 .rows(rows)
                 .build();
+        if (applyUpdate && failureCount == 0) {
+            for (ImportRowDraft draft : drafts) {
+                evaluateImportRow(userId, draft, true);
+            }
+        }
+        return preview;
     }
 
     private DccControlledFileRecognitionMigrationImportPreviewRespVO evaluateRecognitionMigrationRows(

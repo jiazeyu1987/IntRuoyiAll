@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -34,6 +35,8 @@ import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -271,6 +274,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
 
             service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, eventMapper,
                     processSnapshotMapper,
+                    mock(MesProcessPoolTeamDeviceMapper.class),
                     mock(MesProWorkOrderMapper.class), mock(MesProRouteMapper.class),
                     mock(MesProRouteVersionMapper.class), dccMapper, regulationMapper, versionMapper,
                     processMapper, itemMapper, mock(MesQaInspectionRegulationService.class),
@@ -455,10 +459,18 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         }
 
         private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot() {
+            String parameterSnapshotJson = "[]";
+            String deviceSelectionSnapshotJson = "[]";
             return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(3301L)
                     .activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID)
                     .routeVersionId(ROUTE_VERSION_ID).routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
-                    .processCodeSnapshot("PROC-01").processNameSnapshot("清洗").build();
+                    .processCodeSnapshot("PROC-01").processNameSnapshot("清洗")
+                    .parameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                    .parameterSnapshotJson(parameterSnapshotJson)
+                    .parameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(parameterSnapshotJson))
+                    .deviceSelectionSnapshotJson(deviceSelectionSnapshotJson)
+                    .deviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionSnapshotJson))
+                    .build();
         }
 
         private static MesQaInspectionRegulationItemDO publishedItem() {

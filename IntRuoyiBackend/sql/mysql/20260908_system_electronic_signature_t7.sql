@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_electronic_signature_subject_id_capacity; type=schema; riskLevel=medium
 -- T7：统一电子签名历史查询与周期复核批次
 -- 说明：复核批次由服务端调度或受控后台入口创建；客户端不得上传样本、哈希或复核结论作为事实源。
 

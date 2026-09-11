@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
 CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '审计事件编号',
     `tenant_id` bigint NOT NULL COMMENT '租户编号',
@@ -5,7 +6,7 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `operation_id` varchar(128) NOT NULL COMMENT 'GxP 操作登记编号',
     `domain` varchar(64) NOT NULL COMMENT '业务域',
     `subject_type` varchar(64) NOT NULL COMMENT '对象类型',
-    `subject_id` varchar(256) NOT NULL COMMENT '对象编号',
+    `subject_id` varchar(2048) NOT NULL COMMENT '对象编号',
     `subject_version` varchar(128) NOT NULL COMMENT '对象版本',
     `action` varchar(64) NOT NULL COMMENT '操作类型',
     `reason` varchar(500) NOT NULL COMMENT '变更原因',
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `after_object_version` varchar(128) NULL COMMENT '后对象版本',
     `after_state_json` longtext NULL COMMENT '后状态规范化 JSON',
     `policy_version` varchar(128) NOT NULL COMMENT '审计策略版本',
-    `idempotency_key` varchar(128) NOT NULL COMMENT '幂等键',
+    `idempotency_key` varchar(512) NOT NULL COMMENT '幂等键',
     `request_id` varchar(128) NULL COMMENT '请求编号',
     `signature_record_id` varchar(128) NULL COMMENT '电子签名记录编号',
     `signature_content_hash` varchar(128) NULL COMMENT '电子签名内容 Hash',
@@ -30,12 +31,31 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_event` (
     `event_hash` char(64) NOT NULL COMMENT '事件 Hash',
     `algorithm` varchar(32) NOT NULL COMMENT 'Hash 算法',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `creator` varchar(64) DEFAULT NULL COMMENT '创建者',
+    `updater` varchar(64) DEFAULT NULL COMMENT '更新者',
+    `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_gxp_audit_event_sequence` (`tenant_id`, `ledger_sequence`),
     UNIQUE KEY `uk_gxp_audit_event_idempotency` (`tenant_id`, `idempotency_key`),
-    KEY `idx_gxp_audit_event_subject` (`tenant_id`, `domain`, `subject_type`, `subject_id`, `server_occurred_at`),
+    KEY `idx_gxp_audit_event_subject` (`tenant_id`, `domain`, `subject_type`, `subject_id`(191), `server_occurred_at`),
     KEY `idx_gxp_audit_event_operation` (`tenant_id`, `operation_id`, `server_occurred_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 统一审计事件只追加账本';
+
+CREATE TABLE IF NOT EXISTS `gxp_audit_ledger_sequence` (
+    `tenant_id` bigint NOT NULL COMMENT '租户编号',
+    `next_ledger_sequence` bigint NOT NULL COMMENT '下一个租户内审计账本序号',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计账本序号水位';
+
+INSERT INTO `gxp_audit_ledger_sequence` (`tenant_id`, `next_ledger_sequence`)
+SELECT `tenant_id`, COALESCE(MAX(`ledger_sequence`), 0) + 1
+FROM `gxp_audit_event`
+GROUP BY `tenant_id`
+ON DUPLICATE KEY UPDATE
+    `next_ledger_sequence` = GREATEST(`next_ledger_sequence`, VALUES(`next_ledger_sequence`));
 
 CREATE TABLE IF NOT EXISTS `gxp_audit_policy_version` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '策略版本编号',
@@ -70,6 +90,10 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_policy_operation` (
     `applicability` varchar(64) NOT NULL COMMENT 'GXP/NOT_APPLICABLE',
     `active` bit(1) NOT NULL DEFAULT b'1' COMMENT '是否当前有效',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `creator` varchar(64) DEFAULT NULL COMMENT '创建者',
+    `updater` varchar(64) DEFAULT NULL COMMENT '更新者',
+    `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_gxp_audit_policy_operation` (`tenant_id`, `operation_id`, `policy_version`),
     KEY `idx_gxp_audit_policy_operation_source` (`tenant_id`, `source_type`, `source_locator`),
@@ -126,6 +150,111 @@ CREATE TABLE IF NOT EXISTS `gxp_audit_seal_watermark` (
     UNIQUE KEY `uk_gxp_audit_seal_watermark_hash` (`tenant_id`, `watermark_hash`),
     KEY `idx_gxp_audit_seal_watermark_sequence` (`tenant_id`, `watermark_type`, `sealed_through_sequence`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='GxP 审计封存水位';
+
+DROP PROCEDURE IF EXISTS `ensure_gxp_audit_core_column`;
+DROP PROCEDURE IF EXISTS `ensure_gxp_audit_core_index`;
+DROP PROCEDURE IF EXISTS `drop_gxp_audit_core_index`;
+
+DELIMITER $$
+CREATE PROCEDURE `ensure_gxp_audit_core_column`(
+    IN target_table varchar(64),
+    IN target_column varchar(64),
+    IN ddl_statement text
+)
+BEGIN
+    SELECT COUNT(1) INTO @gxp_audit_core_column_count
+      FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = target_table
+       AND COLUMN_NAME = target_column;
+    SET @gxp_audit_core_column_sql = IF(@gxp_audit_core_column_count = 0, ddl_statement,
+        CONCAT('SELECT ''', target_table, '.', target_column, ' already exists'' AS migration_status'));
+    PREPARE gxp_audit_core_column_stmt FROM @gxp_audit_core_column_sql;
+    EXECUTE gxp_audit_core_column_stmt;
+    DEALLOCATE PREPARE gxp_audit_core_column_stmt;
+END$$
+
+CREATE PROCEDURE `ensure_gxp_audit_core_index`(
+    IN target_table varchar(64),
+    IN target_index varchar(64),
+    IN ddl_statement text
+)
+BEGIN
+    SELECT COUNT(1) INTO @gxp_audit_core_index_count
+      FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = target_table
+       AND INDEX_NAME = target_index;
+    SET @gxp_audit_core_index_sql = IF(@gxp_audit_core_index_count = 0, ddl_statement,
+        CONCAT('SELECT ''', target_table, '.', target_index, ' already exists'' AS migration_status'));
+    PREPARE gxp_audit_core_index_stmt FROM @gxp_audit_core_index_sql;
+    EXECUTE gxp_audit_core_index_stmt;
+    DEALLOCATE PREPARE gxp_audit_core_index_stmt;
+END$$
+
+CREATE PROCEDURE `drop_gxp_audit_core_index`(
+    IN target_table varchar(64),
+    IN target_index varchar(64)
+)
+BEGIN
+    SELECT COUNT(1) INTO @gxp_audit_core_drop_index_count
+      FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = target_table
+       AND INDEX_NAME = target_index;
+    SET @gxp_audit_core_drop_index_sql = IF(@gxp_audit_core_drop_index_count = 0,
+        CONCAT('SELECT ''', target_table, '.', target_index, ' already absent'' AS migration_status'),
+        CONCAT('ALTER TABLE `', target_table, '` DROP INDEX `', target_index, '`'));
+    PREPARE gxp_audit_core_drop_index_stmt FROM @gxp_audit_core_drop_index_sql;
+    EXECUTE gxp_audit_core_drop_index_stmt;
+    DEALLOCATE PREPARE gxp_audit_core_drop_index_stmt;
+END$$
+DELIMITER ;
+
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'subject_id',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `subject_id` varchar(2048) NOT NULL DEFAULT '''' COMMENT ''对象编号'' AFTER `subject_type`');
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'idempotency_key',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `idempotency_key` varchar(512) NOT NULL DEFAULT '''' COMMENT ''幂等键'' AFTER `policy_version`');
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'create_time',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT ''创建时间'' AFTER `algorithm`');
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'update_time',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''更新时间'' AFTER `create_time`');
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'creator',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `creator` varchar(64) DEFAULT NULL COMMENT ''创建者'' AFTER `update_time`');
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'updater',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `updater` varchar(64) DEFAULT NULL COMMENT ''更新者'' AFTER `creator`');
+CALL ensure_gxp_audit_core_column('gxp_audit_event', 'deleted',
+    'ALTER TABLE `gxp_audit_event` ADD COLUMN `deleted` bit(1) NOT NULL DEFAULT b''0'' COMMENT ''是否删除'' AFTER `updater`');
+
+ALTER TABLE `gxp_audit_event`
+    MODIFY COLUMN `subject_id` varchar(2048) NOT NULL COMMENT '对象编号',
+    MODIFY COLUMN `idempotency_key` varchar(512) NOT NULL COMMENT '幂等键';
+
+CALL drop_gxp_audit_core_index('gxp_audit_event', 'uk_gxp_audit_event_idempotency');
+CALL drop_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject');
+CALL ensure_gxp_audit_core_index('gxp_audit_event', 'uk_gxp_audit_event_idempotency',
+    'ALTER TABLE `gxp_audit_event` ADD UNIQUE KEY `uk_gxp_audit_event_idempotency` (`tenant_id`, `idempotency_key`)');
+CALL ensure_gxp_audit_core_index('gxp_audit_event', 'idx_gxp_audit_event_subject',
+    'ALTER TABLE `gxp_audit_event` ADD KEY `idx_gxp_audit_event_subject` (`tenant_id`, `domain`, `subject_type`, `subject_id`(191), `server_occurred_at`)');
+
+CALL ensure_gxp_audit_core_column('gxp_audit_policy_operation', 'create_time',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD COLUMN `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT ''创建时间'' AFTER `active`');
+CALL ensure_gxp_audit_core_column('gxp_audit_policy_operation', 'update_time',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD COLUMN `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''更新时间'' AFTER `create_time`');
+CALL ensure_gxp_audit_core_column('gxp_audit_policy_operation', 'creator',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD COLUMN `creator` varchar(64) DEFAULT NULL COMMENT ''创建者'' AFTER `update_time`');
+CALL ensure_gxp_audit_core_column('gxp_audit_policy_operation', 'updater',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD COLUMN `updater` varchar(64) DEFAULT NULL COMMENT ''更新者'' AFTER `creator`');
+CALL ensure_gxp_audit_core_column('gxp_audit_policy_operation', 'deleted',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD COLUMN `deleted` bit(1) NOT NULL DEFAULT b''0'' COMMENT ''是否删除'' AFTER `updater`');
+CALL ensure_gxp_audit_core_index('gxp_audit_policy_operation', 'idx_gxp_audit_policy_operation_source',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD KEY `idx_gxp_audit_policy_operation_source` (`tenant_id`, `source_type`, `source_locator`)');
+CALL ensure_gxp_audit_core_index('gxp_audit_policy_operation', 'idx_gxp_audit_policy_operation_active',
+    'ALTER TABLE `gxp_audit_policy_operation` ADD KEY `idx_gxp_audit_policy_operation_active` (`tenant_id`, `active`, `operation_id`)');
+
+DROP PROCEDURE IF EXISTS `ensure_gxp_audit_core_column`;
+DROP PROCEDURE IF EXISTS `ensure_gxp_audit_core_index`;
+DROP PROCEDURE IF EXISTS `drop_gxp_audit_core_index`;
 
 DROP TRIGGER IF EXISTS `trg_gxp_audit_event_no_update`;
 DROP TRIGGER IF EXISTS `trg_gxp_audit_event_no_delete`;

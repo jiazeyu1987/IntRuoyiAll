@@ -702,7 +702,48 @@ public class MesProBatchRecordExecutionSignatureService {
                 || StrUtil.isBlank(profile.getSignaturePasswordHash())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        if (!passwordEncoder.matches(password, profile.getSignaturePasswordHash())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+        }
+        String employeeCode = StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeCode()), null);
+        String employeeName = StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeName()), null);
+        String actorName = resolveEmployeeProfileDisplayName(profile);
+        if (StrUtil.hasBlank(employeeCode, employeeName, actorName)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        LocalDateTime signedAt = nowAtDatabasePrecision();
+        SignatureTimeEvidence signatureTimeEvidence =
+                buildSignatureTimeEvidence(0L, ACTION_PRODUCTION_SUBMIT, actorId, signedAt, null);
+        MesProBatchRecordExecutionSignatureDO signature = MesProBatchRecordExecutionSignatureDO.builder()
+                .executionId(0L)
+                .actorId(actorId)
+                .actionType(ACTION_PRODUCTION_SUBMIT)
+                .signatureMode(SIGNATURE_MODE_PASSWORD)
+                .passwordVerified(Boolean.TRUE)
+                .comment(StrUtil.blankToDefault(StrUtil.trim(comment), null))
+                .signedAt(signedAt)
+                .selectedSignedAt(signatureTimeEvidence.selectedSignedAt())
+                .signatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
+                .signatureTimeMode(signatureTimeEvidence.signatureTimeMode())
+                .selectedTimeZone(signatureTimeEvidence.selectedTimeZone())
+                .selectedTimeReason(signatureTimeEvidence.selectedTimeReason())
+                .selectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
+                .selectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
+                .actorName(actorName)
+                .actorUsernameSnapshot(employeeCode)
+                .actorNicknameSnapshot(employeeName)
+                .signaturePurpose(resolveSignaturePurpose(ACTION_PRODUCTION_SUBMIT))
+                .authorizationBasis(AUTHORIZATION_BASIS_EMPLOYEE_PROFILE)
+                .authenticationMethod(SIGNATURE_MODE_PASSWORD)
+                .clientIpSnapshot(resolveClientIpSnapshot())
+                .userAgentSnapshot(resolveUserAgentSnapshot())
+                .snapshotStatus(SNAPSHOT_STATUS_CAPTURED_PARTIAL_ORG)
+                .build();
+        int inserted = signatureMapper.insert(signature);
+        if (inserted <= 0 || signature.getId() == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        return signature.getId();
     }
 
     private String resolveEmployeeProfileDisplayName(MesProcessPoolTeamEmployeeProfileDO profile) {

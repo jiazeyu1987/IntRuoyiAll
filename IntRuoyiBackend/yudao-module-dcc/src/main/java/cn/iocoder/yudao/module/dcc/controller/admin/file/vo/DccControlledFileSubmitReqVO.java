@@ -17,6 +17,13 @@ public class DccControlledFileSubmitReqVO {
 
     private String sessionId;
 
+    @NotBlank(message = "idempotencyKey is required")
+    private String idempotencyKey;
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String submitPayloadHash;
+
     private String originalUploadTicket;
 
     private String sourceUploadTicket;

@@ -5,18 +5,33 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindingRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetVersionOptionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetVersionSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationVersionOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationVersionOptionRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationProductBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionMemberDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationProductBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
@@ -44,6 +59,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_COMMON_REGULATION_BINDING_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_COMMON_REGULATION_SET_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
@@ -77,6 +94,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private final MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    private final MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper;
+    private final MesQaCommonRegulationSetMapper commonRegulationSetMapper;
+    private final MesQaCommonRegulationSetVersionMapper commonRegulationSetVersionMapper;
+    private final MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper;
 
     public MesQaInspectionRegulationServiceImpl(
             DccProjectCodeMapper dccProjectCodeMapper,
@@ -86,7 +107,11 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             MesQaInspectionRegulationItemMapper itemMapper,
             MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper,
             MesProcessPoolActiveOrderMapper activeOrderMapper,
-            MesPqcInspectionTaskMapper pqcInspectionTaskMapper) {
+            MesPqcInspectionTaskMapper pqcInspectionTaskMapper,
+            MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper,
+            MesQaCommonRegulationSetMapper commonRegulationSetMapper,
+            MesQaCommonRegulationSetVersionMapper commonRegulationSetVersionMapper,
+            MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper) {
         this.dccProjectCodeMapper = dccProjectCodeMapper;
         this.regulationMapper = regulationMapper;
         this.versionMapper = versionMapper;
@@ -95,6 +120,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         this.itemEquipmentMapper = itemEquipmentMapper;
         this.activeOrderMapper = activeOrderMapper;
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
+        this.commonRegulationProductBindingMapper = commonRegulationProductBindingMapper;
+        this.commonRegulationSetMapper = commonRegulationSetMapper;
+        this.commonRegulationSetVersionMapper = commonRegulationSetVersionMapper;
+        this.commonRegulationSetVersionMemberMapper = commonRegulationSetVersionMemberMapper;
     }
 
     @Override
@@ -271,9 +300,289 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     @Override
+    public MesQaCommonRegulationBindingRespVO getCurrentCommonRegulationBinding(Long dccProjectCodeId) {
+        DccProjectCodeDO productProjectCode = requireEnabledDccProjectCode(dccProjectCodeId);
+        Long productId = requireProductIdFromDccProjectCode(productProjectCode);
+        MesQaCommonRegulationProductBindingDO binding =
+                commonRegulationProductBindingMapper.selectEnabledByProductId(productId);
+        if (binding == null) {
+            return null;
+        }
+        return buildCommonBindingResp(productProjectCode.getId(), productId, binding);
+    }
+
+    @Override
+    public List<MesQaCommonRegulationVersionOptionRespVO> listCommonRegulationPublishedVersions() {
+        return regulationMapper.selectCommonList().stream()
+                .flatMap(regulation -> versionMapper.selectListByRegulationId(regulation.getId()).stream()
+                        .filter(version -> Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus()))
+                        .map(version -> MesQaCommonRegulationVersionOptionRespVO.builder()
+                                .commonDccProjectCodeId(regulation.getDccProjectCodeId())
+                                .commonRegulationId(regulation.getId())
+                                .commonRegulationVersionId(version.getId())
+                                .commonRegulationCode(regulation.getRegulationCode())
+                                .commonRegulationName(regulation.getRegulationName())
+                                .versionNo(version.getVersionNo())
+                                .lifecycleStatus(version.getLifecycleStatus())
+                                .effectiveDate(version.getEffectiveDate())
+                                .publishedAt(version.getPublishedAt())
+                                .build()))
+                .toList();
+    }
+
+    @Override
+    public List<MesQaCommonRegulationSetRespVO> listCommonRegulationSets() {
+        return commonRegulationSetMapper.selectListOrderByCode().stream()
+                .map(this::buildCommonRegulationSetResp)
+                .toList();
+    }
+
+    @Override
+    public MesQaCommonRegulationSetRespVO getCommonRegulationSet(Long setId) {
+        return buildCommonRegulationSetResp(requireCommonRegulationSet(setId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesQaCommonRegulationSetRespVO saveCommonRegulationSet(MesQaCommonRegulationSetSaveReqVO reqVO) {
+        String setCode = requireText(reqVO.getSetCode(), "通用检验规程套编号");
+        String setName = requireText(reqVO.getSetName(), "通用检验规程套名称");
+        String setStatus = StrUtil.blankToDefault(reqVO.getSetStatus(),
+                MesQaCommonRegulationSetDO.STATUS_ENABLED);
+        if (!Set.of(MesQaCommonRegulationSetDO.STATUS_ENABLED,
+                MesQaCommonRegulationSetDO.STATUS_DISABLED).contains(setStatus)) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "setStatus=" + setStatus);
+        }
+        MesQaCommonRegulationSetDO exists = commonRegulationSetMapper.selectBySetCode(setCode);
+        if (reqVO.getId() == null) {
+            if (exists != null) {
+                throw exception(QA_COMMON_REGULATION_SET_INVALID, "套编号已存在：" + setCode);
+            }
+            MesQaCommonRegulationSetDO set = MesQaCommonRegulationSetDO.builder()
+                    .setCode(setCode)
+                    .setName(setName)
+                    .setStatus(setStatus)
+                    .remark(StrUtil.trimToNull(reqVO.getRemark()))
+                    .build();
+            commonRegulationSetMapper.insert(set);
+            return buildCommonRegulationSetResp(set);
+        }
+        MesQaCommonRegulationSetDO set = requireCommonRegulationSet(reqVO.getId());
+        if (exists != null && !Objects.equals(exists.getId(), set.getId())) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "套编号已存在：" + setCode);
+        }
+        commonRegulationSetMapper.updateById(new MesQaCommonRegulationSetDO()
+                .setId(set.getId())
+                .setSetCode(setCode)
+                .setSetName(setName)
+                .setSetStatus(setStatus)
+                .setRemark(StrUtil.trimToNull(reqVO.getRemark())));
+        set.setSetCode(setCode).setSetName(setName).setSetStatus(setStatus)
+                .setRemark(StrUtil.trimToNull(reqVO.getRemark()));
+        return buildCommonRegulationSetResp(set);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteCommonRegulationSet(Long setId) {
+        MesQaCommonRegulationSetDO set = requireCommonRegulationSet(setId);
+        List<MesQaCommonRegulationSetVersionDO> versions =
+                commonRegulationSetVersionMapper.selectListBySetId(set.getId());
+        if (!versions.isEmpty()) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "存在套版本，不能删除套：" + setId);
+        }
+        commonRegulationSetMapper.deleteById(set.getId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesQaCommonRegulationSetRespVO.Version saveCommonRegulationSetVersion(
+            MesQaCommonRegulationSetVersionSaveReqVO reqVO) {
+        MesQaCommonRegulationSetDO set = requireCommonRegulationSet(reqVO.getSetId());
+        String versionNo = requireText(reqVO.getVersionNo(), "通用检验规程套版本");
+        String lifecycleStatus = StrUtil.blankToDefault(reqVO.getLifecycleStatus(),
+                MesQaCommonRegulationSetVersionDO.STATUS_DRAFT);
+        if (!Set.of(MesQaCommonRegulationSetVersionDO.STATUS_DRAFT,
+                MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED).contains(lifecycleStatus)) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "lifecycleStatus=" + lifecycleStatus);
+        }
+        if (CollUtil.isEmpty(reqVO.getMembers())) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本成员不能为空");
+        }
+        MesQaCommonRegulationSetVersionDO duplicate =
+                commonRegulationSetVersionMapper.selectBySetIdAndVersionNo(set.getId(), versionNo);
+        MesQaCommonRegulationSetVersionDO version;
+        if (reqVO.getId() == null) {
+            if (duplicate != null) {
+                throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本已存在：" + versionNo);
+            }
+            version = MesQaCommonRegulationSetVersionDO.builder()
+                    .setId(set.getId())
+                    .versionNo(versionNo)
+                    .lifecycleStatus(lifecycleStatus)
+                    .effectiveDate(reqVO.getEffectiveDate())
+                    .publishedAt(Objects.equals(lifecycleStatus, MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)
+                            ? LocalDateTime.now() : null)
+                    .remark(StrUtil.trimToNull(reqVO.getRemark()))
+                    .build();
+            commonRegulationSetVersionMapper.insert(version);
+        } else {
+            version = requireCommonRegulationSetVersion(reqVO.getId());
+            if (!Objects.equals(version.getSetId(), set.getId())) {
+                throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本不属于指定套：" + reqVO.getId());
+            }
+            if (duplicate != null && !Objects.equals(duplicate.getId(), version.getId())) {
+                throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本已存在：" + versionNo);
+            }
+            commonRegulationSetVersionMapper.updateById(new MesQaCommonRegulationSetVersionDO()
+                    .setId(version.getId())
+                    .setVersionNo(versionNo)
+                    .setLifecycleStatus(lifecycleStatus)
+                    .setEffectiveDate(reqVO.getEffectiveDate())
+                    .setPublishedAt(Objects.equals(lifecycleStatus, MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)
+                            && version.getPublishedAt() == null ? LocalDateTime.now() : version.getPublishedAt())
+                    .setRemark(StrUtil.trimToNull(reqVO.getRemark())));
+            version.setVersionNo(versionNo).setLifecycleStatus(lifecycleStatus)
+                    .setEffectiveDate(reqVO.getEffectiveDate())
+                    .setPublishedAt(Objects.equals(lifecycleStatus, MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)
+                            && version.getPublishedAt() == null ? LocalDateTime.now() : version.getPublishedAt())
+                    .setRemark(StrUtil.trimToNull(reqVO.getRemark()));
+        }
+        replaceCommonRegulationSetVersionMembers(version.getId(), reqVO.getMembers());
+        if (Objects.equals(version.getLifecycleStatus(), MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)) {
+            commonRegulationSetMapper.updateById(new MesQaCommonRegulationSetDO()
+                    .setId(set.getId())
+                    .setCurrentVersionId(version.getId()));
+            set.setCurrentVersionId(version.getId());
+        }
+        return buildCommonRegulationSetVersionResp(set, version,
+                commonRegulationSetVersionMemberMapper.selectListBySetVersionId(version.getId()));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteCommonRegulationSetVersion(Long setVersionId) {
+        MesQaCommonRegulationSetVersionDO version = requireCommonRegulationSetVersion(setVersionId);
+        MesQaCommonRegulationSetDO set = requireCommonRegulationSet(version.getSetId());
+        if (Objects.equals(set.getCurrentVersionId(), version.getId())) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID,
+                    "当前发布套版本不能删除：" + setVersionId);
+        }
+        Long enabledBindingCount = commonRegulationProductBindingMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<MesQaCommonRegulationProductBindingDO>()
+                        .eq(MesQaCommonRegulationProductBindingDO::getCommonRegulationSetVersionId, version.getId())
+                        .eq(MesQaCommonRegulationProductBindingDO::getBindingStatus,
+                                MesQaCommonRegulationProductBindingDO.STATUS_ENABLED));
+        if (enabledBindingCount != null && enabledBindingCount > 0) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本已被产品绑定，不能删除：" + setVersionId);
+        }
+        commonRegulationSetVersionMemberMapper.deleteBySetVersionId(version.getId());
+        commonRegulationSetVersionMapper.deleteById(version.getId());
+    }
+
+    @Override
+    public List<MesQaCommonRegulationSetVersionOptionRespVO> listCommonRegulationPublishedSetVersions() {
+        List<MesQaCommonRegulationSetDO> sets = commonRegulationSetMapper.selectListOrderByCode();
+        Map<Long, MesQaCommonRegulationSetDO> setMap = sets.stream()
+                .collect(Collectors.toMap(MesQaCommonRegulationSetDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+        List<Long> setIds = new ArrayList<>(setMap.keySet());
+        List<MesQaCommonRegulationSetVersionDO> versions =
+                commonRegulationSetVersionMapper.selectListBySetIds(setIds);
+        Map<Long, List<MesQaCommonRegulationSetVersionMemberDO>> membersByVersionId =
+                commonRegulationSetVersionMemberMapper.selectListBySetVersionIds(
+                                versions.stream().map(MesQaCommonRegulationSetVersionDO::getId).toList())
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                MesQaCommonRegulationSetVersionMemberDO::getSetVersionId,
+                                LinkedHashMap::new, Collectors.toList()));
+        return versions.stream()
+                .filter(version -> Objects.equals(MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED,
+                        version.getLifecycleStatus()))
+                .map(version -> {
+                    MesQaCommonRegulationSetDO set = setMap.get(version.getSetId());
+                    if (set == null) {
+                        throw exception(QA_COMMON_REGULATION_SET_INVALID,
+                                "套版本引用的套不存在：" + version.getId());
+                    }
+                    return MesQaCommonRegulationSetVersionOptionRespVO.builder()
+                            .commonRegulationSetId(set.getId())
+                            .commonRegulationSetVersionId(version.getId())
+                            .commonRegulationSetCode(set.getSetCode())
+                            .commonRegulationSetName(set.getSetName())
+                            .versionNo(version.getVersionNo())
+                            .lifecycleStatus(version.getLifecycleStatus())
+                            .effectiveDate(version.getEffectiveDate())
+                            .publishedAt(version.getPublishedAt())
+                            .memberCount(membersByVersionId.getOrDefault(version.getId(), List.of()).size())
+                            .build();
+                })
+                .toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesQaCommonRegulationBindingRespVO bindCommonRegulationVersion(MesQaCommonRegulationBindReqVO reqVO) {
+        DccProjectCodeDO productProjectCode = requireEnabledDccProjectCode(reqVO.getDccProjectCodeId());
+        Long productId = requireProductIdFromDccProjectCode(productProjectCode);
+        CommonPublishedSetVersion setVersion =
+                requireCommonPublishedSetVersion(reqVO.getCommonRegulationSetVersionId());
+        MesQaCommonRegulationSetVersionMemberDO firstMember = setVersion.members().get(0);
+        CommonPublishedVersion firstCommonVersion =
+                requireCommonPublishedVersion(firstMember.getRegulationVersionId());
+        disableEnabledCommonRegulationBinding(productId);
+        MesQaCommonRegulationProductBindingDO binding = MesQaCommonRegulationProductBindingDO.builder()
+                .productId(productId)
+                .dccProjectCodeId(firstCommonVersion.regulation().getDccProjectCodeId())
+                .commonRegulationSetId(setVersion.set().getId())
+                .commonRegulationSetVersionId(setVersion.version().getId())
+                .regulationId(firstCommonVersion.regulation().getId())
+                .regulationVersionId(firstCommonVersion.version().getId())
+                .scopeCode(MesQaCommonRegulationProductBindingDO.SCOPE_COMMON_PACKAGING)
+                .bindingStatus(MesQaCommonRegulationProductBindingDO.STATUS_ENABLED)
+                .changeReason(StrUtil.trimToNull(reqVO.getChangeReason()))
+                .build();
+        commonRegulationProductBindingMapper.insert(binding);
+        return buildCommonBindingResp(productProjectCode.getId(), productId, binding,
+                firstCommonVersion.regulation(), firstCommonVersion.version());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesQaCommonRegulationBindingRespVO unbindCommonRegulation(Long dccProjectCodeId) {
+        DccProjectCodeDO productProjectCode = requireEnabledDccProjectCode(dccProjectCodeId);
+        Long productId = requireProductIdFromDccProjectCode(productProjectCode);
+        MesQaCommonRegulationProductBindingDO previous =
+                commonRegulationProductBindingMapper.selectEnabledByProductId(productId);
+        disableEnabledCommonRegulationBinding(productId);
+        if (previous == null) {
+            return null;
+        }
+        previous.setBindingStatus(MesQaCommonRegulationProductBindingDO.STATUS_DISABLED);
+        return buildCommonBindingResp(productProjectCode.getId(), productId, previous);
+    }
+
+    @Override
     public MesQaInspectionRegulationPublishedVersionRespVO getLockedVersionForOrder(
             Long dccProjectCodeId, Long qaRegulationId, Long qaRegulationVersionId) {
         MesQaInspectionRegulationDO regulation = requireLockedRegulation(dccProjectCodeId, qaRegulationId);
+        MesQaInspectionRegulationVersionDO version =
+                requireLockedVersion(regulation.getId(), qaRegulationVersionId);
+        return buildVersionResp(regulation, version);
+    }
+
+    @Override
+    public MesQaInspectionRegulationPublishedVersionRespVO getLockedCommonVersionForOrder(
+            Long qaRegulationId, Long qaRegulationVersionId) {
+        if (qaRegulationId == null) {
+            throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, null);
+        }
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(qaRegulationId);
+        if (regulation == null || !Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                regulation.getOwnerModule())) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID,
+                    "通用规程不存在，regulationId=" + qaRegulationId);
+        }
         MesQaInspectionRegulationVersionDO version =
                 requireLockedVersion(regulation.getId(), qaRegulationVersionId);
         return buildVersionResp(regulation, version);
@@ -369,8 +678,9 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
     private MesQaInspectionRegulationDO resolveRegulation(MesQaInspectionRegulationSaveReqVO reqVO,
                                                           DccProjectCodeDO dccProjectCode) {
+        String ownerModule = resolveOwnerModule(reqVO.getOwnerModule());
         MesQaInspectionRegulationDO regulation = reqVO.getRegulationId() == null
-                ? regulationMapper.selectByDccProjectCodeId(dccProjectCode.getId())
+                ? regulationMapper.selectByDccProjectCodeId(dccProjectCode.getId(), ownerModule)
                 : regulationMapper.selectById(reqVO.getRegulationId());
         if (reqVO.getRegulationId() != null && regulation == null) {
             throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, reqVO.getRegulationId());
@@ -378,6 +688,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         if (regulation != null
                 && !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCode.getId())) {
             throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, dccProjectCode.getId());
+        }
+        if (regulation != null && !Objects.equals(regulation.getOwnerModule(), ownerModule)) {
+            throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID,
+                    "ownerModule=" + ownerModule + ", regulationId=" + regulation.getId());
         }
         if (regulation != null) {
             if (!Objects.equals(regulation.getLifecycleStatus(), STATUS_PUBLISHED)) {
@@ -394,7 +708,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         }
         regulation = MesQaInspectionRegulationDO.builder()
                 .dccProjectCodeId(dccProjectCode.getId())
-                .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
+                .ownerModule(ownerModule)
                 .regulationCode(StrUtil.trim(reqVO.getRegulationCode()))
                 .regulationName(StrUtil.trim(reqVO.getRegulationName()))
                 .lifecycleStatus(STATUS_DRAFT)
@@ -408,6 +722,18 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             throw ex;
         }
         return regulation;
+    }
+
+    private String resolveOwnerModule(String ownerModule) {
+        if (StrUtil.isBlank(ownerModule)) {
+            return MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA;
+        }
+        String normalized = StrUtil.trim(ownerModule);
+        if (Objects.equals(normalized, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
+                || Objects.equals(normalized, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)) {
+            return normalized;
+        }
+        throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, "ownerModule=" + ownerModule);
     }
 
     private MesQaInspectionRegulationPublishedVersionRespVO buildVersionResp(
@@ -566,6 +892,238 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, dccProjectCodeId);
         }
         return projectCode;
+    }
+
+    private Long requireProductIdFromDccProjectCode(DccProjectCodeDO projectCode) {
+        if (projectCode.getProductMasterId() == null || projectCode.getProductMasterId() <= 0) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID,
+                    "DCC 项目代码未绑定 MDM 产品，dccProjectCodeId=" + projectCode.getId());
+        }
+        return projectCode.getProductMasterId();
+    }
+
+    private String requireText(String value, String label) {
+        String text = StrUtil.trim(value);
+        if (StrUtil.isBlank(text)) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, label + "不能为空");
+        }
+        return text;
+    }
+
+    private MesQaCommonRegulationSetDO requireCommonRegulationSet(Long setId) {
+        if (setId == null) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, null);
+        }
+        MesQaCommonRegulationSetDO set = commonRegulationSetMapper.selectById(setId);
+        if (set == null) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, setId);
+        }
+        return set;
+    }
+
+    private MesQaCommonRegulationSetVersionDO requireCommonRegulationSetVersion(Long setVersionId) {
+        if (setVersionId == null) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本不能为空");
+        }
+        MesQaCommonRegulationSetVersionDO version = commonRegulationSetVersionMapper.selectById(setVersionId);
+        if (version == null) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, setVersionId);
+        }
+        return version;
+    }
+
+    private CommonPublishedSetVersion requireCommonPublishedSetVersion(Long setVersionId) {
+        MesQaCommonRegulationSetVersionDO version = requireCommonRegulationSetVersion(setVersionId);
+        if (!Objects.equals(MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED, version.getLifecycleStatus())) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "只能绑定已发布套版本：" + setVersionId);
+        }
+        MesQaCommonRegulationSetDO set = requireCommonRegulationSet(version.getSetId());
+        if (!Objects.equals(MesQaCommonRegulationSetDO.STATUS_ENABLED, set.getSetStatus())) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "套已停用：" + set.getId());
+        }
+        List<MesQaCommonRegulationSetVersionMemberDO> members =
+                commonRegulationSetVersionMemberMapper.selectListBySetVersionId(version.getId());
+        if (CollUtil.isEmpty(members)) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本成员为空：" + setVersionId);
+        }
+        for (MesQaCommonRegulationSetVersionMemberDO member : members) {
+            requireCommonPublishedVersion(member.getRegulationVersionId());
+        }
+        return new CommonPublishedSetVersion(set, version, members);
+    }
+
+    private void replaceCommonRegulationSetVersionMembers(Long setVersionId,
+            List<MesQaCommonRegulationSetVersionSaveReqVO.Member> memberReqs) {
+        commonRegulationSetVersionMemberMapper.deleteBySetVersionId(setVersionId);
+        Set<Long> seenVersionIds = new LinkedHashSet<>();
+        int index = 0;
+        for (MesQaCommonRegulationSetVersionSaveReqVO.Member memberReq : memberReqs) {
+            CommonPublishedVersion publishedVersion =
+                    requireCommonPublishedVersion(memberReq.getCommonRegulationVersionId());
+            if (!seenVersionIds.add(publishedVersion.version().getId())) {
+                throw exception(QA_COMMON_REGULATION_SET_INVALID,
+                        "套版本成员重复：" + publishedVersion.version().getId());
+            }
+            Integer sort = memberReq.getSort() == null ? (++index * 10) : memberReq.getSort();
+            commonRegulationSetVersionMemberMapper.insert(MesQaCommonRegulationSetVersionMemberDO.builder()
+                    .setVersionId(setVersionId)
+                    .regulationId(publishedVersion.regulation().getId())
+                    .regulationVersionId(publishedVersion.version().getId())
+                    .sort(sort)
+                    .memberRole(StrUtil.trimToNull(memberReq.getMemberRole()))
+                    .remark(StrUtil.trimToNull(memberReq.getRemark()))
+                    .build());
+        }
+    }
+
+    private MesQaCommonRegulationSetRespVO buildCommonRegulationSetResp(
+            MesQaCommonRegulationSetDO set) {
+        List<MesQaCommonRegulationSetVersionDO> versions =
+                commonRegulationSetVersionMapper.selectListBySetId(set.getId());
+        Map<Long, List<MesQaCommonRegulationSetVersionMemberDO>> membersByVersionId =
+                commonRegulationSetVersionMemberMapper.selectListBySetVersionIds(
+                                versions.stream().map(MesQaCommonRegulationSetVersionDO::getId).toList())
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                MesQaCommonRegulationSetVersionMemberDO::getSetVersionId,
+                                LinkedHashMap::new, Collectors.toList()));
+        return MesQaCommonRegulationSetRespVO.builder()
+                .id(set.getId())
+                .setCode(set.getSetCode())
+                .setName(set.getSetName())
+                .setStatus(set.getSetStatus())
+                .currentVersionId(set.getCurrentVersionId())
+                .remark(set.getRemark())
+                .versions(versions.stream()
+                        .map(version -> buildCommonRegulationSetVersionResp(
+                                set, version, membersByVersionId.getOrDefault(version.getId(), List.of())))
+                        .toList())
+                .build();
+    }
+
+    private MesQaCommonRegulationSetRespVO.Version buildCommonRegulationSetVersionResp(
+            MesQaCommonRegulationSetDO set,
+            MesQaCommonRegulationSetVersionDO version,
+            List<MesQaCommonRegulationSetVersionMemberDO> members) {
+        return MesQaCommonRegulationSetRespVO.Version.builder()
+                .id(version.getId())
+                .setId(version.getSetId())
+                .versionNo(version.getVersionNo())
+                .lifecycleStatus(version.getLifecycleStatus())
+                .effectiveDate(version.getEffectiveDate())
+                .publishedAt(version.getPublishedAt())
+                .retiredAt(version.getRetiredAt())
+                .remark(version.getRemark())
+                .currentPublished(Objects.equals(set.getCurrentVersionId(), version.getId())
+                        && Objects.equals(MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED,
+                        version.getLifecycleStatus()))
+                .members(members.stream()
+                        .map(this::buildCommonRegulationSetMemberResp)
+                        .toList())
+                .build();
+    }
+
+    private MesQaCommonRegulationSetRespVO.Member buildCommonRegulationSetMemberResp(
+            MesQaCommonRegulationSetVersionMemberDO member) {
+        CommonPublishedVersion commonVersion = requireCommonPublishedVersion(member.getRegulationVersionId());
+        MesQaInspectionRegulationPublishedVersionRespVO published =
+                buildVersionResp(commonVersion.regulation(), commonVersion.version());
+        return MesQaCommonRegulationSetRespVO.Member.builder()
+                .id(member.getId())
+                .commonDccProjectCodeId(commonVersion.regulation().getDccProjectCodeId())
+                .commonRegulationId(commonVersion.regulation().getId())
+                .commonRegulationVersionId(commonVersion.version().getId())
+                .commonRegulationCode(commonVersion.regulation().getRegulationCode())
+                .commonRegulationName(commonVersion.regulation().getRegulationName())
+                .versionNo(commonVersion.version().getVersionNo())
+                .lifecycleStatus(commonVersion.version().getLifecycleStatus())
+                .effectiveDate(commonVersion.version().getEffectiveDate())
+                .publishedAt(commonVersion.version().getPublishedAt())
+                .sort(member.getSort())
+                .memberRole(member.getMemberRole())
+                .remark(member.getRemark())
+                .processes(published.getProcesses())
+                .build();
+    }
+
+    private CommonPublishedVersion requireCommonPublishedVersion(Long commonRegulationVersionId) {
+        if (commonRegulationVersionId == null) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, null);
+        }
+        MesQaInspectionRegulationVersionDO version = versionMapper.selectById(commonRegulationVersionId);
+        if (version == null) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, commonRegulationVersionId);
+        }
+        if (!Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus())) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED, version.getId());
+        }
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(version.getRegulationId());
+        if (regulation == null) {
+            throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, version.getRegulationId());
+        }
+        if (!Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                regulation.getOwnerModule())) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID,
+                    "只能绑定通用检验规程版本，regulationId=" + regulation.getId());
+        }
+        if (!Objects.equals(STATUS_PUBLISHED, regulation.getLifecycleStatus())
+                || !Objects.equals(regulation.getCurrentVersionId(), version.getId())) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID,
+                    "只能绑定当前已发布通用检验规程版本，versionId=" + version.getId());
+        }
+        return new CommonPublishedVersion(regulation, version);
+    }
+
+    private void disableEnabledCommonRegulationBinding(Long productId) {
+        commonRegulationProductBindingMapper.updateEnabledStatusByProductId(
+                productId, MesQaCommonRegulationProductBindingDO.STATUS_DISABLED);
+    }
+
+    private MesQaCommonRegulationBindingRespVO buildCommonBindingResp(
+            Long productDccProjectCodeId, Long productId, MesQaCommonRegulationProductBindingDO binding) {
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(binding.getRegulationId());
+        MesQaInspectionRegulationVersionDO version = versionMapper.selectById(binding.getRegulationVersionId());
+        if (regulation == null || version == null
+                || !Objects.equals(version.getRegulationId(), regulation.getId())) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID,
+                    "绑定引用的通用规程版本不存在，bindingId=" + binding.getId());
+        }
+        return buildCommonBindingResp(productDccProjectCodeId, productId, binding, regulation, version);
+    }
+
+    private MesQaCommonRegulationBindingRespVO buildCommonBindingResp(
+            Long productDccProjectCodeId, Long productId, MesQaCommonRegulationProductBindingDO binding,
+            MesQaInspectionRegulationDO regulation, MesQaInspectionRegulationVersionDO version) {
+        MesQaCommonRegulationSetDO set = binding.getCommonRegulationSetId() == null
+                ? null : commonRegulationSetMapper.selectById(binding.getCommonRegulationSetId());
+        MesQaCommonRegulationSetVersionDO setVersion = binding.getCommonRegulationSetVersionId() == null
+                ? null : commonRegulationSetVersionMapper.selectById(binding.getCommonRegulationSetVersionId());
+        if ((binding.getCommonRegulationSetId() != null && set == null)
+                || (binding.getCommonRegulationSetVersionId() != null && setVersion == null)) {
+            throw exception(QA_COMMON_REGULATION_BINDING_INVALID,
+                    "绑定引用的通用规程套不存在，bindingId=" + binding.getId());
+        }
+        return MesQaCommonRegulationBindingRespVO.builder()
+                .bindingId(binding.getId())
+                .productDccProjectCodeId(productDccProjectCodeId)
+                .productId(productId)
+                .commonRegulationSetId(set == null ? null : set.getId())
+                .commonRegulationSetVersionId(setVersion == null ? null : setVersion.getId())
+                .commonRegulationSetCode(set == null ? null : set.getSetCode())
+                .commonRegulationSetName(set == null ? null : set.getSetName())
+                .commonRegulationSetVersionNo(setVersion == null ? null : setVersion.getVersionNo())
+                .commonDccProjectCodeId(regulation.getDccProjectCodeId())
+                .commonRegulationId(regulation.getId())
+                .commonRegulationVersionId(version.getId())
+                .commonRegulationCode(regulation.getRegulationCode())
+                .commonRegulationName(regulation.getRegulationName())
+                .versionNo(version.getVersionNo())
+                .lifecycleStatus(version.getLifecycleStatus())
+                .effectiveDate(version.getEffectiveDate())
+                .publishedAt(version.getPublishedAt())
+                .scopeCode(binding.getScopeCode())
+                .bindingStatus(binding.getBindingStatus())
+                .build();
     }
 
     private MesQaInspectionRegulationDO requireLockedRegulation(Long dccProjectCodeId, Long qaRegulationId) {
@@ -880,5 +1438,14 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
     private record DraftContext(MesQaInspectionRegulationDO regulation,
                                 MesQaInspectionRegulationVersionDO version) {
+    }
+
+    private record CommonPublishedVersion(MesQaInspectionRegulationDO regulation,
+                                          MesQaInspectionRegulationVersionDO version) {
+    }
+
+    private record CommonPublishedSetVersion(MesQaCommonRegulationSetDO set,
+                                             MesQaCommonRegulationSetVersionDO version,
+                                             List<MesQaCommonRegulationSetVersionMemberDO> members) {
     }
 }

@@ -188,7 +188,16 @@ class FormCenterTemplateImportRuntimeTest extends BaseMockitoUnitTest {
 
     private void mockRecognizer() {
         when(templateRecognizer.recognize(any())).thenReturn(FormTemplateRecognition.success(List.of(
-                FormRecognizedField.required("lossReason", "损耗原因", "textarea"))));
+                FormRecognizedField.required("lossReason", "损耗原因", "textarea")), templateSchema()));
+    }
+
+    private String templateSchema() {
+        return """
+                {
+                  "sheetLayoutJson":"{\\"rows\\":{\\"0\\":{\\"cells\\":{\\"0\\":{\\"text\\":\\"损耗原因\\"},\\"1\\":{\\"text\\":\\"\\",\\"fillForm\\":{\\"field\\":\\"lossReason\\",\\"component\\":\\"Input\\",\\"componentFlag\\":\\"textarea\\",\\"placeholder\\":\\"请输入损耗原因\\"}}}}}}",
+                  "cellRules":[{"rowIndex":0,"columnIndex":1,"valueType":"STRING","componentFlag":"textarea","label":"损耗原因"}]
+                }
+                """;
     }
 
     private void mockPendingApproval() {

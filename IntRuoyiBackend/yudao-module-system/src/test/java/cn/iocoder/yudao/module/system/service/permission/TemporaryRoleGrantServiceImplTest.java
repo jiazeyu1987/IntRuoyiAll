@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryro
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.temporaryrole.TemporaryRoleGrantReviewSummaryRespVO;
 import cn.iocoder.yudao.module.system.service.notify.NotifySendService;
 import cn.iocoder.yudao.module.system.service.permission.bo.TemporaryRoleGrantCreateCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import jakarta.annotation.Resource;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -37,9 +38,9 @@ import static org.mockito.Mockito.*;
 @Import({TemporaryRoleGrantServiceImpl.class, PermissionServiceImpl.class})
 class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
 
-    private static final Long USER_ID = 2001L;
-    private static final Long ROLE_ID = 3001L;
-    private static final Long MENU_ID = 4001L;
+    private static final Long USER_ID = 93002001L;
+    private static final Long ROLE_ID = 93003001L;
+    private static final Long MENU_ID = 93004001L;
     private static final String PERMISSION = "system:temporary-role-grant:test";
 
     @Resource
@@ -69,6 +70,8 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
     private SystemEntitlementService systemEntitlementService;
     @MockitoBean
     private NotifySendService notifySendService;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
 
     @Test
     void createGrant_shouldRejectMissingOrPastExpireTime() {

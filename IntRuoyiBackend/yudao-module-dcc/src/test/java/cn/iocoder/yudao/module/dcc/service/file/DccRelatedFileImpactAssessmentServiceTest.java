@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactTaskMapper
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationRelationSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -38,6 +39,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_I
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_IMPACT_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_IMPACT_REVISION_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PUBLICATION_IMPACT_VERSION_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -45,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -63,6 +66,7 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileMapper controlledFileMapper;
     @Mock private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Mock private DccPublicationFollowupStatusService followupStatusService;
+    @Mock private DccProjectAccessService projectAccessService;
 
     @InjectMocks
     private DccRelatedFileImpactAssessmentServiceImpl service;
@@ -73,6 +77,7 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
+        lenient().doNothing().when(projectAccessService).assertProjectOwner(any(), any());
         lenient().doAnswer(invocation -> {
             DccPublicationImpactTaskDO proposed = invocation.getArgument(0);
             tasksByMaster.computeIfAbsent(proposed.getRelatedMasterId(), ignored -> {
@@ -319,7 +324,7 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
         when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
         DccControlledFileDO source = DccControlledFileDO.builder()
-                .id(200L).masterId(20L).requesterId(99L).versionNo("A/1")
+                .id(200L).masterId(20L).dccProjectCodeId(3000L).requesterId(99L).versionNo("A/1")
                 .revisionCode("A").iterationNo(1)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
         when(controlledFileMapper.selectById(200L)).thenReturn(source);
@@ -339,10 +344,10 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
         task.setRelatedActiveControlledFileId(200L);
         when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
-        DccControlledFileDO a1 = DccControlledFileDO.builder().id(200L).masterId(20L).requesterId(99L)
+        DccControlledFileDO a1 = DccControlledFileDO.builder().id(200L).masterId(20L).dccProjectCodeId(3000L).requesterId(99L)
                 .versionNo("A/1").revisionCode("A").iterationNo(1)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
-        DccControlledFileDO a2 = DccControlledFileDO.builder().id(201L).masterId(20L).requesterId(99L)
+        DccControlledFileDO a2 = DccControlledFileDO.builder().id(201L).masterId(20L).dccProjectCodeId(3000L).requesterId(99L)
                 .versionNo("A/2").revisionCode("A").iterationNo(2).status("WORKING").build();
         when(controlledFileMapper.selectById(200L)).thenReturn(a1);
         when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(a1, a2));
@@ -366,6 +371,60 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getRevisionOptions_projectOwnerDifferentFromRequesterCanSeeCurrentIterations() {
+        DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 1074L, 2);
+        task.setRelatedActiveControlledFileId(200L);
+        when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
+        DccControlledFileDO a1 = DccControlledFileDO.builder().id(200L).masterId(20L).dccProjectCodeId(3000L)
+                .requesterId(99L).versionNo("A/1").revisionCode("A").iterationNo(1)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        DccControlledFileDO a2 = DccControlledFileDO.builder().id(201L).masterId(20L).dccProjectCodeId(3000L)
+                .requesterId(99L).versionNo("A/2").revisionCode("A").iterationNo(2).status("WORKING").build();
+        when(controlledFileMapper.selectById(200L)).thenReturn(a1);
+        when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(a1, a2));
+        when(controlledFileMasterMapper.selectById(20L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(20L).currentActiveControlledFileId(200L).build());
+
+        DccPublicationImpactRevisionOptions options = service.getRevisionOptions(1074L, 10L);
+
+        assertEquals(List.of(200L, 201L), options.sourceIterations().stream()
+                .map(DccPublicationImpactRevisionOption::controlledFileId).toList());
+        verify(projectAccessService).assertProjectOwner(1074L, 3000L);
+    }
+
+    @Test
+    void getRevisionOptions_originalRequesterWithoutProjectOwnerIsRejected() {
+        DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
+        task.setRelatedActiveControlledFileId(200L);
+        when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
+        DccControlledFileDO active = DccControlledFileDO.builder().id(200L).masterId(20L).dccProjectCodeId(3000L)
+                .requesterId(99L).versionNo("A/1").revisionCode("A").iterationNo(1)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(200L)).thenReturn(active);
+        when(controlledFileMasterMapper.selectById(20L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(20L).currentActiveControlledFileId(200L).build());
+        doThrow(new ServiceException(DCC_PROJECT_ACCESS_DENIED))
+                .when(projectAccessService).assertProjectOwner(99L, 3000L);
+
+        assertServiceException(() -> service.getRevisionOptions(99L, 10L), DCC_PROJECT_ACCESS_DENIED);
+    }
+
+    @Test
+    void linkExistingMajorRevision_projectOwnerDifferentFromRequesterCanLinkOpenRevision() {
+        DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 1074L, 2);
+        when(taskMapper.selectByIdAndTenant(1L, 10L)).thenReturn(task);
+        DccControlledFileDO revision = openRevision(500L, 20L, 99L);
+        when(controlledFileMapper.selectById(500L)).thenReturn(revision);
+        when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(revision));
+        when(taskMapper.linkRevision(1L, 10L, 2, 500L, "B/1", "关联")).thenReturn(1);
+
+        service.linkExistingMajorRevision(1074L, 10L, 2, 500L, "关联");
+
+        verify(projectAccessService).assertProjectOwner(1074L, 3000L);
+        verify(taskMapper).linkRevision(1L, 10L, 2, 500L, "B/1", "关联");
+    }
+
+    @Test
     void getRevisionOptions_usesMasterCurrentActiveFamilyWhenFrozenVersionWasSuperseded() {
         DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 2);
         task.setRelatedActiveControlledFileId(200L);
@@ -373,14 +432,14 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMasterMapper.selectById(20L)).thenReturn(DccControlledFileMasterDO.builder()
                 .id(20L).currentActiveControlledFileId(300L).build());
         DccControlledFileDO frozenA1 = DccControlledFileDO.builder().id(200L).masterId(20L)
-                .requesterId(99L).versionNo("A/1").revisionCode("A").iterationNo(1)
+                .dccProjectCodeId(3000L).requesterId(99L).versionNo("A/1").revisionCode("A").iterationNo(1)
                 .status(DccControlledFileStatusEnum.SUPERSEDED.getStatus()).build();
         DccControlledFileDO currentB1 = DccControlledFileDO.builder().id(300L).masterId(20L)
-                .requesterId(99L).versionNo("B/1").revisionCode("B").iterationNo(1)
+                .dccProjectCodeId(3000L).requesterId(99L).versionNo("B/1").revisionCode("B").iterationNo(1)
                 .changeType(DccControlledFileChangeTypeEnum.REVISION.getCode())
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
         DccControlledFileDO workingB2 = DccControlledFileDO.builder().id(301L).masterId(20L)
-                .requesterId(99L).versionNo("B/2").revisionCode("B").iterationNo(2)
+                .dccProjectCodeId(3000L).requesterId(99L).versionNo("B/2").revisionCode("B").iterationNo(2)
                 .changeType(DccControlledFileChangeTypeEnum.REVISION.getCode()).status("WORKING").build();
         when(controlledFileMapper.selectById(300L)).thenReturn(currentB1);
         when(controlledFileMapper.selectListByMasterId(20L)).thenReturn(List.of(frozenA1, currentB1, workingB2));
@@ -505,7 +564,7 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     }
 
     private DccControlledFileDO openRevision(Long id, Long masterId, Long requesterId) {
-        return DccControlledFileDO.builder().id(id).masterId(masterId).requesterId(requesterId)
+        return DccControlledFileDO.builder().id(id).masterId(masterId).dccProjectCodeId(3000L).requesterId(requesterId)
                 .versionNo("B/1").changeType(DccControlledFileChangeTypeEnum.REVISION.getCode())
                 .status(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus()).build();
     }

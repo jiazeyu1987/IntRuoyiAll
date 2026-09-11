@@ -25,9 +25,15 @@ public interface MesProRouteFlowConfigService {
 
     void saveRouteFlowConfigForConfigPackageImport(@Valid MesProRouteFlowConfigSaveReqVO saveReqVO);
 
-    MesProRouteProcessDeviceParameterRespVO getRouteProcessDeviceParameterConfig(Long routeProcessId);
+    MesProRouteProcessDeviceParameterRespVO getRouteProcessDeviceParameterConfig(
+            Long routeVersionId, Long routeProcessId);
 
-    Long saveRouteProcessDeviceParameterRule(@Valid MesProRouteDeviceParameterRuleSaveReqVO saveReqVO);
+    MesProRouteProcessDeviceParameterRespVO saveRouteProcessDeviceParameterRule(
+            @Valid MesProRouteDeviceParameterRuleSaveReqVO saveReqVO);
+
+    MesProRouteProcessDeviceParameterRespVO deleteRouteProcessDeviceParameterRule(
+            @Valid cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig
+                    .MesProRouteDeviceParameterRuleDeleteReqVO deleteReqVO);
 
     List<MesProRouteBatchRecordAttachmentOwnerRespVO> getBatchRecordAttachmentOwners(Long routeId,
                                                                                      Long routeVersionId);

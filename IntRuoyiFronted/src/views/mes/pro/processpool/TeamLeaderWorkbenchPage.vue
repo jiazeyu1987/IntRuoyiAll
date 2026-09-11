@@ -4663,7 +4663,7 @@ const showProductionActiveOrderModule = computed(
     (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'activeOrder')
 )
 const showProductionProcessConfigModule = computed(
-  () => isProductionLeader.value && !showProductionModuleTabs.value
+  () => false
 )
 const showProductionConfigModule = computed(
   () => isProductionLeader.value && !showProductionModuleTabs.value
@@ -6002,12 +6002,11 @@ const saveProcessConfigOverageLimit = async (row: TeamLeaderProcessConfigRowResp
   }
   processConfigSubmitting.value = true
   try {
-    const saved = await saveTeamLeaderProcessOverageLimit({
+    await saveTeamLeaderProcessOverageLimit({
       routeProcessId: row.routeProcessId,
       processId: row.processId,
       overagePercent
     })
-    row.overagePercent = saved.overagePercent
     ElMessage.success('允许超量比例已保存')
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '允许超量比例保存失败'))
@@ -8176,6 +8175,7 @@ const resolveSubmissionMaterialDeviceRows = (
   })
   return [...deviceMap.entries()].map(([key, device]) => {
     const inMeteringValidityPeriod =
+      resolveSubmissionDeviceInlineMeteringValidity(device) ??
       meteringValidityMap.get(String(device.deviceId || '')) ??
       meteringValidityMap.get(String(device.deviceCode || ''))
     return toSubmissionMaterialDeviceRow(
@@ -8528,9 +8528,6 @@ const loadLegacyProductionWorkbenchData = () => {
   })
   loadActiveOrders().catch((error) => {
     ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
-  })
-  loadProcessConfigRows().catch((error) => {
-    ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
   })
 }
 
@@ -9506,7 +9503,7 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
       requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
     )
     const confirmMessage = preview.hasHistoricalRuntimeData
-      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。确认后会先删除这些历史业务结果，并删除生产快照、PQC 快照，再按当前最新数据重建。${preview.releaseApplicationCount > 0 ? ` 另外将删除 ${preview.releaseApplicationCount} 条放行申请历史。` : ''}`
+      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。确认后会先删除这些历史业务结果，并删除生产快照、PQC 快照，再按当前最新数据重建。${preview.releaseApplicationCount > 0 ? ` 当前已有 ${preview.releaseApplicationCount} 条放行申请，后端将禁止重建，请先完成或关闭放行链路后再操作。` : ''}`
       : '确认重建当前活跃订单的生产快照和 PQC 快照？系统会删除旧生产快照、PQC 快照，并按当前最新数据重新生成。'
     await ElMessageBox.confirm(confirmMessage, '重建活跃订单', {
       type: preview.hasHistoricalRuntimeData ? 'warning' : 'info',

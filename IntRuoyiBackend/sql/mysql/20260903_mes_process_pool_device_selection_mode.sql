@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260810_mes_process_pool_device_parameter_select_options; type=schema; riskLevel=medium
 DROP PROCEDURE IF EXISTS ensure_mes_device_selection_column;
 DELIMITER $$
 CREATE PROCEDURE ensure_mes_device_selection_column(

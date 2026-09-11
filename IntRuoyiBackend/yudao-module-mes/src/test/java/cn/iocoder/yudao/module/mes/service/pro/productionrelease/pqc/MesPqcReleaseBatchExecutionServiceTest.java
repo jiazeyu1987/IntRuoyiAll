@@ -17,9 +17,6 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempote
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,7 +57,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
-    @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesPqcReleaseDossierPort dossierPort;
     @Mock private MesProductionReleaseBatchExecutionPort batchExecutionPort;
     @Mock private MesProductionReleaseReportStageInitializer reportStageInitializer;
@@ -75,17 +71,12 @@ class MesPqcReleaseBatchExecutionServiceTest {
     void setUp() {
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesPqcProductionReleaseServiceImpl(
-                applicationMapper, workTaskMapper, candidateResolver, dossierPort,
+                applicationMapper, workTaskMapper, dossierPort,
                 batchExecutionPort, reportStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
         lenient().when(workTaskMapper.selectById(PQC_WORK_TASK_ID)).thenReturn(workTask());
-        lenient().when(candidateResolver.resolveRequiredCandidates(
-                        TENANT_ID, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER))
-                .thenReturn(new MesProductionReleaseRoleCandidates(
-                        91L, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER,
-                        List.of(PQC_USER_ID, 7102L), "pqc-candidate-hash"));
         lenient().when(dossierPort.readiness(any(), eq(PQC_USER_ID)))
                 .thenReturn(MesPqcReleaseDossierReadiness.ready());
     }
@@ -236,6 +227,22 @@ class MesPqcReleaseBatchExecutionServiceTest {
     }
 
     @Test
+    void pqcReleasePageShowsFrozenCandidateTasksAfterRoleMembershipChanges() {
+        when(applicationMapper.selectListForPqcReleasePage(null, null)).thenReturn(
+                List.of(application().setId(APPLICATION_ID).setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)));
+        when(workTaskMapper.selectByIds(any())).thenReturn(
+                List.of(workTask(PQC_WORK_TASK_ID, APPLICATION_ID)));
+        when(nonconformanceReviewMapper.selectLatestBySourceIds(eq("PQC_RELEASE"), any())).thenReturn(List.of());
+
+        cn.iocoder.yudao.framework.common.pojo.PageResult<MesPqcProductionReleasePageItem> result =
+                service.getPqcReleasePage(PQC_USER_ID, new MesPqcProductionReleasePageQuery()
+                        .setPageNo(1).setPageSize(10).setViewStatus("PENDING"));
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(APPLICATION_ID, result.getList().get(0).getApplicationId());
+    }
+
+    @Test
     void pendingPageProjectsDossierBlockerOnlyForCurrentPage() {
         MesProcessPoolActiveOrderReleaseApplicationDO first = application()
                 .setId(7001L).setPqcReleaseWorkTaskId(8001L);
@@ -266,6 +273,24 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertEquals(MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
         verify(batchExecutionPort, never()).openOrCreate(any());
+    }
+
+    @Test
+    void frozenPqcCandidateCanRejectAfterRoleMembershipChanges() {
+        when(applicationMapper.rejectFromPending(eq(APPLICATION_ID), eq(VERSION), eq(PQC_USER_ID),
+                any(), eq("角色调整后按冻结候选处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("REJECT"))).thenReturn(1);
+
+        MesPqcProductionReleaseDecisionResult result = service.reject(PQC_USER_ID,
+                new MesPqcProductionReleaseRejectCommand()
+                        .setApplicationId(APPLICATION_ID)
+                        .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
+                        .setExpectedVersion(VERSION)
+                        .setIdempotencyKey("pqc-reject-after-role-change")
+                        .setRejectReason("角色调整后按冻结候选处理"));
+
+        assertEquals("REJECT", result.getDecision());
+        assertEquals(MesReleaseFlowStatus.PQC_RELEASE_REJECTED, result.getStatus());
     }
 
     @Test

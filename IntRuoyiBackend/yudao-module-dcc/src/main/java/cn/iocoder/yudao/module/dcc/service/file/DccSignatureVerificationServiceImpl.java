@@ -4,6 +4,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileSignatureModeEnum;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
@@ -54,6 +56,8 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
     @Resource
     private DccElectronicSignatureImageService signatureImageService;
     @Resource
+    private DccControlledFileSignatureMapper signatureMapper;
+    @Resource
     private ElectronicSignatureService electronicSignatureService;
 
     @Override
@@ -65,6 +69,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
         String meaningCode = resolveMeaningCode(stageCode, actionType);
         AdminUserDO user = adminUserService.getUser(actorId);
         LocalDateTime signedAt = LocalDateTime.now().withNano(0);
+        String reasonText = normalizeReasonText(comment, meaningCode);
         SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, meaningCode);
         DccElectronicSignatureImageSnapshot imageSnapshot = signatureImageService.requireActiveSnapshot(actorId);
         DccControlledFileSignatureEvidence evidence = signatureEvidenceService.createEvidence(
@@ -85,7 +90,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                         .authorizationBasis(actorSnapshot.authorizationBasis())
                         .authenticationMethod(actorSnapshot.authenticationMethod())
                         .signedAt(signedAt)
-                        .reasonText(comment)
+                        .reasonText(reasonText)
                         .controlledCopyHashStatus(DccControlledFileSignatureEvidenceServiceImpl.COPY_HASH_STATUS_NOT_APPLICABLE)
                         .signatureImageId(imageSnapshot.getImageId())
                         .signatureImageVersionNo(imageSnapshot.getVersionNo())
@@ -106,22 +111,108 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                 subjectId,
                 DccControlledFileSignatureSubjectAdapter.subjectVersion(subjectId),
                 password,
-                comment,
+                reasonText,
                 idempotencyKey(actorId, controlledFileId, taskId, stageCode, actionType, meaningCode, evidence),
                 null,
                 null));
+        DccControlledFileSignatureDO projection = persistSignatureEvidence(actorId, controlledFileId, taskId,
+                actionType, reasonText, signedAt, meaningCode, actorSnapshot, evidence, signature);
         signatureImageService.markReferenced(imageSnapshot.getImageId());
         return DccUnifiedSignatureResult.builder()
-                .signatureId(signature.signatureId())
+                .signatureId(projection.getId())
                 .controlledFileId(controlledFileId)
                 .revisionId(evidence.getRevisionId())
                 .versionNo(evidence.getVersionNo())
                 .meaningCode(meaningCode)
                 .controlledCopyHashStatus(evidence.getControlledCopyHashStatus())
-                .evidenceStatus(signature.verificationStatus())
-                .evidenceHash(signature.evidenceHash())
-                .signedAt(signature.signedAt())
+                .evidenceStatus(projection.getEvidenceStatus())
+                .evidenceHash(projection.getEvidenceHash())
+                .signedAt(projection.getSignedAt())
                 .build();
+    }
+
+    private DccControlledFileSignatureDO persistSignatureEvidence(Long actorId, Long controlledFileId, String taskId,
+                                                                  String actionType, String comment,
+                                                                  LocalDateTime signedAt, String meaningCode,
+                                                                  SignatureActorSnapshot actorSnapshot,
+                                                                  DccControlledFileSignatureEvidence evidence,
+                                                                  ElectronicSignatureResult signature) {
+        DccControlledFileSignatureDO record = DccControlledFileSignatureDO.builder()
+                .controlledFileId(controlledFileId)
+                .revisionId(evidence.getRevisionId())
+                .versionNo(evidence.getVersionNo())
+                .taskId(taskId)
+                .actorId(actorId)
+                .actorUsernameSnapshot(actorSnapshot.actorUsernameSnapshot())
+                .actorNicknameSnapshot(actorSnapshot.actorNicknameSnapshot())
+                .actorDeptIdSnapshot(actorSnapshot.actorDeptIdSnapshot())
+                .actorDeptNameSnapshot(actorSnapshot.actorDeptNameSnapshot())
+                .actorPostNamesSnapshot(actorSnapshot.actorPostNamesSnapshot())
+                .actorRoleNamesSnapshot(actorSnapshot.actorRoleNamesSnapshot())
+                .signaturePurpose(actorSnapshot.signaturePurpose())
+                .authorizationBasis(actorSnapshot.authorizationBasis())
+                .authenticationMethod(actorSnapshot.authenticationMethod())
+                .recordVersionSnapshot(evidence.getRecordVersionSnapshot())
+                .recordHashSnapshot(evidence.getRecordHashSnapshot())
+                .clientIpSnapshot(actorSnapshot.clientIpSnapshot())
+                .userAgentSnapshot(actorSnapshot.userAgentSnapshot())
+                .snapshotStatus(actorSnapshot.snapshotStatus())
+                .actionType(actionType)
+                .meaningCode(meaningCode)
+                .meaningLabel(resolveMeaningLabel(meaningCode))
+                .signatureMode(actorSnapshot.authenticationMethod())
+                .passwordVerified(Boolean.TRUE)
+                .comment(comment)
+                .signedAt(signedAt)
+                .sourceFileId(evidence.getSourceFileId())
+                .sourceFileHash(evidence.getSourceFileHash())
+                .sourceFileHashAlgorithm(evidence.getSourceFileHashAlgorithm())
+                .sourceFileHashStatus(evidence.getSourceFileHashStatus())
+                .controlledCopyFileId(evidence.getControlledCopyFileId())
+                .controlledCopyHash(evidence.getControlledCopyHash())
+                .controlledCopyHashAlgorithm(evidence.getControlledCopyHashAlgorithm())
+                .controlledCopyHashStatus(evidence.getControlledCopyHashStatus())
+                .signatureImageId(evidence.getSignatureImageId())
+                .signatureImageVersionNo(evidence.getSignatureImageVersionNo())
+                .signatureImageFileId(evidence.getSignatureImageFileId())
+                .signatureImageFileUrl(evidence.getSignatureImageFileUrl())
+                .signatureImageSha256(evidence.getSignatureImageSha256())
+                .signatureImageContentType(evidence.getSignatureImageContentType())
+                .signatureImageFileSize(evidence.getSignatureImageFileSize())
+                .signatureImageStatusSnapshot(evidence.getSignatureImageStatusSnapshot())
+                .signatureImageVerifiedStatus(evidence.getSignatureImageVerifiedStatus())
+                .evidencePayloadVersion(evidence.getEvidencePayloadVersion())
+                .evidenceKeyVersion(evidence.getEvidenceKeyVersion())
+                .evidenceHash(evidence.getEvidenceHash())
+                .evidenceHashAlgorithm(evidence.getEvidenceHashAlgorithm())
+                .evidenceStatus(evidence.getEvidenceStatus())
+                .build();
+        if (signatureMapper.insert(record) <= 0) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
+        }
+        return record;
+    }
+
+    private static String normalizeReasonText(String comment, String meaningCode) {
+        return StrUtil.blankToDefault(StrUtil.trim(comment), resolveMeaningLabel(meaningCode));
+    }
+
+    private static String resolveMeaningLabel(String meaningCode) {
+        return switch (StrUtil.trimToEmpty(meaningCode)) {
+            case "APPROVE", "APPLICANT_REWORK_APPROVE", "DOC_CONTROL_REVIEW_APPROVE", "MATRIX_REVIEW_APPROVE",
+                    "MATRIX_APPROVAL_APPROVE", "DOC_CONTROL_APPROVAL_APPROVE" -> "审批通过";
+            case "REJECT", "APPLICANT_REWORK_REJECT", "DOC_CONTROL_REVIEW_REJECT", "MATRIX_REVIEW_REJECT",
+                    "MATRIX_APPROVAL_REJECT", "DOC_CONTROL_APPROVAL_REJECT" -> "审批驳回";
+            case "RETURN", "APPLICANT_REWORK_RETURN", "DOC_CONTROL_REVIEW_RETURN", "MATRIX_REVIEW_RETURN",
+                    "MATRIX_APPROVAL_RETURN", "DOC_CONTROL_APPROVAL_RETURN" -> "流程回退";
+            case "TRANSFER", "APPLICANT_REWORK_TRANSFER", "DOC_CONTROL_REVIEW_TRANSFER", "MATRIX_REVIEW_TRANSFER",
+                    "MATRIX_APPROVAL_TRANSFER", "DOC_CONTROL_APPROVAL_TRANSFER" -> "任务转办";
+            case "ADD_SIGN", "APPLICANT_REWORK_ADD_SIGN", "DOC_CONTROL_REVIEW_ADD_SIGN", "MATRIX_REVIEW_ADD_SIGN",
+                    "MATRIX_APPROVAL_ADD_SIGN", "DOC_CONTROL_APPROVAL_ADD_SIGN" -> "加签";
+            case "DISTRIBUTION_ACK" -> "分发确认";
+            case "DISTRIBUTION_SIGN" -> "分发签收";
+            default -> meaningCode;
+        };
     }
 
     private static String idempotencyKey(Long actorId, Long controlledFileId, String taskId, String stageCode,

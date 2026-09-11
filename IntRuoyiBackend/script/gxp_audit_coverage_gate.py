@@ -73,20 +73,21 @@ def discover_annotations(root: Path) -> dict[str, str]:
         re.MULTILINE,
     )
     result: dict[str, str] = {}
-    for current_dir, dir_names, file_names in os.walk(root):
-        dir_names[:] = [name for name in dir_names if name not in SKIPPED_DIRS]
-        for file_name in file_names:
-            if not file_name.endswith(".java"):
-                continue
-            java_file = Path(current_dir) / file_name
-            text = java_file.read_text(encoding="utf-8")
-            package_match = re.search(r"^package\s+([\w.]+);", text, re.MULTILINE)
-            class_match = re.search(r"\bclass\s+(\w+)", text)
-            if not package_match or not class_match:
-                continue
-            fqcn = f"{package_match.group(1)}.{class_match.group(1)}"
-            for operation_id, method_name in pattern.findall(text):
-                result[operation_id] = f"{fqcn}#{method_name}"
+    for source_root in root.glob("*/src/main/java"):
+        for current_dir, dir_names, file_names in os.walk(source_root):
+            dir_names[:] = [name for name in dir_names if name not in SKIPPED_DIRS]
+            for file_name in file_names:
+                if not file_name.endswith(".java"):
+                    continue
+                java_file = Path(current_dir) / file_name
+                text = java_file.read_text(encoding="utf-8")
+                package_match = re.search(r"^package\s+([\w.]+);", text, re.MULTILINE)
+                class_match = re.search(r"\bclass\s+(\w+)", text)
+                if not package_match or not class_match:
+                    continue
+                fqcn = f"{package_match.group(1)}.{class_match.group(1)}"
+                for operation_id, method_name in pattern.findall(text):
+                    result[operation_id] = f"{fqcn}#{method_name}"
     return result
 
 
@@ -97,7 +98,11 @@ def source_locator_exists(root: Path, operation: Operation) -> bool:
         if not class_name or not method_name:
             return False
         class_suffix = Path(*class_name.split(".")).with_suffix(".java")
-        candidates = list(root.glob(f"**/src/main/java/{class_suffix.as_posix()}"))
+        candidates = [
+            source_root / class_suffix
+            for source_root in root.glob("*/src/main/java")
+            if (source_root / class_suffix).exists()
+        ]
         if not candidates:
             return False
         text = candidates[0].read_text(encoding="utf-8")

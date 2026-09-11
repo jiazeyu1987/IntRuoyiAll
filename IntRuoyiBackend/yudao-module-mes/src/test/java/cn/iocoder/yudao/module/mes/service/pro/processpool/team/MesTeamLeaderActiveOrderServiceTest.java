@@ -72,10 +72,16 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationProductBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -189,6 +195,10 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
+    private MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper;
+    @Mock
+    private MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper;
+    @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
@@ -229,7 +239,9 @@ class MesTeamLeaderActiveOrderServiceTest {
                 reviewCopyFieldMapper, reviewCopyMapper, eventRevisionDiffMapper, eventRevisionMapper,
                 quantityFragmentMapper, pqcAggregateDetailMapper, pqcPieceDetailMapper,
                 inspectionRegulationMapper, inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
-                inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService,
+                inspectionRegulationItemMapper, commonRegulationProductBindingMapper,
+                commonRegulationSetVersionMemberMapper,
+                pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper,
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
@@ -289,6 +301,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldReturnUnreleasedAllocationsBeforeRemovingActiveOrder() {
         MesProcessPoolActiveOrderDO activeOrder = existingActiveOrder(8101L, "ACTIVE", 7);
         when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder);
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L))).thenReturn(List.of());
         when(activeOrderMapper.removeActiveOrder(eq(8101L), eq(7), any(LocalDateTime.class))).thenReturn(1);
 
         service.removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO.builder()
@@ -298,6 +311,29 @@ class MesTeamLeaderActiveOrderServiceTest {
         order.verify(reportAllocationOrderChangeService)
                 .invalidateActiveOrder(8101L, 3001L, "活跃订单移除");
         order.verify(activeOrderMapper).removeActiveOrder(eq(8101L), eq(7), any(LocalDateTime.class));
+    }
+
+    @Test
+    void removeActiveOrderShouldRejectOrdersAlreadyInReleaseFlow() {
+        MesProcessPoolActiveOrderDO activeOrder = existingActiveOrder(8101L, "ACTIVE", 7);
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder);
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L))).thenReturn(List.of(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(8601L)
+                        .activeOrderId(8101L)
+                        .applicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
+                        .build()));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.removeActiveOrder(
+                MesTeamLeaderActiveOrderRemoveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .activeOrderId(8101L)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_APPLICATION_LOCKED.getCode(),
+                ex.getCode());
+        verify(reportAllocationOrderChangeService, never()).invalidateActiveOrder(any(), any(), any());
+        verify(activeOrderMapper, never()).removeActiveOrder(any(), any(), any());
     }
 
     @Test
@@ -888,13 +924,21 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Test
     void shouldFreezeCanonicalDeviceParametersForExactRouteProcess() {
         stubWorkOrderExists(confirmedWorkOrder());
-        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+        String routeSnapshot = withProductionDeviceConfiguration(activeRouteSnapshotJson(2), 928601L,
+                """
+                [{"deviceGroupKey":"DEFAULT","selectionMode":"SINGLE","deviceIds":[501]}]
+                """,
+                """
+                [
+                  {"routeProcessId":928601,"processId":6001,"deviceId":501,"parameterCode":"temperature",
+                   "parameterName":"温度","valueType":"DECIMAL","standardText":"0-80","upperLimit":80},
+                  {"routeProcessId":928601,"processId":6001,"deviceId":501,"parameterCode":"Pressure",
+                   "parameterName":"压力","valueType":"DECIMAL","standardText":"0-10","upperLimit":10}
+                ]
+                """);
+        stubFormalRouteQaContext(1001L, 448L, routeSnapshot,
                 publishedRegulation(9902L, 928609L, 6001L));
         stubSuccessfulActiveOrderInsert();
-        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
-                parameterRule(12L, 928601L, 6001L, 501L, "temperature", "80"),
-                parameterRule(11L, 928601L, 6001L, 501L, "Pressure", "10"),
-                parameterRule(13L, 999999L, 6001L, 501L, "ignored", "99")));
 
         service.addActiveOrder(activeOrderReq());
 
@@ -916,15 +960,24 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Test
     void shouldRejectDuplicateParameterCanonicalKeyBeforeSnapshotInsert() {
         stubWorkOrderExists(confirmedWorkOrder());
-        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+        String routeSnapshot = withProductionDeviceConfiguration(activeRouteSnapshotJson(2), 928601L,
+                """
+                [{"deviceGroupKey":"DEFAULT","selectionMode":"SINGLE","deviceIds":[501]}]
+                """,
+                """
+                [
+                  {"routeProcessId":928601,"processId":6001,"deviceId":501,"parameterCode":"pressure",
+                   "parameterName":"压力","valueType":"DECIMAL","standardText":"0-10","upperLimit":10},
+                  {"routeProcessId":928601,"processId":6001,"deviceId":501,"parameterCode":" PRESSURE ",
+                   "parameterName":"压力","valueType":"DECIMAL","standardText":"0-12","upperLimit":12}
+                ]
+                """);
+        stubFormalRouteQaContext(1001L, 448L, routeSnapshot,
                 publishedRegulation(9902L, 928609L, 6001L));
         when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolActiveOrderDO.class).setId(8101L);
             return 1;
         });
-        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
-                parameterRule(11L, 928601L, 6001L, 501L, "pressure", "10"),
-                parameterRule(12L, 928601L, 6001L, 501L, " PRESSURE ", "12")));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> service.addActiveOrder(activeOrderReq()));
@@ -1162,7 +1215,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void rebuildActiveOrderShouldRequireConfirmationBeforeDeletingHistoricalRuntimeData() {
-        stubRebuildHistoricalRuntimePreview();
+        stubRebuildHistoricalRuntimePreview(false);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.rebuildActiveOrder(
                 MesTeamLeaderActiveOrderRebuildReqBO.builder()
@@ -1182,7 +1235,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void rebuildActiveOrderShouldDeleteRuntimeHistoryThenRebuildSnapshotsFromCurrentSources() {
-        stubRebuildHistoricalRuntimePreview();
+        stubRebuildHistoricalRuntimePreview(false);
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
@@ -1219,7 +1272,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(orderProcessCompletionMapper).deleteByWorkOrderId(9001L);
         verify(pqcInspectionTaskMapper).deleteByActiveOrderId(8101L);
         verify(processSnapshotMapper).deleteByActiveOrderId(8101L);
-        verify(releaseApplicationMapper).deleteByActiveOrderId(8101L);
+        verify(releaseApplicationMapper, never()).deleteByActiveOrderId(8101L);
         verify(processPoolEventMapper).deleteActiveOrderRuntimeEventsByIds(Set.of(8801L, 8802L, 8803L));
         verify(feedbackMapper).deleteByIds(List.of(5501L));
         verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
@@ -1236,8 +1289,27 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void rebuildActiveOrderShouldRejectOrdersAlreadyInReleaseFlow() {
+        stubRebuildHistoricalRuntimePreview(true);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.rebuildActiveOrder(
+                MesTeamLeaderActiveOrderRebuildReqBO.builder()
+                        .leaderUserId(3001L)
+                        .activeOrderId(8101L)
+                        .confirmDeleteHistoricalRuntimeData(true)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_APPLICATION_LOCKED.getCode(),
+                ex.getCode());
+        verify(processSnapshotMapper, never()).deleteByActiveOrderId(any());
+        verify(pqcInspectionTaskMapper, never()).deleteByActiveOrderId(any());
+        verify(releaseApplicationMapper, never()).deleteByActiveOrderId(any());
+        verify(activeOrderMapper, never()).refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class));
+    }
+
+    @Test
     void rebuildActiveOrderShouldResolveLatestPublishedQaVersionInsteadOfRegulationPointer() {
-        stubRebuildHistoricalRuntimePreview();
+        stubRebuildHistoricalRuntimePreview(false);
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
@@ -2390,7 +2462,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build();
     }
 
-    private void stubRebuildHistoricalRuntimePreview() {
+    private void stubRebuildHistoricalRuntimePreview(boolean withReleaseApplication) {
         MesPqcInspectionTaskDO submittedTask = frozenPqcTask(8305L, "FIRST", "FIRST", 5)
                 .setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
                 .setSubmittedEventId(8802L);
@@ -2413,12 +2485,12 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .build()));
         when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L))
                 .thenReturn(List.of(frozenProcessSnapshot()));
-        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L))).thenReturn(List.of(
-                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L))).thenReturn(
+                withReleaseApplication ? List.of(MesProcessPoolActiveOrderReleaseApplicationDO.builder()
                         .id(8601L)
                         .activeOrderId(8101L)
                         .workOrderId(9001L)
-                        .build()));
+                        .build()) : List.of());
         when(processPoolEventMapper.selectListPqcByTaskId(any(), eq(8305L))).thenReturn(List.of(
                 MesProProcessPoolEventDO.builder()
                         .id(8803L)
@@ -2578,6 +2650,14 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .lifecycleStatus("ACTIVE")
                 .routeSnapshotJson(routeSnapshotJson)
                 .build()));
+        lenient().when(routeVersionMapper.selectById(activeRouteVersionId)).thenReturn(MesProRouteVersionDO.builder()
+                .id(activeRouteVersionId)
+                .routeId(922119L)
+                .versionNo("V-ACTIVE")
+                .active(Boolean.TRUE)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(routeSnapshotJson)
+                .build());
         lenient().when(itemMapper.selectBatchIds(any())).thenReturn(List.of(MesMdItemDO.builder()
                 .id(924005L)
                 .code("ID")
@@ -2660,16 +2740,23 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .map(regulation -> "{\"routeId\":922119,\"routeProcessId\":" + regulation.getRouteProcessId()
                         + ",\"useType\":\"SCHEDULE\",\"enabled\":true,\"productionQuantityFactor\":1.000000}")
                 .collect(java.util.stream.Collectors.joining(","));
+        String productionConfigs = source.stream()
+                .map(regulation -> "{\"routeProcessId\":" + regulation.getRouteProcessId()
+                        + ",\"processId\":" + regulation.getProcessId()
+                        + ",\"overagePercent\":10,\"lossReasons\":[],"
+                        + "\"deviceSelectionGroups\":[],\"parameterRules\":[]}")
+                .collect(java.util.stream.Collectors.joining(","));
         return """
                 {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [%s]
                     },
-                    "scheduleUseConfigs": [%s]
+                    "scheduleUseConfigs": [%s],
+                    "productionProcessConfigs": [%s]
                   }
                 }
-                """.formatted(nodes, configs);
+                """.formatted(nodes, configs, productionConfigs);
     }
 
     private static String activeRouteSnapshotJson(int processCount) {
@@ -2684,16 +2771,23 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .mapToObj(index -> "{\"routeId\":922119,\"routeProcessId\":" + (928600L + index)
                         + ",\"useType\":\"SCHEDULE\",\"enabled\":true,\"productionQuantityFactor\":1.000000}")
                 .collect(java.util.stream.Collectors.joining(","));
+        String productionConfigs = java.util.stream.IntStream.rangeClosed(1, processCount)
+                .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
+                        + ",\"processId\":" + (6000L + index)
+                        + ",\"overagePercent\":10,\"lossReasons\":[],"
+                        + "\"deviceSelectionGroups\":[],\"parameterRules\":[]}")
+                .collect(java.util.stream.Collectors.joining(","));
         return """
                 {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [%s]
                     },
-                    "scheduleUseConfigs": [%s]
+                    "scheduleUseConfigs": [%s],
+                    "productionProcessConfigs": [%s]
                   }
                 }
-                """.formatted(nodes, configs);
+                """.formatted(nodes, configs, productionConfigs);
     }
 
     private static String activeRouteSnapshotJsonWithRouteIdentity(int processCount) {
@@ -2701,6 +2795,20 @@ class MesTeamLeaderActiveOrderServiceTest {
         return snapshot.replaceFirst("\\{\\s*\\\"configSnapshots\\\":",
                 "{\\\"routeId\\\":922119,\\\"routeCode\\\":\\\"ROUTE-001\\\","
                         + "\\\"routeName\\\":\\\"冻结工艺路线\\\",\\\"configSnapshots\\\":");
+    }
+
+    private static String withProductionDeviceConfiguration(
+            String routeSnapshotJson, Long routeProcessId, String deviceGroupsJson, String parameterRulesJson) {
+        JSONObject root = JSON.parseObject(routeSnapshotJson);
+        JSONArray configs = root.getJSONObject("configSnapshots").getJSONArray("productionProcessConfigs");
+        JSONObject config = configs.stream()
+                .map(JSONObject.class::cast)
+                .filter(item -> Objects.equals(routeProcessId, item.getLong("routeProcessId")))
+                .findFirst()
+                .orElseThrow();
+        config.put("deviceSelectionGroups", JSON.parseArray(deviceGroupsJson));
+        config.put("parameterRules", JSON.parseArray(parameterRulesJson));
+        return root.toJSONString();
     }
 
     private static List<MesQaInspectionRegulationItemDO> defaultPqcItems(Long regulationVersionId) {

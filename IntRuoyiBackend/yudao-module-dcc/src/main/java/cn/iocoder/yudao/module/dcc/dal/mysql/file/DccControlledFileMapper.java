@@ -27,6 +27,13 @@ import java.util.Map;
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
 
+    default DccControlledFileDO selectBySubmitIdempotency(Long tenantId, Long submitterId, String idempotencyKey) {
+        return selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getTenantId, tenantId)
+                .eq(DccControlledFileDO::getSubmitterId, submitterId)
+                .eq(DccControlledFileDO::getSubmitIdempotencyKey, idempotencyKey));
+    }
+
     @Update("""
             UPDATE dcc_controlled_file
             SET checked_out_by = #{actorId},

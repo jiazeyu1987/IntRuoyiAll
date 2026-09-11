@@ -48,14 +48,32 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
     @Override
     public MesFrontlineParameterAuditResult resolveAndApply(MesProFrontlineFeedbackSubmitReqVO reqVO) {
         MesProFrontlineFeedbackPayloadReqVO payload = reqVO.getFeedbackPayload();
-        List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> readings =
-                payload.getDeviceParameterReadings();
+        return resolveAndApply(reqVO, null, null, payload.getSelectedDevices(),
+                payload.getDeviceParameterReadings());
+    }
+
+    @Override
+    public MesFrontlineParameterAuditResult resolveAndApplyMaterial(
+            MesProFrontlineFeedbackSubmitReqVO reqVO,
+            Long materialId,
+            String materialName,
+            List<MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO> selectedDevices,
+            List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> readings) {
+        return resolveAndApply(reqVO, materialId, materialName, selectedDevices, readings);
+    }
+
+    private MesFrontlineParameterAuditResult resolveAndApply(
+            MesProFrontlineFeedbackSubmitReqVO reqVO,
+            Long materialId,
+            String materialName,
+            List<MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO> selectedDevices,
+            List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> readings) {
         if (readings == null || readings.isEmpty()) {
             return MesFrontlineParameterAuditResult.empty();
         }
         ParameterSource source = resolveSource(reqVO);
-        Set<Long> selectedDeviceIds = payload.getSelectedDevices() == null ? Set.of()
-                : payload.getSelectedDevices().stream()
+        Set<Long> selectedDeviceIds = selectedDevices == null ? Set.of()
+                : selectedDevices.stream()
                 .filter(Objects::nonNull)
                 .map(MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO::getDeviceId)
                 .filter(Objects::nonNull)
@@ -78,7 +96,8 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
             if (rule != null) {
                 applyServerStandard(reading, normalizedCode, rule);
             }
-            auditItems.add(toAuditItem(index, reading, reasonCode, source.snapshotSource()));
+            auditItems.add(toAuditItem(index, materialId, materialName, reading,
+                    reasonCode, source.snapshotSource()));
         }
         int unresolvedCount = (int) auditItems.stream()
                 .filter(item -> MesFrontlineParameterAuditResult.STATUS_UNRESOLVED.equals(
@@ -184,13 +203,16 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
     private static void applyServerStandard(
             MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading,
             String normalizedCode, MesDeviceParameterSnapshotRule rule) {
+        boolean textValueType = MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(
+                rule.getValueType()) || MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(
+                rule.getValueType());
         reading.setDeviceId(rule.getDeviceId())
                 .setParameterCode(normalizedCode)
                 .setParameterName(rule.getParameterName())
                 .setUnit(rule.getUnit())
                 .setLowerLimit(rule.getLowerLimit())
                 .setUpperLimit(rule.getUpperLimit())
-                .setParameterStatus(resolveParameterStatus(reading.getValue(), rule));
+                .setParameterStatus(textValueType ? "NORMAL" : resolveParameterStatus(reading.getValue(), rule));
     }
 
     private static String resolveParameterStatus(BigDecimal value, MesDeviceParameterSnapshotRule rule) {
@@ -207,10 +229,13 @@ public class MesFrontlineParameterAuditServiceImpl implements MesFrontlineParame
     }
 
     private static MesFrontlineParameterAuditItem toAuditItem(
-            int readingIndex, MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading,
+            int readingIndex, Long materialId, String materialName,
+            MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading,
             String reasonCode, String snapshotSource) {
         return new MesFrontlineParameterAuditItem()
                 .setReadingIndex(readingIndex)
+                .setMaterialId(materialId)
+                .setMaterialName(materialName)
                 .setDeviceId(reading == null ? null : reading.getDeviceId())
                 .setParameterCode(reading == null ? null : reading.getParameterCode())
                 .setParameterName(reading == null ? null : reading.getParameterName())

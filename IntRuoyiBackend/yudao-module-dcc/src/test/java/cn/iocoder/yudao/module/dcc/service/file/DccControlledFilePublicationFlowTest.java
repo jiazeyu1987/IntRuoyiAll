@@ -168,7 +168,7 @@ class DccControlledFilePublicationFlowTest extends BaseMockitoUnitTest {
                 updates.stream().filter(item -> item.getId().equals(800L)).findFirst().orElseThrow().getSupersededByFileId());
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(),
                 updates.stream().filter(item -> item.getId().equals(900L)).findFirst().orElseThrow().getStatus());
-        verify(obsoleteFileStorageService).moveControlledFileArtifactsToObsoleteFolder(previousActive);
+        verify(obsoleteFileStorageService, never()).moveControlledFileArtifactsToObsoleteFolder(previousActive);
     }
 
     @Test

@@ -56,6 +56,7 @@
    - 如果 `yudao-server\target\yudao-server.jar` 被 Java 进程占用，先让本机后端运行在复制出的 runtime jar 上，释放 target jar 后再构建。
    - 不要在 target jar 被锁时反复点构建按钮。
    - 本地后端重启会走多模块编译；若阻塞在非目标模块的接口/实现签名漂移，先对失败模块跑定向 `mvn -pl <module> -DskipTests compile`，用最小签名对齐修复，再回到原重启链路。不要跳过失败模块或用旧 Jar 冒充新运行态。
+   - 多个 Codex 线程或终端同时在同一个 `E:\IntRuoyi\IntRuoyiBackend` 执行 Maven，会争抢同一套 `target` 目录并制造 `NoSuchFileException`、class 文件缺失、testCompile 假失败等噪声。重启或发布前先只读扫描 `java.exe` 命令行里的 `maven.multiModuleProjectDirectory=E:\IntRuoyi\IntRuoyiBackend`；发现非当前任务 Maven 时，先暂停对应任务或停止冲突进程，再重跑最小失败模块验证。
 
 5. 先验证真实 E2E 预览边界。
    - 构建预览必须包含 `-Mode build-release`、`-Component intruoyi`、`-SkipDatabaseSync`、`-SkipMinioSync`。
@@ -728,6 +729,7 @@
 - Verification: 失败 JSON 先冻结到任务目录；补充/修正 `script/tests` 后先 RED，再修正 SQL 首行；目标 pytest 与全量 migration policy gate 均通过后，才能进入 `build-release`。
 - Forbidden action: 不得为了 code-only 发布跳过 schema/data/permission/menu SQL 元数据门禁；不得把 `.sql` 文件名当作合法 `dependsOn`；不得手工编辑 manifest 或远端迁移状态绕过。
 - Evidence: `doc/tasks/20260719-current-head-codeonly-three-env/execution-log.md`；`r260719a` gate failed on `20260715_mes_schedule_capacity_mode_unification.sql` descriptive metadata and `20260717_bpm_form_center.sql` `type=schema,menu`; pre-release validation also caught `.sql` suffix in `20260718_mes_feedback_import_record_direct_progress.sql` dependsOn.
+- Supplementary evidence: `doc/tasks/20260911-commit-frontend-backend/execution-log.md`，提交前全量 migration policy gate 连续发现 20260903、20260908、20260911 多个新增/修改 SQL 缺元数据或 `dependsOn` 后缀错误；只跑单个当前 SQL 门禁不足，应对全量 `sql/mysql` 运行 gate 并为每个新增迁移补静态合同。
 
 ## 2026-07-19 build-release MES companion contract 编译门禁
 
@@ -869,3 +871,13 @@
 - Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting -q` 和扩展发布脚本回归；重新构建新 releaseTag，部署日志应显示 data/data-dependent SQL 被跳过且不会执行任何 required SQL APPLY。
 - Forbidden action: 不得手工标绿失败 releaseTag；不得为了避免空队列而保留 data 或 data-dependent 迁移进入 APPLY；不得把 `SkipDatabaseSync`/`SkipMinioSync` 解释为可以跳过 schema/config/seed 门禁。
 - Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r5` 在容器重启前失败，发布锁已收口为 `FAILED`，`.env IMAGE_TAG` 恢复到实际运行 r4，后续必须用新 tag。
+
+## 2026-09-10 int_main 本地后端打包 testCompile 与 PowerShell 属性引用门禁
+
+- Trigger: `int_main` 本地后端重启或打包需要生成新 runtime jar，但非当前任务模块存在陈旧测试源码、缺类或签名漂移，标准 `-DskipTests` 构建在 `testCompile` 阶段失败。
+- Preflight check: 先运行目标模块定向 `mvn -pl <module> -am -DskipTests compile` 证明当前任务生产代码可编译；若标准重启脚本被无关测试源码阻塞，必须记录失败模块、失败类和影响范围，不得修改无关测试或复用旧 Jar。
+- Windows 命令要求：在 PowerShell 中传递带点的 Maven 属性必须整体加引号，例如 `'-Dmaven.test.skip=true'`；未加引号可能被 PowerShell 解析为命令参数表达式并直接失败。
+- 允许边界：仅为本地 E2E 启动当前任务新 runtime jar 时，可在已记录标准重启 blocker 后，用显式 `'-Dmaven.test.skip=true'` 做一次本地打包；这不是发布构建策略，也不能替代标准重启脚本修复。
+- Verification: 记录标准重启失败证据、手动打包 PASS、生成 jar 路径、启动命令、健康检查和后续真实前端 E2E PASS；最终报告必须说明完整标准重启/发布构建仍受无关测试源码阻塞。
+- Forbidden action: 不得吞掉 `testCompile` 失败、删除或绕开无关测试后宣称标准构建通过、让旧 jar 冒充新代码、把本地 `maven.test.skip` 经验推广到正式发布链路，或用 API/DB 动作替代真实前端 E2E。
+- Evidence: `doc/tasks/20260909-common-qa-frontline-pqc-fix/execution-log.md`；本地 `int_main` 通用检验规程 E2E 中标准重启被 DCC 测试缺类阻塞，随后以定向 compile、显式跳过 testCompile 的本地 jar 和 Playwright 真实页面完成验证。

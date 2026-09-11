@@ -284,6 +284,34 @@ def test_rehearsal_supports_explicit_test_target_environment() -> None:
     assert "backup-now, backup-scheduled, rollback-app, restore-data and rehearsal" in resolver
 
 
+def test_dcc_snapshot_keeps_soft_deleted_infra_file_path_for_referenced_records() -> None:
+    ps_source = (BACKUP_ROOT / "scripts" / "modules" / "Core" / "DccDatabaseSnapshotExporter.psm1").read_text(
+        encoding="utf-8"
+    )
+    linux_source = (BACKUP_ROOT / "linux" / "backup_ops_linux.py").read_text(encoding="utf-8")
+
+    assert "LEFT JOIN infra_file f ON f.id = refs.object_file_id" in ps_source
+    assert "LEFT JOIN infra_file f ON f.id = refs.object_file_id" in linux_source
+    assert "LEFT JOIN infra_file f ON f.id = refs.object_file_id AND f.deleted = b'0'" not in ps_source
+    assert "LEFT JOIN infra_file f ON f.id = refs.object_file_id AND f.deleted = b'0'" not in linux_source
+
+
+def test_minimal_dcc_snapshot_exports_current_active_chain_only() -> None:
+    ps_source = (BACKUP_ROOT / "scripts" / "modules" / "Core" / "DccDatabaseSnapshotExporter.psm1").read_text(
+        encoding="utf-8"
+    )
+    linux_source = (BACKUP_ROOT / "linux" / "backup_ops_linux.py").read_text(encoding="utf-8")
+
+    assert "AND cf.status = 'ACTIVE'" in ps_source
+    assert "AND cf.status = 'ACTIVE'" in linux_source
+    assert "OBSOLETE" not in ps_source.split("function New-DccDatabaseSnapshotSql", 1)[1].split(
+        "function Invoke-DccSnapshotNativeProcess", 1
+    )[0]
+    assert "WITHDRAWN" not in linux_source.split("def dcc_database_snapshot_sql", 1)[1].split(
+        "def run_dcc_database_snapshot_query", 1
+    )[0]
+
+
 def test_remote_retention_deletes_only_whole_full_chains() -> None:
     source = (BACKUP_ROOT / "scripts" / "modules" / "Infra" / "FileOps.psm1").read_text(encoding="utf-8")
     retention = source.split("function New-BackupOpsRemoteRetentionPythonScript", 1)[1].split(

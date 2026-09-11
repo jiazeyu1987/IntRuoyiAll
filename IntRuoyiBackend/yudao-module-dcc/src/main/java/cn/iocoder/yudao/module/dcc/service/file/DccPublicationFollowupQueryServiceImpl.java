@@ -35,6 +35,7 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
     @Resource private DccPublicationRelationDirectionSnapshotMapper directionMapper;
     @Resource private DccPublicationNotificationAuditMapper notificationAuditMapper;
     @Resource private DccPublicationImpactAuditMapper impactAuditMapper;
+    @Resource private DccControlledFileMapper controlledFileMapper;
     @Resource private PermissionApi permissionApi;
 
     @Override
@@ -257,6 +258,7 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
             Map<Long, DccPublicationImpactTaskDO> tasksById,
             Map<Long, List<String>> directions) {
         List<TimelineDraft> drafts = new ArrayList<>();
+        Map<Long, String> linkedRevisionVersionById = linkedRevisionVersions(impactAudits);
         DccPublicationTimelineEventRespVO created = baseTimeline(
                 "BATCH:" + batch.getId(), "BATCH", "发布批次", "发布后续批次已创建",
                 Objects.requireNonNull(batch.getPublishedAt(), "publication batch time must not be null"),
@@ -310,9 +312,8 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
                 Long linkedRevisionId = Objects.requireNonNull(audit.getLinkedRevisionControlledFileId(),
                         "linked revision audit controlled file id must not be null");
                 event.setLinkedRevisionControlledFileId(id(linkedRevisionId));
-                if (Objects.equals(linkedRevisionId, task.getLinkedRevisionControlledFileId())) {
-                    event.setLinkedRevisionVersion(task.getLinkedRevisionVersionSnapshot());
-                }
+                event.setLinkedRevisionVersion(resolveLinkedRevisionVersion(
+                        linkedRevisionId, task, linkedRevisionVersionById));
             }
             drafts.add(new TimelineDraft(event, 2, Objects.requireNonNull(audit.getId())));
         }
@@ -322,6 +323,39 @@ public class DccPublicationFollowupQueryServiceImpl implements DccPublicationFol
             drafts.get(index).event().setSequenceNo(index + 1);
         }
         return drafts.stream().map(TimelineDraft::event).toList();
+    }
+
+    private Map<Long, String> linkedRevisionVersions(List<DccPublicationImpactAuditDO> impactAudits) {
+        List<Long> linkedRevisionIds = impactAudits.stream()
+                .filter(audit -> audit != null && isLinkedRevisionAction(audit.getActionType()))
+                .map(DccPublicationImpactAuditDO::getLinkedRevisionControlledFileId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (linkedRevisionIds.isEmpty()) {
+            return Map.of();
+        }
+        return Objects.requireNonNull(controlledFileMapper.selectBatchIds(linkedRevisionIds),
+                        "linked revision controlled files must not be null")
+                .stream()
+                .filter(Objects::nonNull)
+                .filter(file -> file.getId() != null)
+                .collect(Collectors.toMap(DccControlledFileDO::getId, DccControlledFileDO::getVersionNo,
+                        (left, right) -> left));
+    }
+
+    private String resolveLinkedRevisionVersion(Long linkedRevisionId, DccPublicationImpactTaskDO task,
+                                                Map<Long, String> linkedRevisionVersionById) {
+        if (Objects.equals(linkedRevisionId, task.getLinkedRevisionControlledFileId())
+                && task.getLinkedRevisionVersionSnapshot() != null
+                && !task.getLinkedRevisionVersionSnapshot().isBlank()) {
+            return task.getLinkedRevisionVersionSnapshot();
+        }
+        String versionNo = linkedRevisionVersionById.get(linkedRevisionId);
+        if (versionNo == null || versionNo.isBlank()) {
+            throw new IllegalStateException("linked revision version is missing for " + linkedRevisionId);
+        }
+        return versionNo;
     }
 
     private DccPublicationTimelineEventRespVO baseTimeline(

@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactTaskMapper
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationRelationSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -64,6 +65,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
     @Resource private DccControlledFileMapper controlledFileMapper;
     @Resource private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Resource private DccPublicationFollowupStatusService followupStatusService;
+    @Resource private DccProjectAccessService projectAccessService;
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -273,14 +275,17 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         }
         DccControlledFileDO active = controlledFileMapper.selectById(master.getCurrentActiveControlledFileId());
         if (active == null || !Objects.equals(active.getMasterId(), task.getRelatedMasterId())
-                || !Objects.equals(active.getRequesterId(), actorId)
+                || active.getDccProjectCodeId() == null
                 || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(active.getStatus())) {
             throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
         }
+        projectAccessService.assertProjectOwner(actorId, active.getDccProjectCodeId());
         List<DccControlledFileDO> chain = Objects.requireNonNull(
                 controlledFileMapper.selectListByMasterId(task.getRelatedMasterId()),
                 "related controlled-file chain must not be null");
         List<DccControlledFileDO> open = chain.stream()
+                .filter(file -> Objects.equals(file.getMasterId(), task.getRelatedMasterId()))
+                .filter(file -> Objects.equals(file.getDccProjectCodeId(), active.getDccProjectCodeId()))
                 .filter(file -> DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()))
                 .filter(file -> isOpenRevision(file.getStatus())).toList();
         if (open.size() > 1) {
@@ -288,7 +293,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         }
         if (open.size() == 1) {
             if (!Objects.equals(open.get(0).getMasterId(), task.getRelatedMasterId())
-                    || !Objects.equals(open.get(0).getRequesterId(), actorId)) {
+                    || !Objects.equals(open.get(0).getDccProjectCodeId(), active.getDccProjectCodeId())) {
                 throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
             }
             return new DccPublicationImpactRevisionOptions(List.of(), toRevisionOption(open.get(0), false));
@@ -300,7 +305,7 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
         }
         List<DccPublicationImpactRevisionOption> sources = chain.stream()
                 .filter(file -> Objects.equals(file.getMasterId(), task.getRelatedMasterId()))
-                .filter(file -> Objects.equals(file.getRequesterId(), actorId))
+                .filter(file -> Objects.equals(file.getDccProjectCodeId(), active.getDccProjectCodeId()))
                 .filter(file -> List.of(DccControlledFileStatusEnum.ACTIVE.getStatus(), "WORKING",
                         DccControlledFileStatusEnum.REJECTED.getStatus()).contains(file.getStatus()))
                 .filter(file -> {
@@ -405,15 +410,18 @@ public class DccRelatedFileImpactAssessmentServiceImpl implements DccRelatedFile
     private DccControlledFileDO requireRevision(DccPublicationImpactTaskDO task, Long revisionId, Long actorId) {
         DccControlledFileDO revision = controlledFileMapper.selectById(revisionId);
         if (revision == null || !Objects.equals(revision.getMasterId(), task.getRelatedMasterId())
-                || !Objects.equals(revision.getRequesterId(), actorId)
+                || revision.getDccProjectCodeId() == null
                 || !DccControlledFileChangeTypeEnum.REVISION.getCode().equals(revision.getChangeType())
                 || !isOpenRevision(revision.getStatus())) {
             throw exception(PUBLICATION_IMPACT_REVISION_INVALID);
         }
+        projectAccessService.assertProjectOwner(actorId, revision.getDccProjectCodeId());
         List<DccControlledFileDO> chain = Objects.requireNonNull(
                 controlledFileMapper.selectListByMasterId(task.getRelatedMasterId()),
                 "controlled file revision chain must not be null");
         List<DccControlledFileDO> openRevisions = chain.stream().filter(item -> item.getId() != null
+                && Objects.equals(item.getMasterId(), task.getRelatedMasterId())
+                && Objects.equals(item.getDccProjectCodeId(), revision.getDccProjectCodeId())
                 && isOpenRevision(item.getStatus())
                 && DccControlledFileChangeTypeEnum.REVISION.getCode().equals(item.getChangeType())).toList();
         if (openRevisions.size() != 1 || !Objects.equals(openRevisions.get(0).getId(), revisionId)) {

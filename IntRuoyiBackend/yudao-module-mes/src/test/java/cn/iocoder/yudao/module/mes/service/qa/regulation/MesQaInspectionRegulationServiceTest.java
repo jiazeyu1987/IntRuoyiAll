@@ -7,6 +7,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationVersionOptionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -15,6 +18,10 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationProductBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
@@ -42,6 +49,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_COMMON_REGULATION_SET_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -80,6 +88,14 @@ class MesQaInspectionRegulationServiceTest {
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Mock
+    private MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper;
+    @Mock
+    private MesQaCommonRegulationSetMapper commonRegulationSetMapper;
+    @Mock
+    private MesQaCommonRegulationSetVersionMapper commonRegulationSetVersionMapper;
+    @Mock
+    private MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper;
 
     private MesQaInspectionRegulationServiceImpl service;
 
@@ -88,7 +104,9 @@ class MesQaInspectionRegulationServiceTest {
         service = new MesQaInspectionRegulationServiceImpl(dccProjectCodeMapper, regulationMapper,
                 versionMapper, processMapper, itemMapper,
                 itemEquipmentMapper,
-                activeOrderMapper, pqcInspectionTaskMapper);
+                activeOrderMapper, pqcInspectionTaskMapper, commonRegulationProductBindingMapper,
+                commonRegulationSetMapper, commonRegulationSetVersionMapper,
+                commonRegulationSetVersionMemberMapper);
         lenient().when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID))
                 .thenReturn(publishedVersion());
     }
@@ -187,7 +205,8 @@ class MesQaInspectionRegulationServiceTest {
     void saveDraft_persistsDccRootQaProcessAndExpandedInspectionRows() {
         MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
+        when(regulationMapper.selectByDccProjectCodeId(
+                DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
@@ -230,7 +249,9 @@ class MesQaInspectionRegulationServiceTest {
                 .snapshotJson("{}")
                 .build();
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(
+                DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
+                .thenReturn(publishedRegulation());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(draft);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationProcessDO>getArgument(0).setId(QA_PROCESS_ID);
@@ -249,7 +270,8 @@ class MesQaInspectionRegulationServiceTest {
     @Test
     void saveDraft_mapsConcurrentActiveDccDuplicateToStableBusinessError() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
+        when(regulationMapper.selectByDccProjectCodeId(
+                DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(null);
         when(regulationMapper.insert(any(MesQaInspectionRegulationDO.class)))
                 .thenThrow(new DuplicateKeyException(
                         "Duplicate entry for key 'uk_mes_qa_regulation_active_dcc'"));
@@ -263,7 +285,9 @@ class MesQaInspectionRegulationServiceTest {
     void publish_rejectsPublishedVersionMutation() {
         MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(
+                DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
+                .thenReturn(publishedRegulation());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1"))
                 .thenReturn(MesQaInspectionRegulationVersionDO.builder()
                         .id(VERSION_ID).regulationId(REGULATION_ID).versionNo("G/1")
@@ -311,7 +335,8 @@ class MesQaInspectionRegulationServiceTest {
         reqVO.getProcesses().get(0).getItems().get(0)
                 .setApplicableInspectionTypes(List.of("FIRST", "PATROL"));
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
+        when(regulationMapper.selectByDccProjectCodeId(
+                DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
@@ -340,7 +365,9 @@ class MesQaInspectionRegulationServiceTest {
     void publish_retiresAllExistingPublishedVersionsWhenCurrentPointerIsStale() {
         MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(
+                DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
+                .thenReturn(publishedRegulation());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(72L);
@@ -644,6 +671,48 @@ class MesQaInspectionRegulationServiceTest {
 
         assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), ex.getCode());
         verifyNoInteractions(processMapper, itemMapper);
+    }
+
+    @Test
+    void bindCommonRegulationVersion_rejectsMissingSetVersionWithoutLegacyFallback() {
+        DccProjectCodeDO projectCode = enabledDccProject().setProductMasterId(14L);
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(projectCode);
+        MesQaCommonRegulationBindReqVO reqVO = new MesQaCommonRegulationBindReqVO();
+        reqVO.setDccProjectCodeId(DCC_PROJECT_ID);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.bindCommonRegulationVersion(reqVO));
+
+        assertEquals(QA_COMMON_REGULATION_SET_INVALID.getCode(), ex.getCode());
+        verifyNoInteractions(commonRegulationProductBindingMapper);
+    }
+
+    @Test
+    void deleteCommonRegulationSetVersion_rejectsCurrentPublishedVersion() {
+        long setId = 71L;
+        long setVersionId = 72L;
+        when(commonRegulationSetVersionMapper.selectById(setVersionId)).thenReturn(
+                MesQaCommonRegulationSetVersionDO.builder()
+                        .id(setVersionId)
+                        .setId(setId)
+                        .versionNo("A/1")
+                        .lifecycleStatus(MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)
+                        .build());
+        when(commonRegulationSetMapper.selectById(setId)).thenReturn(
+                MesQaCommonRegulationSetDO.builder()
+                        .id(setId)
+                        .setCode("PKG-A")
+                        .setName("包装检验 A 套")
+                        .setStatus(MesQaCommonRegulationSetDO.STATUS_ENABLED)
+                        .currentVersionId(setVersionId)
+                        .build());
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.deleteCommonRegulationSetVersion(setVersionId));
+
+        assertEquals(QA_COMMON_REGULATION_SET_INVALID.getCode(), ex.getCode());
+        verifyNoInteractions(commonRegulationSetVersionMemberMapper,
+                commonRegulationProductBindingMapper);
     }
 
     private static DccProjectCodeDO enabledDccProject() {

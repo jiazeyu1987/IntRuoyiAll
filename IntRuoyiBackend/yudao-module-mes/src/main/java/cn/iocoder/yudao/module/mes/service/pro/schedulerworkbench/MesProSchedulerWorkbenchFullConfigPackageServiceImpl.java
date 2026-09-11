@@ -154,7 +154,9 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
                 }
                 roleIds.add(role.getId());
             }
-            permissionService.assignUserRole(user.getId(), roleIds);
+            permissionService.assignUserRole(user.getId(), roleIds,
+                    "排产员工作台全量配置包导入回放用户角色",
+                    "mes.scheduler-workbench.full-config.user-role:" + user.getId() + ":" + roleIds.hashCode());
             assignedRoleCount += roleIds.size();
         }
         MesProSchedulerWorkbenchFullConfigImportRespVO respVO = new MesProSchedulerWorkbenchFullConfigImportRespVO();

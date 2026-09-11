@@ -278,7 +278,13 @@ public class DccControlledFileController {
     @Operation(summary = "Get current active controlled file version by file number")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileCurrentVersionRespVO> getCurrentVersion(
-            @RequestParam("fileNumber") String fileNumber) {
+            @RequestParam("fileNumber") String fileNumber,
+            @RequestParam(value = "dccProjectCodeId", required = false) Long dccProjectCodeId,
+            @RequestParam(value = "fileTypeTaxonomyId", required = false) Long fileTypeTaxonomyId) {
+        if (dccProjectCodeId != null || fileTypeTaxonomyId != null) {
+            return success(workflowService.getCurrentVersionByFileNumber(getLoginUserId(), fileNumber,
+                    dccProjectCodeId, fileTypeTaxonomyId));
+        }
         return success(workflowService.getCurrentVersionByFileNumber(getLoginUserId(), fileNumber));
     }
 

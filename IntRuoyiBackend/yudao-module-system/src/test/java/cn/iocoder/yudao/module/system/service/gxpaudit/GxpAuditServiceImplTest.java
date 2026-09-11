@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
@@ -28,6 +29,8 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     @Resource
     private GxpAuditEventMapper auditEventMapper;
     @Resource
+    private GxpAuditLedgerSequenceMapper ledgerSequenceMapper;
+    @Resource
     private GxpAuditPolicyOperationMapper policyOperationMapper;
 
     @BeforeEach
@@ -46,6 +49,7 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     @AfterEach
     void clearSecurity() {
         SecurityContextHolder.clearContext();
+        ledgerSequenceMapper.deleteById(1L);
     }
 
     @Test
@@ -80,6 +84,20 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         assertEquals(first.eventId(), second.eventId());
         assertTrue(second.replayed());
         assertEquals(1L, auditEventMapper.selectCount());
+    }
+
+    @Test
+    void append_shouldAllocateLedgerSequenceThroughWatermarkAndChainHashes() {
+        GxpAuditAppendResult first = gxpAuditService.append(command("edhr.execution.field.update", "idem-seq-1"));
+        GxpAuditAppendResult second = gxpAuditService.append(command("edhr.execution.field.update", "idem-seq-2"));
+
+        GxpAuditEventDO firstEvent = auditEventMapper.selectById(first.eventId());
+        GxpAuditEventDO secondEvent = auditEventMapper.selectById(second.eventId());
+        assertEquals(1L, firstEvent.getLedgerSequence());
+        assertEquals(2L, secondEvent.getLedgerSequence());
+        assertNull(firstEvent.getPreviousEventHash());
+        assertEquals(firstEvent.getEventHash(), secondEvent.getPreviousEventHash());
+        assertEquals(3L, ledgerSequenceMapper.selectById(1L).getNextLedgerSequence());
     }
 
     @Test

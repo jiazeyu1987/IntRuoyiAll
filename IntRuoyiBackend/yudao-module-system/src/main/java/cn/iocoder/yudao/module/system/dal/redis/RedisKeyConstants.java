@@ -76,6 +76,14 @@ public interface RedisKeyConstants {
     String INVOICE_VOUCHER_PRINT_TICKET = "invoice_voucher_print_ticket:%s";
 
     /**
+     * 分贝通费用报销助手访问票据
+     * <p>
+     * KEY 格式：fenbeitong_assistant_ticket:{ticket}
+     * VALUE 数据格式：JSON 票据载荷
+     */
+    String FENBEITONG_ASSISTANT_TICKET = "fenbeitong_assistant_ticket:%s";
+
+    /**
      * 站内信模版的缓存
      * <p>
      * KEY 格式：notify_template:{code}

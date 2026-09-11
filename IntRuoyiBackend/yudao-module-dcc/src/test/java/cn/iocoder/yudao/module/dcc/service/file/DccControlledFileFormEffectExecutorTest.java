@@ -38,35 +38,16 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
     private DccControlledFileFormEffectExecutor executor;
 
     @Test
-    void executeDccUpload_submitsControlledFileWithoutStartingSecondApproval() {
-        when(workflowService.submitControlledFileWithoutApproval(eq(99L), any(), eq("form-process-1"),
-                eq("IDEM-DCC-1"))).thenReturn(900L);
+    void executeDccUpload_rejectsRetiredFormCenterEntry() {
         FormActionInstance instance = dccUploadInstance();
         instance.setBpmBinding(new FormBpmBinding("form-process-1", "task-1"));
 
         FormBusinessEffectResult result = executor.execute(instance, "IDEM-DCC-1");
 
-        assertTrue(result.isSuccess());
-        assertEquals("900", result.getResultRef());
-        ArgumentCaptor<DccControlledFileSubmitReqVO> submitCaptor =
-                ArgumentCaptor.forClass(DccControlledFileSubmitReqVO.class);
-        verify(workflowService).submitControlledFileWithoutApproval(eq(99L), submitCaptor.capture(),
-                eq("form-process-1"), eq("IDEM-DCC-1"));
-        DccControlledFileSubmitReqVO submitReqVO = submitCaptor.getValue();
-        assertEquals(10L, submitReqVO.getCategoryId());
-        assertEquals("session-1", submitReqVO.getSessionId());
-        assertEquals("UT-SOURCE", submitReqVO.getOriginalUploadTicket());
-        assertEquals("UT-SOURCE", submitReqVO.getSourceUploadTicket());
-        assertEquals("UT-DRAWING", submitReqVO.getDrawingPdfUploadTicket());
-        assertEquals("SOP-001.docx", submitReqVO.getSourceFileName());
-        assertEquals(21L, submitReqVO.getDirectoryId());
-        assertEquals("SOP-001", submitReqVO.getFileName());
-        assertEquals("SOP-001", submitReqVO.getFileNumber());
-        assertEquals(3000L, submitReqVO.getDccProjectCodeId());
-        assertEquals(null, submitReqVO.getProductMasterId());
-        assertEquals("V1.0", submitReqVO.getVersionNo());
-        assertEquals(LocalDate.of(2026, 7, 18), submitReqVO.getEffectiveDate());
-        assertEquals(List.of(201L, 202L), submitReqVO.getSelectedSignoffUserIds());
+        assertFalse(result.isSuccess());
+        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit",
+                result.getFailureReason());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(any(), any(), any(), any());
     }
 
     @Test
@@ -91,7 +72,9 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
     void lifecyclePreflightValidatesDccUploadFormBeforeBpmStarts() {
         FormBusinessEffectPrecheck precheck = executor.preflight(dccUploadInstance());
 
-        assertTrue(precheck.isPassed());
+        assertFalse(precheck.isPassed());
+        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit",
+                precheck.getFailureReason());
         verify(workflowService, never()).submitControlledFileWithoutApproval(any(), any());
     }
 
@@ -113,7 +96,8 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
         FormBusinessEffectPrecheck missingFieldResult = executor.preflight(missingFileName);
 
         assertFalse(missingFieldResult.isPassed());
-        assertEquals("Missing DCC upload form field: fileName", missingFieldResult.getFailureReason());
+        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit",
+                missingFieldResult.getFailureReason());
         verify(workflowService, never()).submitControlledFileWithoutApproval(any(), any());
     }
 

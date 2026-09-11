@@ -101,8 +101,13 @@ assert.match(
 )
 assert.match(
   panel,
-  /deviceMeteringValidity: buildProductionDeviceMeteringValidityPayload\(\)/,
-  'structured raw payload must preserve per-device metering validity without adding a backend top-level field.'
+  /deviceMeteringValidity: buildProductionDeviceMeteringValidityForSubmitScope\(materialDetails\)/,
+  'structured raw payload must aggregate metering validity from all submitted material details.'
+)
+assert.match(
+  panel,
+  /inMeteringValidityPeriod:\s*meteringValidityDraft\[device\.key\] !== false/,
+  'each material selected-device snapshot must preserve its own metering validity.'
 )
 assert.doesNotMatch(
   panel,

@@ -572,5 +572,19 @@ public interface ErrorCodeConstants {
             "注册证列表排序参数不合法");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID = new ErrorCode(1_080_000_301,
             "注册证提醒状态参数不合法");
+    ErrorCode PROJECT_FILE_TEMPLATE_NOT_CONFIGURED = new ErrorCode(1_080_000_336,
+            "当前 DCC 项目未配置文件模板");
+    ErrorCode PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID = new ErrorCode(1_080_000_337,
+            "项目文件模板中的文件分类无效");
+    ErrorCode PROJECT_FILE_TEMPLATE_DUPLICATE_ITEM = new ErrorCode(1_080_000_338,
+            "项目文件模板中存在重复的文件分类和文件名称");
+    ErrorCode PROJECT_FILE_TEMPLATE_SELECTION_INVALID = new ErrorCode(1_080_000_339,
+            "所选文件分类和文件名称不属于当前项目模板");
+    ErrorCode PROJECT_FILE_TEMPLATE_CATEGORY_INVALID = new ErrorCode(1_080_000_340,
+            "项目文件模板中的文件分类未绑定唯一启用的正式文件类别");
+    ErrorCode DCC_PROJECT_ACCESS_DENIED = new ErrorCode(1_080_000_341,
+            "Current user is not the DCC project owner");
+    ErrorCode CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_342,
+            "Controlled file submit idempotency key conflicts with another request");
 
 }

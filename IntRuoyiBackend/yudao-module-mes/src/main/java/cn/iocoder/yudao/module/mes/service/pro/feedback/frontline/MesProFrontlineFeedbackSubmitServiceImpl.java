@@ -97,8 +97,15 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         MesFrontlineSubmitIdentityTrace identityTrace = submitAuthorizationService.authorize(
                 buildSubmitIdentityCommand(reqVO, loginUserId));
         validateSelectedActiveOrderContext(reqVO);
-        validateDeviceSelections(reqVO.getFeedbackPayload(),
-                identityTrace.sessionSnapshot().content().devices());
+        List<MesFrontlineProcessMaterial> frozenMaterials = identityTrace.sessionSnapshot().content().materials();
+        List<MesFrontlineProcessMaterial> inputMaterials = frozenMaterials.stream()
+                .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole())).toList();
+        List<MesFrontlineProcessMaterial> outputMaterials = frozenMaterials.stream()
+                .filter(material -> MesFrontlineProcessMaterial.ROLE_OUTPUT.equals(material.materialRole())).toList();
+        if (outputMaterials.isEmpty()) {
+            validateDeviceSelections(reqVO.getFeedbackPayload(),
+                    identityTrace.sessionSnapshot().content().devices());
+        }
         for (var material : reqVO.getMaterialDetails()) {
             if (material == null) {
                 throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "materialDetails[]");
@@ -106,11 +113,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             validateDeviceSelections(material.getSelectedDevice(), material.getSelectedDevices(),
                     material.getDeviceParameterReadings(), identityTrace.sessionSnapshot().content().devices());
         }
-        List<MesFrontlineProcessMaterial> frozenMaterials = identityTrace.sessionSnapshot().content().materials();
-        List<MesFrontlineProcessMaterial> inputMaterials = frozenMaterials.stream()
-                .filter(material -> MesFrontlineProcessMaterial.ROLE_INPUT.equals(material.materialRole())).toList();
-        List<MesFrontlineProcessMaterial> outputMaterials = frozenMaterials.stream()
-                .filter(material -> MesFrontlineProcessMaterial.ROLE_OUTPUT.equals(material.materialRole())).toList();
+        validateConsistentDeviceMeteringValidity(reqVO.getMaterialDetails());
         attachInputMaterialEvidence(reqVO, inputMaterials);
         MesProFrontlineFeedbackMaterialSubmission materialSubmission = outputMaterials.isEmpty() ? null
                 : materialSubmissionValidator.validate(outputMaterials,
@@ -138,7 +141,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         authorizeSelectedActiveOrder(reqVO, loginUserId);
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrderSnapshot =
                 requireActiveOrderSnapshot(reqVO);
-        MesFrontlineParameterAuditResult parameterAuditResult = parameterAuditService.resolveAndApply(reqVO);
+        MesFrontlineParameterAuditResult parameterAuditResult = resolveParameterAudit(reqVO, materialSubmission);
         attachParameterAudit(reqVO, parameterAuditResult);
         applyServerResolvedFeedbackIdentity(reqVO);
         Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
@@ -235,6 +238,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             MesFrontlineParameterAuditItem item) {
         return new MesProFrontlineFeedbackSubmitRespVO.ParameterAuditItemRespVO()
                 .setReadingIndex(item.getReadingIndex())
+                .setMaterialId(item.getMaterialId())
+                .setMaterialName(item.getMaterialName())
                 .setDeviceId(item.getDeviceId())
                 .setParameterCode(item.getParameterCode())
                 .setParameterName(item.getParameterName())
@@ -310,6 +315,16 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         feedback.setOutputQuantity(submission.progressQuantity())
                 .setLossQuantity(submission.totalLossQuantity())
                 .setLossDetails(lossDetails)
+                .setSelectedDevices(submission.materials().stream()
+                        .flatMap(material -> material.selectedDevices().stream())
+                        .filter(Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toMap(
+                                MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO::getDeviceId,
+                                device -> device, (left, ignored) -> left, java.util.LinkedHashMap::new))
+                        .values().stream().toList())
+                .setDeviceParameterReadings(submission.materials().stream()
+                        .flatMap(material -> material.deviceParameterReadings().stream())
+                        .toList())
                 .setLaborScrapQuantity(submission.totalLossQuantity())
                 .setMaterialScrapQuantity(BigDecimal.ZERO)
                 .setOtherScrapQuantity(BigDecimal.ZERO);
@@ -318,7 +333,47 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());
         rawPayload.put("materialDetails", reqVO.getMaterialDetails());
         rawPayload.put("progressQuantity", submission.progressQuantity());
+        rawPayload.put("selectedDevices", feedback.getSelectedDevices());
+        rawPayload.put("deviceParameterReadings", feedback.getDeviceParameterReadings());
+        rawPayload.put("deviceMeteringValidity", feedback.getSelectedDevices().stream()
+                .map(device -> {
+                    Map<String, Object> item = new java.util.LinkedHashMap<>();
+                    item.put("deviceId", device.getDeviceId());
+                    item.put("deviceCode", device.getDeviceCode());
+                    item.put("deviceName", device.getDeviceName());
+                    item.put("inMeteringValidityPeriod", device.getInMeteringValidityPeriod());
+                    return item;
+                })
+                .toList());
         reqVO.setRawPayload(rawPayload);
+    }
+
+    private MesFrontlineParameterAuditResult resolveParameterAudit(
+            MesProFrontlineFeedbackSubmitReqVO reqVO,
+            MesProFrontlineFeedbackMaterialSubmission materialSubmission) {
+        if (materialSubmission == null) {
+            return parameterAuditService.resolveAndApply(reqVO);
+        }
+        List<MesFrontlineParameterAuditResult> results = reqVO.getMaterialDetails().stream()
+                .map(material -> parameterAuditService.resolveAndApplyMaterial(
+                        reqVO, material.getMaterialId(), material.getMaterialName(),
+                        material.getSelectedDevices(), material.getDeviceParameterReadings()))
+                .toList();
+        List<MesFrontlineParameterAuditItem> items = results.stream()
+                .flatMap(result -> result.getAuditItems().stream())
+                .toList();
+        int unresolvedCount = (int) items.stream()
+                .filter(item -> MesFrontlineParameterAuditResult.STATUS_UNRESOLVED.equals(
+                        item.getResolutionStatus()))
+                .count();
+        return new MesFrontlineParameterAuditResult()
+                .setParameterAuditStatus(unresolvedCount == 0
+                        ? MesFrontlineParameterAuditResult.STATUS_RESOLVED
+                        : MesFrontlineParameterAuditResult.STATUS_UNRESOLVED)
+                .setTotalCount(items.size())
+                .setResolvedCount(items.size() - unresolvedCount)
+                .setUnresolvedCount(unresolvedCount)
+                .setAuditItems(items);
     }
 
     private void applyServerResolvedMaterialSnapshots(MesProFrontlineFeedbackSubmitReqVO reqVO,
@@ -393,6 +448,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             if (allowed == null || !selectedIds.add(deviceId)) {
                 throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "selectedDevices=" + deviceId);
             }
+            device.setDeviceCode(allowed.deviceCode())
+                    .setDeviceName(allowed.deviceName());
             String groupKey = allowed.deviceGroupKey();
             if (StrUtil.isBlank(groupKey)
                     || !List.of("SINGLE", "MULTIPLE").contains(allowed.selectionMode())) {
@@ -410,8 +467,21 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             if (reading == null || reading.getDeviceId() == null || !selectedIds.contains(reading.getDeviceId())) {
                 throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "unselected device parameter");
             }
-            submittedCodesByDevice.computeIfAbsent(reading.getDeviceId(), ignored -> new HashSet<>())
-                    .add(MesDeviceParameterSnapshotCodec.normalizeCode(reading.getParameterCode()));
+            MesFrontlineTeamDeviceOption device = allowedById.get(reading.getDeviceId());
+            String parameterCode = MesDeviceParameterSnapshotCodec.normalizeCode(reading.getParameterCode());
+            var parameter = device.parameters().stream()
+                    .filter(item -> Objects.equals(
+                            MesDeviceParameterSnapshotCodec.normalizeCode(item.parameterCode()), parameterCode))
+                    .findFirst()
+                    .orElseThrow(() -> exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
+                            "unknown device parameter=" + reading.getDeviceId() + "|" + parameterCode));
+            Set<String> submittedCodes = submittedCodesByDevice.computeIfAbsent(
+                    reading.getDeviceId(), ignored -> new HashSet<>());
+            if (parameterCode == null || !submittedCodes.add(parameterCode)) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
+                        "duplicate device parameter=" + reading.getDeviceId() + "|" + parameterCode);
+            }
+            validateAndApplyParameterReading(device, parameter, reading, parameterCode);
         }
         for (Long selectedId : selectedIds) {
             MesFrontlineTeamDeviceOption device = allowedById.get(selectedId);
@@ -425,6 +495,70 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 }
             }
         }
+    }
+
+    private static void validateConsistentDeviceMeteringValidity(
+            List<MesProFrontlineFeedbackMaterialReqVO> materials) {
+        Map<Long, Boolean> validityByDeviceId = new HashMap<>();
+        for (MesProFrontlineFeedbackMaterialReqVO material : materials) {
+            if (material == null || material.getSelectedDevices() == null) {
+                continue;
+            }
+            for (MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO device : material.getSelectedDevices()) {
+                if (device == null || device.getDeviceId() == null
+                        || device.getInMeteringValidityPeriod() == null) {
+                    continue;
+                }
+                Boolean existing = validityByDeviceId.putIfAbsent(
+                        device.getDeviceId(), device.getInMeteringValidityPeriod());
+                if (existing != null && !Objects.equals(existing, device.getInMeteringValidityPeriod())) {
+                    throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
+                            "deviceMeteringValidity=" + device.getDeviceId());
+                }
+            }
+        }
+    }
+
+    private static void validateAndApplyParameterReading(
+            MesFrontlineTeamDeviceOption device,
+            cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption parameter,
+            MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading,
+            String parameterCode) {
+        String valueType = parameter.valueType();
+        boolean textValueType = MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(valueType)
+                || MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(valueType);
+        if (textValueType) {
+            if (StrUtil.isBlank(reading.getTextValue())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
+                        "missing text device parameter=" + parameterCode);
+            }
+        } else if (reading.getValue() == null) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
+                    "missing numeric device parameter=" + parameterCode);
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_BOOLEAN.equals(valueType)
+                && BigDecimal.ZERO.compareTo(reading.getValue()) != 0
+                && BigDecimal.ONE.compareTo(reading.getValue()) != 0) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED,
+                    "invalid boolean device parameter=" + parameterCode);
+        }
+        String status = "NORMAL";
+        if (!textValueType && reading.getValue() != null) {
+            if (parameter.lowerLimit() != null && reading.getValue().compareTo(parameter.lowerLimit()) < 0) {
+                status = "BELOW_LOWER";
+            } else if (parameter.upperLimit() != null && reading.getValue().compareTo(parameter.upperLimit()) > 0) {
+                status = "ABOVE_UPPER";
+            }
+        }
+        reading.setDeviceId(device.deviceId())
+                .setDeviceCode(device.deviceCode())
+                .setDeviceName(device.deviceName())
+                .setParameterCode(parameter.parameterCode())
+                .setParameterName(parameter.parameterName())
+                .setUnit(parameter.unit())
+                .setLowerLimit(parameter.lowerLimit())
+                .setUpperLimit(parameter.upperLimit())
+                .setParameterStatus(status);
     }
 
     private MesFrontlineLossReasonSnapshot validateEmptyMaterialSubmission(

@@ -23,6 +23,16 @@ const assertNotIncludes = (content, unexpected, message) => {
   }
 }
 
+const extractFunction = (content, functionName) => {
+  const start = content.indexOf(`const ${functionName} =`)
+  if (start === -1) {
+    throw new Error(`Missing function: ${functionName}`)
+  }
+  const rest = content.slice(start)
+  const next = rest.search(/\nconst [a-zA-Z0-9_]+ =/)
+  return next === -1 ? rest : rest.slice(0, next)
+}
+
 const batchRecordApi = assertFile('src/api/mes/pro/batchrecordreport/index.ts')
 assertIncludes(batchRecordApi, 'parseProductionBatchRecordTotalRecognitionJson')
 assertIncludes(
@@ -50,89 +60,144 @@ assertIncludes(parserPage, 'JSON.stringify')
 assertIncludes(parserPage, 'JSON.parse(totalRecognitionJson)')
 assertIncludes(parserPage, 'processes')
 assertIncludes(parserPage, 'product')
-assertIncludes(parserPage, '<el-tree')
-assertIncludes(parserPage, 'batchRecordTreeData')
-assertIncludes(parserPage, 'buildBatchRecordTreeData')
-assertIncludes(parserPage, 'buildProcessTreeNode')
-assertIncludes(parserPage, 'buildInputMaterialTreeNode')
-assertIncludes(parserPage, 'buildOutputMaterialTreeNode')
-assertIncludes(parserPage, 'buildEquipmentDeviceTreeNodes')
-assertIncludes(parserPage, 'buildParameterTreeNode')
-assertIncludes(parserPage, 'buildExtraFieldNodes')
-assertIncludes(parserPage, '输入物料')
-assertIncludes(parserPage, '输出物料')
-assertIncludes(parserPage, '设备参数')
-assertIncludes(parserPage, '物料名称(编号)')
-assertIncludes(parserPage, '设备名称(编号)')
-assertIncludes(parserPage, '目标范围')
-assertIncludes(parserPage, '默认值')
-assertIncludes(parserPage, '最小值')
-assertIncludes(parserPage, '最大值')
-assertIncludes(parserPage, '步长')
-assertIncludes(parserPage, '单位')
-assertIncludes(parserPage, '控件')
-assertIncludes(parserPage, '显示名')
-assertIncludes(parserPage, '可选项')
-assertIncludes(parserPage, '实际值')
-assertIncludes(parserPage, '选择模式')
-assertIncludes(parserPage, 'sourceCodeLabel')
-assertIncludes(parserPage, 'equipmentOptions')
-assertIncludes(parserPage, 'selectionMode')
-assertIncludes(parserPage, 'referenceValue')
-assertIncludes(parserPage, 'defaultValue')
+
+assertIncludes(parserPage, 'form-parser-workbench')
+assertIncludes(parserPage, 'form-parser-json-editor')
+assertIncludes(parserPage, 'form-parser-json-search')
+assertIncludes(parserPage, 'form-parser-frontline-preview')
+assertIncludes(parserPage, 'form-parser-frontline-shell')
+assertIncludes(parserPage, 'form-parser-frontline-header')
+assertIncludes(parserPage, 'form-parser-process-card')
+assertIncludes(parserPage, 'form-parser-device-tabs')
+assertIncludes(parserPage, 'form-parser-device-tab-card')
+assertIncludes(parserPage, 'form-parser-device-tab')
+assertIncludes(parserPage, 'form-parser-device-current')
+assertIncludes(parserPage, 'form-parser-parameter-field')
+assertIncludes(parserPage, 'form-parser-device-tabs device-tabs')
+assertIncludes(parserPage, 'form-parser-device-tab-card device-tab-card')
+assertIncludes(parserPage, 'form-parser-device-tab device-tab')
+assertIncludes(parserPage, 'form-parser-device-tab-selection device-tab-selection')
+assertIncludes(parserPage, 'form-parser-device-tab-code device-tab-code')
+assertIncludes(parserPage, 'editableRecognitionJson')
+assertIncludes(parserPage, 'jsonSearchKeyword')
+assertIncludes(parserPage, 'jsonSearchMatchIndex')
+assertIncludes(parserPage, 'jsonSearchMatchTotal')
+assertIncludes(parserPage, 'jsonSearchMatchLabel')
+assertIncludes(parserPage, 'jsonEditorInputRef')
+assertIncludes(parserPage, 'locateNextJsonKeyword')
+assertIncludes(parserPage, 'findJsonKeywordMatches')
+assertIncludes(parserPage, 'resetJsonSearchPosition')
+assertIncludes(parserPage, 'previewRecognitionJson')
+assertIncludes(parserPage, 'handleApplyEditedJson')
+assertIncludes(parserPage, 'downloadCurrentRecognitionJson')
+assertIncludes(parserPage, 'currentProcessIndex')
+assertIncludes(parserPage, 'currentProcess')
+assertIncludes(parserPage, 'processSelectorVisible')
+assertIncludes(parserPage, 'visiblePreviewDeviceCards')
+assertIncludes(parserPage, 'selectedPreviewDeviceKeys')
+assertIncludes(parserPage, 'selectedPreviewDeviceKey')
+assertIncludes(parserPage, 'activePreviewDevice')
+assertIncludes(parserPage, 'togglePreviewDeviceSelection')
+assertIncludes(parserPage, 'goPreviousProcess')
+assertIncludes(parserPage, 'goNextProcess')
+assertIncludes(parserPage, 'openProcessSelector')
+assertIncludes(parserPage, 'handleSelectProcess')
+assertIncludes(parserPage, 'validateTotalRecognitionJson')
+assertIncludes(parserPage, 'initializePreviewState')
+assertIncludes(parserPage, 'parameterPreviewValues')
+assertIncludes(parserPage, 'buildParameterPreviewValueKey')
+assertIncludes(parserPage, 'handleParameterPreviewValueChange')
 assertIncludes(parserPage, 'formatNameCode')
-assertIncludes(parserPage, 'formatParameterRange')
-assertIncludes(parserPage, 'formatSelectionMode')
-assertIncludes(parserPage, 'formatEquipmentGroupOptions')
-assertIncludes(parserPage, 'renderParameterUiPreview')
+assertIncludes(parserPage, 'formatParameterTargetRange')
+assertIncludes(parserPage, 'getParameterDisplayName')
 assertIncludes(parserPage, 'isNumberParameterControl')
 assertIncludes(parserPage, 'isSelectParameterControl')
-assertIncludes(parserPage, 'parameterPreviewValues')
-assertIncludes(parserPage, 'initializeParameterPreviewValues')
-assertIncludes(parserPage, 'getParameterPreviewValue')
-assertIncludes(parserPage, 'setParameterPreviewValue')
-assertIncludes(parserPage, 'toNumberModelValue')
-assertIncludes(parserPage, 'toSelectModelValue')
-assertIncludes(parserPage, 'form-parser-tree')
-assertIncludes(parserPage, 'form-parser-tree-node')
-assertIncludes(parserPage, 'form-parser-tree-parameter-ui')
+assertIncludes(parserPage, 'isTextParameterControl')
+assertIncludes(parserPage, 'type="textarea"')
+assertIncludes(parserPage, 'v-model="editableRecognitionJson"')
 assertIncludes(parserPage, '<el-input-number')
 assertIncludes(parserPage, '<el-select')
+assertIncludes(parserPage, '<el-dialog')
+assertIncludes(parserPage, 'JSON编辑')
+assertIncludes(parserPage, '查找关键词')
+assertIncludes(parserPage, '查找下一个')
+assertIncludes(parserPage, '应用')
+assertIncludes(parserPage, '下载当前JSON')
+assertIncludes(parserPage, '一线生产预览')
+assertIncludes(parserPage, '输入物料')
+assertIncludes(parserPage, '输出物料')
+assertIncludes(parserPage, '设备')
+assertIncludes(parserPage, '设备参数')
 assertIncludes(parserPage, '目标范围')
+assertIncludes(parserPage, '默认值')
+assertIncludes(parserPage, '共 {{ previewRecognitionJson.processes.length }} 个工序')
+assertIncludes(parserPage, ':disabled="!canGoPreviousProcess"')
+assertIncludes(parserPage, ':disabled="!canGoNextProcess"')
+assertIncludes(parserPage, ':style="{ \'--frontline-device-tab-count\': visiblePreviewDeviceCards.length }"')
+assertIncludes(parserPage, 'role="checkbox"')
+assertIncludes(parserPage, 'activePreviewDevice.parameters')
+assertIncludes(parserPage, 'ref="jsonEditorInputRef"')
+assertIncludes(parserPage, 'v-model="jsonSearchKeyword"')
+assertIncludes(parserPage, '@keyup.enter="locateNextJsonKeyword"')
+assertIncludes(parserPage, '@click="locateNextJsonKeyword"')
+assertIncludes(parserPage, 'setSelectionRange')
+assertIncludes(parserPage, 'scrollTop')
+assertIncludes(parserPage, '请输入查找关键词')
+assertIncludes(parserPage, '未找到关键词')
+assertIncludes(parserPage, '.form-parser-device-tabs')
+assertIncludes(parserPage, '.form-parser-device-tab-card')
+assertIncludes(parserPage, '.form-parser-device-tab')
+assertIncludes(parserPage, '.form-parser-device-metering-validity')
+assertIncludes(parserPage, '.form-parser-device-current')
+assertIncludes(parserPage, 'grid-template-columns: repeat(var(--frontline-device-tab-count, 1), minmax(0, 1fr))')
+assertIncludes(parserPage, 'grid-template-rows: minmax(0, 1fr) 36px')
+assertIncludes(parserPage, 'height: 110px')
+assertIncludes(parserPage, 'border: 3px solid #cad6d0')
+assertIncludes(parserPage, 'background: #20352d')
+
 assertNotIncludes(
   parserPage,
-  '<el-table',
-  '表单解析结果只能保留一个树状图，不得继续展示表格'
+  '<el-tree',
+  '表单解析结果不得继续使用树状图，结果区必须是 JSON 编辑 + 一线生产预览'
+)
+assertNotIncludes(parserPage, 'batchRecordTreeData')
+assertNotIncludes(parserPage, 'buildBatchRecordTreeData')
+assertNotIncludes(parserPage, 'buildProcessTreeNode')
+assertNotIncludes(parserPage, 'buildInputMaterialTreeNode')
+assertNotIncludes(parserPage, 'buildOutputMaterialTreeNode')
+assertNotIncludes(parserPage, 'buildEquipmentDeviceTreeNodes')
+assertNotIncludes(parserPage, 'buildParameterTreeNode')
+assertNotIncludes(parserPage, 'buildExtraFieldNodes')
+assertNotIncludes(parserPage, 'form-parser-tree')
+assertNotIncludes(parserPage, '完整 JSON')
+assertNotIncludes(parserPage, 'formatProcessParameterSummary')
+assertNotIncludes(parserPage, 'buildOutputEquipmentParameterRows')
+assertNotIncludes(
+  parserPage,
+  'v-for="(equipment, equipmentIndex) in resolveEquipmentOptions(group)"',
+  '多设备不应继续把每台设备完整参数卡纵向堆叠'
+)
+assertNotIncludes(parserPage, '.form-parser-device-group')
+assertNotIncludes(parserPage, '.form-parser-device-card')
+assertNotIncludes(
+  parserPage,
+  'form-parser-product-card',
+  '一线生产预览顶部不再显示产品信息卡'
 )
 assertNotIncludes(
   parserPage,
-  '<el-descriptions',
-  '表单解析结果只能保留一个树状图，不得继续展示描述面板'
+  'currentProductText',
+  '隐藏产品信息卡后不得保留未使用的产品卡展示计算'
 )
 assertNotIncludes(
   parserPage,
-  '<el-collapse',
-  '表单解析结果只能保留一个树状图，不得继续展示独立 JSON 折叠面板'
+  'form-parser-employee-card',
+  '一线生产预览顶部不再显示员工信息卡'
 )
 assertNotIncludes(
   parserPage,
-  'type="expand"',
-  '表单解析结果不能再依赖表格展开行'
-)
-assertNotIncludes(
-  parserPage,
-  'formatProcessParameterSummary',
-  '树状图展示后应删除纯文本参数摘要逻辑'
-)
-assertNotIncludes(
-  parserPage,
-  'buildOutputEquipmentParameterRows',
-  '树状图展示后应删除旧的输出物料-设备-参数表格行构建逻辑'
-)
-assertNotIncludes(
-  parserPage,
-  '完整 JSON',
-  '所有数据必须进入树状图，不再单独显示完整 JSON 面板'
+  'form-parser-home-button',
+  '一线生产预览顶部不再显示主页按钮'
 )
 assertNotIncludes(
   parserPage,
@@ -150,6 +215,57 @@ assertNotIncludes(parserPage, 'recognizedFields')
 assertNotIncludes(parserPage, 'jimuSchemaJson')
 assertNotIncludes(parserPage, 'recognizedSchemaJson')
 
+const parseHandler = extractFunction(parserPage, 'parseAndDownloadProductionBatchRecord')
+assertIncludes(parseHandler, 'parseProductionBatchRecordTotalRecognitionJson')
+assertIncludes(parseHandler, 'parseTotalRecognitionJson(totalRecognitionJson)')
+assertIncludes(parseHandler, 'editableRecognitionJson.value')
+assertIncludes(parseHandler, 'previewRecognitionJson.value')
+assertIncludes(parseHandler, 'download.json')
+
+const applyHandler = extractFunction(parserPage, 'handleApplyEditedJson')
+assertIncludes(applyHandler, 'parseTotalRecognitionJson(editableRecognitionJson.value)')
+assertIncludes(applyHandler, 'previewRecognitionJson.value = mapping')
+assertIncludes(applyHandler, 'initializePreviewState(mapping)')
+assertIncludes(applyHandler, 'resetJsonSearchPosition()')
+assertIncludes(applyHandler, 'message.success')
+assertIncludes(applyHandler, 'message.error')
+assertNotIncludes(
+  applyHandler,
+  'parseProductionBatchRecordTotalRecognitionJson',
+  '应用左侧 JSON 只能使用本地编辑内容，不得重新调用上传解析 API'
+)
+
+const searchMatches = extractFunction(parserPage, 'findJsonKeywordMatches')
+assertIncludes(searchMatches, 'editableRecognitionJson.value.indexOf')
+assertIncludes(searchMatches, 'jsonSearchKeyword.value.trim()')
+assertIncludes(searchMatches, 'matches.push')
+
+const locateKeyword = extractFunction(parserPage, 'locateNextJsonKeyword')
+assertIncludes(locateKeyword, 'findJsonKeywordMatches()')
+assertIncludes(locateKeyword, 'jsonSearchMatchTotal.value = matches.length')
+assertIncludes(locateKeyword, '(jsonSearchMatchIndex.value + 1) % matches.length')
+assertIncludes(locateKeyword, 'textarea.setSelectionRange(match.start, match.end)')
+assertIncludes(locateKeyword, 'textarea.focus()')
+assertIncludes(locateKeyword, 'textarea.scrollTop')
+assertIncludes(locateKeyword, 'message.warning')
+
+const activeDevice = extractFunction(parserPage, 'activePreviewDevice')
+assertIncludes(activeDevice, "selectedPreviewDeviceKeys.value.includes(selectedPreviewDeviceKey.value || '')")
+assertNotIncludes(
+  activeDevice,
+  '|| visiblePreviewDeviceCards.value.find',
+  '当前设备参数区必须只跟随一线生产同款当前设备，不得自动回退展示其它设备'
+)
+
+const toggleDevice = extractFunction(parserPage, 'togglePreviewDeviceSelection')
+assertIncludes(toggleDevice, 'if (selected.has(device.key))')
+assertIncludes(toggleDevice, 'clearPreviewDeviceParameterValues(device)')
+assertIncludes(toggleDevice, 'selectedPreviewDeviceKeys.value = [...selected]')
+assertIncludes(toggleDevice, "selectedPreviewDeviceKey.value = selectedPreviewDeviceKeys.value[0] || ''")
+assertIncludes(toggleDevice, "device.selectionMode === 'SINGLE'")
+assertIncludes(toggleDevice, 'visibleDevice.groupIndex === device.groupIndex')
+assertIncludes(toggleDevice, 'selectedPreviewDeviceKey.value = device.key')
+
 const parserButtons = parserPage.match(/<el-button[\s\S]*?<\/el-button>/g) || []
 const productionButton = parserButtons.find((button) => button.includes('生产批记录'))
 const qaButton = parserButtons.find((button) => button.includes('QA检验规程'))
@@ -157,13 +273,14 @@ const processButton = parserButtons.find((button) => button.includes('过程检�
 if (!productionButton || !productionButton.includes('handleProductionBatchRecord')) {
   throw new Error('生产批记录按钮必须打开 Word 上传解析流程')
 }
-for (const [label, button] of [
-  ['QA检验规程', qaButton],
-  ['过程检验记录', processButton]
-]) {
-  if (!button || !button.includes('handleUnsupportedParseType')) {
-    throw new Error(`${label} 按钮当前只能提示未实现，不能调用生产批记录解析接口`)
-  }
+if (!qaButton || !qaButton.includes('handleQaInspectionRegulation')) {
+  throw new Error('QA检验规程按钮必须打开独立 QA Word 上传解析流程')
+}
+if (qaButton.includes('handleProductionBatchRecord')) {
+  throw new Error('QA检验规程按钮不得调用生产批记录解析流程')
+}
+if (!processButton || !processButton.includes('handleUnsupportedParseType')) {
+  throw new Error('过程检验记录按钮当前只能提示未实现')
 }
 
 const sql = assertFile('../IntRuoyiBackend/sql/mysql/20260908_bpm_form_parser_menu.sql')
@@ -174,4 +291,4 @@ assertIncludes(sql, "'FormCenterParser'")
 assertIncludes(sql, "'form:parser:query'")
 assertIncludes(sql, "'form:parser:production-batch-record'")
 
-console.log('form parser json download static contract passed')
+console.log('form parser json editor frontline preview static contract passed')

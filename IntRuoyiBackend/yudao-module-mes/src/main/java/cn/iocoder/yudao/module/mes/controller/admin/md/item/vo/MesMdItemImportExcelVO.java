@@ -4,6 +4,9 @@ import cn.idev.excel.annotation.ExcelProperty;
 import cn.iocoder.yudao.framework.excel.core.annotations.DictFormat;
 import cn.iocoder.yudao.framework.excel.core.convert.DictConvert;
 import cn.iocoder.yudao.module.system.enums.DictTypeConstants;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,9 +24,11 @@ import java.math.BigDecimal;
 public class MesMdItemImportExcelVO {
 
     @ExcelProperty("物料编码")
+    @NotBlank(message = "物料编码不能为空")
     private String code;
 
     @ExcelProperty("物料名称")
+    @NotBlank(message = "物料名称不能为空")
     private String name;
 
     @ExcelProperty("MDM 产品编码")
@@ -33,9 +38,11 @@ public class MesMdItemImportExcelVO {
     private String specification;
 
     @ExcelProperty("单位编码")
+    @NotBlank(message = "单位编码不能为空")
     private String unitMeasureCode;
 
     @ExcelProperty("物料分类编号")
+    @NotNull(message = "物料分类编号不能为空")
     private Long itemTypeId;
 
     @ExcelProperty(value = "状态", converter = DictConvert.class)
@@ -46,9 +53,11 @@ public class MesMdItemImportExcelVO {
     private Boolean safeStockFlag;
 
     @ExcelProperty("最低库存量")
+    @DecimalMin(value = "0", message = "最低库存量不能小于 0")
     private BigDecimal minStock;
 
     @ExcelProperty("最高库存量")
+    @DecimalMin(value = "0", message = "最高库存量不能小于 0")
     private BigDecimal maxStock;
 
     @ExcelProperty("是否高值物料")

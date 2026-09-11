@@ -5,9 +5,17 @@ const { chromium } = require('playwright')
 
 const FRONTEND_ROOT = path.resolve(__dirname, '../..')
 const WORKSPACE_ROOT = path.resolve(FRONTEND_ROOT, '..')
-const BASE_URL = (process.env.QA_REGULATION_E2E_BASE_URL || 'http://127.0.0.1:8081').replace(/\/+$/, '')
+const BASE_URL = (process.env.QA_REGULATION_E2E_BASE_URL || 'http://127.0.0.1:8081').replace(
+  /\/+$/,
+  ''
+)
 const TARGET_PATH = '/mes/pro/process-pool/qa-regulation'
-const RESULT_DIR = path.resolve(WORKSPACE_ROOT, 'output', 'playwright', '20260804-qa-regulation-tab')
+const RESULT_DIR = path.resolve(
+  WORKSPACE_ROOT,
+  'output',
+  'playwright',
+  '20260804-qa-regulation-tab'
+)
 const RESULT_PATH = path.join(RESULT_DIR, 'qa-regulation-dcc-status-real-e2e.json')
 const SCREENSHOT_PATH = path.join(RESULT_DIR, 'qa-regulation-dcc-status-real-e2e.png')
 const CHROME_CANDIDATES = [
@@ -81,7 +89,9 @@ async function login(page, config) {
   const form = page.locator('form.login-form:visible').first()
   await form.waitFor({ state: 'visible' })
 
-  const tenantInput = form.locator('.el-select input[role="combobox"], input.el-select__input').first()
+  const tenantInput = form
+    .locator('.el-select input[role="combobox"], input.el-select__input')
+    .first()
   if (await tenantInput.count()) {
     await tenantInput.fill(config.tenant)
     const tenantOption = page
@@ -95,13 +105,19 @@ async function login(page, config) {
   }
 
   await form
-    .locator('input[placeholder="请输入用户名"], input.el-input__inner:not([type="password"]):not([role="combobox"])')
+    .locator(
+      'input[placeholder="请输入用户名"], input.el-input__inner:not([type="password"]):not([role="combobox"])'
+    )
     .first()
     .fill(config.username)
-  await form.locator('input[type="password"], input[placeholder="请输入密码"]').first().fill(config.password)
+  await form
+    .locator('input[type="password"], input[placeholder="请输入密码"]')
+    .first()
+    .fill(config.password)
 
   const loginResponsePromise = page.waitForResponse(
-    (response) => response.url().includes('/system/auth/login') && response.request().method() === 'POST',
+    (response) =>
+      response.url().includes('/system/auth/login') && response.request().method() === 'POST',
     { timeout: 60000 }
   )
   await form.getByRole('button', { name: '登录' }).click()
@@ -137,8 +153,7 @@ async function waitForProjectStatusResponse(page) {
 async function waitForDccProjectCodePageResponse(page) {
   const response = await page.waitForResponse(
     (candidate) =>
-      candidate.url().includes('/dcc/project-codes/page') &&
-      candidate.request().method() === 'GET',
+      candidate.url().includes('/dcc/project-codes/page') && candidate.request().method() === 'GET',
     { timeout: 60000 }
   )
   assert.equal(response.ok(), true, `dcc project-codes page HTTP status ${response.status()}`)
@@ -206,7 +221,10 @@ async function main() {
       if (!captureRequests) {
         return
       }
-      if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method()) && request.url().includes('/admin-api/')) {
+      if (
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method()) &&
+        request.url().includes('/admin-api/')
+      ) {
         writeRequests.push({ method: request.method(), url: request.url() })
       }
     })
@@ -228,9 +246,9 @@ async function main() {
 
     const qaPage = page.locator('[data-qa-regulation-page]').first()
     await qaPage.waitFor({ state: 'visible' })
-    await qaPage.getByText('QA 规程配置', { exact: false }).first().waitFor({ state: 'visible' })
+    await qaPage.getByText('QA检验规程', { exact: true }).first().waitFor({ state: 'visible' })
     await qaPage.getByRole('tab', { name: '通用检验规程' }).waitFor({ state: 'visible' })
-    await qaPage.locator('[data-qa-regulation-common-empty]').waitFor({ state: 'visible' })
+    await qaPage.locator('[data-qa-regulation-qa-empty]').waitFor({ state: 'visible' })
 
     const idiProject = firstDccProjectPage.sample.find((project) => project.projectCode === 'IDI')
     if (!idiProject?.productMasterId) {
@@ -259,10 +277,16 @@ async function main() {
     await qaPage.getByText('IDI', { exact: false }).first().waitFor({ state: 'visible' })
     assert.equal(publishedVersionResponse.versionNo, currentResponse.versionNo)
     assert.equal(publishedVersionResponse.lifecycleStatus, 'PUBLISHED')
-    assert.ok(versionsResponse.dataCount > 0, 'QA regulation version list must contain at least one option')
-    await qaPage.locator('[data-qa-regulation-current-published-version]').getByText(currentResponse.versionNo).waitFor({
-      state: 'visible'
-    })
+    assert.ok(
+      versionsResponse.dataCount > 0,
+      'QA regulation version list must contain at least one option'
+    )
+    await qaPage
+      .locator('[data-qa-regulation-current-published-version]')
+      .getByText(currentResponse.versionNo)
+      .waitFor({
+        state: 'visible'
+      })
     const selectedVersionStatus = await qaPage
       .locator('[data-qa-regulation-selected-version-status]')
       .first()
@@ -277,66 +301,65 @@ async function main() {
       /已发布|草稿|已退役|未配置/,
       'selected QA regulation version status must render a business lifecycle state'
     )
-    await qaPage.getByRole('tab', { name: '通用检验规程' }).click()
-    const commonPanel = qaPage.locator('[data-qa-regulation-common-panel]').first()
-    await commonPanel.waitFor({ state: 'visible' })
-    await commonPanel.getByText('当前通用规程主档', { exact: true }).waitFor({
-      state: 'visible'
-    })
-    const commonBindingControl = commonPanel
+    const commonBindingControl = qaPage
       .locator('[data-qa-regulation-common-binding-control]')
       .first()
     await commonBindingControl.waitFor({ state: 'visible' })
-    await commonBindingControl.getByText('通用检验规程引用', { exact: true }).waitFor({
+    await commonBindingControl.getByText('关联通用检验规程', { exact: true }).waitFor({
       state: 'visible'
     })
-    await commonBindingControl
-      .locator('[data-qa-regulation-common-binding-current]')
-      .getByText('未关联通用检验规程')
-      .waitFor({ state: 'visible' })
-    await commonBindingControl
-      .locator('[data-qa-regulation-common-binding-status]')
-      .getByText('接口待接入')
-      .waitFor({ state: 'visible' })
     await commonBindingControl
       .locator('[data-qa-regulation-common-binding-scope]')
       .getByText('IDI')
       .waitFor({ state: 'visible' })
-    await commonBindingControl
-      .locator('[data-qa-regulation-common-binding-version]')
-      .getByText('请选择已发布通用规程版本')
-      .waitFor({ state: 'visible' })
-    await commonPanel.locator('[data-qa-regulation-common-dcc-project]').getByText('IDI').waitFor({
+    const commonBindingStatus = await commonBindingControl
+      .locator('[data-qa-regulation-common-binding-status]')
+      .innerText()
+    assert.match(
+      commonBindingStatus,
+      /已关联|未关联/,
+      'binding status must use the formal API state'
+    )
+
+    await qaPage.getByRole('tab', { name: '通用检验规程' }).click()
+    const commonHeader = qaPage.locator('[data-qa-common-layout-header]').first()
+    await commonHeader.waitFor({ state: 'visible' })
+    await commonHeader.getByText('通用检验规程', { exact: true }).waitFor({ state: 'visible' })
+    await commonHeader.locator('[data-qa-common-set-switch]').waitFor({ state: 'visible' })
+    const commonWorkspace = qaPage.locator('[data-qa-regulation-common-workspace]').first()
+    await commonWorkspace.waitFor({ state: 'visible' })
+    const commonPanel = commonWorkspace.locator('[data-qa-regulation-common-panel]').first()
+    await commonPanel.waitFor({ state: 'visible' })
+    await commonPanel.getByText('规程信息', { exact: true }).waitFor({
       state: 'visible'
     })
-    await commonPanel
-      .locator('[data-qa-regulation-common-version]')
-      .getByText(currentResponse.versionNo)
+    await commonWorkspace
+      .locator('[data-qa-common-set-standard-list]')
       .waitFor({ state: 'visible' })
-    await commonPanel
-      .locator('[data-qa-regulation-common-status]')
-      .getByText(selectedVersionStatus.trim())
-      .waitFor({ state: 'visible' })
-    const commonCode = await commonPanel
-      .locator('[data-qa-regulation-common-code]')
-      .first()
+    const commonSetHeaderStatus = await commonHeader
+      .locator('[data-qa-common-selected-version-status]')
       .innerText()
-    const commonName = await commonPanel
-      .locator('[data-qa-regulation-common-name]')
-      .first()
-      .innerText()
-    assert.match(commonCode, /\S+/, 'common regulation tab must show a regulation code')
-    assert.match(commonName, /\S+/, 'common regulation tab must show a regulation name')
+    assert.match(
+      commonSetHeaderStatus,
+      /已发布|草稿|已退役|未选择版本/,
+      'common regulation workspace must show the selected version status'
+    )
     await qaPage.screenshot({ path: SCREENSHOT_PATH })
 
-    assert.deepEqual(writeRequests, [], 'QA DCC status real E2E must not send backend write requests')
+    assert.deepEqual(
+      writeRequests,
+      [],
+      'QA DCC status real E2E must not send backend write requests'
+    )
     assert.deepEqual(pageErrors, [], 'QA DCC status real E2E must not emit page errors')
     assert.deepEqual(
       badResponses.filter((item) => item.url.includes('/mes/qa/inspection-regulation/')),
       [],
       'QA regulation readonly requests must not return HTTP errors'
     )
-    const qaConsoleErrors = consoleErrors.filter((message) => message.includes('QA') || message.includes('qa'))
+    const qaConsoleErrors = consoleErrors.filter(
+      (message) => message.includes('QA') || message.includes('qa')
+    )
     assert.deepEqual(qaConsoleErrors, [], 'QA DCC status real E2E must not emit QA console errors')
 
     const result = {
@@ -351,9 +374,8 @@ async function main() {
       currentResponse,
       versionsResponse,
       selectedVersionStatus,
-      commonCode,
-      commonName,
-      commonBindingStatus: '接口待接入',
+      commonSetHeaderStatus,
+      commonBindingStatus,
       writeRequests,
       badResponses,
       consoleErrors,
@@ -368,7 +390,10 @@ async function main() {
       ok: false,
       baseUrl: BASE_URL,
       targetPath: TARGET_PATH,
-      actor: config.tenant && config.username ? `${config.tenant}/${config.username}` : 'missing-local-default-login',
+      actor:
+        config.tenant && config.username
+          ? `${config.tenant}/${config.username}`
+          : 'missing-local-default-login',
       browserExecutable: browserExecutable || 'playwright-default',
       error: error.message,
       writeRequests,

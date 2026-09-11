@@ -161,6 +161,12 @@ export const decideImpactTask = (
 ) => request.post({ url: `/dcc/publication-impact-tasks/${taskId}/decision`, data,
   ignoreErrorMessage: true })
 
+export const reopenImpactTask = (
+  taskId: DccBusinessId,
+  data: { expectedVersion: number; reason: string }
+) => request.post({ url: `/dcc/publication-impact-tasks/${taskId}/reopen`, data,
+  ignoreErrorMessage: true })
+
 export const createImpactRevision = (
   taskId: DccBusinessId,
   data: { expectedVersion: number; sourceControlledFileId: DccBusinessId; reason: string }

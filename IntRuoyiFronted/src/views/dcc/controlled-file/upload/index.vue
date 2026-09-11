@@ -90,31 +90,52 @@
             </div>
           </div>
         </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="文件分类" prop="fileTypeTaxonomyId">
+        <el-form-item v-if="!isExternalReview" label="阶段">
           <div class="w-full">
-            <el-cascader
-              v-model="formData.fileTypeTaxonomyId"
-              class="!w-560px"
-              :options="fileTypeTaxonomyOptions"
-              :props="fileTypeTaxonomyCascaderProps"
+            <el-select
+              v-model="selectedProjectTemplateStageId"
+              class="!w-360px"
               clearable
-              :disabled="fileTypeTaxonomiesLoading"
               filterable
-              placeholder="请选择文件分类"
-              @change="handleFileTypeTaxonomyChange"
-            />
-            <div v-if="selectedFileTypeTaxonomyPathLabel" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-              {{ selectedFileTypeTaxonomyPathLabel }}
-            </div>
+              :loading="projectFileTemplateLoading"
+              :disabled="!formData.dccProjectCodeId || Boolean(projectFileTemplateError)"
+              placeholder="请选择项目模板阶段"
+              @change="handleProjectTemplateStageChange"
+            >
+              <el-option
+                v-for="stage in projectTemplateStageOptions"
+                :key="stage.id"
+                :label="stage.name"
+                :value="stage.id"
+              />
+            </el-select>
             <el-alert
-              v-if="fileTypeTaxonomyOptionsError"
+              v-if="projectFileTemplateError"
               class="mt-8px !w-560px"
-              type="warning"
+              type="error"
               :closable="false"
               show-icon
-              :title="fileTypeTaxonomyOptionsError"
+              :title="projectFileTemplateError"
             />
           </div>
+        </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="文件类型">
+          <el-select
+            v-model="selectedProjectTemplateTypeId"
+            class="!w-360px"
+            clearable
+            filterable
+            :disabled="!selectedProjectTemplateStageId"
+            placeholder="请选择项目模板文件类型"
+            @change="handleProjectTemplateTypeChange"
+          >
+            <el-option
+              v-for="fileType in projectTemplateTypeOptions"
+              :key="fileType.id"
+              :label="fileType.name"
+              :value="fileType.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item v-if="isExternalReview" label="文件类别" prop="categoryId">
           <div class="w-full">
@@ -195,16 +216,28 @@
 
           <section class="upload-section upload-section--file" data-testid="dcc-upload-section-file">
         <div class="upload-section__title">文件信息</div>
-        <el-form-item label="文件名称" prop="fileName">
-          <el-autocomplete
+        <el-form-item v-if="isExternalReview" label="文件名称" prop="fileName">
+          <el-input
             v-model="formData.fileName"
             class="!w-420px"
             clearable
-            :hide-loading="!uploadNameOptionsLoading"
+            placeholder="请输入文件名称"
+            @input="handleFileNameInput"
+            @clear="handleFileNameClear"
+          />
+        </el-form-item>
+        <el-form-item v-else label="文件列表" prop="fileName">
+          <el-autocomplete
+            v-model="formData.fileName"
+            data-testid="dcc-upload-project-template-file-list"
+            class="!w-420px"
+            clearable
+            :disabled="!canSelectProjectTemplateFileName"
+            :hide-loading="true"
             :fetch-suggestions="queryUploadNameSuggestions"
-            :trigger-on-focus="canLoadUploadNameOptions"
-            placeholder="可选择历史文件名称，或直接输入新名称"
-            @select="handleHistoryFileNameSelect"
+            :trigger-on-focus="canSelectProjectTemplateFileName"
+            placeholder="请选择项目模板中的文件名称"
+            @select="handleProjectTemplateFileSelect"
             @input="handleFileNameInput"
             @clear="handleFileNameClear"
           >
@@ -212,7 +245,7 @@
               <div class="flex items-center justify-between gap-12px">
                 <span class="truncate">{{ item.value }}</span>
                 <span class="text-12px text-[var(--el-text-color-secondary)]">
-                  当前版本：{{ item.currentVersionNo || '-' }}
+                  {{ item.taxonomyPath }}
                 </span>
               </div>
             </template>
@@ -531,20 +564,18 @@
 
 <script lang="ts" setup>
 import type { FormRules, UploadProps, UploadUserFile } from 'element-plus'
-import { handleTree } from '@/utils/tree'
 import { formatToDate } from '@/utils/dateUtil'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodeFileTemplate,
   getProjectCodeControlledFilesPage,
   getProjectCodePage,
-  type DccProjectCodeRespVO
+  type DccProjectCodeRespVO,
+  type DccProjectFileTemplateItemRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
-import {
-  getFileTypeTaxonomyUploadOptions,
-  type DccFileTypeTaxonomyVO
-} from '@/api/dcc/controlledFile/fileTypeTaxonomies'
+import type { DccFileTypeTaxonomyVO } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import {
   cleanupControlledFileUploadSession,
   createControlledFileUploadSessionId,
@@ -596,6 +627,9 @@ const message = useMessage()
 
 interface UploadNameSuggestionItem {
   value: string
+  templateItemId?: number
+  fileTypeTaxonomyId?: number
+  taxonomyPath?: string
   currentVersionNo?: string | null
   controlledFileId?: number | null
   fileNumber?: string | null
@@ -608,6 +642,10 @@ const categories = ref<ControlledFileCategoryVO[]>([])
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const relatedFileOptions = ref<ControlledFileVO[]>([])
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
+const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
+const selectedProjectTemplateStageId = ref<number>()
+const selectedProjectTemplateTypeId = ref<number>()
+const selectedProjectTemplateItemId = ref<number>()
 const selectedRevisionCandidate = ref<ControlledFileVO>()
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
@@ -632,10 +670,10 @@ let routeReadinessRequestSeq = 0
 const revisionTargetLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const relatedFileOptionsLoading = ref(false)
-const fileTypeTaxonomiesLoading = ref(false)
+const projectFileTemplateLoading = ref(false)
 const projectCodeOptionsError = ref('')
 const relatedFileOptionsError = ref('')
-const fileTypeTaxonomyOptionsError = ref('')
+const projectFileTemplateError = ref('')
 const categoryOptionsError = ref('')
 const selectedHistoryVersion = ref('')
 const selectedHistoryFileName = ref('')
@@ -684,6 +722,7 @@ const formData = reactive<UploadFormDraft>({
   dccProjectCodeId: null,
   fileTypeTaxonomyId: null,
   revisionTargetControlledFileId: null,
+  revisionSourceControlledFileId: null,
   relatedControlledFileIds: [],
   needTraining: false,
   selectedSignoffUserIds: [],
@@ -705,8 +744,52 @@ const activeFileTypeTaxonomyRows = computed(() =>
     .map((row) => ({ ...row, children: undefined }))
 )
 
-const fileTypeTaxonomyOptions = computed(
-  () => handleTree(activeFileTypeTaxonomyRows.value.map((row) => ({ ...row }))) as DccFileTypeTaxonomyVO[]
+type ProjectTemplateTypeOption = {
+  id: number
+  name: string
+  items: DccProjectFileTemplateItemRespVO[]
+}
+
+type ProjectTemplateStageOption = {
+  id: number
+  name: string
+  types: ProjectTemplateTypeOption[]
+}
+
+const projectTemplateStageOptions = computed<ProjectTemplateStageOption[]>(() => {
+  const stageMap = new Map<number, ProjectTemplateStageOption>()
+  projectFileTemplateItems.value.forEach((item) => {
+    let stage = stageMap.get(item.stageTaxonomyId)
+    if (!stage) {
+      stage = { id: item.stageTaxonomyId, name: item.stageName, types: [] }
+      stageMap.set(item.stageTaxonomyId, stage)
+    }
+    let fileType = stage.types.find((candidate) => candidate.id === item.fileTypeNodeId)
+    if (!fileType) {
+      fileType = { id: item.fileTypeNodeId, name: item.fileTypeName, items: [] }
+      stage.types.push(fileType)
+    }
+    fileType.items.push(item)
+  })
+  return Array.from(stageMap.values())
+})
+const selectedProjectTemplateStage = computed(() =>
+  projectTemplateStageOptions.value.find((stage) => stage.id === selectedProjectTemplateStageId.value)
+)
+const projectTemplateTypeOptions = computed(() => selectedProjectTemplateStage.value?.types || [])
+const selectedProjectTemplateType = computed(() =>
+  projectTemplateTypeOptions.value.find((fileType) => fileType.id === selectedProjectTemplateTypeId.value)
+)
+const projectTemplateFileOptions = computed<UploadNameSuggestionItem[]>(() =>
+  (selectedProjectTemplateType.value?.items || []).map((item) => ({
+    value: item.fileName,
+    templateItemId: item.id,
+    fileTypeTaxonomyId: item.fileTypeTaxonomyId,
+    taxonomyPath: item.taxonomyPath
+  }))
+)
+const canSelectProjectTemplateFileName = computed(
+  () => !isExternalReview.value && Boolean(selectedProjectTemplateType.value) && !projectFileTemplateError.value
 )
 
 const fileTypeTaxonomyPathMap = computed(() => {
@@ -851,7 +934,7 @@ const formRules = reactive<FormRules>({
           return
         }
         if (!value) {
-          callback(new Error('请选择文件分类'))
+          callback(new Error('请从项目模板选择文件名称'))
           return
         }
         const path = fileTypeTaxonomyPathMap.value.get(Number(value))
@@ -882,7 +965,32 @@ const formRules = reactive<FormRules>({
     }
   ],
   directoryId: [{ required: true, message: '请选择最终提交目录', trigger: 'change' }],
-  fileName: [{ required: true, message: '请输入文件名称', trigger: 'blur' }],
+  fileName: [
+    {
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        const fileName = String(value || '').trim()
+        if (!fileName) {
+          callback(new Error(isExternalReview.value ? '请输入文件名称' : '请选择项目模板文件名称'))
+          return
+        }
+        if (!isExternalReview.value) {
+          const selectedItem = projectFileTemplateItems.value.find(
+            (item) => item.id === selectedProjectTemplateItemId.value
+          )
+          if (
+            !selectedItem ||
+            selectedItem.fileName !== fileName ||
+            selectedItem.fileTypeTaxonomyId !== formData.fileTypeTaxonomyId
+          ) {
+            callback(new Error('请从当前项目模板的文件列表中选择'))
+            return
+          }
+        }
+        callback()
+      },
+      trigger: ['change', 'blur']
+    }
+  ],
   fileNumber: [{ required: true, message: '请输入文件编号', trigger: 'blur' }],
   versionNo: [
     {
@@ -914,14 +1022,6 @@ const directoryCascaderProps = {
   children: 'children',
   emitPath: false,
   checkStrictly: false
-} as const
-
-const fileTypeTaxonomyCascaderProps = {
-  value: 'id',
-  label: 'name',
-  children: 'children',
-  emitPath: false,
-  checkStrictly: true
 } as const
 
 const currentVersionProjectionBlockReason = computed(() => {
@@ -1081,20 +1181,46 @@ const handleProjectCodeOptionsVisibleChange = async (visible: boolean) => {
   await loadProjectCodeOptions()
 }
 
-const loadFileTypeTaxonomies = async () => {
-  fileTypeTaxonomiesLoading.value = true
-  fileTypeTaxonomyOptionsError.value = ''
-  try {
-    fileTypeTaxonomies.value = await getFileTypeTaxonomyUploadOptions()
-  } catch (error) {
+const resetProjectFileTemplateSelection = (clearTemplate: boolean = true) => {
+  projectFileTemplateLoading.value = false
+  selectedProjectTemplateStageId.value = undefined
+  selectedProjectTemplateTypeId.value = undefined
+  selectedProjectTemplateItemId.value = undefined
+  formData.fileTypeTaxonomyId = null
+  formData.fileNumber = ''
+  resetUploadNameContext(true)
+  resetCategorySelectionForFileTypeTaxonomyChange()
+  if (clearTemplate) {
+    projectFileTemplateItems.value = []
     fileTypeTaxonomies.value = []
-    const errorMessage = resolveUploadErrorMessage(error, '文件分类候选加载失败，请确认文件类型权限或联系文控管理员。')
-    fileTypeTaxonomyOptionsError.value = errorMessage.includes('文件分类候选加载失败')
+    projectFileTemplateError.value = ''
+  }
+}
+
+const loadProjectFileTemplate = async (projectCodeId: number) => {
+  projectFileTemplateLoading.value = true
+  projectFileTemplateError.value = ''
+  try {
+    const template = await getProjectCodeFileTemplate(projectCodeId)
+    if (formData.dccProjectCodeId !== projectCodeId) return
+    projectFileTemplateItems.value = template.items || []
+    fileTypeTaxonomies.value = template.taxonomyOptions || []
+    if (projectFileTemplateItems.value.length === 0) {
+      projectFileTemplateError.value = '项目文件模板未配置，请先在项目代码详情中维护模板'
+    }
+  } catch (error) {
+    if (formData.dccProjectCodeId !== projectCodeId) return
+    projectFileTemplateItems.value = []
+    fileTypeTaxonomies.value = []
+    const errorMessage = resolveUploadErrorMessage(error, '项目文件模板加载失败，请稍后重试')
+    projectFileTemplateError.value = errorMessage.includes('项目文件模板加载失败')
       ? errorMessage
-      : `文件分类候选加载失败：${errorMessage}`
-    message.error(fileTypeTaxonomyOptionsError.value)
+      : `项目文件模板加载失败：${errorMessage}`
+    message.error(projectFileTemplateError.value)
   } finally {
-    fileTypeTaxonomiesLoading.value = false
+    if (formData.dccProjectCodeId === projectCodeId) {
+      projectFileTemplateLoading.value = false
+    }
   }
 }
 
@@ -1182,7 +1308,6 @@ const loadBaseData = async () => {
   try {
     const [categoryList] = await Promise.all([
       getFileCategoryList(),
-      loadFileTypeTaxonomies(),
       loadProjectCodeOptions()
     ])
     categories.value = categoryList.filter((item) => item.active)
@@ -1222,6 +1347,7 @@ const loadUploadNameOptions = async (dccProjectCodeId: number, fileTypeTaxonomyI
       uploadNameOptionsLoadedKey.value = ''
       message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
     }
+    throw error
   } finally {
     if (buildUploadNameOptionsKey() === requestKey) {
       uploadNameOptionsLoading.value = false
@@ -1247,10 +1373,13 @@ const handleProjectCodeChange = async () => {
   formData.relatedControlledFileIds = []
   relatedFileOptions.value = []
   relatedFileOptionsError.value = ''
+  resetProjectFileTemplateSelection()
   applyDccProjectCodeProductNumber()
-  resetUploadNameContext(true)
   if (formData.dccProjectCodeId) {
-    await loadRelatedFileOptions(formData.dccProjectCodeId)
+    await Promise.all([
+      loadRelatedFileOptions(formData.dccProjectCodeId),
+      loadProjectFileTemplate(formData.dccProjectCodeId)
+    ])
   }
 }
 
@@ -1263,12 +1392,15 @@ const loadRelatedFileOptions = async (projectCodeId: number) => {
   try {
     const page = await getProjectCodeControlledFilesPage(projectCodeId, {
       pageNo: 1,
-      pageSize: 200
+      pageSize: 200,
+      status: 'ACTIVE'
     })
     if (formData.dccProjectCodeId !== projectCodeId) {
       return
     }
-    relatedFileOptions.value = page.list || []
+    relatedFileOptions.value = (page.list || []).filter(
+      (file) => file.businessSourceType === 'DCC_CONTROLLED_FILE' && file.status === 'ACTIVE'
+    )
   } catch (error) {
     if (formData.dccProjectCodeId !== projectCodeId) {
       return
@@ -1283,12 +1415,30 @@ const loadRelatedFileOptions = async (projectCodeId: number) => {
   }
 }
 
-const handleFileTypeTaxonomyChange = async () => {
-  resetUploadNameContext(true)
+const handleFileTypeTaxonomyChange = async (preserveFileName: boolean = false) => {
+  resetUploadNameContext(!preserveFileName)
   resetCategorySelectionForFileTypeTaxonomyChange()
   await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
   await syncAutoCategoryFromSelectedFileTypeTaxonomy()
   await formRef.value?.validateField?.('categoryId').catch(() => undefined)
+}
+
+const resetProjectTemplateFileChoice = () => {
+  selectedProjectTemplateItemId.value = undefined
+  formData.fileTypeTaxonomyId = null
+  formData.fileNumber = ''
+  resetUploadNameContext(true)
+  resetCategorySelectionForFileTypeTaxonomyChange()
+  clearSubmitFieldErrors(submitFieldErrors)
+}
+
+const handleProjectTemplateStageChange = () => {
+  selectedProjectTemplateTypeId.value = undefined
+  resetProjectTemplateFileChoice()
+}
+
+const handleProjectTemplateTypeChange = () => {
+  resetProjectTemplateFileChoice()
 }
 
 const loadUploadDirectoryTree = async (categoryId: number) => {
@@ -1565,7 +1715,11 @@ const loadCurrentVersionByFileNumber = async () => {
   currentVersionLookupLoading.value = true
   currentVersionLookupError.value = ''
   try {
-    const info = await getControlledFileCurrentVersion(fileNumber)
+    const info = await getControlledFileCurrentVersion(
+      fileNumber,
+      formData.dccProjectCodeId,
+      formData.fileTypeTaxonomyId
+    )
     if (requestSeq !== currentVersionLookupSeq) {
       return
     }
@@ -1575,6 +1729,7 @@ const loadCurrentVersionByFileNumber = async () => {
       if (!isExternalReview.value) {
         formData.changeType = 'REVISION'
         formData.revisionTargetControlledFileId = info.currentControlledFileId || null
+        formData.revisionSourceControlledFileId = info.currentControlledFileId || null
         if (
           info.currentVersionNo &&
           (!formData.versionNo ||
@@ -1605,20 +1760,14 @@ const queryUploadNameSuggestions = async (
   queryString: string,
   callback: (items: UploadNameSuggestionItem[]) => void
 ) => {
-  if (!canLoadUploadNameOptions.value) {
+  if (!canSelectProjectTemplateFileName.value) {
     callback([])
     return
   }
-  await ensureUploadNameOptionsLoaded()
   const keyword = queryString.trim().toLowerCase()
-  const suggestions = uploadNameOptions.value
-    .filter((item) => !keyword || item.fileName.toLowerCase().includes(keyword))
-    .map((item) => ({
-      value: item.fileName,
-      currentVersionNo: item.currentVersionNo,
-      controlledFileId: item.controlledFileId,
-      fileNumber: item.fileNumber
-    }))
+  const suggestions = projectTemplateFileOptions.value.filter(
+    (item) => !keyword || item.value.toLowerCase().includes(keyword)
+  )
   callback(suggestions)
 }
 
@@ -1649,8 +1798,60 @@ const handleHistoryFileNameSelect = async (item: UploadNameSuggestionItem) => {
   }
 }
 
+const handleProjectTemplateFileSelect = async (item: UploadNameSuggestionItem) => {
+  const templateItem = projectFileTemplateItems.value.find(
+    (candidate) =>
+      candidate.id === item.templateItemId &&
+      candidate.stageTaxonomyId === selectedProjectTemplateStageId.value &&
+      candidate.fileTypeNodeId === selectedProjectTemplateTypeId.value
+  )
+  if (!templateItem) {
+    resetProjectTemplateFileChoice()
+    message.error('所选文件不属于当前项目模板，请重新选择')
+    return
+  }
+  selectedProjectTemplateItemId.value = templateItem.id
+  formData.fileTypeTaxonomyId = templateItem.fileTypeTaxonomyId
+  formData.fileName = templateItem.fileName
+  await handleFileTypeTaxonomyChange(true)
+  formData.fileName = templateItem.fileName
+  try {
+    await ensureUploadNameOptionsLoaded()
+  } catch {
+    resetProjectTemplateFileChoice()
+    return
+  }
+  const historyOption = uploadNameOptions.value.find(
+    (candidate) => candidate.fileName.trim() === templateItem.fileName
+  )
+  if (historyOption) {
+    await handleHistoryFileNameSelect({
+      value: historyOption.fileName,
+      currentVersionNo: historyOption.currentVersionNo,
+      controlledFileId: historyOption.controlledFileId,
+      fileNumber: historyOption.fileNumber
+    })
+  } else {
+    resetUploadNameLinkage(true)
+    formData.fileName = templateItem.fileName
+    clearCurrentVersionInfo()
+  }
+  await formRef.value?.validateField?.('fileName').catch(() => undefined)
+}
+
 const handleFileNameInput = (value: string) => {
   const normalized = value.trim()
+  if (!isExternalReview.value) {
+    const selectedItem = projectFileTemplateItems.value.find(
+      (item) => item.id === selectedProjectTemplateItemId.value
+    )
+    if (!selectedItem || normalized !== selectedItem.fileName) {
+      selectedProjectTemplateItemId.value = undefined
+      formData.fileTypeTaxonomyId = null
+      formData.fileNumber = ''
+      resetCategorySelectionForFileTypeTaxonomyChange()
+    }
+  }
   if (!normalized) {
     resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
     return
@@ -1662,6 +1863,12 @@ const handleFileNameInput = (value: string) => {
 
 const handleFileNameClear = () => {
   formData.fileName = ''
+  if (!isExternalReview.value) {
+    selectedProjectTemplateItemId.value = undefined
+    formData.fileTypeTaxonomyId = null
+    formData.fileNumber = ''
+    resetCategorySelectionForFileTypeTaxonomyChange()
+  }
   resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
   clearSubmitFieldErrors(submitFieldErrors)
 }

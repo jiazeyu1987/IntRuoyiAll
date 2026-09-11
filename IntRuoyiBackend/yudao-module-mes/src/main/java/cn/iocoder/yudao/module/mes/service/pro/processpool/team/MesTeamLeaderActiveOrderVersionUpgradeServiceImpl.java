@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskSer
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderVersionUpgradeRequestDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -22,6 +23,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderVersionUpgradeRequestMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
@@ -53,6 +55,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_FREEZE_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_ONGOING_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_TARGET_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_APPLICATION_LOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
 
@@ -87,6 +90,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
     private final MesProcessPoolActiveOrderVersionUpgradeRequestMapper versionUpgradeRequestMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
+    private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     private final MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrWorkTaskService workTaskService;
@@ -104,6 +108,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             MesProcessPoolActiveOrderVersionUpgradeRequestMapper versionUpgradeRequestMapper,
             MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
             MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper,
+            MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
             MesProcessPoolTeamMaintenanceAuditMapper auditMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrWorkTaskService workTaskService,
@@ -119,6 +124,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
         this.versionUpgradeRequestMapper = versionUpgradeRequestMapper;
         this.pickListBindingMapper = pickListBindingMapper;
         this.pickListBindingItemMapper = pickListBindingItemMapper;
+        this.releaseApplicationMapper = releaseApplicationMapper;
         this.auditMapper = auditMapper;
         this.batchExecutionMapper = batchExecutionMapper;
         this.workTaskService = workTaskService;
@@ -162,6 +168,11 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
         boolean changed = lines.stream().anyMatch(line -> Boolean.TRUE.equals(line.getChanged()));
         if (!changed && blockers.isEmpty()) {
             blockers.add("全部受控对象已是最新正式版本，无需发起版本升级重启");
+        }
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> releaseApplications =
+                releaseApplicationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId()));
+        if (!releaseApplications.isEmpty()) {
+            blockers.add("活跃订单已进入生产放行链路，禁止版本升级重启");
         }
         return new MesTeamLeaderActiveOrderVersionUpgradePreview()
                 .setActiveOrderId(activeOrder.getId())
@@ -208,6 +219,7 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
                 || !STATUS_ACTIVE.equals(lockedActiveOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, command.getActiveOrderId());
         }
+        requireNoReleaseApplication(lockedActiveOrder.getId());
         LocalDateTime now = LocalDateTime.now();
         int frozen = activeOrderMapper.freezeForVersionUpgrade(
                 lockedActiveOrder.getId(), lockedActiveOrder.getVersion(), leaderUserId, now);
@@ -508,6 +520,18 @@ public class MesTeamLeaderActiveOrderVersionUpgradeServiceImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
         return activeOrder;
+    }
+
+    private void requireNoReleaseApplication(Long activeOrderId) {
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> releaseApplications =
+                releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(activeOrderId));
+        if (!releaseApplications.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_APPLICATION_LOCKED,
+                    activeOrderId, releaseApplications.stream()
+                            .map(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
+                            .filter(Objects::nonNull)
+                            .toList());
+        }
     }
 
     private static MesTeamLeaderActiveOrderVersionUpgradeVersionLine buildRouteLine(

@@ -1223,13 +1223,14 @@ LEFT JOIN (
   UNION ALL SELECT id, 'published', published_file_id FROM dcc_controlled_file WHERE tenant_id = {tenant_id} AND published_file_id IS NOT NULL AND deleted = b'0'
   UNION ALL SELECT id, 'stamped', stamped_file_id FROM dcc_controlled_file WHERE tenant_id = {tenant_id} AND stamped_file_id IS NOT NULL AND deleted = b'0'
 ) refs ON refs.controlled_file_id = cf.id
-LEFT JOIN infra_file f ON f.id = refs.object_file_id AND f.deleted = b'0'
+LEFT JOIN infra_file f ON f.id = refs.object_file_id
 LEFT JOIN dcc_file_category_permission_rule pr
   ON pr.category_id = cf.category_id
  AND pr.tenant_id = cf.tenant_id
  AND pr.deleted = b'0'
  AND pr.active = 1
 WHERE cf.tenant_id = {tenant_id}
+  AND cf.status = 'ACTIVE'
   AND cf.deleted = b'0'
 GROUP BY
   cf.id, cf.tenant_id, cf.file_number, cf.version_no, cf.status, cf.update_time,

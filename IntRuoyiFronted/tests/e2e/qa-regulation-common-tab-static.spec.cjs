@@ -7,33 +7,27 @@ const pagePath = path.join(
   workspaceRoot,
   'IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue'
 )
-const realE2ePath = path.join(
-  workspaceRoot,
-  'IntRuoyiFronted/tests/e2e/qa-regulation-dcc-status-real.e2e.cjs'
-)
-
 const pageSource = fs.readFileSync(pagePath, 'utf8')
-const realE2eSource = fs.readFileSync(realE2ePath, 'utf8')
 
 assert.match(
   pageSource,
-  /<el-tab-pane\s+label="通用检验规程"\s+name="common"/,
-  'QA regulation page must expose a 通用检验规程 tab.'
+  /data-qa-regulation-workspace-tabs[\s\S]*label="QA检验规程"[\s\S]*label="通用检验规程"/,
+  'The page must expose QA and common inspection regulations as separate first-level tabs.'
 )
 assert.match(
   pageSource,
-  /data-qa-regulation-common-tab/,
-  'QA regulation common tab must have a stable tab selector.'
+  /data-qa-regulation-common-workspace-tab/,
+  'The independent common regulation tab must have a stable selector.'
 )
 assert.match(
   pageSource,
-  /v-if="!selectedDccProjectCode"[\s\S]*<el-tab-pane\s+label="通用检验规程"\s+name="common"/,
-  'QA regulation page must expose the 通用检验规程 tab before a DCC project is selected.'
+  /v-show="regulationWorkspaceTab === 'common'"[\s\S]*data-qa-regulation-common-workspace/,
+  'The common regulation workspace must render independently of DCC project selection.'
 )
-assert.match(
+assert.doesNotMatch(
   pageSource,
   /data-qa-regulation-common-empty/,
-  'QA regulation common tab must explain that a DCC project is required before loading common regulation data.'
+  'The independent common regulation workspace must not require a DCC project empty state.'
 )
 assert.match(
   pageSource,
@@ -42,27 +36,17 @@ assert.match(
 )
 assert.match(
   pageSource,
-  /当前通用规程主档/,
-  'QA regulation common panel must explain the common regulation master record.'
+  /data-qa-common-detail-tabs[\s\S]*label="总览"[\s\S]*label="检验项目"[\s\S]*label="版本记录"/,
+  'The independent common regulation panel must use the QA-style detail tabs.'
 )
 for (const selector of [
-  'data-qa-regulation-common-code',
-  'data-qa-regulation-common-name',
-  'data-qa-regulation-common-dcc-project',
-  'data-qa-regulation-common-version',
-  'data-qa-regulation-common-status'
+  'data-qa-common-set-switch',
+  'data-qa-common-set-standard-list',
+  'data-qa-common-set-version-detail',
+  'data-qa-common-set-member-detail',
+  'data-qa-regulation-common-word-import'
 ]) {
-  assert.ok(pageSource.includes(selector), `QA regulation common panel missing ${selector}`)
+  assert.ok(pageSource.includes(selector), `Independent common regulation page missing ${selector}`)
 }
-assert.match(
-  realE2eSource,
-  /getByRole\('tab', \{ name: '通用检验规程' \}\)/,
-  'Real QA regulation E2E must click the 通用检验规程 tab.'
-)
-assert.match(
-  realE2eSource,
-  /data-qa-regulation-common-panel/,
-  'Real QA regulation E2E must assert the common tab panel.'
-)
 
-console.log('PASS QA regulation common tab static contract')
+console.log('PASS independent common regulation tab static contract')

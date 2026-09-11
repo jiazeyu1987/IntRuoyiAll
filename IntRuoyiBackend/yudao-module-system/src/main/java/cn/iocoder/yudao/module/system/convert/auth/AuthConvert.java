@@ -64,15 +64,16 @@ public interface AuthConvert {
         if (CollUtil.isEmpty(menuList)) {
             return Collections.emptyList();
         }
+        List<MenuDO> sortedMenuList = new ArrayList<>(menuList);
         // 移除按钮
-        menuList.removeIf(menu -> menu.getType().equals(MenuTypeEnum.BUTTON.getType()));
+        sortedMenuList.removeIf(menu -> menu.getType().equals(MenuTypeEnum.BUTTON.getType()));
         // 排序，保证菜单的有序性
-        menuList.sort(Comparator.comparing(MenuDO::getSort));
+        sortedMenuList.sort(Comparator.comparing(MenuDO::getSort));
 
         // 构建菜单树
         // 使用 LinkedHashMap 的原因，是为了排序 。实际也可以用 Stream API ，就是太丑了。
         Map<Long, AuthPermissionInfoRespVO.MenuVO> treeNodeMap = new LinkedHashMap<>();
-        menuList.forEach(menu -> treeNodeMap.put(menu.getId(),
+        sortedMenuList.forEach(menu -> treeNodeMap.put(menu.getId(),
                 BeanUtils.toBean(menu, AuthPermissionInfoRespVO.MenuVO.class)));
         // 处理父子关系
         treeNodeMap.values().stream().filter(node -> ObjUtil.notEqual(node.getParentId(), ID_ROOT)).forEach(childNode -> {

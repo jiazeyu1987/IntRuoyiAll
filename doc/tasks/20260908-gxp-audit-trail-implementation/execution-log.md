@@ -114,3 +114,39 @@ BLOCKED: git push origin int_main -> FAIL, GitHub push blocked by user-level Git
 BLOCKED: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_appendsUnifiedGxpAuditWithSignatureAndStateEnvelope+saveChanges_rollsBackFieldAuditWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL before reaching the new RED assertions, because existing non-task route-device-parameter changes in `MesProRouteFlowConfigServiceImpl` reference missing methods (`requireRouteProcessForDeviceParameter`, `selectEnabledProcessDeviceBindings`, `selectRouteDeviceParameterRules`, `toRouteDeviceParameterDeviceResp`, `normalizeRouteDeviceParameterOptionValues`, `normalizeRouteDeviceParameterText`, `validateRouteDeviceParameterRule`, `requireRouteDevice`, `assertDeviceMappedToRouteProcess`). Strict TDD cannot continue production implementation until this MES compile prerequisite is restored or the user explicitly authorizes fixing that separate route configuration work.
 
 BLOCKED: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_appendsUnifiedGxpAuditWithSignatureAndStateEnvelope+saveChanges_rollsBackFieldAuditWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL after the route-device-parameter main compile blocker was fixed, but still before reaching the new eDHR RED assertions because MES `testCompile` has existing non-task missing DCC test dependencies/packages (`cn.iocoder.yudao.module.dcc.api.projectcode`, `cn.iocoder.yudao.module.dcc.signature.*`, `DccElectronicSignatureAuthorizationService`, `DccProjectCodeMapper`, `DccProjectCodeDO`, `cn.iocoder.yudao.module.dcc.enums`). Strict TDD cannot continue production implementation until MES test compilation is restored or the user explicitly authorizes repairing that separate dependency drift.
+
+BDD: System permission UI supplies audit reason and idempotency -> Given an administrator changes role menu, user role, or role data-scope configuration from the frontend, When the user submits the permission dialog, Then the request must include a human-entered change reason and a cryptographically generated idempotency key, and missing request fields must fail validation instead of defaulting to empty permission sets.
+
+BDD: Unified ledger sequence uses a tenant watermark -> Given two GxP audit events are appended for the same tenant, When the unified audit service writes the events, Then ledger sequences are allocated through the per-tenant sequence watermark and the second event hash chain points to the first event.
+
+RED: Static review 2026-09-09 -> FAIL, expected reason: permission assignment frontend did not collect reason/idempotency, backend request VOs defaulted missing sets to empty sets, and unified ledger sequence used `MAX(ledger_sequence)+1` for each append.
+
+GREEN: mvn.cmd -pl yudao-module-system "-Dtest=GxpAuditServiceImplTest,PermissionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 42 tests passed; GxP append now includes tenant ledger sequence watermark regression and PermissionService still rejects audit append failure without default success.
+
+GREEN: mvn.cmd -pl yudao-module-system "-Dtest=RoleConfigPackageServiceImplTest,TenantServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 33 tests run, 0 failures, 1 skipped; internal tenant/package permission assignment callers now provide explicit audit reason and idempotency key.
+
+RED: pnpm.cmd -s exec vue-tsc --noEmit --skipLibCheck -> FAIL, Node heap OOM at 4GB; verification command resource precondition insufficient for this frontend workspace.
+
+GREEN: pnpm.cmd ts:check -> PASS, project-defined 8GB relaxed Vue/TypeScript check completed successfully; permission API types and three assignment dialogs compile.
+
+GREEN: python -X utf8 -m pytest script\tests\test_gxp_audit_core_contract.py -q -> PASS, 2 tests passed; SQL contract still validates GxP audit core after adding tenant ledger sequence watermark.
+
+GREEN: python -X utf8 -m py_compile script\gxp_audit_coverage_gate.py -> PASS; coverage gate script syntax valid after restricting scanning to module source roots.
+
+GREEN: python -X utf8 script\gxp_audit_coverage_gate.py --root . --policy config\gxp-audit-policy.yaml -> PASS, operations=8, annotations=7, sha256=61a0206128d8d0d0fbf41b736a22639eddd3569af8638c628fac554dd41f13e6; generated/runtime directories are no longer scanned.
+
+BLOCKED: mvn.cmd -pl yudao-module-mes -am -DskipTests compile -> interrupted after long-running javac because another MES Maven compile process was already active and both consumed CPU/memory concurrently; no MES compile PASS/FAIL evidence was produced in this turn.
+
+GREEN: mvn.cmd -pl yudao-module-mes -am -DskipTests compile -> PASS, 25-module reactor including yudao-module-system, yudao-module-dcc and yudao-module-mes compiled successfully after the parallel compile cleared.
+
+GREEN: mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_appendsUnifiedGxpAuditWithSignatureAndStateEnvelope+saveChanges_rollsBackFieldAuditWhenUnifiedGxpAuditAppendFails" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 2 tests passed; eDHR field save appends unified GxP audit with signature/state envelope and rolls back when unified audit append fails.
+
+BDD: M5 runtime evidence must fail closed -> Given the unified GxP audit software controls are implemented, When formal NTP, WORM/Object Lock, backup/recovery, periodic review, QA signoff, training, DB role separation, privileged audit externalization or monitoring evidence is missing, Then the operational compliance package must mark the missing item as BLOCKED and must not claim `PASS FOR OPERATIONAL COMPLIANCE`.
+
+GREEN: M5 local read-only evidence collection -> PASS, 2026-09-09 18:08:26 +08:00; Windows Time service is `Running / Automatic`, `w32tm /query /status` reports source `time.windows.com,0x9` and last successful sync `2026/9/9 16:07:48`; local backend `http://127.0.0.1:48081/actuator/health` returned HTTP 200. This evidence is limited to the local validation environment and does not replace formal production chrony/NTP evidence.
+
+GREEN: M5 operational evidence documents -> PASS, added `m5-operational-compliance-evidence.md`, `m5-periodic-review-sop.md`, and `m5-signoff-training-record.md` with fail-closed status mapping, SOP steps, signoff/training templates and explicit forbidden substitute evidence.
+
+INFO: Cleanup Keep updated -> `git check-ignore -v` shows the new M5 evidence files are hidden by `.git/info/exclude` rule `/doc/tasks/*/`; `task.md` now lists the three M5 files under `## Cleanup Keep` so closeout does not treat them as disposable artifacts.
+
+BLOCKED: PASS FOR OPERATIONAL COMPLIANCE -> formal production/review environment evidence is still missing: enterprise-approved NTP source and drift proof, WORM/Object Lock primary/replica receipts, unified GxP archive package recovery rehearsal, executed periodic review batch, QA signature, completed training records, DB grants/role separation, privileged audit externalization receipts and monitoring alert rehearsal.

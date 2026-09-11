@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkOverlayRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
@@ -89,6 +90,7 @@ import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import org.flowable.task.api.Task;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -248,6 +250,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private AdminUserApi adminUserApi;
     @Mock
     private BusinessFileAccessService businessFileAccessService;
+    @Mock
+    private BpmTaskService bpmTaskService;
     @Spy
     private DccDownloadPolicyService downloadPolicyService = new DccDownloadPolicyService();
 
@@ -283,6 +287,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
                 .thenReturn(java.util.Optional.of(new BusinessFileAccessReference(
                         "dcc", "DCC_CONTROLLED_FILE", 900L, "1.0", 31L, null)));
+        lenient().when(bpmTaskService.getRunningTaskListByProcessInstanceId(anyString(), isNull(), isNull()))
+                .thenReturn(List.of());
         lenient().when(viewerTokenService.verify(eq(VIEWER_TOKEN), any(DccViewerTokenExpectedContext.class)))
                 .thenReturn(DccViewerTokenPayload.builder()
                         .tokenId(VIEWER_TOKEN_ID)
@@ -2059,6 +2065,79 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         assertTrue(Boolean.TRUE.equals(respVO.getCanPreview()));
         assertFalse(Boolean.TRUE.equals(respVO.getCanDownload()));
+    }
+
+    @Test
+    void getControlledFile_pendingFileAllowsCurrentBpmAssigneeEvenWhenRouteSnapshotMissingAndAssignmentScopeExcludesFile() {
+        when(controlledFileMapper.selectById(957L)).thenReturn(DccControlledFileDO.builder()
+                .id(957L)
+                .masterId(742L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(88L)
+                .originalFileId(517L)
+                .title("Pending BPM visible")
+                .fileNumber("SOP-957")
+                .versionNo("2.0")
+                .processInstanceId("pi-957")
+                .status(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus())
+                .effectiveDate(LocalDate.of(2026, 6, 22))
+                .build());
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(1074L)).thenReturn(false);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(1074L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(
+                eq(1074L), any(LocalDateTime.class))).thenReturn(List.of());
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 1074L))
+                .thenReturn(List.of());
+        when(routeSnapshotMapper.selectListByControlledFileId(957L)).thenReturn(List.of());
+        Task runningTask = mock(Task.class);
+        when(runningTask.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
+        when(runningTask.getAssignee()).thenReturn("1074");
+        when(bpmTaskService.getRunningTaskListByProcessInstanceId("pi-957", null, null))
+                .thenReturn(List.of(runningTask));
+        when(fileMapper.selectById(517L)).thenReturn(FileDO.builder()
+                .id(517L)
+                .name("pending-bpm.docx")
+                .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .build());
+
+        DccControlledFileRespVO respVO = queryService.getControlledFile(1074L, 957L);
+
+        assertEquals("SOP-957", respVO.getFileNumber());
+        assertTrue(Boolean.TRUE.equals(respVO.getCanPreview()));
+        assertFalse(Boolean.TRUE.equals(respVO.getCanDownload()));
+    }
+
+    @Test
+    void getControlledFile_requesterOutsideAssignmentHardScopeIsDenied() {
+        when(controlledFileMapper.selectById(958L)).thenReturn(DccControlledFileDO.builder()
+                .id(958L)
+                .masterId(743L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(1074L)
+                .originalFileId(518L)
+                .title("Requester out of hard scope")
+                .fileNumber("SOP-958")
+                .versionNo("2.0")
+                .processInstanceId("pi-958")
+                .status(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus())
+                .effectiveDate(LocalDate.of(2026, 6, 22))
+                .build());
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(1074L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(
+                eq(1074L), any(LocalDateTime.class))).thenReturn(List.of());
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 1074L))
+                .thenReturn(List.of());
+        when(bpmTaskService.getRunningTaskListByProcessInstanceId("pi-958", null, null))
+                .thenReturn(List.of());
+
+        assertServiceException(() -> queryService.getControlledFile(1074L, 958L),
+                CONTROLLED_FILE_ACCESS_DENIED);
     }
 
     @Test

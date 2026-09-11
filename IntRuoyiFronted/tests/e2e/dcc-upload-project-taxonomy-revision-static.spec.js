@@ -26,11 +26,7 @@ assert(
   'package.json 必须提供 DCC 上传项目分类升版静态契约脚本'
 )
 
-for (const field of [
-  'dccProjectCodeId',
-  'fileTypeTaxonomyId',
-  'revisionTargetControlledFileId'
-]) {
+for (const field of ['dccProjectCodeId', 'fileTypeTaxonomyId', 'revisionTargetControlledFileId']) {
   requireIn(workflowApi, field, `workflow API 必须声明提交字段：${field}`)
   requireIn(submitter, field, `submitter 必须传递提交字段：${field}`)
   requireIn(uploadPage, field, `上传页必须维护表单字段：${field}`)
@@ -49,13 +45,16 @@ requireIn(
 requireIn(workflowApi, 'fileTypeTaxonomyIds', '受控文件查询参数必须支持文件分类范围')
 
 for (const token of [
-  "getProjectCodePage",
-  "DCC_PROJECT_CODE_STATUS_ENABLE",
-  "getFileTypeTaxonomyUploadOptions",
-  "handleTree",
+  'getProjectCodePage',
+  'DCC_PROJECT_CODE_STATUS_ENABLE',
+  'getProjectCodeFileTemplate',
+  'projectFileTemplateItems',
+  'selectedProjectTemplateStageId',
+  'selectedProjectTemplateTypeId',
   'label="DCC项目"',
-  'label="文件分类"',
-  '请选择至少三级文件分类',
+  'label="阶段"',
+  'label="文件类型"',
+  'label="文件列表"',
   '请选择 DCC 项目',
   'resolveHistoryRevisionTarget',
   'clearRevisionTargetSelection'
@@ -68,18 +67,26 @@ for (const removedRevisionUi of [
   'label="升版目标"',
   'handleRevisionCandidateSelect'
 ]) {
-  assert(!uploadPage.includes(removedRevisionUi), `上传页不得提供手动升版目标选择入口：${removedRevisionUi}`)
+  assert(
+    !uploadPage.includes(removedRevisionUi),
+    `上传页不得提供手动升版目标选择入口：${removedRevisionUi}`
+  )
 }
 
 for (const autoRevisionToken of [
-  '@select="handleHistoryFileNameSelect"',
+  '@select="handleProjectTemplateFileSelect"',
+  'await handleHistoryFileNameSelect',
   "formData.changeType = 'REVISION'",
   'await resolveHistoryRevisionTarget(item.value)',
   "formData.changeType = 'NEW'",
   '请选择历史文件名称后再升版',
   'revisionTargetPreflightBlockReason'
 ]) {
-  requireIn(uploadPage, autoRevisionToken, `上传页必须按历史文件名称自动判定新建/升版：${autoRevisionToken}`)
+  requireIn(
+    uploadPage,
+    autoRevisionToken,
+    `上传页必须按历史文件名称自动判定新建/升版：${autoRevisionToken}`
+  )
 }
 
 for (const preserved of [
@@ -107,7 +114,11 @@ for (const unclassifiedLandingToken of [
   '按规则发布到“未分类”',
   'defaultUnclassified'
 ]) {
-  requireIn(uploadPage, unclassifiedLandingToken, `上传页必须把未绑定提交目录的文件类别自动落位到未分类：${unclassifiedLandingToken}`)
+  requireIn(
+    uploadPage,
+    unclassifiedLandingToken,
+    `上传页必须把未绑定提交目录的文件类别自动落位到未分类：${unclassifiedLandingToken}`
+  )
 }
 
 assert(

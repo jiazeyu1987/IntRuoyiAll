@@ -45,6 +45,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationProductBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -99,6 +101,8 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     @Mock private MesQaInspectionRegulationProcessMapper inspectionRegulationProcessMapper;
     @Mock private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
+    @Mock private MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper;
+    @Mock private MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper;
     @Mock private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Mock private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
@@ -128,7 +132,9 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 quantityFragmentMapper, pqcAggregateDetailMapper, pqcPieceDetailMapper,
                 inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
-                inspectionRegulationItemMapper, pqcInspectionTaskMapper,
+                inspectionRegulationItemMapper, commonRegulationProductBindingMapper,
+                commonRegulationSetVersionMemberMapper,
+                pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,

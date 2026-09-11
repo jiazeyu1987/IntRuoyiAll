@@ -2,8 +2,8 @@
   "schema_version": 2,
   "task_id": "20260907-dcc-release-notification-impact",
   "mode": "full",
-  "status": "blocked",
-  "current_phase": "P4",
+  "status": "completed",
+  "current_phase": null,
   "phase_statuses": [
     {
       "phase_id": "P1",
@@ -314,49 +314,74 @@
         {
           "ac_id": "P4-AC1",
           "text": "实现当前里程碑目标：独立证明发布、通知、影响决定和升版跟踪完整，且不回归文件生效和权限边界。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
             "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P4-Local-Acceptance-48081-Restart-And-Own-Playwright-E2E",
             "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-page-e2e-result.json",
             "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-precheck-result.json",
-            "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json"
+            "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json",
+            "doc/tasks/20260907-dcc-release-notification-impact/verification-report.md#Backend Restart Recovery 2026-09-09",
+            "test-report.md",
+            "verification-report.md#P4-Final-Closure-Evidence-2026-09-10",
+            "execution-log.md#P4-Final-Runtime-Closure-2026-09-10",
+            "output/playwright-p4-local/p4-local-page-e2e-result.json"
           ]
         },
         {
           "ac_id": "P4-AC2",
           "text": "交付物已落地：发布后续完整时间线。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
-            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P4-Local-Acceptance-48081-Restart-And-Own-Playwright-E2E"
+            "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P4-Local-Acceptance-48081-Restart-And-Own-Playwright-E2E",
+            "doc/tasks/20260907-dcc-release-notification-impact/verification-report.md#Backend Restart Recovery 2026-09-09",
+            "test-report.md",
+            "verification-report.md#P4-Final-Closure-Evidence-2026-09-10",
+            "execution-log.md#P4-Final-Runtime-Closure-2026-09-10",
+            "output/playwright-p4-local/p4-local-page-e2e-result.json"
           ]
         },
         {
           "ac_id": "P4-AC3",
           "text": "交付物已落地：后端、SQL、前端合同、类型检查和真实页面闭环全部通过。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
             "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-page-e2e-result.json",
             "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-precheck-result.json",
-            "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json"
+            "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json",
+            "doc/tasks/20260907-dcc-release-notification-impact/verification-report.md#Backend Restart Recovery 2026-09-09",
+            "test-report.md",
+            "verification-report.md#P4-Final-Closure-Evidence-2026-09-10",
+            "execution-log.md#P4-Final-Runtime-Closure-2026-09-10",
+            "output/playwright-p4-local/p4-local-page-e2e-result.json"
           ]
         },
         {
           "ac_id": "P4-AC4",
           "text": "交付物已落地：独立 tester 放行。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
-            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/verification-report.md#Backend Restart Recovery 2026-09-09",
+            "test-report.md",
+            "verification-report.md#P4-Final-Closure-Evidence-2026-09-10",
+            "execution-log.md#P4-Final-Runtime-Closure-2026-09-10",
+            "output/playwright-p4-local/p4-local-page-e2e-result.json"
           ]
         },
         {
           "ac_id": "P4-AC5",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
-            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md"
+            "doc/tasks/20260907-dcc-release-notification-impact/test-report.md",
+            "doc/tasks/20260907-dcc-release-notification-impact/verification-report.md#Backend Restart Recovery 2026-09-09",
+            "test-report.md",
+            "verification-report.md#P4-Final-Closure-Evidence-2026-09-10",
+            "execution-log.md#P4-Final-Runtime-Closure-2026-09-10",
+            "output/playwright-p4-local/p4-local-page-e2e-result.json"
           ]
         }
       ],
@@ -365,31 +390,32 @@
         "doc/tasks/20260907-dcc-release-notification-impact/execution-log.md#P4-Local-Acceptance-48081-Restart-And-Own-Playwright-E2E",
         "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-page-e2e-result.json",
         "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-precheck-result.json",
-        "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json"
+        "doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-upload-submit-e2e-result.json",
+        "doc/tasks/20260907-dcc-release-notification-impact/verification-report.md#Backend Restart Recovery 2026-09-09",
+        "test-report.md",
+        "verification-report.md#P4-Final-Closure-Evidence-2026-09-10",
+        "execution-log.md#P4-Final-Runtime-Closure-2026-09-10",
+        "output/playwright-p4-local/p4-local-page-e2e-result.json"
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
-        "Local 48081 restart, DCC publication-followup page, workbench impact-assessment page, upload precheck and real frontend submit-to-approval passed on 2026-09-08. Full approval, publish, notification and impact task closure remains in progress."
+        "Local 48081 restart, DCC publication-followup page, workbench impact-assessment page, upload precheck and real frontend submit-to-approval passed on 2026-09-08. Full approval, publish, notification and impact task closure remains in progress.",
+        "Independent tester approved P4-AC1 through P4-AC5 and AC-18 after runtime DB and real-page timeline reconciliation."
       ],
-      "last_reviewed_at": "2026-09-09T03:34:06+00:00",
-      "status": "blocked"
+      "last_reviewed_at": "2026-09-10T12:30:36+00:00",
+      "status": "completed"
     }
   ],
   "planner_review_status": "approved",
-  "test_status": "running",
-  "blocking_prereqs": [
-    "P4 runtime/schema preflight is currently healthy: 48081 health is UP, 8081 returns HTTP 200, ActiveOrderSubmissionDetailPanel.vue has no unresolved conflict markers, and relaxed vue-tsc passes. Fresh real frontend approval/publish/write-path Playwright remains blocked until the current command explicitly authorizes business writes and any needed int_main restart.",
-    "P4 approval-center TODO visibility regression is fixed and DccApprovalTaskAdapterTest passes, but 48081 was restarted before this code change; rebuild/restart 48081 is required before real Playwright approval/publish closure can be claimed.",
-    "Authorized backend restart failed outside DCC: yudao-module-mes compile error MesProRouteFlowConfigServiceImpl does not implement saveRouteProcessDeviceParameterRule(MesProRouteDeviceParameterRuleSaveReqVO); yudao-server packaging skipped and 48081 is offline, so real Playwright approval/publish closure cannot run.",
-    "Authorized backend restart now fails at yudao-module-mes testCompile after main compile passes; stale/existing MES tests reference missing production and nested classes, yudao-server packaging is skipped, and 48081 remains offline."
-  ],
+  "test_status": "passed",
+  "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 1,
     "executor_loops": 8,
     "test_loops": 7
   },
   "created_at": "2026-09-07T09:00:00+08:00",
-  "updated_at": "2026-09-09T03:34:06+00:00",
+  "updated_at": "2026-09-10T12:30:36+00:00",
   "branch": "int_main",
   "baseline_revision": "de8c6053f",
   "workspace_root": "E:\\IntRuoyi",

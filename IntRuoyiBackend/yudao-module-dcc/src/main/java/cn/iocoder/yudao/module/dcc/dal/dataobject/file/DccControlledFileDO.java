@@ -72,6 +72,8 @@ public class DccControlledFileDO extends BaseDO {
     private Long requesterId;
     private String processInstanceId;
     private String processDefinitionKey;
+    private String submitIdempotencyKey;
+    private String submitPayloadHash;
     private LocalDateTime submittedTime;
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;

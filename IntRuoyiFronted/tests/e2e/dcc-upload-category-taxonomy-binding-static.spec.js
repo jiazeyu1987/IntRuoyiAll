@@ -65,13 +65,13 @@ assert.match(
 
 assert.match(
   uploadPage,
-  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*resetCategorySelectionForFileTypeTaxonomyChange\(\)[\s\S]*validateField\?\.\('fileTypeTaxonomyId'\)[\s\S]*await syncAutoCategoryFromSelectedFileTypeTaxonomy\(\)/,
+  /const handleFileTypeTaxonomyChange = async \(preserveFileName: boolean = false\) => \{[\s\S]*resetCategorySelectionForFileTypeTaxonomyChange\(\)[\s\S]*validateField\?\.\('fileTypeTaxonomyId'\)[\s\S]*await syncAutoCategoryFromSelectedFileTypeTaxonomy\(\)/,
   'file taxonomy change handler must reset dependent context and then auto-sync category from the taxonomy leaf'
 )
 
 assert.doesNotMatch(
   uploadPage,
-  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
+  /const handleFileTypeTaxonomyChange = async \([^)]*\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
   'file taxonomy change must not eagerly call upload-name-options before the user opens file name suggestions'
 )
 

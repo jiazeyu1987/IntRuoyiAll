@@ -355,6 +355,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `requester_id` BIGINT NOT NULL,
   `process_instance_id` VARCHAR(64) NULL,
   `process_definition_key` VARCHAR(128) NULL,
+  `submit_idempotency_key` VARCHAR(128) NULL,
+  `submit_payload_hash` CHAR(64) NULL,
   `submitted_time` DATETIME NULL,
   `approved_time` DATETIME NULL,
   `published_time` DATETIME NULL,
@@ -380,6 +382,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   KEY `idx_dcc_controlled_file_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`),
   KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
   KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
+  ,UNIQUE KEY `uk_dcc_file_submit_idempotency` (`tenant_id`, `submitter_id`, `submit_idempotency_key`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_checkout` (
@@ -1285,7 +1288,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_access_log` (
   `purpose` VARCHAR(64) NULL,
   `result` VARCHAR(32) NOT NULL,
   `failure_code` VARCHAR(64) NULL,
-  `reason` VARCHAR(255) NULL,
+  `reason` VARCHAR(2000) NULL,
   `source_ip` VARCHAR(64) NULL,
   `request_id` VARCHAR(128) NULL,
   `user_agent` VARCHAR(512) NULL,
@@ -1666,6 +1669,26 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `uk_dcc_project_code_tenant_project` UNIQUE (`tenant_id`, `project_name`, `project_code`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_project_file_template_item` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `project_code_id` BIGINT NOT NULL,
+  `file_type_taxonomy_id` BIGINT NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `active_unique_flag` BIGINT GENERATED ALWAYS AS (
+    CASE WHEN `deleted` = 0 THEN 1 ELSE NULL END
+  ),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_dcc_project_file_template_item_active`
+    UNIQUE (`tenant_id`, `project_code_id`, `file_type_taxonomy_id`, `file_name`, `active_unique_flag`)
 );
 
 CREATE TABLE IF NOT EXISTS `mdm_enterprise` (

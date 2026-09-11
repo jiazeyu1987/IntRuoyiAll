@@ -3,13 +3,13 @@ import type {
   FrontlinePqcTaskOptionVO
 } from './index'
 
-type FrontlinePqcBusinessDateResponse = string | [number, number, number] | number[]
+export type FrontlinePqcBusinessDateResponse = string | [number, number, number] | number[]
 
-type FrontlinePqcTaskOptionResponseVO = Omit<FrontlinePqcTaskOptionVO, 'businessDate'> & {
+export type FrontlinePqcTaskOptionResponseVO = Omit<FrontlinePqcTaskOptionVO, 'businessDate'> & {
   businessDate: FrontlinePqcBusinessDateResponse
 }
 
-type FrontlinePqcProcessResponseVO = Omit<FrontlinePqcProcessVO, 'pqcTaskOptions'> & {
+export type FrontlinePqcProcessResponseVO = Omit<FrontlinePqcProcessVO, 'pqcTaskOptions'> & {
   pqcTaskOptions: FrontlinePqcTaskOptionResponseVO[]
 }
 

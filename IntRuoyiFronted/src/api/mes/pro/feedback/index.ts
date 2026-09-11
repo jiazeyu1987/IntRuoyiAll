@@ -1,6 +1,9 @@
 import request from '@/config/axios'
 import type { DeviceParameterValueType } from '@/api/mes/pro/processpool/teamLeader'
-import { projectFrontlinePqcProcesses } from './pqcProjection'
+import {
+  projectFrontlinePqcProcesses,
+  type FrontlinePqcProcessResponseVO
+} from './pqcProjection'
 import type {
   EdhrBatchArchiveVisibility,
   EdhrBatchExecutionTaskRespVO,
@@ -91,6 +94,7 @@ export interface ProFrontlineSelectedDeviceReqVO {
   deviceId: number
   deviceCode?: string
   deviceName?: string
+  inMeteringValidityPeriod?: boolean
 }
 
 export type ProFrontlineParameterStatus = 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
@@ -105,6 +109,7 @@ export type FrontlinePqcTaskSummaryState =
   | 'CANCELLED'
   | 'MIXED'
 export type FrontlinePqcInspectionType = 'FIRST' | 'PATROL' | 'FINAL'
+export type FrontlinePqcRegulationSourceType = 'PRODUCT_QA' | 'COMMON_PACKAGING'
 
 export interface ProFrontlineDeviceParameterReadingReqVO {
   deviceId?: number
@@ -211,6 +216,8 @@ export interface ProFrontlineFeedbackSubmitRespVO {
 
 export interface ProFrontlineParameterAuditItemVO {
   readingIndex: number
+  materialId?: number
+  materialName?: string
   deviceId?: number
   parameterCode?: string
   parameterName?: string
@@ -271,6 +278,9 @@ export interface FrontlinePqcProcessVO {
   routeName?: string
   dccProjectCodeId: number
   regulationId: number
+  regulationCode?: string
+  regulationName?: string
+  regulationSourceType?: FrontlinePqcRegulationSourceType
   regulationVersionId: number
   qaProcessId: number
   qaProcessCode: string
@@ -318,6 +328,21 @@ export interface FrontlinePqcEquipmentOptionVO {
   equipmentNumber: string
   defaultFlag?: boolean
   sort?: number
+  parameters?: FrontlinePqcDeviceParameterVO[]
+}
+
+export interface FrontlinePqcDeviceParameterVO {
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  defaultValue?: number | string
+  valueType?: string
+  standardText?: string
+  optionValues?: string[]
+  defaultText?: string
+  decimalScale?: number
 }
 
 export interface FrontlinePqcInspectionItemVO {
@@ -326,8 +351,6 @@ export interface FrontlinePqcInspectionItemVO {
   itemName: string
   inspectionMethod: string
   standardText: string
-  acceptanceStandard?: string
-  processInspectionMethod?: string
   inspectionTool: string | null
   samplingPlanText: string | null
   resultType: FrontlinePqcResultType
@@ -1245,7 +1268,7 @@ export const ProFeedbackApi = {
   },
   // 获取 PQC 活跃订单对应 QA 规程工序
   getPqcProcesses: async (activeOrderId: number, actualEmployeeId?: number) => {
-    const processes = await request.get<FrontlinePqcProcessVO[]>({
+    const processes = await request.get<FrontlinePqcProcessResponseVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
       params: { activeOrderId, actualEmployeeId },
       ignoreErrorMessage: true

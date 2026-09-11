@@ -88,6 +88,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
     private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
     private static final String ROUTE_START_PRODUCTION_LEADERS_KEY = "routeStartProductionLeaders";
+    private static final String PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY = "productionProcessConfigSchemaVersion";
+    private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
+    private static final int PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION = 1;
     public static final String DEFAULT_SCHEDULE_CONFIG_VERSION = "AUTO-DEFAULT";
     public static final String DEFAULT_SCHEDULE_REMARK = "[AUTO_DEFAULT_SCHEDULE_CONFIG]";
     private static final String DEFAULT_SCHEDULE_USE_CONFIG_VERSION = "AUTO-SCHEDULE";
@@ -825,6 +828,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 resolveExistingConfigSnapshot(routeVersionId, BATCH_USE_CONFIGS_KEY), routeVersionId));
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
+        configSnapshots.put(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION);
+        Object productionProcessConfigs =
+                resolveExistingConfigSnapshot(routeVersionId, PRODUCTION_PROCESS_CONFIGS_KEY);
+        configSnapshots.put(PRODUCTION_PROCESS_CONFIGS_KEY,
+                productionProcessConfigs == null ? new JSONArray() : productionProcessConfigs);
         Object batchRecordAttachmentOwners =
                 resolveExistingConfigSnapshot(routeVersionId, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
         if (batchRecordAttachmentOwners != null) {

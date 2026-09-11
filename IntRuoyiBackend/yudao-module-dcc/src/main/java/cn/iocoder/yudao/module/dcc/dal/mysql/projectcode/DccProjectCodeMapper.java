@@ -8,11 +8,16 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
 @Mapper
 public interface DccProjectCodeMapper extends BaseMapperX<DccProjectCodeDO> {
+
+    @Select("SELECT * FROM dcc_project_code WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    DccProjectCodeDO selectByIdForUpdate(@Param("id") Long id);
 
     default PageResult<DccProjectCodeDO> selectPage(DccProjectCodePageReqVO reqVO) {
         LambdaQueryWrapperX<DccProjectCodeDO> wrapper = new LambdaQueryWrapperX<DccProjectCodeDO>()

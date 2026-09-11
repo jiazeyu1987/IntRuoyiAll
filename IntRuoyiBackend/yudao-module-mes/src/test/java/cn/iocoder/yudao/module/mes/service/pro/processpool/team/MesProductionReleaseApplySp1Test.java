@@ -270,17 +270,18 @@ class MesProductionReleaseApplySp1Test {
     }
 
     @Test
-    void sameRequestWithChangedAuthoritativeSnapshotReturnsPayloadConflict() {
+    void sameRequestWithChangedAuthoritativeSnapshotReplaysOriginalReceipt() {
         MesProcessPoolActiveOrderReleaseApplicationDO existing = existingApplication()
-                .setRequestIdempotencyKey("release-request-conflict")
+                .setRequestIdempotencyKey("release-request-replay")
                 .setSourceSnapshotHash("older-authoritative-snapshot");
-        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "release-request-conflict"))
+        when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "release-request-replay"))
                 .thenReturn(existing);
 
-        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
-                () -> generationService.generate(LEADER_USER_ID, command("release-request-conflict")));
+        MesTeamLeaderActiveOrderReleaseApplicationResult result =
+                generationService.generate(LEADER_USER_ID, command("release-request-replay"));
 
-        assertBlocker(failure, MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT);
+        assertEquals(APPLICATION_ID, result.getApplicationId());
+        assertEquals("older-authoritative-snapshot", result.getSourceSnapshotHash());
         verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
         verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
     }

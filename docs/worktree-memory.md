@@ -7,6 +7,7 @@
 - Blocker: `pnpm install --frozen-lockfile` 失败、锁文件缺失、依赖脚本需要额外 approval 但目标检查依赖该脚本产物，或类型检查仍失败且无法区分是否当前任务引入时，必须停止并记录影响；不得改用 API-only、跳过类型检查或把缺依赖写成代码通过。
 - Verification: 记录依赖安装命令退出码、`pnpm ts:check` 退出码、是否存在 build-script approval 警告及其影响；合并前再次确认 `node_modules` 为 ignored 产物且未进入提交清单。
 - Forbidden action: 禁止提交 `node_modules`、禁止静默降级到只跑 `node --check` 替代类型检查、禁止把主工作区已有依赖目录复制到附加 worktree。
+- Evidence: `doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 新 worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，按锁文件执行 `pnpm install --frozen-lockfile` 后类型检查通过且 lockfile 未变。
 
 ## 同类需求 Worktree 复用门禁
 
@@ -427,4 +428,4 @@
 - 经验规则：对附加 worktree 改文件时，补丁目标必须使用当前任务 worktree 下的绝对路径；首次补丁后立即用 `git -C <worktree> status --short -- <path>` 和 `git -C E:\IntRuoyi status --short -- <path>` 交叉确认没有误写主工作区。
 - 阻断处理：发现误写主工作区时，只能删除或回滚本次误创建且未跟踪的明确文件；若误改已存在 tracked 文件，必须停止并报告，不能用 restore/reset 隐藏。
 - 验证方式：记录误写路径清单、清理方式、主工作区 `git status --short -- <path>` 为空，以及目标 worktree 中对应文件存在并通过定向验证。
-- Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `D:\IntRuoyiWorktree\20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `E:\IntRuoyi` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件。
+- Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `D:\IntRuoyiWorktree\20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `E:\IntRuoyi` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件；`doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 表单解析任务中首次补丁误落主工作区后，按任务文件精确删除误建文档并精确 restore 本任务误改测试，再用目标 worktree 绝对路径重写并复核主工作区同路径 diff 为空。

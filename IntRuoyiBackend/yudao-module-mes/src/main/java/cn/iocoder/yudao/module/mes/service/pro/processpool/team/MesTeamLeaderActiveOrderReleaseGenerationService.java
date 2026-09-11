@@ -106,6 +106,14 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
+        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
+
+        MesProcessPoolActiveOrderReleaseApplicationDO existing =
+                findExistingApplication(activeOrder.getId(), requestKey, businessKey);
+        if (existing != null) {
+            return persistenceService.toResult(requireCurrentApplication(existing));
+        }
+
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = requireSnapshots(activeOrder);
         requireNoProductionQuantityConflict(activeOrder, snapshots);
         List<MesProcessPoolOrderProcessCompletionDO> completions =
@@ -125,27 +133,6 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher.Input(
                         tenantId, activeOrder, workOrder, pickListBindings, snapshots, completions,
                         inspectionEvidence.tasks(), inspectionEvidence.details()));
-        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
-
-        MesProcessPoolActiveOrderReleaseApplicationDO requestExisting =
-                applicationMapper.selectByRequestIdempotencyKey(activeOrder.getId(), requestKey);
-        if (requestExisting != null) {
-            if (!sameRequestPayload(requestExisting, activeOrder, workOrder, batchCode,
-                    businessKey, sourceSnapshotHash)) {
-                throw blocker(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
-                        requestExisting.getApplicationStatus(), "RELEASE_APPLICATION",
-                        String.valueOf(requestExisting.getId()), null,
-                        "the request key is already bound to a different authoritative snapshot",
-                        "query the existing receipt and submit a new command only for a new business identity");
-            }
-            return persistenceService.toResult(requireCurrentApplication(requestExisting));
-        }
-
-        MesProcessPoolActiveOrderReleaseApplicationDO businessExisting =
-                applicationMapper.selectByBusinessIdempotencyKey(activeOrder.getId(), businessKey);
-        if (businessExisting != null) {
-            return persistenceService.toResult(requireCurrentApplication(businessExisting));
-        }
 
         MesProductionReleaseRoleCandidates candidates = candidateResolver.resolveRequiredCandidates(
                 tenantId, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER);
@@ -153,6 +140,19 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 buildApplication(activeOrder, workOrder, batchCode, requestKey, businessKey,
                         sourceSnapshotHash, leaderUserId, command.getApplyRemark());
         return persistenceService.persistPending(application, candidates);
+    }
+
+    public MesTeamLeaderActiveOrderReleaseApplicationResult replayExisting(
+            Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
+        String requestKey = validateCommand(leaderUserId, command);
+        Long tenantId = requireTenantId();
+        MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
+        MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
+        String batchCode = requireBatchCode(workOrder);
+        String businessKey = businessKey(tenantId, activeOrder, workOrder, batchCode);
+        MesProcessPoolActiveOrderReleaseApplicationDO existing =
+                findExistingApplication(activeOrder.getId(), requestKey, businessKey);
+        return existing == null ? null : persistenceService.toResult(requireCurrentApplication(existing));
     }
 
     public MesTeamLeaderActiveOrderReleaseApplicationResult get(Long userId, Long activeOrderId) {
@@ -452,19 +452,14 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 String.valueOf(activeOrder.getRouteId()), String.valueOf(activeOrder.getRouteVersionId())));
     }
 
-    private boolean sameRequestPayload(MesProcessPoolActiveOrderReleaseApplicationDO existing,
-                                       MesProcessPoolActiveOrderDO activeOrder,
-                                       MesProWorkOrderDO workOrder,
-                                       String batchCode,
-                                       String businessKey,
-                                       String sourceSnapshotHash) {
-        return Objects.equals(activeOrder.getId(), existing.getActiveOrderId())
-                && Objects.equals(workOrder.getId(), existing.getWorkOrderId())
-                && Objects.equals(batchCode, existing.getBatchCode())
-                && Objects.equals(activeOrder.getRouteId(), existing.getRouteId())
-                && Objects.equals(activeOrder.getRouteVersionId(), existing.getRouteVersionId())
-                && Objects.equals(businessKey, existing.getBusinessIdempotencyKey())
-                && Objects.equals(sourceSnapshotHash, existing.getSourceSnapshotHash());
+    private MesProcessPoolActiveOrderReleaseApplicationDO findExistingApplication(
+            Long activeOrderId, String requestKey, String businessKey) {
+        MesProcessPoolActiveOrderReleaseApplicationDO requestExisting =
+                applicationMapper.selectByRequestIdempotencyKey(activeOrderId, requestKey);
+        if (requestExisting != null) {
+            return requestExisting;
+        }
+        return applicationMapper.selectByBusinessIdempotencyKey(activeOrderId, businessKey);
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireCurrentApplication(

@@ -14,7 +14,7 @@ public class MdmCompanyScopeRespVO {
     private String principalCode;
     private Long companyId;
     private String companyCode;
-    private String companyName;
+    private String companyDisplayLabel;
     private String status;
     private Integer revision;
     private LocalDateTime updateTime;

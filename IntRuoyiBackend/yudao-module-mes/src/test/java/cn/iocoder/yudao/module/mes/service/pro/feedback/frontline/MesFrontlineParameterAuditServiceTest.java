@@ -69,8 +69,8 @@ class MesFrontlineParameterAuditServiceTest {
         assertReason(request(reading(501L, null)), "PARAMETER_CODE_MISSING", validSnapshot());
 
         MesProFrontlineFeedbackSubmitReqVO selectedMissing = request(reading(501L, "pressure"));
-        selectedMissing.getFeedbackPayload().setSelectedDevice(
-                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO());
+        selectedMissing.getFeedbackPayload().setSelectedDevices(List.of(
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO()));
         assertReason(selectedMissing, "SELECTED_DEVICE_ID_MISSING", validSnapshot());
 
         assertReason(request(reading(502L, "pressure")), "DEVICE_MISMATCH", validSnapshot());
@@ -178,8 +178,9 @@ class MesFrontlineParameterAuditServiceTest {
                         .setWorkOrderId(41L)
                         .setRouteId(21L)
                         .setProcessId(31L)
-                        .setSelectedDevice(new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO()
-                                .setDeviceId(501L))
+                        .setSelectedDevices(List.of(
+                                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO()
+                                        .setDeviceId(501L)))
                         .setDeviceParameterReadings(List.of(readings)))
                 .setProcessPoolContext(new MesProFrontlineProcessPoolContextReqVO()
                         .setActiveOrderId(8101L)

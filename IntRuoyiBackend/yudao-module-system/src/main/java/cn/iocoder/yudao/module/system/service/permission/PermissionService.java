@@ -59,7 +59,7 @@ public interface PermissionService {
      * @param roleId  角色编号
      * @param menuIds 菜单编号集合
      */
-    void assignRoleMenu(Long roleId, Set<Long> menuIds);
+    void assignRoleMenu(Long roleId, Set<Long> menuIds, String reason, String idempotencyKey);
 
     /**
      * 处理角色删除时，删除关联授权数据
@@ -117,7 +117,7 @@ public interface PermissionService {
      * @param userId  角色编号
      * @param roleIds 角色编号集合
      */
-    void assignUserRole(Long userId, Set<Long> roleIds);
+    void assignUserRole(Long userId, Set<Long> roleIds, String reason, String idempotencyKey);
 
     /**
      * 处理用户删除时，删除关联授权数据
@@ -159,7 +159,8 @@ public interface PermissionService {
      * @param dataScope        数据范围
      * @param dataScopeDeptIds 部门编号数组
      */
-    void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds);
+    void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds,
+                             String reason, String idempotencyKey);
 
     /**
      * 获得登陆用户的部门数据权限

@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_signature_identity_t2; type=schema; riskLevel=medium
 -- T3：统一电子签名内核最小持久化模型
 -- 说明：该表是新签名事实源；DCC/BPM/MES 旧表迁移在 T4-T6 完成后不得再作为正式写入口。
 

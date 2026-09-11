@@ -100,10 +100,20 @@
 - Preflight check: 电子签名记录或证据导出 E2E 必须先核对当前正式路由；统一治理已接管的场景应走 `/signature-governance/signature-records` 的真实列表与行内 PDF 操作，旧 `/dcc/controlled-file/signatures` 返回 404 时应记录为脚本入口过期，不得判定导出能力失败。
 - Preflight check: 证据导出入口已统一到 CSV 质量包时，E2E 必须先断言 `/signature-governance/csv-package` 的统一入口数量、入口标签、按钮动作和旧页面导出入口清理结果；登录页脚本不得误点租户下拉导致用户名输入框定位失败，应保持目标租户可见后再填写账号密码。
 - Preflight check: Element Plus 弹窗标题可能使用业务文件名、编号或动态标题；脚本等待弹窗时应锚定真实 DOM 中稳定可见的业务文本或 `data-testid`，不得硬等旧固定标题。打开预览、抽屉或遮罩后继续操作底层页面按钮前，必须先关闭覆盖层并等待其隐藏，不能把遮罩拦截点击误判为业务按钮不可用或下载失败。
+- Preflight check: Playwright 报告可见按钮被相邻面板、标题栏或透明层 `intercepts pointer events` 时，应优先按真实用户视角判定为布局/层叠问题并修复页面宽度、收缩、`min-width: 0` 或遮罩关闭逻辑；不得用 `force: true` 绕过真实点击，也不得把可见但不可点的按钮写成 E2E PASS。
 - Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失，或当前源码/DOM 已证明入口文案和历史脚本定位不一致且未修正脚本时，必须停止并记录具体前置缺口。
 - Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`；`doc/tasks/20260828-batch-record-mappable-cells-int-main-e2e/verification-report.md`，融合后批记录可映射格子 E2E 先因旧按钮文案“规则”和按钮加载禁用态校准失败，最终按当前“填写配置”入口并等待“正式化可映射格子”按钮可点击后通过真实页面验证。
+
+### 工艺路线草稿版本设备参数面板门禁
+
+- Trigger: 真实页面验证工艺路线流转关系图中的“设备参数”配置项、设备绑定和设备参数维护区域。
+- Preflight check: 先从工艺流程列表通过可见“待发布版本”入口进入草稿版本，并确认 URL 带有草稿路线版本身份；当前生效版本是只读视图，只能验证字段展示，不能作为可编辑设备参数面板的入口。选中真实工序后，再点击左侧“设备参数”字段，等待正式设备参数读取请求和右侧维护区域渲染。
+- Blocker: 脚本直接打开当前生效版本后等待可编辑面板、只断言“设备参数”文案、只看字段明细而未看到设备/参数列表、或用接口返回替代页面 DOM 时，必须停止并区分版本入口错误、页面渲染缺失和正式设备参数数据缺失。
+- Verification: 证据需包含租户/账号标签、路线/草稿版本、工序、设备参数读取请求 HTTP 状态、页面可见设备数量与参数数量、控制台/pageerror 和目标写请求数；只读验证必须保持设备参数保存类请求为 0。若正式数据数组为空，只记录为该工序设备参数数据缺失，不能写成面板布局通过。
+- Forbidden action: 禁止用当前生效版本冒充草稿编辑态、直接拼草稿 URL、API-only 打开或补齐面板、创建临时候选版本替代已有页面入口，或用 `force` 点击绕过真实层叠/禁用状态。
+- Evidence: `doc/tasks/20260909-route-flow-device-parameter-panel-visible/verification-report.md`。
 
 ### 页面演进后的 E2E 选择器与加载态门禁
 

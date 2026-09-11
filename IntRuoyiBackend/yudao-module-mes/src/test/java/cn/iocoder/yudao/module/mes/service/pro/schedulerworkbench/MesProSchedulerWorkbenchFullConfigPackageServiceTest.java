@@ -29,6 +29,7 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PAC
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PACKAGE_REFERENCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -231,7 +232,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
         verify(schedulerWorkbenchService).savePolicySettings(policyCaptor.capture());
         assertEquals("02:00", policyCaptor.getValue().getErpWorkOrderSyncTime());
         ArgumentCaptor<Set<Long>> roleIdsCaptor = ArgumentCaptor.forClass(Set.class);
-        verify(permissionService).assignUserRole(org.mockito.ArgumentMatchers.eq(101L), roleIdsCaptor.capture());
+        verify(permissionService).assignUserRole(org.mockito.ArgumentMatchers.eq(101L), roleIdsCaptor.capture(), anyString(), anyString());
         assertEquals(Set.of(11L, 12L), roleIdsCaptor.getValue());
         assertEquals(1, result.getUserRoleBindingCount());
         assertEquals(2, result.getAssignedRoleCount());

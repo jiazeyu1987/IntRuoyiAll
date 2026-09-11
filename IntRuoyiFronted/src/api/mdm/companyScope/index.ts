@@ -20,7 +20,7 @@ export interface MdmCompanyScopeRespVO {
   principalCode: string
   companyId: number
   companyCode: string
-  companyName: string
+  companyDisplayLabel: string
   status: string
   revision?: number
   updateTime?: string

@@ -21,18 +21,19 @@ assert.match(apiSource, /interface FrontlinePqcProcessVO/)
 assert.match(apiSource, /qaProcessId:\s*number/)
 assert.match(apiSource, /qaProcessName:\s*string/)
 assert.match(apiSource, /regulationVersionId:\s*number/)
-assert.match(apiSource, /getFrontlinePqcActiveOrderProcesses[\s\S]*FrontlinePqcProcessVO\[\]/)
+assert.match(apiSource, /getPqcProcesses[\s\S]*FrontlinePqcProcessResponseVO\[\]/)
+assert.match(apiSource, /getPqcProcesses[\s\S]*projectFrontlinePqcProcesses\(processes\)/)
 assert.match(apiSource, /interface FrontlinePqcSwitchActualEmployeeReqVO[\s\S]*qaProcessId:\s*number/)
 assert.match(apiSource, /interface FrontlinePqcInspectionSubmitReqVO[\s\S]*qaProcessId:\s*number/)
 
-assert.match(helperSource, /process\.qaProcessId/)
-assert.match(helperSource, /process\.regulationVersionId/)
+assert.match(helperSource, /taskOption\.qaProcessId/)
+assert.match(helperSource, /taskOption\.regulationVersionId/)
 assert.doesNotMatch(
   pqcSwitchBuilderSource,
   /routeProcessId:\s*process\.routeProcessId|processId:\s*process\.processId/
 )
 
-assert.match(pageSource, /qaProcessId:\s*process\.qaProcessId/)
+assert.match(pageSource, /qaProcessId:\s*taskOption\.qaProcessId/)
 assert.doesNotMatch(
   pqcSubmitBuilderSource,
   /routeProcessId:\s*process\.routeProcessId|processId:\s*process\.processId/

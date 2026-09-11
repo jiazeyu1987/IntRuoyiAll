@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_signature_password_t1; type=schema; riskLevel=medium
 -- T2：统一登录/签名失败计数窗口与锁定时长
 -- 说明：只补充认证锁定窗口字段；失败计数、锁定和自动解锁判断由服务端统一执行。
 

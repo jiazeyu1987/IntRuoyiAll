@@ -1177,6 +1177,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("backup-now");
         reqVO.setTargetEnvironment("test");
+        reqVO.setBackupKind("FULL");
         reqVO.setReason("测试服立即备份");
 
         RuntimeControlOperationRespVO result = runtimeControlService.executeAction(reqVO, "1001");
@@ -1188,6 +1189,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 "test".equals(command.getEnvironment())
                         && command.getArguments().contains("-TargetEnvironment")
                         && command.getArguments().contains("test")
+                        && command.getArguments().contains("-BackupKind")
+                        && command.getArguments().contains("FULL")
                         && !command.getArguments().contains("-ConfirmText")), any());
         waitOperationStatus(result.getOperationId(), "succeeded");
     }
@@ -1218,6 +1221,7 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
         RuntimeControlActionReqVO reqVO = new RuntimeControlActionReqVO();
         reqVO.setAction("backup-now");
         reqVO.setTargetEnvironment("prod");
+        reqVO.setBackupKind("FULL");
         reqVO.setReason("正式服只读立即备份");
         reqVO.setProdConfirmText("PROD");
 
@@ -1230,6 +1234,8 @@ class RuntimeControlServiceImplTest extends BaseMockitoUnitTest {
                 "prod".equals(command.getEnvironment())
                         && command.getArguments().contains("-TargetEnvironment")
                         && command.getArguments().contains("prod")
+                        && command.getArguments().contains("-BackupKind")
+                        && command.getArguments().contains("FULL")
                         && command.getArguments().contains("backup-now")), any());
         waitOperationStatus(result.getOperationId(), "succeeded");
     }

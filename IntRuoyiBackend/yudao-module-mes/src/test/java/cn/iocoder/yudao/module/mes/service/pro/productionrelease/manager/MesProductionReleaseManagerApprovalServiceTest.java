@@ -73,7 +73,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         TenantContextHolder.setTenantId(1L);
         service = new MesProductionReleaseManagerApprovalServiceImpl(
                 applicationMapper, releaseTransactionMapper, releaseEventMapper, workTaskMapper,
-                batchExecutionMapper, batchTaskMapper, candidateResolver, approvalSignatureRecordMapper,
+                batchExecutionMapper, batchTaskMapper, approvalSignatureRecordMapper,
                 auditRecorder, Clock.fixed(Instant.parse("2026-08-16T00:00:00Z"), ZoneOffset.UTC));
     }
 
@@ -142,23 +142,20 @@ class MesProductionReleaseManagerApprovalServiceTest {
     }
 
     @Test
-    void currentRoleMembershipAndFrozenTaskCandidateAreBothRequired() {
+    void frozenManagerCandidateCanPrepareAfterRoleMembershipChanges() {
         Fixture fixture = fixture();
-        when(applicationMapper.selectByReleaseTransactionIdForUpdate(1001L)).thenReturn(fixture.application());
-        when(releaseTransactionMapper.selectByIdForUpdate(1001L)).thenReturn(fixture.transaction());
-        when(workTaskMapper.selectByIdForUpdate(2001L)).thenReturn(fixture.workTask());
-        when(candidateResolver.resolveRequiredCandidates(1L,
+        stubApproval(fixture);
+        lenient().when(candidateResolver.resolveRequiredCandidates(1L,
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
                         List.of(9999L), "changed-manager-candidate-hash"));
 
-        MesReleaseFlowBlockerException failure = assertThrows(
-                MesReleaseFlowBlockerException.class,
-                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
+        MesProductionReleaseManagerApprovalResult result = service.prepareForFinalization(
+                ACTOR_USER_ID, fixture.command());
 
-        assertEquals(MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
-                failure.getFailure().getBlockers().get(0).getBlockerType());
+        assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getApplicationStatus());
+        assertEquals(1001L, result.getReleaseTransaction().getId());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
                 any(), any(), any(), any(), any(), any(), any());
     }
@@ -224,7 +221,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         when(workTaskMapper.selectByIdForUpdate(2001L)).thenReturn(fixture.workTask());
         when(batchExecutionMapper.selectById(901L)).thenReturn(fixture.batch());
         when(batchTaskMapper.selectListByBatchExecutionId(901L)).thenReturn(fixture.batchTasks());
-        when(candidateResolver.resolveRequiredCandidates(1L,
+        lenient().when(candidateResolver.resolveRequiredCandidates(1L,
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,

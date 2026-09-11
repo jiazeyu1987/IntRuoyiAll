@@ -376,6 +376,62 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
     }
 
     @Test
+    void confirmImport_doesNotApplyEarlierValidRowWhenLaterRowInvalid() {
+        when(permissionApi.hasAnyRoles(99L, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE))
+                .thenReturn(true);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "metadata.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                workbookBytes(List.of(
+                        new String[] {"受控文件ID", "文件名称", "文件编号"},
+                        new String[] {"900", "新文件名", "DOC-001"},
+                        new String[] {"999", "缺失文件", "DOC-999"}
+                )));
+        when(controlledFileMapper.selectById(900L)).thenReturn(controlledFile(900L, "旧文件名", "OLD-001"));
+        when(controlledFileMapper.selectById(999L)).thenReturn(null);
+
+        IllegalStateException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> metadataImportExportService.confirmImport(99L, file));
+
+        assertTrue(ex.getMessage().contains("失败"));
+        verify(metadataUpdateService, never()).updateMetadata(any(), any(), any());
+    }
+
+    @Test
+    void previewImport_rejectsDuplicateControlledFileIdAndNoDataRows() {
+        when(permissionApi.hasAnyRoles(99L, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE))
+                .thenReturn(true);
+        MockMultipartFile duplicateFile = new MockMultipartFile(
+                "file",
+                "metadata.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                workbookBytes(List.of(
+                        new String[] {"受控文件ID", "文件名称", "文件编号"},
+                        new String[] {"900", "新文件名", "DOC-001"},
+                        new String[] {"900", "另一个文件名", "DOC-002"}
+                )));
+        when(controlledFileMapper.selectById(900L)).thenReturn(controlledFile(900L, "旧文件名", "OLD-001"));
+
+        DccControlledFileMetadataImportPreviewRespVO preview = metadataImportExportService.previewImport(99L, duplicateFile);
+
+        assertEquals(2, preview.getTotalCount());
+        assertEquals(1, preview.getFailureCount());
+        assertTrue(preview.getRows().get(1).getFailureReason().contains("重复"));
+
+        MockMultipartFile emptyRowsFile = new MockMultipartFile(
+                "file",
+                "metadata.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                workbookBytes(List.<String[]>of(new String[] {"受控文件ID", "文件名称", "文件编号"})));
+        IllegalStateException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> metadataImportExportService.previewImport(99L, emptyRowsFile));
+        assertTrue(ex.getMessage().contains("不能为空"));
+    }
+
+    @Test
     void previewImport_nonDocControlFailsFast() {
         when(permissionApi.hasAnyRoles(99L, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE))
                 .thenReturn(false);

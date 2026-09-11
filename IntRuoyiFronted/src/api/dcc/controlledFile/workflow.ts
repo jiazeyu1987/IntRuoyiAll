@@ -41,6 +41,7 @@ export interface ControlledFileSubmitReqVO {
   categoryId: number
   directoryId: number
   sessionId: string
+  idempotencyKey: string
   originalUploadTicket: string
   sourceUploadTicket?: string
   sourceFileName?: string
@@ -58,6 +59,7 @@ export interface ControlledFileSubmitReqVO {
   processType?: string
   changeType: ControlledFileChangeType
   versionNo?: string
+  revisionSourceControlledFileId?: number | null
   effectiveDate: string
   remark?: string
 }
@@ -1679,11 +1681,13 @@ export const getControlledFileUploadNameOptions = async (params: {
 }
 
 export const getControlledFileCurrentVersion = async (
-  fileNumber: string
+  fileNumber: string,
+  dccProjectCodeId?: number | null,
+  fileTypeTaxonomyId?: number | null
 ): Promise<ControlledFileCurrentVersionRespVO> => {
   return await request.get({
     url: '/dcc/controlled-files/current-version',
-    params: { fileNumber }
+    params: { fileNumber, dccProjectCodeId, fileTypeTaxonomyId }
   })
 }
 

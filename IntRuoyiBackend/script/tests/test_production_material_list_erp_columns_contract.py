@@ -9,6 +9,7 @@ ERP_CLIENT = ROOT / "yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/
 ERP_MODEL = ROOT / "yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/service/purchase/sync/ErpKingdeeProductionMaterialList.java"
 MES_DO = ROOT / "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/workorder/MesKingdeeProductionMaterialListDO.java"
 MES_SYNC = ROOT / "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/sync/MesKingdeeProductionMaterialListSyncServiceImpl.java"
+MES_MAPPER = ROOT / "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/workorder/MesKingdeeProductionMaterialListMapper.java"
 MES_RESP = ROOT / "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/vo/kingdee/MesKingdeeProductionMaterialListRespVO.java"
 MES_DETAIL_RESP = ROOT / "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/workorder/vo/kingdee/MesKingdeeProductionMaterialListDetailRespVO.java"
 FRONT_API = REPO / "IntRuoyiFronted/src/api/erp/production/material-list/index.ts"
@@ -81,3 +82,16 @@ def test_frontend_types_and_pages_display_all_four_columns() -> None:
         assert label in erp_page
         assert label in detail_panel
     assert "prop=\"drawingNumber\"" in erp_page
+
+
+def test_active_order_detail_query_matches_production_order_no_exactly() -> None:
+    mapper = read(MES_MAPPER)
+    assert ".eqIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())" in mapper
+    assert ".likeIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())" not in mapper
+
+
+def test_full_sync_backfills_new_erp_columns_on_legacy_rows() -> None:
+    sync = read(MES_SYNC)
+    assert "shouldBackfillErpColumns(existing, row)" in sync
+    assert "StrUtil.isBlank(existing.getDrawingNumber()) && StrUtil.isNotBlank(row.getDrawingNumber())" in sync
+    assert "existing.getDemandTime() == null && row.getDemandTime() != null" in sync

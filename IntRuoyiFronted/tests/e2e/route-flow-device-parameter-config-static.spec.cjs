@@ -39,6 +39,16 @@ assert.match(
   /saveRouteProcessDeviceParameterRule/,
   'Route flow device parameter editor must save through the route-owned API.'
 )
+assert.match(
+  designer,
+  /validateRouteProcessDeviceParameterForm[\s\S]*下拉选项不能为空[\s\S]*是否类型必须选择默认值/,
+  'Route flow device parameter editor must validate select and boolean rules before saving.'
+)
+assert.doesNotMatch(
+  designer,
+  /throw new Error\('设备参数保存失败/,
+  'Route flow device parameter editor must show visible validation errors instead of throwing click-handler errors.'
+)
 assert.doesNotMatch(
   designer,
   /saveTeamProcessConfigDeviceParameterRule/,

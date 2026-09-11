@@ -14,6 +14,14 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProRouteDeviceParameterRuleSaveReqVO {
 
+    @Schema(description = "候选路线版本编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull
+    private Long routeVersionId;
+
+    @Schema(description = "当前候选路线快照 SHA-256", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank
+    private String expectedRouteSnapshotSha256;
+
     @Schema(description = "路线工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull
     private Long routeProcessId;
@@ -25,6 +33,9 @@ public class MesProRouteDeviceParameterRuleSaveReqVO {
     @Schema(description = "参数编码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank
     private String parameterCode;
+
+    @Schema(description = "修改前参数编码")
+    private String originalParameterCode;
 
     @Schema(description = "参数名称")
     private String parameterName;

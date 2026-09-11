@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -29,6 +30,8 @@ import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceSelectionSnapshotCodec;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -89,17 +92,26 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                 .thenReturn(lockedVersion());
         when(taskMapper.selectById(PQC_TASK_ID)).thenReturn(task());
         when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(task()));
+        String parameterSnapshotJson = "[]";
+        String deviceSelectionSnapshotJson = "[]";
         when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                        .routeProcessId(30001L).processId(40001L).build()));
+                        .routeProcessId(30001L).processId(40001L)
+                        .parameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN)
+                        .parameterSnapshotJson(parameterSnapshotJson)
+                        .parameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(parameterSnapshotJson))
+                        .deviceSelectionSnapshotJson(deviceSelectionSnapshotJson)
+                        .deviceSelectionSnapshotSha256(MesDeviceSelectionSnapshotCodec.sha256(deviceSelectionSnapshotJson))
+                        .build()));
         when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
                 .thenReturn(List.of(employeeScope(ACTUAL_EMPLOYEE_ID)));
         when(adminUserApi.getUserList(any())).thenReturn(List.of(user(LOGIN_USER_ID), user(ACTUAL_EMPLOYEE_ID)));
 
         service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper,
                 mock(MesProProcessPoolEventMapper.class),
-                processSnapshotMapper, workOrderMapper, routeMapper,
+                processSnapshotMapper, mock(MesProcessPoolTeamDeviceMapper.class),
+                workOrderMapper, routeMapper,
                 mock(MesProRouteVersionMapper.class), mock(DccProjectCodeMapper.class),
                 mock(MesQaInspectionRegulationMapper.class), mock(MesQaInspectionRegulationVersionMapper.class),
                 mock(MesQaInspectionRegulationProcessMapper.class),

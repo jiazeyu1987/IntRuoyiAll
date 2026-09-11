@@ -27,6 +27,11 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         String releaseIdempotencyKey = MesReleaseFlowIdempotency.requireKey(
                 command == null ? null : command.getIdempotencyKey());
         command.setIdempotencyKey(releaseIdempotencyKey);
+        MesTeamLeaderActiveOrderReleaseApplicationResult existing =
+                generationService.replayExisting(leaderUserId, command);
+        if (existing != null) {
+            return existing;
+        }
         completionService.completeForRelease(
                 leaderUserId, command.getActiveOrderId(), releaseIdempotencyKey);
         return generationService.generate(leaderUserId, command);

@@ -1,0 +1,54 @@
+# Execution Log
+
+- 2026-09-11：收到用户请求“提交前后端代码”，已获得本轮 Git commit 授权，未获得 push 授权。
+- 2026-09-11：已读取根目录 `AGENTS.md`、`docs/task-closeout-rules.md`、`docs/worktree-restrictions.md` 和 `docs/release-agent-checklist.md`。
+- 2026-09-11：本任务为提交操作，不引入产品行为变化，因此 BDD/RED/GREEN 不适用；代码测试证据必须来自各改动所属任务。
+- 2026-09-11：`git status --short --branch --untracked-files=all` -> 当前分支 `int_main` 相对 `origin/int_main` 为 ahead 2 / behind 2；前后端共有 277 个脏文件（后端 226、前端 51），暂存区为空。
+- 2026-09-11：发现 `.git/index.lock` 为 2026-09-10 遗留的零字节锁；复核当前 Git 进程数为 0 且绝对路径为 `E:\IntRuoyi\.git\index.lock` 后移除，结果 PASS。
+- GREEN: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，`int_main` 端口保持前端 8081、后端 48081。
+- GREEN: `git diff --check -- IntRuoyiBackend IntRuoyiFronted` -> PASS，仅有 LF/CRLF 转换 warning，无空白错误。
+- GREEN: 后端受影响模块主代码编译 -> PASS，命令为 `mvn -pl "yudao-framework/yudao-spring-boot-starter-excel,yudao-module-dcc,yudao-module-mes,yudao-module-system" -am -DskipTests compile`。
+- GREEN: 前端 `pnpm ts:check` -> PASS。
+- RED: 首轮前端静态合同从仓库根目录运行 -> FAIL，预期原因是脚本按前端根目录解析相对路径；纠正工作目录后原样重跑。
+- GREEN: 20 个变更前端静态合同 -> PASS；未启动浏览器，未执行真实 E2E。
+- RED: 首轮后端静态合同从后端根目录批量运行 -> FAIL，预期原因是两个脚本各自要求 MES 模块根目录或仓库根目录；纠正工作目录后原样重跑。
+- GREEN: 18 个变更后端静态合同 -> PASS。
+- GREEN: 6 个变更 Python 合同测试 -> PASS，54 passed。
+- RED: 首轮 DCC/系统/Excel Maven 定向测试 -> FAIL，DCC 测试编译阶段未读取到 `DccRegistrationCertificateMigrationService.EntrustedEnterpriseCommand`；复核源码符号存在且文件无脏改动后按标准参数重跑。
+- GREEN: 系统模块定向测试 -> PASS，106 tests，0 failures，0 errors，1 skipped；Excel 定向测试 -> PASS，3 tests。
+- RED: DCC 定向 Maven 回归复跑 -> FAIL，318 tests，2 failures：`DccControlledFileQueryServiceTest#getControlledFile_requesterOutsideAssignmentHardScopeIsDenied` 未抛出预期 `ServiceException`；`DccPublicationFollowupQueryServiceTest#getFileFollowup_linkRevisionTimelineUsesAuditLinkedVersionAfterTaskReopened` 预期关联版本 `C/1`，实际为 `null`。
+- RED: 全量 migration policy gate -> FAIL，首个既有阻塞为已提交文件 `20260903_mes_process_pool_device_selection_mode.sql` 缺少 `release-migration` 元数据。
+- RED: 当前修改 SQL 定向 migration policy gate -> FAIL，`20260908_gxp_audit_trail_core.sql` 缺少 `release-migration` 元数据。
+- BLOCKED: 根据 `docs/task-closeout-rules.md` 的“verification 失败后禁止提交”，本轮未执行 `git add`、`git commit` 或 `git push`。
+- GREEN: project-experience-consolidation check -> PASS；`docs/powershell-memory.md#git-indexlock-陈旧锁恢复门禁`、`docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁` 和既有迁移元数据规则已覆盖本轮经验，无需新增长期经验文档。
+- 2026-09-11：验证结束后 `.git/index.lock` 再次出现为 0 字节陈旧锁；复核已超过 60 秒且 Git 进程数仍为 0 后再次精确移除，结果 PASS。此后不再执行索引写操作。
+- 2026-09-11：用户追加回复“授权”，按本轮授权范围可执行 Git 提交/推送；但复核 `git status --short --branch --untracked-files=all` 显示 `int_main` 仍为 ahead 2 / behind 2 且工作区仍有大量前后端脏改动，`git diff --check -- IntRuoyiBackend IntRuoyiFronted` 仍为 PASS（仅 LF/CRLF warning），提交仍受既有 DCC Maven 2 项失败与 `20260908_gxp_audit_trail_core.sql` 迁移元数据失败阻断。
+- 2026-09-11：用户要求“直接修”，本轮从提交任务扩展为修复提交阻断点；已读取 bug-regression-fix-loop、backend-api-delivery、database-schema-delivery 技能及引用合同。
+- BDD: DCC 外部申请人硬边界 -> Given 文控文件已有明确分发/适用范围，When 范围外请求人查询文件详情，Then 服务端必须 fail-fast 抛出正式 `ServiceException`，不得返回可见详情或默认成功。
+- BDD: DCC 关联修订时间线 -> Given 文件关联的修订任务被重新打开且审计仍指向历史关联版本，When 查询发布跟踪时间线，Then 结果必须保留审计关联版本 `C/1`，不得丢失为 `null`。
+- BDD: GxP 审计 SQL 发布元数据 -> Given `20260908_gxp_audit_trail_core.sql` 进入发布迁移集合，When 运行 migration policy gate，Then SQL 首行必须提供结构化 `release-migration` 元数据并通过依赖、类型和风险等级校验。
+- BDD: release migration 全量元数据闭环 -> Given 20260903/20260908/20260911 新增迁移进入发布集合，When 运行全量 migration policy gate，Then 所有迁移必须声明 `release-migration` 元数据、正式依赖和风险级别，且不得引用不存在的依赖 ID。
+- BDD: MDM 授权公司正式字段 -> Given DCC/MDM 依赖正式公司 ID 映射，When 查询授权公司分页，Then 公司显示文本必须来自正式企业记录的显示标签字段，companyscope 包内不得保留 `companyName` 兜底令牌。
+- RED: `python -X utf8 -m pytest script\tests\test_mes_process_pool_device_selection_mode_sql.py -q` -> FAIL，`20260903_mes_process_pool_device_selection_mode.sql` 首行缺少 `release-migration` 元数据。
+- GREEN: `python -X utf8 -m pytest script\tests\test_mes_process_pool_device_selection_mode_sql.py script\tests\test_gxp_audit_core_contract.py -q` -> PASS，7 passed。
+- RED: `python -X utf8 -m pytest script\tests\test_system_signature_release_migration_metadata_sql.py -q` -> FAIL，签名/eSignature 迁移缺少发布元数据。
+- GREEN: `python -X utf8 -m pytest script\tests\test_system_signature_release_migration_metadata_sql.py script\tests\test_mes_process_pool_device_selection_mode_sql.py script\tests\test_gxp_audit_core_contract.py -q` -> PASS，8 passed。
+- RED: `python -X utf8 -m pytest script\tests\test_edhr_multi_signature_approval_sql.py::test_review_source_type_length_supports_stage1_simulation_marker -q` -> FAIL，`dependsOn` 使用了带 `.sql` 后缀的不存在迁移 ID。
+- GREEN: `python -X utf8 -m pytest script\tests\test_edhr_multi_signature_approval_sql.py::test_review_source_type_length_supports_stage1_simulation_marker script\tests\test_system_signature_release_migration_metadata_sql.py script\tests\test_mes_process_pool_device_selection_mode_sql.py script\tests\test_gxp_audit_core_contract.py -q` -> PASS，9 passed。
+- RED: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260911-commit-frontend-backend\migration-policy-gate-final.json` -> FAIL，缺少 `20260911_dcc_controlled_file_submit_idempotency.sql` 元数据。
+- RED: 同一全量 migration policy gate -> FAIL，缺少 `20260911_dcc_retire_form_center_upload_entry.sql` 元数据。
+- GREEN: `python -X utf8 -m pytest script\tests\test_dcc_controlled_file_submit_idempotency_sql.py script\tests\test_dcc_retire_form_center_upload_entry_sql.py script\tests\test_system_signature_release_migration_metadata_sql.py script\tests\test_mes_process_pool_device_selection_mode_sql.py script\tests\test_gxp_audit_core_contract.py script\tests\test_edhr_multi_signature_approval_sql.py -q` -> PASS，17 passed。
+- GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260911-commit-frontend-backend\migration-policy-gate-final.json` -> PASS，status `passed`，migrationCount `618`。
+- RED: `mvn -q -pl yudao-module-dcc -am -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，扩展回归暴露 DCC schema、注册证和 target/test-classes 残留/并发相关问题；该全量命令不在本任务 Expected Verification，作为后续仓库级风险记录。
+- RED: `mvn -q -pl yudao-module-dcc -am clean -Dtest=DccControlledFileQueryServiceTest#getControlledFile_requesterOutsideAssignmentHardScopeIsDenied,DccPublicationFollowupQueryServiceTest#getFileFollowup_linkRevisionTimelineUsesAuditLinkedVersionAfterTaskReopened -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，Windows 目标目录被另一个 Maven 进程 PID 54444 占用，未删除源码。
+- GREEN: 同一 DCC clean 定向命令在 PID 54444 退出后重跑 -> PASS。
+- GREEN: `mvn -q -pl yudao-module-infra -am -Dtest=RuntimeControlServiceImplTest#executeBackupNowShouldAllowTestEnvironmentWithoutProdConfirmAndPersistTargetEnvironment+executeBackupNowShouldAllowProdReadonlyBackupWhenProductionAccessIsDisabled -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS。
+- GREEN: `mvn -q -pl yudao-module-system -am -Dtest=AuthConvertTest,TemporaryRoleGrantServiceImplTest,InvoiceVoucherPrintAssistantErpConfigBridgeContractTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS；注意该合同读取了外部助手仓库当前工作区状态，外部仓库未纳入本主仓库提交。
+- GREEN: `mvn -q -pl yudao-module-bpm -am -Dtest=FormCenterTemplateImportRuntimeTest,FormCenterTemplateVersionQueryTest,FormTemplateFillRuleAutoDetectServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS。
+- GREEN: `mvn -q -pl yudao-module-mdm -am -Dtest=MdmDependencyDirectionContractTest,MdmCompanyScopeQueryServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS。
+- GREEN: `pnpm ts:check`（`IntRuoyiFronted`）-> PASS。
+- GREEN: `git diff --check -- IntRuoyiBackend IntRuoyiFronted` -> PASS，仅 LF/CRLF warning。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` 端口矩阵为前端 8081、后端 48081。
+- GREEN: task-closeout-cleanup preview -> PASS，keep `task.md`、`execution-log.md`、`verification-report.md`，delete 13 个本任务临时日志/JSON，blocked/warnings 均为空。
+- GREEN: task-closeout-cleanup apply -> PASS，已删除 13 个本任务临时日志/JSON；当前为主工作区 `int_main`，无 worktree 合并/删除。
+- GREEN: project-experience-consolidation -> PASS，已合并 Maven target 锁等待策略到 `docs/powershell-memory.md`，合并全量 migration policy gate 元数据经验到 `docs/release-build-preflight-lessons.md`，未新建长期经验文档。

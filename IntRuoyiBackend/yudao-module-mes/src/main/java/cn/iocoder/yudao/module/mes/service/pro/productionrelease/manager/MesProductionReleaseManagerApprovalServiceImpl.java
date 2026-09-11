@@ -33,8 +33,6 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportNodeEvidence;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportSnapshots;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -70,7 +68,6 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
-    private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper;
     private final MesReleaseFlowAuditRecorder auditRecorder;
     private final Clock clock;
@@ -83,11 +80,10 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
-            MesProductionReleaseRequiredCandidateResolver candidateResolver,
             BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper,
             MesReleaseFlowAuditRecorder auditRecorder) {
         this(applicationMapper, releaseTransactionMapper, releaseEventMapper, workTaskMapper,
-                batchExecutionMapper, batchTaskMapper, candidateResolver, approvalSignatureRecordMapper,
+                batchExecutionMapper, batchTaskMapper, approvalSignatureRecordMapper,
                 auditRecorder, Clock.systemUTC());
     }
 
@@ -98,7 +94,6 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
-            MesProductionReleaseRequiredCandidateResolver candidateResolver,
             BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper,
             MesReleaseFlowAuditRecorder auditRecorder,
             Clock clock) {
@@ -108,7 +103,6 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         this.workTaskMapper = workTaskMapper;
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchTaskMapper = batchTaskMapper;
-        this.candidateResolver = candidateResolver;
         this.approvalSignatureRecordMapper = approvalSignatureRecordMapper;
         this.auditRecorder = auditRecorder;
         this.clock = clock;
@@ -296,37 +290,26 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         }
     }
 
-    private MesProductionReleaseRoleCandidates requireManagerCandidate(
+    private void requireManagerCandidate(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             MesProEdhrWorkTaskDO workTask,
             Long actorUserId,
             Long releaseTransactionId) {
-        Long tenantId = TenantContextHolder.getTenantId();
-        if (tenantId == null) {
-            throw new IllegalStateException("tenantId is required for manager release approval");
-        }
-        MesProductionReleaseRoleCandidates candidates = candidateResolver.resolveRequiredCandidates(
-                tenantId, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE);
         boolean taskValid = workTask != null
                 && Objects.equals(workTask.getTaskType(), TASK_TYPE_RELEASE_APPROVE)
                 && Objects.equals(workTask.getBusinessScopeType(), BUSINESS_SCOPE_RELEASE_TRANSACTION)
                 && Objects.equals(workTask.getBusinessScopeId(), releaseTransactionId)
                 && Objects.equals(workTask.getBatchExecutionId(), application.getBatchExecutionId())
                 && Objects.equals(workTask.getCandidateSourceType(), CANDIDATE_SOURCE_ROLE)
-                && candidates != null
-                && Objects.equals(candidates.roleCode(), MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE)
-                && Objects.equals(workTask.getCandidateSourceId(), candidates.roleId())
                 && Objects.equals(workTask.getResponsibilitySourceKey(),
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE)
-                && candidates.candidateUserIds().contains(actorUserId)
                 && containsCandidate(workTask.getCandidateUserSnapshot(), actorUserId)
                 && isProcessable(workTask.getStatus());
         if (!taskValid) {
             throw blocker(application, MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
-                    "current user is not both a management representative and a frozen task candidate",
-                    "use an enabled tenant management representative account assigned to this task");
+                    "current user is not in the frozen management representative task candidate snapshot",
+                    "use an authorized frozen management representative candidate assigned to this task");
         }
-        return candidates;
     }
 
     private List<MesProductionReleaseReportNodeEvidence> collectReportEvidences(

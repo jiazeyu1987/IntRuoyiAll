@@ -83,3 +83,66 @@
 - Rechecked the previously blocking frontend conflict file: `ActiveOrderSubmissionDetailPanel.vue` has no unresolved merge markers.
 - Re-ran frontend relaxed type check: `pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json` passed with exit code 0.
 - Remaining blocker: fresh real frontend approval/publish/write-path Playwright was not run in this command because the current instruction did not explicitly authorize business writes or service restart.
+
+## Backend Restart Recovery 2026-09-09
+
+- Fixed standard backend restart blockers in System/DCC/MES compile and testCompile paths.
+- `mvn -pl yudao-module-system -DskipTests compile` passed.
+- `mvn -pl yudao-module-dcc -DskipTests test-compile` passed.
+- `mvn -pl yudao-module-mes -am -DskipTests compile` passed.
+- `mvn -pl yudao-module-mes -am -DskipTests test-compile` passed.
+- Standard local backend restart script completed yudao-server package with BUILD SUCCESS and dispatched the runtime.
+- `48081` is listening under PID `31924`; `http://localhost:48081/actuator/health` returned HTTP 200.
+- This restores backend runtime for further P4 validation but does not claim the DCC real frontend approval/publish/notification/impact closure.
+
+## P4 Real Frontend Closure Attempt 2026-09-09
+
+- Result: BLOCKED.
+- Runtime: `8081` and `48081` reachable; backend health returned `UP`.
+- Real frontend upload: PASS. New task-owned file `DCC-P4-20260909P4B` was created and submitted through the upload page. File ID: `2054545668044070331`.
+- Read-only task verification: PASS. The file is `PENDING_DOC_CONTROL_REVIEW`; Flowable has current task `81b33998-ac25-11f1-b878-00155dde8c13` assigned to admin.
+- Real frontend approval detail: PASS to the point of action. The detail page loaded file data, BPM task list, approval detail and action readiness; readiness returned `ready=true`.
+- Real frontend approval write: FAIL. Clicking “审核通过” submitted `/admin-api/dcc/controlled-files/2054545668044070331/approve-task`, but backend returned HTTP 500.
+- Root cause: runtime schema drift. Backend log shows `ElectronicSignatureServiceImpl.sign` failed because table `gxp_audit_policy_operation` does not exist.
+- Required next gate: apply official migration `IntRuoyiBackend/sql/mysql/20260908_gxp_audit_trail_core.sql` to the local test database, then rerun direct approval, remaining approvers, publish request, follow-up notification delivery, and impact-task decision from real frontend pages.
+- Not claimed: approval completion, publication, publication-followup batch, notification delivery, and impact-task closure.
+
+## P4 GxP Migration And Approval Resume 2026-09-09
+
+- Result: PARTIAL PASS, then BLOCKED.
+- GxP runtime migration: PASS. Official core SQL was applied to the local test database and repeated successfully.
+- GxP SQL contract repair: PASS. Added regression assertions for runtime base fields and DCC signature payload capacity; `python -m pytest IntRuoyiBackend/script/tests/test_gxp_audit_core_contract.py -q` passed 4 tests.
+- Runtime schema repair: PASS. `gxp_audit_policy_operation` now has `update_time/creator/updater/deleted`; `gxp_audit_event` now has `update_time/creator/updater/deleted`, `idempotency_key varchar(512)`, `subject_id varchar(2048)`, and prefix subject index.
+- Policy registry seed: PASS. `IntRuoyiBackend/config/gxp-audit-policy.yaml` passed coverage gate and was imported into local tenant 1 with 8 active operations, including `signature.record.create`.
+- Fresh real frontend fixture: PASS. `DCC-P4-20260909P4C` / `2054545668044070332` was created through the upload page, and its source object exists in MinIO.
+- Real frontend approval progress: PASS for DOC_CONTROL_REVIEW and admin MATRIX_REVIEW tasks.
+- Current blocker: zhaojie is the active BPM assignee for the remaining MATRIX_REVIEW task, but the DCC detail endpoint returns code `1080000012 Current user cannot access this controlled file` for that same user. Because E2E must use the real frontend and cannot bypass with API/DB approval, remaining review, final approval, publish, notification and impact-task closure are not claimed.
+
+## P4 Current BPM Assignee Detail Access Fix 2026-09-09
+
+- Result: CODE FIX PASS; runtime/E2E continuation still pending.
+- Root cause: pending DCC detail and pending-original preview permission trusted route snapshot participants but did not trust the actual current Flowable task assignee.
+- Fix verified: current running BPM task assignee can open the pending DCC detail and preview the pending original file even when route snapshot rows are missing or stale.
+- Boundary verified: download remains denied for the unpublished pending file; existing `DccControlledFileQueryServiceTest` coverage, including future-stage denial, still passes.
+- RED: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileQueryServiceTest#getControlledFile_pendingFileAllowsCurrentBpmAssigneeEvenWhenRouteSnapshotMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test` failed with code `1080000012`.
+- GREEN: same targeted command passed 1 test / 0 failures / 0 errors.
+- REGRESSION: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileQueryServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` passed 98 tests / 0 failures / 0 errors.
+- Not yet claimed: the fixed code has not been loaded into `48081`, and the remaining real frontend zhaojie approval, final approval, publish, notification and impact-task closure were not run in this turn.
+
+## P4 Final Closure Evidence 2026-09-10
+
+- Runtime recovered after machine restart: local Docker MySQL/Redis/MinIO are running, backend `48081` health is `UP`, and frontend `8081` is available after a clean Vite restart.
+- Real frontend lifecycle closure passed for `DCC-P4-20260910P4D A/1` and related `DCC-P4-20260909P4C B/1`.
+- Final states: P4C A/1 `SUPERSEDED`; P4C B/1 and P4D A/1 `ACTIVE`; all three publication batches `COMPLETED` with 7/7 `SENT` notifications per batch.
+- Impact task 1 completed initial `NO_REVISION_REQUIRED`, management-page reopen, `REVISION_REQUIRED`, create/link B/1, and automatic `RESOLVED` after B/1 publication. Reverse impact task 2 completed as `NO_REVISION_REQUIRED`.
+- P4D and P4C B/1 each contain five `VALID` DCC signature projections using `HMAC_SHA256`.
+- Adjacent backend regression passed 162 tests; the three DCC frontend contracts and SQL capacity contract passed.
+- Latest read-only real-page Playwright `p4-local-page-e2e-result.json` is `PASS`, with zero page/console errors. Its `timelineText` renders all publication, notification and impact events through linked-version publication resolution.
+- Global relaxed `vue-tsc` is currently red only in unrelated parallel MES work at `TeamLeaderWorkbenchPage.vue:6010`. The independent tester recorded it as repository-level residue outside P4 ownership and approved P4-AC1 through P4-AC5 and AC-18.
+
+## Closeout 2026-09-10
+
+- Completion gate: PASS; all phases and phase acceptance criteria are completed, `test_status=passed`, and no blocking prerequisite remains.
+- Independent tester: PASS / APPROVED for DCC P4 and AC-18.
+- Cleanup preview/apply: PASS; formal task/evidence files were retained and 5165 task-local temporary artifacts were removed.
+- Worktree handling: not applicable because this is the primary `int_main` workspace.

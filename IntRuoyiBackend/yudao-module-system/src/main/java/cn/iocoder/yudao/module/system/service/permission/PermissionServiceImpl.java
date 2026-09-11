@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.system.service.permission;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
@@ -213,7 +214,8 @@ public class PermissionServiceImpl implements PermissionService {
             allEntries = true) // allEntries 清空所有缓存，主要一次更新涉及到的 menuIds 较多，反倒批量会更快
     })
     @GxpWriteOperation(operationId = "system.permission.role-menu.assign")
-    public void assignRoleMenu(Long roleId, Set<Long> menuIds) {
+    public void assignRoleMenu(Long roleId, Set<Long> menuIds, String reason, String idempotencyKey) {
+        requireGxpPermissionAuditEvidence(reason, idempotencyKey);
         // 获得角色拥有菜单编号
         Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectListByRoleId(roleId), RoleMenuDO::getMenuId);
         Set<Long> beforeMenuIds = sortedLongSet(dbMenuIds);
@@ -235,7 +237,7 @@ public class PermissionServiceImpl implements PermissionService {
             roleMenuMapper.deleteListByRoleIdAndMenuIds(roleId, deleteMenuIds);
         }
         appendPermissionAudit("system.permission.role-menu.assign", "SYSTEM_ROLE:" + roleId,
-                "分配角色菜单权限", Map.of("menuIds", beforeMenuIds), Map.of("menuIds", afterMenuIds));
+                reason, idempotencyKey, Map.of("menuIds", beforeMenuIds), Map.of("menuIds", afterMenuIds));
     }
 
     @Override
@@ -291,7 +293,8 @@ public class PermissionServiceImpl implements PermissionService {
     @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.USER_ROLE_ID_LIST, key = "#userId")
     @GxpWriteOperation(operationId = "system.permission.user-role.assign")
-    public void assignUserRole(Long userId, Set<Long> roleIds) {
+    public void assignUserRole(Long userId, Set<Long> roleIds, String reason, String idempotencyKey) {
+        requireGxpPermissionAuditEvidence(reason, idempotencyKey);
         // 获得角色拥有角色编号
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectListByUserId(userId),
                 UserRoleDO::getRoleId);
@@ -315,7 +318,7 @@ public class PermissionServiceImpl implements PermissionService {
             userRoleMapper.deleteListByUserIdAndRoleIdIds(userId, deleteMenuIds);
         }
         appendPermissionAudit("system.permission.user-role.assign", "SYSTEM_USER:" + userId,
-                "分配用户角色", Map.of("roleIds", beforeRoleIds), Map.of("roleIds", afterRoleIds));
+                reason, idempotencyKey, Map.of("roleIds", beforeRoleIds), Map.of("roleIds", afterRoleIds));
     }
 
     private void validateAssignableUserRoles(Collection<Long> currentRoleIds, Collection<Long> targetRoleIds) {
@@ -415,7 +418,9 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "system.permission.role-data-scope.assign")
-    public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds) {
+    public void assignRoleDataScope(Long roleId, Integer dataScope, Set<Long> dataScopeDeptIds,
+                                    String reason, String idempotencyKey) {
+        requireGxpPermissionAuditEvidence(reason, idempotencyKey);
         RoleDO beforeRole = roleService.getRole(roleId);
         Map<String, Object> beforeState = roleDataScopeState(beforeRole);
         roleService.updateRoleDataScope(roleId, dataScope, dataScopeDeptIds);
@@ -423,7 +428,7 @@ public class PermissionServiceImpl implements PermissionService {
         afterState.put("dataScope", dataScope);
         afterState.put("dataScopeDeptIds", sortedLongSet(dataScopeDeptIds));
         appendPermissionAudit("system.permission.role-data-scope.assign", "SYSTEM_ROLE:" + roleId,
-                "分配角色数据权限", beforeState, afterState);
+                reason, idempotencyKey, beforeState, afterState);
     }
 
     @Override
@@ -497,7 +502,13 @@ public class PermissionServiceImpl implements PermissionService {
         return SpringUtil.getBean(getClass());
     }
 
-    private void appendPermissionAudit(String operationId, String subjectId, String reason,
+    private void requireGxpPermissionAuditEvidence(String reason, String idempotencyKey) {
+        if (StrUtil.hasBlank(reason, idempotencyKey)) {
+            throw new IllegalArgumentException("GxP permission audit reason and idempotencyKey are required");
+        }
+    }
+
+    private void appendPermissionAudit(String operationId, String subjectId, String reason, String idempotencyKey,
                                        Map<String, ?> beforeState, Map<String, ?> afterState) {
         String beforeJson = toJsonString(beforeState);
         String afterJson = toJsonString(afterState);
@@ -516,7 +527,7 @@ public class PermissionServiceImpl implements PermissionService {
                         .objectVersion(String.valueOf(afterJson.hashCode()))
                         .canonicalJson(afterJson)
                         .build())
-                .idempotencyKey(operationId + ":" + subjectId + ":" + Integer.toHexString(Objects.hash(beforeJson, afterJson)))
+                .idempotencyKey(idempotencyKey)
                 .requestId(operationId + ":" + subjectId)
                 .source("PermissionServiceImpl")
                 .build());

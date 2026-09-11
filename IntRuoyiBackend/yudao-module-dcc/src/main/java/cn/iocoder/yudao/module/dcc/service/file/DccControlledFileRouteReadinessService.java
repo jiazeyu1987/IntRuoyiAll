@@ -147,24 +147,13 @@ public class DccControlledFileRouteReadinessService {
         } catch (ServiceException ex) {
             throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
         }
-        List<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode> updatedNodes = new ArrayList<>();
-        boolean replaced = false;
-        for (DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode node : resolvedRoute.nodes()) {
-            if (DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(node.stageCode())) {
-                updatedNodes.add(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
-                        node.stageNo(), node.stageCode(), node.stageName(), node.stageOrder(),
-                        node.candidateSourceType(), node.candidateSourceId(), node.candidateSourceIds(),
-                        node.approveMethod(), node.approveRatio(), node.requireAllApprovals(),
-                        new ArrayList<>(normalizedUserIds)));
-                replaced = true;
-            } else {
-                updatedNodes.add(node);
-            }
-        }
-        if (!replaced) {
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode matrixNode = resolvedRoute.nodes().stream()
+                .filter(node -> DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(node.stageCode()))
+                .findFirst().orElse(null);
+        if (matrixNode == null || !new LinkedHashSet<>(matrixNode.resolvedUserIds()).equals(normalizedUserIds)) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
-        return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(resolvedRoute.route(), updatedNodes);
+        return resolvedRoute;
     }
 
     private String requiredPermission(String stageCode) {

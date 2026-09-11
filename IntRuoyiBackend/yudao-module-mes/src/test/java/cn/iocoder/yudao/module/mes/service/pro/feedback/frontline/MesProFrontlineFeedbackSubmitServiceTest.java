@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -48,8 +49,6 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     @Mock
     private MesFrontlineLossReasonValidator lossReasonValidator;
-    @Mock
-    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
     @Mock
     private MesFrontlineParameterAuditService parameterAuditService;
     @Mock
@@ -77,6 +76,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
+                        any(), any(), any(), any(), any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
         org.mockito.Mockito.lenient().when(activeOrderSnapshotResolver.requireEffective(81L))
                 .thenReturn(new ActiveOrderSnapshotResolver.ActiveOrderSnapshot(
@@ -322,6 +324,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                                 .map(item -> ((MesProFrontlineFeedbackMaterialReqVO) item).getMaterialName())
                                 .toList().equals(List.of("弹簧", "杠杆"))));
         verify(processPoolSubmitEventService).createInitialAllocation(801L, 81L, new BigDecimal("3"));
+        verify(parameterAuditService, times(2)).resolveAndApplyMaterial(
+                eq(request), any(), any(), any(), any());
+        verify(parameterAuditService, never()).resolveAndApply(request);
     }
 
     @Test
@@ -521,7 +526,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void shouldSubmitWithoutDeviceParameterValidation() {
+    void shouldAuditEverySubmittedMaterialInsteadOfLegacyRootPayload() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
@@ -542,8 +547,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         assertEquals(801L, respVO.getProcessPoolEventId());
         verify(submitAuthorizationService).authorize(any());
-        verify(parameterAuditService).resolveAndApply(reqVO);
-        verifyNoInteractions(deviceParameterValidator);
+        verify(parameterAuditService, times(2)).resolveAndApplyMaterial(
+                eq(reqVO), any(), any(), any(), any());
+        verify(parameterAuditService, never()).resolveAndApply(reqVO);
     }
 
     @Test

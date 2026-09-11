@@ -7,6 +7,20 @@
       <el-form-item label="权限角色标识">
         <el-tag>{{ formData.code }}</el-tag>
       </el-form-item>
+      <el-form-item
+        label="变更原因"
+        prop="reason"
+        :rules="[{ required: true, message: '请输入权限变更原因', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="formData.reason"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="请输入本次菜单权限变更原因"
+        />
+      </el-form-item>
       <el-form-item label="菜单权限">
         <el-card class="w-full h-400px !overflow-y-scroll" shadow="never">
           <template #header>
@@ -63,13 +77,15 @@ interface RoleAssignMenuFormData {
   name: string
   code: string
   menuIds: number[]
+  reason: string
 }
 
 const createDefaultFormData = (): RoleAssignMenuFormData => ({
   id: undefined,
   name: '',
   code: '',
-  menuIds: []
+  menuIds: [],
+  reason: ''
 })
 
 const dialogVisible = ref(false) // 弹窗的是否展示
@@ -120,7 +136,9 @@ const submitForm = async () => {
       menuIds: [
         ...(treeRef.value.getCheckedKeys(false) as unknown as Array<number>), // 获得当前选中节点
         ...(treeRef.value.getHalfCheckedKeys() as unknown as Array<number>) // 获得半选中的父节点
-      ]
+      ],
+      reason: formData.reason.trim(),
+      idempotencyKey: createPermissionAuditIdempotencyKey()
     } as PermissionApi.PermissionAssignRoleMenuReqVO
     await PermissionApi.assignRoleMenu(data)
     message.success(t('common.updateSuccess'))
@@ -158,5 +176,12 @@ const handleCheckedTreeExpand = () => {
     }
     nodes[node].expanded = menuExpand.value
   }
+}
+
+const createPermissionAuditIdempotencyKey = () => {
+  if (typeof crypto !== 'object' || typeof crypto.randomUUID !== 'function') {
+    throw new Error('当前浏览器不支持 crypto.randomUUID，无法生成权限审计幂等键')
+  }
+  return `SYSTEM-PERM-ROLE-MENU-${formData.id}-${crypto.randomUUID()}`
 }
 </script>

@@ -239,6 +239,8 @@ export interface ProRouteProcessDeviceParameterDeviceVO {
 }
 
 export interface ProRouteProcessDeviceParameterConfigVO {
+  routeVersionId: MesRouteId
+  routeSnapshotSha256: string
   routeProcessId: number
   processId?: number | null
   processName?: string | null
@@ -246,9 +248,12 @@ export interface ProRouteProcessDeviceParameterConfigVO {
 }
 
 export interface ProRouteDeviceParameterRuleSaveVO {
+  routeVersionId: MesRouteId
+  expectedRouteSnapshotSha256: string
   routeProcessId: number
   deviceId: number
   parameterCode: string
+  originalParameterCode?: string | null
   parameterName?: string | null
   unit?: string | null
   standardText: string
@@ -259,6 +264,14 @@ export interface ProRouteDeviceParameterRuleSaveVO {
   optionValues?: string[]
   defaultText?: string | null
   decimalScale?: number | null
+}
+
+export interface ProRouteDeviceParameterRuleDeleteVO {
+  routeVersionId: MesRouteId
+  expectedRouteSnapshotSha256: string
+  routeProcessId: number
+  deviceId: number
+  parameterCode: string
 }
 
 export interface ProRouteFlowConfigSaveVO {
@@ -304,16 +317,28 @@ export const ProRouteFlowConfigApi = {
     })
   },
 
-  getRouteProcessDeviceParameterConfig: async (routeProcessId: number) => {
+  getRouteProcessDeviceParameterConfig: async (
+    routeVersionId: MesRouteId,
+    routeProcessId: number
+  ) => {
     return await request.get<ProRouteProcessDeviceParameterConfigVO>({
       url: '/mes/pro/route/flow-config/process-device-parameters',
-      params: { routeProcessId }
+      params: { routeVersionId, routeProcessId }
     })
   },
 
   saveRouteProcessDeviceParameterRule: async (data: ProRouteDeviceParameterRuleSaveVO) => {
-    return await request.post<number>({
+    return await request.post<ProRouteProcessDeviceParameterConfigVO>({
       url: '/mes/pro/route/flow-config/process-device-parameter-rule/save',
+      data
+    })
+  },
+
+  deleteRouteProcessDeviceParameterRule: async (
+    data: ProRouteDeviceParameterRuleDeleteVO
+  ) => {
+    return await request.delete<ProRouteProcessDeviceParameterConfigVO>({
+      url: '/mes/pro/route/flow-config/process-device-parameter-rule/delete',
       data
     })
   },

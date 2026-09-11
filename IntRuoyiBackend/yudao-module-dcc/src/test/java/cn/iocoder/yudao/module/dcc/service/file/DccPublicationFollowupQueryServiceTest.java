@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationVisibilityR
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationVisibilityUserSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationRelationDirectionSnapshotDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationFollowupBatchMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationCandidateReasonMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationDeliveryMapper;
@@ -20,6 +21,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationCand
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationRelationDirectionSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationNotificationAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationImpactAuditMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationNotificationAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactAuditDO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccPublicationFollowupPageReqVO;
@@ -60,6 +62,7 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
     @Mock private DccPublicationRelationDirectionSnapshotMapper directionMapper;
     @Mock private DccPublicationNotificationAuditMapper notificationAuditMapper;
     @Mock private DccPublicationImpactAuditMapper impactAuditMapper;
+    @Mock private DccControlledFileMapper controlledFileMapper;
     @Mock private PermissionApi permissionApi;
     @InjectMocks private DccPublicationFollowupQueryServiceImpl service;
 
@@ -172,6 +175,38 @@ class DccPublicationFollowupQueryServiceTest extends BaseMockitoUnitTest {
                 () -> service.getFileFollowup(98L, 70L));
 
         verifyNoInteractions(notificationAuditMapper, impactAuditMapper);
+    }
+
+    @Test
+    void getFileFollowup_linkRevisionTimelineUsesAuditLinkedVersionAfterTaskReopened() {
+        when(batchMapper.selectLatestByPublishedControlledFileId(1L, 70L)).thenReturn(
+                DccPublicationFollowupBatchDO.builder().id(7L).publishedControlledFileId(70L)
+                        .fileNumberSnapshot("DOC-70").versionNoSnapshot("B/1")
+                        .publishedAt(LocalDateTime.of(2026, 9, 7, 10, 0)).build());
+        when(deliveryMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of());
+        when(visibilityRuleMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of());
+        DccPublicationImpactTaskDO reopenedTask = DccPublicationImpactTaskDO.builder()
+                .id(41L).batchId(7L).publicationRelationSnapshotId(51L)
+                .publishedControlledFileId(70L).relatedMasterId(71L)
+                .relatedFileNumberSnapshot("REL-71").relatedFileNameSnapshot("关联文件")
+                .taskStatus("IN_REVIEW").revisionTrackingStatus("TRACKING_NOT_STARTED")
+                .linkedRevisionControlledFileId(null).linkedRevisionVersionSnapshot(null).rowVersion(3).build();
+        when(impactTaskMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of(reopenedTask));
+        when(directionMapper.selectListByRelationSnapshotIds(1L, List.of(51L))).thenReturn(List.of());
+        when(notificationAuditMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of());
+        when(impactAuditMapper.selectListByBatchIds(1L, List.of(7L))).thenReturn(List.of(
+                DccPublicationImpactAuditDO.builder().id(62L).taskId(41L).batchId(7L)
+                        .actionType("LINK_REVISION").actorId(99L)
+                        .statusBefore("COMPLETED").statusAfter("COMPLETED")
+                        .linkedRevisionControlledFileId(500L)
+                        .occurredAt(LocalDateTime.of(2026, 9, 7, 10, 2)).build()));
+        when(controlledFileMapper.selectBatchIds(List.of(500L))).thenReturn(List.of(
+                DccControlledFileDO.builder().id(500L).versionNo("C/1").build()));
+
+        var result = service.getFileFollowup(99L, 70L);
+
+        assertEquals("500", result.getTimeline().get(1).getLinkedRevisionControlledFileId());
+        assertEquals("C/1", result.getTimeline().get(1).getLinkedRevisionVersion());
     }
 
     @Test

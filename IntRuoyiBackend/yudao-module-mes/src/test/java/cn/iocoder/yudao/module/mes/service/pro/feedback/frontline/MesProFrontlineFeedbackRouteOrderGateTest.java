@@ -37,8 +37,6 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
     @Mock
     private MesFrontlineLossReasonValidator lossReasonValidator;
     @Mock
-    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
-    @Mock
     private MesFrontlineParameterAuditService parameterAuditService;
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;

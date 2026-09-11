@@ -472,9 +472,9 @@
 ## 前端列表跨账号默认列布局统一门禁
 
 - Trigger: 同一列表在不同浏览器、账号或租户显示不同字段，页面存在“显示字段”、`useUserTableColumns`、`data-user-table-key`、用户列配置接口，用户要求统一为 admin 默认布局，或要求收窄固定操作列并将操作按钮排成稳定行列。
-- Preflight check: 先区分三类差异：个人列配置控制的字段可见性/列宽、`v-hasPermi` 控制的操作按钮、视口宽度造成的横向滚动。若需求是让既有用户统一采用新的默认列集合或固定操作列宽度，同时仍保留“显示字段”，必须升级稳定 table key，并同步标准列表模板、Element Plus 表格标识和 `useUserTableColumns` 调用；只修改默认 `visible` 或模板宽度不会覆盖旧服务端配置。若需求是删除某个列表列，必须同时检查 `<el-table-column>`、默认列定义、列设置池、该列专用的行级辅助请求/弹窗/样式，以及静态或真实 E2E 脚本；不得只删除 DOM 或只用 `v-if` 隐藏，避免显示字段或旧测试把已删除列带回。若需求是记住用户拖拽列宽，保存的 `columns[].width` 必须回填到实际 `el-table-column` 的 `width`，默认 `min-width` 只能作为无保存配置时的模板约束。收窄固定操作列并指定按钮行列数时，必须使用明确 grid 轨道，清除 Element Plus 相邻按钮默认外边距，并保持按钮文案不换行；不得依赖 flex 自由换行碰巧形成目标行数。若验收要求“列表行直接显示”关键业务信息，必须确认这些信息不只存在于可隐藏列、固定列或横向滚动外区域，应在至少一个默认稳定可见列中重复承载可读摘要。
+- Preflight check: 先区分三类差异：个人列配置控制的字段可见性/列宽、`v-hasPermi` 控制的操作按钮、视口宽度造成的横向滚动。若需求是让既有用户统一采用新的默认列集合或固定操作列宽度，同时仍保留“显示字段”，必须升级稳定 table key，并同步标准列表模板、Element Plus 表格标识和 `useUserTableColumns` 调用；只修改默认 `visible` 或模板宽度不会覆盖旧服务端配置。若需求是删除某个列表列，必须同时检查 `<el-table-column>`、默认列定义、列设置池、该列专用的行级辅助请求/弹窗/样式，以及静态或真实 E2E 脚本；不得只删除 DOM 或只用 `v-if` 隐藏，避免显示字段或旧测试把已删除列带回。若需求是记住用户拖拽列宽，保存的 `columns[].width` 必须回填到实际 `el-table-column` 的 `width`，默认 `min-width` 只能作为无保存配置时的模板约束。收窄固定操作列并指定按钮行列数时，必须使用明确 grid 轨道，清除 Element Plus 相邻按钮默认外边距，并保持按钮文案不换行；不得依赖 flex 自由换行碰巧形成目标行数。固定操作列在窄屏会覆盖主体列时，必须按明确断点解除 `fixed`，让表格使用自身横向滚动，同时让工具栏操作区可换行且占满窄屏可用宽度。若验收要求“列表行直接显示”关键业务信息，必须确认这些信息不只存在于可隐藏列、固定列或横向滚动外区域，应在至少一个默认稳定可见列中重复承载可读摘要。
 - Role action visibility extension: 当业务明确要求某正式角色也能看到列表操作按钮，而该角色未必拥有按钮原权限码时，页面不能继续只用 `v-hasPermi` 隐藏入口；应使用共享 `checkPermi(...) || checkRole([...])` 计算属性表达“原权限码或目标角色均可见”，并保留原行级业务状态限制、原按钮处理器和后端正式权限门禁。
-- Blocker: 仍读取旧 table key、只改默认列但历史用户配置继续覆盖、固定操作列仍用自由换行导致不同权限按钮数量下错位或文字裁切、关键验收信息只放在可隐藏列或固定列导致真实 E2E/普通用户无法在主列表行确认、为了视觉一致移除权限指令或给普通用户显示 admin 操作、通过清浏览器缓存或批量删数据库配置冒充正式迁移、或显示字段入口保存到与加载不同的 key 时必须停止。
+- Blocker: 仍读取旧 table key、只改默认列但历史用户配置继续覆盖、固定操作列仍用自由换行导致不同权限按钮数量下错位或文字裁切、窄屏固定操作列覆盖大部分主体信息或工具栏按钮被裁切、关键验收信息只放在可隐藏列或固定列导致真实 E2E/普通用户无法在主列表行确认、为了视觉一致移除权限指令或给普通用户显示 admin 操作、通过清浏览器缓存或批量删数据库配置冒充正式迁移、或显示字段入口保存到与加载不同的 key 时必须停止。
 - Verification: 聚焦静态合同必须断言新 key 在模板、表格标识和 hook 三处一致，旧 key 不再使用，默认显示/隐藏字段集合明确，关键验收信息位于稳定可见列，显示字段自动保存和既有权限码保留；删除列时必须负向断言模板列、默认列 key、列专用辅助请求/弹窗/样式和旧入口文案不存在，并正向断言相邻业务动作仍保留；涉及列宽时必须断言 hook 合并 `saved.width`、拖拽后自动保存、页面列同时绑定 `:width` 和默认 `:min-width`；涉及紧凑操作列时还要断言模板宽度与默认列定义一致、明确 grid 轨道、按钮无默认左外边距且原权限和处理器保留；涉及角色直显操作按钮时必须断言 `checkPermi` 原权限路径、`checkRole` 目标角色路径、原状态限制和禁止残留 permission-only directive。真实 E2E 可用时使用同一账号分别在两个浏览器验证表头、显示字段勾选、固定列实际宽度、按钮行数、文字不换行和相邻边界，并记录无业务写请求、无 console error。
 - Forbidden action: 禁止引入 localStorage fallback、静默忽略列配置接口失败、扩大角色权限、删除业务字段定义、或用不同账号的按钮差异证明浏览器渲染不一致。
 - Evidence: `doc/tasks/20260730-route-admin-list-layout-unification/verification-report.md`；`doc/tasks/20260802-dcc-controlled-browser-ux-optimization/verification-report.md`；`doc/tasks/20260812-standard-list-column-width/`；`doc/tasks/20260813-dcc-browser-operation-panel-two-row/verification-report.md`；`doc/tasks/20260813-production-report-operation-panel-half-width/verification-report.md`；`doc/tasks/20260830-batch-record-form-list-hide-filler-column/`；`doc/tasks/20260903-registration-manager-actions-visible/verification-report.md`。
@@ -656,6 +656,15 @@
 - Forbidden action: 禁止用 `fileTypeLevel3`、当前关联文件列表、默认 `MAIN`、空值回填、`formBindings`、前端硬编码文案或随机算法替代正式 DCC 文件分类树；禁止把无匹配、缺分类树或保存失败静默降级成未分类成功。
 - Evidence: 任务 `doc/tasks/20260731-dcc-project-code-associated-taxonomy-types/`，基础条目关联文档中间列旧实现按关联文件已有 `fileTypeLevel3` 生成，未与 DCC 文件分类阶段展开保持一致；任务 `doc/tasks/20260801-dcc-project-code-auto-classify-unclassified/`，未分类自动归类按钮复用正式分类树与 metadata 更新接口；任务 `doc/tasks/20260801-dcc-project-code-list-auto-classify-unclassified/`，列表页批量入口必须覆盖当前筛选条件下全部项目代码，包括未加载分页；任务 `doc/tasks/20260802-dcc-project-code-filetype-assignment-e2e/verification-report.md`，非 admin 文控账号通过真实页面 5 次修改已有文件到目标 DCC 项目代码和不同正式文件类型，并在项目代码详情三栏逐次验证同步，发现直接补 DB 角色后必须刷新 `user_role_ids:{userId}` 缓存。
 
+## DCC 项目文件模板上传门禁
+
+- Trigger: DCC 项目代码需要各自维护不同的阶段、文件类型和文件名称，或受控文件上传要求按“项目 -> 阶段 -> 文件类型 -> 文件列表”逐级选择。
+- Preflight check: 项目模板只保存项目允许的正式 taxonomy 节点与文件名称；阶段和文件类型继续由启用的 DCC 文件分类树解析，且目标 taxonomy 必须绑定唯一启用的正式文件类别。上传切换项目、阶段、类型或文件项时，必须同步清空旧 `fileTypeTaxonomyId`、文件名称、文件编号、类别、目录、版本和预览状态。模板 GET 只能返回当前项目配置，提交服务必须在创建文件前校验精确的 `projectCodeId + fileTypeTaxonomyId + fileName`。
+- Blocker: 项目模板为空、taxonomy 不足三级或已停用、未绑定唯一启用类别、同分类文件名称重复、模板加载失败、前端选择与后端模板不一致，或分类仍被项目模板引用却允许停用/删除时必须停止。
+- Verification: 聚焦测试必须覆盖模板事务替换、重复项零写入、不同项目隔离、模板缺失和组合不匹配 fail-fast、taxonomy 引用保护、上传页逐级候选及切换清理；相邻回归继续覆盖上传升版、类别自动绑定、布局和项目详情关联文档三栏。真实 E2E 需当轮明确授权，并使用任务自有项目和模板数据。
+- Forbidden action: 禁止模板缺失时回退到全局分类树、允许手工输入未配置文件名称、以前端隐藏候选代替后端校验、把阶段/类型保存为脱离 taxonomy 的自由文本、自动从历史文件猜测项目模板，或修改模板时重写历史受控文件元数据。
+- Evidence: `doc/tasks/20260910-dcc-project-file-template/verification-report.md`。
+
 ## 前端草稿保存与提交发布解耦门禁
 
 - Trigger: 受控版本、候选版本、草稿页、审批流对象或发布对象存在“保存草稿”和“提交发布/提交审批”两个动作。
@@ -833,6 +842,16 @@
 - Verification: 证据必须同时包含后端 health、权限响应目标菜单链、fresh 登录侧边栏菜单列表、目标页 URL/DOM 锚点、`consoleErrors=[]` 和 `pageErrors=[]`；外部工具入口还必须记录票据请求、iframe 实际 URL/加载结果、助手直连 403 和伪造票据 403，且断言页面不包含旧业务文案。若仅旧会话不可见，说明需要刷新页面或退出后重新登录以重建前端菜单缓存。
 - Forbidden action: 禁止只用 API-only、SQL 查询、隐藏路由存在、直接 URL 可打开或静态合同 PASS 代替侧边栏真实可见；禁止复用相邻业务页面、旧组件、旧权限码或旧文案冒充新入口；禁止让外部助手占用主系统前端端口；禁止只隐藏菜单但不拦截助手直连；禁止清空全库 Redis、硬编码前端入口、切换账号/租户或把旧会话缓存问题写成生产代码未实现。
 - Evidence: 任务 `doc/tasks/20260808-edhr-batch-record-test-tab/verification-report.md`，`批记录测试` 菜单后端权限响应已包含 `900440`，fresh Playwright 登录后侧边栏可见并打开目标页；旧会话仍不可见需刷新或重新登录。任务 `doc/tasks/20260829-erp-invoice-print-role-permission/verification-report.md`，`发票凭证打印` 入口必须位于 `ERP 系统 / 财务管理 / 发票凭证打印`，fresh Playwright 证明 admin 可见并打开打印助手 iframe，未授权账号不可见，且页面不再指向“分贝通凭证”。任务 `doc/tasks/20260829-invoice-voucher-print-assistant-auth-gate/verification-report.md`，打印助手入口新增 ERP 短期票据，真实 E2E 证明直连助手 HTTP 403、admin 菜单签票进入、无权限账号不可见。
+
+## 组合型业务对象不要压扁成单版本下拉门禁
+
+- Trigger: 页面维护“套、包、组合、矩阵、批次模板组”等组合型业务对象，并且用户需要回答“有几套、每套是什么、每套有哪些版本、每个版本包含哪些成员和明细”。
+- Preflight check: 前端信息架构必须先展示组合主档列表，再展示所选组合的版本列表，最后展示版本成员和成员明细；产品或业务对象绑定入口应绑定组合版本，而不是直接绑定某一个成员版本。成员版本下拉只能作为维护套版本成员的控件出现，不得替代组合版本选择。后端响应应一次返回足够的成员明细摘要或提供明确详情接口，避免用户只能从当前绑定结果反推全局有哪些套。一个组合版本由多份源文件、多个子规程或多个文档节点组成时，中层必须单独展示“组成清单”，下层至少提供“按来源查看”和“合并后结果”两个视角，且合并结果的每一行要能追溯来源编号/来源名称。
+- 独立治理边界扩展：当组合对象拥有自己的主档、版本、发布状态、解析入口和全局复用范围时，必须提升为与产品专属配置并列的一级工作区，不得嵌入某个产品或项目的详情 Tab；组合管理的列表加载不能以先选择产品为前提。产品引用组合版本的控件仍归产品专属配置总览，负责建立关系并提供跳转到独立组合工作区的入口，不能反向把产品选择器和绑定动作塞进组合主档管理区。
+- Blocker: 页面只有“当前绑定版本”或一个成员版本下拉，导致无法区分 A/B/C 套；一个套版本包含多个规程时只保存或展示第一个成员；多个 Word/子规程只拼成一段长文本，导致用户看不出每套由几份文件组成、每份文件是什么、最终合并行来自哪里；绑定控件直接保存成员版本 ID 而没有组合版本身份；成员明细需要靠文件名、产品名、代际文本或 DCC 名称推断时必须停止。
+- Verification: 静态合同至少覆盖组合表/版本表/成员表、前端 API 的组合 CRUD、页面可见“套列表/套版本/成员明细”、绑定请求传组合版本 ID、下游业务按成员集合展开；多文档组合还要覆盖“组成清单”“按来源查看”“合并后结果”和来源追溯列。真实 E2E 必须通过页面创建或读取两套以上组合版本，并证明切换后能看到每套的成员数量、成员来源和最终合并明细。
+- Forbidden action: 禁止用“当前已绑定某个成员版本”冒充套管理；禁止把多个成员拼进一个展示字符串但仍只持久化单版本；禁止在合并结果里丢失来源编号；禁止通过产品名称、代际或文件名推断套归属；禁止用 API-only 造数替代用户可见的套 CRUD。
+- Evidence: `doc/tasks/20260910-common-qa-regulation-set-management/verification-report.md`，通用检验规程从单规程版本绑定升级为“通用规程套 -> 套版本 -> 多个通用规程版本成员 -> 产品绑定套版本”，并补充前端套管理视图、标准列表、多 Word 文档组成、“按文档查看 / 合并后工序”双视角和静态/真实 E2E 合同；`doc/tasks/20260911-common-qa-independent-tab/verification-report.md` 将通用规程套提升为独立一级工作区，并把产品绑定控件收回 QA 总览。
 
 ## 前端行级异步结果归属门禁
 

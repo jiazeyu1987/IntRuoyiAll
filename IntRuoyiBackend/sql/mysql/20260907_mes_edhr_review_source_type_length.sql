@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260611_mes_edhr_multi_signature_approval.sql; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260611_mes_edhr_multi_signature_approval; type=schema; riskLevel=low
 -- Stage1 模拟签名来源 MES_ACTIVE_ORDER_SIMULATION 长度超过原 varchar(16)，扩展审核来源类型字段长度。
 
 SET @mes_edhr_work_task_exists = (

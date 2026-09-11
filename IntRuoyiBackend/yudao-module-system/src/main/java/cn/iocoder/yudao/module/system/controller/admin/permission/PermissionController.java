@@ -51,7 +51,8 @@ public class PermissionController {
         tenantService.handleTenantMenu(menuIds -> reqVO.getMenuIds().removeIf(menuId -> !CollUtil.contains(menuIds, menuId)));
 
         // 执行菜单的分配
-        permissionService.assignRoleMenu(reqVO.getRoleId(), reqVO.getMenuIds());
+        permissionService.assignRoleMenu(reqVO.getRoleId(), reqVO.getMenuIds(),
+                reqVO.getReason(), reqVO.getIdempotencyKey());
         return success(true);
     }
 
@@ -59,7 +60,8 @@ public class PermissionController {
     @Operation(summary = "赋予角色数据权限")
     @PreAuthorize("@ss.hasPermission('system:permission:assign-role-data-scope')")
     public CommonResult<Boolean> assignRoleDataScope(@Valid @RequestBody PermissionAssignRoleDataScopeReqVO reqVO) {
-        permissionService.assignRoleDataScope(reqVO.getRoleId(), reqVO.getDataScope(), reqVO.getDataScopeDeptIds());
+        permissionService.assignRoleDataScope(reqVO.getRoleId(), reqVO.getDataScope(), reqVO.getDataScopeDeptIds(),
+                reqVO.getReason(), reqVO.getIdempotencyKey());
         return success(true);
     }
 
@@ -75,7 +77,8 @@ public class PermissionController {
     @PostMapping("/assign-user-role")
     @PreAuthorize("@ss.hasPermission('system:permission:assign-user-role')")
     public CommonResult<Boolean> assignUserRole(@Validated @RequestBody PermissionAssignUserRoleReqVO reqVO) {
-        permissionService.assignUserRole(reqVO.getUserId(), reqVO.getRoleIds());
+        permissionService.assignUserRole(reqVO.getUserId(), reqVO.getRoleIds(),
+                reqVO.getReason(), reqVO.getIdempotencyKey());
         return success(true);
     }
 

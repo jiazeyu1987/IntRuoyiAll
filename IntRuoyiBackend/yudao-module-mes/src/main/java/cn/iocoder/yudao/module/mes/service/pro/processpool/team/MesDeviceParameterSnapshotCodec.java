@@ -80,6 +80,50 @@ public final class MesDeviceParameterSnapshotCodec {
         return List.copyOf(rules);
     }
 
+    public static String canonicalizeSnapshotRules(
+            List<MesDeviceParameterSnapshotRule> rules, Long routeProcessId, Long processId) {
+        List<MesDeviceParameterSnapshotRule> exactRules = rules == null ? List.of() : rules.stream()
+                .filter(Objects::nonNull)
+                .filter(rule -> Objects.equals(routeProcessId, rule.getRouteProcessId()))
+                .filter(rule -> Objects.equals(processId, rule.getProcessId()))
+                .sorted(Comparator.comparing(MesDeviceParameterSnapshotRule::getDeviceId,
+                                Comparator.nullsLast(Long::compareTo))
+                        .thenComparing(rule -> normalizeCode(rule.getParameterCode()),
+                                Comparator.nullsLast(String::compareTo)))
+                .toList();
+        Set<String> canonicalKeys = new HashSet<>();
+        List<MesDeviceParameterSnapshotRule> normalizedRules = new ArrayList<>(exactRules.size());
+        for (MesDeviceParameterSnapshotRule rule : exactRules) {
+            String parameterCode = normalizeCode(rule.getParameterCode());
+            if (rule.getDeviceId() == null || parameterCode == null) {
+                throw new IllegalStateException("Device parameter snapshot identity is incomplete for routeProcessId="
+                        + routeProcessId + ", processId=" + processId);
+            }
+            String canonicalKey = rule.getDeviceId() + "|" + parameterCode;
+            if (!canonicalKeys.add(canonicalKey)) {
+                throw new IllegalStateException("Duplicate device parameter canonical key " + canonicalKey
+                        + " for routeProcessId=" + routeProcessId + ", processId=" + processId);
+            }
+            normalizedRules.add(MesDeviceParameterSnapshotRule.builder()
+                    .routeProcessId(routeProcessId)
+                    .processId(processId)
+                    .deviceId(rule.getDeviceId())
+                    .parameterCode(parameterCode)
+                    .parameterName(rule.getParameterName())
+                    .unit(rule.getUnit())
+                    .lowerLimit(rule.getLowerLimit())
+                    .upperLimit(rule.getUpperLimit())
+                    .defaultValue(rule.getDefaultValue())
+                    .valueType(rule.getValueType())
+                    .standardText(rule.getStandardText())
+                    .optionValuesJson(rule.getOptionValuesJson())
+                    .defaultText(rule.getDefaultText())
+                    .decimalScale(rule.getDecimalScale())
+                    .build());
+        }
+        return JsonUtils.toJsonString(normalizedRules);
+    }
+
     public static String sha256(String snapshotJson) {
         return DigestUtil.sha256Hex(snapshotJson);
     }

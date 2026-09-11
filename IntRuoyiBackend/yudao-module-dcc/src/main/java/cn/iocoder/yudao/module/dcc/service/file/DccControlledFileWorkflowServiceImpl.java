@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
@@ -61,6 +63,7 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileDistributionStatusEnum
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileMasterStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
@@ -71,6 +74,8 @@ import cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditSer
 import cn.iocoder.yudao.module.dcc.service.audit.DccLifecycleLogCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService;
+import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFileTemplateService;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketBoundFile;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketMarkBoundCommand;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketResolveCommand;
@@ -130,6 +135,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_NOT_LEAF;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_STAGE_UNSUPPORTED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_TARGET_INVALID;
@@ -141,11 +147,13 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WITHDRAWN_ACTION_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WORKFLOW_IN_PROGRESS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_SELECTION_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 
 @Service
@@ -230,6 +238,12 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private DccControlledFileRouteReadinessService routeReadinessService;
     @Resource
     private DccControlledFileAccessAuditService lifecycleAuditService;
+    @Resource
+    private DccProjectFileTemplateService projectFileTemplateService;
+    @Resource
+    private DccProjectAccessService projectAccessService;
+    @Resource
+    private DccControlledFileCategoryPermissionSupport categoryPermissionSupport;
 
     @Override
     public DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
@@ -240,8 +254,29 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     @Override
     public DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber) {
+        return getCurrentVersionByFileNumberInternal(userId, fileNumber, null, null);
+    }
+
+    @Override
+    public DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber,
+                                                                                 Long dccProjectCodeId,
+                                                                                 Long fileTypeTaxonomyId) {
+        if (dccProjectCodeId == null || fileTypeTaxonomyId == null) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        validateEnabledProjectCode(dccProjectCodeId, true);
+        ResolvedFileTypeTaxonomy taxonomy = resolveFileTypeTaxonomy(fileTypeTaxonomyId, true);
+        return getCurrentVersionByFileNumberInternal(userId, fileNumber, dccProjectCodeId, taxonomy.path().id());
+    }
+
+    private DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumberInternal(Long userId, String fileNumber,
+                                                                                         Long dccProjectCodeId,
+                                                                                         Long fileTypeTaxonomyLeafId) {
         String normalizedFileNumber = normalizeFileNumber(fileNumber);
-        List<DccControlledFileMasterDO> masters = controlledFileMasterMapper.selectListByFileNumber(normalizedFileNumber);
+        List<DccControlledFileMasterDO> masters = dccProjectCodeId == null
+                ? controlledFileMasterMapper.selectListByFileNumber(normalizedFileNumber)
+                : controlledFileMasterMapper.selectListByLogicalIdentity(dccProjectCodeId,
+                fileTypeTaxonomyLeafId, normalizedFileNumber);
         if (masters == null || masters.isEmpty()) {
             return DccControlledFileCurrentVersionRespVO.builder()
                     .fileNumber(normalizedFileNumber)
@@ -313,6 +348,21 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (StrUtil.equals(reqVO.getProcessType(), DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())) {
             throw exception(EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED);
         }
+        String idempotencyKey = StrUtil.trim(reqVO.getIdempotencyKey());
+        if (StrUtil.isBlank(idempotencyKey)) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        reqVO.setIdempotencyKey(idempotencyKey);
+        String payloadHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(reqVO));
+        DccControlledFileDO existing = controlledFileMapper.selectBySubmitIdempotency(
+                TenantContextHolder.getRequiredTenantId(), userId, idempotencyKey);
+        if (existing != null) {
+            if (!Objects.equals(existing.getSubmitPayloadHash(), payloadHash)) {
+                throw exception(CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT);
+            }
+            return existing.getId();
+        }
+        reqVO.setSubmitPayloadHash(payloadHash);
         return submitControlledFile(userId, reqVO, null, BPM_PROCESS_DEFINITION_KEY, true);
     }
 
@@ -332,10 +382,10 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED);
         }
         DccControlledFileDO source = controlledFileMapper.selectById(reqVO.getSourceControlledFileId());
-        if (source == null || source.getMasterId() == null
-                || !Objects.equals(source.getRequesterId(), userId)) {
+        if (source == null || source.getMasterId() == null || source.getDccProjectCodeId() == null) {
             throw exception(CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED);
         }
+        projectAccessService.assertProjectOwner(userId, source.getDccProjectCodeId());
         DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(source.getMasterId());
         if (master == null || master.getCurrentActiveControlledFileId() == null) {
             throw exception(CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED);
@@ -363,7 +413,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         submitReq.setEffectiveDate(source.getEffectiveDate() == null
                 ? java.time.LocalDate.now() : source.getEffectiveDate());
         submitReq.setRemark(source.getRemark());
-        return submitControlledFile(userId, submitReq);
+        return submitControlledFile(userId, submitReq, null, BPM_PROCESS_DEFINITION_KEY, true);
     }
 
     private Long executeMajorRevisionAudit(Long userId, DccControlledFileMajorRevisionReqVO reqVO,
@@ -1331,7 +1381,25 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccProjectCodeDO projectCode = validateEnabledProjectCode(reqVO.getDccProjectCodeId(), true);
         ResolvedFileTypeTaxonomy fileTypeTaxonomy = resolveFileTypeTaxonomy(reqVO.getFileTypeTaxonomyId(),
                 controlledUploadSubmit);
+        boolean existingRevisionSubmit = DccControlledFileChangeTypeEnum.REVISION.getCode()
+                .equals(StrUtil.trim(reqVO.getChangeType()))
+                && reqVO.getRevisionSourceControlledFileId() != null;
+        if (controlledUploadSubmit && !existingRevisionSubmit) {
+            projectFileTemplateService.validateUploadSelection(projectCode.getId(),
+                    reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
+        }
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
+        if (controlledUploadSubmit) {
+            projectAccessService.assertProjectOwner(userId, projectCode.getId());
+            if (!categoryPermissionSupport.hasCategoryPermission(category.getId(), userId,
+                    DccFileCategoryPermissionActionEnum.UPLOAD)) {
+                throw exception(DCC_PROJECT_ACCESS_DENIED);
+            }
+        }
+        if (controlledUploadSubmit && category.getFileTypeTaxonomyId() != null
+                && !Objects.equals(category.getFileTypeTaxonomyId(), reqVO.getFileTypeTaxonomyId())) {
+            throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        }
         ResolvedDccProduct dccProduct = resolveDccProductFromProjectCode(projectCode);
         if (requireScreenshotMetadata) {
             validateScreenshotProductCode(dccProduct);
@@ -1506,6 +1574,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .submitterId(userId)
                 .requesterId(userId)
                 .processDefinitionKey(processDefinitionKey)
+                .submitIdempotencyKey(context.reqVO().getIdempotencyKey())
+                .submitPayloadHash(context.reqVO().getSubmitPayloadHash())
                 .submittedTime(LocalDateTime.now())
                 .build();
         controlledFileMapper.insert(file);

@@ -633,6 +633,10 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_311, "QA 检验规程 Word 导入失败：{}");
     ErrorCode QA_INSPECTION_REGULATION_RESET_REFERENCED =
             new ErrorCode(1_040_600_312, "QA 检验规程已被生产或 PQC 数据引用，不能执行测试重置：{}");
+    ErrorCode QA_COMMON_REGULATION_BINDING_INVALID =
+            new ErrorCode(1_040_600_313, "通用检验规程产品绑定无效：{}");
+    ErrorCode QA_COMMON_REGULATION_SET_INVALID =
+            new ErrorCode(1_040_600_314, "通用检验规程套无效：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -1297,6 +1301,8 @@ public interface ErrorCodeConstants {
             "活跃订单版本升级申请状态不可生效：requestId={}，requestStatus={}，approvalStatus={}，freezeStatus={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_APPLY_CONFLICT = new ErrorCode(1_040_760_396,
             "活跃订单版本升级生效失败，请刷新后重试：requestId={}，activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_APPLICATION_LOCKED = new ErrorCode(1_040_760_397,
+            "活跃订单已进入生产放行链路，禁止移除、重建或版本升级：activeOrderId={}，releaseApplicationRefs={}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_373,
             "一线生产活跃订单工序快照无效：activeOrderId={}，{}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_374,

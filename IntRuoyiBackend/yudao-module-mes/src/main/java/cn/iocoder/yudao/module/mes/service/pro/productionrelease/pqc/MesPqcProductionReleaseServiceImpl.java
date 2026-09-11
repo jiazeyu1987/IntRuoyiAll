@@ -22,9 +22,6 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
-import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
 import com.alibaba.fastjson.JSON;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -63,7 +60,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
-    private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesPqcReleaseDossierPort dossierPort;
     private final MesProductionReleaseBatchExecutionPort batchExecutionPort;
     private final MesProductionReleaseReportStageInitializer reportStageInitializer;
@@ -77,7 +73,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
-            MesProductionReleaseRequiredCandidateResolver candidateResolver,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
             MesProductionReleaseReportStageInitializer reportStageInitializer,
@@ -85,7 +80,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProBatchRecordExecutionSignatureService signatureService,
             MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper) {
-        this(applicationMapper, workTaskMapper, candidateResolver, dossierPort, batchExecutionPort,
+        this(applicationMapper, workTaskMapper, dossierPort, batchExecutionPort,
                 reportStageInitializer, auditRecorder, signatureService, nonconformanceReviewService,
                 nonconformanceReviewMapper, Clock.systemUTC());
     }
@@ -93,7 +88,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public MesPqcProductionReleaseServiceImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
-            MesProductionReleaseRequiredCandidateResolver candidateResolver,
             MesPqcReleaseDossierPort dossierPort,
             MesProductionReleaseBatchExecutionPort batchExecutionPort,
             MesProductionReleaseReportStageInitializer reportStageInitializer,
@@ -104,7 +98,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             Clock clock) {
         this.applicationMapper = applicationMapper;
         this.workTaskMapper = workTaskMapper;
-        this.candidateResolver = candidateResolver;
         this.dossierPort = dossierPort;
         this.batchExecutionPort = batchExecutionPort;
         this.reportStageInitializer = reportStageInitializer;
@@ -300,15 +293,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     public PageResult<MesPqcProductionReleasePageItem> getPqcReleasePage(
             Long actorUserId, MesPqcProductionReleasePageQuery query) {
         requirePqcPageQuery(actorUserId, query);
-        Long tenantId = TenantContextHolder.getTenantId();
-        MesProductionReleaseRoleCandidates candidates = candidateResolver.resolveRequiredCandidates(
-                tenantId, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER);
-        if (candidates == null || !candidates.candidateUserIds().contains(actorUserId)) {
-            throw blocker(MesReleaseFlowBlockerType.PQC_RELEASE_ROLE_REQUIRED, null,
-                    "ROLE", MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER,
-                    "current user does not hold the enabled PQC release role",
-                    "assign the MES_PQC_RELEASE_OWNER role before querying production release records");
-        }
         List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
                 applicationMapper.selectListForPqcReleasePage(
                         StrUtil.trim(query.getWorkOrderCode()), StrUtil.trim(query.getBatchCode()));
@@ -541,20 +525,6 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "WORK_TASK", workTask == null ? null : String.valueOf(workTask.getId()),
                     "current user is not in the frozen PQC candidate snapshot",
                     "use an authorized frozen PQC candidate");
-        }
-        Long tenantId = TenantContextHolder.getTenantId();
-        if (tenantId == null || tenantId <= 0) {
-            throw blocker(MesReleaseFlowBlockerType.PQC_RELEASE_ROLE_REQUIRED, application,
-                    "TENANT", null, "tenant context is required for PQC role verification",
-                    "retry in an authenticated tenant context");
-        }
-        MesProductionReleaseRoleCandidates currentCandidates = candidateResolver.resolveRequiredCandidates(
-                tenantId, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER);
-        if (currentCandidates == null || !currentCandidates.candidateUserIds().contains(actorUserId)) {
-            throw blocker(MesReleaseFlowBlockerType.PQC_RELEASE_ROLE_REQUIRED, application,
-                    "ROLE", MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER,
-                    "current user no longer holds the enabled PQC release role",
-                    "assign an enabled MES_PQC_RELEASE_OWNER user and retry");
         }
     }
 

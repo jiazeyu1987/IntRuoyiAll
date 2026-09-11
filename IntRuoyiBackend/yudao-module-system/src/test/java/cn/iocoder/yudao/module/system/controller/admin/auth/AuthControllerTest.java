@@ -4,6 +4,9 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthFenbeitongAssistantStatusRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthFenbeitongAssistantTicketValidateReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthFenbeitongAssistantTicketValidateRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintTicketValidateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintTicketValidateRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintAssistantStatusRespVO;
@@ -14,6 +17,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
+import cn.iocoder.yudao.module.system.service.fenbeitongassistant.FenbeitongAssistantService;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintAssistantService;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider.KingdeeConfigSnapshot;
@@ -74,6 +78,8 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     private StringRedisTemplate stringRedisTemplate;
     @Mock
     private InvoiceVoucherPrintAssistantService invoiceVoucherPrintAssistantService;
+    @Mock
+    private FenbeitongAssistantService fenbeitongAssistantService;
     @Mock
     private InvoiceVoucherPrintKingdeeConfigProvider kingdeeConfigProvider;
     @Mock
@@ -619,6 +625,190 @@ class AuthControllerTest extends BaseMockitoUnitTest {
 
         assertEquals(status, respVO);
         verify(invoiceVoucherPrintAssistantService).start();
+    }
+
+    @Test
+    void createFenbeitongAssistantTicketStoresPermissionsWhenUserCanQuery() {
+        Long loginUserId = 303L;
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("financeUser");
+
+        when(userService.getUser(eq(loginUserId))).thenReturn(user);
+        when(permissionService.hasAnyPermissions(eq(loginUserId), eq("erp:fenbeitong-voucher:query")))
+                .thenReturn(true);
+        when(permissionService.hasAnyPermissions(eq(loginUserId), eq("erp:fenbeitong-voucher:config")))
+                .thenReturn(true);
+        when(permissionService.hasAnyPermissions(eq(loginUserId), eq("erp:fenbeitong-voucher:save")))
+                .thenReturn(true);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);
+
+            var respVO = authController.createFenbeitongAssistantTicket().getData();
+
+            assertNotNull(respVO.getTicket());
+            assertTrue(respVO.getExpiresTime().isAfter(LocalDateTime.now()));
+            ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
+            verify(valueOperations).set(keyCaptor.capture(), valueCaptor.capture(), eq(120L), eq(TimeUnit.SECONDS));
+            assertTrue(keyCaptor.getValue().startsWith("fenbeitong_assistant_ticket:"));
+            assertTrue(valueCaptor.getValue().contains("erp:fenbeitong-voucher:query"));
+            assertTrue(valueCaptor.getValue().contains("erp:fenbeitong-voucher:config"));
+            assertTrue(valueCaptor.getValue().contains("erp:fenbeitong-voucher:save"));
+        }
+    }
+
+    @Test
+    void createFenbeitongAssistantTicketRejectsUserWithoutQueryPermission() {
+        Long loginUserId = 304L;
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("normalUser");
+        when(userService.getUser(eq(loginUserId))).thenReturn(user);
+        when(permissionService.hasAnyPermissions(eq(loginUserId), eq("erp:fenbeitong-voucher:query")))
+                .thenReturn(false);
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);
+
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> authController.createFenbeitongAssistantTicket());
+
+            assertEquals(403, exception.getCode());
+            verify(stringRedisTemplate, never()).opsForValue();
+        }
+    }
+
+    @Test
+    void validateFenbeitongAssistantTicketReturnsPermissionsAndKingdeeConfig() {
+        String ticket = "fenbeitong-valid-ticket";
+        String redisKey = "fenbeitong_assistant_ticket:" + ticket;
+        long expiresAt = System.currentTimeMillis() + 60_000L;
+        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:query\","
+                + "\"erp:fenbeitong-voucher:save\"],\"expiresAtEpochMilli\":" + expiresAt + "}";
+        AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
+        reqVO.setTicket(ticket);
+
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq(redisKey))).thenReturn(payload);
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot())
+                .thenReturn(KingdeeConfigSnapshot.builder()
+                        .baseUrl("http://kingdee/K3Cloud")
+                        .acctId("acct-001")
+                        .username("kingdee-user")
+                        .password("kingdee-password")
+                        .appId("fenbeitong-app")
+                        .signedData("fenbeitong-signed-data")
+                        .timestamp("1700000000")
+                        .lcid(2052)
+                        .build());
+
+        AuthFenbeitongAssistantTicketValidateRespVO respVO =
+                authController.validateFenbeitongAssistantTicket(reqVO).getData();
+
+        assertTrue(respVO.getValid());
+        assertEquals(303L, respVO.getUserId());
+        assertTrue(respVO.getPermissions().contains("erp:fenbeitong-voucher:query"));
+        assertTrue(respVO.getPermissions().contains("erp:fenbeitong-voucher:save"));
+        assertNotNull(respVO.getKingdeeConfig());
+        assertEquals("acct-001", respVO.getKingdeeConfig().getAcctId());
+        assertEquals("kingdee-user", respVO.getKingdeeConfig().getUsername());
+        verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(kingdeeConfigProvider).getCurrentConfigSnapshot();
+    }
+
+    @Test
+    void validateFenbeitongAssistantTicketRejectsMissingTicket() {
+        AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
+        reqVO.setTicket("missing-ticket");
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq("fenbeitong_assistant_ticket:missing-ticket"))).thenReturn(null);
+
+        AuthFenbeitongAssistantTicketValidateRespVO respVO =
+                authController.validateFenbeitongAssistantTicket(reqVO).getData();
+
+        assertFalse(respVO.getValid());
+        verify(stringRedisTemplate, never()).delete(anyString());
+    }
+
+    @Test
+    void validateFenbeitongAssistantTicketRejectsExpiredTicket() {
+        String ticket = "expired-ticket";
+        String redisKey = "fenbeitong_assistant_ticket:" + ticket;
+        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:query\"],"
+                + "\"expiresAtEpochMilli\":" + (System.currentTimeMillis() - 1_000L) + "}";
+        AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
+        reqVO.setTicket(ticket);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq(redisKey))).thenReturn(payload);
+
+        AuthFenbeitongAssistantTicketValidateRespVO respVO =
+                authController.validateFenbeitongAssistantTicket(reqVO).getData();
+
+        assertFalse(respVO.getValid());
+        assertEquals("expired", respVO.getReason());
+        verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(kingdeeConfigProvider, never()).getCurrentConfigSnapshot();
+    }
+
+    @Test
+    void validateFenbeitongAssistantTicketRejectsPermissionMismatch() {
+        String ticket = "permission-mismatch-ticket";
+        String redisKey = "fenbeitong_assistant_ticket:" + ticket;
+        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:config\"],"
+                + "\"expiresAtEpochMilli\":" + (System.currentTimeMillis() + 60_000L) + "}";
+        AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
+        reqVO.setTicket(ticket);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq(redisKey))).thenReturn(payload);
+
+        AuthFenbeitongAssistantTicketValidateRespVO respVO =
+                authController.validateFenbeitongAssistantTicket(reqVO).getData();
+
+        assertFalse(respVO.getValid());
+        assertEquals("permission_mismatch", respVO.getReason());
+        verify(stringRedisTemplate).delete(eq(redisKey));
+        verify(kingdeeConfigProvider, never()).getCurrentConfigSnapshot();
+    }
+
+    @Test
+    void validateFenbeitongAssistantTicketFailsWhenKingdeeConfigMissing() {
+        String ticket = "missing-config-ticket";
+        String redisKey = "fenbeitong_assistant_ticket:" + ticket;
+        String payload = "{\"userId\":303,\"permissions\":[\"erp:fenbeitong-voucher:query\"],"
+                + "\"expiresAtEpochMilli\":" + (System.currentTimeMillis() + 60_000L) + "}";
+        AuthFenbeitongAssistantTicketValidateReqVO reqVO = new AuthFenbeitongAssistantTicketValidateReqVO();
+        reqVO.setTicket(ticket);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq(redisKey))).thenReturn(payload);
+        when(kingdeeConfigProvider.getCurrentConfigSnapshot())
+                .thenThrow(new ServiceException(400, "分贝通费用报销助手 ERP 配置缺失：appId"));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> authController.validateFenbeitongAssistantTicket(reqVO));
+
+        assertEquals(400, exception.getCode());
+        assertTrue(exception.getMessage().contains("ERP 配置缺失"));
+        verify(stringRedisTemplate).delete(eq(redisKey));
+    }
+
+    @Test
+    void getAndStartFenbeitongAssistantReturnServiceStatus() {
+        AuthFenbeitongAssistantStatusRespVO stopped = AuthFenbeitongAssistantStatusRespVO.builder()
+                .running(false)
+                .launchable(true)
+                .message("分贝通费用报销助手尚未启动，请点击启动助手。")
+                .build();
+        AuthFenbeitongAssistantStatusRespVO started = AuthFenbeitongAssistantStatusRespVO.builder()
+                .running(true)
+                .launchable(true)
+                .message("分贝通费用报销助手已启动")
+                .build();
+        when(fenbeitongAssistantService.getStatus()).thenReturn(stopped);
+        when(fenbeitongAssistantService.start()).thenReturn(started);
+
+        assertEquals(stopped, authController.getFenbeitongAssistantStatus().getData());
+        assertEquals(started, authController.startFenbeitongAssistant().getData());
+        verify(fenbeitongAssistantService).getStatus();
+        verify(fenbeitongAssistantService).start();
     }
 
     private static boolean containsMenuPath(List<AuthPermissionInfoRespVO.MenuVO> menus, String path) {

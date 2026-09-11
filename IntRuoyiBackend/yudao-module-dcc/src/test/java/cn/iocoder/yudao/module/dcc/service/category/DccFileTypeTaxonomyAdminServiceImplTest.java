@@ -3,7 +3,9 @@ package cn.iocoder.yudao.module.dcc.service.category;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomySaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileTypeTaxonomyDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectFileTemplateItemDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileTypeTaxonomyMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFileTemplateItemMapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
@@ -15,6 +17,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAX
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_DUPLICATE_SIBLING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_INACTIVE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_DELETE_REFERENCED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,6 +29,8 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
     private DccFileTypeTaxonomyAdminServiceImpl taxonomyAdminService;
     @Resource
     private DccFileTypeTaxonomyMapper taxonomyMapper;
+    @Resource
+    private DccProjectFileTemplateItemMapper templateItemMapper;
 
     @Test
     void createFiveLevelPath_shouldPersistComputedLevelsAndResolvePath() {
@@ -79,6 +84,28 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
         assertServiceException(() -> taxonomyAdminService.deleteTaxonomy(parent),
                 FILE_TYPE_TAXONOMY_DELETE_CHILD_EXISTS);
         assertTrue(taxonomyMapper.selectById(parent) != null);
+    }
+
+    @Test
+    void deleteOrDisableTemplateTaxonomy_shouldFailFast() {
+        Long level1 = createTaxonomy(null, "TEMPLATE-TECH", "技术文档-模板", 1);
+        Long level2 = createTaxonomy(level1, "TEMPLATE-STAGE", "模板阶段", 2);
+        Long level3 = createTaxonomy(level2, "TEMPLATE-TYPE", "模板类型", 3);
+        templateItemMapper.insert(DccProjectFileTemplateItemDO.builder()
+                .projectCodeId(900L)
+                .fileTypeTaxonomyId(level3)
+                .fileName("模板文件")
+                .sortOrder(1)
+                .build());
+
+        assertServiceException(() -> taxonomyAdminService.deleteTaxonomy(level3),
+                FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
+
+        DccFileTypeTaxonomySaveReqVO update = req(level2, "TEMPLATE-TYPE", "模板类型", 3);
+        update.setId(level3);
+        update.setActive(Boolean.FALSE);
+        assertServiceException(() -> taxonomyAdminService.updateTaxonomy(update),
+                FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
     }
 
     @Test

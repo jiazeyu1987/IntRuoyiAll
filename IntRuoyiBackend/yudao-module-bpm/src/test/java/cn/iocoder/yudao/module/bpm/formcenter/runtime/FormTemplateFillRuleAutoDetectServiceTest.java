@@ -161,8 +161,7 @@ class FormTemplateFillRuleAutoDetectServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void detectReadsImportedSheetLayoutJsonAndExistingCellRules() throws Exception {
-        Path fixture = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001", "过程检验记录.docx")
-                .toAbsolutePath().normalize();
+        Path fixture = findRepoResource("按压式球囊扩充压力泵IDI-001", "old/过程检验记录.docx");
         String jimuSchemaJson;
         try (InputStream input = Files.newInputStream(fixture);
              XWPFDocument document = new XWPFDocument(input)) {
@@ -243,6 +242,18 @@ class FormTemplateFillRuleAutoDetectServiceTest extends BaseMockitoUnitTest {
                   }
                 }
                 """;
+    }
+
+    private Path findRepoResource(String directoryName, String fileName) {
+        Path cursor = Path.of("").toAbsolutePath().normalize();
+        while (cursor != null) {
+            Path candidate = cursor.resolve("resource").resolve(directoryName).resolve(fileName);
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            cursor = cursor.getParent();
+        }
+        return Path.of("resource").resolve(directoryName).resolve(fileName).toAbsolutePath().normalize();
     }
 
 }

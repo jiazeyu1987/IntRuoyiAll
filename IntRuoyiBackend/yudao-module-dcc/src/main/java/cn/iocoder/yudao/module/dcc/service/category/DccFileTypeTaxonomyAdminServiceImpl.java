@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileTypeTaxonomyMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectFileTemplateItemDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFileTemplateItemMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,8 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
     private DccFileCategoryMapper categoryMapper;
     @Resource
     private DccControlledFileMapper controlledFileMapper;
+    @Resource
+    private DccProjectFileTemplateItemMapper projectFileTemplateItemMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -65,6 +69,11 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
         if (!Objects.equals(existing.getParentId(), normalizedParentId)) {
             throw exception(FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN);
         }
+        if (Boolean.TRUE.equals(existing.getActive()) && Boolean.FALSE.equals(reqVO.getActive())
+                && projectFileTemplateItemMapper.selectCount(
+                DccProjectFileTemplateItemDO::getFileTypeTaxonomyId, existing.getId()) > 0) {
+            throw exception(FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
+        }
         DccFileTypeTaxonomyDO taxonomy = BeanUtils.toBean(reqVO, DccFileTypeTaxonomyDO.class);
         taxonomy.setParentId(existing.getParentId());
         taxonomy.setLevelNo(existing.getLevelNo());
@@ -80,7 +89,9 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
             throw exception(FILE_TYPE_TAXONOMY_DELETE_CHILD_EXISTS);
         }
         if (categoryMapper.selectCount(DccFileCategoryDO::getFileTypeTaxonomyId, id) > 0
-                || controlledFileMapper.selectCount(DccControlledFileDO::getFileTypeTaxonomyId, id) > 0) {
+                || controlledFileMapper.selectCount(DccControlledFileDO::getFileTypeTaxonomyId, id) > 0
+                || projectFileTemplateItemMapper.selectCount(
+                DccProjectFileTemplateItemDO::getFileTypeTaxonomyId, id) > 0) {
             throw exception(FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
         }
         taxonomyMapper.deleteById(id);

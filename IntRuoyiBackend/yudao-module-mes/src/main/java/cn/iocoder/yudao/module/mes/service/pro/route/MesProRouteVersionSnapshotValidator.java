@@ -15,12 +15,16 @@ final class MesProRouteVersionSnapshotValidator {
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY = "productionProcessConfigSchemaVersion";
+    private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
     private static final Set<String> REQUIRED_CONFIG_SNAPSHOT_KEYS = Set.of(
             FLOW_GRAPH_KEY,
             PRODUCTS_KEY,
             SCHEDULE_CONFIGS_KEY,
             BATCH_USE_CONFIGS_KEY,
-            SCHEDULE_USE_CONFIGS_KEY);
+            SCHEDULE_USE_CONFIGS_KEY,
+            PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY,
+            PRODUCTION_PROCESS_CONFIGS_KEY);
 
     private MesProRouteVersionSnapshotValidator() {
     }
@@ -52,10 +56,18 @@ final class MesProRouteVersionSnapshotValidator {
             if (nodes == null || nodes.isEmpty()) {
                 return false;
             }
-            return isArrayOrObject(configSnapshots.get(PRODUCTS_KEY))
+            boolean structurallyComplete = isArrayOrObject(configSnapshots.get(PRODUCTS_KEY))
                     && isArrayOrObject(configSnapshots.get(SCHEDULE_CONFIGS_KEY))
                     && configSnapshots.get(BATCH_USE_CONFIGS_KEY) instanceof JSONArray
-                    && configSnapshots.get(SCHEDULE_USE_CONFIGS_KEY) instanceof JSONArray;
+                    && configSnapshots.get(SCHEDULE_USE_CONFIGS_KEY) instanceof JSONArray
+                    && configSnapshots.getInteger(PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY) != null
+                    && configSnapshots.get(PRODUCTION_PROCESS_CONFIGS_KEY) instanceof JSONArray;
+            if (!structurallyComplete) {
+                return false;
+            }
+            MesProRouteCandidateConfigServiceImpl.validateProductionProcessConfigs(
+                    snapshot.getLong("routeVersionId"), configSnapshots);
+            return true;
         } catch (RuntimeException ex) {
             return false;
         }

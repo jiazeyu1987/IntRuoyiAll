@@ -36,6 +36,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -76,6 +79,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -155,6 +159,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
     private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @Resource
+    private GxpAuditService gxpAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -307,6 +313,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setChangedAt(signature.getSignedAt())
                 .setChangedFieldCount(items.size())
                 .setHashVerification(verification);
+        gxpAuditService.append(buildUnifiedGxpAuditCommand(execution, command, batchId, signature,
+                signatureProjectionHash, afterCellValuesHash, afterRevision, newHeadHash, items.size()));
         operationAuditService.record(new MesProEdhrOperationAuditCommand()
                 .setRequestId("EDHR-AUD-" + IdWorker.getId())
                 .setObjectType("FIELD_AUDIT_BATCH")
@@ -331,6 +339,81 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setMetadataJson(buildFieldAuditOperationMetadata(execution, resolvedChanges,
                         items.size(), signature.getSignatureId(), goldenFingerMode)));
         return result;
+    }
+
+    private GxpAuditCommand buildUnifiedGxpAuditCommand(
+            MesProBatchRecordExecutionDO execution,
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            Long batchId,
+            MesProBatchRecordExecutionFieldAuditSignatureResult signature,
+            String signatureProjectionHash,
+            String afterCellValuesHash,
+            long afterRevision,
+            String newHeadHash,
+            int changedFieldCount) {
+        return GxpAuditCommand.builder()
+                .operationId("edhr.execution.field.update")
+                .subjectId("MES_PRO_BATCH_RECORD_EXECUTION:" + execution.getId())
+                .subjectVersion(String.valueOf(afterRevision))
+                .reason(command.getReasonCategory() + ":" + command.getReasonText())
+                .beforeState(GxpAuditStateEnvelope.builder()
+                        .state("HEAD_HASH")
+                        .objectVersion(execution.getFieldAuditHeadHash())
+                        .canonicalJson(buildUnifiedGxpBeforeStateJson(execution))
+                        .build())
+                .afterState(GxpAuditStateEnvelope.builder()
+                        .state("HEAD_HASH")
+                        .objectVersion(newHeadHash)
+                        .canonicalJson(buildUnifiedGxpAfterStateJson(execution, command, batchId, signature,
+                                afterCellValuesHash, afterRevision, newHeadHash, changedFieldCount))
+                        .build())
+                .idempotencyKey(command.getIdempotencyKey())
+                .requestId("EDHR-FIELD-AUDIT:" + batchId)
+                .source("MesProBatchRecordExecutionFieldAuditServiceImpl.saveChanges")
+                .signatureRecordId(signature.getSignatureId() == null ? null : String.valueOf(signature.getSignatureId()))
+                .signatureContentHash(signatureProjectionHash)
+                .build();
+    }
+
+    private String buildUnifiedGxpBeforeStateJson(MesProBatchRecordExecutionDO execution) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("executionId", execution.getId());
+        payload.put("executionCode", execution.getExecutionCode());
+        payload.put("fieldAuditRevision", execution.getFieldAuditRevision());
+        payload.put("fieldAuditHeadHash", execution.getFieldAuditHeadHash());
+        payload.put("cellValuesHash", execution.getCellValuesHash());
+        payload.put("recordCategory", execution.getRecordCategory());
+        payload.put("status", execution.getStatus());
+        return JsonUtils.toJsonString(payload);
+    }
+
+    private String buildUnifiedGxpAfterStateJson(
+            MesProBatchRecordExecutionDO execution,
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            Long batchId,
+            MesProBatchRecordExecutionFieldAuditSignatureResult signature,
+            String afterCellValuesHash,
+            long afterRevision,
+            String newHeadHash,
+            int changedFieldCount) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("executionId", execution.getId());
+        payload.put("executionCode", execution.getExecutionCode());
+        payload.put("auditBatchId", batchId);
+        payload.put("workTaskId", command.getWorkTaskId());
+        payload.put("fieldAuditRevision", afterRevision);
+        payload.put("fieldAuditHeadHash", newHeadHash);
+        payload.put("cellValuesHash", afterCellValuesHash);
+        payload.put("changedFieldCount", changedFieldCount);
+        payload.put("reasonCategory", command.getReasonCategory());
+        payload.put("reasonText", command.getReasonText());
+        payload.put("signatureId", signature.getSignatureId());
+        payload.put("actorId", signature.getActorId());
+        payload.put("actorName", signature.getActorName());
+        payload.put("changedAt", signature.getSignedAt());
+        payload.put("recordCategory", execution.getRecordCategory());
+        payload.put("status", execution.getStatus());
+        return JsonUtils.toJsonString(payload);
     }
 
     @Override

@@ -131,6 +131,9 @@ public class MesProFrontlineFeedbackPayloadReqVO {
 
         @Schema(description = "设备名称", example = "压力泵")
         private String deviceName;
+
+        @Schema(description = "提交时设备是否在计量有效期内", example = "true")
+        private Boolean inMeteringValidityPeriod;
     }
 
     @Data

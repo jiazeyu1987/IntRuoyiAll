@@ -351,6 +351,17 @@ yudao:
       startup-timeout-seconds: ${INVOICE_VOUCHER_PRINT_ASSISTANT_STARTUP_TIMEOUT_SECONDS:30}
       probe-timeout-seconds: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PROBE_TIMEOUT_SECONDS:3}
       probe-interval-millis: ${INVOICE_VOUCHER_PRINT_ASSISTANT_PROBE_INTERVAL_MS:1000}
+    fenbeitong-assistant:
+      assistant-host: ${FENBEITONG_ASSISTANT_HOST:127.0.0.1}
+      assistant-port: ${FENBEITONG_ASSISTANT_PORT:18734}
+      assistant-root-dir: ${FENBEITONG_ASSISTANT_ROOT_DIR:E:/ProjectPackage/fenbeitong/student-collaboration-kit}
+      assistant-script: ${FENBEITONG_ASSISTANT_SCRIPT:server.js}
+      node-command: ${FENBEITONG_ASSISTANT_NODE_COMMAND:D:/Programs/node.exe}
+      ticket-validate-url: ${FENBEITONG_ASSISTANT_TICKET_VALIDATE_URL:http://127.0.0.1:48081/admin-api/system/auth/fenbeitong-assistant-ticket/validate}
+      session-ttl-seconds: ${FENBEITONG_ASSISTANT_SESSION_TTL_SECONDS:14400}
+      startup-timeout-seconds: ${FENBEITONG_ASSISTANT_STARTUP_TIMEOUT_SECONDS:30}
+      probe-timeout-seconds: ${FENBEITONG_ASSISTANT_PROBE_TIMEOUT_SECONDS:3}
+      probe-interval-millis: ${FENBEITONG_ASSISTANT_PROBE_INTERVAL_MS:1000}
     kingdee:
       base-url: ${PRODUCTION_PLAN_ERP_K3CLOUD_BASE_URL:}
       acct-id: ${PRODUCTION_PLAN_ERP_K3CLOUD_ACCT_ID:}

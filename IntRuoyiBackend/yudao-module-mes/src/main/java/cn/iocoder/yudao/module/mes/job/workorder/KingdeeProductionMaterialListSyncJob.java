@@ -59,11 +59,11 @@ public class KingdeeProductionMaterialListSyncJob implements JobHandler, ErpKing
             MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), result.getCreatedCount(),
-                    0, result.getSkippedCount(), 0);
+                    result.getUpdatedCount(), result.getSkippedCount(), 0);
         });
         MesKingdeeProductionMaterialListSyncResult result = resultReference.get();
-        return String.format("ERP production material list full sync: created=%d, skipped=%d",
-                result.getCreatedCount(), result.getSkippedCount());
+        return String.format("ERP production material list full sync: created=%d, updated=%d, skipped=%d",
+                result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
     }
 
 }

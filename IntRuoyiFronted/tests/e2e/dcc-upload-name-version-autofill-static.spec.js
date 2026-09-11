@@ -26,18 +26,22 @@ assert.match(
   'Upload name options API must call the backend upload-name-options endpoint with params'
 )
 for (const field of ['controlledFileId?: number | null', 'fileNumber?: string | null']) {
-  assert.match(workflowApi, new RegExp(field.replace(/[?|]/g, '\\$&')), `Name option must include ${field}`)
+  assert.match(
+    workflowApi,
+    new RegExp(field.replace(/[?|]/g, '\\$&')),
+    `Name option must include ${field}`
+  )
 }
 
 assert.match(
   uploadPage,
-  /<el-autocomplete[\s\S]*v-model="formData\.fileName"[\s\S]*@select="handleHistoryFileNameSelect"[\s\S]*@input="handleFileNameInput"/,
-  'File name must remain a selectable and manually editable autocomplete input'
+  /<el-autocomplete[\s\S]*v-model="formData\.fileName"[\s\S]*@select="handleProjectTemplateFileSelect"[\s\S]*@input="handleFileNameInput"/,
+  'Controlled file name must be selected from the project template autocomplete'
 )
 assert.match(
   uploadPage,
-  /:trigger-on-focus="canLoadUploadNameOptions"/,
-  'File name dropdown must only open after DCC project and file classification are both valid'
+  /:trigger-on-focus="canSelectProjectTemplateFileName"/,
+  'File name dropdown must only open after a project template stage and type are selected'
 )
 assert.match(
   uploadPage,
@@ -66,13 +70,13 @@ assert.match(
 )
 assert.match(
   uploadPage,
-  /const queryUploadNameSuggestions = async \([\s\S]*await ensureUploadNameOptionsLoaded\(\)[\s\S]*callback\(suggestions\)/,
-  'File name suggestions must load history on demand when the user opens or queries the autocomplete'
+  /const queryUploadNameSuggestions = async \([\s\S]*projectTemplateFileOptions\.value\.filter[\s\S]*callback\(suggestions\)/,
+  'File name suggestions must only come from the selected project template type'
 )
 assert.match(
   uploadPage,
-  /const handleProjectCodeChange = async \(\) => \{[\s\S]*resetUploadNameContext\(true\)[\s\S]*\}/,
-  'Changing DCC project must clear stale file name options without calling the history API eagerly'
+  /const handleProjectCodeChange = async \(\) => \{[\s\S]*resetProjectFileTemplateSelection\(\)[\s\S]*loadProjectFileTemplate\(formData\.dccProjectCodeId\)[\s\S]*\}/,
+  'Changing DCC project must clear stale selections and load that project template'
 )
 assert.doesNotMatch(
   uploadPage,
@@ -81,7 +85,7 @@ assert.doesNotMatch(
 )
 assert.doesNotMatch(
   uploadPage,
-  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
+  /const handleFileTypeTaxonomyChange = async \([^)]*\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
   'Changing file classification must not eagerly call upload-name-options'
 )
 assert.match(
@@ -91,8 +95,8 @@ assert.match(
 )
 assert.match(
   uploadPage,
-  /formData\.versionNo = isExternalReview\.value \? DEFAULT_MANUAL_VERSION_NO : ''|formData\.versionNo = ''/,
-  'Manual file name input path must clear server-owned version for controlled files'
+  /selectedItem\.fileName !== fileName[\s\S]*请从当前项目模板的文件列表中选择/,
+  'Controlled file names typed without selecting the exact project template item must be rejected'
 )
 
 console.log('PASS: DCC upload file name/version autofill static contract')

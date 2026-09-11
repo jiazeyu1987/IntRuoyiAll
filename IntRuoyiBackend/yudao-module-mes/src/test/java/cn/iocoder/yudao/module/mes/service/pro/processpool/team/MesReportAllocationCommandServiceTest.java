@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationStateDO;
@@ -11,6 +12,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
@@ -58,7 +60,7 @@ class MesReportAllocationCommandServiceTest {
     @Mock private MesReportAllocationQuantityFragmentService quantityFragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
     @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
-    @Mock private MesTeamLeaderOverageLimitService overageLimitService;
+    @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
     @Mock private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesReportAllocationCommandService service;
@@ -68,12 +70,30 @@ class MesReportAllocationCommandServiceTest {
         service = new MesReportAllocationCommandService(scopeService, eventMapper, activeOrderMapper, workOrderMapper,
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
-                completionService, reportManagementSummaryService, overageLimitService);
+                completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any()))
                 .thenReturn(9901L);
         org.mockito.Mockito.lenient().when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
+        org.mockito.Mockito.lenient()
+                .when(activeOrderProcessSnapshotMapper.selectListByActiveOrderAndProcessForUpdate(
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(List.of(
+                        frozenSnapshot(5001L), frozenSnapshot(5101L), frozenSnapshot(5201L), frozenSnapshot(5301L)));
+        org.mockito.Mockito.lenient()
+                .when(activeOrderProcessSnapshotMapper.selectByActiveOrderAndProcess(
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> frozenSnapshot(invocation.getArgument(1)));
+    }
+
+    private MesProcessPoolActiveOrderProcessSnapshotDO frozenSnapshot(Long routeProcessId) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .routeProcessId(routeProcessId)
+                .processId(6001L)
+                .overagePercentSnapshot(new BigDecimal("1000"))
+                .build();
     }
 
     @Test

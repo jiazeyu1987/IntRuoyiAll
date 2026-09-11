@@ -14,6 +14,7 @@ public class MesQaInspectionRegulationImportRespVO {
     private Long dccProjectCodeId;
     private Long regulationId;
     private Long draftVersionId;
+    private Long publishedVersionId;
     private String regulationCode;
     private String regulationName;
     private String versionNo;

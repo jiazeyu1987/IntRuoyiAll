@@ -1,5 +1,6 @@
 import request from '@/config/axios'
 import type { ControlledFileVO } from './workflow'
+import type { DccFileTypeTaxonomyVO } from './fileTypeTaxonomies'
 
 export const DCC_PROJECT_CODE_STATUS_ENABLE = 'ENABLE'
 export const DCC_PROJECT_CODE_STATUS_DISABLE = 'DISABLE'
@@ -59,6 +60,35 @@ export interface DccProjectCodeUpdateReqVO extends DccProjectCodeSaveReqVO {
 export interface DccProjectCodeControlledFilePageReqVO extends PageParam {
   keyword?: string
   status?: string
+}
+
+export interface DccProjectFileTemplateItemRespVO {
+  id: number
+  projectCodeId: number
+  fileTypeTaxonomyId: number
+  stageTaxonomyId: number
+  stageName: string
+  fileTypeNodeId: number
+  fileTypeName: string
+  taxonomyPath: string
+  fileName: string
+  sortOrder: number
+}
+
+export interface DccProjectFileTemplateRespVO {
+  projectCodeId: number
+  taxonomyOptions: DccFileTypeTaxonomyVO[]
+  items: DccProjectFileTemplateItemRespVO[]
+}
+
+export interface DccProjectFileTemplateItemSaveReqVO {
+  fileTypeTaxonomyId: number
+  fileName: string
+  sortOrder: number
+}
+
+export interface DccProjectFileTemplateSaveReqVO {
+  items: DccProjectFileTemplateItemSaveReqVO[]
 }
 
 export interface DccProjectCodeAssociatedFileAiCategoryRespVO {
@@ -139,7 +169,7 @@ interface UploadCommonResult<T> {
 export const getProjectCodePage = async (
   params: DccProjectCodePageReqVO
 ): Promise<PageResult<DccProjectCodeRespVO[]>> => {
-  return await request.get({ url: "/dcc/project-codes/page", params })
+  return await request.get({ url: '/dcc/project-codes/page', params })
 }
 
 export const getProjectCode = async (id: number | string): Promise<DccProjectCodeRespVO> => {
@@ -165,25 +195,42 @@ export const getProjectCodeControlledFilesPage = async (
   return await request.get({ url: `/dcc/project-codes/${id}/controlled-files/page`, params })
 }
 
+export const getProjectCodeFileTemplate = async (
+  projectCodeId: number | string
+): Promise<DccProjectFileTemplateRespVO> => {
+  return await request.get({ url: `/dcc/project-codes/${projectCodeId}/file-template` })
+}
+
+export const replaceProjectCodeFileTemplate = async (
+  projectCodeId: number | string,
+  data: DccProjectFileTemplateSaveReqVO
+): Promise<DccProjectFileTemplateRespVO> => {
+  return await request.put({ url: `/dcc/project-codes/${projectCodeId}/file-template`, data })
+}
+
 export const getProjectCodeAssociatedFileAiCategoryCandidates = async (
   id: number | string
 ): Promise<DccProjectCodeAssociatedFileAiCategoryRespVO[]> => {
-  return await request.get({ url: `/dcc/project-codes/${id}/associated-files/ai-category-candidates` })
+  return await request.get({
+    url: `/dcc/project-codes/${id}/associated-files/ai-category-candidates`
+  })
 }
 
 export const classifyProjectCodeAssociatedFileByAi = async (
   id: number | string,
   fileId: number | string
 ): Promise<DccProjectCodeAssociatedFileAiCategoryRespVO> => {
-  return await request.post({ url: `/dcc/project-codes/${id}/associated-files/${fileId}/ai-category` })
+  return await request.post({
+    url: `/dcc/project-codes/${id}/associated-files/${fileId}/ai-category`
+  })
 }
 
 export const exportProjectCodeExcel = async (params: DccProjectCodePageReqVO) => {
-  return await request.download({ url: "/dcc/project-codes/export-excel", params })
+  return await request.download({ url: '/dcc/project-codes/export-excel', params })
 }
 
 export const getProjectCodeImportTemplate = async () => {
-  return await request.download({ url: "/dcc/project-codes/import-template" })
+  return await request.download({ url: '/dcc/project-codes/import-template' })
 }
 
 export const importProjectCodePreview = async (
@@ -192,7 +239,7 @@ export const importProjectCodePreview = async (
   const data = new FormData()
   data.append('file', file)
   const result = await request.upload<UploadCommonResult<DccProjectCodeImportPreviewRespVO>>({
-    url: "/dcc/project-codes/import-preview",
+    url: '/dcc/project-codes/import-preview',
     data
   })
   return result.data
@@ -201,7 +248,7 @@ export const importProjectCodePreview = async (
 export const importProjectCodeConfirm = async (
   batchId: number
 ): Promise<DccProjectCodeImportPreviewRespVO> => {
-  return await request.post({ url: "/dcc/project-codes/import-confirm", data: { batchId } })
+  return await request.post({ url: '/dcc/project-codes/import-confirm', data: { batchId } })
 }
 
 export const createProductOnboardingRequest = async (

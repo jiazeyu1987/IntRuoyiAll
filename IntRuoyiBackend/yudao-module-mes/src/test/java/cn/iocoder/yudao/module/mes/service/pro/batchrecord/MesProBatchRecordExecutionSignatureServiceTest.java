@@ -138,7 +138,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
-    void recordProductionSubmitSignature_rejectsTemporaryEmployeeProfilePasswordHash() {
+    void recordProductionSubmitSignature_acceptsTemporaryEmployeeProfilePasswordHash() {
         when(adminUserService.getUser(8801L)).thenReturn(null);
         when(employeeProfileMapper.selectById(8801L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(8801L)
@@ -150,11 +150,53 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
                 .signaturePasswordHash("bcrypt-temp-sign")
                 .enabled(Boolean.TRUE)
                 .build());
+        when(passwordEncoder.matches("tmp-secret", "bcrypt-temp-sign")).thenReturn(true);
+        when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class).setId(880100L);
+            return 1;
+        });
 
-        assertServiceException(() -> signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交"),
-                PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        Long signatureId = signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交");
 
-        verify(passwordEncoder, never()).matches("tmp-secret", "bcrypt-temp-sign");
+        assertEquals(880100L, signatureId);
+        ArgumentCaptor<MesProBatchRecordExecutionSignatureDO> captor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionSignatureDO.class);
+        verify(passwordEncoder).matches("tmp-secret", "bcrypt-temp-sign");
+        verify(authorizationService, never()).isElectronicSignatureEnabled(8801L);
+        verify(electronicSignatureService, never()).sign(any(ElectronicSignatureCommand.class));
+        verify(signatureMapper).insert(captor.capture());
+        MesProBatchRecordExecutionSignatureDO signature = captor.getValue();
+        assertEquals(0L, signature.getExecutionId());
+        assertEquals(8801L, signature.getActorId());
+        assertEquals("PRODUCTION_SUBMIT", signature.getActionType());
+        assertEquals("PASSWORD", signature.getSignatureMode());
+        assertTrue(Boolean.TRUE.equals(signature.getPasswordVerified()));
+        assertEquals("临时工甲", signature.getActorName());
+        assertEquals("TMP-8801", signature.getActorUsernameSnapshot());
+        assertEquals("临时工甲", signature.getActorNicknameSnapshot());
+        assertEquals("生产人员档案电子签名密码已验证", signature.getAuthorizationBasis());
+        assertEquals("CAPTURED_PARTIAL_ORG", signature.getSnapshotStatus());
+    }
+
+    @Test
+    void recordProductionSubmitSignature_rejectsTemporaryEmployeeProfileWrongPassword() {
+        when(adminUserService.getUser(8801L)).thenReturn(null);
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8801L)
+                .leaderUserId(3001L)
+                .employeeCode("TMP-8801")
+                .employeeName("临时工甲")
+                .displayName("临时工甲")
+                .employeeType("TEMPORARY")
+                .signaturePasswordHash("bcrypt-temp-sign")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(passwordEncoder.matches("bad-secret", "bcrypt-temp-sign")).thenReturn(false);
+
+        assertServiceException(() -> signatureService.recordProductionSubmitSignature(8801L, "bad-secret", "一线生产报工提交"),
+                PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+
+        verify(passwordEncoder).matches("bad-secret", "bcrypt-temp-sign");
         verify(authorizationService, never()).isElectronicSignatureEnabled(8801L);
         verify(electronicSignatureService, never()).sign(any(ElectronicSignatureCommand.class));
         verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));

@@ -23,8 +23,10 @@ import org.springframework.validation.annotation.Validated;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -170,6 +172,7 @@ public class MesMdClientServiceImpl implements MesMdClientService {
         MesMdClientImportRespVO respVO = MesMdClientImportRespVO.builder()
                 .createCodes(new ArrayList<>()).updateCodes(new ArrayList<>())
                 .failureCodes(new LinkedHashMap<>()).build();
+        Set<String> importCodes = new HashSet<>();
         AtomicInteger index = new AtomicInteger(1);
         importClients.forEach(importClient -> {
             int currentIndex = index.getAndIncrement();
@@ -185,6 +188,10 @@ public class MesMdClientServiceImpl implements MesMdClientService {
             }
             if (importClient.getType() == null) {
                 respVO.getFailureCodes().put(key, "客户类型不能为空");
+                return;
+            }
+            if (!importCodes.add(importClient.getCode())) {
+                respVO.getFailureCodes().put(key, "导入文件中客户编码重复");
                 return;
             }
 

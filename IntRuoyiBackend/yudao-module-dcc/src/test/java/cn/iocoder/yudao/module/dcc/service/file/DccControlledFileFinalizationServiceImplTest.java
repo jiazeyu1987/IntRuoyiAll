@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileObsoleteAudit
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileDistributionStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileMasterStatusEnum;
@@ -286,6 +287,22 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void handleProcessInstanceStatusChanged_newControlledFileMarksReadyToPublishWithoutActivating() {
+        DccControlledFileDO file = buildFinalizingFile(911L, 711L, 18L, 111L);
+        file.setProcessType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
+        file.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+        when(controlledFileMapper.selectById(911L)).thenReturn(file);
+
+        finalizationService.handleProcessInstanceStatusChanged(approveEvent(911L));
+
+        verify(controlledFileMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDO>argThat(update ->
+                Long.valueOf(911L).equals(update.getId())
+                        && DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(update.getStatus())));
+        verify(platformAdapter).recordApprovedReadyToPublish(file, 99L, "process-911");
+        verify(platformAdapter, never()).recordFinalizationStarted(any(), any(), any());
+    }
+
+    @Test
     void applyApprovedPublishControlledFile_followupSnapshotFailureFailsPublicationBeforeCompletionEvent() throws Exception {
         DccControlledFileDO file = buildReadyToPublishCandidate(923L, 723L, 18L, 123L);
         file.setIterationNo(1);
@@ -314,6 +331,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         verify(controlledFileMapper, times(4)).updateById(updateCaptor.capture());
         assertTrue(updateCaptor.getAllValues().stream().anyMatch(update -> update.getId().equals(923L)
                 && DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(update.getStatus())));
+        verify(obsoleteFileStorageService, never()).moveControlledFileArtifactsToObsoleteFolder(any());
     }
 
     @Test
@@ -582,7 +600,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void activateWithoutApproval_skipGovernance_pdfStampFailurePublishesOriginalPdf() throws Exception {
+    void activateWithoutApproval_skipGovernance_pdfStampFailureFailsClosed() throws Exception {
         DccControlledFileDO file = buildFinalizingFile(993L, 793L, 22L, 193L);
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                 .id(793L)
@@ -605,19 +623,17 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         when(pdfStampService.stamp("broken-pdf".getBytes()))
                 .thenThrow(new IOException("Missing root object specification in trailer."));
 
-        finalizationService.activateWithoutApproval(993L, true);
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> finalizationService.activateWithoutApproval(993L, true));
 
-        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).updateById(fileCaptor.capture());
-        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), fileCaptor.getValue().getStatus());
-        assertEquals(193L, fileCaptor.getValue().getPublishedFileId());
-        assertEquals(null, fileCaptor.getValue().getStampedFileId());
+        assertEquals(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(), ex.getCode());
         verify(fileService, never()).createFile(any(), any(), any(), any());
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
         verify(distributionMapper, never()).insert(any(DccControlledFileDistributionDO.class));
         verify(trainingMapper, never()).insert(any(DccControlledFileTrainingDO.class));
         verify(trainingAssignmentMapper, never()).insert(any(DccControlledFileTrainingAssignmentDO.class));
         verify(messageJobMapper, never()).insert(any(DccControlledFileMessageJobDO.class));
-        verify(platformAdapter).recordFinalized(null, file, null, "dcc-finalization:993");
+        verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
     }
 
     @Test
@@ -955,8 +971,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
                 Long.valueOf(907L).equals(updated.getId())
                         && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(updated.getStatus())
                         && Long.valueOf(107L).equals(updated.getPublishedFileId())));
-        verify(obsoleteFileStorageService).moveControlledFileArtifactsToObsoleteFolder(
-                org.mockito.ArgumentMatchers.argThat(previous -> Long.valueOf(804L).equals(previous.getId())));
+        verify(obsoleteFileStorageService, never()).moveControlledFileArtifactsToObsoleteFolder(any());
 
         ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
         verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
@@ -1030,6 +1045,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
                 .requesterId(99L)
                 .submitterId(99L)
                 .status(DccControlledFileStatusEnum.FINALIZING.getStatus())
+                .processType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode())
                 .processDefinitionKey(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY)
                 .processInstanceId("proc-1")
                 .build();

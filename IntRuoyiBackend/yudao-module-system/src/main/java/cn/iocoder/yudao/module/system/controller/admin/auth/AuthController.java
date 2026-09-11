@@ -10,6 +10,7 @@ import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.security.config.SecurityProperties;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.*;
 import cn.iocoder.yudao.module.system.convert.auth.AuthConvert;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
@@ -23,6 +24,8 @@ import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.social.SocialClientService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
+import cn.iocoder.yudao.module.system.service.fenbeitongassistant.FenbeitongAssistantService;
+import cn.iocoder.yudao.module.system.service.fenbeitongassistant.FenbeitongAssistantTicketPayload;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintAssistantService;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider;
 import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintKingdeeConfigProvider.KingdeeConfigSnapshot;
@@ -40,7 +43,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,6 +59,7 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
 import static cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants.INVOICE_VOUCHER_PRINT_TICKET;
+import static cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants.FENBEITONG_ASSISTANT_TICKET;
 
 @Tag(name = "管理后台 - 认证")
 @RestController
@@ -76,6 +82,11 @@ public class AuthController {
     private static final long INVOICE_VOUCHER_PRINT_TICKET_TTL_SECONDS = 120L;
     private static final String INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR = "|";
     private static final String KINGDEE_CONFIG_PREFIX = "发票凭证打印助手 ERP 配置缺失：";
+    private static final String FENBEITONG_QUERY_PERMISSION = "erp:fenbeitong-voucher:query";
+    private static final String FENBEITONG_CONFIG_PERMISSION = "erp:fenbeitong-voucher:config";
+    private static final String FENBEITONG_SAVE_PERMISSION = "erp:fenbeitong-voucher:save";
+    private static final long FENBEITONG_ASSISTANT_TICKET_TTL_SECONDS = 120L;
+    private static final String FENBEITONG_KINGDEE_CONFIG_PREFIX = "分贝通费用报销助手 ERP 配置缺失：";
 
     @Resource
     private AdminAuthService authService;
@@ -93,6 +104,8 @@ public class AuthController {
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private InvoiceVoucherPrintAssistantService invoiceVoucherPrintAssistantService;
+    @Resource
+    private FenbeitongAssistantService fenbeitongAssistantService;
     @Resource
     private InvoiceVoucherPrintKingdeeConfigProvider kingdeeConfigProvider;
 
@@ -236,6 +249,99 @@ public class AuthController {
         return success(respVO);
     }
 
+    @PostMapping("/fenbeitong-assistant-ticket")
+    @Operation(summary = "创建分贝通费用报销助手访问票据")
+    @DataPermission(enable = false)
+    public CommonResult<AuthFenbeitongAssistantTicketRespVO> createFenbeitongAssistantTicket() {
+        Long loginUserId = getLoginUserId();
+        if (loginUserId == null || userService.getUser(loginUserId) == null) {
+            throw exception0(GlobalErrorCodeConstants.UNAUTHORIZED.getCode(), "账号未登录");
+        }
+        if (!permissionService.hasAnyPermissions(loginUserId, FENBEITONG_QUERY_PERMISSION)) {
+            throw exception0(GlobalErrorCodeConstants.FORBIDDEN.getCode(), "没有分贝通费用报销查询权限");
+        }
+
+        Set<String> permissions = new LinkedHashSet<>();
+        permissions.add(FENBEITONG_QUERY_PERMISSION);
+        if (permissionService.hasAnyPermissions(loginUserId, FENBEITONG_CONFIG_PERMISSION)) {
+            permissions.add(FENBEITONG_CONFIG_PERMISSION);
+        }
+        if (permissionService.hasAnyPermissions(loginUserId, FENBEITONG_SAVE_PERMISSION)) {
+            permissions.add(FENBEITONG_SAVE_PERMISSION);
+        }
+
+        String ticket = UUID.randomUUID().toString();
+        LocalDateTime expiresTime = LocalDateTime.now().plusSeconds(FENBEITONG_ASSISTANT_TICKET_TTL_SECONDS);
+        FenbeitongAssistantTicketPayload payload = new FenbeitongAssistantTicketPayload(
+                loginUserId,
+                permissions,
+                expiresTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        stringRedisTemplate.opsForValue().set(
+                formatFenbeitongAssistantTicketKey(ticket),
+                JsonUtils.toJsonString(payload),
+                FENBEITONG_ASSISTANT_TICKET_TTL_SECONDS,
+                TimeUnit.SECONDS);
+        return success(AuthFenbeitongAssistantTicketRespVO.builder()
+                .ticket(ticket)
+                .expiresTime(expiresTime)
+                .build());
+    }
+
+    @GetMapping("/fenbeitong-assistant/status")
+    @Operation(summary = "获得分贝通费用报销助手运行状态")
+    @PreAuthorize("@ss.hasPermission('" + FENBEITONG_QUERY_PERMISSION + "')")
+    public CommonResult<AuthFenbeitongAssistantStatusRespVO> getFenbeitongAssistantStatus() {
+        return success(fenbeitongAssistantService.getStatus());
+    }
+
+    @PostMapping("/fenbeitong-assistant/start")
+    @Operation(summary = "启动分贝通费用报销助手")
+    @PreAuthorize("@ss.hasPermission('" + FENBEITONG_QUERY_PERMISSION + "')")
+    public CommonResult<AuthFenbeitongAssistantStatusRespVO> startFenbeitongAssistant() {
+        return success(fenbeitongAssistantService.start());
+    }
+
+    @PostMapping("/fenbeitong-assistant-ticket/validate")
+    @PermitAll
+    @TenantIgnore
+    @Operation(summary = "校验分贝通费用报销助手访问票据")
+    public CommonResult<AuthFenbeitongAssistantTicketValidateRespVO> validateFenbeitongAssistantTicket(
+            @RequestBody @Valid AuthFenbeitongAssistantTicketValidateReqVO reqVO) {
+        String redisKey = formatFenbeitongAssistantTicketKey(reqVO.getTicket().trim());
+        String serializedPayload = stringRedisTemplate.opsForValue().get(redisKey);
+        if (StrUtil.isBlank(serializedPayload)) {
+            return success(invalidFenbeitongAssistantTicket("missing"));
+        }
+        stringRedisTemplate.delete(redisKey);
+
+        FenbeitongAssistantTicketPayload payload;
+        try {
+            payload = JsonUtils.parseObject(serializedPayload, FenbeitongAssistantTicketPayload.class);
+        } catch (RuntimeException ex) {
+            return success(invalidFenbeitongAssistantTicket("malformed"));
+        }
+        if (payload == null || payload.getUserId() == null || payload.getPermissions() == null
+                || payload.getExpiresAtEpochMilli() == null) {
+            return success(invalidFenbeitongAssistantTicket("malformed"));
+        }
+        if (payload.getExpiresAtEpochMilli() <= System.currentTimeMillis()) {
+            return success(invalidFenbeitongAssistantTicket("expired"));
+        }
+        if (!payload.getPermissions().contains(FENBEITONG_QUERY_PERMISSION)) {
+            return success(invalidFenbeitongAssistantTicket("permission_mismatch"));
+        }
+
+        AuthFenbeitongAssistantTicketValidateRespVO respVO = AuthFenbeitongAssistantTicketValidateRespVO.builder()
+                .valid(true)
+                .userId(payload.getUserId())
+                .permissions(new LinkedHashSet<>(payload.getPermissions()))
+                .expiresTime(LocalDateTime.ofInstant(
+                        Instant.ofEpochMilli(payload.getExpiresAtEpochMilli()), ZoneId.systemDefault()))
+                .kingdeeConfig(buildFenbeitongAssistantKingdeeConfig())
+                .build();
+        return success(respVO);
+    }
+
     private AuthInvoiceVoucherPrintTicketValidateRespVO.KingdeeConfig buildInvoiceVoucherPrintKingdeeConfig() {
         KingdeeConfigSnapshot snapshot = kingdeeConfigProvider.getCurrentConfigSnapshot();
         if (snapshot == null) {
@@ -243,6 +349,24 @@ public class AuthController {
                     KINGDEE_CONFIG_PREFIX + "kingdeeConfig");
         }
         return AuthInvoiceVoucherPrintTicketValidateRespVO.KingdeeConfig.builder()
+                .baseUrl(snapshot.getBaseUrl())
+                .acctId(snapshot.getAcctId())
+                .username(snapshot.getUsername())
+                .password(snapshot.getPassword())
+                .appId(snapshot.getAppId())
+                .signedData(snapshot.getSignedData())
+                .timestamp(snapshot.getTimestamp())
+                .lcid(snapshot.getLcid())
+                .build();
+    }
+
+    private AuthFenbeitongAssistantTicketValidateRespVO.KingdeeConfig buildFenbeitongAssistantKingdeeConfig() {
+        KingdeeConfigSnapshot snapshot = kingdeeConfigProvider.getCurrentConfigSnapshot();
+        if (snapshot == null) {
+            throw exception0(GlobalErrorCodeConstants.BAD_REQUEST.getCode(),
+                    FENBEITONG_KINGDEE_CONFIG_PREFIX + "kingdeeConfig");
+        }
+        return AuthFenbeitongAssistantTicketValidateRespVO.KingdeeConfig.builder()
                 .baseUrl(snapshot.getBaseUrl())
                 .acctId(snapshot.getAcctId())
                 .username(snapshot.getUsername())
@@ -278,6 +402,10 @@ public class AuthController {
         return String.format(INVOICE_VOUCHER_PRINT_TICKET, ticket);
     }
 
+    private static String formatFenbeitongAssistantTicketKey(String ticket) {
+        return String.format(FENBEITONG_ASSISTANT_TICKET, ticket);
+    }
+
     private static String buildInvoiceVoucherPrintTicketPayload(Long userId, LocalDateTime expiresTime) {
         return userId + INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR
                 + INVOICE_VOUCHER_PRINT_PERMISSION + INVOICE_VOUCHER_PRINT_TICKET_SEPARATOR
@@ -303,6 +431,13 @@ public class AuthController {
 
     private static AuthInvoiceVoucherPrintTicketValidateRespVO invalidInvoiceVoucherPrintTicket(String reason) {
         return AuthInvoiceVoucherPrintTicketValidateRespVO.builder()
+                .valid(false)
+                .reason(reason)
+                .build();
+    }
+
+    private static AuthFenbeitongAssistantTicketValidateRespVO invalidFenbeitongAssistantTicket(String reason) {
+        return AuthFenbeitongAssistantTicketValidateRespVO.builder()
                 .valid(false)
                 .reason(reason)
                 .build();

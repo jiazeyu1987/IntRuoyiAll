@@ -100,6 +100,18 @@
                   <el-table-column label="升版跟踪" width="140">
                     <template #default="scope">{{ revisionTrackingStatusLabel(scope.row.revisionTrackingStatus) }}</template>
                   </el-table-column>
+                  <el-table-column label="操作" width="110">
+                    <template #default="scope">
+                      <el-button
+                        v-if="scope.row.taskStatus === 'COMPLETED'"
+                        link
+                        type="primary"
+                        :loading="reopeningTaskId === scope.row.id"
+                        :disabled="Boolean(reopeningTaskId)"
+                        @click="reopenImpact(scope.row)"
+                      >重新打开</el-button>
+                    </template>
+                  </el-table-column>
                 </el-table>
               </section>
             </div>
@@ -132,8 +144,10 @@
 import { ElMessageBox } from 'element-plus'
 import {
   getPublicationFollowupManagementPage,
+  reopenImpactTask,
   retryPublicationNotification,
   type DccPublicationFollowupVO,
+  type DccPublicationImpactTaskVO,
   type DccPublicationNotificationDeliveryVO
 } from '@/api/dcc/controlledFile/publicationFollowup'
 import {
@@ -153,6 +167,7 @@ const loading = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 const retryingDeliveryId = ref('')
+const reopeningTaskId = ref('')
 const rows = ref<DccPublicationFollowupVO[]>([])
 const total = ref(0)
 const pageNo = ref(1)
@@ -219,6 +234,24 @@ const retry = async (delivery: DccPublicationNotificationDeliveryVO) => {
     if (!isMessageBoxCancel(error)) actionError.value = errorText(error)
   } finally {
     retryingDeliveryId.value = ''
+  }
+}
+
+const reopenImpact = async (task: DccPublicationImpactTaskVO) => {
+  actionError.value = ''
+  reopeningTaskId.value = task.id
+  try {
+    const prompt = await ElMessageBox.prompt('请填写重新打开原因', '重新打开影响评估', {
+      confirmButtonText: '重新打开', cancelButtonText: '取消',
+      inputValidator: (value) => Boolean(value?.trim()), inputErrorMessage: '重新打开原因不能为空'
+    })
+    await reopenImpactTask(task.id, { expectedVersion: task.rowVersion, reason: prompt.value.trim() })
+    message.success('影响评估已重新打开')
+    await loadPage()
+  } catch (error) {
+    if (!isMessageBoxCancel(error)) actionError.value = errorText(error)
+  } finally {
+    reopeningTaskId.value = ''
   }
 }
 

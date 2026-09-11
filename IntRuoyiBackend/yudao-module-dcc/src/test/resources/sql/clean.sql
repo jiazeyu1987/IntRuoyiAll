@@ -33,6 +33,7 @@ DELETE FROM `dcc_project_code_assignment_file`;
 DELETE FROM `dcc_project_code_assignment`;
 DELETE FROM `dcc_project_code_import_row`;
 DELETE FROM `dcc_project_code_import_batch`;
+DELETE FROM `dcc_project_file_template_item`;
 DELETE FROM `dcc_project_code`;
 DELETE FROM `dcc_controlled_file_obsolete_audit`;
 DELETE FROM `dcc_electronic_signature_authorization`;

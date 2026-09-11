@@ -34,6 +34,7 @@ class FormCenterTemplateVersionQueryTest {
     void getTemplateVersionReturnsExactCurrentTenantVersion() {
         TenantContextHolder.setTenantId(122L);
         FormTemplateVersionDO version = FormTemplateVersionDO.builder()
+                .id(7001L)
                 .templateId(9001L)
                 .tenantId(122L)
                 .templateName("设备点检表")

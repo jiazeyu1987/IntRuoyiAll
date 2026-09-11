@@ -24,6 +24,8 @@ const rebuild = service.slice(
 )
 assert.match(rebuild, /@Transactional\(rollbackFor = Exception\.class\)/, 'rebuild must be one transaction')
 assert.match(rebuild, /requireDestructiveConfirmation/, 'historical data rebuild must require destructive confirmation')
+assert.match(rebuild, /requireNoReleaseApplication\(preview\)/,
+  'rebuild must reject active orders already in the production release flow')
 assert.match(rebuild, /cleanupActiveOrderRuntimeHistory/, 'rebuild must clean runtime history before rebuilding')
 assert.match(rebuild, /refreshActiveOrderSnapshot/, 'rebuild must refresh active-order main snapshot from current data')
 assert.match(rebuild, /insertProcessSnapshots/, 'rebuild must recreate production process snapshots')
@@ -49,12 +51,13 @@ for (const required of [
   'quantityFragmentMapper.deleteByEventIds',
   'pqcInspectionTaskMapper.deleteByActiveOrderId',
   'processSnapshotMapper.deleteByActiveOrderId',
-  'releaseApplicationMapper.deleteByActiveOrderId',
   'processPoolEventMapper.deleteActiveOrderRuntimeEventsByIds',
   'feedbackMapper.deleteByIds'
 ]) {
   assert.match(cleanup, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} must be part of active-order rebuild cleanup`)
 }
+assert.doesNotMatch(cleanup, /releaseApplicationMapper\.deleteByActiveOrderId/,
+  'active-order rebuild must not delete release applications; release flow locks rebuild instead')
 assert.doesNotMatch(cleanup, /processPoolEventMapper\.deleteByIds/,
   'active-order rebuild must not soft-delete events because the idempotency unique key includes deleted=1')
 assert.match(processPoolEventMapper, /deleteActiveOrderRuntimeEventsByIds/,
@@ -73,5 +76,8 @@ assert.doesNotMatch(eventResolution, /selectProductionSubmitsByWorkOrderAndRoute
 
 assert.match(service, /REBUILD_ACTIVE_ORDER/, 'rebuild must write a maintenance audit event')
 assert.match(service, /hasHistoricalRuntimeData/, 'preview must tell frontend whether destructive confirmation is required')
+assert.match(service, /releaseApplicationCount/, 'preview must expose release application count for the frontend lock message')
+assert.match(service, /PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_APPLICATION_LOCKED/,
+  'rebuild and active-order mutations must use the explicit release-application lock error')
 
 console.log('PASS: active-order rebuild snapshots backend contract is explicit')

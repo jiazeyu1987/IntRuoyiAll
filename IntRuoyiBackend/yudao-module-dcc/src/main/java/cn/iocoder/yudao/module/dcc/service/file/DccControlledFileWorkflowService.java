@@ -26,6 +26,9 @@ public interface DccControlledFileWorkflowService {
                                                        List<Long> selectedSignoffUserIds);
 
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber);
+    DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber,
+                                                                         Long dccProjectCodeId,
+                                                                         Long fileTypeTaxonomyId);
 
     Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
 

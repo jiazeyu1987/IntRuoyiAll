@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
@@ -63,13 +64,21 @@ public class MesQaInspectionRegulationWordImportService {
     @Transactional(rollbackFor = Exception.class)
     public MesQaInspectionRegulationImportRespVO importWordDraft(
             MultipartFile file, Long dccProjectCodeId) {
+        return importWordDraft(file, dccProjectCodeId,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA, false);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesQaInspectionRegulationImportRespVO importWordDraft(
+            MultipartFile file, Long dccProjectCodeId, String ownerModule, boolean publishAfterImport) {
         requireEnabledDccProject(dccProjectCodeId);
+        String resolvedOwnerModule = resolveOwnerModule(ownerModule);
         String fileName = validateFile(file);
         MesQaInspectionRegulationWordParser.ParsedRegulation parsed =
                 parser.parse(readContent(file), fileName);
 
         MesQaInspectionRegulationDO regulation =
-                regulationMapper.selectByDccProjectCodeId(dccProjectCodeId);
+                regulationMapper.selectByDccProjectCodeId(dccProjectCodeId, resolvedOwnerModule);
         MesQaInspectionRegulationPublishedVersionRespVO baseline = null;
         String route = regulation == null ? "CREATE" : "UPGRADE";
         if (regulation != null) {
@@ -77,18 +86,25 @@ public class MesQaInspectionRegulationWordImportService {
         }
 
         BuildResult buildResult = buildSaveRequest(
-                dccProjectCodeId, regulation, parsed, baseline);
+                dccProjectCodeId, resolvedOwnerModule, regulation, parsed, baseline);
         MesQaInspectionRegulationSaveRespVO saved =
                 regulationService.saveDraft(buildResult.request());
+        MesQaInspectionRegulationPublishedVersionRespVO publishedVersion = null;
+        if (publishAfterImport) {
+            buildResult.request().setRegulationId(saved.getRegulationId());
+            publishedVersion = regulationService.publish(buildResult.request());
+        }
         return MesQaInspectionRegulationImportRespVO.builder()
                 .dccProjectCodeId(saved.getDccProjectCodeId())
                 .regulationId(saved.getRegulationId())
                 .draftVersionId(saved.getDraftVersionId())
+                .publishedVersionId(publishedVersion == null ? null : publishedVersion.getPublishedVersionId())
                 .regulationCode(parsed.regulationCode())
                 .regulationName(parsed.regulationName())
                 .versionNo(saved.getVersionNo())
                 .effectiveDate(parsed.effectiveDate())
-                .lifecycleStatus(saved.getLifecycleStatus())
+                .lifecycleStatus(publishedVersion == null ? saved.getLifecycleStatus()
+                        : publishedVersion.getLifecycleStatus())
                 .route(route)
                 .processCount(buildResult.request().getProcesses().size())
                 .itemCount(parsed.items().size())
@@ -140,6 +156,7 @@ public class MesQaInspectionRegulationWordImportService {
 
     private BuildResult buildSaveRequest(
             Long dccProjectCodeId,
+            String ownerModule,
             MesQaInspectionRegulationDO regulation,
             MesQaInspectionRegulationWordParser.ParsedRegulation parsed,
             MesQaInspectionRegulationPublishedVersionRespVO baseline) {
@@ -206,6 +223,7 @@ public class MesQaInspectionRegulationWordImportService {
         MesQaInspectionRegulationSaveReqVO request = new MesQaInspectionRegulationSaveReqVO();
         request.setRegulationId(regulation == null ? null : regulation.getId());
         request.setDccProjectCodeId(dccProjectCodeId);
+        request.setOwnerModule(ownerModule);
         request.setRegulationCode(parsed.regulationCode());
         request.setRegulationName(parsed.regulationName());
         request.setVersionNo(parsed.versionNo());
@@ -246,7 +264,9 @@ public class MesQaInspectionRegulationWordImportService {
         if (parsed.firstInspectionQuantity() != null) {
             applicableTypes.add("FIRST");
         }
-        applicableTypes.add("PATROL");
+        if (parsed.patrolInspectionRatio() != null) {
+            applicableTypes.add("PATROL");
+        }
         if (finalInspectionApplicable) {
             applicableTypes.add("FINAL");
         }
@@ -354,6 +374,18 @@ public class MesQaInspectionRegulationWordImportService {
         if (project == null || !Objects.equals(project.getStatus(), DccProjectCodeStatusConstants.ENABLE)) {
             throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, dccProjectCodeId);
         }
+    }
+
+    private String resolveOwnerModule(String ownerModule) {
+        if (StrUtil.isBlank(ownerModule)) {
+            return MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA;
+        }
+        String normalized = StrUtil.trim(ownerModule);
+        if (Objects.equals(normalized, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
+                || Objects.equals(normalized, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)) {
+            return normalized;
+        }
+        throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, "ownerModule=" + ownerModule);
     }
 
     private static String validateFile(MultipartFile file) {

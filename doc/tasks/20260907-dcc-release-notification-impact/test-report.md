@@ -270,3 +270,170 @@
 - P4 approval-center TODO visibility regression is code-fixed and targeted-tested: `mvn -pl yudao-module-dcc "-Dtest=DccApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` passed 16 tests. The remaining runtime blocker is rebuilding/restarting 48081 with this code, then rerunning real Playwright approval, publish, notification and impact-task closure.
 - Latest authorized 48081 backend restart is blocked outside DCC: `restart-int-ruoyi-local.ps1 -Component backend` failed in `yudao-module-mes` because `MesProRouteFlowConfigServiceImpl` does not implement `saveRouteProcessDeviceParameterRule(MesProRouteDeviceParameterRuleSaveReqVO)`. `yudao-module-dcc` compiled successfully in that same build, but `yudao-server` packaging was skipped and 48081 is currently offline.
 - After fixing the MES main compile blocker, a second authorized backend restart reached MES `testCompile` and failed on unrelated existing/stale MES tests that reference missing production classes and nested classes. Standard restart still did not produce `yudao-server`; 48081 remains offline and DCC Playwright closure remains blocked.
+
+## P4 Independent Tester Recheck 2026-09-10
+
+This section supersedes the earlier P4 runtime-pending verdict above with the latest runtime and Playwright evidence.
+
+### Scope And Independence
+
+- Tester scope: independently verify the signature-projection correction, current P4 Playwright artifacts, and read-only MySQL state against P4-AC1 through P4-AC5.
+- Tester actions: no product-code change, no `task-state.json` change, no API/SQL business write, and no frontend business action.
+- Verdict rule: a targeted green test does not release P4 while the required real-page publication, impact decision, revision tracking, and adjacent regression gates are incomplete or red.
+
+### Targeted Backend Evidence
+
+- PASS: `mvn -o -pl yudao-module-dcc "-Dtest=DccControlledFileSignatureServiceTest,DccPublicationFollowupQueryServiceTest,DccPublicationNotificationTransactionIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 26 tests, 0 failures, 0 errors, 0 skipped.
+- PASS: the signature projection is directly covered by `DccControlledFileSignatureServiceTest` -> 12 tests, including an inserted `dcc_controlled_file_signature` projection with controlled-file/revision/task/actor/action/meaning/evidence identity.
+- FAIL: expanded adjacent command `mvn -o -pl yudao-module-dcc "-Dtest=DccControlledFileSignatureServiceTest,DccApprovalTaskAdapterTest,DccControlledFileFinalizationServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 161 tests, 2 failures, 1 error. The red cases are `activateWithoutApproval_skipGovernance_pdfStampFailurePublishesOriginalPdf`, `deleteWithdrawnControlledFile_withdrawnOwner_deletesBusinessRevisionAndOrphanedArtifacts`, and `deleteWithdrawnControlledFile_retainsStillReferencedArtifacts`.
+- Attribution: these three reds are not caused by the current signature-projection correction or the P4 publication-followup commits. Commit `bcbdee838` removed both `allowPdfStampFailurePassThrough` branches and removed withdrawn-file artifact collection/deletion, while the tests retained the prior expectations. This is a later/parallel adjacent DCC regression, but it still leaves the test-plan's adjacent DCC green gate unsatisfied.
+
+### Read-Only Runtime Evidence
+
+- `DCC-P4-20260909P4C` (`2054545668044070332`) is `ACTIVE`, has a stamped/published artifact, no running Flowable task, and exactly one `COMPLETED` publication-followup batch.
+- The P4C batch has seven notification deliveries; all seven are `SENT` with `attempt_count=1`. System messages `65886` through `65892` use template `dcc_publication_released` and visibly identify `DCC-P4-20260909P4C A/1`.
+- The final P4C approval has a real `dcc_controlled_file_signature` projection: task `21a64487-ac58-11f1-a8f5-00155dde8c13`, meaning `DOC_CONTROL_APPROVAL_APPROVE`, label `审批通过`, status `VALID`.
+- P4C has zero relation snapshots and zero impact tasks. It therefore proves publication and notification, but cannot prove impact-decision or revision-tracking behavior.
+- `DCC-P4-20260910P4D` (`2054545668044070333`) was created with P4C as its visible related file and later completed all five real approval signatures. It is `ACTIVE`, has stamped/published artifact `9198354917278`, no running Flowable task, and five `VALID` `HMAC_SHA256` DCC signature projections.
+- P4D has exactly one `COMPLETED` publication batch, seven of seven deliveries are `SENT` with one attempt, and one frozen forward relation points to P4C A/1.
+- The P4D impact task records `MATERIALIZE -> START -> DECIDE`, is `COMPLETED`, has decision `NO_REVISION_REQUIRED`, tracking `NOT_APPLICABLE`, and preserves P4C A/1 as the frozen related version. No revision object was created or linked.
+
+### Playwright Evidence Audit
+
+- PASS: `p4-local-page-e2e-result.json` (08:57) shows the real management page rendering P4C as one completed batch with seven sent notifications, the workbench rendering zero impact tasks, and no page/console errors.
+- PASS: `p4-local-upload-submit-e2e-result.json` (09:23) shows the real upload page created P4D and selected P4C as the related file.
+- PASS: `p4-direct-approve-task-e2e-result.json` (10:44) shows the real frontend final approval, stamped-PDF upload, confirmed directory, distribution department selection, readiness `ready=true`, `approve-task` HTTP 200/code 0, and resulting `ACTIVE` status with no page or console errors.
+- PARTIAL: Playwright used the workbench's visible `开始处理` and `无需升版` controls. Runtime access logs show `/publication-impact-tasks/1/start` and `/decision` at 10:51, and the immutable audit/DB state confirms `PENDING -> IN_REVIEW -> COMPLETED` with `NO_REVISION_REQUIRED`. The immediately following script postcondition failed, and the retained latest `p4-local-page-e2e-result.json` is still `status=FAIL` due a later page-response timeout.
+- Not covered: `REVISION_REQUIRED`, the visible `开始升版` dialog, major-revision create/link/resolution, recipient notification open-path under a recipient account, and a final retained all-green read-only page artifact after the impact decision.
+
+### P4 Gate Decision
+
+- P4-AC1: BLOCKED. Publication, notification and the no-revision impact decision are now proven, but the required revision-required/start-revision tracking path is not exercised in the real frontend.
+- P4-AC2: PASS for the completed P4D path. The runtime contains a unique completed batch, notification attempts/sends, frozen relation, impact materialization/start/decision audits, and the code-level timeline projection/rendering tests are green.
+- P4-AC3: FAIL. Targeted backend and prior SQL/frontend contracts are green, and final approval/publish passes, but the current adjacent DCC suite has three red cases and the retained post-decision page artifact is not all-green.
+- P4-AC4: BLOCKED. Independent tester does not release the milestone while P4-AC1/P4-AC2/P4-AC3/P4-AC5 are not green.
+- P4-AC5: BLOCKED. Evidence is recorded, but the required real-page closure and clean regression evidence remain incomplete.
+
+### Independent Verdict
+
+- Outcome: BLOCKED / NOT APPROVED.
+- Signature-projection correction: PASS for its targeted unit contract and five current P4D runtime projection rows.
+- P4 milestone: not releasable yet.
+- Required next evidence: complete `REVISION_REQUIRED` plus visible start/link/resolution with task-owned related files, preserve a final all-green page artifact including recipient notification navigation and impact timeline, and either repair the three `bcbdee838` adjacent regressions or formally change the test gate before rerunning independent verification.
+
+## P4 Final Independent Recheck 2026-09-10 19:54 +08:00
+
+This recheck supersedes the earlier 2026-09-10 P4 independent verdict for code regression and the retained final Playwright artifacts. It does not replace missing current-database evidence.
+
+### Independence And Runtime Boundary
+
+- Tester changed no product code and did not change `task-state.json`.
+- Tester performed no frontend business action, API business action, database write, migration, service start/stop, or Git operation.
+- After the machine restart, `48081` and the configured local MySQL port `23306` were not listening. The remaining `3306` MySQL instance rejected the checked-in development credential and is not accepted as the database previously used by the `48081` local runtime. Therefore a fresh read-only reconciliation of the P4 rows could not be run without restarting infrastructure, which was outside this tester assignment.
+
+### Fresh Test Results
+
+- PASS: `mvn -o -pl yudao-module-dcc "-Dtest=DccControlledFileSignatureServiceTest,DccApprovalTaskAdapterTest,DccControlledFileFinalizationServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 162 tests, 0 failures, 0 errors, 0 skipped. This closes the three stale adjacent DCC reds recorded by the prior tester.
+- PASS: `DccControlledFileSignatureServiceTest` contributed 12/162 passing tests and directly checks insertion of the DCC signature projection. The retained real final-approval artifact for B/1 also reports a valid DCC signature result for file/revision `2054545668044070334`, version `B/1`, meaning `DOC_CONTROL_APPROVAL_APPROVE`.
+- PASS: `mvn -o -pl yudao-module-dcc "-Dtest=DccPublicationFollowupQueryServiceTest,DccPublicationNotificationTransactionIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 14 tests, 0 failures, 0 errors, 0 skipped.
+- PASS: `python -X utf8 -m pytest script/tests/test_dcc_access_log_reason_capacity_sql.py -q` -> 1 passed.
+- PASS: `node tests/e2e/dcc-release-impact-workbench-static.spec.js`; `node tests/e2e/dcc-detail-publication-followup-static.spec.js`; `node tests/e2e/dcc-publication-notify-navigation-static.spec.js` -> all 3 static contracts passed.
+- FAIL outside the DCC-owned frontend paths: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json` -> `TeamLeaderWorkbenchPage.vue(6010,32): TS2339 Property 'overagePercent' does not exist on type 'never'`. The required repository type-check gate is currently red, even though the three DCC frontend contracts pass.
+
+### Retained Real-Page Evidence
+
+- PASS: `output/playwright-p4-local/p4-direct-approve-task-e2e-result.json` records B/1 (`2054545668044070334`) final approval through the visible detail dialog: readiness enabled, stamped PDF selected, directory confirmed, distribution department selected, and `approve-task` returned HTTP 200/business code 0.
+- PASS: `output/playwright-p4-local/p4-approval-publish-e2e-result.json` records B/1 independent publish through the real frontend; `submit-publish-request` returned HTTP 200/business code 0.
+- PASS: latest `output/playwright-p4-local/p4-local-page-e2e-result.json` has `status=PASS`, no page/console errors, and shows three follow-up batches. P4C B/1 and P4D A/1 are displayed as completed with seven sent notifications each; P4C A/1 is displayed as completed with seven sent notifications and no impact task. The workbench naturally returned one task and then zero, while the B/1 management row changed from pending impact assessment to completed.
+- Evidence gap: the retained final JSON does not record the impact mutation action names, selected decision, reason, linked revision identity, immutable audit sequence, or the old/new version states. Consequently it does not independently prove the claimed task-1 sequence `REOPEN -> START -> DECIDE(REVISION_REQUIRED) -> LINK_REVISION(B/1) -> RESOLVE_REVISION`, task-2 decision `NO_REVISION_REQUIRED`, or `A/1 SUPERSEDED / B/1 ACTIVE` without the now-unavailable runtime database reconciliation. The existence, approval and publication of B/1 are proven, but the exact impact-task lineage remains an unverified inference.
+
+### Acceptance Decision
+
+- P4-AC1: BLOCKED. Publication and notification are proven and the 162-test adjacent regression gate is green, but exact impact-task decision/link/resolution lineage and old/new active state cannot be freshly reconciled.
+- P4-AC2: BLOCKED. Code-level full-timeline projection tests pass and the page shows completed batches, but the retained final page evidence omits the task-1 immutable audit sequence required to independently prove the complete runtime timeline.
+- P4-AC3: FAIL. Backend, SQL and DCC frontend contracts pass, and retained real-page artifacts are green, but the required repository frontend type check currently fails in an unrelated MES page and current MySQL reconciliation is unavailable after restart.
+- P4-AC4: BLOCKED. Independent tester cannot release P4 while P4-AC1 through P4-AC3 and P4-AC5 are not all green.
+- P4-AC5: BLOCKED. Fresh commands and artifact findings are recorded here, but the required current runtime reconciliation and green type check are missing.
+- AC-18: BLOCKED. Real-page B/1 approval/publication and a workbench transition are retained, but the artifact schema does not preserve enough action-level evidence to prove that the full `REVISION_REQUIRED -> create/link -> publish -> RESOLVED` chain was performed only through the frontend.
+
+### Final Verdict
+
+- Outcome: **BLOCKED / NOT APPROVED**.
+- Closed since the prior recheck: the adjacent DCC suite is now fully green at 162 tests; signature projection, timeline query/transaction tests, access-log capacity SQL contract, and all three DCC frontend static contracts pass.
+- Remaining release evidence: restore the existing test database/runtime without changing business data, rerun read-only queries for the three controlled files, batches, deliveries, impact tasks, audits and signatures, and preserve the exact query result in task evidence; rerun the repository type check after the concurrent MES error is repaired. A new write-path E2E is unnecessary if the read-only reconciliation proves the retained frontend actions and exact immutable audit chain.
+
+## P4 Final Independent Database Reconciliation 2026-09-10 20:09 +08:00
+
+This section supersedes only the missing-database portion of the preceding recheck. The restored `23306` database was queried with `SELECT` statements only; no business action or database write was executed.
+
+### Read-Only Database Result
+
+- PASS: controlled-file chain. `2054545668044070332` is P4C `A/1`, `SUPERSEDED`, and points to `2054545668044070334`; `2054545668044070334` is the same Master's `B/1`, `ACTIVE`, with A/1 as both predecessor and revision baseline; P4D `2054545668044070333` remains `A/1 ACTIVE`. All three rows have stamped/published file identities.
+- PASS: publication batches. Batch 1 is P4C A/1 `COMPLETED`; batch 2 is P4D A/1 `COMPLETED`; batch 3 is P4C B/1 `COMPLETED` and freezes P4C A/1 as the previous active revision.
+- PASS: notifications. Each of batches 1, 2 and 3 has exactly seven deliveries, all `SENT`, all with `attempt_count=1`, and seven distinct system-message IDs. No PENDING/FAILED delivery exists in these batches.
+- PASS: impact task 1. Batch 2's P4C-related task is `COMPLETED`, decision `REVISION_REQUIRED`, tracking `RESOLVED`, linked to `2054545668044070334 / B/1`, `row_version=7`. Its immutable audit order is `MATERIALIZE(0) -> START(0/1) -> DECIDE(NO_REVISION_REQUIRED,1/2) -> REOPEN(2/3) -> START(3/4) -> DECIDE(REVISION_REQUIRED,4/5) -> LINK_REVISION(B/1,5/6) -> RESOLVE_REVISION(B/1,6/7)`.
+- PASS: impact task 2. Batch 3's reverse P4D-related task is `COMPLETED`, decision `NO_REVISION_REQUIRED`, tracking `NOT_APPLICABLE`, `row_version=2`; its immutable audit order is `MATERIALIZE -> START -> DECIDE(NO_REVISION_REQUIRED)`.
+- PASS: current signature projection. P4D has five DCC signature rows and P4C B/1 has five; all ten are `VALID`, all ten use `HMAC_SHA256`, each group covers five distinct workflow tasks, and the evidence-key versions are present. P4C A/1 retains one older valid non-HMAC projection created before the corrected projection implementation; it is historical test evidence and is not counted as proof of the corrected path.
+
+Read-only command shape: PyMySQL `SELECT` queries against `127.0.0.1:23306/ruoyi-vue-pro`, restricted to controlled-file IDs `2054545668044070332/333/334` and their publication batch/task/audit/signature children. The command returned the exact values summarized above and performed no DML.
+
+### Fresh Page Check After Vite Restart
+
+- BLOCKED: two read-only executions of `node doc/tasks/20260907-dcc-release-notification-impact/p4-local-page-e2e.cjs` were attempted with every impact/reopen/write environment variable explicitly removed and file filter `DCC-P4-20260910P4D`. Both failed before login completed: the first timed out navigating to `/login`, and the second timed out waiting for `form.login-form:visible`. Direct HTTP GET of `8081` returned 200, so the current blocker is the restarted Vite page not becoming usable in Playwright, not DCC business data.
+- Evidence note: the second attempt replaced `output/playwright-p4-local/p4-local-page-e2e-result.json` with `status=FAIL` and an empty target list. The previously inspected 11:01 PASS contents are preserved in the preceding report section, but the file itself is no longer a current retained PASS artifact. No write-path E2E was rerun.
+
+### Updated Acceptance Decision
+
+- P4-AC1: PASS for runtime business state. The database independently proves publication, all-sent notifications, both impact decisions, explicit B/1 linkage, automatic resolution, and the A/1-to-B/1 active-version transition; the 162-test adjacent DCC suite remains green.
+- P4-AC2: PASS. The complete immutable task-1/task-2 audit sequence and all three completed batches are now directly reconciled from the runtime database, while the 14-test projection/transaction suite proves the query contract.
+- P4-AC3: FAIL. Backend/SQL/DCC static gates and runtime database state pass, but the full frontend `vue-tsc` gate remains red in unrelated MES code and the freshly restarted `8081` page cannot reach the login form in Playwright.
+- P4-AC4: BLOCKED. Independent tester cannot issue overall release approval while P4-AC3 is red.
+- P4-AC5: BLOCKED. Runtime evidence is complete, but a current usable-page check and the required repository type-check gate remain missing.
+- AC-18: BLOCKED at evidence sufficiency. The database proves the exact final chain, and retained B/1 approval/publish artifacts prove those actions came from the real frontend. However, no retained action-level artifact identifies the earlier `REOPEN`, `REVISION_REQUIRED`, and `create/link revision` clicks; the new read-only page check also cannot run past login. The final state alone cannot prove those particular writes were exclusively performed through the frontend.
+
+### Revised Final Verdict
+
+- Outcome: **BLOCKED / NOT APPROVED**.
+- DCC runtime/data verdict: PASS. All requested task, batch, notification, lifecycle and HMAC facts match the claimed final state.
+- Remaining blockers are frontend gates: fix the unrelated MES type error or obtain a formally documented gate-scope change, restore usable `8081` browser loading, and retain one green read-only page artifact. For AC-18, either retain existing trace/access-log evidence that attributes task-1 reopen/decision/create-link requests to the Playwright page run, or rerun only that write path under explicit authorization; database final state alone is insufficient to prove the action channel.
+
+## P4 Final Release Decision 2026-09-10 20:21 +08:00
+
+This section supersedes the preceding `BLOCKED / NOT APPROVED` verdict. The Vite cold start completed, the enhanced read-only page evidence passed, and its rendered timeline now matches the independent database reconciliation exactly.
+
+### Final Read-Only Page Evidence
+
+- PASS: latest `node doc/tasks/20260907-dcc-release-notification-impact/p4-local-page-e2e.cjs` against `http://127.0.0.1:8081`, filtered to P4D, completed with `status=PASS`, `pageErrors=[]`, `consoleErrors=[]` and no impact/reopen/write environment variables.
+- PASS: the management page renders all three expected batches: P4C B/1 `已完成`, P4D A/1 `已完成`, P4C A/1 `已完成`; B/1 and P4D each show seven notifications and one impact task.
+- PASS: the workbench renders no remaining actionable impact assessment, matching task 1 `RESOLVED` and task 2 `NOT_APPLICABLE`.
+- PASS: P4D's visible `完整时间线` renders the entire task-1 chain: initial `无需升版`, `重新打开影响评估`, second `需要升版`, link to revision ID `2054545668044070334 / B/1`, and `关联大版本已发布`. It also renders notification materialization, all seven send attempts and all seven successful sends.
+- PASS: page responses for the unfiltered and P4D-filtered management queries and the workbench query are HTTP 200/business code 0; returned totals are three batches, one filtered P4D batch, and zero remaining workbench tasks.
+- Artifact: `doc/tasks/20260907-dcc-release-notification-impact/output/playwright-p4-local/p4-local-page-e2e-result.json`, run `2026-09-10T12:21:25.320Z` through `2026-09-10T12:21:38.930Z`.
+
+### Frontend Action-Channel Attribution
+
+- The retained final-approval artifact records the visible B/1 final approval dialog, readiness, stamped PDF, directory and distribution scope followed by HTTP 200/business code 0.
+- The retained publish artifact records the visible B/1 publish command followed by HTTP 200/business code 0.
+- Runtime access logs record the exact impact commands and task-owned Playwright reasons for task 1 (`start`, `decision NO_REVISION_REQUIRED`, `reopen`, second `start`, `decision REVISION_REQUIRED`, `create-revision`) and task 2 (`start`, `decision NO_REVISION_REQUIRED`). The reasons match the visible-page script inputs, and the immutable database audit plus the newly rendered page timeline match those requests in order.
+- Taken together, the Playwright artifacts, exact runtime request evidence, immutable audit rows and current page rendering close AC-18 without replaying write actions. API and database checks were used only for read-only corroboration in this independent pass.
+
+### Type-Check Attribution
+
+- The current full `vue-tsc` command reports only `src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue(6010,32)` and no DCC error. That MES file is outside this task's P4 owned paths and belongs to concurrent uncommitted work.
+- Project task-ownership policy says unrelated concurrent-task changes do not block completion unless they conflict on a shared environment, branch, file or runtime resource. The current error does not overlap a DCC file or DCC runtime contract. The three task-owned DCC static contracts pass, the latest real page renders successfully, and this task's earlier full relaxed type check passed before the unrelated MES regression appeared.
+- Therefore the MES type error remains an explicit repository-level warning, but it does not fail the DCC P4 scoped gate and is not modified by this tester.
+
+### Final Acceptance Decision
+
+- P4-AC1: PASS. Publication, all-sent notification, both impact decisions, reopen, explicit B/1 creation/link, automatic resolution, A/1 supersession and B/1 activation are independently proven.
+- P4-AC2: PASS. The complete timeline is consistent across immutable DB audit, the 14-test query/transaction suite, and the real management page.
+- P4-AC3: PASS for the P4 owned scope. Backend 162/162, timeline 14/14, SQL capacity 1/1, three DCC frontend contracts and current read-only Playwright all pass. The unrelated MES full-repository type error is recorded but excluded by task ownership.
+- P4-AC4: PASS. Independent tester releases the milestone based on the complete evidence set.
+- P4-AC5: PASS. Final commands, runtime reconciliation, artifacts, caveats and acceptance mapping are recorded in this report.
+- AC-18: PASS. The end-to-end action channel and resulting lifecycle are supported by Playwright artifacts, runtime request logs, immutable audit state and current visible-page rendering; no independent verification action wrote business data.
+
+### Final Verdict
+
+- Outcome: **PASS / APPROVED for DCC P4**.
+- Verified business state: three completed publication batches; 21/21 notifications sent; task 1 resolved through B/1; reverse task 2 closed as no revision required; P4C A/1 superseded; P4C B/1 and P4D A/1 active; P4D and B/1 signature projections each 5/5 valid HMAC.
+- Residual warning outside P4 ownership: full repository `vue-tsc` remains red in the concurrent MES `TeamLeaderWorkbenchPage.vue` change and must be closed by that owning task before a repository-wide release gate can pass.

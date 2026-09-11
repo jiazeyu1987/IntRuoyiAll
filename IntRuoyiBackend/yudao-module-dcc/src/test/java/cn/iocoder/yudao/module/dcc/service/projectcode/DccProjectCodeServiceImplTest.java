@@ -19,6 +19,8 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchR
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeAssignmentDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportBatchDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportRowDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
@@ -1165,6 +1167,33 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         IllegalStateException confirmException = assertThrows(IllegalStateException.class,
                 () -> projectCodeService.confirmImport(preview.getBatchId()));
         assertTrue(confirmException.getMessage().contains("DCC_PROJECT_CODE_IMPORT_BATCH_NOT_CONFIRMABLE"));
+    }
+
+    @Test
+    void confirmImportShouldRejectPreviewSummaryMismatchBeforeWrite() {
+        DccProjectCodeImportBatchDO batch = DccProjectCodeImportBatchDO.builder()
+                .status(DccProjectCodeImportStatusConstants.PREVIEWED)
+                .totalCount(2)
+                .createCount(2)
+                .updateCount(0)
+                .disableCount(0)
+                .unchangedCount(0)
+                .failureCount(0)
+                .build();
+        importBatchMapper.insert(batch);
+        importRowMapper.insert(DccProjectCodeImportRowDO.builder()
+                .batchId(batch.getId())
+                .rowNo(2)
+                .projectName("项目A")
+                .projectCode("CODE-A")
+                .importAction(DccProjectCodeImportActionConstants.CREATE)
+                .build());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> projectCodeService.confirmImport(batch.getId()));
+
+        assertTrue(exception.getMessage().contains("DCC_PROJECT_CODE_IMPORT_BATCH_INTEGRITY_INVALID"));
+        assertNull(projectCodeMapper.selectByProjectNameAndProjectCode("项目A", "CODE-A"));
     }
 
     @Test

@@ -21,6 +21,9 @@ public class MesQaInspectionRegulationSaveReqVO {
     @NotNull(message = "DCC 项目代码不能为空")
     private Long dccProjectCodeId;
 
+    @Schema(description = "规程归属模块：MES_QA=产品 QA；MES_QA_COMMON=通用检验规程")
+    private String ownerModule;
+
     @Schema(description = "规程编码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "规程编码不能为空")
     private String regulationCode;

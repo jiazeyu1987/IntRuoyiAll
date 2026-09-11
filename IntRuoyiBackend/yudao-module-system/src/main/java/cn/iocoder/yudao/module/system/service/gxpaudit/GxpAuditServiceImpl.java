@@ -8,8 +8,10 @@ import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,8 @@ public class GxpAuditServiceImpl implements GxpAuditService {
 
     @Resource
     private GxpAuditEventMapper auditEventMapper;
+    @Resource
+    private GxpAuditLedgerSequenceMapper ledgerSequenceMapper;
     @Resource
     private GxpAuditPolicyOperationMapper policyOperationMapper;
 
@@ -55,9 +59,8 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         }
 
         LoginUser actor = resolveActor();
+        long ledgerSequence = allocateLedgerSequence(tenantId);
         GxpAuditEventDO previous = auditEventMapper.selectLatestByTenant(tenantId);
-        long ledgerSequence = (auditEventMapper.selectMaxLedgerSequence(tenantId) == null
-                ? 0L : auditEventMapper.selectMaxLedgerSequence(tenantId)) + 1L;
         LocalDateTime serverOccurredAt = LocalDateTime.now();
 
         GxpAuditEventDO event = new GxpAuditEventDO();
@@ -97,6 +100,31 @@ public class GxpAuditServiceImpl implements GxpAuditService {
             throw exception(GXP_AUDIT_APPEND_FAILED, command.getOperationId());
         }
         return new GxpAuditAppendResult(event.getId(), event.getLedgerSequence(), event.getEventHash(), false);
+    }
+
+    private long allocateLedgerSequence(Long tenantId) {
+        GxpAuditLedgerSequenceDO sequence = ledgerSequenceMapper.selectByTenantIdForUpdate(tenantId);
+        if (sequence == null) {
+            Long maxLedgerSequence = auditEventMapper.selectMaxLedgerSequence(tenantId);
+            long nextLedgerSequence = (maxLedgerSequence == null ? 0L : maxLedgerSequence) + 1L;
+            GxpAuditLedgerSequenceDO initial = new GxpAuditLedgerSequenceDO();
+            initial.setTenantId(tenantId);
+            initial.setNextLedgerSequence(nextLedgerSequence + 1L);
+            ledgerSequenceMapper.insert(initial);
+            return nextLedgerSequence;
+        }
+        Long nextLedgerSequence = sequence.getNextLedgerSequence();
+        if (nextLedgerSequence == null || nextLedgerSequence < 1L) {
+            throw exception(GXP_AUDIT_APPEND_FAILED, "invalid-ledger-sequence-watermark");
+        }
+        GxpAuditLedgerSequenceDO updated = new GxpAuditLedgerSequenceDO();
+        updated.setTenantId(tenantId);
+        updated.setNextLedgerSequence(nextLedgerSequence + 1L);
+        int updatedRows = ledgerSequenceMapper.updateById(updated);
+        if (updatedRows != 1) {
+            throw exception(GXP_AUDIT_APPEND_FAILED, "ledger-sequence-watermark-update");
+        }
+        return nextLedgerSequence;
     }
 
     private void validateRequired(GxpAuditCommand command) {

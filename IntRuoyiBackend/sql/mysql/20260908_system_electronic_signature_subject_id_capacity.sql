@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260908_system_electronic_signature_t3; type=schema; riskLevel=medium
 -- 统一电子签名对象身份容量修复：支持 DCC/BPM 完整 Base64 审批上下文。
 DROP PROCEDURE IF EXISTS intruoyi_fix_esign_subject_id_capacity;
 

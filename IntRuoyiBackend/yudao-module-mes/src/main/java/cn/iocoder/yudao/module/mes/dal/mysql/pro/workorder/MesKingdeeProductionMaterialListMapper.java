@@ -33,7 +33,7 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
         return selectPage(reqVO, new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getSourceBillNo, reqVO.getSourceBillNo())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getProductCode, reqVO.getProductCode())
-                .likeIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())
+                .eqIfPresent(MesKingdeeProductionMaterialListDO::getProductionOrderNo, reqVO.getProductionOrderNo())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getChildMaterialCode, reqVO.getChildMaterialCode())
                 .likeIfPresent(MesKingdeeProductionMaterialListDO::getChildMaterialName, reqVO.getChildMaterialName())
                 .betweenIfPresent(MesKingdeeProductionMaterialListDO::getSourceModifyTime, reqVO.getSourceModifyTime())

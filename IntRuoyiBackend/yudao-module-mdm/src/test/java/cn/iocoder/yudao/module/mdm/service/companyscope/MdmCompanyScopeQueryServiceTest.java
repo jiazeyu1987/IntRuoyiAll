@@ -87,7 +87,7 @@ class MdmCompanyScopeQueryServiceTest {
         assertEquals("用户一", result.getList().get(0).getPrincipalName());
         assertEquals("角色一", result.getList().get(1).getPrincipalName());
         assertEquals(List.of("甲公司", "乙公司"),
-                result.getList().stream().map(MdmCompanyScopeRespVO::getCompanyName).toList());
+                result.getList().stream().map(MdmCompanyScopeRespVO::getCompanyDisplayLabel).toList());
     }
 
     private MdmUserCompanyScopeDO userScope(Long id, Long userId, Long companyId) {

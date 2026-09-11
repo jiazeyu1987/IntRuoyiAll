@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RELATED_FILE_DUPLICATE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RELATED_FILE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum.ACTIVE;
 
 @Service
 @Validated
@@ -43,6 +44,11 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
                 .stream()
                 .collect(Collectors.toMap(DccControlledFileDO::getId, Function.identity()));
         if (fileMap.size() != normalizedIds.size()) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        boolean containsInvalidCandidate = fileMap.values().stream()
+                .anyMatch(file -> !ACTIVE.getStatus().equals(file.getStatus()) || file.getMasterId() == null);
+        if (containsInvalidCandidate) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }
         for (Long relatedFileId : normalizedIds) {

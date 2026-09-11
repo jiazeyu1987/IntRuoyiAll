@@ -16,6 +16,7 @@ export interface UploadFormDraft {
   dccProjectCodeId: number | null
   fileTypeTaxonomyId: number | null
   revisionTargetControlledFileId: number | null
+  revisionSourceControlledFileId: number | null
   relatedControlledFileIds: number[]
   needTraining: boolean
   selectedSignoffUserIds: number[]
@@ -328,6 +329,7 @@ export const buildSubmitPayload = (
   categoryId: draft.categoryId as number,
   directoryId: draft.directoryId as number,
   sessionId: previewFile.sessionId,
+  idempotencyKey: previewFile.sessionId,
   originalUploadTicket: previewFile.uploadTicket,
   sourceUploadTicket: previewFile.uploadTicket,
   sourceFileName: previewFile.fileName,
@@ -339,12 +341,13 @@ export const buildSubmitPayload = (
   dccProjectCodeId: draft.dccProjectCodeId ?? undefined,
   fileTypeTaxonomyId: draft.fileTypeTaxonomyId ?? undefined,
   revisionTargetControlledFileId: draft.revisionTargetControlledFileId ?? undefined,
+  revisionSourceControlledFileId: draft.revisionSourceControlledFileId ?? undefined,
   relatedControlledFileIds: [...(draft.relatedControlledFileIds ?? [])],
   needTraining: Boolean(draft.needTraining),
   selectedSignoffUserIds: draft.selectedSignoffUserIds ?? [],
   processType: draft.processType,
   changeType: draft.changeType,
-  versionNo: draft.processType === 'EXTERNAL_REVIEW' ? trimText(draft.versionNo) : undefined,
+  versionNo: trimText(draft.versionNo) || undefined,
   effectiveDate: draft.effectiveDate,
   remark: trimText(draft.remark) || undefined
 })

@@ -23,8 +23,8 @@ function sliceBetween(source, startNeedle, endNeedle, label) {
 const signatureService = read(
   'main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionSignatureService.java'
 )
-const parameterValidator = read(
-  'main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesFrontlineDeviceParameterValidatorImpl.java'
+const submitService = read(
+  'main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFrontlineFeedbackSubmitServiceImpl.java'
 )
 const teamRuntimeConfig = read(
   'main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderRuntimeConfigServiceImpl.java'
@@ -97,20 +97,15 @@ assert.doesNotMatch(
   'Temporary employee signature must not validate against the current login/system-user password store.'
 )
 
-const routeProcessMatchBlock = sliceFrom(
-  parameterValidator,
-  'private static boolean routeProcessMatches',
-  'route process parameter match'
-)
 assert.match(
-  routeProcessMatchBlock,
-  /return configuredRouteProcessId != null && Objects\.equals\(configuredRouteProcessId, routeProcessId\);/,
-  'Submit-time parameter validation must match the runtime routeProcessId exactly.'
+  submitService,
+  /validateDeviceSelections[\s\S]*unknown device parameter[\s\S]*duplicate device parameter/,
+  'Submit-time parameter validation must validate the exact authorized snapshot parameters.'
 )
 assert.doesNotMatch(
-  routeProcessMatchBlock,
-  /configuredRouteProcessId == null \|\| Objects\.equals/,
-  'Submit-time parameter validation must not require legacy/global rules hidden from runtime cards.'
+  submitService,
+  /parameterRuleMapper/,
+  'Submit-time parameter validation must not read current route parameter tables.'
 )
 
 assert.match(

@@ -58,6 +58,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationProductBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaCommonRegulationSetVersionMemberMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -151,6 +153,10 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
+    private MesQaCommonRegulationProductBindingMapper commonRegulationProductBindingMapper;
+    @Mock
+    private MesQaCommonRegulationSetVersionMemberMapper commonRegulationSetVersionMemberMapper;
+    @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
@@ -188,7 +194,9 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 quantityFragmentMapper, pqcAggregateDetailMapper, pqcPieceDetailMapper,
                 inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
-                inspectionRegulationItemMapper, pqcInspectionTaskMapper,
+                inspectionRegulationItemMapper, commonRegulationProductBindingMapper,
+                commonRegulationSetVersionMemberMapper,
+                pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService,
                 pickListBindingMapper, pickListBindingItemMapper, workOrderBomMapper,

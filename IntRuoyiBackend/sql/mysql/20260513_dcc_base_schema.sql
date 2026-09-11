@@ -763,7 +763,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_access_log` (
   `purpose` varchar(64) DEFAULT NULL,
   `result` varchar(32) NOT NULL,
   `failure_code` varchar(64) DEFAULT NULL,
-  `reason` varchar(255) DEFAULT NULL,
+  `reason` varchar(2000) DEFAULT NULL,
   `source_ip` varchar(64) DEFAULT NULL,
   `request_id` varchar(128) DEFAULT NULL,
   `user_agent` varchar(512) DEFAULT NULL,

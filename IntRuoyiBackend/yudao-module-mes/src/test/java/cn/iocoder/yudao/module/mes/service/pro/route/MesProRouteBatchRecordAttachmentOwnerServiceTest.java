@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeast;
@@ -111,8 +112,8 @@ class MesProRouteBatchRecordAttachmentOwnerServiceTest {
 
         ArgumentCaptor<Long> userCaptor = ArgumentCaptor.forClass(Long.class);
         ArgumentCaptor<Set<Long>> roleSetCaptor = ArgumentCaptor.forClass(Set.class);
-        verify(permissionService, atLeast(8)).assignUserRole(userCaptor.capture(), roleSetCaptor.capture());
-        verify(permissionService, atMost(16)).assignUserRole(any(), anySet());
+        verify(permissionService, atLeast(8)).assignUserRole(userCaptor.capture(), roleSetCaptor.capture(), anyString(), anyString());
+        verify(permissionService, atMost(16)).assignUserRole(any(), anySet(), anyString(), anyString());
         assertTrue(userCaptor.getAllValues().stream().allMatch(userId -> userId >= 101L && userId <= 105L));
         assertTrue(roleSetCaptor.getAllValues().stream().allMatch(roleIds -> roleIds.stream().allMatch(id -> id >= 901L && id <= 904L)));
         assertTrue(roleSetCaptor.getAllValues().size() >= 8);
