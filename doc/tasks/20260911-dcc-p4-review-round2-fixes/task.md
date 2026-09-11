@@ -21,9 +21,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和定向验证已通过，等待 cleanup 与 Git 提交/推送收尾。
+实现、定向验证、经验沉淀、cleanup 和代码提交均已完成。
 
 ## Design Constraints Check
 

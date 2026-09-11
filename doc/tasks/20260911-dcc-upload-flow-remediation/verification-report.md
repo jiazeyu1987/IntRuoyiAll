@@ -22,7 +22,7 @@ PASS_WITH_EXTERNAL_GAPS
 
 - Full `vue-tsc` now reaches real diagnostics with an 8GB heap. The DCC external-review idempotency typing issue introduced by this task was fixed. Remaining diagnostics are pre-existing/concurrent unused declarations in upload, form-center and MES files; this task did not remove unrelated code.
 - Existing `dcc-upload-category-permission-static.spec.js` expects the retired global taxonomy endpoint, while the current upload page uses project-template taxonomy options. The stale contract is not treated as passing evidence.
-- No Playwright E2E, runtime service restart, database migration execution, Git commit or push was performed because the current user turn did not authorize those actions.
+- No Playwright E2E, runtime service restart, or database migration execution was performed. Git commit/push was authorized in the later submission turn.
 
 ## Database
 
@@ -33,4 +33,4 @@ PASS_WITH_EXTERNAL_GAPS
 
 ## Closeout Status
 
-ready_for_closeout; Git integration and live migration/E2E validation remain outside this turn's authorization.
+completed; implementation commit `e3de87069` and cleanup apply passed. Live migration/E2E validation remains outside this turn's authorization and is not claimed.

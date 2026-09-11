@@ -60,4 +60,10 @@ FAIL: `node tests/e2e/dcc-upload-category-permission-static.spec.js` -> existing
 - M2: completed
 - M3: completed
 - M4: completed
-- M5: ready_for_closeout; targeted verification passed, full type check retains unrelated diagnostics.
+- M5: completed; targeted verification passed, full type check retains unrelated diagnostics outside this task.
+
+## Final Closeout
+
+- Implementation commit: `e3de87069`，包含 DIRECT 发布策略迁移元数据修复。
+- task-closeout-cleanup preview/apply -> PASS；保留三份核心任务记录，无删除项、blocker 或 warning。
+- 用户当轮已授权 Git 提交/推送；软件代码范围标记 completed，未宣称真实数据库迁移或 E2E。

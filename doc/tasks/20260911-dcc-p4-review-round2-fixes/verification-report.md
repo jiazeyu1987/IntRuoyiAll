@@ -19,9 +19,9 @@ The three second-review code blockers are fixed in the current workspace. OWNER 
 - The new access-rule migration has not been applied and no OWNER rows have been configured in the test database during this turn.
 - The corrected GxP script has not been executed against a freshly created legacy-shape MySQL schema during this turn.
 - 48081 restart and real frontend E2E were not requested in this turn.
-- Git commit/push were not requested in this turn.
+- Git commit/push were authorized in the current turn; implementation commits are `e3de87069` and `60311c1be`.
 
 ## Closeout
 
 - PASS: task cleanup preview/apply; no blocked paths or warnings.
-- Status remains `ready_for_closeout` because Git commit/push and runtime verification are outside this turn's authorization.
+- Status is `completed` for the verified software scope; runtime migration and E2E remain explicitly outside this turn's authorization and are not claimed.
