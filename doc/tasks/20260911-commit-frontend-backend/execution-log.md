@@ -52,3 +52,12 @@
 - GREEN: task-closeout-cleanup preview -> PASS，keep `task.md`、`execution-log.md`、`verification-report.md`，delete 13 个本任务临时日志/JSON，blocked/warnings 均为空。
 - GREEN: task-closeout-cleanup apply -> PASS，已删除 13 个本任务临时日志/JSON；当前为主工作区 `int_main`，无 worktree 合并/删除。
 - GREEN: project-experience-consolidation -> PASS，已合并 Maven target 锁等待策略到 `docs/powershell-memory.md`，合并全量 migration policy gate 元数据经验到 `docs/release-build-preflight-lessons.md`，未新建长期经验文档。
+- GREEN: `git commit -m "chore: 提交前后端代码"` -> PASS，生成本地提交 `2a5c870ae`，预提交 hook `branch-runtime-port-guard` PASS。
+- RED: `git rebase origin/int_main` -> FAIL，WPS 正打开 `resource/通用检验规程/瑛泰医疗集团数智化发展规划0911(1).pptx`，导致 Git 无法覆盖同路径未跟踪文件；未关闭用户进程，改用索引登记同哈希文件后安全退出 rebase。
+- GREEN: `git merge --no-edit origin/int_main` -> PASS，合并远端 2 个文档提交，预提交 hook `branch-runtime-port-guard` PASS。
+- RED: `git push origin int_main` -> FAIL，HTTPS 返回 HTTP 408；远端核验仍停留在 `5e556f31d`。
+- RED: `git -c http.version=HTTP/1.1 -c http.postBuffer=524288000 push origin int_main` -> FAIL/timeout，远端核验仍停留在 `5e556f31d`；对象大小排查显示两个新增 PPTX 各约 33MB。
+- GREEN: 使用临时 Git 索引重写未推送历史 -> PASS，创建本地备份分支 `codex/backup-submit-with-resource-files-20260911-1`，生成不含 `resource/通用检验规程` 新增 Office 文件的新提交 `860496e330a8b47bcb421b8b65ece03c06df33d8`；本地 Office 资源文件未删除。
+- GREEN: `git diff --check origin/int_main..HEAD -- IntRuoyiBackend IntRuoyiFronted docs doc` -> PASS。
+- GREEN: `git rev-list --objects origin/int_main..HEAD | rg "resource/"` -> no matches；最终待推提交不含 `resource/` 大文件。
+- GREEN: `git -c http.version=HTTP/1.1 -c http.postBuffer=524288000 push origin int_main` -> PASS，`5e556f31d..860496e33  int_main -> int_main`。

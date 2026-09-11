@@ -10,7 +10,7 @@
 - [x] 核对相关任务的验证状态与提交门禁
 - [x] 运行提交前必需检查并确认 staged 文件清单
 - [x] 修复提交前验证阻断点：DCC 回归失败与 SQL release-migration 元数据失败
-- [ ] 提交并推送前端、后端代码，记录 commit hash 和 push 结果
+- [x] 提交并推送前端、后端代码，记录 commit hash 和 push 结果
 
 ## Expected Verification
 
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-用户已要求“直接修”。当前提交阻断点已修复并通过定向验证；尚未执行主仓库 commit/push，且 `int_main` 仍需处理 `ahead 2 / behind 2` 的远端分歧后才能推送。
+用户已要求“直接修”。当前提交阻断点已修复并通过定向验证；前后端代码已提交并推送到 `origin/int_main`，最终提交为 `860496e330a8b47bcb421b8b65ece03c06df33d8`。远端分歧已通过合并远端文档提交后重写为单个前后端提交解决；`resource/通用检验规程` 下新增 Office 资源文件因不属于本轮“前后端代码”范围且触发 HTTPS 大对象上传超时，已保留在本地磁盘、未纳入远端提交。
 
 ## Design Constraints Check
 
