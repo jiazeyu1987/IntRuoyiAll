@@ -9,13 +9,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Server-side one-time production authorization binding. */
 @Service
 public class ReleaseWorkflowAuthorizationService {
+
+    private static final ConcurrentHashMap<String, Object> JVM_GRANT_LOCKS = new ConcurrentHashMap<>();
 
     private final RuntimeControlProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -73,18 +79,32 @@ public class ReleaseWorkflowAuthorizationService {
 
     public synchronized ReleaseAuthorizationGrant execute(String grantId, WorkflowTuple workflow,
                                                            String prodConfirmText, Instant now) {
-        ReleaseAuthorizationGrant grant = require(grantId);
-        Validation validation = validate(grant, workflow, now, true, prodConfirmText);
-        if (!validation.valid()) {
-            throw new AuthorizationException(validation.errorCode());
+        Object jvmLock = JVM_GRANT_LOCKS.computeIfAbsent(grantId, ignored -> new Object());
+        synchronized (jvmLock) {
+            Path lockPath = grantPath(grantId).resolveSibling(grantId + ".lock");
+            try {
+                Files.createDirectories(authorizationDir());
+                try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE,
+                        StandardOpenOption.WRITE); FileLock ignored = channel.lock()) {
+                    ReleaseAuthorizationGrant grant = require(grantId);
+                    Validation validation = validate(grant, workflow, now, true, prodConfirmText);
+                    if (!validation.valid()) {
+                        throw new AuthorizationException(validation.errorCode());
+                    }
+                    ReleaseAuthorizationGrant consumed = new ReleaseAuthorizationGrant(
+                            grant.grantId(), grant.workflowId(), grant.releaseTag(), grant.packageDigest(),
+                            grant.manifestDigest(), grant.targetEnvironment(), grant.presetId(), grant.presetVersion(),
+                            grant.approvedScope(), grant.approver(), grant.issuedAt(), grant.validUntil(), grant.nonce(),
+                            grant.revokedAt(), now);
+                    persist(consumed);
+                    return consumed;
+                }
+            } catch (AuthorizationException ex) {
+                throw ex;
+            } catch (IOException ex) {
+                throw new AuthorizationException("AUTHORIZATION_CAS_LOCK_FAILED", ex);
+            }
         }
-        ReleaseAuthorizationGrant consumed = new ReleaseAuthorizationGrant(
-                grant.grantId(), grant.workflowId(), grant.releaseTag(), grant.packageDigest(),
-                grant.manifestDigest(), grant.targetEnvironment(), grant.presetId(), grant.presetVersion(),
-                grant.approvedScope(), grant.approver(), grant.issuedAt(), grant.validUntil(), grant.nonce(),
-                grant.revokedAt(), now);
-        persist(consumed);
-        return consumed;
     }
 
     public synchronized ReleaseAuthorizationGrant revoke(String grantId, Instant now) {
