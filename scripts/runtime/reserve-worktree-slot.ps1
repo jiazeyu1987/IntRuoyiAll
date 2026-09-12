@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('int_main_d', 'int_main', 'int_batch', 'int_shedule', 'int_qms')]
     [string]$Profile,
-    [string]$RegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json',
+    [string]$WorktreeRoot,
+    [string]$RegistryPath,
     [switch]$AsJson
 )
 
@@ -14,16 +15,22 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\branch-runtime-profile.ps1"
 
-$worktreeRoot = Normalize-BranchRuntimePath -Path 'D:\IntRuoyiWorktree'
 $normalizedPath = Normalize-BranchRuntimePath -Path $Path
-if (-not $normalizedPath.StartsWith("$worktreeRoot\", [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Worktree path '$normalizedPath' must be a child of '$worktreeRoot'."
+if (-not [string]::IsNullOrWhiteSpace($WorktreeRoot)) {
+    $normalizedWorktreeRoot = Normalize-BranchRuntimePath -Path $WorktreeRoot
+    if (-not $normalizedPath.StartsWith("$normalizedWorktreeRoot\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Worktree path '$normalizedPath' must be a child of '$normalizedWorktreeRoot'."
+    }
 }
 if ([System.IO.Path]::GetFileName($normalizedPath) -ne $Name) {
     throw "Worktree name '$Name' must match target directory name '$([System.IO.Path]::GetFileName($normalizedPath))'."
 }
 
-$registryFullPath = [System.IO.Path]::GetFullPath($RegistryPath)
+$registryFullPath = if ([string]::IsNullOrWhiteSpace($RegistryPath)) {
+    Get-BranchRuntimePortRegistryPath
+} else {
+    [System.IO.Path]::GetFullPath($RegistryPath)
+}
 $registryDirectory = Split-Path -Parent $registryFullPath
 if ([string]::IsNullOrWhiteSpace($registryDirectory)) {
     throw "Worktree port registry path must have a parent directory: $registryFullPath"

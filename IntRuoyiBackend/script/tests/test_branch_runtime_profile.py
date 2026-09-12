@@ -47,7 +47,9 @@ def _slot_allocator_command(
     *,
     name: str,
     profile: str = "int_main",
+    worktree_root: Path | None = None,
 ) -> list[str]:
+    root = worktree_root or Path(r"D:\IntRuoyiWorktree")
     return [
         "powershell",
         "-NoProfile",
@@ -58,7 +60,9 @@ def _slot_allocator_command(
         "-Name",
         name,
         "-Path",
-        f"D:\\IntRuoyiWorktree\\{name}",
+        str(root / name),
+        "-WorktreeRoot",
+        str(root),
         "-Branch",
         f"codex/{name}",
         "-Profile",
@@ -572,6 +576,67 @@ def test_main_workspace_resolves_int_main_base_profile(tmp_path: Path) -> None:
     assert '"Name":  "int_main"' in result.stdout
     assert '"FrontendPort":  8081' in result.stdout
     assert '"BackendPort":  48081' in result.stdout
+
+
+def test_int_main_resolves_from_arbitrary_computer_path(tmp_path: Path) -> None:
+    registry_path = _write_registry(tmp_path, [])
+    portable_root = tmp_path / "checkout" / "IntRuoyiAll"
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        f"-RepoRoot '{portable_root}' "
+        "-Branch 'int_main'; "
+        "$context | ConvertTo-Json -Depth 4"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode == 0, result.stderr
+    assert '"Name":  "int_main"' in result.stdout
+    assert '"FrontendPort":  8081' in result.stdout
+    assert '"BackendPort":  48081' in result.stdout
+
+
+def test_explicit_runtime_profile_selects_int_main_d_without_path_marker(tmp_path: Path) -> None:
+    registry_path = _write_registry(tmp_path, [])
+    portable_root = tmp_path / "checkout" / "IntRuoyiAll"
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$env:INTRUOYI_RUNTIME_PROFILE = 'int_main_d'; "
+        "$context = Resolve-BranchRuntimeContext "
+        f"-RepoRoot '{portable_root}' "
+        "-Branch 'int_main'; "
+        "$context | ConvertTo-Json -Depth 4"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode == 0, result.stderr
+    assert '"Name":  "int_main_d"' in result.stdout
+    assert '"FrontendPort":  8101' in result.stdout
+    assert '"BackendPort":  48101' in result.stdout
+
+
+def test_slot_allocator_accepts_configured_portable_worktree_root(tmp_path: Path) -> None:
+    registry_path = _write_registry(tmp_path, [])
+    worktree_root = tmp_path / "worktrees"
+
+    result = subprocess.run(
+        _slot_allocator_command(
+            registry_path,
+            name="portable-slot",
+            worktree_root=worktree_root,
+        ),
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=180,
+    )
+
+    assert result.returncode == 0, result.stderr
+    allocation = json.loads(result.stdout)
+    assert allocation["slot"] == 1
+    assert Path(allocation["path"]) == worktree_root / "portable-slot"
 
 
 def test_slot_allocator_reserves_lowest_available_profile_slot(tmp_path: Path) -> None:

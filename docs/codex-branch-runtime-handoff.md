@@ -23,11 +23,11 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 
 | Profile | Workspace | Frontend | Backend |
 | --- | --- | ---: | ---: |
-| `int_main_d` | `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` | `8101` | `48101` |
-| `int_main` | `E:\IntRuoyi` | `8081` | `48081` |
-| `int_batch` | `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll` | `8041` | `48041` |
-| `int_shedule` | `E:\IntRuoyiBranch\Shedule\IntRuoyiAll` | `8021` | `48021` |
-| `int_qms` | `E:\IntRuoyiBranch\QMS\IntRuoyiAll` | `8061` | `48061` |
+| `int_main_d` | Explicit `INTRUOYI_RUNTIME_PROFILE=int_main_d` | `8101` | `48101` |
+| `int_main` | `int_main` default | `8081` | `48081` |
+| `int_batch` | `int_batch` default | `8041` | `48041` |
+| `int_shedule` | `int_shedule` / `int_schedule` default | `8021` | `48021` |
+| `int_qms` | `int_qms` default | `8061` | `48061` |
 
 ## Worktree Rule
 
@@ -45,7 +45,8 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 `
   -Name <worktree-directory-name> `
-  -Path D:\IntRuoyiWorktree\<worktree-directory-name> `
+  -Path <absolute-worktree-path> `
+  -WorktreeRoot <absolute-worktree-root> `
   -Branch <branch-name> `
   -Profile <runtime-profile>
 ```

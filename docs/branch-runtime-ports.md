@@ -10,11 +10,11 @@ This contract keeps local branch runtimes independent while code can still merge
 
 | Runtime profile | Branch/workspace | Frontend base port | Backend base port | Frontend env mode |
 | --- | --- | ---: | ---: | --- |
-| `int_main_d` | `int_main`, `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` | `8101` | `48101` | `branch-main-d` |
-| `int_main` | `int_main`, `E:\IntRuoyi` | `8081` | `48081` | `env.local` |
-| `int_batch` | `int_batch`, `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll` | `8041` | `48041` | `branch-batch` |
-| `int_shedule` | `int_shedule`, `E:\IntRuoyiBranch\Shedule\IntRuoyiAll` | `8021` | `48021` | `branch-shedule` |
-| `int_qms` | `int_qms`, `E:\IntRuoyiBranch\QMS\IntRuoyiAll` | `8061` | `48061` | `branch-qms` |
+| `int_main_d` | `int_main`, explicit `INTRUOYI_RUNTIME_PROFILE=int_main_d` | `8101` | `48101` | `branch-main-d` |
+| `int_main` | `int_main`, default profile | `8081` | `48081` | `env.local` |
+| `int_batch` | `int_batch`, default profile | `8041` | `48041` | `branch-batch` |
+| `int_shedule` | `int_shedule` or `int_schedule`, default profile | `8021` | `48021` | `branch-shedule` |
+| `int_qms` | `int_qms`, default profile | `8061` | `48061` | `branch-qms` |
 
 ## Worktree Ports
 
@@ -39,9 +39,9 @@ This contract keeps local branch runtimes independent while code can still merge
 
 ## Protected Rules
 
-- Do not change E:\IntRuoyi int_main defaults away from 8081/48081.
-- D:\ProjectPackage\IntRuoyi\IntRuoyiAll is int_main_d and must use 8101/48101.
-- The five base directories must remain unique: D-Main 8101/48101, E-Main 8081/48081, Batch 8041/48041, Shedule 8021/48021, QMS 8061/48061.
+- Runtime identity is based on the current Git branch plus an optional explicit `INTRUOYI_RUNTIME_PROFILE`; it must not depend on a drive letter or absolute checkout path.
+- The default `int_main` profile remains `8081/48081`; `int_main_d` must be selected explicitly and remains `8101/48101`.
+- The five base profiles must retain unique port pairs: Main-D 8101/48101, Main 8081/48081, Batch 8041/48041, Shedule 8021/48021, QMS 8061/48061.
 - Base workspaces must use `slot = 0`; they may not request additional worktree slots.
 - Additional worktrees may not use `slot >= 101`, any base port, or any active registry slot/port owned by another worktree.
 - Do not make branch-specific runtime ports by editing shared `IntRuoyiFronted\.env` or backend `application-local.yaml`.

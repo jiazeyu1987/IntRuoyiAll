@@ -2,7 +2,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:PortContractVersion = '2026-08-24-branch-runtime-v7'
-$script:DefaultWorktreePortRegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json'
 $script:MinimumWorktreeSlot = 1
 $script:LegacyMaximumWorktreeSlot = 19
 $script:MaximumWorktreeSlot = 100
@@ -12,7 +11,7 @@ function Get-BranchRuntimeProfiles {
         [pscustomobject]@{
             Name = 'int_main_d'
             Branches = @('int_main')
-            PathMarkers = @('\ProjectPackage\IntRuoyi\IntRuoyiAll', '\ProjectPackage\IntRuoyi\IntRuoyiAll\')
+            DefaultForBranch = $false
             FrontendBasePort = 8101
             BackendBasePort = 48101
             ExtendedFrontendStartPort = 8165
@@ -37,7 +36,7 @@ function Get-BranchRuntimeProfiles {
         [pscustomobject]@{
             Name = 'int_main'
             Branches = @('int_main')
-            PathMarkers = @('\IntRuoyi\')
+            DefaultForBranch = $true
             FrontendBasePort = 8081
             BackendBasePort = 48081
             ExtendedFrontendStartPort = 8154
@@ -62,7 +61,7 @@ function Get-BranchRuntimeProfiles {
         [pscustomobject]@{
             Name = 'int_batch'
             Branches = @('int_batch')
-            PathMarkers = @('\IntRuoyiBranch\BatchRecord\')
+            DefaultForBranch = $true
             FrontendBasePort = 8041
             BackendBasePort = 48041
             ExtendedFrontendStartPort = 8132
@@ -87,7 +86,7 @@ function Get-BranchRuntimeProfiles {
         [pscustomobject]@{
             Name = 'int_shedule'
             Branches = @('int_shedule', 'int_schedule')
-            PathMarkers = @('\IntRuoyiBranch\Shedule\', '\IntRuoyiBranch\Schedule\')
+            DefaultForBranch = $true
             FrontendBasePort = 8021
             BackendBasePort = 48021
             ExtendedFrontendStartPort = 8121
@@ -112,7 +111,7 @@ function Get-BranchRuntimeProfiles {
         [pscustomobject]@{
             Name = 'int_qms'
             Branches = @('int_qms')
-            PathMarkers = @('\IntRuoyiBranch\QMS\')
+            DefaultForBranch = $true
             FrontendBasePort = 8061
             BackendBasePort = 48061
             ExtendedFrontendStartPort = 8143
@@ -167,20 +166,18 @@ function Normalize-BranchRuntimePath {
     [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/').Replace('/', '\')
 }
 
-function Test-IsRegisteredWorktreePath {
-    param([Parameter(Mandatory = $true)][string]$RepoRoot)
-
-    $worktreeRoot = Normalize-BranchRuntimePath -Path 'D:\IntRuoyiWorktree'
-    $normalizedRoot = Normalize-BranchRuntimePath -Path $RepoRoot
-    $normalizedRoot.StartsWith("$worktreeRoot\", [StringComparison]::OrdinalIgnoreCase)
-}
-
 function Get-BranchRuntimePortRegistryPath {
     if (-not [string]::IsNullOrWhiteSpace($env:INTRUOYI_WORKTREE_PORT_REGISTRY)) {
         return [System.IO.Path]::GetFullPath($env:INTRUOYI_WORKTREE_PORT_REGISTRY)
     }
 
-    $script:DefaultWorktreePortRegistryPath
+    $commonGitDirectory = & git rev-parse --git-common-dir
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commonGitDirectory)) {
+        throw 'Cannot resolve the shared Git directory for the worktree port registry. Set INTRUOYI_WORKTREE_PORT_REGISTRY explicitly.'
+    }
+
+    $commonGitDirectory = [System.IO.Path]::GetFullPath($commonGitDirectory.Trim())
+    Join-Path $commonGitDirectory 'intrruoyi-runtime\worktree-ports.json'
 }
 
 function Assert-BranchRuntimePortRegistryContract {
@@ -356,12 +353,6 @@ function Get-RegisteredBranchRuntimeContext {
         })
 
     if ($matches.Count -eq 0) {
-        if (Test-IsRegisteredWorktreePath -RepoRoot $fullRoot) {
-            if (-not (Test-Path -LiteralPath $registryPath)) {
-                throw "Missing worktree port registry: $registryPath. Worktree '$fullRoot' must be registered before runtime startup."
-            }
-            throw "No worktree port registry entry is registered for '$fullRoot'."
-        }
         return $null
     }
 
@@ -416,8 +407,6 @@ function Resolve-BranchRuntimeContext {
     )
 
     $fullRoot = Normalize-BranchRuntimePath -Path $RepoRoot
-    $normalizedRoot = $fullRoot
-    $pathForMarkerMatch = "$normalizedRoot\"
     $profiles = Get-BranchRuntimeProfiles
     $registeredContext = Get-RegisteredBranchRuntimeContext -RepoRoot $fullRoot -Branch $Branch -Profiles $profiles
 
@@ -430,29 +419,32 @@ function Resolve-BranchRuntimeContext {
 
     $slot = if ($null -eq $RequestedSlot) { 0 } else { [int]$RequestedSlot }
 
-    foreach ($profile in $profiles) {
-        foreach ($marker in $profile.PathMarkers) {
-            if ($pathForMarkerMatch.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                if ($profile.Branches -notcontains $Branch) {
-                    throw "Workspace '$fullRoot' belongs to profile '$($profile.Name)' but current branch is '$Branch'. Switch to one of: $($profile.Branches -join ', ')."
-                }
-                if ($slot -ne 0) {
-                    throw "Base workspace must use runtime slot 0. Additional worktrees must be registered under 'D:\IntRuoyiWorktree'."
-                }
-                return New-BranchRuntimeContext -Profile $profile -Slot $slot
-            }
+    if (-not [string]::IsNullOrWhiteSpace($env:INTRUOYI_RUNTIME_PROFILE)) {
+        $explicitProfiles = @($profiles | Where-Object { $_.Name -eq $env:INTRUOYI_RUNTIME_PROFILE })
+        if ($explicitProfiles.Count -ne 1) {
+            throw "Unknown INTRUOYI_RUNTIME_PROFILE '$($env:INTRUOYI_RUNTIME_PROFILE)'."
         }
+        $explicitProfile = $explicitProfiles[0]
+        if ($explicitProfile.Branches -notcontains $Branch) {
+            throw "Runtime profile '$($explicitProfile.Name)' does not allow branch '$Branch'."
+        }
+        if ($slot -ne 0) {
+            throw 'Base workspace must use runtime slot 0. Additional worktrees must use a registered slot.'
+        }
+        return New-BranchRuntimeContext -Profile $explicitProfile -Slot $slot
     }
 
-    $branchProfiles = @($profiles | Where-Object { $_.Branches -contains $Branch })
+    $branchProfiles = @($profiles | Where-Object {
+            $_.Branches -contains $Branch -and $_.DefaultForBranch
+        })
     if ($branchProfiles.Count -eq 1) {
         if ($slot -ne 0) {
-            throw "Base workspace must use runtime slot 0. Additional worktrees must be registered under 'D:\IntRuoyiWorktree'."
+            throw 'Base workspace must use runtime slot 0. Additional worktrees must use a registered slot.'
         }
         return New-BranchRuntimeContext -Profile $branchProfiles[0] -Slot $slot
     }
     if ($branchProfiles.Count -gt 1) {
-        throw "Runtime profile is ambiguous for branch '$Branch' at '$fullRoot'. Register worktrees under 'D:\IntRuoyiWorktree' or use a defined base workspace path."
+        throw "Multiple default runtime profiles are configured for branch '$Branch'."
     }
 
     throw "No branch runtime profile is registered for branch '$Branch' at '$fullRoot'."

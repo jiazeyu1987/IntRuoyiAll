@@ -6,15 +6,15 @@
 - 涉及 worktree 路径、分支命名、端口分配、端口占用处理、端口登记表或 worktree 删除时，必须按本文件执行。
 - 本文件是 IntRuoyi worktree 操作的强制限制文件；不得用临时判断、随机端口或旧项目规则替代。
 
-## 固定基线
+## 可移植基线
 
 PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
-- 主工作区：`E:\IntRuoyi`。
-- D-Main 工作区：`D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
+- 主工作区：当前 Git 仓库根目录，不绑定盘符或绝对路径。
+- `int_main_d`：通过 `INTRUOYI_RUNTIME_PROFILE=int_main_d` 显式选择，不通过目录判断。
 - 主分支：`int_main`。
-- worktree 根目录：`D:\IntRuoyiWorktree\`。
-- 端口登记表：`D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- worktree 根目录：由使用者按电脑环境选择，可通过 `-WorktreeRoot` 明确约束。
+- 端口登记表：默认位于 Git common directory 的 `intrruoyi-runtime\worktree-ports.json`，也可通过 `INTRUOYI_WORKTREE_PORT_REGISTRY` 或 `-RegistryPath` 指定。
 - `int_main_d` 固定槽位：`slot = 0`。
 - `int_main_d` 前端专属端口：`8101`。
 - `int_main_d` 后端专属端口：`48101`。
@@ -24,8 +24,8 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 ## Runtime Profile 端口矩阵
 
-- `int_main_d` profile：基准前端 `8101`，基准后端 `48101`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
-- `int_main` profile：基准前端 `8081`，基准后端 `48081`，对应 `E:\IntRuoyi`。
+- `int_main_d` profile：基准前端 `8101`，基准后端 `48101`，必须显式选择。
+- `int_main` profile：基准前端 `8081`，基准后端 `48081`，是 `int_main` 分支默认 profile。
 - `int_batch` profile：基准前端 `8041`，基准后端 `48041`。
 - `int_shedule` profile：基准前端 `8021`，基准后端 `48021`。
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
@@ -35,12 +35,12 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
 - 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
 
-## 创建位置限制
+## 创建位置规则
 
-- 所有 IntRuoyi worktree 只能创建在 `D:\IntRuoyiWorktree\` 下。
-- 创建前必须解析目标目录的绝对路径，并确认它是 `D:\IntRuoyiWorktree\` 的子路径。
-- 禁止在 `E:\IntRuoyi`、`E:\IntRuoyi\IntRuoyiBackend`、`E:\IntRuoyi\IntRuoyiFronted`、`%TEMP%`、用户目录或任何旧项目目录创建 IntRuoyi worktree。
-- 如果 `D:\IntRuoyiWorktree\` 不存在或不可写，必须 fail fast，并报告缺失前置条件和影响；不得改用其他目录。
+- IntRuoyi worktree 根目录可随电脑磁盘布局选择，不得把盘符或某个用户目录写成跨电脑强制规则。
+- 创建前必须解析目标目录的绝对路径；传入 `-WorktreeRoot` 时，目标必须位于该根目录下。
+- 禁止在当前仓库的 `IntRuoyiBackend`、`IntRuoyiFronted` 等源码子目录内嵌套创建 worktree。
+- 所选目录不存在、不可写或与当前仓库源码目录重叠时必须 fail fast；不得随机换目录后继续。
 
 ## 端口槽位规则
 
@@ -58,7 +58,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
   - `int_batch slot = 1`：前端 `8042`，后端 `48042`
   - `int_shedule slot = 1`：前端 `8022`，后端 `48022`
   - `int_qms slot = 1`：前端 `8062`，后端 `48062`
-- `int_main_d` 必须使用 `8101/48101`，不得使用保留给 `E:\IntRuoyi` 的 `8081/48081`。
+- `int_main_d` 必须使用 `8101/48101`，不得使用保留给默认 `int_main` profile 的 `8081/48081`。
 - 非 `int_main` profile 永远不得使用 `8081` 或 `48081`。
 - 各 profile 的附加 worktree 可用端口段分别为：
   - `int_shedule`：槽位 `1..19` 为 `8022-8040/48022-48040`，槽位 `20..30` 为 `8121-8131/48121-48131`
@@ -84,8 +84,8 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 ## 端口登记表规则
 
-- 创建任何附加 worktree 后、首次启动前，必须通过 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配并登记槽位。
-- 分配脚本必须使用跨进程互斥锁读取和写入 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`，并选择所属 profile 的最低空闲槽位。
+- 创建任何附加 worktree 后、首次启动前，必须通过 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配并登记槽位；可用 `-WorktreeRoot` 固定当前电脑的共同根目录。
+- 分配脚本必须使用跨进程互斥锁读写当前登记表，并选择所属 profile 的最低空闲槽位。
 - 如果登记表不存在，必须创建空登记表并立即登记本次分配；不得跳过登记。
 - 每个登记项至少记录：
   - `name`
@@ -117,7 +117,7 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 ## 断链快照恢复规则
 
 - 如果旧 worktree 的 `.git` 文件指向缺失的 `.git/worktrees/<name>` 元数据，不要在旧目录内直接修补或重写 `.git`。
-- 先从有效主仓库在 `D:\IntRuoyiWorktree\` 下创建干净 worktree，再把旧快照中的源码、测试、文档、SQL 和脚本差异迁移过去。
+- 先从有效主仓库在当前电脑选定的 worktree 根目录下创建干净 worktree，再把旧快照中的源码、测试、文档、SQL 和脚本差异迁移过去。
 - 迁移前必须明确旧目录到新仓库目录的映射；例如旧后端快照映射到 `IntRuoyiBackend`，旧前端快照映射到 `IntRuoyiFronted`。
 - 迁移时默认排除 `.git`、`node_modules`、运行日志、`.runtime`、`runtime`、`target`、`dist`、环境密钥文件和生成物。
 - 迁移后用 `git status --short --branch`、`.git` 指向检查和 `git diff --stat` 验证新 worktree 可追踪；旧断链快照保持只读，不在原地修复。
@@ -132,13 +132,13 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 禁止活动登记项复用其他 worktree 的 `profile/slot`、前端端口或后端端口。
 - 禁止随机选择端口或按启动顺序临时分配端口。
 - 禁止端口冲突时静默换端口、静默跳过服务或假装启动成功。
-- 禁止不检查目标绝对路径就执行 `git worktree add`。
+- 禁止不检查目标绝对路径就执行 `git worktree add`，但不得仅因电脑盘符不同而拒绝合法路径。
 - 禁止删除或清理不属于当前任务的 worktree、进程、端口登记项或任务记录。
 
 ## 验证方式
 
 - 创建 worktree 前记录已读取本文件。
-- 记录目标路径解析结果，证明目标在 `D:\IntRuoyiWorktree\` 下。
+- 记录目标路径解析结果；若指定了 `-WorktreeRoot`，证明目标位于该根目录下。
 - 记录 `reserve-worktree-slot.ps1` 的分配结果和端口登记表写入结果。
 - 记录分配的 `slot`、前端端口、后端端口。
 - 启动服务前记录端口占用检查结果。

@@ -9,7 +9,7 @@
 
 ## 项目边界
 
-- 前端根目录：`E:\IntRuoyi\IntRuoyiFronted`。
+- 前端根目录：当前 Git 仓库根目录下的 `IntRuoyiFronted`。
 - 使用 Vue 3、Vite、TypeScript、Element Plus、Pinia、UnoCSS 和 pnpm。
 - 必须使用 pnpm；不得混用 npm、yarn 或其他包管理器。
 - 保持现有路由、API wrapper、权限、表格、表单、组件和样式模式，避免引入无关设计体系。

@@ -8,7 +8,7 @@
 
 ## 项目边界
 
-- 后端根目录：`E:\IntRuoyi\IntRuoyiBackend`。
+- 后端根目录：当前 Git 仓库根目录下的 `IntRuoyiBackend`。
 - 使用 Java 17、Spring Boot、Maven 多模块结构。
 - 主应用模块：`yudao-server`。
 - 业务逻辑必须保留在所属模块内；跨模块移动或耦合必须有明确的设计理由和验证。
