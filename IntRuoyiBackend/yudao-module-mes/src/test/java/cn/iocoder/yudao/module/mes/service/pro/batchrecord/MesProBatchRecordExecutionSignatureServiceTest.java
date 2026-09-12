@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -135,6 +136,34 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             verify(adminUserService, never()).getUser(9001L);
             verify(signatureMapper, never()).insert(any(MesProBatchRecordExecutionSignatureDO.class));
         }
+    }
+
+    @Test
+    void recordPqcSubmitSignatureUsesTaskScopedIdempotencyIdentity() {
+        when(authorizationService.isElectronicSignatureEnabled(9102L)).thenReturn(true);
+        when(adminUserService.getUser(9102L)).thenReturn(AdminUserDO.builder()
+                .id(9102L)
+                .username("pqc-operator")
+                .nickname("实际PQC员工")
+                .deptId(20L)
+                .postIds(Set.of(30L))
+                .password("encoded-password")
+                .build());
+        stubActorSnapshotForUser(9102L);
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7201L), unifiedSignatureResult(7202L));
+
+        signatureService.recordPqcSubmitSignature(9102L, 10001L, "secret", "PQC任务10001正式提交");
+        signatureService.recordPqcSubmitSignature(9102L, 10002L, "secret", "PQC任务10002正式提交");
+
+        ArgumentCaptor<ElectronicSignatureCommand> captor =
+                ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService, times(2)).sign(captor.capture());
+        assertNotEquals(captor.getAllValues().get(0).subjectId(), captor.getAllValues().get(1).subjectId());
+        assertNotEquals(captor.getAllValues().get(0).idempotencyKey(),
+                captor.getAllValues().get(1).idempotencyKey());
+        assertEquals("PQC_SUBMIT", captor.getAllValues().get(0).actionCode());
+        assertEquals("PQC_SUBMIT", captor.getAllValues().get(1).actionCode());
     }
 
     @Test

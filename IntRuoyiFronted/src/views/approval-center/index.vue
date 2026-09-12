@@ -48,6 +48,7 @@
               data-user-table-column-explicit
               :data-user-table-key="approvalCenterTableKey"
               :data="list"
+              row-key="id"
               border
               stripe
               :show-overflow-tooltip="true"
@@ -350,7 +351,7 @@
           <span>{{ resolveBusinessTitleLabel(reviewTask) }}</span>
         </div>
         <div class="approval-center__review-summary-hint">
-          {{ reviewForm.result === 'APPROVE' ? '审核通过需完成电子签名确认。' : '审核不通过需填写原因并完成电子签名确认。' }}
+          {{ reviewForm.result === 'APPROVE' ? '审核通过需填写审批意见并完成电子签名确认。' : '审核不通过需填写原因并完成电子签名确认。' }}
         </div>
       </div>
       <el-form label-width="96px" class="approval-center__review-form">
@@ -360,14 +361,17 @@
             <el-radio-button label="REJECT">审核不通过</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="reviewForm.result === 'REJECT'" label="不通过原因" required>
+        <el-form-item
+          :label="reviewForm.result === 'REJECT' ? '不通过原因' : '审批意见'"
+          required
+        >
           <el-input
             v-model="reviewForm.reason"
             type="textarea"
             :rows="3"
             maxlength="500"
             show-word-limit
-            placeholder="选择审核不通过时必须填写原因"
+            :placeholder="reviewForm.result === 'REJECT' ? '请输入审核不通过原因' : '请输入审批意见'"
           />
         </el-form-item>
         <el-form-item label="电子签名" required>
@@ -1106,8 +1110,8 @@ const submitReview = async () => {
     ElMessage.error('审批任务上下文缺失')
     return
   }
-  if (reviewForm.result === 'REJECT' && !reviewForm.reason.trim()) {
-    ElMessage.error('审核不通过必须填写原因')
+  if (!reviewForm.reason.trim()) {
+    ElMessage.error(reviewForm.result === 'REJECT' ? '审核不通过必须填写原因' : '审核通过必须填写审批意见')
     return
   }
   if (!reviewForm.signaturePassword.trim()) {
@@ -1123,7 +1127,7 @@ const submitReview = async () => {
       businessKey: reviewTask.value.businessKey,
       processInstanceId: reviewTask.value.processInstanceId,
       result: reviewForm.result,
-      reason: reviewForm.result === 'REJECT' ? reviewForm.reason.trim() : undefined,
+      reason: reviewForm.reason.trim(),
       signaturePassword: reviewForm.signaturePassword.trim()
     })
     ElMessage.success(reviewForm.result === 'APPROVE' ? '审核已通过' : '审核不通过已提交')

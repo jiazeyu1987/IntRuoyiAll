@@ -30,7 +30,13 @@ assert.match(
 assert.match(
   panel,
   /const productionMaterialLastDeviceDrafts = reactive<Record<string, ProductionMaterialDeviceDraftState>>\(\{\}\)/,
-  'material device memory must be keyed by material.'
+  'material device memory must use a stable contextual string key.'
+)
+
+assert.match(
+  panel,
+  /const buildProductionMaterialDeviceMemoryKey = \([\s\S]*routeVersionId[\s\S]*routeProcessId[\s\S]*processId[\s\S]*materialKey/,
+  'material device memory key must include route version, route process, process, and material.'
 )
 
 const createDraftBlock = extractBlock(
@@ -40,8 +46,8 @@ const createDraftBlock = extractBlock(
 )
 assert.match(
   createDraftBlock,
-  /const lastDeviceDraft = productionMaterialLastDeviceDrafts\[materialKey\]/,
-  'new material drafts must read the same material last device draft.'
+  /const memoryKey = buildProductionMaterialDeviceMemoryKey\(materialKey\)[\s\S]*const lastDeviceDraft = loadProductionMaterialDeviceMemory\(memoryKey\)/,
+  'new material drafts must load the same route-version/process/material last device memory.'
 )
 assert.match(
   createDraftBlock,
@@ -76,7 +82,7 @@ assert.match(
 
 const rememberBlock = extractBlock(
   panel,
-  'const rememberProductionMaterialDeviceDrafts = () => {',
+  'const rememberProductionMaterialDeviceDrafts = (',
   '\n}\n\nconst resetProductionSubmissionDraft ='
 )
 assert.match(
@@ -86,8 +92,13 @@ assert.match(
 )
 assert.match(
   rememberBlock,
-  /for \(const \[materialKey, materialDraft\] of Object\.entries\(productionMaterialDrafts\)\)/,
-  'submit success memory must store every current material draft by material key.'
+  /submittedMaterials[\s\S]*submittedMaterialKeys[\s\S]*for \(const materialKey of submittedMaterialKeys\)[\s\S]*productionMaterialDrafts\[materialKey\]/,
+  'submit success memory must store only materials included in the successful submission.'
+)
+assert.doesNotMatch(
+  rememberBlock,
+  /Object\.entries\(productionMaterialDrafts\)/,
+  'blank material tabs must not overwrite their last successful device memory.'
 )
 assert.match(
   rememberBlock,
@@ -111,7 +122,7 @@ const submitHandler = extractBlock(
   '\n}\n\nconst assertPqcSignatureAndQuantityReady ='
 )
 const submitIndex = submitHandler.indexOf('await ProFeedbackApi.frontlineSubmit(formalPayload)')
-const rememberIndex = submitHandler.indexOf('rememberProductionMaterialDeviceDrafts()')
+const rememberIndex = submitHandler.indexOf('rememberProductionMaterialDeviceDrafts(materialDetails)')
 const resetIndex = submitHandler.indexOf('resetProductionSubmissionDraft()')
 assert.ok(submitIndex >= 0, 'production submit endpoint must be awaited.')
 assert.ok(rememberIndex > submitIndex, 'last device memory may update only after submit succeeds.')

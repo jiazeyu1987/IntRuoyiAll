@@ -393,6 +393,17 @@
                   已由 {{ getCheckoutDisplayName(getSelectedVersion(row)) }} 检出
                 </el-tag>
                 <el-button
+                  v-if="canSubmitLatestWorkingIteration(row, getSelectedVersion(row))"
+                  v-hasPermi="['dcc:controlled-file:submit']"
+                  data-testid="dcc-controlled-browser-submit-approval"
+                  link
+                  type="primary"
+                  :loading="submitApprovalLoadingId === getSelectedVersion(row).id"
+                  @click="handleSubmitWorkingIteration(getSelectedVersion(row))"
+                >
+                  提交审批
+                </el-button>
+                <el-button
                   v-if="!getSelectedVersion(row).checkedOutBy && canEditVersion(getSelectedVersion(row))"
                   data-testid="dcc-controlled-browser-checkout"
                   link
@@ -455,6 +466,15 @@
                   @click="openManagement(getSelectedVersion(row).id)"
                 >
                   发布
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).status === 'FINALIZATION_FAILED'"
+                  data-testid="dcc-controlled-browser-retry-publish"
+                  link
+                  type="danger"
+                  @click="openManagement(getSelectedVersion(row).id)"
+                >
+                  重试发布
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).id"
@@ -1027,6 +1047,7 @@ import {
   previewControlledFileRecognitionMigrationImport,
   previewControlledFileMetadataImport,
   saveControlledFileBrowserExtensionBlacklist,
+  submitControlledFileWorkingIteration,
   triggerControlledFileDownload,
   uploadControlledFilePreview,
   type ControlledFileBatchRecognitionCreateReqVO,
@@ -1189,6 +1210,7 @@ const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
 const checkoutLoadingId = ref<number | string>()
 const majorRevisionLoadingId = ref<number | string>()
+const submitApprovalLoadingId = ref<number | string>()
 const checkinDialogVisible = ref(false)
 const checkinSubmitting = ref(false)
 const checkinUploadLoading = ref(false)
@@ -1639,6 +1661,114 @@ const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =
 const canCreateMajorRevision = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   Boolean(file.id && file.status === 'WORKING' && canEditVersion(file))
 
+const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
+  const revisionCode = String(file.revisionCode || '').trim().toUpperCase()
+  const iterationNo = Number(file.iterationNo)
+  if (/^[A-Z]+$/.test(revisionCode) && Number.isInteger(iterationNo) && iterationNo > 0) {
+    return { revisionCode, iterationNo }
+  }
+  const match = String(file.versionNo || '').trim().toUpperCase().match(/^([A-Z]+)\/([1-9][0-9]*)$/)
+  if (!match) return undefined
+  return { revisionCode: match[1], iterationNo: Number(match[2]) }
+}
+
+const compareWindchillVersion = (
+  left: { revisionCode: string; iterationNo: number },
+  right: { revisionCode: string; iterationNo: number }
+) => {
+  if (left.revisionCode.length !== right.revisionCode.length) {
+    return left.revisionCode.length - right.revisionCode.length
+  }
+  const revisionCompare = left.revisionCode.localeCompare(right.revisionCode)
+  return revisionCompare || left.iterationNo - right.iterationNo
+}
+
+const isLatestWorkingIteration = (
+  row: ControlledFileBrowserRow,
+  file: ControlledFileVO | ControlledFileBrowserVersion
+) => {
+  const target = parseWindchillVersion(file)
+  if (!target || !isValidBrowserOptionId(file.id)) return false
+  const latest = getVersionOptions(row)
+    .filter((item) => item.status === 'WORKING')
+    .map((item) => ({ item, version: parseWindchillVersion(item) }))
+    .filter((item): item is { item: ControlledFileBrowserVersion; version: { revisionCode: string; iterationNo: number } } => Boolean(item.version))
+    .sort((left, right) => compareWindchillVersion(right.version, left.version))[0]?.item
+  return Boolean(latest?.id && String(latest.id) === String(file.id))
+}
+
+const canSubmitLatestWorkingIteration = (
+  row: ControlledFileBrowserRow,
+  file: ControlledFileVO | ControlledFileBrowserVersion
+) => Boolean(
+  file.id &&
+  file.status === 'WORKING' &&
+  isLatestWorkingIteration(row, file) &&
+  !file.checkedOut &&
+  !file.checkedOutBy
+)
+
+const browserMutationIdempotencyKeys = reactive<Record<string, string>>({})
+
+const getBrowserMutationCacheKey = (action: string, id: number | string) => `${action}:${id}`
+
+const createBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
+  if (typeof window.crypto?.randomUUID !== 'function') {
+    throw new Error('当前浏览器不支持安全请求标识，无法提交审批。')
+  }
+  return `dcc-${action}:${id}:${window.crypto.randomUUID()}`
+}
+
+const getOrCreateBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
+  const cacheKey = getBrowserMutationCacheKey(action, id)
+  if (browserMutationIdempotencyKeys[cacheKey]) {
+    return browserMutationIdempotencyKeys[cacheKey]
+  }
+  browserMutationIdempotencyKeys[cacheKey] = createBrowserMutationIdempotencyKey(action, id)
+  return browserMutationIdempotencyKeys[cacheKey]
+}
+
+const deleteBrowserMutationIdempotencyKey = (action: string, id: number | string) => {
+  delete browserMutationIdempotencyKeys[getBrowserMutationCacheKey(action, id)]
+}
+
+const createWorkingIterationSubmitIdempotencyKey = (id: number | string) =>
+  getOrCreateBrowserMutationIdempotencyKey('working-submit', id)
+
+const createMajorRevisionIdempotencyKey = (id: number | string) =>
+  getOrCreateBrowserMutationIdempotencyKey('major-revision', id)
+
+const handleSubmitWorkingIteration = async (
+  file: ControlledFileVO | ControlledFileBrowserVersion
+) => {
+  const id = file.id
+  if (!isValidBrowserOptionId(id)) return
+  try {
+    await ElMessageBox.confirm(
+      `确认将最新工作版本 ${file.versionNo || ''} 提交审批？提交后该版本将锁定。`,
+      '提交审批',
+      { confirmButtonText: '提交审批', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  submitApprovalLoadingId.value = id
+  try {
+    await submitControlledFileWorkingIteration(id, {
+      idempotencyKey: createWorkingIterationSubmitIdempotencyKey(id),
+      selectedSignoffUserIds: []
+    })
+    deleteBrowserMutationIdempotencyKey('working-submit', id)
+    message.success(`版本 ${file.versionNo} 已提交审批`)
+    await getList()
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '提交审批失败，请刷新版本历史后重试。'))
+  } finally {
+    if (submitApprovalLoadingId.value === id) submitApprovalLoadingId.value = undefined
+  }
+}
+
 const getCheckoutDisplayName = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
   file.checkedOutByName || (file.checkedOutBy ? `用户 ${file.checkedOutBy}` : '')
 
@@ -1848,17 +1978,19 @@ const handleCreateMajorRevision = async (file: ControlledFileBrowserVersion) => 
   const { value: reason } = await ElMessageBox.prompt('请输入升大版本原因', '创建大版本', {
     inputPlaceholder: '例如：工艺要求发生重大变化',
     inputValidator: (value) => value.trim() ? true : '请输入升大版本原因',
-    confirmButtonText: '创建并送审',
+    confirmButtonText: '创建修订版',
     cancelButtonText: '取消'
   })
   majorRevisionLoadingId.value = file.id
   try {
     const newId = await createControlledFileMajorRevision({
       sourceControlledFileId: String(file.id),
-      reason: reason.trim()
+      reason: reason.trim(),
+      idempotencyKey: createMajorRevisionIdempotencyKey(file.id)
     })
+    deleteBrowserMutationIdempotencyKey('major-revision', file.id)
     await getList()
-    message.success(`大版本已创建并送审，版本记录编号 ${newId}`)
+    message.success(`大版本已创建，工作版本记录编号 ${newId}`)
   } catch (error) {
     message.error(resolveBrowserErrorMessage(error, '创建大版本失败，请稍后重试。'))
   } finally {

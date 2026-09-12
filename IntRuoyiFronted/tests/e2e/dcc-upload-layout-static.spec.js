@@ -57,7 +57,7 @@ const expectedSections = [
     testId: 'dcc-upload-section-approval',
     className: 'upload-section--approval',
     title: '审批要求',
-    labels: ['培训要求', '会签人员']
+    labels: ['培训要求']
   },
   {
     testId: 'dcc-upload-section-attachment',
@@ -156,7 +156,7 @@ const behaviorHooks = [
   'handleDrawingPdfChange',
   'cleanupCurrentUploadSession',
   'validateDrawingPdfUpload',
-  'submitControlledFile',
+  'createWorkingControlledFile',
   'submitForm'
 ]
 

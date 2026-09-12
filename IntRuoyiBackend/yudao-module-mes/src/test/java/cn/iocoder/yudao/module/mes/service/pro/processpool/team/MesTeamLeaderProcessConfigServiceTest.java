@@ -132,6 +132,8 @@ class MesTeamLeaderProcessConfigServiceTest {
         assertEquals("LOSS-001", first.getLossReasons().get(0).getReasonCode());
         assertEquals(1, first.getDevices().size());
         assertEquals("压力泵", first.getDevices().get(0).getDeviceName());
+        assertEquals("CLEANING", first.getDevices().get(0).getDeviceGroupKey());
+        assertEquals("MULTIPLE", first.getDevices().get(0).getSelectionMode());
         assertEquals(1, first.getDevices().get(0).getParameters().size());
         MesTeamLeaderProcessConfigParameter parameter = first.getDevices().get(0).getParameters().get(0);
         assertEquals(8401L, parameter.getRuleId());
@@ -303,6 +305,8 @@ class MesTeamLeaderProcessConfigServiceTest {
                 .leaderUserId(leaderUserId)
                 .processId(processId)
                 .deviceId(deviceId)
+                .deviceGroupKey("CLEANING")
+                .selectionMode("MULTIPLE")
                 .enabled(Boolean.TRUE)
                 .build();
     }

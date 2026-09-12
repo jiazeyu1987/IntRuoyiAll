@@ -64,6 +64,11 @@ export interface ControlledFileSubmitReqVO {
   remark?: string
 }
 
+export interface ControlledFileSubmitIterationReqVO {
+  idempotencyKey: string
+  selectedSignoffUserIds: number[]
+}
+
 export interface ControlledFileMetadataUpdateReqVO {
   assignmentId?: number
   changeReason?: string
@@ -639,6 +644,8 @@ export interface ControlledFileVO {
   publishedArtifactAvailable?: boolean
   stampedArtifactAvailable?: boolean
   versionNo: string
+  revisionCode?: string | null
+  iterationNo?: number | null
   effectiveDate?: string
   remark?: string
   relatedFiles?: ControlledFileRelatedFileVO[]
@@ -701,6 +708,7 @@ export interface ControlledFileCancelCheckoutReqVO {
 export interface ControlledFileMajorRevisionReqVO {
   sourceControlledFileId: number | string
   reason: string
+  idempotencyKey: string
 }
 
 export interface ControlledFileRelatedFileVO {
@@ -1591,9 +1599,16 @@ export const isControlledFileTaskPasswordInvalidError = (error: unknown) => {
   )
 }
 
-export const submitControlledFile = async (data: ControlledFileSubmitReqVO): Promise<number> => {
-  assertControlledFileSubmitRequest(data, 'DCC controlled file submit')
-  return await request.post({ url: '/dcc/controlled-files/submit', data })
+export const createWorkingControlledFile = async (data: ControlledFileSubmitReqVO): Promise<number> => {
+  assertControlledFileSubmitRequest(data, 'DCC controlled file working iteration create')
+  return await request.post({ url: '/dcc/controlled-files/working', data })
+}
+
+export const submitControlledFileWorkingIteration = async (
+  id: number | string,
+  data: ControlledFileSubmitIterationReqVO
+): Promise<number | string> => {
+  return await request.post({ url: `/dcc/controlled-files/${id}/submit`, data })
 }
 
 export const submitExternalFileReview = async (
@@ -1649,6 +1664,23 @@ export const cleanupControlledFileUploadSession = async (
     await request.post({
       url: '/dcc/controlled-files/upload-temporary/session-cleanup',
       data: { sessionId },
+      headers: {
+        ...buildDccExplicitTenantHeaders(),
+        ...(requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : {})
+      }
+    })
+  )
+}
+
+export const cleanupControlledFileUploadTicket = async (
+  sessionId: string,
+  uploadTicket: string,
+  requestId?: string
+): Promise<ControlledFileUploadTemporaryStatusRespVO> => {
+  return parseControlledFileUploadTemporaryStatusResp(
+    await request.post({
+      url: '/dcc/controlled-files/upload-temporary/ticket-cleanup',
+      data: { sessionId, uploadTicket },
       headers: {
         ...buildDccExplicitTenantHeaders(),
         ...(requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : {})

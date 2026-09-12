@@ -5401,6 +5401,26 @@ const refreshProductionProcessConfigSnapshot = async (routeVersionId: MesRouteId
     await ProRouteApi.getRouteProductionProcessConfig(routeVersionId)
 }
 
+const isRouteProcessDeviceParameterMutationCurrent = (
+  requestId: number,
+  routeVersionId: MesRouteId,
+  routeProcessId: number
+) => requestId === routeProcessDeviceParameterRequestId &&
+  String(props.routeVersionEditContext?.routeVersionId) === String(routeVersionId) &&
+  Number(selectedRouteProcessId.value) === Number(routeProcessId)
+
+const refreshRouteProcessDeviceParameterStateAfterStaleMutation = async (
+  routeVersionId: MesRouteId,
+  mutatedRouteProcessId: number
+) => {
+  if (String(props.routeVersionEditContext?.routeVersionId) !== String(routeVersionId)) return
+  await refreshProductionProcessConfigSnapshot(routeVersionId)
+  syncProductionProcessConfigJsonDraftFromCache(mutatedRouteProcessId)
+  if (selectedProcessDetailFieldKey.value === 'deviceParameters' && selectedRouteProcessId.value) {
+    await loadSelectedRouteProcessDeviceParameterConfig()
+  }
+}
+
 const saveSelectedRouteProcessDeviceParameterRule = async (
   device: ProRouteProcessDeviceParameterDeviceVO,
   parameter: ProRouteDeviceParameterVO
@@ -5426,6 +5446,8 @@ const saveSelectedRouteProcessDeviceParameterRule = async (
     return false
   }
   routeProcessDeviceParameterSaving.value = true
+  const requestId = routeProcessDeviceParameterRequestId
+  let writeSucceeded = false
   try {
     const config = await ProRouteFlowConfigApi.saveRouteProcessDeviceParameterRule({
       routeVersionId,
@@ -5445,12 +5467,29 @@ const saveSelectedRouteProcessDeviceParameterRule = async (
       defaultText: parameter.defaultText,
       decimalScale: parameter.decimalScale
     })
-    message.success('设备参数规则已保存')
+    writeSucceeded = true
+    if (!isRouteProcessDeviceParameterMutationCurrent(requestId, routeVersionId, routeProcessId)) {
+      await refreshRouteProcessDeviceParameterStateAfterStaleMutation(routeVersionId, routeProcessId)
+      message.warning('设备参数规则已保存；当前工序配置已按最新候选快照重新加载。')
+      return true
+    }
     routeProcessDeviceParameterConfig.value = config
-    await refreshProductionProcessConfigSnapshot(routeVersionId)
-    syncProductionProcessConfigJsonDraftFromCache(routeProcessId)
+    try {
+      await refreshProductionProcessConfigSnapshot(routeVersionId)
+      syncProductionProcessConfigJsonDraftFromCache(routeProcessId)
+    } catch (refreshError) {
+      message.error(
+        `设备参数规则已保存，但刷新最新配置失败：${resolveErrorMessage(refreshError, '请刷新页面后继续')}`
+      )
+      return true
+    }
+    message.success('设备参数规则已保存')
     return true
   } catch (error) {
+    if (writeSucceeded) {
+      message.error('设备参数规则已保存，但页面状态同步失败，请刷新页面后继续。')
+      return true
+    }
     message.error(resolveErrorMessage(error, '设备参数规则保存失败'))
     return false
   } finally {
@@ -5484,19 +5523,38 @@ const deleteSelectedRouteProcessDeviceParameterRule = async (
     throw error
   }
   routeProcessDeviceParameterSaving.value = true
+  const requestId = routeProcessDeviceParameterRequestId
+  let writeSucceeded = false
   try {
-    routeProcessDeviceParameterConfig.value =
-      await ProRouteFlowConfigApi.deleteRouteProcessDeviceParameterRule({
+    const config = await ProRouteFlowConfigApi.deleteRouteProcessDeviceParameterRule({
         routeVersionId,
         expectedRouteSnapshotSha256: snapshotSha256,
         routeProcessId,
         deviceId: device.deviceId,
         parameterCode: parameter.parameterCode
       })
-    await refreshProductionProcessConfigSnapshot(routeVersionId)
-    syncProductionProcessConfigJsonDraftFromCache(routeProcessId)
+    writeSucceeded = true
+    if (!isRouteProcessDeviceParameterMutationCurrent(requestId, routeVersionId, routeProcessId)) {
+      await refreshRouteProcessDeviceParameterStateAfterStaleMutation(routeVersionId, routeProcessId)
+      message.warning('设备参数已删除；当前工序配置已按最新候选快照重新加载。')
+      return
+    }
+    routeProcessDeviceParameterConfig.value = config
+    try {
+      await refreshProductionProcessConfigSnapshot(routeVersionId)
+      syncProductionProcessConfigJsonDraftFromCache(routeProcessId)
+    } catch (refreshError) {
+      message.error(
+        `设备参数已删除，但刷新最新配置失败：${resolveErrorMessage(refreshError, '请刷新页面后继续')}`
+      )
+      return
+    }
     message.success('设备参数已删除')
   } catch (error) {
+    if (writeSucceeded) {
+      message.error('设备参数已删除，但页面状态同步失败，请刷新页面后继续。')
+      return
+    }
     message.error(resolveErrorMessage(error, '设备参数删除失败'))
   } finally {
     routeProcessDeviceParameterSaving.value = false
@@ -9997,6 +10055,9 @@ const handleBeforeUnload = (event: BeforeUnloadEvent) => {
 }
 
 watch(selectedRouteProcessId, () => {
+  routeProcessDeviceParameterDialogVisible.value = false
+  routeProcessDeviceParameterDialogDevice.value = undefined
+  routeProcessDeviceParameterOriginalCode.value = undefined
   resetSelectedRouteProcessDeviceParameterConfig()
   if (selectedProcessDetailFieldKey.value === 'deviceParameters') {
     void loadSelectedRouteProcessDeviceParameterConfig()

@@ -23,6 +23,7 @@ public class DccImpactRevisionCommandService {
         DccControlledFileMajorRevisionReqVO request = new DccControlledFileMajorRevisionReqVO();
         request.setSourceControlledFileId(sourceControlledFileId);
         request.setReason(normalizedReason);
+        request.setIdempotencyKey("IMPACT-REVISION-" + taskId + "-" + expectedVersion);
         Long revisionId = workflowService.createMajorRevision(actorId, request);
         impactService.linkExistingMajorRevision(actorId, taskId, expectedVersion, revisionId, normalizedReason);
         return revisionId;

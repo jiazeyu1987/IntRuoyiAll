@@ -2,12 +2,14 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackPayloadReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -41,6 +43,35 @@ class MesFrontlineDeviceSelectionValidationTest {
         assertEquals("D-101", selected.getDeviceCode());
         assertEquals("设备101", selected.getDeviceName());
         assertEquals(false, selected.getInMeteringValidityPeriod());
+    }
+
+    @Test
+    void shouldRewriteNoMaterialRawPayloadFromCanonicalProcessDevices() {
+        var selected = new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO()
+                .setDeviceId(101L)
+                .setDeviceCode("D-101")
+                .setDeviceName("设备101")
+                .setInMeteringValidityPeriod(true);
+        var reading = decimalReading(101L, "power", "25")
+                .setDeviceCode("D-101")
+                .setDeviceName("设备101");
+        var payload = new MesProFrontlineFeedbackPayloadReqVO()
+                .setSelectedDevices(List.of(selected))
+                .setDeviceParameterReadings(List.of(reading));
+        var request = new MesProFrontlineFeedbackSubmitReqVO()
+                .setFeedbackPayload(payload)
+                .setRawPayload(Map.of("selectedDevices", List.of(Map.of(
+                        "deviceId", 101L, "deviceCode", "伪造编号", "deviceName", "伪造名称"))));
+
+        MesProFrontlineFeedbackSubmitServiceImpl.normalizeProcessDeviceAuditPayload(request);
+
+        assertEquals(List.of(selected), request.getRawPayload().get("selectedDevices"));
+        assertEquals(List.of(reading), request.getRawPayload().get("deviceParameterReadings"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> validity =
+                (List<Map<String, Object>>) request.getRawPayload().get("deviceMeteringValidity");
+        assertEquals("D-101", validity.get(0).get("deviceCode"));
+        assertEquals(Boolean.TRUE, validity.get(0).get("inMeteringValidityPeriod"));
     }
 
     @Test

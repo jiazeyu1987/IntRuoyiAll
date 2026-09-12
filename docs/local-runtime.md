@@ -202,7 +202,9 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Preflight check: 跑 DCC 写入型上传 E2E 前，先确认 `docker-minio-1` 正在运行且 healthy，`http://127.0.0.1:9000/minio/health/ready` 返回 HTTP 200，`/data/yudao` bucket 目录存在；同时确认后端文件配置 endpoint 指向 `http://127.0.0.1:9000`、bucket 为 `yudao`，不得输出 access key 或 secret。
 - Blocker: MinIO 容器未运行、9000 未监听、ready health 非 200、bucket 缺失、后端 `48081` 未 UP，或标准 backend 重启仍在 Maven package 阶段时必须停止 DCC 完整链路结论。
 - Verification: MinIO ready 200、后端 health `UP`、前端 8081 HTTP 200 后，再用 Playwright 真实页面跑到 `upload-preview`，目标请求无 500，结果 JSON 中 `targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+- Verification extension: 上传接口返回文件 ID、ticket 或数据库元数据不等于对象已持久化；涉及审批后发布时，必须在最终批准后只读核对对象键可读取、内容 SHA-256 与上传证据一致，并继续跑到正式发布或明确的 `FINALIZATION_FAILED`。对象锁配置字段也不等于 bucket 真实支持 Object Lock，必须以实际 retention/legal-hold 能力检查为准。
 - Forbidden action: 禁止用 API-only 上传、SQL 改状态、mock 文件服务、切换存储实现、复用历史会话或复用半失败文件号冒充上传链路恢复；禁止在共享 Maven package 正在运行时抢占启动后端或强停未知进程。
+- Forbidden action extension: 禁止把缺失对象直接标记为已发布、禁止只修数据库路径或状态；测试环境确需恢复时只能还原同一对象键和同一内容摘要，并保留失败与重试证据。Object Lock 不受支持时不得把 retention/legal-hold 命令失败记录成通过。
 - Evidence: `doc/tasks/20260802-dcc-minio-object-storage-runtime/verification-report.md`。
 
 ## 2026-07-27 本地后端标准输出阻塞与日志目录门禁

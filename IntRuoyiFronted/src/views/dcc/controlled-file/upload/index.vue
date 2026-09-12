@@ -436,14 +436,6 @@
             inactive-text="无需培训"
           />
         </el-form-item>
-        <el-form-item label="会签人员">
-          <UserSelectV2
-            v-model="formData.selectedSignoffUserIds"
-            class="!w-560px"
-            :multiple="true"
-            placeholder="请选择会签人员"
-          />
-        </el-form-item>
       </section>
 
           <section class="upload-section upload-section--attachment" data-testid="dcc-upload-section-attachment">
@@ -578,13 +570,14 @@ import {
 import type { DccFileTypeTaxonomyVO } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import {
   cleanupControlledFileUploadSession,
+  cleanupControlledFileUploadTicket,
   createControlledFileUploadSessionId,
   getControlledFileCurrentVersion,
   getControlledFileUploadRevisionCandidates,
   getControlledFileUploadDirectoryTree,
   getControlledFileUploadNameOptions,
   checkControlledFileRouteReadiness,
-  submitControlledFile,
+  createWorkingControlledFile,
   uploadControlledFilePreview,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileRouteReadinessVO,
@@ -594,7 +587,6 @@ import {
   type ControlledFileUploadNameOptionVO,
   type ControlledFileUploadRespVO
 } from '@/api/dcc/controlledFile/workflow'
-import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   DCC_ACTION_PROJECTION_MISSING_REASON,
   hasDccControlledFileActionProjection,
@@ -687,10 +679,23 @@ const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
 const VERSION_NO_FORMAT_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
 const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
 const VERSION_NO_MAJOR_PATTERN = /^[Vv]?(\d+)/
+const WINDCHILL_VERSION_PATTERN = /^([A-Z]+)\/[1-9]\d*$/i
 const resolveTodayDate = () => formatToDate(new Date())
 const isVersionNoTextValid = (versionNo?: string | null) => VERSION_NO_PATTERN.test((versionNo || '').trim())
 const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
   const normalizedVersionNo = (currentVersionNo || '').trim()
+  const windchillMatch = normalizedVersionNo.toUpperCase().match(WINDCHILL_VERSION_PATTERN)
+  if (windchillMatch) {
+    const revision = windchillMatch[1].split('')
+    let index = revision.length - 1
+    while (index >= 0 && revision[index] === 'Z') {
+      revision[index] = 'A'
+      index -= 1
+    }
+    if (index < 0) revision.unshift('A')
+    else revision[index] = String.fromCharCode(revision[index].charCodeAt(0) + 1)
+    return `${revision.join('')}/1`
+  }
   if (!isVersionNoTextValid(normalizedVersionNo)) {
     return ''
   }
@@ -711,7 +716,7 @@ const resolveProcessTypeByRoute = () =>
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
 const isRevisionUpload = computed(() => !isExternalReview.value && formData.changeType === 'REVISION')
 const pageTitle = computed(() => (isExternalReview.value ? '外来文件评审' : '受控文件提交'))
-const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '提交审批'))
+const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '创建工作版本'))
 const formData = reactive<UploadFormDraft>({
   categoryId: null,
   directoryId: null,
@@ -911,7 +916,7 @@ const productCodeBindingHintClass = computed(() =>
 
 const uploadSubmitterService = createUploadSubmitterService({
   uploadPreview: uploadControlledFilePreview,
-  submit: submitControlledFile
+  submit: createWorkingControlledFile
 })
 
 const canLoadUploadNameOptions = computed(
@@ -1141,6 +1146,29 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
   }
 }
 
+const cleanupTemporaryUploadTicket = async (
+  upload: ControlledFileUploadRespVO | undefined,
+  showSuccess = false
+) => {
+  if (uploadSubmitted.value || !upload?.uploadTicket) {
+    return true
+  }
+  try {
+    const status = await cleanupControlledFileUploadTicket(
+      uploadSessionId,
+      upload.uploadTicket,
+      upload.requestId
+    )
+    if (showSuccess && (status.cleanedCount ?? 0) > 0) {
+      message.success('已清理本次图纸 PDF 临时文件')
+    }
+    return true
+  } catch (error) {
+    message.error(resolveUploadErrorMessage(error, '图纸 PDF 临时文件清理失败，请处理后再继续'))
+    return false
+  }
+}
+
 const buildUploadPreviewContext = () => {
   if (!formData.categoryId) {
     throw new Error(isExternalReview.value ? '请先选择文件类别' : categoryPreflightMessage.value || '文件分类尚未自动匹配文件类别')
@@ -1227,6 +1255,7 @@ const loadProjectFileTemplate = async (projectCodeId: number) => {
 const clearRevisionTargetSelection = () => {
   selectedRevisionCandidate.value = undefined
   formData.revisionTargetControlledFileId = null
+  formData.revisionSourceControlledFileId = null
 }
 
 const normalizeHistoryFileName = (value?: string | null) => (value || '').trim()
@@ -1234,6 +1263,7 @@ const normalizeHistoryFileName = (value?: string | null) => (value || '').trim()
 const applyResolvedRevisionTarget = (row: ControlledFileVO) => {
   selectedRevisionCandidate.value = row
   formData.revisionTargetControlledFileId = row.id
+  formData.revisionSourceControlledFileId = row.id
   if (row.fileNumber) {
     formData.fileNumber = row.fileNumber
   }
@@ -1245,6 +1275,7 @@ const applyUploadNameOptionRevisionTarget = (item: UploadNameSuggestionItem) => 
   }
   selectedRevisionCandidate.value = undefined
   formData.revisionTargetControlledFileId = item.controlledFileId
+  formData.revisionSourceControlledFileId = item.controlledFileId
   if (item.fileNumber) {
     formData.fileNumber = item.fileNumber
   }
@@ -1583,7 +1614,13 @@ const approvalChainPreflightText = computed(() => {
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasApprovalChain = routeReadiness.value?.ready === true
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
-  const versionReady = Boolean(formData.fileNumber.trim() && (isExternalReview.value || !normalizePreflightVersionNo(formData.versionNo)))
+  const versionReady = Boolean(
+    formData.fileNumber.trim() &&
+      (isExternalReview.value
+        ? isVersionNoFormatValid.value
+        : !normalizePreflightVersionNo(formData.versionNo) ||
+          WINDCHILL_VERSION_PATTERN.test(normalizePreflightVersionNo(formData.versionNo)))
+  )
   const versionBlockingReason = versionFormatPreflightMessage.value ||
     currentVersionLookupError.value ||
     revisionTargetPreflightBlockReason.value ||
@@ -1962,6 +1999,10 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
     message.error(errorMessage)
     return
   }
+  if (!(await cleanupTemporaryUploadTicket(drawingPdfUpload.value))) {
+    drawingPdfUploadRef.value?.clearFiles()
+    return
+  }
 
   uploadPreviewError.value = ''
   drawingPdfFileList.value = uploadFiles.slice(-1)
@@ -1983,10 +2024,7 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
 }
 
 const handleBeforeDrawingPdfRemove: UploadProps['beforeRemove'] = async () => {
-  if (!previewUpload.value) {
-    return await cleanupCurrentUploadSession(true)
-  }
-  return true
+  return await cleanupTemporaryUploadTicket(drawingPdfUpload.value, true)
 }
 
 const handleDrawingPdfRemove: UploadProps['onRemove'] = () => {
@@ -2056,13 +2094,6 @@ const submitForm = async () => {
     message.warning(drawingPdfValidation.message || '图纸 PDF 校验失败')
     return
   }
-  await refreshRouteReadiness()
-  if (!routeReadiness.value?.ready) {
-    const blockerMessage = routeReadiness.value?.blockers.map((item) => item.message).join('；')
-    message.error(routeReadinessError.value || blockerMessage || '审批路线尚未就绪')
-    return
-  }
-
   submitLoading.value = true
   try {
     await uploadSubmitterService.submit(
@@ -2071,7 +2102,7 @@ const submitForm = async () => {
       drawingPdfUpload.value
     )
     uploadSubmitted.value = true
-    message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
+    message.success(isExternalReview.value ? '外来文件评审已提交审批' : '工作版本已创建，请在文件浏览中提交审批')
     await router.push({ name: 'DccControlledFileBrowser' })
   } catch (error) {
     const feedback = buildSubmitFailureFeedback(error, '受控文件提交失败，请查看错误提示后重试')
@@ -2092,10 +2123,7 @@ watch(
 )
 
 watch(
-  [
-    () => formData.categoryId,
-    () => formData.selectedSignoffUserIds.join(',')
-  ],
+  () => formData.categoryId,
   () => {
     void refreshRouteReadiness()
   }

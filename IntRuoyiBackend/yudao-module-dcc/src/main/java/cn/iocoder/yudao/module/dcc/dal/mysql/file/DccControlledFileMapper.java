@@ -34,6 +34,108 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                 .eq(DccControlledFileDO::getSubmitIdempotencyKey, idempotencyKey));
     }
 
+    @Select("""
+            SELECT *
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND deleted = 0
+            LIMIT 1
+            FOR UPDATE
+            """)
+    DccControlledFileDO selectByIdAndTenantForUpdate(@Param("tenantId") Long tenantId,
+                                                      @Param("controlledFileId") Long controlledFileId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = 'READY_TO_PUBLISH', approved_time = #{approvedTime},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND process_instance_id = #{processInstanceId}
+              AND process_definition_key = #{processDefinitionKey}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int markReadyToPublishAfterApproval(@Param("tenantId") Long tenantId,
+                                        @Param("controlledFileId") Long controlledFileId,
+                                        @Param("processInstanceId") String processInstanceId,
+                                        @Param("processDefinitionKey") String processDefinitionKey,
+                                        @Param("expectedStatus") String expectedStatus,
+                                        @Param("approvedTime") java.time.LocalDateTime approvedTime,
+                                        @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = #{targetStatus}, finalization_error = NULL,
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int transitionStatus(@Param("tenantId") Long tenantId,
+                         @Param("controlledFileId") Long controlledFileId,
+                         @Param("expectedStatus") String expectedStatus,
+                         @Param("targetStatus") String targetStatus,
+                         @Param("actorId") Long actorId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET status = 'FINALIZATION_FAILED', finalization_error = #{reason},
+                updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND status = #{expectedStatus}
+              AND deleted = 0
+            """)
+    int markFinalizationFailedWhenStatus(@Param("tenantId") Long tenantId,
+                                         @Param("controlledFileId") Long controlledFileId,
+                                         @Param("expectedStatus") String expectedStatus,
+                                         @Param("reason") String reason,
+                                         @Param("actorId") Long actorId);
+
+    @Select("""
+            SELECT *
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND submitter_id = #{submitterId}
+              AND submit_idempotency_key = #{idempotencyKey}
+              AND deleted = b'0'
+            LIMIT 1
+            FOR UPDATE
+            """)
+    DccControlledFileDO selectBySubmitIdempotencyForUpdate(@Param("tenantId") Long tenantId,
+                                                            @Param("submitterId") Long submitterId,
+                                                            @Param("idempotencyKey") String idempotencyKey);
+
+    default DccControlledFileDO selectByCreationIdempotency(Long tenantId, Long requesterId, String idempotencyKey) {
+        return selectOne(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getTenantId, tenantId)
+                .eq(DccControlledFileDO::getRequesterId, requesterId)
+                .eq(DccControlledFileDO::getCreationIdempotencyKey, idempotencyKey));
+    }
+
+    @Select("""
+            SELECT * FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND requester_id = #{requesterId}
+              AND creation_idempotency_key = #{idempotencyKey}
+              AND deleted = b'0'
+            LIMIT 1 FOR UPDATE
+            """)
+    DccControlledFileDO selectByCreationIdempotencyForUpdate(@Param("tenantId") Long tenantId,
+                                                              @Param("requesterId") Long requesterId,
+                                                              @Param("idempotencyKey") String idempotencyKey);
+
+    default List<DccControlledFileDO> selectActiveByLegacyProjectAndFileNumber(Long projectCodeId,
+                                                                                String fileNumber) {
+        return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getDccProjectCodeId, projectCodeId)
+                .eq(DccControlledFileDO::getFileNumber, fileNumber)
+                .eq(DccControlledFileDO::getStatus, DccControlledFileStatusEnum.ACTIVE.getStatus()));
+    }
+
     @Update("""
             UPDATE dcc_controlled_file
             SET checked_out_by = #{actorId},

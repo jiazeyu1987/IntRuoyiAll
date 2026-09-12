@@ -13,4 +13,7 @@ public class DccControlledFileMajorRevisionReqVO {
 
     @NotBlank(message = "reason is required")
     private String reason;
+
+    @NotBlank(message = "idempotencyKey is required")
+    private String idempotencyKey;
 }

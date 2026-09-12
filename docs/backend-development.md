@@ -41,6 +41,7 @@
 
 - Trigger: DCC 新建上传、历史文件升大版本、当前版本查询、固定会签矩阵、关联文件、提交重试或表单中心 UPLOAD 策略。
 - Preflight check: 当前版本必须按租户、DCC 项目、文件类型叶子和规范化文件编号复合身份查询；正式提交必须校验项目分配、类别 UPLOAD 权限、类别与文件类型绑定，并持久化提交幂等键和 payload hash。申请人提交的会签人员只能与正式矩阵完全一致，不能替换矩阵。NEW 与 REVISION 内容审批通过后都进入 `READY_TO_PUBLISH`，再由独立文控发布动作生效。关联候选只允许当前 ACTIVE 的正式 DCC 文件，登记证附件和历史版本不得混入。
+- Regression fixture rule: REVISION 上传和升大版本回归必须按 `revisionTargetControlledFileId` / `revisionSourceControlledFileId` 解析 Master，并 stub/断言 `selectByIdForUpdate(masterId)` 返回含 `currentActiveControlledFileId` 的完整 Master；不得只 stub 旧 `selectListByFileNumber` 分支导致错误码先被 `CONTROLLED_FILE_NOT_EXISTS` 覆盖。
 - Blocker: 仅按文件编号查现行版、前端通过但后端缺权限/绑定校验、升版请求丢失版本或源文件 ID、同一幂等键可创建多份文件、申请人覆盖矩阵、NEW 审批后直接 ACTIVE，或旧表单中心入口绕过正式上传治理时必须停止。
 - Verification: 后端回归覆盖复合身份、权限拒绝、矩阵不一致、重复键回读与冲突、新建/升版待发布；前端合同覆盖版本、源文件、幂等键和复合查询参数；迁移检查锁定幂等唯一键并退役旧 UPLOAD policy。
 - Forbidden action: 禁止用全局文件编号、客户端校验、上传 ticket 失败、重复异常或旧表单效果执行器代替正式的身份、授权和幂等边界。
@@ -106,6 +107,7 @@
 - Stage1 simulated parameter generation extension: Stage1 或其它演练链路生成生产提交事实时，设备参数必须按当前工序选择的设备和正式启用参数规则物化到事件 payload 及物料事实中；数值型参数有显式默认值时使用默认值，缺省且上下限完整时生成范围内具体数值（如 20~30℃ 生成 25），`textValue` 必须是实际提交值文本，不得使用标准范围文本或重复携带单位；文本/选择类参数才可使用 `defaultText/standardText`。有正式选择设备的输出物料还必须在 `selectedDevice`/`selectedDevices[]` 写入设备计量状态，Stage1 默认模拟为 `inMeteringValidityPeriod=true`；清场、物料、清洁三项确认必须作为提交事实写入根 payload 和物料明细，不得由详情页默认推断。不得为了“模拟成功”把 `deviceParameterReadings` 硬编码为空数组。验证必须同时锁定事件 payload 顶层、`materialDetails[]` 和 `MesProFeedbackMaterial` 明细三处参数来源，避免详情页表单只能显示“暂无设备参数”或把范围文本显示成提交值。Evidence: `doc/tasks/20260906-stage1-device-parameter-readings/verification-report.md`、`doc/tasks/20260906-stage1-parameter-value-within-range/`、`doc/tasks/20260906-stage1-device-clearance-status/`。
 - Active order device-selection snapshot extension: 一线设备支持单选、多选或不选时，设备组身份与 `SINGLE/MULTIPLE` 选择模式必须由正式 JSON/配置显式写入工序设备绑定，并与设备 ID 集合一起冻结到活跃订单工序快照及 SHA-256；运行配置不得按设备名称、参数重复或历史绑定顺序推断设备组。提交必须使用 `selectedDevices[]`，`SINGLE` 同组最多一台，未选设备不得携带参数读数；缺少设备选择快照或哈希不一致必须 fail-fast。同步或复制活跃订单后，必须逐活跃订单核验每条 `FROZEN` 工序快照同时具备 `device_selection_snapshot_json` 与匹配 SHA-256，尤其不能只核验旧 sim-copy。若设备多选改造后出现“当前工序未配置报工物料”等相邻错误，必须分层核对运行配置冻结快照、`batchUseConfigs.outputMaterialIds`、前端 `materialDetails` 非空子集载荷、后端提交校验和当前运行 Jar/前端热更新状态，不得把设备选择链路和报工物料链路互相补齐或推断。历史绑定不能自动生成伪设备组，必须先完成正式配置导入。Evidence: `doc/tasks/20260903-idi-json-frontline-device-integration/verification-report.md`。
 - Active order combined QA snapshot boundary: 产品 QA 规程叠加通用包装检验规程时，必须在活跃订单冻结/重建阶段解析正式“产品 - 通用规程版本”绑定，并生成同一套不可变组合 QA 快照或组合 PQC 任务计划；一线 PQC 显示、提交 itemCode 校验、设备选项读取和检验进度分母必须全部来自该组合快照。禁止只在 QA 管理前端展示通用规程引用、运行态临时拼接另一个 `regulationVersionId`、把通用项目额外塞进前端 payload，或让进度继续按产品单规程任务行达到 100%。Evidence: `doc/tasks/20260909-common-qa-frontline-pqc-static-audit/verification-report.md`。
+- Common QA identity and multi-document set extension: 工单 `product_id` 是 MES 物料 ID，通用规程产品绑定使用 MDM 产品主档 ID；组合任务生成必须先从 `mes_md_item.product_master_id` 解析正式主档身份，再查询产品绑定，禁止直接用工单物料 ID 或按产品名称匹配。一个套版本由多份 Word 成员组成时，成员自身的检验项目必须命中该成员已启用的规则，但“必需检验类型是否齐全”按整个套版本的成员并集校验，不要求每份成员文档重复包含全部类型；整套缺失任一必需类型仍须 fail-fast。一线回放、项目设备选项读取和正式提交必须按每个任务来源规程自己的 `dccProjectCodeId + regulationVersionId` 校验，页面响应可继续保留活跃订单的产品 DCC 作为订单上下文。一次页面操作提交多个 item-scoped PQC 任务时，每条统一电子签名的主题和幂等键必须包含正式 `pqcTaskId`，不能只用员工和动作码。Verification: 后端回归至少覆盖 MES 物料 ID 与 MDM 主档 ID 不同、两份成员分别提供 FIRST/PATROL、整套缺必需类型、产品/通用 DCC 不同的显示与提交、以及同员工连续签署多个任务的幂等键互异；真实 Playwright 必须切换查看产品 QA 和每份通用成员，并完成至少一次多任务电子签名提交。Evidence: `doc/tasks/20260911-frontline-pqc-overlay-duplicate-identity/verification-report.md`。
 - Route-owned device parameter consumer extension: 设备参数迁移到工艺路线后，不能只验证一线生产 runtime-config；一线 PQC 的检验设备选项也必须从同一活跃订单工序冻结快照读取设备参数，并按 `routeProcessId + processId + deviceId` 挂到对应设备选项。PQC 提交只保存检验项目结果和设备身份，不得把生产报工的 `deviceParameterReadings` 塞进 PQC 提交事实。Evidence: `doc/tasks/20260909-route-flow-pqc-device-parameter-flow/verification-report.md`。
 - Active order device-selection snapshot repair extension: 新增设备选择快照严格校验后，真实一线 E2E 前必须按 `active_status=ACTIVE` 盘点全部活跃订单的 FROZEN 工序快照；缺失快照的旧订单要先备份，并仅从同一订单组长的正式启用设备绑定或已批准 JSON 映射重建，无法唯一确定时保持 fail-fast。不得把“当前订单被临时冻结”误判为设备快照修复失败；设备快照修复通过后仍要单独核对工单冻结门禁，再选择可正式报工的真实测试订单完成提交。Evidence: `doc/tasks/20260904-frontline-device-selection-snapshot-repair/verification-report.md`。
 - Candidate snapshot stale identity repair: 候选工艺路线页面同时出现“没有操作权限”和 `PRO_ROUTE_PROCESS_IDENTITY_NOT_FOUND` 时，必须把权限链路与版本快照链路分开诊断；补菜单权限或重启服务不能修复 JSON 快照中的失效 `routeProcessId`。先逐项解析目标版本 `routeSnapshotJson.configSnapshots` 的 `flowGraph`、`scheduleConfigs`、`batchUseConfigs`、`scheduleUseConfigs`，再与当前正式路线工序按工序主数据、排序和重复工序序位证明唯一映射；任一身份不唯一必须阻塞。获得数据修复授权后，先备份完整版本行并校验压缩包和 hash，再用结构化 JSON 操作做 dry-run，证明旧引用归零、新身份全部命中、数组/对象长度不变以及产品、BOM、批记录等非目标配置 hash 不变；正式更新必须锁定目标版本状态和原快照 hash、限定精确一行、异常事务回滚，并复核没有临时过程残留。页面验收仍需使用目标账号真实登录路径，数据库/API 结果不得冒充权限提示已消失。Evidence: `doc/tasks/20260814-test-zhaojie-route-permission/verification-report.md`。
@@ -773,11 +775,12 @@
 ### DCC 受控文件发布不得以未盖章源文件降级成功
 
 - Trigger: DCC 受控文件发布、NAS transfer no-approval import、PDF 盖章、`skipGovernance`/`allowPdfStampFailurePassThrough`、撤回文件删除。
-- Preflight check: 发布产物必须是盖章 PDF；读取源文件或盖章失败必须抛 `CONTROLLED_FILE_STAMP_GENERATION_FAILED`，不得发布原 PDF。撤回文件删除只能删除业务记录，不得顺手物理删除 `sourceFileId`、`originalFileId`、`drawingPdfFileId` 等源文件产物；附件/源文件保留策略应走正式归档、保留或受控清理任务。
-- Blocker: 出现 `publish original PDF instead`、`new PublishedArtifact(sourceFile.getId(), null, null)`、撤回删除调用 `deleteUnreferencedArtifacts` 或 `fileService.deleteFileList` 清源文件时必须停止。
-- Verification: DCC 后端合同必须覆盖盖章失败无降级、撤回删除不物理删除源文件；回归命令为 `mvn -pl yudao-module-dcc -Dtest=DccControlledFileHighPriorityDataValidationContractTest test`。
-- Forbidden action: 禁止用 `skipGovernance`、NAS 导入、历史 PDF 可浏览或前端隐藏按钮绕过盖章失败；禁止把撤回业务记录删除扩展成源文件物理清理。
+- Preflight check: 发布产物必须是盖章 PDF；读取源文件或盖章失败必须抛 `CONTROLLED_FILE_STAMP_GENERATION_FAILED`，不得发布原 PDF。审批发布应在进入最终发布事务前完成盖章件绑定，发布事务只消费已绑定的 `publishedFileId`/`stampedFileId`，避免数据库回滚后遗留新物理文件。撤回文件删除只能删除业务记录，不得顺手物理删除 `sourceFileId`、`originalFileId`、`drawingPdfFileId` 等源文件产物；附件/源文件保留策略应走正式归档、保留或受控清理任务。
+- Blocker: 出现 `publish original PDF instead`、`new PublishedArtifact(sourceFile.getId(), null, null)`、发布事务内新建物理盖章件却没有补偿、撤回删除调用 `deleteUnreferencedArtifacts` 或 `fileService.deleteFileList` 清源文件时必须停止。
+- Verification: DCC 后端合同必须覆盖盖章失败无降级、审批发布缺少预绑定盖章件时 fail-fast、撤回删除不物理删除源文件；事务回归必须覆盖外层事务回滚后失败事实仍由独立事务保存。
+- Forbidden action: 禁止用 `skipGovernance`、NAS 导入、历史 PDF 可浏览或前端隐藏按钮绕过盖章失败；禁止把失败状态写在注定回滚的业务事务中；禁止把撤回业务记录删除扩展成源文件物理清理。
 - Evidence: `doc/tasks/20260909-high-priority-data-validation/verification-report.md`。
+- Evidence: `doc/tasks/20260911-dcc-publication-finalization-hardening/verification-report.md`。
 
 ### Excel 导入导出必须有共享完整性下限
 
@@ -1016,6 +1019,7 @@
 - Preflight check: 先盘点消费者已经保存的不可变 ID、版本字段、发布快照、任务快照和现有引用表，再判断是否真的缺少关系。消费者必须先在自己的候选/版本快照中保存精确来源，之后才能登记依赖；没有精确来源时先补正式选择与冻结链路，不能先建通用登记平台再猜关系。
 - Historical migration rule: 旧版本号格式合法或可以排序，只能证明“版本文本可解析”，不能证明版本链可以自动迁移。AUTO_MAP 必须同时满足稳定业务身份唯一、源文件 ownership/hash 证据完整、正式指针一致、检出状态无歧义及平台生命周期引用对齐；任一证据缺失时整条 Master 进入 blocker，先治理正式证据再重跑只读盘点，禁止按 `source_file_id` 存在、当前文件名、最新版本或共享源文件反推并补齐历史事实。涉及共享源的外部副本迁移时，必须先冻结全局引用集合，再按完整共享组执行；组内任一业务写入或明细证据写入失败都必须清理本次外部副本并让数据库事务失败，不能把逐条单测或局部成功当成组级原子性证据。
 - Existing-core rule: 优先扩展现有 `ControlledContentLifecycleCoreService`、`controlled_content_version_ref`、转换审计和模块 adapter。需要版本依赖时，dependency 的 provider/consumer 都必须是现有核心中的精确 version ref；缺少某类 consumer ref 时先为该类型补 native master/version/ref 生命周期。禁止另建平行 usage registry、生命周期状态机或运行态生命周期表。
+- Working-version submission rule: 创建初始工作版本、检入生成下一 Iteration 或创建下一 Revision `/1` 只形成模块内 WORKING 版本，不得同时创建平台候选或启动审批；只有显式提交当前 Revision 最新且未检出的 WORKING Iteration 时，才在同一事务内冻结路线、登记平台候选并启动审批。送审必须返回并推进原 Iteration，禁止通过上传/复制入口再建一条版本冒充送审对象；NEW 与 REVISION 类型的工作迭代共用该提交边界，OBSOLETE 不得进入。
 - Entry-point completeness rule: 所有能创建、导入、复制或恢复版本对象的入口，只要会生成初始 `ACTIVE` 版本或开放候选，就必须复用同一领域服务或模块 adapter 同步登记生效引用与候选引用；不得由普通页面入口登记、Word/Excel 导入入口直接 mapper 插入。发现历史对象缺引用时必须显式迁移或修复并保留审计，禁止在提交发布时按当前版本猜测、自愈或静默补写。
 - Impact rule: system core 通过明确的模块 impact-provider 契约汇总当前配置、在制和历史影响；provider 缺失、异常、跨租户或返回不完整时必须 fail fast，不能显示“无影响”。运行对象 OPEN/CLOSED 从消费者现有正式状态实时推导，不复制第二套状态。
 - Transition rule: 提交变更前做只读影响预检，最终不可逆转换必须在事务锁内重新检查；预检后新增依赖或在制引用时最终转换回滚。当前配置或 OPEN 运行引用是硬阻塞，只有历史 consumer 且运行 CLOSED 时才可沿现有正式转换继续；不设计通用 disposition-plan 或强制绕过。
@@ -1154,6 +1158,20 @@
 - Verification: 单测同时断言统一签名调用、领域投影 insert、同一 signedAt 参与 HMAC 与持久化、参与人和文件证据快照、HMAC 算法/密钥版本、响应身份为 DCC 投影；真实审批后按文件和任务核对每个审批节点恰有一条可验投影。
 - Forbidden action: 禁止查询时临时拼装投影、失败后异步补写、用 SHA-256 摘要替代 DCC HMAC，或因测试环境而跳过投影完整性。
 - Evidence: `doc/tasks/20260907-dcc-release-notification-impact/verification-report.md`。
+
+## 跨设备域身份映射与路线快照完整性门禁
+
+- Trigger: 工艺路线班组设备、设备台账、PQC 检验设备来自不同表或不同领域，但需要在运行态关联设备参数；候选路线配置支持完整 JSON、识别导入和结构化局部保存。
+- Preflight check: 先确认不同设备表的主键不可互换。跨域关联使用双方正式且唯一的设备编码，并在候选版本保存时校验设备存在、启用、同工序编码唯一；参数规则必须精确匹配容器的 `routeProcessId + processId + deviceId`。
+- Concurrency rule: 候选快照的 `expectedRouteSnapshotSha256` 必须进入数据库 UPDATE 条件，读取后在 Java 中比较再无条件 `updateById` 不能防止两个并发请求后写覆盖。
+- Candidate lifecycle rule: 候选快照 UPDATE 除 ID 和旧哈希外，还必须在数据库条件中约束 `DRAFT` 且未激活；否则并发提交或发布后，旧保存请求仍可能把生命周期覆盖回草稿。
+- Candidate import rule: JSON/Word 识别写入候选配置时，工序覆盖范围必须读取该候选快照自己的 `configSnapshots.flowGraph.nodes`；不得读取当前正式路线工序表来替代尚未发布的新增、删除或重排结果。
+- Lifecycle mutation rule: 提交、撤回、重开和取消候选版本都必须在事务内先 `SELECT ... FOR UPDATE`，再根据锁定后的状态执行变更；撤回不仅要修改返回对象，还必须持久化 `DRAFT` 并清空提交人、提交时间和审批实例字段。
+- Full replacement rule: 声明“覆盖全部工序”的识别导入必须以候选流程图重新构造输出集合；旧配置只能作为仍存在工序的非目标字段来源，候选流程图已删除的工序不得继续进入输出数组。
+- Partial material rule: 多输出物料允许提交冻结集合的非空子集，但进入提交集合的每条物料完成数量必须大于零。空白表示未提交，显式零不能生成签名反馈、工序事件或零进度事实。
+- Blocker: 直接比较 PQC 台账设备 ID 与路线班组设备 ID、完整配置只校验数组存在、生成活跃订单快照时静默过滤身份不匹配参数、缺少冻结快照返回空配置、或并发保存只做内存哈希比较时必须停止。
+- Verification: 单测使用“不同数据库 ID、相同正式设备编码”证明 PQC 设备交集和参数关联；覆盖未知/禁用/重复编码设备、跨工序参数、无效值类型和范围、旧哈希并发冲突、缺冻结快照失败，并运行一线生产/PQC/路线静态合同。
+- Forbidden action: 禁止用名称、数组位置或碰巧相同的数字主键关联设备，禁止把 `MISSING_LEGACY` 当空配置继续生产，禁止信任客户端设备编号和名称作为审计事实。
 
 ## DCC 既有版本升大版与新文件模板边界
 

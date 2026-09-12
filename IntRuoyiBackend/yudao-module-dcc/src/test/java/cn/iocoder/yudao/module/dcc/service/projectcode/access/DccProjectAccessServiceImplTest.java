@@ -74,6 +74,20 @@ class DccProjectAccessServiceImplTest {
     }
 
     @Test
+    void assertProjectEditorOrOwner_acceptsEditAndOwnerButRejectsView() {
+        when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of(rule("USER", 99L, "EDIT")));
+        assertDoesNotThrow(() -> service.assertProjectEditorOrOwner(99L, 100L));
+
+        when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of(rule("USER", 99L, "OWNER")));
+        assertDoesNotThrow(() -> service.assertProjectEditorOrOwner(99L, 100L));
+
+        when(accessRuleMapper.selectActiveRules(eq(100L), any())).thenReturn(List.of(rule("USER", 99L, "VIEW")));
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.assertProjectEditorOrOwner(99L, 100L));
+        assertEquals(DCC_PROJECT_ACCESS_DENIED.getCode(), ex.getCode());
+    }
+
+    @Test
     void assertProjectOwner_roleAndPositionSubjectsAreResolved() {
         when(accessRuleMapper.selectActiveRules(eq(100L), any(LocalDateTime.class)))
                 .thenReturn(List.of(rule("ROLE", 40L, "OWNER")));

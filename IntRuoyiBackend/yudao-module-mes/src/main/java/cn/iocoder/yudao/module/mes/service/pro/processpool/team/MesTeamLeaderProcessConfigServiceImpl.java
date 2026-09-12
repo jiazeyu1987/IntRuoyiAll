@@ -240,6 +240,8 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                     .setDeviceCode(device.getDeviceCode())
                     .setDeviceName(device.getDeviceName())
                     .setDeviceStatus(device.getDeviceStatus())
+                    .setDeviceGroupKey(binding.getDeviceGroupKey())
+                    .setSelectionMode(binding.getSelectionMode())
                     .setMapped(Boolean.TRUE)
                     .setParameters(parameters));
         }

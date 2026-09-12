@@ -5,8 +5,10 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRelatedFileRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRelatedFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRelatedFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -29,6 +31,8 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileRelatedFileMapper relatedFileMapper;
     @Mock
     private DccControlledFileMapper controlledFileMapper;
+    @Mock
+    private DccControlledFileMasterMapper controlledFileMasterMapper;
     @InjectMocks
     private DccControlledFileRelatedFileServiceImpl service;
 
@@ -45,6 +49,9 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO second = relatedFile(202L, 302L, "DOC-202", "检验文件", "V2.0");
         when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(201L, 202L)))
                 .thenReturn(List.of(first, second));
+        when(controlledFileMasterMapper.selectBatchIds(List.of(301L, 302L))).thenReturn(List.of(
+                DccControlledFileMasterDO.builder().id(301L).currentActiveControlledFileId(201L).build(),
+                DccControlledFileMasterDO.builder().id(302L).currentActiveControlledFileId(202L).build()));
 
         service.validateAndBindRelatedFiles(100L, 20L, List.of(201L, 202L));
 
@@ -100,6 +107,20 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
         when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(relation));
 
         assertEquals(List.of(relation), service.listForwardRelations(100L));
+    }
+
+    @Test
+    void resolveCurrentActiveRelatedFileIds_replacesSupersededSnapshotWithMasterCurrentActiveIteration() {
+        DccControlledFileRelatedFileDO relation = relation(1L, 100L, 201L,
+                "DOC-201", "关联文件", "A/1");
+        relation.setRelatedMasterId(301L);
+        when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(relation));
+        when(controlledFileMasterMapper.selectBatchIds(List.of(301L))).thenReturn(List.of(
+                DccControlledFileMasterDO.builder().id(301L).currentActiveControlledFileId(211L).build()));
+        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(20L, List.of(211L))).thenReturn(List.of(
+                relatedFile(211L, 301L, "DOC-201", "关联文件", "B/1")));
+
+        assertEquals(List.of(211L), service.resolveCurrentActiveRelatedFileIds(100L, 20L));
     }
 
     @Test

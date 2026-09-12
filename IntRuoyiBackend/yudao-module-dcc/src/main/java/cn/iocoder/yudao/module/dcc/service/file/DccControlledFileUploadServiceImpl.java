@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUpl
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadRespVO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryLifecycleStageEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.service.audit.DccAccessBoundaryLogCreateCommand;
@@ -45,6 +46,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SESSION_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SIZE_EXCEEDED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SIZE_POLICY_MISSING;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 
@@ -72,6 +74,8 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     @Resource
     private DccFileCategoryMapper categoryMapper;
     @Resource
+    private DccControlledFileCategoryPermissionSupport permissionSupport;
+    @Resource
     private BusinessFileAccessService businessFileAccessService;
 
     @Override
@@ -84,14 +88,15 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             file = validatePreviewFile(reqVO);
             validatePreviewSession(reqVO.getSessionId());
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
-            validatePreviewCategory(reqVO.getCategoryId());
+            validatePreviewCategory(userId, reqVO.getCategoryId());
             uploadSizePolicyService.validateUploadSize(reqVO.getCategoryId(),
                     purpose, file.getSize(), null);
             byte[] content = IoUtil.readBytes(file.getInputStream());
             validatePreviewPurposeContent(purpose, file.getOriginalFilename(), content);
             String requestId = auditContext.requireRequestId("upload preview");
             DccUploadTicketCreated uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
-                    new DccUploadTicketPreflightCommand(userId, reqVO.getSessionId(), purpose, content));
+                    new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), reqVO.getSessionId(), purpose,
+                            content));
             FileDO storedFile;
             if (uploadTicket == null) {
                 storedFile = storePreviewFile(content, file);
@@ -189,7 +194,7 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         }
     }
 
-    private void validatePreviewCategory(Long categoryId) {
+    private void validatePreviewCategory(Long userId, Long categoryId) {
         DccFileCategoryDO category = categoryId == null ? null : categoryMapper.selectById(categoryId);
         if (category == null) {
             throw exception(FILE_CATEGORY_NOT_EXISTS);
@@ -200,6 +205,10 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         String lifecycleStage = StrUtil.trimToNull(category.getLifecycleStage());
         if (!DccFileCategoryLifecycleStageEnum.isValid(lifecycleStage)) {
             throw exception(FILE_CATEGORY_LIFECYCLE_STAGE_INVALID, lifecycleStage);
+        }
+        if (!permissionSupport.hasCategoryPermission(categoryId, userId,
+                DccFileCategoryPermissionActionEnum.UPLOAD)) {
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
     }
 

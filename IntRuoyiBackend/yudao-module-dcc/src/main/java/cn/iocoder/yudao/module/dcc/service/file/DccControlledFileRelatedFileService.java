@@ -13,6 +13,8 @@ public interface DccControlledFileRelatedFileService {
 
     List<DccControlledFileRelatedFileDO> listForwardRelations(Long controlledFileId);
 
+    List<Long> resolveCurrentActiveRelatedFileIds(Long controlledFileId, Long projectCodeId);
+
     List<DccControlledFileRelatedFileDO> listReverseCurrentActiveRelations(Long tenantId, Long relatedMasterId);
 
 }

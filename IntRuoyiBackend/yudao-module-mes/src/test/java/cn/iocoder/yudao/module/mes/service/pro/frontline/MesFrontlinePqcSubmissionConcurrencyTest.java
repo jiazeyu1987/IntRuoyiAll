@@ -241,7 +241,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                         detail.getTaskId(), detail.getItemCode(), detail.getMeasuredValue(), detail.getJudgement()));
                 return Boolean.TRUE;
             });
-            when(signatureService.recordPqcSubmitSignature(anyLong(), anyString(), anyString()))
+            when(signatureService.recordPqcSubmitSignature(anyLong(), anyLong(), anyString(), anyString()))
                     .thenAnswer(invocation -> insertSignature(invocation.getArgument(0)));
             when(eventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
                     .thenAnswer(invocation -> insertEventAndRecord(invocation.getArgument(0)));
@@ -271,6 +271,10 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     DccProjectCodeDO.builder().id(DCC_PROJECT_ID).build());
             when(itemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(publishedItem()));
             when(regulationItemEquipmentMapper.selectListByVersionId(anyLong())).thenReturn(List.of());
+            MesPqcItemEquipmentConfigService equipmentConfigService =
+                    mock(MesPqcItemEquipmentConfigService.class);
+            when(equipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
+                    anyLong(), anyLong(), any())).thenReturn(Map.of());
 
             service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, eventMapper,
                     processSnapshotMapper,
@@ -278,7 +282,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     mock(MesProWorkOrderMapper.class), mock(MesProRouteMapper.class),
                     mock(MesProRouteVersionMapper.class), dccMapper, regulationMapper, versionMapper,
                     processMapper, itemMapper, mock(MesQaInspectionRegulationService.class),
-                    mock(MesPqcItemEquipmentConfigService.class),
+                    equipmentConfigService,
                     taskMapper, pieceDetailMapper, mock(MesMdItemService.class), scopeMapper, adminUserApi,
                     eventService, recordMapper, signatureService);
         }
@@ -455,7 +459,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
 
         private static MesProcessPoolActiveOrderDO activeOrder() {
             return MesProcessPoolActiveOrderDO.builder().id(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
-                    .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE").build();
+                    .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID).dccProjectCodeId(DCC_PROJECT_ID)
+                    .activeStatus("ACTIVE").build();
         }
 
         private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot() {

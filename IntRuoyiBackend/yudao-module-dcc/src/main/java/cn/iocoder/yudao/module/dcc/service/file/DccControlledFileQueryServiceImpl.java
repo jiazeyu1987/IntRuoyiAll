@@ -548,7 +548,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         String uploadTicket = StrUtil.trimToNull(reqVO.getUploadTicket());
         if (hasUpload) {
             DccUploadTicketBoundFile bound = uploadTicketService.resolveForBinding(
-                    new DccUploadTicketResolveCommand(uploadTicket, userId, reqVO.getSessionId(), "SOURCE"));
+                    new DccUploadTicketResolveCommand(uploadTicket, userId, file.getCategoryId(),
+                            reqVO.getSessionId(), "SOURCE"));
             preparedSource = sourceOwnershipService.prepareSubmissionSource(bound.storageFileId(), false);
         } else {
             preparedSource = sourceOwnershipService.prepareSubmissionSource(file.getSourceFileId(), false);
@@ -572,7 +573,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             sourceOwnershipService.claimSubmissionSource(next.getId(), preparedSource, userId, "CHECKIN");
             if (hasUpload) {
                 uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(
-                        uploadTicket, userId, reqVO.getSessionId(), "SOURCE", next.getId()));
+                        uploadTicket, userId, file.getCategoryId(), reqVO.getSessionId(), "SOURCE", next.getId()));
             }
             if (checkoutMapper.markCheckedIn(tenantId, checkout.getId(), userId, uploadTicket, next.getId(),
                     preparedSource.sourceFileId(), preparedSource.sourceSha256()) != 1) {

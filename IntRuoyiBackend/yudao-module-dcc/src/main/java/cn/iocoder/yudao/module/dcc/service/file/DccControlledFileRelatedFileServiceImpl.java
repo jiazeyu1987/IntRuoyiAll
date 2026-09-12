@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRelatedFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRelatedFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -31,6 +33,8 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
     private DccControlledFileRelatedFileMapper relatedFileMapper;
     @Resource
     private DccControlledFileMapper controlledFileMapper;
+    @Resource
+    private DccControlledFileMasterMapper controlledFileMasterMapper;
 
     @Override
     public void validateAndBindRelatedFiles(Long controlledFileId, Long projectCodeId,
@@ -46,8 +50,19 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
         if (fileMap.size() != normalizedIds.size()) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }
+        if (fileMap.values().stream().anyMatch(file -> file.getMasterId() == null)) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        Map<Long, DccControlledFileMasterDO> masterMap = controlledFileMasterMapper.selectBatchIds(
+                        fileMap.values().stream().map(DccControlledFileDO::getMasterId).filter(Objects::nonNull)
+                                .distinct().toList()).stream()
+                .collect(Collectors.toMap(DccControlledFileMasterDO::getId, Function.identity()));
+        DccControlledFileDO owner = controlledFileMapper.selectById(controlledFileId);
         boolean containsInvalidCandidate = fileMap.values().stream()
-                .anyMatch(file -> !ACTIVE.getStatus().equals(file.getStatus()) || file.getMasterId() == null);
+                .anyMatch(file -> !ACTIVE.getStatus().equals(file.getStatus()) || file.getMasterId() == null
+                        || !Objects.equals(masterMap.get(file.getMasterId()) == null ? null
+                                : masterMap.get(file.getMasterId()).getCurrentActiveControlledFileId(), file.getId())
+                        || owner != null && Objects.equals(owner.getMasterId(), file.getMasterId()));
         if (containsInvalidCandidate) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }
@@ -86,6 +101,42 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
     @Override
     public List<DccControlledFileRelatedFileDO> listForwardRelations(Long controlledFileId) {
         return relatedFileMapper.selectListByControlledFileId(controlledFileId);
+    }
+
+    @Override
+    public List<Long> resolveCurrentActiveRelatedFileIds(Long controlledFileId, Long projectCodeId) {
+        if (controlledFileId == null || projectCodeId == null) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        List<DccControlledFileRelatedFileDO> relations = relatedFileMapper.selectListByControlledFileId(controlledFileId);
+        if (relations.isEmpty()) {
+            return List.of();
+        }
+        List<Long> masterIds = relations.stream().map(DccControlledFileRelatedFileDO::getRelatedMasterId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, DccControlledFileMasterDO> masterMap = controlledFileMasterMapper.selectBatchIds(masterIds).stream()
+                .collect(Collectors.toMap(DccControlledFileMasterDO::getId, Function.identity()));
+        if (masterMap.size() != masterIds.size()) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        List<Long> currentIds = relations.stream().map(relation -> {
+            DccControlledFileMasterDO master = masterMap.get(relation.getRelatedMasterId());
+            return master == null ? null : master.getCurrentActiveControlledFileId();
+        }).toList();
+        if (currentIds.stream().anyMatch(Objects::isNull) || new LinkedHashSet<>(currentIds).size() != currentIds.size()) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        Map<Long, DccControlledFileDO> currentFileMap = controlledFileMapper
+                .selectAssociatedFilesByProjectCodeId(projectCodeId, currentIds).stream()
+                .collect(Collectors.toMap(DccControlledFileDO::getId, Function.identity()));
+        boolean invalid = currentIds.stream().anyMatch(id -> {
+            DccControlledFileDO file = currentFileMap.get(id);
+            return file == null || !ACTIVE.getStatus().equals(file.getStatus());
+        });
+        if (invalid) {
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        }
+        return List.copyOf(currentIds);
     }
 
     @Override

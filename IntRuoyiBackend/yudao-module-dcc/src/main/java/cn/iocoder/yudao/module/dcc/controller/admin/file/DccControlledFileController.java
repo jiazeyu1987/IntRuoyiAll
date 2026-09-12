@@ -55,6 +55,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSou
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePrepareReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceGovernancePrepareRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
@@ -64,6 +65,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUpl
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadTemporaryCleanupReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadTemporaryStatusRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadTemporaryTicketCleanupReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccBrowserExtensionBlacklistRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccBrowserExtensionBlacklistSaveReqVO;
@@ -242,6 +244,32 @@ public class DccControlledFileController {
         return success(respVO);
     }
 
+    @PostMapping("/upload-temporary/ticket-cleanup")
+    @Operation(summary = "Clean one current-user unbound temporary upload ticket")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<DccControlledFileUploadTemporaryStatusRespVO> cleanupUploadTemporaryTicket(
+            @Valid @RequestBody DccControlledFileUploadTemporaryTicketCleanupReqVO reqVO,
+            HttpServletRequest request) throws Exception {
+        DccRequestAuditContext auditContext = DccRequestAuditContext.from(request, null);
+        LocalDateTime cleanupTime = LocalDateTime.now();
+        accessAuditService.recordBoundaryLog(new DccAccessBoundaryLogCreateCommand(getLoginUserId(), "TEMP_FILE",
+                "UPLOAD_TEMPORARY_FILE", "REQUESTED", null, "USER_DISCARDED uploadTicket=" + reqVO.getUploadTicket(),
+                auditContext.sourceIp(), auditContext.requireRequestId("upload temporary ticket cleanup"),
+                auditContext.userAgent()));
+        int cleanedCount = uploadTicketService.cleanupTemporaryFileByTicket(getLoginUserId(), reqVO.getSessionId(),
+                reqVO.getUploadTicket(), cleanupTime, "USER_DISCARDED");
+        DccControlledFileUploadTemporaryStatusRespVO respVO = new DccControlledFileUploadTemporaryStatusRespVO();
+        respVO.setRequestId(auditContext.requestId());
+        respVO.setTemporaryFileCount(0);
+        respVO.setBindable(false);
+        respVO.setSessionId(reqVO.getSessionId());
+        respVO.setCleanupStatus("CLEANED");
+        respVO.setCleanupReason("USER_DISCARDED");
+        respVO.setCleanupTime(cleanupTime);
+        respVO.setCleanedCount(cleanedCount);
+        return success(respVO);
+    }
+
     @GetMapping("/upload-preview/{fileId}/onlyoffice-file")
     @TenantIgnore
     @PermitAll
@@ -308,11 +336,19 @@ public class DccControlledFileController {
                 fileTypeTaxonomyId, keyword, pageNo, pageSize));
     }
 
-    @PostMapping("/submit")
-    @Operation(summary = "Submit a controlled file revision")
+    @PostMapping("/working")
+    @Operation(summary = "Create a WORKING controlled file iteration without starting approval")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
-    public CommonResult<Long> submitControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
-        return success(workflowService.submitControlledFile(getLoginUserId(), reqVO));
+    public CommonResult<Long> createWorkingControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
+        return success(workflowService.createWorkingControlledFile(getLoginUserId(), reqVO));
+    }
+
+    @PostMapping("/{id:\\d+}/submit")
+    @Operation(summary = "Submit the latest WORKING controlled file iteration for approval")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<Long> submitWorkingIteration(@PathVariable("id") Long id,
+                                                      @Valid @RequestBody DccControlledFileSubmitIterationReqVO reqVO) {
+        return success(workflowService.submitWorkingIteration(getLoginUserId(), id, reqVO));
     }
 
     @PostMapping("/major-revision")
@@ -996,7 +1032,7 @@ public class DccControlledFileController {
 
     @PostMapping("/{id:\\d+}/publish")
     @Operation(summary = "Publish an approved revision candidate")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("@ss.hasRole('doc_control') and @ss.hasPermission('dcc:controlled-file:approve')")
     public CommonResult<FormInstanceRespVO> publishControlledFile(@PathVariable("id") Long id,
                                                                   @Valid @RequestBody DccControlledFilePublishReqVO reqVO) {
         return success(publishService.publishControlledFile(getLoginUserId(), id, reqVO));

@@ -25,6 +25,11 @@ assert.match(
   /:\s*'合格'/,
   'Choice-based PQC inspection items must default to 合格.'
 )
+assert.match(
+  mapItemBlock,
+  /defaultValue:\s*isPqcNumericResultType\(item\.resultType\)\s*\?\s*''\s*:\s*'合格'/,
+  'Numeric PQC measurements must remain empty until the operator enters real values.'
+)
 
 assert.match(
   panel,

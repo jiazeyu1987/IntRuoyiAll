@@ -5,8 +5,10 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessAction
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceSubmitReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormActionResolutionRespVO;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileController;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
@@ -14,9 +16,13 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.security.access.prepost.PreAuthorize;
+
+import java.lang.reflect.Method;
 
 import java.util.List;
 import java.util.Map;
@@ -27,13 +33,14 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
 
@@ -50,6 +57,26 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
 
     @InjectMocks
     private DccControlledFilePublishServiceImpl publishService;
+
+    @BeforeEach
+    void defaultPublishPolicyRequiresBpm() {
+        FormActionResolutionRespVO resolution = new FormActionResolutionRespVO();
+        resolution.setApprovalMode("BPM_REQUIRED");
+        resolution.setRequiresBpm(true);
+        resolution.setBpmProcessKey("dcc-controlled-file-approval");
+        lenient().when(formCenterRuntimeService.resolveAction(any(BusinessActionContextReqVO.class)))
+                .thenReturn(resolution);
+    }
+
+    @Test
+    void publishEndpointRequiresDocControlRoleAndApprovePermission() throws Exception {
+        Method method = DccControlledFileController.class.getDeclaredMethod(
+                "publishControlledFile", Long.class, DccControlledFilePublishReqVO.class);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertTrue(preAuthorize.value().contains("hasRole('doc_control')"));
+        assertTrue(preAuthorize.value().contains("dcc:controlled-file:approve"));
+    }
 
     @Test
     void publishControlledFile_submitsFormCenterActionWithoutApplyingDomainEffect() {
@@ -120,6 +147,40 @@ class DccControlledFilePublishServiceTest extends BaseMockitoUnitTest {
         assertEquals("DccControlledFilePublishServiceImpl.publishControlledFile", auditCommand.getSource());
         assertEquals("process-57", auditCommand.getRequestId());
         assertNull(auditCommand.getSignatureRecordId());
+    }
+
+    @Test
+    void publishControlledFile_directPolicySkipsBpmAssigneesAndAuditsActualActiveState() {
+        DccControlledFilePublishReqVO reqVO = new DccControlledFilePublishReqVO();
+        reqVO.setReason("文控正式发布 B/1");
+        reqVO.setIdempotencyKey("DCC-PUBLISH-920-DIRECT");
+        DccControlledFileDO ready = DccControlledFileDO.builder().id(920L).categoryId(18L)
+                .versionNo("B/1").status(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()).build();
+        DccControlledFileDO active = DccControlledFileDO.builder().id(920L).categoryId(18L)
+                .versionNo("B/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(920L)).thenReturn(ready, active);
+        FormActionResolutionRespVO resolution = new FormActionResolutionRespVO();
+        resolution.setApprovalMode("DIRECT");
+        resolution.setRequiresBpm(false);
+        when(formCenterRuntimeService.resolveAction(any(BusinessActionContextReqVO.class))).thenReturn(resolution);
+        FormInstanceRespVO draft = new FormInstanceRespVO();
+        draft.setId(58L);
+        FormInstanceRespVO submitted = new FormInstanceRespVO();
+        submitted.setId(58L);
+        submitted.setStatus("EFFECTIVE");
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
+        when(formCenterRuntimeService.submitInstance(eq(58L), any(FormInstanceSubmitReqVO.class), eq(99L)))
+                .thenReturn(submitted);
+
+        publishService.publishControlledFile(99L, 920L, reqVO);
+
+        verify(approvalRouteAssigneeResolver, never()).resolveStartUserSelectAssignees(any(), any());
+        ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor = ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
+        verify(formCenterRuntimeService).submitInstance(eq(58L), submitCaptor.capture(), eq(99L));
+        assertEquals(Map.of(), submitCaptor.getValue().getStartUserSelectAssignees());
+        ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService).append(auditCaptor.capture());
+        assertEquals("ACTIVE", auditCaptor.getValue().getAfterState().getState());
     }
 
     @Test

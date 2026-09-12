@@ -28,6 +28,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBi
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationProductBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionMemberDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
@@ -246,6 +248,10 @@ class MesTeamLeaderActiveOrderServiceTest {
                 pickListBindingMapper, pickListBindingItemMapper,
                 workOrderBomMapper, batchExecutionMapper, productIssueMapper, workOrderAbnormalMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
+        lenient().when(itemMapper.selectById(anyLong())).thenAnswer(invocation -> MesMdItemDO.builder()
+                .id(invocation.getArgument(0, Long.class))
+                .productMasterId(11L)
+                .build());
         lenient().when(pickListMapper.selectById(9001L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
                 .id(9001L).sourceFormId("PRD_PickMtrl").sourceFid("9001").sourceBillNo("PICK-9001")
                 .documentStatus("C").build());
@@ -1019,6 +1025,102 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertPqcTask(tasks.get(3), 928601L, 6001L, "FINAL", "FINAL", "FINAL", 3, expectedBusinessDate);
         assertPqcTask(tasks.get(36), 928610L, 6010L, "FIRST", "FIRST", "FIRST", 5, expectedBusinessDate);
         assertPqcTask(tasks.get(39), 928610L, 6010L, "FINAL", "FINAL", "FINAL", 3, expectedBusinessDate);
+    }
+
+    @Test
+    void shouldResolveCommonRegulationBindingByMdmProductMasterId() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("10")));
+        JSONObject routeSnapshot = JSON.parseObject(activeRouteSnapshotJson(1));
+        routeSnapshot.getJSONObject("configSnapshots").put("productionProcessConfigSchemaVersion", 1);
+        stubFormalRouteQaContext(1001L, 448L, routeSnapshot.toJSONString(),
+                publishedRegulation(9902L, null, null));
+        when(itemMapper.selectById(1001L)).thenReturn(MesMdItemDO.builder()
+                .id(1001L)
+                .productMasterId(11L)
+                .code("IDI")
+                .name("按压式球囊扩充压力泵")
+                .build());
+        when(commonRegulationProductBindingMapper.selectEnabledByProductId(11L)).thenReturn(
+                MesQaCommonRegulationProductBindingDO.builder()
+                        .productId(11L)
+                        .commonRegulationSetId(8800L)
+                        .commonRegulationSetVersionId(8801L)
+                        .regulationId(9911L)
+                        .regulationVersionId(9912L)
+                        .scopeCode(MesQaCommonRegulationProductBindingDO.SCOPE_COMMON_PACKAGING)
+                        .bindingStatus(MesQaCommonRegulationProductBindingDO.STATUS_ENABLED)
+                        .build());
+        when(commonRegulationSetVersionMemberMapper.selectListBySetVersionId(8801L)).thenReturn(List.of(
+                MesQaCommonRegulationSetVersionMemberDO.builder()
+                        .setVersionId(8801L).regulationId(9911L).regulationVersionId(9912L).sort(10).build(),
+                MesQaCommonRegulationSetVersionMemberDO.builder()
+                        .setVersionId(8801L).regulationId(9921L).regulationVersionId(9922L).sort(20).build()));
+        when(inspectionRegulationMapper.selectById(9911L)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(9911L)
+                .dccProjectCodeId(900L)
+                .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .lifecycleStatus("PUBLISHED")
+                .currentVersionId(9912L)
+                .build());
+        when(inspectionRegulationVersionMapper.selectById(9912L)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder()
+                        .id(9912L)
+                        .regulationId(9911L)
+                        .versionNo("A/1")
+                        .lifecycleStatus("PUBLISHED")
+                        .finalInspectionApplicable(Boolean.FALSE)
+                        .finalInspectionNotApplicableReason("通用包装套不适用末检")
+                        .inspectionTypeRulesJson(publishedRegulationVersion(false, "通用包装套不适用末检")
+                                .getInspectionTypeRulesJson())
+                        .snapshotJson("{}")
+                        .build());
+        when(inspectionRegulationMapper.selectById(9921L)).thenReturn(MesQaInspectionRegulationDO.builder()
+                .id(9921L)
+                .dccProjectCodeId(901L)
+                .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .lifecycleStatus("PUBLISHED")
+                .currentVersionId(9922L)
+                .build());
+        when(inspectionRegulationVersionMapper.selectById(9922L)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder()
+                        .id(9922L)
+                        .regulationId(9921L)
+                        .versionNo("A/1")
+                        .lifecycleStatus("PUBLISHED")
+                        .finalInspectionApplicable(Boolean.FALSE)
+                        .finalInspectionNotApplicableReason("通用包装套不适用末检")
+                        .inspectionTypeRulesJson(publishedRegulationVersion(false, "通用包装套不适用末检")
+                                .getInspectionTypeRulesJson())
+                        .snapshotJson("{}")
+                        .build());
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9912L)))
+                .thenReturn(List.of(qaProcess(9912L, 19912L, "COMMON-PACK-001", "初包装", 1)));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9922L)))
+                .thenReturn(List.of(qaProcess(9922L, 19922L, "COMMON-PACK-002", "大中包装", 1)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9912L)).thenReturn(List.of(
+                pqcItem(9912L, 19912L, "FIRST", 5, null)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9922L)).thenReturn(List.of(
+                pqcItem(9922L, 19922L, "PATROL", null, new BigDecimal("5.000000"))));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        verify(commonRegulationProductBindingMapper).selectEnabledByProductId(11L);
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(7)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream()
+                .anyMatch(task -> Objects.equals(9912L, task.getRegulationVersionId())
+                        && Objects.equals(19912L, task.getQaProcessId())));
+        assertTrue(taskCaptor.getAllValues().stream()
+                .anyMatch(task -> Objects.equals(9922L, task.getRegulationVersionId())
+                        && Objects.equals(19922L, task.getQaProcessId())));
+
+        when(inspectionRegulationItemMapper.selectListByVersionId(9922L)).thenReturn(List.of(
+                pqcItem(9922L, 19922L, "FIRST", 5, null)));
+        ServiceException missingType = assertThrows(ServiceException.class,
+                () -> service.addActiveOrder(activeOrderReq()));
+        assertTrue(missingType.getMessage().contains("通用检验规程套缺少必需检验类型对应项目"));
     }
 
     @Test

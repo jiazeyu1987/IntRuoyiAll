@@ -238,7 +238,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     workOrder.getId(), workOrder.getCode(),
                     workOrder.getName(), workOrder.getProductId(), item.getCode(), item.getName(),
                     workOrder.getBatchCode(), workOrder.getQuantity(),
-                    route.getId(), route.getCode(), route.getName(), context.latestSubmitTime()));
+                    route.getId(), activeOrder.getRouteVersionId(), route.getCode(), route.getName(),
+                    context.latestSubmitTime()));
         }
         candidates.sort(Comparator
                 .comparing(MesFrontlineActiveOrderCandidate::latestSubmitTime,
@@ -293,7 +294,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 Map<ProductionProcessIdentity, PqcRouteDeviceContext> routeDevicesByProcessIdentity =
                         resolvePqcRouteDevicesByProcessIdentity(
                         activeOrder, tasksForProcess, frozenProcessSnapshots);
-                applyCurrentEquipmentOptions(activeOrder.getDccProjectCodeId(),
+                applyCurrentEquipmentOptions(qaSource.getDccProjectCodeId(),
                         qaSource.getPublishedVersionId(), inspectionItems, Map.of());
                 if (inspectionItems.isEmpty()) {
                     throw exception(PRO_FRONTLINE_PQC_REGULATION_REQUIRED,
@@ -321,6 +322,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                         activeOrder.getDccProjectCodeId(), activeOrder.getQaRegulationId(),
                         activeOrder.getQaRegulationVersionId());
         requireLockedQaAggregate(activeOrder, productQaSource,
+                activeOrder.getDccProjectCodeId(),
                 activeOrder.getQaRegulationId(), activeOrder.getQaRegulationVersionId());
         List<MesQaInspectionRegulationPublishedVersionRespVO> qaSources = new ArrayList<>();
         qaSources.add(productQaSource);
@@ -363,7 +365,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             }
             MesQaInspectionRegulationPublishedVersionRespVO commonQaSource =
                     regulationService.getLockedCommonVersionForOrder(regulation.getId(), regulationVersionId);
-            requireLockedQaAggregate(activeOrder, commonQaSource, regulation.getId(), regulationVersionId);
+            requireLockedQaAggregate(activeOrder, commonQaSource, regulation.getDccProjectCodeId(),
+                    regulation.getId(), regulationVersionId);
             commonSources.add(commonQaSource);
         }
         return commonSources;
@@ -965,13 +968,15 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     private static void requireLockedQaAggregate(
             MesProcessPoolActiveOrderDO activeOrder,
             MesQaInspectionRegulationPublishedVersionRespVO qaSource,
+            Long expectedDccProjectCodeId,
             Long expectedRegulationId,
             Long expectedRegulationVersionId) {
         requirePositive(activeOrder.getDccProjectCodeId(), "activeOrder.dccProjectCodeId");
+        requirePositive(expectedDccProjectCodeId, "expectedDccProjectCodeId");
         requirePositive(expectedRegulationId, "expectedRegulationId");
         requirePositive(expectedRegulationVersionId, "expectedRegulationVersionId");
         if (qaSource == null
-                || !Objects.equals(activeOrder.getDccProjectCodeId(), qaSource.getDccProjectCodeId())
+                || !Objects.equals(expectedDccProjectCodeId, qaSource.getDccProjectCodeId())
                 || !Objects.equals(expectedRegulationId, qaSource.getRegulationId())
                 || !Objects.equals(expectedRegulationVersionId, qaSource.getPublishedVersionId())) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
@@ -1259,8 +1264,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requireValue(loginUserId, "loginUserId");
         requirePqcSubmitCommand(command);
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(command.getPqcTaskId());
-        applyPqcTaskContext(command, task, loginUserId);
-        List<MesFrontlinePqcInspectionItem> inspectionItems = resolveSubmittedInspectionItems(task, command);
+        Long regulationDccProjectCodeId = applyPqcTaskContext(command, task, loginUserId);
+        List<MesFrontlinePqcInspectionItem> inspectionItems = resolveSubmittedInspectionItems(
+                task, command, regulationDccProjectCodeId);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
                 inspectionItems);
         String inspectionResult = resolvePqcInspectionResult(command.getScrapQuantity(), pieceDetails);
@@ -1283,7 +1289,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (taskUpdated != 1) {
             throw exception(PRO_FRONTLINE_PQC_TASK_STATUS_INVALID, task.getId(), task.getTaskStatus());
         }
-        Long signatureId = signatureService.recordPqcSubmitSignature(command.getActualEmployeeId(),
+        Long signatureId = signatureService.recordPqcSubmitSignature(command.getActualEmployeeId(), task.getId(),
                 command.getSignaturePassword(),
                 "PQC任务" + task.getId() + "正式提交");
         requirePositive(signatureId, "signatureId");
@@ -1427,7 +1433,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requireText(command.getSignaturePassword(), "signaturePassword");
     }
 
-    private void applyPqcTaskContext(MesFrontlinePqcSubmitCommand command, MesPqcInspectionTaskDO task,
+    private Long applyPqcTaskContext(MesFrontlinePqcSubmitCommand command, MesPqcInspectionTaskDO task,
                                      Long loginUserId) {
         if (task == null || task.getId() == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "pqcTaskId");
@@ -1440,10 +1446,10 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         command.setRoundNo(task.getRoundNo());
         command.setPqcSubmissionIdempotencyKey("pqc-task-" + task.getId());
         command.setTemplateType(FrontlineTemplateCodes.PQC_SIMPLIFIED);
-        validatePqcTaskSubmissionIdentity(command, task, loginUserId);
+        return validatePqcTaskSubmissionIdentity(command, task, loginUserId);
     }
 
-    private void validatePqcTaskSubmissionIdentity(MesFrontlinePqcSubmitCommand command,
+    private Long validatePqcTaskSubmissionIdentity(MesFrontlinePqcSubmitCommand command,
                                                    MesPqcInspectionTaskDO task,
                                                    Long loginUserId) {
         boolean taskStatusAllowed = PQC_TASK_STATUS_PENDING.equals(task.getTaskStatus())
@@ -1496,13 +1502,16 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
         command.setProductionSubmitEventId(null);
+        return regulation.getDccProjectCodeId();
     }
 
     private List<MesFrontlinePqcInspectionItem> resolveSubmittedInspectionItems(
-            MesPqcInspectionTaskDO task, MesFrontlinePqcSubmitCommand command) {
+            MesPqcInspectionTaskDO task, MesFrontlinePqcSubmitCommand command,
+            Long regulationDccProjectCodeId) {
         if (task == null || task.getRegulationVersionId() == null || CollUtil.isEmpty(command.getItemResults())) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemResults");
         }
+        requirePositive(regulationDccProjectCodeId, "regulationDccProjectCodeId");
         List<MesQaInspectionRegulationItemDO> publishedItems = regulationItemMapper
                 .selectListByVersionId(task.getRegulationVersionId()).stream()
                 .filter(Objects::nonNull)
@@ -1529,7 +1538,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         }
         Map<String, List<MesPqcItemEquipmentOption>> equipmentByItem =
                 pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
-                        activeOrder.getDccProjectCodeId(), task.getRegulationVersionId(), expectedCodes);
+                        regulationDccProjectCodeId, task.getRegulationVersionId(), expectedCodes);
         ProductionProcessIdentity processIdentity = new ProductionProcessIdentity(
                 task.getRouteProcessId(), task.getProcessId());
         MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot =

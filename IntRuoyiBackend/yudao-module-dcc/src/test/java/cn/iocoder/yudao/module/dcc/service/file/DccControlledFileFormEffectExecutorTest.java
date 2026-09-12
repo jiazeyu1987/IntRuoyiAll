@@ -45,7 +45,7 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
         FormBusinessEffectResult result = executor.execute(instance, "IDEM-DCC-1");
 
         assertFalse(result.isSuccess());
-        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit",
+        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/working",
                 result.getFailureReason());
         verify(workflowService, never()).submitControlledFileWithoutApproval(any(), any(), any(), any());
     }
@@ -73,7 +73,7 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
         FormBusinessEffectPrecheck precheck = executor.preflight(dccUploadInstance());
 
         assertFalse(precheck.isPassed());
-        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit",
+        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/working",
                 precheck.getFailureReason());
         verify(workflowService, never()).submitControlledFileWithoutApproval(any(), any());
     }
@@ -96,7 +96,7 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
         FormBusinessEffectPrecheck missingFieldResult = executor.preflight(missingFileName);
 
         assertFalse(missingFieldResult.isPassed());
-        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit",
+        assertEquals("DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/working",
                 missingFieldResult.getFailureReason());
         verify(workflowService, never()).submitControlledFileWithoutApproval(any(), any());
     }

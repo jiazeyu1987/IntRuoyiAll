@@ -23,7 +23,7 @@ public class DccControlledFileFormEffectExecutor
     private static final String LIFECYCLE_CONTEXT_ERROR =
             "DCC_UPLOAD lifecycle adapter only accepts DCC CONTROLLED_FILE UPLOAD actions";
     private static final String RETIRED_ENTRY_ERROR =
-            "DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/submit";
+            "DCC_UPLOAD form-center entry is retired; use /dcc/controlled-files/working";
 
     private final DccControlledFileWorkflowService workflowService;
 

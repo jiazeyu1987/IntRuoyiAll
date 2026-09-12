@@ -16,6 +16,20 @@ BEGIN
       SET MESSAGE_TEXT = 'DCC_PUBLISH_POLICY_TABLE_MISSING';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM `bpm_business_approval_policy`
+    WHERE `system_code` = 'DCC'
+      AND `object_type` = 'CONTROLLED_FILE'
+      AND `action_code` = 'PUBLISH'
+      AND `object_state` = 'READY_TO_PUBLISH'
+      AND `effect_executor_code` = 'DCC_PUBLISH'
+      AND `status` = 'PUBLISHED'
+      AND `deleted` = b'0'
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'DCC_PUBLISH_POLICY_TARGET_MISSING';
+  END IF;
+
   UPDATE `bpm_business_approval_policy`
   SET `policy_mode` = 'DIRECT',
       `process_definition_key` = NULL,

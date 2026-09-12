@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMaj
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTrainingRecordReqVO;
@@ -30,7 +31,9 @@ public interface DccControlledFileWorkflowService {
                                                                          Long dccProjectCodeId,
                                                                          Long fileTypeTaxonomyId);
 
-    Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
+    Long createWorkingControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
+
+    Long submitWorkingIteration(Long userId, Long iterationId, DccControlledFileSubmitIterationReqVO reqVO);
 
     Long createMajorRevision(Long userId, DccControlledFileMajorRevisionReqVO reqVO);
 

@@ -783,6 +783,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static String validateInspectionRuleTruthTable(List<PqcInspectionRule> rules,
                                                            List<MesQaInspectionRegulationItemDO> items) {
+        return validateInspectionRuleTruthTable(rules, items, true);
+    }
+
+    private static String validateInspectionRuleTruthTable(List<PqcInspectionRule> rules,
+                                                           List<MesQaInspectionRegulationItemDO> items,
+                                                           boolean requireEveryEnabledRuleCoverage) {
         if (rules == null || rules.isEmpty()) {
             return "QA规程缺少检验类型规则";
         }
@@ -807,6 +813,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             if (typeRules.stream().noneMatch(PqcInspectionRule::required)) {
                 return "QA规程缺少启用检验类型规则";
             }
+        }
+        if (!requireEveryEnabledRuleCoverage) {
+            return null;
         }
         for (PqcInspectionRule rule : rules) {
             if (!rule.required()) {
@@ -2400,18 +2409,26 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "工单缺少产品身份，workOrderId=" + contextId);
         }
+        MesMdItemDO product = itemMapper.selectById(workOrder.getProductId());
+        if (product == null || product.getProductMasterId() == null || product.getProductMasterId() <= 0) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "工单产品缺少 MDM 产品主档身份，mesProductId=" + workOrder.getProductId()
+                            + "，contextId=" + contextId);
+        }
+        Long productMasterId = product.getProductMasterId();
         MesQaCommonRegulationProductBindingDO binding =
-                commonRegulationProductBindingMapper.selectEnabledByProductId(workOrder.getProductId());
+                commonRegulationProductBindingMapper.selectEnabledByProductId(productMasterId);
         if (binding == null) {
             return List.of();
         }
-        if (!Objects.equals(workOrder.getProductId(), binding.getProductId())
+        if (!Objects.equals(productMasterId, binding.getProductId())
                 || !Objects.equals(MesQaCommonRegulationProductBindingDO.SCOPE_COMMON_PACKAGING,
                 binding.getScopeCode())
                 || !Objects.equals(MesQaCommonRegulationProductBindingDO.STATUS_ENABLED,
                 binding.getBindingStatus())) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "产品通用检验规程绑定无效，productId=" + workOrder.getProductId()
+                    "产品通用检验规程绑定无效，productMasterId=" + productMasterId
+                            + "，mesProductId=" + workOrder.getProductId()
                             + "，contextId=" + contextId);
         }
         if (binding.getCommonRegulationSetVersionId() != null) {
@@ -2420,26 +2437,48 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             binding.getCommonRegulationSetVersionId());
             if (members.isEmpty()) {
                 throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "产品通用检验规程套版本缺少成员，productId=" + workOrder.getProductId()
+                        "产品通用检验规程套版本缺少成员，productMasterId=" + productMasterId
                                 + "，setVersionId=" + binding.getCommonRegulationSetVersionId()
                                 + "，contextId=" + contextId);
             }
             List<ActiveOrderQaVersionSource> sources = new ArrayList<>();
             for (MesQaCommonRegulationSetVersionMemberDO member : members) {
                 sources.add(requireCommonQaVersionSource(project, workOrder, contextId,
-                        member.getRegulationId(), member.getRegulationVersionId()));
+                        member.getRegulationId(), member.getRegulationVersionId(), false));
             }
+            validateCommonQaSetRuleCoverage(sources, binding.getCommonRegulationSetVersionId(), contextId);
             return sources;
         }
         return List.of(requireCommonQaVersionSource(project, workOrder, contextId,
-                binding.getRegulationId(), binding.getRegulationVersionId()));
+                binding.getRegulationId(), binding.getRegulationVersionId(), true));
+    }
+
+    private void validateCommonQaSetRuleCoverage(List<ActiveOrderQaVersionSource> sources,
+                                                 Long setVersionId, Long contextId) {
+        Set<String> itemInspectionTypes = sources.stream()
+                .flatMap(source -> source.items().stream())
+                .map(MesQaInspectionRegulationItemDO::getInspectionType)
+                .map(MesTeamLeaderActiveOrderServiceImpl::normalizeInspectionType)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        boolean missingRequiredType = sources.stream()
+                .flatMap(source -> source.rules().stream())
+                .filter(PqcInspectionRule::required)
+                .map(PqcInspectionRule::inspectionType)
+                .anyMatch(inspectionType -> !itemInspectionTypes.contains(inspectionType));
+        if (missingRequiredType) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "通用检验规程套缺少必需检验类型对应项目，setVersionId=" + setVersionId
+                            + "，contextId=" + contextId);
+        }
     }
 
     private ActiveOrderQaVersionSource requireCommonQaVersionSource(DccProjectCodeDO project,
                                                                     MesProWorkOrderDO workOrder,
                                                                     Long contextId,
                                                                     Long regulationId,
-                                                                    Long regulationVersionId) {
+                                                                    Long regulationVersionId,
+                                                                    boolean requireEveryEnabledRuleCoverage) {
         if (regulationId == null || regulationVersionId == null) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "产品通用检验规程绑定缺少规程版本，productId=" + workOrder.getProductId()
@@ -2458,13 +2497,22 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             + workOrder.getProductId() + "，regulationVersionId="
                             + regulationVersionId + "，contextId=" + contextId);
         }
-        return buildQaVersionSource(regulation, version, contextId, "通用包装 QA 规程");
+        return buildQaVersionSource(regulation, version, contextId, "通用包装 QA 规程",
+                requireEveryEnabledRuleCoverage);
     }
 
     private ActiveOrderQaVersionSource buildQaVersionSource(MesQaInspectionRegulationDO regulation,
                                                             MesQaInspectionRegulationVersionDO version,
                                                             Long contextId,
                                                             String sourceName) {
+        return buildQaVersionSource(regulation, version, contextId, sourceName, true);
+    }
+
+    private ActiveOrderQaVersionSource buildQaVersionSource(MesQaInspectionRegulationDO regulation,
+                                                            MesQaInspectionRegulationVersionDO version,
+                                                            Long contextId,
+                                                            String sourceName,
+                                                            boolean requireEveryEnabledRuleCoverage) {
         List<MesQaInspectionRegulationProcessDO> processes = inspectionRegulationProcessMapper
                 .selectListByVersionIds(List.of(version.getId())).stream()
                 .filter(process -> Objects.equals(version.getId(), process.getRegulationVersionId()))
@@ -2494,7 +2542,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     ex.getMessage() + "，contextId=" + contextId
                             + "，regulationVersionId=" + version.getId());
         }
-        String truthTableReason = validateInspectionRuleTruthTable(rules, items);
+        String truthTableReason = validateInspectionRuleTruthTable(
+                rules, items, requireEveryEnabledRuleCoverage);
         if (truthTableReason != null) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     truthTableReason + "，contextId=" + contextId

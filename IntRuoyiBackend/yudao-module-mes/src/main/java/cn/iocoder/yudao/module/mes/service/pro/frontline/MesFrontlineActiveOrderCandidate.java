@@ -13,6 +13,7 @@ public record MesFrontlineActiveOrderCandidate(Long activeOrderId,
                                                String batchCode,
                                                BigDecimal quantity,
                                                Long routeId,
+                                               Long routeVersionId,
                                                String routeCode,
                                                String routeName,
                                                LocalDateTime latestSubmitTime) {

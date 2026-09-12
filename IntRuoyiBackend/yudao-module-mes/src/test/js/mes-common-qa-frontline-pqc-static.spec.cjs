@@ -84,6 +84,12 @@ assert(frontlinePqcRespVO.includes('regulationName')
 assert(frontlinePqcService.includes('respVO.setRegulationName(qaSource.getRegulationName())')
   && frontlinePqcService.includes('respVO.setRegulationSourceType('),
   'Frontline PQC service must populate source name/type for product and common QA processes.');
+assert(/Long\s+regulationDccProjectCodeId\s*=\s*applyPqcTaskContext\(/.test(frontlinePqcService)
+  && /resolveSubmittedInspectionItems\(\s*task,\s*command,\s*regulationDccProjectCodeId\)/.test(frontlinePqcService),
+  'PQC submission must carry the task regulation DCC identity into submitted-item resolution.');
+assert(/listEnabledEquipmentOptionsByProjectVersionAndItemCodes\(\s*regulationDccProjectCodeId,\s*task\.getRegulationVersionId\(\)/s
+    .test(frontlinePqcService),
+  'PQC submission must query equipment by the task regulation DCC instead of the product DCC.');
 assert(frontendFeedbackApi.includes('regulationName?: string')
   && frontendFeedbackApi.includes('regulationSourceType?:'),
   'Frontline PQC API type must include regulation source display fields.');

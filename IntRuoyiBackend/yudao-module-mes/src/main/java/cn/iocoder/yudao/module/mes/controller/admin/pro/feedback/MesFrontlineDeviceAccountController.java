@@ -235,6 +235,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setBatchCode(candidate.batchCode());
         respVO.setQuantity(candidate.quantity());
         respVO.setRouteId(candidate.routeId());
+        respVO.setRouteVersionId(candidate.routeVersionId());
         respVO.setRouteCode(candidate.routeCode());
         respVO.setRouteName(candidate.routeName());
         respVO.setLatestSubmitTime(candidate.latestSubmitTime());
@@ -254,6 +255,8 @@ public class MesFrontlineDeviceAccountController {
                 .setQuantity(activeOrder.getErpFixedQuantitySnapshot() == null
                         ? activeOrder.getQuantity() : activeOrder.getErpFixedQuantitySnapshot())
                 .setRouteId(activeOrder.getRouteId())
+                .setRouteVersionId(activeOrder.getRouteVersionId())
+                .setRouteVersionNo(activeOrder.getRouteVersionNo())
                 .setRouteName(activeOrder.getRouteName())
                 .setLatestSubmitTime(activeOrder.getJoinedAt());
     }

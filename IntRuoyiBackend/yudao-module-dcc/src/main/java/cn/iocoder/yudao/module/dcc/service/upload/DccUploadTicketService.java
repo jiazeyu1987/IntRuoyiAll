@@ -17,5 +17,8 @@ public interface DccUploadTicketService {
     int cleanupSessionTemporaryFiles(Long userId, String sessionId, LocalDateTime cleanupTime, String cleanupReason)
             throws Exception;
 
+    int cleanupTemporaryFileByTicket(Long userId, String sessionId, String uploadTicket, LocalDateTime cleanupTime,
+                                     String cleanupReason) throws Exception;
+
     DccUploadTemporaryFileStatus getTemporaryFileStatusByRequestId(Long userId, String requestId);
 }

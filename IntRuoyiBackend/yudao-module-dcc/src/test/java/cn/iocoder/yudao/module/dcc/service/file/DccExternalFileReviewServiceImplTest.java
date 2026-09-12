@@ -18,12 +18,16 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketResolveCommand;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.Supplier;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID;
@@ -36,6 +40,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
 
@@ -51,9 +56,23 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
     private DccControlledFileMapper controlledFileMapper;
     @Mock
     private DccUploadTicketService uploadTicketService;
+    @Mock
+    private DccControlledFileSubmitMutex submitMutex;
 
     @InjectMocks
     private DccExternalFileReviewServiceImpl externalFileReviewService;
+
+    @BeforeEach
+    void setUpSubmissionMutex() {
+        TenantContextHolder.setTenantId(1L);
+        lenient().when(submitMutex.execute(any(), any())).thenAnswer(invocation ->
+                ((Supplier<?>) invocation.getArgument(1)).get());
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContextHolder.clear();
+    }
 
     @Test
     void submitExternalReview_success_usesIndependentProcessKeyAndPersistsExternalFields() {
@@ -73,6 +92,7 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
                 eq(DccExternalFileReviewServiceImpl.BPM_PROCESS_DEFINITION_KEY));
         assertEquals(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode(), submitCaptor.getValue().getProcessType());
         assertEquals("session-external", submitCaptor.getValue().getSessionId());
+        assertEquals("external-submit-1", submitCaptor.getValue().getIdempotencyKey());
         assertEquals("UT-EXTERNAL-ORIGINAL", submitCaptor.getValue().getOriginalUploadTicket());
         assertNull(submitCaptor.getValue().getProductMasterId());
         assertEquals(3000L, submitCaptor.getValue().getDccProjectCodeId());
@@ -109,9 +129,10 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setSessionId("session-external");
         reqVO.setOutputUploadTicket("UT-EXTERNAL-OUTPUT");
         when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
-                .id(900L).status(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()).build());
+                .id(900L).categoryId(10L)
+                .status(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()).build());
         when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
-                "UT-EXTERNAL-OUTPUT", 99L, "session-external", "EXTERNAL_REVIEW_OUTPUT")))
+                "UT-EXTERNAL-OUTPUT", 99L, 10L, "session-external", "EXTERNAL_REVIEW_OUTPUT")))
                 .thenReturn(new DccUploadTicketBoundFile("UT-EXTERNAL-OUTPUT", 800L,
                         "external-output.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 32L));
 
@@ -124,7 +145,7 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("ACCEPTED_WITH_NOTES", updateCaptor.getValue().getReviewConclusion());
         assertEquals(800L, updateCaptor.getValue().getOutputFileId());
         verify(uploadTicketService).markBound(new DccUploadTicketMarkBoundCommand(
-                "UT-EXTERNAL-OUTPUT", 99L, "session-external", "EXTERNAL_REVIEW_OUTPUT", 900L));
+                "UT-EXTERNAL-OUTPUT", 99L, 10L, "session-external", "EXTERNAL_REVIEW_OUTPUT", 900L));
     }
 
     @Test
@@ -181,6 +202,7 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
     private DccExternalFileReviewSubmitReqVO buildSubmitReqVO() {
         DccExternalFileReviewSubmitReqVO reqVO = new DccExternalFileReviewSubmitReqVO();
         reqVO.setCategoryId(10L);
+        reqVO.setIdempotencyKey("external-submit-1");
         reqVO.setDirectoryId(21L);
         reqVO.setSessionId("session-external");
         reqVO.setOriginalUploadTicket("UT-EXTERNAL-ORIGINAL");

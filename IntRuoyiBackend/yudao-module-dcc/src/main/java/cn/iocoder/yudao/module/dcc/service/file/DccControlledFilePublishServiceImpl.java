@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessAction
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceSubmitReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormActionResolutionRespVO;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -46,21 +47,34 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
     public FormInstanceRespVO publishControlledFile(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
         DccControlledFileDO file = requirePublishRequest(userId, id, reqVO);
         Map<String, Object> formData = buildPublishFormData(file, reqVO);
+        BusinessActionContextReqVO publishContext = buildPublishContext(file, reqVO);
+        FormActionResolutionRespVO resolution = formCenterRuntimeService.resolveAction(publishContext);
+        if (resolution == null || StrUtil.isBlank(resolution.getApprovalMode())) {
+            throw new IllegalStateException("DCC publish action policy could not be resolved");
+        }
+        boolean requiresBpm = Boolean.TRUE.equals(resolution.getRequiresBpm());
         FormInstanceCreateReqVO createReqVO = new FormInstanceCreateReqVO();
-        createReqVO.setContext(buildPublishContext(file, reqVO));
+        createReqVO.setContext(publishContext);
         createReqVO.setIdempotencyKey(reqVO.getIdempotencyKey());
         createReqVO.setFormData(formData);
         FormInstanceRespVO draft = formCenterRuntimeService.createInstance(createReqVO, userId);
 
         FormInstanceSubmitReqVO submitReqVO = new FormInstanceSubmitReqVO();
         submitReqVO.setFormData(formData);
-        Map<String, List<Long>> startUserSelectAssignees = reqVO.getStartUserSelectAssignees();
-        if (startUserSelectAssignees == null || startUserSelectAssignees.isEmpty()) {
-            startUserSelectAssignees = approvalRouteAssigneeResolver.resolveStartUserSelectAssignees(file, userId);
+        Map<String, List<Long>> startUserSelectAssignees = Map.of();
+        if (requiresBpm) {
+            startUserSelectAssignees = reqVO.getStartUserSelectAssignees();
+            if (startUserSelectAssignees == null || startUserSelectAssignees.isEmpty()) {
+                startUserSelectAssignees = approvalRouteAssigneeResolver.resolveStartUserSelectAssignees(file, userId);
+            }
         }
         submitReqVO.setStartUserSelectAssignees(startUserSelectAssignees);
         FormInstanceRespVO submitted = formCenterRuntimeService.submitInstance(draft.getId(), submitReqVO, userId);
-        gxpAuditService.append(buildGxpAuditCommand(file, reqVO, submitted));
+        DccControlledFileDO afterFile = controlledFileMapper.selectById(id);
+        if (afterFile == null) {
+            throw new IllegalStateException("Controlled file is missing after publish action submission");
+        }
+        gxpAuditService.append(buildGxpAuditCommand(file, afterFile, reqVO, submitted, requiresBpm));
         return submitted;
     }
 
@@ -103,8 +117,10 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
     }
 
     private GxpAuditCommand buildGxpAuditCommand(DccControlledFileDO file,
+                                                 DccControlledFileDO afterFile,
                                                  DccControlledFilePublishReqVO reqVO,
-                                                 FormInstanceRespVO submitted) {
+                                                 FormInstanceRespVO submitted,
+                                                 boolean requiresBpm) {
         String objectVersion = StrUtil.blankToDefault(file.getVersionNo(), String.valueOf(file.getId()));
         return GxpAuditCommand.builder()
                 .operationId("dcc.controlled-file.publish")
@@ -117,9 +133,9 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
                         .canonicalJson(fileStateJson(file))
                         .build())
                 .afterState(GxpAuditStateEnvelope.builder()
-                        .state("PUBLISH_APPROVAL_STARTED")
+                        .state(requiresBpm ? "PUBLISH_APPROVAL_STARTED" : afterFile.getStatus())
                         .objectVersion(objectVersion)
-                        .canonicalJson(publishApprovalStateJson(file, submitted))
+                        .canonicalJson(publishApprovalStateJson(file, afterFile, submitted, requiresBpm))
                         .build())
                 .idempotencyKey(reqVO.getIdempotencyKey())
                 .requestId(StrUtil.blankToDefault(submitted.getBpmProcessInstanceId(), String.valueOf(submitted.getId())))
@@ -140,12 +156,13 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
         return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload);
     }
 
-    private String publishApprovalStateJson(DccControlledFileDO file, FormInstanceRespVO submitted) {
+    private String publishApprovalStateJson(DccControlledFileDO file, DccControlledFileDO afterFile,
+                                              FormInstanceRespVO submitted, boolean requiresBpm) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("controlledFileId", file.getId());
         payload.put("versionNo", file.getVersionNo());
         payload.put("fromStatus", file.getStatus());
-        payload.put("approvalState", "PUBLISH_APPROVAL_STARTED");
+        payload.put("approvalState", requiresBpm ? "PUBLISH_APPROVAL_STARTED" : afterFile.getStatus());
         payload.put("formInstanceId", submitted.getId());
         payload.put("formInstanceStatus", submitted.getStatus());
         payload.put("bpmProcessInstanceId", submitted.getBpmProcessInstanceId());

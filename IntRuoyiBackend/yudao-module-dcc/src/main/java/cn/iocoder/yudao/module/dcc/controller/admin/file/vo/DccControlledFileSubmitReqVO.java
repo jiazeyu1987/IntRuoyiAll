@@ -24,6 +24,10 @@ public class DccControlledFileSubmitReqVO {
     @Schema(hidden = true)
     private String submitPayloadHash;
 
+    @JsonIgnore
+    @Schema(hidden = true)
+    private String creationPayloadHash;
+
     private String originalUploadTicket;
 
     private String sourceUploadTicket;

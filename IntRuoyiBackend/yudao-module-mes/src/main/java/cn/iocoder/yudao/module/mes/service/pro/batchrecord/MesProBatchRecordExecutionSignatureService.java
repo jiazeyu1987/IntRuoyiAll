@@ -71,6 +71,7 @@ public class MesProBatchRecordExecutionSignatureService {
     private static final String AUTHORIZATION_BASIS_FULL = "统一电子签名授权启用；系统角色/岗位快照已记录";
     private static final String AUTHORIZATION_BASIS_PARTIAL_ORG = "统一电子签名授权启用；组织快照缺少岗位/角色配置";
     private static final String AUTHORIZATION_BASIS_EMPLOYEE_PROFILE = "生产人员档案电子签名密码已验证";
+    private static final String REVIEW_SOURCE_TYPE_PQC_TASK = "MES_PQC_INSPECTION_TASK";
 
     @Resource
     private AdminUserService adminUserService;
@@ -101,13 +102,8 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long recordPqcSubmitSignature(String password, String comment) {
-        return recordSignature(0L, password, comment, ACTION_PQC_SUBMIT);
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    public Long recordPqcSubmitSignature(Long actorId, String password, String comment) {
-        if (actorId == null) {
+    public Long recordPqcSubmitSignature(Long actorId, Long pqcTaskId, String password, String comment) {
+        if (actorId == null || pqcTaskId == null || pqcTaskId <= 0) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         AdminUserDO user = adminUserService.getUser(actorId);
@@ -115,8 +111,9 @@ public class MesProBatchRecordExecutionSignatureService {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PQC_SUBMIT,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null);
+                null, null, null, null, null, null, null,
+                REVIEW_SOURCE_TYPE_PQC_TASK, pqcTaskId, "PQC检验任务", ACTION_PQC_SUBMIT, comment,
+                null, null, null, null);
     }
 
     @Transactional(rollbackFor = Exception.class)

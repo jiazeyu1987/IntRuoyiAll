@@ -14,6 +14,8 @@ public class MesTeamLeaderProcessConfigDevice {
     private String deviceCode;
     private String deviceName;
     private String deviceStatus;
+    private String deviceGroupKey;
+    private String selectionMode;
     private Boolean mapped;
     private List<MesTeamLeaderProcessConfigParameter> parameters;
 }

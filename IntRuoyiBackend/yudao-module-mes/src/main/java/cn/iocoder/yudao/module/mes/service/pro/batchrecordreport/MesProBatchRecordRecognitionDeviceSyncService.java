@@ -9,7 +9,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
@@ -35,7 +34,6 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
     private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
 
     private final MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
-    private final MesProRouteProcessMapper routeProcessMapper;
     private final MesProProcessMapper processMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
@@ -43,13 +41,11 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
 
     public MesProBatchRecordRecognitionDeviceSyncService(
             MesRouteDccProjectBindingMapper routeDccProjectBindingMapper,
-            MesProRouteProcessMapper routeProcessMapper,
             MesProProcessMapper processMapper,
             MesProcessPoolTeamDeviceMapper deviceMapper,
             MesProRouteVersionMapper routeVersionMapper,
             MesProRouteCandidateConfigService candidateConfigService) {
         this.routeDccProjectBindingMapper = routeDccProjectBindingMapper;
-        this.routeProcessMapper = routeProcessMapper;
         this.processMapper = processMapper;
         this.deviceMapper = deviceMapper;
         this.routeVersionMapper = routeVersionMapper;
@@ -62,16 +58,16 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
             throw new IllegalArgumentException("批记录总识别 JSON 必须是 schemaVersion=3 且包含 processes");
         }
         Long routeId = requireSingleRoute(dccProjectCodeId);
-        Map<Long, MesProRouteProcessDO> routeProcesses = routeProcessesById(routeId);
-        Map<Long, String> processNames = processNames(routeProcesses.values().stream()
-                .map(MesProRouteProcessDO::getProcessId).distinct().toList());
         MesProRouteVersionDO candidate = routeVersionMapper.selectOpenCandidateByRouteId(routeId);
         if (candidate == null || !MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(
                 candidate.getLifecycleStatus())) {
             throw new IllegalArgumentException("批记录识别设备参数同步需要当前工艺路线存在草稿候选版本：routeId=" + routeId);
         }
+        Map<Long, MesProRouteProcessDO> routeProcesses = routeProcessesFromCandidateSnapshot(candidate);
+        Map<Long, String> processNames = processNames(routeProcesses.values().stream()
+                .map(MesProRouteProcessDO::getProcessId).distinct().toList());
         JSONArray productionConfigs = readExistingProductionConfigs(candidate);
-        Map<Long, JSONObject> configsByRouteProcessId = productionConfigsByRouteProcessId(productionConfigs);
+        Map<Long, JSONObject> existingConfigsByRouteProcessId = productionConfigsByRouteProcessId(productionConfigs);
         Map<Long, JSONObject> importedByRouteProcessId = new LinkedHashMap<>();
         for (Object rawProcess : root.getJSONArray("processes")) {
             JSONObject process = asObject(rawProcess, "processes[]");
@@ -92,12 +88,13 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
             throw new IllegalArgumentException("JSON 必须覆盖当前路线全部工序且恰好一次：missing="
                     + missing + ", extra=" + extra);
         }
+        Map<Long, JSONObject> configsByRouteProcessId = new LinkedHashMap<>();
         for (Map.Entry<Long, MesProRouteProcessDO> entry : routeProcesses.entrySet()) {
             MesProRouteProcessDO routeProcess = entry.getValue();
             JSONObject process = importedByRouteProcessId.get(entry.getKey());
             configsByRouteProcessId.put(routeProcess.getId(), buildProductionProcessConfig(
                     routeProcess, processNames.get(routeProcess.getProcessId()), process.getJSONArray("equipmentGroups"),
-                    configsByRouteProcessId.get(routeProcess.getId())));
+                    existingConfigsByRouteProcessId.get(routeProcess.getId())));
         }
         candidateConfigService.saveConfigSnapshots(candidate.getId(), candidate.getRouteSnapshotSha256(), Map.of(
                 PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY, 1,
@@ -246,13 +243,34 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         return routeIds.get(0);
     }
 
-    private Map<Long, MesProRouteProcessDO> routeProcessesById(Long routeId) {
-        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
+    private Map<Long, MesProRouteProcessDO> routeProcessesFromCandidateSnapshot(MesProRouteVersionDO candidate) {
+        if (candidate == null || candidate.getRouteId() == null || candidate.getRouteSnapshotJson() == null) {
+            throw new IllegalArgumentException("候选路线快照缺少正式身份");
+        }
+        JSONObject routeSnapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
+        JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject("configSnapshots");
+        JSONObject flowGraph = configSnapshots == null ? null : configSnapshots.getJSONObject("flowGraph");
+        JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
+        if (routeSnapshot == null || !candidate.getRouteId().equals(routeSnapshot.getLong("routeId"))
+                || nodes == null || nodes.isEmpty()) {
+            throw new IllegalArgumentException("候选路线快照缺少完整 flowGraph.nodes：routeVersionId="
+                    + candidate.getId());
+        }
         Map<Long, MesProRouteProcessDO> result = new LinkedHashMap<>();
-        for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            if (routeProcess.getId() == null || routeProcess.getProcessId() == null
-                    || result.put(routeProcess.getId(), routeProcess) != null) {
-                throw new IllegalArgumentException("当前路线工序身份不唯一或缺失：routeId=" + routeId);
+        for (Object rawNode : nodes) {
+            JSONObject node = asObject(rawNode, "configSnapshots.flowGraph.nodes[]");
+            Long routeProcessId = requireLong(node, "routeProcessId");
+            Long processId = requireLong(node, "processId");
+            Integer sort = node.getInteger("sort");
+            MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                    .id(routeProcessId)
+                    .routeId(candidate.getRouteId())
+                    .processId(processId)
+                    .sort(sort)
+                    .build();
+            if (result.put(routeProcessId, routeProcess) != null) {
+                throw new IllegalArgumentException("候选路线工序身份重复：routeVersionId=" + candidate.getId()
+                        + "，routeProcessId=" + routeProcessId);
             }
         }
         return result;

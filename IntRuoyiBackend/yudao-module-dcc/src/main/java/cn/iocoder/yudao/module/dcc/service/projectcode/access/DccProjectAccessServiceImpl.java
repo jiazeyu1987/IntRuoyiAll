@@ -31,6 +31,15 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
 
     @Override
     public void assertProjectOwner(Long userId, Long projectCodeId) {
+        assertProjectAccess(userId, projectCodeId, Set.of("OWNER"));
+    }
+
+    @Override
+    public void assertProjectEditorOrOwner(Long userId, Long projectCodeId) {
+        assertProjectAccess(userId, projectCodeId, Set.of("OWNER", "EDIT"));
+    }
+
+    private void assertProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels) {
         if (userId == null || projectCodeId == null) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
@@ -41,10 +50,11 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         LocalDateTime now = LocalDateTime.now();
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
-        boolean owner = accessRuleMapper.selectActiveRules(projectCodeId, now).stream()
-                .filter(rule -> "OWNER".equalsIgnoreCase(rule.getAccessLevel()))
+        boolean allowed = accessRuleMapper.selectActiveRules(projectCodeId, now).stream()
+                .filter(rule -> rule.getAccessLevel() != null
+                        && allowedAccessLevels.stream().anyMatch(level -> level.equalsIgnoreCase(rule.getAccessLevel())))
                 .anyMatch(rule -> matches(rule, userId, user, roleIds, deptIds));
-        if (!owner) {
+        if (!allowed) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
     }

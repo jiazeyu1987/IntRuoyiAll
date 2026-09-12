@@ -78,13 +78,11 @@ class MesProFrontlineFeedbackMaterialSubmissionValidatorTest {
     }
 
     @Test
-    void validate_acceptsExplicitZeroAndReturnsZeroProgress() {
-        MesProFrontlineFeedbackMaterialSubmission result = validator.validate(
-                frozenMaterials(), List.of(), List.of(
-                        material(501L, "5", "0"),
-                        material(502L, "0", "0")));
+    void validate_rejectsExplicitZeroOutputMaterial() {
+        ServiceException error = assertThrows(ServiceException.class, () -> validator.validate(
+                frozenMaterials(), List.of(), List.of(material(502L, "0", "0"))));
 
-        assertEquals(BigDecimal.ZERO, result.progressQuantity());
+        assertTrue(error.getMessage().contains("完成数量必须大于 0"));
     }
 
     @Test

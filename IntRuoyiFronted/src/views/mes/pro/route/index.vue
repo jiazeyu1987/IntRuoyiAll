@@ -1,6 +1,9 @@
 <!-- MES 工艺路线列表 -->
 <template>
-  <doc-alert title="【生产】工序设置、工艺流程" url="https://doc.iocoder.cn/mes/pro/process-route/" />
+  <doc-alert
+    title="【生产】工序设置、工艺流程"
+    url="https://doc.iocoder.cn/mes/pro/process-route/"
+  />
 
   <ContentWrap>
     <UnifiedListTemplate
@@ -303,21 +306,39 @@
           </div>
           <div class="route-version-workspace__active-version">
             当前 ACTIVE：
-            <el-tag type="success">{{ routeVersionRoute?.activeRouteVersionNo || '未生成版本' }}</el-tag>
-            <span v-if="routeVersionRoute?.activeRouteVersionId" class="route-version-workspace__muted">
+            <el-tag type="success">{{
+              routeVersionRoute?.activeRouteVersionNo || '未生成版本'
+            }}</el-tag>
+            <span
+              v-if="routeVersionRoute?.activeRouteVersionId"
+              class="route-version-workspace__muted"
+            >
               #{{ routeVersionRoute.activeRouteVersionId }}
             </span>
           </div>
         </div>
-        <el-button
-          type="primary"
-          plain
-          :loading="routeVersionActionLoading"
-          @click="createRouteCandidateFromActive"
-          v-hasPermi="['mes:pro-route:version-create']"
-        >
-          创建候选版本
-        </el-button>
+        <div class="route-version-workspace__summary-actions">
+          <el-button
+            type="warning"
+            plain
+            :loading="routeVersionActionLoading"
+            :disabled="routeVersionOpenCandidateCount > 0"
+            data-route-version-action="migrate-production-config"
+            @click="migrateLegacyProductionConfigFromFormalSource"
+            v-hasPermi="['mes:pro-route:version-create']"
+          >
+            迁移现有生产配置
+          </el-button>
+          <el-button
+            type="primary"
+            plain
+            :loading="routeVersionActionLoading"
+            @click="createRouteCandidateFromActive"
+            v-hasPermi="['mes:pro-route:version-create']"
+          >
+            创建候选版本
+          </el-button>
+        </div>
       </div>
       <ControlledContentStateStrip
         v-if="routeVersionRoute"
@@ -376,7 +397,10 @@
         </el-table-column>
         <el-table-column label="发布阻断项" min-width="260">
           <template #default="{ row: version }">
-            <div v-if="routeVersionBlockersById[version.id]" class="route-version-workspace__blockers">
+            <div
+              v-if="routeVersionBlockersById[version.id]"
+              class="route-version-workspace__blockers"
+            >
               <el-tag v-if="routeVersionBlockersById[version.id].publishable" type="success">
                 可发布
               </el-tag>
@@ -483,7 +507,10 @@ import {
 import ControlledContentStateStrip from '@/components/ControlledContent/ControlledContentStateStrip.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
@@ -498,7 +525,9 @@ import {
 defineOptions({ name: 'MesProRoute' })
 
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
-const RouteWorkbookExcelImportForm = defineAsyncComponent(() => import('./RouteWorkbookExcelImportForm.vue'))
+const RouteWorkbookExcelImportForm = defineAsyncComponent(
+  () => import('./RouteWorkbookExcelImportForm.vue')
+)
 const RouteProcessTemplateImportForm = defineAsyncComponent(
   () => import('./RouteProcessTemplateImportForm.vue')
 )
@@ -557,7 +586,8 @@ const visibleRouteVersions = computed(() =>
 )
 const routeVersionOpenCandidates = computed(() =>
   routeVersions.value.filter(
-    (version) => !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
+    (version) =>
+      !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
   )
 )
 const routeVersionOpenCandidateCount = computed(() => {
@@ -732,7 +762,9 @@ const handleStatusChange = async (row: ProRouteVO) => {
     row.status =
       row.status === CommonStatusEnum.ENABLE ? CommonStatusEnum.DISABLE : CommonStatusEnum.ENABLE
     if (!isUserCancel(error)) {
-      message.error(resolveRouteVersionErrorMessage(error, '更新工艺路线状态失败，请查看后端返回错误'))
+      message.error(
+        resolveRouteVersionErrorMessage(error, '更新工艺路线状态失败，请查看后端返回错误')
+      )
     }
   }
 }
@@ -773,7 +805,11 @@ const openRouteVersionFromList = async (row: ProRouteVO, target: 'active' | 'pen
       return
     }
     if (target === 'pending') {
-      if (!row.pendingRouteVersionId || !row.pendingRouteVersionNo || !row.pendingRouteVersionStatus) {
+      if (
+        !row.pendingRouteVersionId ||
+        !row.pendingRouteVersionNo ||
+        !row.pendingRouteVersionStatus
+      ) {
         throw new Error('跳转待发布版本失败：缺少候选版本信息')
       }
       await router.push({
@@ -829,7 +865,9 @@ const handleEditRouteProductionConfig = async (row: ProRouteVO) => {
       return
     }
     if (isRouteCandidateConfirmCancel(error)) return
-    message.error(resolveRouteVersionErrorMessage(error, '进入候选版本编辑失败，请查看后端返回错误'))
+    message.error(
+      resolveRouteVersionErrorMessage(error, '进入候选版本编辑失败，请查看后端返回错误')
+    )
   } finally {
     routeCandidateEditLoadingId.value = undefined
   }
@@ -1077,6 +1115,62 @@ const deleteRouteDraftVersion = async (version: ProRouteVersionVO) => {
   })
 }
 
+const migrateLegacyProductionConfigFromFormalSource = async () => {
+  const currentRoute = routeVersionRoute.value
+  if (!currentRoute?.id || !currentRoute.activeRouteVersionId) {
+    throw new Error('迁移生产配置失败：当前路线缺少生效版本')
+  }
+  try {
+    await message.confirm(
+      '系统将从现有生产组长正式配置迁移全部工序的超量比例、损耗原因、设备组和参数，' +
+        '只创建草稿候选版本，不会直接发布；缺少任何正式配置时将阻止迁移。是否继续？',
+      '从现有生产组长正式配置迁移'
+    )
+  } catch (error) {
+    if (isUserCancel(error)) return
+    throw error
+  }
+  let missingOveragePercent: number
+  try {
+    const result = await message.prompt(
+      '请输入 0 到 100 之间的数值；该值只补入正式配置中缺失的允许超量比例，已有值保持不变。',
+      '缺失超量比例统一补值',
+      {
+        inputPlaceholder: '请输入比例，例如 0',
+        inputPattern: /^(?:100(?:\.0{1,2})?|(?:\d|[1-9]\d)(?:\.\d{1,2})?)$/,
+        inputErrorMessage: '请输入 0 到 100 之间、最多两位小数的比例'
+      }
+    )
+    missingOveragePercent = Number(result.value)
+  } catch (error) {
+    if (isUserCancel(error)) return
+    throw error
+  }
+  routeVersionActionLoading.value = true
+  routeVersionNoticeMessage.value = ''
+  routeVersionErrorMessage.value = ''
+  try {
+    const candidate = await ProRouteApi.createRouteCandidateVersion({
+      routeId: currentRoute.id,
+      sourceRouteVersionId: currentRoute.activeRouteVersionId,
+      changeReason: '前端版本工作区显式迁移现有生产组长正式配置',
+      migrateLegacyProductionConfig: true,
+      missingOveragePercent
+    })
+    routeVersionNoticeMessage.value = `生产配置已迁移到草稿候选版本 ${candidate.versionNo}`
+    message.success(routeVersionNoticeMessage.value)
+    await loadRouteVersions(currentRoute.id)
+  } catch (error) {
+    routeVersionErrorMessage.value = resolveRouteVersionErrorMessage(
+      error,
+      '迁移生产配置失败，请查看后端返回错误'
+    )
+    message.error(routeVersionErrorMessage.value)
+  } finally {
+    routeVersionActionLoading.value = false
+  }
+}
+
 const runRouteVersionAction = async (
   id: number,
   actionName: string,
@@ -1200,7 +1294,9 @@ const openExistingRouteForVersionUpgrade = async (routeName: string) => {
   if (!normalizedRouteName) {
     throw new Error('打开已有工艺路线升版本失败：缺少路线名称')
   }
-  const currentRoute = list.value.find((item) => normalizeRouteName(item.name) === normalizedRouteName)
+  const currentRoute = list.value.find(
+    (item) => normalizeRouteName(item.name) === normalizedRouteName
+  )
   if (currentRoute?.id) {
     openEditPage(currentRoute.id, 'basic')
     return
@@ -1210,7 +1306,9 @@ const openExistingRouteForVersionUpgrade = async (routeName: string) => {
     pageSize: 10,
     name: normalizedRouteName
   })
-  const targetRoute = data.list.find((item: ProRouteVO) => normalizeRouteName(item.name) === normalizedRouteName)
+  const targetRoute = data.list.find(
+    (item: ProRouteVO) => normalizeRouteName(item.name) === normalizedRouteName
+  )
   if (!targetRoute?.id) {
     throw new Error(`打开已有工艺路线升版本失败：未找到同名路线“${normalizedRouteName}”`)
   }
@@ -1333,5 +1431,19 @@ onMounted(async () => {
 .route-list__pending-version-tag {
   max-width: 100%;
   cursor: pointer;
+}
+
+.route-version-workspace__summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .route-version-workspace__summary-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

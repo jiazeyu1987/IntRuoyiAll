@@ -29,6 +29,7 @@ public class DccControlledFileTemporaryFileDO extends TenantBaseDO {
     private String uploadTicket;
     private String sessionId;
     private String purpose;
+    private Long categoryId;
     private Long uploaderId;
     private String originalFileName;
     private String contentType;

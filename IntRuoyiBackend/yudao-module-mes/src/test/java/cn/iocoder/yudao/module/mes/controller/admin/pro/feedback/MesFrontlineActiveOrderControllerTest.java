@@ -42,7 +42,7 @@ class MesFrontlineActiveOrderControllerTest {
     void getPqcActiveOrders_mapsFormalProductNameAndProductionQuantity() {
         when(pqcContextService.listActiveOrders()).thenReturn(List.of(new MesFrontlineActiveOrderCandidate(
                 5001L, 1001L, "WO-PQC-001", "PQC 活跃订单", 3001L, "ITEM-PQC", "PQC 产品",
-                "PQC-BATCH-001", new BigDecimal("125.500"), 2001L, "ROUTE-PQC", "PQC 产品路线",
+                "PQC-BATCH-001", new BigDecimal("125.500"), 2001L, 2101L, "ROUTE-PQC", "PQC 产品路线",
                 LocalDateTime.of(2026, 8, 1, 9, 0))));
 
         CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getPqcActiveOrders();
@@ -52,6 +52,7 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals("PQC 产品", activeOrder.getProductName());
         assertEquals("PQC-BATCH-001", activeOrder.getBatchCode());
         assertEquals(new BigDecimal("125.500"), activeOrder.getQuantity());
+        assertEquals(2101L, activeOrder.getRouteVersionId());
     }
 
     @Test
@@ -68,6 +69,8 @@ class MesFrontlineActiveOrderControllerTest {
                         .setProductCode("ITEM-PROD")
                         .setQuantity(new BigDecimal("100"))
                         .setRouteId(2001L)
+                        .setRouteVersionId(2101L)
+                        .setRouteVersionNo("V14")
                         .setRouteName("生产路线")
                         .setJoinedAt(LocalDateTime.of(2026, 8, 12, 9, 0))));
 
@@ -78,6 +81,8 @@ class MesFrontlineActiveOrderControllerTest {
         assertEquals("PROD-BATCH-001", response.getData().get(0).getBatchCode());
         assertEquals(3001L, response.getData().get(0).getProductId());
         assertEquals(new BigDecimal("100"), response.getData().get(0).getQuantity());
+        assertEquals(2101L, response.getData().get(0).getRouteVersionId());
+        assertEquals("V14", response.getData().get(0).getRouteVersionNo());
     }
 
     @Test

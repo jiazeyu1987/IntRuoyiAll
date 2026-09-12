@@ -28,7 +28,10 @@ const deviceSectionStart = panel.indexOf(
   'class="frontline-work-panel panel device-panel frontline-production-device-panel"'
 )
 assert.ok(deviceSectionStart >= 0, 'production device panel must exist.')
-const deviceSectionEnd = panel.indexOf('</section>', deviceSectionStart)
+const deviceSectionEnd = panel.indexOf(
+  'class="frontline-production-submit-bar bottom"',
+  deviceSectionStart
+)
 assert.ok(deviceSectionEnd > deviceSectionStart, 'production device panel section must close.')
 const deviceSection = panel.slice(deviceSectionStart, deviceSectionEnd)
 

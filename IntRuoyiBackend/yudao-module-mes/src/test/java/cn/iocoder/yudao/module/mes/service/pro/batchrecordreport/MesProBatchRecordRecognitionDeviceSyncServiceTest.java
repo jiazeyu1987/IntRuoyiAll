@@ -2,12 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigService;
@@ -35,8 +33,6 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
     @Mock
     private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock
-    private MesProRouteProcessMapper routeProcessMapper;
-    @Mock
     private MesProProcessMapper processMapper;
     @Mock
     private MesProcessPoolTeamDeviceMapper deviceMapper;
@@ -48,12 +44,10 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
     @Test
     void syncWritesRecognitionDevicesToCandidateRouteProductionConfig() {
         MesProBatchRecordRecognitionDeviceSyncService service =
-                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper, routeProcessMapper,
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
-        when(routeProcessMapper.selectListByRouteId(1001L)).thenReturn(List.of(
-                MesProRouteProcessDO.builder().id(2001L).routeId(1001L).processId(3001L).sort(1).build()));
         MesProProcessDO process = new MesProProcessDO();
         process.setId(3001L);
         process.setName("清洗工序");
@@ -63,7 +57,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
                 .routeId(1001L)
                 .lifecycleStatus("DRAFT")
                 .routeSnapshotSha256("candidate-hash")
-                .routeSnapshotJson("{\"configSnapshots\":{\"productionProcessConfigs\":[]}}")
+                .routeSnapshotJson("{\"routeId\":1001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":2001,\"processId\":3001,\"sort\":1}]},\"productionProcessConfigs\":[]}}")
                 .build());
         when(deviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamDeviceDO.builder()
                 .id(5001L)
@@ -107,7 +101,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
     @Test
     void syncRejectsLegacySchemaVersionTwoBecauseItHasNoFormalRouteProcessIdentity() {
         MesProBatchRecordRecognitionDeviceSyncService service =
-                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper, routeProcessMapper,
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.sync(9001L, """
@@ -121,13 +115,10 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
     @Test
     void syncRejectsWhenRecognitionDoesNotCoverEveryRouteProcess() {
         MesProBatchRecordRecognitionDeviceSyncService service =
-                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper, routeProcessMapper,
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
-        when(routeProcessMapper.selectListByRouteId(1001L)).thenReturn(List.of(
-                MesProRouteProcessDO.builder().id(2001L).routeId(1001L).processId(3001L).sort(1).build(),
-                MesProRouteProcessDO.builder().id(2002L).routeId(1001L).processId(3002L).sort(2).build()));
         MesProProcessDO process = new MesProProcessDO();
         process.setId(3001L);
         process.setName("清洗工序");
@@ -140,7 +131,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
                 .id(4001L)
                 .routeId(1001L)
                 .lifecycleStatus("DRAFT")
-                .routeSnapshotJson("{\"configSnapshots\":{\"productionProcessConfigs\":[]}}")
+                .routeSnapshotJson("{\"routeId\":1001,\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":2001,\"processId\":3001,\"sort\":1},{\"routeProcessId\":2002,\"processId\":3002,\"sort\":2}]},\"productionProcessConfigs\":[]}}")
                 .build());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.sync(9001L, """
@@ -149,5 +140,46 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
 
         assertTrue(ex.getMessage().contains("必须覆盖当前路线全部工序"));
         verify(candidateConfigService, never()).saveConfigSnapshots(any(), any());
+    }
+
+    @Test
+    void syncRemovesProductionConfigForProcessDeletedFromCandidateFlowGraph() {
+        MesProBatchRecordRecognitionDeviceSyncService service =
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
+                        processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
+        MesProProcessDO process = new MesProProcessDO();
+        process.setId(3001L);
+        process.setName("清洗工序");
+        when(processMapper.selectById(3001L)).thenReturn(process);
+        when(routeVersionMapper.selectOpenCandidateByRouteId(1001L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(4001L)
+                .routeId(1001L)
+                .lifecycleStatus("DRAFT")
+                .routeSnapshotSha256("candidate-hash")
+                .routeSnapshotJson("""
+                        {"routeId":1001,"configSnapshots":{
+                          "flowGraph":{"nodes":[{"routeProcessId":2001,"processId":3001,"sort":1}]},
+                          "productionProcessConfigs":[
+                            {"routeProcessId":2999,"processId":3999,"overagePercent":0,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]},
+                            {"routeProcessId":2001,"processId":3001,"overagePercent":5,"lossReasons":[],"deviceSelectionGroups":[],"parameterRules":[]}
+                          ]}}
+                        """)
+                .build());
+
+        service.sync(9001L, """
+                {"schemaVersion":3,"processes":[{"routeProcessId":2001,"equipmentGroups":[]}]}
+                """);
+
+        ArgumentCaptor<Map<String, Object>> configCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(candidateConfigService).saveConfigSnapshots(
+                org.mockito.ArgumentMatchers.eq(4001L),
+                org.mockito.ArgumentMatchers.eq("candidate-hash"),
+                configCaptor.capture());
+        JSONArray productionConfigs = (JSONArray) configCaptor.getValue().get("productionProcessConfigs");
+        assertEquals(1, productionConfigs.size());
+        assertEquals(2001L, productionConfigs.getJSONObject(0).getLongValue("routeProcessId"));
+        assertEquals(5, productionConfigs.getJSONObject(0).getIntValue("overagePercent"));
     }
 }

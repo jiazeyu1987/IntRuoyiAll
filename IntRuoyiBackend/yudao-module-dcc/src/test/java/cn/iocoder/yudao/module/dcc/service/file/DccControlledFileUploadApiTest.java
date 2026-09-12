@@ -116,6 +116,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                 .active(true)
                 .lifecycleStage(DccFileCategoryLifecycleStageEnum.PLAN.getCode())
                 .build());
+        lenient().when(permissionSupport.hasCategoryPermission(10L, 99L,
+                DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
     }
 
     @AfterEach
@@ -226,7 +228,7 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void uploadPreviewFile_withoutCategoryUploadPermission_successCreatesTicketAndDoesNotExposeFileId() throws Exception {
+    void uploadPreviewFile_withCategoryUploadPermission_successCreatesTicketAndDoesNotExposeFileId() throws Exception {
         ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
                 new MockMultipartFile("files", "sample.docx",
@@ -292,8 +294,23 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         assertEquals("10.0.0.9", auditCaptor.getValue().sourceIp());
         assertEquals("REQ-UPLOAD-SUCCESS", auditCaptor.getValue().requestId());
         assertEquals("JUnit", auditCaptor.getValue().userAgent());
-        verify(permissionSupport, never()).hasCategoryPermission(anyLong(), anyLong(),
-                any(DccFileCategoryPermissionActionEnum.class));
+        verify(permissionSupport).hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD);
+    }
+
+    @Test
+    void uploadPreviewFile_withoutCategoryUploadPermission_rejectsBeforeStorageWrite() {
+        when(permissionSupport.hasCategoryPermission(10L, 99L,
+                DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(false);
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "docx".getBytes()));
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
+                        auditContext("REQ-UPLOAD-DENIED")),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED);
+
+        verify(fileService, never()).createFileAndReturnId(any(byte[].class), any(), any(), any());
+        verify(uploadTicketService, never()).createTicket(any());
     }
 
     @Test

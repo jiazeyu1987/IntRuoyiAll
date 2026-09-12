@@ -359,7 +359,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(900L)).thenReturn(active);
         when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(checkout);
         when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
-                "UT-CHECKIN", 99L, "session-checkin", "SOURCE")))
+                "UT-CHECKIN", 99L, 10L, "session-checkin", "SOURCE")))
                 .thenReturn(new DccUploadTicketBoundFile("UT-CHECKIN", 101L, "updated.docx",
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 10L));
         when(sourceOwnershipService.prepareSubmissionSource(101L, false)).thenReturn(
@@ -391,7 +391,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), active.getStatus());
         verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
         verify(uploadTicketService).markBound(new DccUploadTicketMarkBoundCommand(
-                "UT-CHECKIN", 99L, "session-checkin", "SOURCE", 901L));
+                "UT-CHECKIN", 99L, 10L, "session-checkin", "SOURCE", 901L));
     }
 
     @Test

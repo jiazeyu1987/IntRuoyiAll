@@ -118,8 +118,8 @@ public class MesProFrontlineFeedbackMaterialSubmissionValidator {
     }
 
     private void validateQuantities(Long materialId, BigDecimal outputQuantity, BigDecimal lossQuantity) {
-        if (outputQuantity == null || outputQuantity.compareTo(BigDecimal.ZERO) < 0) {
-            throw invalid("物料完成数量不能为空或小于 0：" + materialId);
+        if (outputQuantity == null || outputQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw invalid("物料完成数量必须大于 0：" + materialId);
         }
         if (lossQuantity == null || lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
             throw invalid("物料损耗数量不能为空或小于 0：" + materialId);

@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
+import cn.iocoder.yudao.module.bpm.enums.task.BpmProcessInstanceStatusEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationVisibilityUserSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccPublicationImpactTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryViewMatrixRuleMapper;
@@ -27,6 +29,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationRelationSnapshot
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationVisibilityRuleSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccPublicationVisibilityUserSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
@@ -42,6 +45,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 import java.util.List;
 import java.util.Set;
@@ -130,7 +134,12 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(followupService, "publicationNotificationService", mock(DccPublicationNotificationService.class));
 
         PermissionApi permissionApi = mock(PermissionApi.class);
+        when(permissionApi.hasAnyRoles(9L, "doc_control")).thenReturn(true);
         when(permissionApi.hasAnyPermissions(9L, "dcc:controlled-file:approve")).thenReturn(true);
+        DccControlledFileCategoryPermissionSupport permissionSupport =
+                mock(DccControlledFileCategoryPermissionSupport.class);
+        when(permissionSupport.hasCategoryPermission(20L, 9L,
+                DccFileCategoryPermissionActionEnum.APPROVE)).thenReturn(true);
         finalizationService = new DccControlledFileFinalizationServiceImpl();
         set(finalizationService, "transactionTemplate", new CapturingTransactionTemplate(
                 transactionManager, capturedTransactionFailure));
@@ -153,13 +162,15 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         set(finalizationService, "adminUserApi", adminUserApi);
         set(finalizationService, "permissionApi", permissionApi);
         set(finalizationService, "queryService", mock(DccControlledFileQueryService.class));
-        set(finalizationService, "permissionSupport", mock(DccControlledFileCategoryPermissionSupport.class));
+        set(finalizationService, "permissionSupport", permissionSupport);
         set(finalizationService, "messageDeliveryService", mock(DccControlledFileMessageDeliveryService.class));
         set(finalizationService, "obsoleteFileStorageService", mock(DccObsoleteFileStorageService.class));
         set(finalizationService, "platformAdapter", platformAdapter);
         set(finalizationService, "pendingActionGuard", mock(DccControlledFilePendingActionGuard.class));
         set(finalizationService, "signatureBindingService", mock(DccControlledFileSignatureBindingService.class));
         set(finalizationService, "publicationFollowupService", followupService);
+        set(finalizationService, "finalizationFailureService", new DccControlledFileFinalizationFailureService(
+                transactionManager, controlledFileMapper, platformAdapter));
     }
 
     @Test
@@ -190,6 +201,22 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         assertEquals(0L, longValue("SELECT COUNT(*) FROM dcc_publication_relation_snapshot"));
         assertEquals(0L, longValue("SELECT COUNT(*) FROM dcc_publication_relation_direction_snapshot"));
         verify(platformAdapter, never()).recordFinalized(any(), any(), any(), any());
+    }
+
+    @Test
+    void applyApprovedPublishControlledFile_outerRollbackStillPersistsFinalizationFailure() {
+        TransactionTemplate outer = new TransactionTemplate(transactionManager);
+
+        assertThrows(UnexpectedRollbackException.class, () -> outer.executeWithoutResult(ignored ->
+                assertThrows(ServiceException.class, () -> finalizationService.applyApprovedPublishControlledFile(
+                        9L, 100L, "tx-followup-outer-failure"))));
+
+        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 99"));
+        assertEquals(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 100"));
+        assertEquals(99L, longValue(
+                "SELECT current_active_controlled_file_id FROM dcc_controlled_file_master WHERE id = 10"));
     }
 
     @Test
@@ -227,6 +254,36 @@ class DccPublicationFollowupTransactionIntegrationTest extends BaseDbUnitTest {
         assertEquals(0L, longValue("SELECT COUNT(*) FROM dcc_publication_impact_audit"));
         verify(platformAdapter).recordFinalized(any(), any(), any(),
                 org.mockito.ArgumentMatchers.eq("tx-resolve-lost-race"));
+    }
+
+    @Test
+    void approvalEventConditionalTransitionIsIdempotentAfterActivation() {
+        jdbcTemplate.update("""
+                UPDATE dcc_controlled_file
+                SET status = 'PENDING_DOC_CONTROL_APPROVAL',
+                    process_instance_id = 'process-100',
+                    process_definition_key = ?,
+                    change_type = 'REVISION'
+                WHERE id = 100
+                """, DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY);
+        BpmProcessInstanceStatusEvent event = new BpmProcessInstanceStatusEvent(this);
+        event.setId("process-100");
+        event.setProcessDefinitionKey(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY);
+        event.setBusinessKey("100");
+        event.setStatus(BpmProcessInstanceStatusEnum.APPROVE.getStatus());
+        event.setActorUserId(9L);
+
+        finalizationService.handleProcessInstanceStatusChanged(event);
+        assertEquals(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 100"));
+
+        jdbcTemplate.update("UPDATE dcc_controlled_file SET status = 'ACTIVE' WHERE id = 100");
+        finalizationService.handleProcessInstanceStatusChanged(event);
+
+        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), stringValue(
+                "SELECT status FROM dcc_controlled_file WHERE id = 100"));
+        verify(platformAdapter).recordApprovedReadyToPublish(any(),
+                org.mockito.ArgumentMatchers.eq(9L), org.mockito.ArgumentMatchers.eq("process-100"));
     }
 
     private void seedPublicationRows() {

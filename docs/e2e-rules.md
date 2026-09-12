@@ -680,6 +680,15 @@
 - Element Plus `el-table` 存在 header/body/fixed 表格重复 DOM 时，选择行复选框必须限定在可见 `.el-table__body-wrapper tbody tr`，显式排除 `.el-table__header-wrapper` 和 `thead`；点击后必须立即断言已选业务唯一键集合，再进入“确认/应用”等写入动作。
 - 行内编辑会把原显示文本替换为输入框、开关或其它编辑控件时，只能用原文本定位并点击进入编辑；进入编辑态后必须改用当前弹框或表格作用域内唯一可见编辑器继续填写，保存刷新后再用目标文本重新定位。若同时出现多个可见编辑器或无法按稳定记录 ID 证明编辑对象，必须停止，不得继续复用依赖旧文本的动态行 locator。
 
+### 动态表格稳定行身份门禁
+
+- Trigger: Element Plus 列表经过筛选、分页、排序或服务端数据替换后，可见业务文本已经变化，但行级“查看/审核/发布”等按钮可能仍打开上一批记录。
+- Preflight check: 所有带业务动作的 `el-table` 必须使用后端稳定唯一 ID 配置 `row-key`；数据库 Long ID 保持十进制字符串，不得转为 JavaScript `number`。Playwright 必须限定 `tr.el-table__row:visible`，先断言可见业务唯一键，再点击同一行动作。
+- Blocker: 表格缺少稳定 `row-key`、固定列存在隐藏重复行、点击后 URL/详情业务键/流程实例/任务 ID 与可见行不一致，或只凭行文字正确就判定动作绑定正确时必须停止。
+- Verification: 静态合同锁定稳定行键；真实 E2E 必须先加载另一批结果，再筛选目标行，点击动作后同时核对 URL、详情业务编号和任务身份。若目标状态应提供失败恢复动作，还必须从列表可见入口进入并完成一次真实恢复，不得直接拼管理页 URL绕过缺失入口。
+- Forbidden action: 禁止用 `.first()`、隐藏 fixed 表格副本、数组下标、旧缓存行或直接路由跳转掩盖行事件绑定错误；禁止因详情能单独打开就宣称列表动作通过。
+- Evidence: `doc/tasks/20260911-dcc-p4-round2-runtime-acceptance/execution-log.md`，DCC 审批中心筛选后旧行动作复用与发布失败恢复入口回归。
+
 ### Element Plus 表格选择门禁
 
 - Trigger: Playwright 需要在 Element Plus `el-table` 中勾选行复选框、批量操作、手动重排、确认应用或其他写入型流程。

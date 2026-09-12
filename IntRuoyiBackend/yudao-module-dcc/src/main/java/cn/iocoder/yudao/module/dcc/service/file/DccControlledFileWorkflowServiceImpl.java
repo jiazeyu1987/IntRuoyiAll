@@ -29,6 +29,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRes
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteSnapshotRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessBlockerRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
@@ -52,6 +53,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionR
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionRecipientMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper;
@@ -136,6 +138,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_NOT_LEAF;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ITERATION_NOT_LATEST;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_STAGE_UNSUPPORTED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_TARGET_INVALID;
@@ -182,6 +186,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private DccFileDirectoryMapper directoryMapper;
     @Resource
     private DccControlledFileMapper controlledFileMapper;
+    @Resource
+    private DccControlledFileCheckoutMapper checkoutMapper;
     @Resource
     private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Resource
@@ -244,6 +250,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private DccProjectAccessService projectAccessService;
     @Resource
     private DccControlledFileCategoryPermissionSupport categoryPermissionSupport;
+    @Resource
+    private DccControlledFileSubmitMutex submitMutex;
 
     @Override
     public DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
@@ -277,6 +285,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 ? controlledFileMasterMapper.selectListByFileNumber(normalizedFileNumber)
                 : controlledFileMasterMapper.selectListByLogicalIdentity(dccProjectCodeId,
                 fileTypeTaxonomyLeafId, normalizedFileNumber);
+        if ((masters == null || masters.isEmpty()) && dccProjectCodeId != null) {
+            DccControlledFileMasterDO legacyMaster = resolveUniqueLegacyMaster(dccProjectCodeId,
+                    fileTypeTaxonomyLeafId, normalizedFileNumber);
+            masters = legacyMaster == null ? List.of() : List.of(legacyMaster);
+        }
         if (masters == null || masters.isEmpty()) {
             return DccControlledFileCurrentVersionRespVO.builder()
                     .fileNumber(normalizedFileNumber)
@@ -342,34 +355,255 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .build();
     }
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO) {
+    Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO) {
         if (StrUtil.equals(reqVO.getProcessType(), DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())) {
             throw exception(EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED);
         }
+        return submitControlledFileIdempotently(userId, reqVO, BPM_PROCESS_DEFINITION_KEY);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createWorkingControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO) {
+        if (reqVO == null || StrUtil.equals(reqVO.getProcessType(),
+                DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode())) {
+            throw exception(EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED);
+        }
+        return createWorkingControlledFileIdempotently(userId, reqVO, "WORKING_CREATE");
+    }
+
+    private Long createWorkingControlledFileIdempotently(Long userId, DccControlledFileSubmitReqVO reqVO,
+                                                          String ownershipType) {
         String idempotencyKey = StrUtil.trim(reqVO.getIdempotencyKey());
         if (StrUtil.isBlank(idempotencyKey)) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
         reqVO.setIdempotencyKey(idempotencyKey);
-        String payloadHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(reqVO));
-        DccControlledFileDO existing = controlledFileMapper.selectBySubmitIdempotency(
-                TenantContextHolder.getRequiredTenantId(), userId, idempotencyKey);
-        if (existing != null) {
-            if (!Objects.equals(existing.getSubmitPayloadHash(), payloadHash)) {
+        String payloadHash = DigestUtil.sha256Hex("CREATE_WORKING:" + ownershipType + ":"
+                + JsonUtils.toJsonString(reqVO));
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        return submitMutex.execute("create:" + tenantId + ":" + userId + ":" + idempotencyKey, () -> {
+            DccControlledFileDO existing = controlledFileMapper.selectByCreationIdempotency(
+                    tenantId, userId, idempotencyKey);
+            if (existing != null) {
+                return requireMatchingCreationPayload(existing, payloadHash);
+            }
+            reqVO.setCreationPayloadHash(payloadHash);
+            try {
+                PreparedSubmitContext context = prepareSubmitContext(userId, reqVO, true, true, null, true);
+                DccControlledFileDO file = insertControlledFile(context, userId,
+                        DccControlledFileStatusEnum.WORKING.getStatus(), null, false, ownershipType);
+                relatedFileService.validateAndBindRelatedFiles(file.getId(),
+                        context.projectCode().getId(), reqVO.getRelatedControlledFileIds());
+                bindSubmitTickets(context, userId, file.getId());
+                return file.getId();
+            } catch (RuntimeException ex) {
+                DccControlledFileDO winner = controlledFileMapper.selectByCreationIdempotencyForUpdate(
+                        tenantId, userId, idempotencyKey);
+                if (winner != null) {
+                    return requireMatchingCreationPayload(winner, payloadHash);
+                }
+                throw ex;
+            }
+        });
+    }
+
+    private Long requireMatchingCreationPayload(DccControlledFileDO existing, String payloadHash) {
+        if (!Objects.equals(existing.getCreationPayloadHash(), payloadHash)) {
+            throw exception(CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT);
+        }
+        return existing.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long submitWorkingIteration(Long userId, Long iterationId,
+                                       DccControlledFileSubmitIterationReqVO reqVO) {
+        if (iterationId == null || reqVO == null || StrUtil.isBlank(reqVO.getIdempotencyKey())) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        String idempotencyKey = StrUtil.trim(reqVO.getIdempotencyKey());
+        List<Long> selectedSignoffUserIds = reqVO.getSelectedSignoffUserIds() == null
+                ? List.of() : List.copyOf(reqVO.getSelectedSignoffUserIds());
+        String payloadHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                new WorkingIterationSubmissionPayload(iterationId, selectedSignoffUserIds)));
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        DccControlledFileDO initial = controlledFileMapper.selectById(iterationId);
+        if (initial == null || initial.getMasterId() == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(initial.getMasterId());
+        if (master == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        DccControlledFileDO file = controlledFileMapper.selectById(iterationId);
+        if (file == null || !Objects.equals(file.getMasterId(), master.getId())) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        DccControlledFileDO idempotentResult = controlledFileMapper.selectBySubmitIdempotency(
+                tenantId, userId, idempotencyKey);
+        if (idempotentResult != null) {
+            if (!Objects.equals(idempotentResult.getId(), iterationId)
+                    || !Objects.equals(idempotentResult.getSubmitPayloadHash(), payloadHash)
+                    || StrUtil.isBlank(idempotentResult.getProcessInstanceId())) {
                 throw exception(CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT);
             }
-            return existing.getId();
+            return iterationId;
         }
-        reqVO.setSubmitPayloadHash(payloadHash);
-        return submitControlledFile(userId, reqVO, null, BPM_PROCESS_DEFINITION_KEY, true);
+        validateWorkingIterationSubmission(userId, tenantId, file, master);
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute = routeReadinessService
+                .evaluate(file.getCategoryId(), userId, selectedSignoffUserIds)
+                .requireReady();
+        String pendingStatus = toPendingStatus(resolvedRoute.nodes().get(0).stageNo());
+        if (StrUtil.isBlank(pendingStatus)) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+        LocalDateTime submittedTime = LocalDateTime.now();
+        try {
+            if (controlledFileMapper.updateById(DccControlledFileDO.builder()
+                    .id(iterationId)
+                    .status(pendingStatus)
+                    .submitterId(userId)
+                    .submitIdempotencyKey(idempotencyKey)
+                    .submitPayloadHash(payloadHash)
+                    .processDefinitionKey(BPM_PROCESS_DEFINITION_KEY)
+                    .submittedTime(submittedTime)
+                    .build()) != 1) {
+                throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+            }
+        } catch (DuplicateKeyException ex) {
+            throw exception(CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT);
+        }
+        file.setStatus(pendingStatus);
+        file.setSubmitterId(userId);
+        file.setSubmitIdempotencyKey(idempotencyKey);
+        file.setSubmitPayloadHash(payloadHash);
+        file.setProcessDefinitionKey(BPM_PROCESS_DEFINITION_KEY);
+        file.setSubmittedTime(submittedTime);
+        persistApprovalRouteSnapshots(file.getId(), resolvedRoute);
+        String processInstanceId = createApprovalProcess(userId, file, resolvedRoute, BPM_PROCESS_DEFINITION_KEY);
+        if (controlledFileMapper.updateById(DccControlledFileDO.builder()
+                .id(iterationId)
+                .processInstanceId(processInstanceId)
+                .build()) != 1) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+        file.setProcessInstanceId(processInstanceId);
+        platformAdapter.recordSubmitted(file, userId, processInstanceId);
+        return iterationId;
+    }
+
+    private void validateWorkingIterationSubmission(Long userId, Long tenantId, DccControlledFileDO file,
+                                                    DccControlledFileMasterDO master) {
+        if (!DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
+                || file.getCategoryId() == null || file.getDccProjectCodeId() == null
+                || file.getMasterId() == null || file.getCheckedOutBy() != null
+                || !(DccControlledFileChangeTypeEnum.NEW.getCode().equals(file.getChangeType())
+                || DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()))) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+        DccWindchillVersionNumber targetVersion = resolveWindchillVersion(file);
+        List<DccControlledFileDO> masterVersions = controlledFileMapper.selectListByMasterId(file.getMasterId())
+                .stream()
+                .filter(Objects::nonNull)
+                .toList();
+        DccControlledFileDO latest = masterVersions.stream()
+                .filter(item -> Objects.equals(targetVersion.revisionCode(), resolveWindchillVersion(item).revisionCode()))
+                .max(Comparator.comparingInt(item -> resolveWindchillVersion(item).iterationNo()))
+                .orElse(null);
+        if (latest == null || !Objects.equals(latest.getId(), file.getId())) {
+            throw exception(CONTROLLED_FILE_ITERATION_NOT_LATEST);
+        }
+        assertIterationAdvancesCurrentActive(master, targetVersion, masterVersions);
+        if (checkoutMapper.selectActiveByMasterId(tenantId, file.getMasterId()) != null) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+        boolean anotherOpenCandidate = controlledFileMapper.selectListByMasterId(file.getMasterId()).stream()
+                .filter(Objects::nonNull)
+                .filter(item -> !Objects.equals(item.getId(), file.getId()))
+                .anyMatch(item -> isUnfinishedWorkflowVersion(item)
+                        && !DccControlledFileStatusEnum.WORKING.getStatus().equals(item.getStatus()));
+        if (anotherOpenCandidate) {
+            throw exception(CONTROLLED_FILE_WORKFLOW_IN_PROGRESS);
+        }
+        projectAccessService.assertProjectEditorOrOwner(userId, file.getDccProjectCodeId());
+        if (!categoryPermissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
+                DccFileCategoryPermissionActionEnum.UPLOAD)) {
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
+    }
+
+    private void assertIterationAdvancesCurrentActive(DccControlledFileMasterDO master,
+                                                      DccWindchillVersionNumber targetVersion,
+                                                      List<DccControlledFileDO> masterVersions) {
+        Long currentActiveId = master == null ? null : master.getCurrentActiveControlledFileId();
+        if (currentActiveId == null) {
+            return;
+        }
+        DccControlledFileDO currentActive = masterVersions.stream()
+                .filter(item -> Objects.equals(item.getId(), currentActiveId))
+                .findFirst()
+                .orElseThrow(() -> exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED));
+        DccWindchillVersionNumber currentVersion = resolveWindchillVersion(currentActive);
+        int revisionCompare = targetVersion.compareRevisionTo(currentVersion);
+        if (revisionCompare < 0
+                || (revisionCompare == 0 && targetVersion.iterationNo() <= currentVersion.iterationNo())) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+    }
+
+    private DccWindchillVersionNumber resolveWindchillVersion(DccControlledFileDO file) {
+        DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(file.getVersionNo());
+        if (version == null && file.getRevisionCode() != null && file.getIterationNo() != null) {
+            version = new DccWindchillVersionNumber(file.getRevisionCode(), file.getIterationNo());
+        }
+        if (version == null) {
+            throw exception(CONTROLLED_FILE_VERSION_INVALID);
+        }
+        return version;
+    }
+
+    private Long submitControlledFileIdempotently(Long userId, DccControlledFileSubmitReqVO reqVO,
+                                                   String processDefinitionKey) {
+        String idempotencyKey = reqVO == null ? null : StrUtil.trim(reqVO.getIdempotencyKey());
+        if (StrUtil.isBlank(idempotencyKey)) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        reqVO.setIdempotencyKey(idempotencyKey);
+        String payloadHash = DigestUtil.sha256Hex(JsonUtils.toJsonString(reqVO));
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        return submitMutex.execute(tenantId + ":" + userId + ":" + idempotencyKey, () -> {
+            DccControlledFileDO existing = controlledFileMapper.selectBySubmitIdempotency(
+                    tenantId, userId, idempotencyKey);
+            if (existing != null) {
+                return requireMatchingIdempotencyPayload(existing, payloadHash);
+            }
+            reqVO.setSubmitPayloadHash(payloadHash);
+            try {
+                return submitControlledFile(userId, reqVO, null, processDefinitionKey, true);
+            } catch (RuntimeException ex) {
+                DccControlledFileDO winner = controlledFileMapper.selectBySubmitIdempotencyForUpdate(
+                        tenantId, userId, idempotencyKey);
+                if (winner != null) {
+                    return requireMatchingIdempotencyPayload(winner, payloadHash);
+                }
+                throw ex;
+            }
+        });
+    }
+
+    private Long requireMatchingIdempotencyPayload(DccControlledFileDO existing, String payloadHash) {
+        if (!Objects.equals(existing.getSubmitPayloadHash(), payloadHash)) {
+            throw exception(CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT);
+        }
+        return existing.getId();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createMajorRevision(Long userId, DccControlledFileMajorRevisionReqVO reqVO) {
-        if (reqVO == null || reqVO.getSourceControlledFileId() == null) {
+        if (reqVO == null || reqVO.getSourceControlledFileId() == null
+                || StrUtil.isBlank(reqVO.getIdempotencyKey())) {
             throw exception(CONTROLLED_FILE_MAJOR_REVISION_NOT_ALLOWED);
         }
         return executeMajorRevisionAudit(userId, reqVO,
@@ -408,12 +642,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         submitReq.setRevisionSourceControlledFileId(source.getId());
         submitReq.setRevisionSourceReason(StrUtil.trim(reqVO.getReason()));
         submitReq.setDrawingPdfFileId(source.getDrawingPdfFileId());
-        submitReq.setRelatedControlledFileIds(relatedFileService.listRelatedFiles(source.getId()).stream()
-                .map(item -> item.getControlledFileId()).filter(Objects::nonNull).toList());
+        submitReq.setRelatedControlledFileIds(relatedFileService.resolveCurrentActiveRelatedFileIds(
+                source.getId(), source.getDccProjectCodeId()));
         submitReq.setEffectiveDate(source.getEffectiveDate() == null
                 ? java.time.LocalDate.now() : source.getEffectiveDate());
         submitReq.setRemark(source.getRemark());
-        return submitControlledFile(userId, submitReq, null, BPM_PROCESS_DEFINITION_KEY, true);
+        submitReq.setIdempotencyKey(StrUtil.trim(reqVO.getIdempotencyKey()));
+        return createWorkingControlledFileIdempotently(userId, submitReq, "MAJOR_REVISION");
     }
 
     private Long executeMajorRevisionAudit(Long userId, DccControlledFileMajorRevisionReqVO reqVO,
@@ -439,7 +674,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     Long submitControlledFileWithProcessDefinitionKey(Long userId, DccControlledFileSubmitReqVO reqVO,
                                                       String processDefinitionKey) {
-        return submitControlledFile(userId, reqVO, null, processDefinitionKey, true);
+        return submitControlledFileIdempotently(userId, reqVO, processDefinitionKey);
     }
 
     private Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO, Long ignoredControlledFileId,
@@ -450,15 +685,28 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .evaluate(context.category().getId(), userId, reqVO.getSelectedSignoffUserIds())
                 .requireReady();
         DccControlledFileDO file = insertControlledFile(context, userId,
-                toPendingStatus(resolvedRoute.nodes().get(0).stageNo()), processDefinitionKey);
+                toPendingStatus(resolvedRoute.nodes().get(0).stageNo()), processDefinitionKey, true, "SUBMISSION");
         relatedFileService.validateAndBindRelatedFiles(file.getId(),
                 context.projectCode() == null ? null : context.projectCode().getId(),
                 reqVO.getRelatedControlledFileIds());
         bindSubmitTickets(context, userId, file.getId());
 
+        persistApprovalRouteSnapshots(file.getId(), resolvedRoute);
+        String processInstanceId = createApprovalProcess(userId, file, resolvedRoute, processDefinitionKey);
+        controlledFileMapper.updateById(DccControlledFileDO.builder()
+                .id(file.getId())
+                .processInstanceId(processInstanceId)
+                .build());
+        file.setProcessInstanceId(processInstanceId);
+        platformAdapter.recordSubmitted(file, userId, processInstanceId);
+        return file.getId();
+    }
+
+    private void persistApprovalRouteSnapshots(Long controlledFileId,
+                                               DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute) {
         for (DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode routeNode : resolvedRoute.nodes()) {
             routeSnapshotMapper.insert(DccControlledFileRouteSnapshotDO.builder()
-                    .controlledFileId(file.getId())
+                    .controlledFileId(controlledFileId)
                     .routeVersionNo(resolvedRoute.route().getVersionNo())
                     .stageNo(routeNode.stageNo())
                     .stageCode(routeNode.stageCode())
@@ -473,7 +721,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                     .requireAllApprovals(routeNode.requireAllApprovals())
                     .build());
         }
+    }
 
+    private String createApprovalProcess(Long userId, DccControlledFileDO file,
+                                         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute,
+                                         String processDefinitionKey) {
         Map<String, Object> variables = new HashMap<>();
         variables.put("controlledFileId", file.getId());
         variables.put("categoryId", file.getCategoryId());
@@ -483,18 +735,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 startUserSelectAssignees);
         variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES,
                 approvalRouteAssigneeResolver.buildApproveUserSelectAssigneeMap(resolvedRoute.nodes()));
-        String processInstanceId = bpmProcessInstanceApi.createProcessInstance(userId, new BpmProcessInstanceCreateReqDTO()
+        return bpmProcessInstanceApi.createProcessInstance(userId, new BpmProcessInstanceCreateReqDTO()
                 .setProcessDefinitionKey(processDefinitionKey)
                 .setBusinessKey(String.valueOf(file.getId()))
                 .setStartUserSelectAssignees(startUserSelectAssignees)
                 .setVariables(variables));
-        controlledFileMapper.updateById(DccControlledFileDO.builder()
-                .id(file.getId())
-                .processInstanceId(processInstanceId)
-                .build());
-        file.setProcessInstanceId(processInstanceId);
-        platformAdapter.recordSubmitted(file, userId, processInstanceId);
-        return file.getId();
     }
 
     @Override
@@ -525,7 +770,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 splitRevisionApproval
                         ? DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()
                         : DccControlledFileStatusEnum.FINALIZING.getStatus(),
-                null);
+                null, true, "SUBMISSION");
         relatedFileService.validateAndBindRelatedFiles(file.getId(),
                 context.projectCode() == null ? null : context.projectCode().getId(),
                 reqVO.getRelatedControlledFileIds());
@@ -679,13 +924,15 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_TRAINING_RECORD_REQUIRED);
         }
         DccUploadTicketBoundFile trainingRecord = uploadTicketService.resolveForBinding(
-                new DccUploadTicketResolveCommand(reqVO.getTrainingRecordUploadTicket(), userId, reqVO.getSessionId(),
+                new DccUploadTicketResolveCommand(reqVO.getTrainingRecordUploadTicket(), userId, file.getCategoryId(),
+                        reqVO.getSessionId(),
                         DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD));
         if (trainingRecord == null || trainingRecord.storageFileId() == null) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
         uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(reqVO.getTrainingRecordUploadTicket(), userId,
-                reqVO.getSessionId(), DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD, id));
+                file.getCategoryId(), reqVO.getSessionId(),
+                DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD, id));
         controlledFileMapper.updateById(DccControlledFileDO.builder()
                 .id(id)
                 .trainingRecordFileId(trainingRecord.storageFileId())
@@ -936,7 +1183,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         } else {
             try {
                 stampedPdf = uploadTicketService.resolveForBinding(
-                        new DccUploadTicketResolveCommand(stampedPdfUploadTicket, userId, sessionId,
+                        new DccUploadTicketResolveCommand(stampedPdfUploadTicket, userId,
+                                context.file().getCategoryId(), sessionId,
                                 DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF));
                 if (stampedPdf == null || stampedPdf.storageFileId() == null
                         || DccControlledFilePreviewKindEnum.resolve(stampedPdf.fileName(), stampedPdf.contentType())
@@ -1018,7 +1266,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .build());
         persistDocControlConfirmedDirectory(context.file(), artifacts.confirmedDirectoryId());
         uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(artifacts.stampedPdfUploadTicket(),
-                userId, artifacts.sessionId(), DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF,
+                userId, context.file().getCategoryId(), artifacts.sessionId(),
+                DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF,
                 context.file().getId()));
         persistSingleFileDistributionPlans(context.file().getId(), artifacts.distributionPlans());
     }
@@ -1321,20 +1570,20 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
             }
             List<SubmitTicketBinding> bindings = new ArrayList<>();
-            DccUploadTicketBoundFile original = resolveUploadTicket(userId, reqVO.getSessionId(),
+            DccUploadTicketBoundFile original = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(),
                     reqVO.getOriginalUploadTicket(), DccControlledFileUploadTypePolicy.PURPOSE_SOURCE);
             bindings.add(new SubmitTicketBinding(reqVO.getOriginalUploadTicket(),
                     DccControlledFileUploadTypePolicy.PURPOSE_SOURCE));
             DccUploadTicketBoundFile source = original;
             if (StrUtil.isNotBlank(reqVO.getSourceUploadTicket())) {
-                source = resolveUploadTicket(userId, reqVO.getSessionId(), reqVO.getSourceUploadTicket(),
+                source = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(), reqVO.getSourceUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_SOURCE);
                 bindings.add(new SubmitTicketBinding(reqVO.getSourceUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_SOURCE));
             }
             DccUploadTicketBoundFile drawingPdf = null;
             if (StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket())) {
-                drawingPdf = resolveUploadTicket(userId, reqVO.getSessionId(), reqVO.getDrawingPdfUploadTicket(),
+                drawingPdf = resolveUploadTicket(userId, reqVO.getCategoryId(), reqVO.getSessionId(), reqVO.getDrawingPdfUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF);
                 bindings.add(new SubmitTicketBinding(reqVO.getDrawingPdfUploadTicket(),
                         DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF));
@@ -1346,10 +1595,10 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         return new ResolvedSubmitFiles(reqVO.getOriginalFileId(), sourceFileId, reqVO.getDrawingPdfFileId(), List.of());
     }
 
-    private DccUploadTicketBoundFile resolveUploadTicket(Long userId, String sessionId,
+    private DccUploadTicketBoundFile resolveUploadTicket(Long userId, Long categoryId, String sessionId,
                                                         String uploadTicket, String purpose) {
         DccUploadTicketBoundFile file = uploadTicketService.resolveForBinding(
-                new DccUploadTicketResolveCommand(uploadTicket, userId, sessionId, purpose));
+                new DccUploadTicketResolveCommand(uploadTicket, userId, categoryId, sessionId, purpose));
         if (file == null || file.storageFileId() == null) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
@@ -1366,7 +1615,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
         for (SubmitTicketBinding binding : distinctBindings.values()) {
             uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(binding.uploadTicket(), userId,
-                    context.reqVO().getSessionId(), binding.purpose(), controlledFileId));
+                    context.category().getId(), context.reqVO().getSessionId(), binding.purpose(), controlledFileId));
         }
     }
 
@@ -1390,13 +1639,17 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
         if (controlledUploadSubmit) {
-            projectAccessService.assertProjectOwner(userId, projectCode.getId());
+            if (existingRevisionSubmit) {
+                projectAccessService.assertProjectOwner(userId, projectCode.getId());
+            } else {
+                projectAccessService.assertProjectEditorOrOwner(userId, projectCode.getId());
+            }
             if (!categoryPermissionSupport.hasCategoryPermission(category.getId(), userId,
                     DccFileCategoryPermissionActionEnum.UPLOAD)) {
                 throw exception(DCC_PROJECT_ACCESS_DENIED);
             }
         }
-        if (controlledUploadSubmit && category.getFileTypeTaxonomyId() != null
+        if (controlledUploadSubmit
                 && !Objects.equals(category.getFileTypeTaxonomyId(), reqVO.getFileTypeTaxonomyId())) {
             throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
         }
@@ -1530,7 +1783,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     }
 
     private DccControlledFileDO insertControlledFile(PreparedSubmitContext context, Long userId,
-                                                      String status, String processDefinitionKey) {
+                                                       String status, String processDefinitionKey,
+                                                       boolean submitted, String ownershipType) {
         String processType = normalizeProcessType(context.reqVO().getProcessType());
         DccControlledFilePreparedSource preparedSource = sourceOwnershipService.prepareSubmissionSource(
                 context.submitFiles().sourceFileId(), context.submitFiles().ticketBindings().isEmpty());
@@ -1571,15 +1825,17 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .effectiveDate(context.reqVO().getEffectiveDate())
                 .remark(context.reqVO().getRemark())
                 .status(status)
-                .submitterId(userId)
+                .submitterId(submitted ? userId : null)
                 .requesterId(userId)
-                .processDefinitionKey(processDefinitionKey)
-                .submitIdempotencyKey(context.reqVO().getIdempotencyKey())
-                .submitPayloadHash(context.reqVO().getSubmitPayloadHash())
-                .submittedTime(LocalDateTime.now())
+                .processDefinitionKey(submitted ? processDefinitionKey : null)
+                .creationIdempotencyKey(submitted ? null : context.reqVO().getIdempotencyKey())
+                .creationPayloadHash(submitted ? null : context.reqVO().getCreationPayloadHash())
+                .submitIdempotencyKey(submitted ? context.reqVO().getIdempotencyKey() : null)
+                .submitPayloadHash(submitted ? context.reqVO().getSubmitPayloadHash() : null)
+                .submittedTime(submitted ? LocalDateTime.now() : null)
                 .build();
         controlledFileMapper.insert(file);
-        sourceOwnershipService.claimSubmissionSource(file.getId(), preparedSource, userId, "SUBMISSION");
+        sourceOwnershipService.claimSubmissionSource(file.getId(), preparedSource, userId, ownershipType);
         return file;
     }
 
@@ -1627,6 +1883,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             }
             DccControlledFileMasterDO existing = controlledFileMasterMapper.selectByNewLogicalIdentity(
                     tenantId, projectCodeId, taxonomyLeafId, normalizedFileNumber);
+            if (existing == null) {
+                existing = resolveUniqueLegacyMaster(projectCodeId, taxonomyLeafId, normalizedFileNumber);
+            }
             if (existing != null) {
                 throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
             }
@@ -1648,9 +1907,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
             }
         }
-        if (useNewLogicalIdentity && changeType == DccControlledFileChangeTypeEnum.REVISION
-                && reqVO.getRevisionSourceControlledFileId() != null) {
-            DccControlledFileDO source = controlledFileMapper.selectById(reqVO.getRevisionSourceControlledFileId());
+        if (useNewLogicalIdentity && changeType == DccControlledFileChangeTypeEnum.REVISION) {
+            Long selectedRevisionFileId = reqVO.getRevisionSourceControlledFileId() == null
+                    ? reqVO.getRevisionTargetControlledFileId() : reqVO.getRevisionSourceControlledFileId();
+            if (selectedRevisionFileId == null) {
+                throw exception(CONTROLLED_FILE_TASK_TARGET_INVALID);
+            }
+            DccControlledFileDO source = controlledFileMapper.selectById(selectedRevisionFileId);
             DccControlledFileMasterDO master = source == null || source.getMasterId() == null ? null
                     : controlledFileMasterMapper.selectByIdForUpdate(source.getMasterId());
             if (master == null) {
@@ -1677,6 +1940,29 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
         }
         return masters.get(0);
+    }
+
+    private DccControlledFileMasterDO resolveUniqueLegacyMaster(Long projectCodeId, Long taxonomyLeafId,
+                                                                 String normalizedFileNumber) {
+        List<DccControlledFileDO> legacyCandidates = controlledFileMapper
+                .selectActiveByLegacyProjectAndFileNumber(projectCodeId, normalizedFileNumber);
+        List<DccControlledFileDO> legacyActiveFiles = (legacyCandidates == null ? List.<DccControlledFileDO>of()
+                : legacyCandidates).stream()
+                .filter(file -> Objects.equals(resolveControlledFileTypeTaxonomyId(file), taxonomyLeafId))
+                .toList();
+        if (legacyActiveFiles == null || legacyActiveFiles.isEmpty()) {
+            return null;
+        }
+        List<Long> masterIds = legacyActiveFiles.stream().map(DccControlledFileDO::getMasterId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (masterIds.size() != 1 || legacyActiveFiles.size() != 1) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+        DccControlledFileMasterDO master = controlledFileMasterMapper.selectById(masterIds.get(0));
+        if (master == null || !Objects.equals(master.getCurrentActiveControlledFileId(), legacyActiveFiles.get(0).getId())) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+        return master;
     }
 
     private DccControlledFileChangeTypeEnum validateChangeType(String changeType) {
@@ -1740,6 +2026,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         String targetFileNumber = revisionTarget == null ? null : StrUtil.trim(revisionTarget.getFileNumber());
         if (revisionTarget == null
                 || !Objects.equals(revisionTarget.getMasterId(), currentActiveFile.getMasterId())
+                || !Objects.equals(revisionTarget.getCategoryId(), reqVO.getCategoryId())
+                || !Objects.equals(revisionTarget.getDirectoryId(), reqVO.getDirectoryId())
+                || !Objects.equals(StrUtil.trim(revisionTarget.getFileName()), StrUtil.trim(reqVO.getFileName()))
                 || StrUtil.isBlank(targetFileNumber)
                 || !Objects.equals(targetFileNumber, reqVO.getFileNumber())) {
             throw exception(CONTROLLED_FILE_TASK_TARGET_INVALID);
@@ -2033,6 +2322,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                                           DccControlledFileChangeTypeEnum changeType,
                                           boolean serverOwnedVersion,
                                           Long revisionBaseActiveControlledFileId) {
+    }
+
+    private record WorkingIterationSubmissionPayload(Long iterationId, List<Long> selectedSignoffUserIds) {
     }
 
     private record ResolvedDccProduct(Long id, String dccProductCode, String nameCn) {

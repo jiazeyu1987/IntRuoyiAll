@@ -4,4 +4,6 @@ public interface DccProjectAccessService {
 
     void assertProjectOwner(Long userId, Long projectCodeId);
 
+    void assertProjectEditorOrOwner(Long userId, Long projectCodeId);
+
 }

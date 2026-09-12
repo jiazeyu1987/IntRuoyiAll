@@ -234,6 +234,7 @@ export interface ProFrontlineParameterAuditItemVO {
 
 export interface FrontlineDeviceRouteProcessVO {
   activeOrderId?: number
+  routeVersionId: number
   routeId: number
   routeCode?: string
   routeName?: string
@@ -376,6 +377,7 @@ export interface FrontlinePqcInspectionItemVO {
 
 export interface FrontlineActiveOrderVO {
   activeOrderId: number
+  routeVersionId: number
   workOrderId: number
   workOrderCode?: string
   workOrderName?: string

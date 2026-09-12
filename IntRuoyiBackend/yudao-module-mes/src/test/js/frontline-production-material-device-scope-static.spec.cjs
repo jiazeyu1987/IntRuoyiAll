@@ -4,7 +4,7 @@ const path = require('node:path')
 
 const backendRoot = path.resolve(__dirname, '../../../..')
 const repoRoot = path.resolve(backendRoot, '..')
-const read = (file) => fs.readFileSync(path.join(repoRoot, file), 'utf8')
+const read = (file) => fs.readFileSync(path.join(repoRoot, file), 'utf8').replace(/\r\n/g, '\n')
 
 const panel = read('IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
 const submitService = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFrontlineFeedbackSubmitServiceImpl.java')

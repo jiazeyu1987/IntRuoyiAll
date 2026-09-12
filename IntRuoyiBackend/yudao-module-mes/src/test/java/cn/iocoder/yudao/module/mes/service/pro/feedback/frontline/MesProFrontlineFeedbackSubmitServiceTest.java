@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackMaterialReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -356,12 +358,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void shouldPersistExplicitZeroMaterialFactsWithoutAddingOrderProgress() {
-        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
-        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
-        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(9001L, "sign-123", "一线生产报工提交"))
-                .thenReturn(4001L);
+    void shouldRejectExplicitZeroMaterialFactsBeforeFormalWrite() {
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
         request.getMaterialDetails().forEach(material -> material
                 .setOutputQuantity(BigDecimal.ZERO)
@@ -370,13 +367,11 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            submitService.submit(request);
+            ServiceException error = assertThrows(ServiceException.class, () -> submitService.submit(request));
+            assertTrue(error.getMessage().contains("完成数量必须大于 0"));
         }
 
-        verify(feedbackService).createFrontlineFeedback(argThat(payload ->
-                BigDecimal.ZERO.compareTo(payload.getFeedbackQuantity()) == 0));
-        verify(feedbackMaterialService).createMaterials(any());
-        verify(processPoolSubmitEventService, never()).createInitialAllocation(any(), any(), any());
+        verifyNoInteractions(feedbackService, feedbackMaterialService, processPoolSubmitEventService, signatureService);
     }
 
     @Test

@@ -29,12 +29,15 @@ import org.springframework.validation.annotation.Validated;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Objects;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_OUTPUT_FILE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT;
 
 @Service
 @Validated
@@ -52,23 +55,44 @@ public class DccExternalFileReviewServiceImpl implements DccExternalFileReviewSe
     private DccControlledFileMapper controlledFileMapper;
     @Resource
     private DccUploadTicketService uploadTicketService;
+    @Resource
+    private DccControlledFileSubmitMutex submitMutex;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long submitExternalReview(Long userId, DccExternalFileReviewSubmitReqVO reqVO) {
         validateExternalSubmit(reqVO);
         validateActiveProcessDefinition();
-        DccControlledFileSubmitReqVO submitReqVO = toControlledFileSubmitReqVO(reqVO);
-        Long controlledFileId = workflowService.submitControlledFileWithProcessDefinitionKey(
-                userId, submitReqVO, BPM_PROCESS_DEFINITION_KEY);
-        externalReviewMapper.insert(DccExternalFileReviewDO.builder()
-                .controlledFileId(controlledFileId)
-                .externalSource(StrUtil.trim(reqVO.getExternalSource()))
-                .externalOwner(StrUtil.trim(reqVO.getExternalOwner()))
-                .reviewReason(StrUtil.trim(reqVO.getReviewReason()))
-                .participantUserIds(joinIds(reqVO.getParticipantUserIds()))
-                .build());
-        return controlledFileId;
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String mutexKey = "external:" + tenantId + ":" + userId + ":" + StrUtil.trim(reqVO.getIdempotencyKey());
+        return submitMutex.execute(mutexKey, () -> {
+            DccControlledFileSubmitReqVO submitReqVO = toControlledFileSubmitReqVO(reqVO);
+            Long controlledFileId = workflowService.submitControlledFileWithProcessDefinitionKey(
+                    userId, submitReqVO, BPM_PROCESS_DEFINITION_KEY);
+            DccExternalFileReviewDO existing = externalReviewMapper.selectByControlledFileId(controlledFileId);
+            if (existing != null) {
+                validateExternalReviewReplay(existing, reqVO);
+                return controlledFileId;
+            }
+            externalReviewMapper.insert(DccExternalFileReviewDO.builder()
+                    .controlledFileId(controlledFileId)
+                    .externalSource(StrUtil.trim(reqVO.getExternalSource()))
+                    .externalOwner(StrUtil.trim(reqVO.getExternalOwner()))
+                    .reviewReason(StrUtil.trim(reqVO.getReviewReason()))
+                    .participantUserIds(joinIds(reqVO.getParticipantUserIds()))
+                    .build());
+            return controlledFileId;
+        });
+    }
+
+    private void validateExternalReviewReplay(DccExternalFileReviewDO existing,
+                                              DccExternalFileReviewSubmitReqVO reqVO) {
+        if (!Objects.equals(existing.getExternalSource(), StrUtil.trim(reqVO.getExternalSource()))
+                || !Objects.equals(existing.getExternalOwner(), StrUtil.trim(reqVO.getExternalOwner()))
+                || !Objects.equals(existing.getReviewReason(), StrUtil.trim(reqVO.getReviewReason()))
+                || !Objects.equals(existing.getParticipantUserIds(), joinIds(reqVO.getParticipantUserIds()))) {
+            throw exception(CONTROLLED_FILE_SUBMIT_IDEMPOTENCY_CONFLICT);
+        }
     }
 
     @Override
@@ -91,7 +115,8 @@ public class DccExternalFileReviewServiceImpl implements DccExternalFileReviewSe
                 throw exception(EXTERNAL_FILE_REVIEW_OUTPUT_FILE_REQUIRED);
             }
             DccUploadTicketBoundFile outputFile = uploadTicketService.resolveForBinding(
-                    new DccUploadTicketResolveCommand(reqVO.getOutputUploadTicket(), userId, reqVO.getSessionId(),
+                    new DccUploadTicketResolveCommand(reqVO.getOutputUploadTicket(), userId,
+                            controlledFile.getCategoryId(), reqVO.getSessionId(),
                             DccControlledFileUploadTypePolicy.PURPOSE_EXTERNAL_REVIEW_OUTPUT));
             if (outputFile == null || outputFile.storageFileId() == null) {
                 throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
@@ -102,7 +127,8 @@ public class DccExternalFileReviewServiceImpl implements DccExternalFileReviewSe
                     .outputFileId(outputFile.storageFileId())
                     .build());
             uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(reqVO.getOutputUploadTicket(), userId,
-                    reqVO.getSessionId(), DccControlledFileUploadTypePolicy.PURPOSE_EXTERNAL_REVIEW_OUTPUT, id));
+                    controlledFile.getCategoryId(), reqVO.getSessionId(),
+                    DccControlledFileUploadTypePolicy.PURPOSE_EXTERNAL_REVIEW_OUTPUT, id));
         }
         workflowService.approveTaskWithProcessDefinitionKey(userId, id, reqVO, BPM_PROCESS_DEFINITION_KEY, false);
     }
@@ -150,6 +176,7 @@ public class DccExternalFileReviewServiceImpl implements DccExternalFileReviewSe
         DccControlledFileSubmitReqVO submitReqVO = new DccControlledFileSubmitReqVO();
         submitReqVO.setCategoryId(reqVO.getCategoryId());
         submitReqVO.setSessionId(reqVO.getSessionId());
+        submitReqVO.setIdempotencyKey(reqVO.getIdempotencyKey());
         submitReqVO.setOriginalUploadTicket(reqVO.getOriginalUploadTicket());
         submitReqVO.setSourceUploadTicket(reqVO.getSourceUploadTicket());
         submitReqVO.setSourceFileName(reqVO.getSourceFileName());

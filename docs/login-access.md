@@ -19,6 +19,7 @@
 
 - Trigger: 本机账号看不到新增页签、动态菜单、按钮权限，或需要确认某个页面是否已对当前登录账号可见。
 - 经验规则：当前前端登录后的动态菜单与按钮权限以 `/admin-api/system/auth/get-permission-info` 返回的 `menus` 和 `permissions` 为准；不要用过期的 `/admin-api/system/list-menus` 样例接口判断菜单是否存在，避免把接口 404 误判为菜单迁移失败。
+- 经验规则：页面内部的业务操作按钮如果与页面共用同一授权边界，不要为了“补显示”新增一个未投影的独立按钮权限；先用 fresh 登录核对权限投影，再用真实页面确认按钮和所属页签是否渲染，避免额外 `v-hasPermi` 把按钮隐藏。
 - 验证方式：先通过 `/system/tenant/get-id-by-name` 取得真实租户 ID，再用目标账号登录，最后核对 `get-permission-info` 中的菜单 `path/component/name` 与按钮 permission；仅看到后端 Controller mapping 或前端组件文件不足以证明账号菜单可见。
 - 禁止做法：禁止在权限投影未核对前修改前端路由兜底、隐藏错误或重复补菜单；禁止记录登录 token、密码、Cookie 或数据库连接敏感值。
 

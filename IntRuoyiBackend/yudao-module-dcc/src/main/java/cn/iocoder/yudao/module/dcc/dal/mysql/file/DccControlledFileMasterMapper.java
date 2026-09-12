@@ -79,7 +79,7 @@ public interface DccControlledFileMasterMapper extends BaseMapperX<DccControlled
                    deleted
             FROM dcc_controlled_file_master
             WHERE id = #{id}
-              AND deleted = b'0'
+              AND deleted = 0
             FOR UPDATE
             """)
     DccControlledFileMasterDO selectByIdForUpdate(@Param("id") Long id);

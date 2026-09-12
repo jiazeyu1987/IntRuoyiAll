@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -121,7 +122,10 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         update.setLifecycleStatus(candidate.getLifecycleStatus());
         MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
         LambdaUpdateWrapper<MesProRouteVersionDO> updateWrapper = new LambdaUpdateWrapper<MesProRouteVersionDO>()
-                .eq(MesProRouteVersionDO::getId, candidate.getId());
+                .eq(MesProRouteVersionDO::getId, candidate.getId())
+                .eq(MesProRouteVersionDO::getLifecycleStatus,
+                        MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .eq(MesProRouteVersionDO::getActive, Boolean.FALSE);
         if (candidate.getRouteSnapshotSha256() == null) {
             updateWrapper.isNull(MesProRouteVersionDO::getRouteSnapshotSha256);
         } else {
@@ -326,6 +330,22 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         });
         if (invalid) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        for (Object rawConfig : configs) {
+            JSONObject config = requireObject(rawConfig, routeVersionId);
+            Set<String> processDeviceCodes = new LinkedHashSet<>();
+            for (Object rawGroup : config.getJSONArray("deviceSelectionGroups")) {
+                JSONObject group = requireObject(rawGroup, routeVersionId);
+                for (Object rawDeviceId : group.getJSONArray("deviceIds")) {
+                    Long deviceId = Long.valueOf(String.valueOf(rawDeviceId));
+                    MesProcessPoolTeamDeviceDO device = devices.get(deviceId);
+                    String deviceCode = device == null || StrUtil.isBlank(device.getDeviceCode()) ? null
+                            : StrUtil.trim(device.getDeviceCode()).toUpperCase(Locale.ROOT);
+                    if (deviceCode == null || !processDeviceCodes.add(deviceCode)) {
+                        throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                    }
+                }
+            }
         }
     }
 

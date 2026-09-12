@@ -125,6 +125,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             applyMaterialAggregate(reqVO, materialSubmission);
             lossReasonSnapshot = firstLossReason(materialSubmission);
         }
+        normalizeProcessDeviceAuditPayload(reqVO);
 
         LocalDateTime submittedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         MesProFrontlineFeedbackSplitPayload splitPayload = payloadSplitter.split(reqVO, loginUserId,
@@ -333,9 +334,19 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());
         rawPayload.put("materialDetails", reqVO.getMaterialDetails());
         rawPayload.put("progressQuantity", submission.progressQuantity());
-        rawPayload.put("selectedDevices", feedback.getSelectedDevices());
-        rawPayload.put("deviceParameterReadings", feedback.getDeviceParameterReadings());
-        rawPayload.put("deviceMeteringValidity", feedback.getSelectedDevices().stream()
+        reqVO.setRawPayload(rawPayload);
+    }
+
+    static void normalizeProcessDeviceAuditPayload(MesProFrontlineFeedbackSubmitReqVO reqVO) {
+        MesProFrontlineFeedbackPayloadReqVO feedback = reqVO.getFeedbackPayload();
+        List<MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO> selectedDevices =
+                feedback.getSelectedDevices() == null ? List.of() : feedback.getSelectedDevices();
+        List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> parameterReadings =
+                feedback.getDeviceParameterReadings() == null ? List.of() : feedback.getDeviceParameterReadings();
+        Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());
+        rawPayload.put("selectedDevices", selectedDevices);
+        rawPayload.put("deviceParameterReadings", parameterReadings);
+        rawPayload.put("deviceMeteringValidity", selectedDevices.stream()
                 .map(device -> {
                     Map<String, Object> item = new java.util.LinkedHashMap<>();
                     item.put("deviceId", device.getDeviceId());

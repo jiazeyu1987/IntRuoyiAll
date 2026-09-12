@@ -588,5 +588,9 @@ public interface ErrorCodeConstants {
             "Controlled file submit idempotency key conflicts with another request");
     ErrorCode CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED = new ErrorCode(1_080_000_343,
             "DCC approval signature reason is required");
+    ErrorCode CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED = new ErrorCode(1_080_000_344,
+            "Only an unlocked WORKING controlled file iteration can be submitted");
+    ErrorCode CONTROLLED_FILE_ITERATION_NOT_LATEST = new ErrorCode(1_080_000_345,
+            "Only the latest WORKING controlled file iteration can be submitted");
 
 }

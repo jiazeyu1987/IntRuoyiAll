@@ -17,6 +17,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -85,6 +86,7 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
                 ArgumentCaptor.forClass(DccControlledFileTemporaryFileDO.class);
         verify(temporaryFileMapper).insert(tempCaptor.capture());
         assertEquals(created.uploadTicket(), tempCaptor.getValue().getUploadTicket());
+        assertEquals(10L, ReflectionTestUtils.getField(tempCaptor.getValue(), "categoryId"));
         assertEquals("session-1", tempCaptor.getValue().getSessionId());
         assertEquals("SOURCE", tempCaptor.getValue().getPurpose());
         assertEquals(99L, tempCaptor.getValue().getUploaderId());
@@ -109,9 +111,9 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
         when(temporaryFileMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(1);
 
         DccUploadTicketBoundFile file = uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
-                "UT-1", 99L, "session-1", "SOURCE"));
+                "UT-1", 99L, 10L, "session-1", "SOURCE"));
         uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(
-                "UT-1", 99L, "session-1", "SOURCE", 900L));
+                "UT-1", 99L, 10L, "session-1", "SOURCE", 900L));
 
         assertEquals("UT-1", file.uploadTicket());
         assertEquals(700L, file.storageFileId());
@@ -128,6 +130,57 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
         assertInvalid(temporaryFile("UT-1", 99L, "session-1", "SOURCE", "AVAILABLE",
                 LocalDateTime.now().minusSeconds(1), null));
         assertInvalid(temporaryFile("UT-1", 99L, "session-1", "SOURCE", "BOUND", future, 900L));
+    }
+
+    @Test
+    void resolveForBinding_rejectsTicketAlreadyClaimedByCleanup() {
+        DccControlledFileTemporaryFileDO temporaryFile = temporaryFile("UT-1", 99L, "session-1",
+                "SOURCE", "AVAILABLE", LocalDateTime.now().plusMinutes(20), null);
+        temporaryFile.setCleanupStatus(DccUploadTicketServiceImpl.CLEANUP_CLEANING);
+        when(temporaryFileMapper.selectOne(
+                org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(), eq("UT-1")))
+                .thenReturn(temporaryFile);
+
+        assertServiceException(() -> uploadTicketService.resolveForBinding(
+                new DccUploadTicketResolveCommand("UT-1", 99L, 10L, "session-1", "SOURCE")),
+                CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+
+        verify(fileMapper, never()).selectById(any());
+    }
+
+    @Test
+    void resolveForBinding_rejectsTicketCreatedForAnotherCategory() {
+        DccControlledFileTemporaryFileDO temporaryFile = temporaryFile("UT-1", 99L, "session-1",
+                "SOURCE", "AVAILABLE", LocalDateTime.now().plusMinutes(20), null);
+        temporaryFile.setCategoryId(11L);
+        when(temporaryFileMapper.selectOne(
+                org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(), eq("UT-1")))
+                .thenReturn(temporaryFile);
+
+        assertServiceException(() -> uploadTicketService.resolveForBinding(
+                new DccUploadTicketResolveCommand("UT-1", 99L, 10L, "session-1", "SOURCE")),
+                CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+
+        verify(fileMapper, never()).selectById(any());
+    }
+
+    @Test
+    void markBound_compareAndSetRequiresActiveCleanupState() {
+        DccControlledFileTemporaryFileDO temporaryFile = temporaryFile("UT-1", 99L, "session-1",
+                "SOURCE", "AVAILABLE", LocalDateTime.now().plusMinutes(20), null);
+        when(temporaryFileMapper.selectOne(
+                org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(), eq("UT-1")))
+                .thenReturn(temporaryFile);
+        when(temporaryFileMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(1);
+
+        uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(
+                "UT-1", 99L, 10L, "session-1", "SOURCE", 900L));
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ArgumentCaptor<UpdateWrapper<DccControlledFileTemporaryFileDO>> captor =
+                ArgumentCaptor.forClass((Class) UpdateWrapper.class);
+        verify(temporaryFileMapper).update(eq(null), captor.capture());
+        assertTrue(captor.getValue().getSqlSegment().contains("cleanup_status"));
     }
 
     @Test
@@ -150,7 +203,7 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
         TenantContextHolder.clear();
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> uploadTicketService.resolveForBinding(
-                new DccUploadTicketResolveCommand("UT-1", 99L, "session-1", "SOURCE")));
+                new DccUploadTicketResolveCommand("UT-1", 99L, 10L, "session-1", "SOURCE")));
 
         assertEquals("DCC upload ticket requires tenant context", ex.getMessage());
         assertNotNull(ex.getCause());
@@ -163,7 +216,7 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
         TenantContextHolder.clear();
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> uploadTicketService.markBound(
-                new DccUploadTicketMarkBoundCommand("UT-1", 99L, "session-1", "SOURCE", 900L)));
+                new DccUploadTicketMarkBoundCommand("UT-1", 99L, 10L, "session-1", "SOURCE", 900L)));
 
         assertEquals("DCC upload ticket requires tenant context", ex.getMessage());
         assertNotNull(ex.getCause());
@@ -378,6 +431,25 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void cleanupTemporaryFileByTicket_deletesOnlyTheRequestedTicket() throws Exception {
+        LocalDateTime now = LocalDateTime.of(2026, 5, 29, 11, 45);
+        DccControlledFileTemporaryFileDO drawing = temporaryFile("UT-DRAWING", 99L, "session-1",
+                "DRAWING_PDF", "AVAILABLE", now.plusMinutes(20), null);
+        when(temporaryFileMapper.selectOne(
+                org.mockito.ArgumentMatchers.<SFunction<DccControlledFileTemporaryFileDO, ?>>any(),
+                eq("UT-DRAWING"))).thenReturn(drawing);
+        when(fileMapper.selectById(700L)).thenReturn(storageFile());
+        when(temporaryFileMapper.update(eq(null), any(UpdateWrapper.class))).thenReturn(1, 1);
+
+        int cleaned = uploadTicketService.cleanupTemporaryFileByTicket(
+                99L, "session-1", "UT-DRAWING", now, "USER_DISCARDED");
+
+        assertEquals(1, cleaned);
+        verify(fileService).deleteFile(700L);
+        verify(temporaryFileMapper, never()).selectList(any());
+    }
+
+    @Test
     void getTemporaryFileStatusByRequestId_returnsNonBindableStatusWithoutCapabilityFields() {
         LocalDateTime future = LocalDateTime.now().plusMinutes(20);
         DccControlledFileTemporaryFileDO temporaryFile = temporaryFile("UT-1", 99L, "session-1",
@@ -413,7 +485,7 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
                 eq("UT-1"))).thenReturn(temporaryFile);
 
         assertServiceException(() -> uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
-                "UT-1", 99L, "session-1", "SOURCE")), CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+                "UT-1", 99L, 10L, "session-1", "SOURCE")), CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
 
         verify(temporaryFileMapper, never()).update(eq(null), any(UpdateWrapper.class));
     }
@@ -426,6 +498,7 @@ class DccUploadTicketServiceTest extends BaseMockitoUnitTest {
                 .uploadTicket(uploadTicket)
                 .sessionId(sessionId)
                 .purpose(purpose)
+                .categoryId(10L)
                 .uploaderId(uploaderId)
                 .storageFileId(700L)
                 .originalFileName("sample.docx")

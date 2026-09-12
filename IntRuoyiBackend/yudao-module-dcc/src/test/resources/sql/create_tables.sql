@@ -355,6 +355,8 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `requester_id` BIGINT NOT NULL,
   `process_instance_id` VARCHAR(64) NULL,
   `process_definition_key` VARCHAR(128) NULL,
+  `creation_idempotency_key` VARCHAR(128) NULL,
+  `creation_payload_hash` CHAR(64) NULL,
   `submit_idempotency_key` VARCHAR(128) NULL,
   `submit_payload_hash` CHAR(64) NULL,
   `submitted_time` DATETIME NULL,
@@ -383,6 +385,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`),
   KEY `idx_dcc_controlled_file_checkout` (`tenant_id`, `checked_out_by`, `checked_out_time`)
   ,UNIQUE KEY `uk_dcc_file_submit_idempotency` (`tenant_id`, `submitter_id`, `submit_idempotency_key`, `deleted`)
+  ,UNIQUE KEY `uk_dcc_file_creation_idempotency` (`tenant_id`, `requester_id`, `creation_idempotency_key`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_checkout` (
@@ -1374,11 +1377,33 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_upload_policy` (
   PRIMARY KEY (`id`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_project_access_rule` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `dcc_project_code_id` BIGINT NOT NULL,
+  `subject_type` VARCHAR(32) NOT NULL,
+  `subject_id` BIGINT NOT NULL,
+  `access_level` VARCHAR(16) NOT NULL,
+  `active` BIT NOT NULL,
+  `valid_from` DATETIME NULL,
+  `expire_time` DATETIME NULL,
+  `change_reason` VARCHAR(512) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_project_access_active_subject`
+    (`tenant_id`, `dcc_project_code_id`, `subject_type`, `subject_id`, `active`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_temporary_file` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `upload_ticket` VARCHAR(64) NOT NULL,
   `session_id` VARCHAR(128) NOT NULL,
   `purpose` VARCHAR(64) NOT NULL,
+  `category_id` BIGINT NULL,
   `uploader_id` BIGINT NOT NULL,
   `original_file_name` VARCHAR(255) NOT NULL,
   `content_type` VARCHAR(255) NULL,

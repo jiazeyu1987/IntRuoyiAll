@@ -139,6 +139,8 @@ export interface ProRouteVersionCreateReqVO {
   routeId: MesRouteId
   sourceRouteVersionId?: MesRouteId
   changeReason?: string
+  migrateLegacyProductionConfig?: boolean
+  missingOveragePercent?: number
 }
 
 export interface ProRouteVersionSubmitPublishReqVO {
@@ -317,8 +319,10 @@ export interface RouteFlowRouteProcessUpdateReqVO {
 export const PRO_ROUTE_IMPORT_INTGY_MD_URL = '/mes/pro/route/import-intgy-md'
 export const PRO_ROUTE_IMPORT_SHEET1_XLSX_URL = '/mes/pro/route/import-sheet1-xlsx'
 export const PRO_ROUTE_IMPORT_WORKBOOK_XLSX_URL = '/mes/pro/route/import-workbook-xlsx'
-export const PRO_ROUTE_EXPORT_PROCESS_TEMPLATE_XLSX_URL = '/mes/pro/route/export-process-template-xlsx'
-export const PRO_ROUTE_IMPORT_PROCESS_TEMPLATE_XLSX_URL = '/mes/pro/route/import-process-template-xlsx'
+export const PRO_ROUTE_EXPORT_PROCESS_TEMPLATE_XLSX_URL =
+  '/mes/pro/route/export-process-template-xlsx'
+export const PRO_ROUTE_IMPORT_PROCESS_TEMPLATE_XLSX_URL =
+  '/mes/pro/route/import-process-template-xlsx'
 export const PRO_ROUTE_VERSION_BASE_URL = '/mes/pro/route-version'
 
 // MES 工艺路线 API
