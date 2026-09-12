@@ -35,3 +35,13 @@ RED: manifest-validator-fixture-real-bytes -> FAIL，`valid-v1` fixture 的 `bac
 GREEN: app-preflight-regression -> PASS，`python -X utf8 -m pytest -q --tb=short --basetemp <app-worktree>\.tmp-pytest-app-preflight-final script\tests\test_release_target_preflight_files.py script\tests\test_release_manifest_migration_contract.py script\tests\test_release_migration_metadata.py script\tests\test_release_migration_policy_gate.py script\tests\test_release_preflight_plan.py script\tests\test_release_manifest_validator.py` -> 61 passed。
 
 NOTE: 本轮未执行服务器写入、NAS 上传、Docker 构建、Maven package、MinIO 或正式服动作；测试临时目录清理命令被本机安全策略拦截，提交时仅精确暂存任务文件，临时目录不纳入。
+
+## Workflow app-release scope correction
+
+BDD: workflow 构建动作固定 app-release -> Given 操作者通过三按钮 workflow 生成程序包 / When 后端编排调用底层 `build-release` / Then 服务端固定 `PublishScope=app-release`，客户端不得把旧 `code-only` 或 `with-data` 带入标准 workflow。
+
+RED: `mvn -pl yudao-module-infra -Dtest=ReleaseWorkflowOrchestratorTest#buildButtonDispatchesOneServerOwnedAppReleaseOperation test` -> FAIL，测试期望 `ReleaseWorkflowContract.PUBLISH_SCOPE` 即 `app-release`，实际仍为 `code-only`。
+
+GREEN: 同一 Maven 单测 -> PASS；`mvn -pl yudao-module-infra -Dtest=ReleaseWorkflow*Test test` -> PASS，25 tests；workflow package 静态扫描确认不再存在 `setPublishScope("code-only")`。
+
+NOTE: 本修正只修改本机 app worktree 中的 workflow 契约与测试；未启动服务、未发布、未访问服务器、NAS、数据库、MinIO 或正式服。

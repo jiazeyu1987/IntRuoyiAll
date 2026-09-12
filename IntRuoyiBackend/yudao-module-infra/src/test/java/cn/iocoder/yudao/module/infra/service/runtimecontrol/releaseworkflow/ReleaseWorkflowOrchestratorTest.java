@@ -60,7 +60,7 @@ class ReleaseWorkflowOrchestratorTest {
         ArgumentCaptor<RuntimeControlActionReqVO> request = ArgumentCaptor.forClass(RuntimeControlActionReqVO.class);
         verify(runtimeControlService, times(1)).executeAction(request.capture(), eq("operator"));
         assertEquals("build-release", request.getValue().getAction());
-        assertEquals("code-only", request.getValue().getPublishScope());
+        assertEquals(ReleaseWorkflowContract.PUBLISH_SCOPE, request.getValue().getPublishScope());
         assertEquals(first.releaseTag(), request.getValue().getReleaseTag());
         assertFalse(Boolean.TRUE.equals(request.getValue().getIncludeShowroomBuildPackage()));
     }

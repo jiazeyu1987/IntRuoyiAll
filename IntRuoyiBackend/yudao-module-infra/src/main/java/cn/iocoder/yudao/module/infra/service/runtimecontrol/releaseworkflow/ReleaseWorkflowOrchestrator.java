@@ -65,7 +65,7 @@ public class ReleaseWorkflowOrchestrator {
             RuntimeControlActionReqVO request = new RuntimeControlActionReqVO();
             request.setAction("build-release");
             request.setReason(reason);
-            request.setPublishScope("code-only");
+            request.setPublishScope(ReleaseWorkflowContract.PUBLISH_SCOPE);
             request.setIncludeOnlyOffice(false);
             request.setIncludeShowroomBuildPackage(false);
             request.setEnableSmartReleaseReport(false);
