@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260612_erp_kingdee_sync_runtime; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260612_erp_kingdee_sync_runtime; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- 生产补料单只读快照；不得写入本地库存、出库、审批或生产用料清单表。
 
 DROP PROCEDURE IF EXISTS preflight_erp_production_replenishment_list_menu;
