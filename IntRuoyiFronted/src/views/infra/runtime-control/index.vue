@@ -812,6 +812,7 @@
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import * as RuntimeControlApi from '@/api/infra/runtimeControl'
 import type {
   RuntimeControlOperationVO,
