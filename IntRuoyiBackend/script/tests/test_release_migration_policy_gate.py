@@ -58,6 +58,30 @@ def test_policy_gate_excludes_explicit_rollback_migration_from_release_manifest(
     ]
 
 
+def test_policy_gate_excludes_target_preflight_contract_files(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_release_schema.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium\n"
+        "CREATE TABLE IF NOT EXISTS release_table (id bigint);\n",
+    )
+    write_sql(
+        sql_root / "target-preflight",
+        "20260613_release_schema.preflight.sql",
+        "-- release-target-preflight: migrationId=20260613_release_schema; allowedEnvironments=test,backup,prod\n"
+        "SELECT 'TARGET_PREFLIGHT_PASS:20260613_release_schema';\n",
+    )
+
+    report = run_migration_policy_gate(sql_root)
+
+    assert report["status"] == "passed"
+    assert [entry["migrationId"] for entry in report["migrations"]] == [
+        "20260613_release_schema"
+    ]
+
+
 def test_policy_gate_rejects_missing_dependency(tmp_path: Path) -> None:
     sql_root = tmp_path / "sql" / "mysql"
     sql_root.mkdir(parents=True)

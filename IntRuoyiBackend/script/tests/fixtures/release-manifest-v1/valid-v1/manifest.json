@@ -35,10 +35,10 @@
       "path": "backend/app.txt",
       "includedInPackage": true,
       "artifactCacheUri": null,
-      "sha256": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
-      "artifactHash": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
-      "size": 25,
-      "digest": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "sha256": "sha256:bf5bfd277d9cdf8776af09ff64c712ddca23d94b9265ae5b6d2ac728b3b38709",
+      "artifactHash": "sha256:bf5bfd277d9cdf8776af09ff64c712ddca23d94b9265ae5b6d2ac728b3b38709",
+      "size": 26,
+      "digest": "sha256:bf5bfd277d9cdf8776af09ff64c712ddca23d94b9265ae5b6d2ac728b3b38709",
       "buildCacheKey": "backend-app:pytest",
       "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "dependencyHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -60,7 +60,7 @@
     {
       "moduleName": "backend",
       "buildAction": "rebuilt",
-      "artifactHash": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6"
+      "artifactHash": "sha256:bf5bfd277d9cdf8776af09ff64c712ddca23d94b9265ae5b6d2ac728b3b38709"
     }
   ],
   "compatibilityMatrix": [

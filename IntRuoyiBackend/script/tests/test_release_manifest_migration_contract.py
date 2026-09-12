@@ -45,8 +45,61 @@ def test_migration_manifest_contains_structured_sql_metadata(tmp_path: Path) -> 
             "allowedEnvironments": ["test", "backup"],
             "dependsOn": ["20260612_runtime_nightly_release_job"],
             "riskLevel": "medium",
+            "requiresTargetPreflight": False,
         }
     ]
+
+
+def test_migration_manifest_contains_requires_target_preflight_metadata(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_target_bound_menu.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=; type=schema; riskLevel=high; requiresTargetPreflight=true\n"
+        "SELECT 1;\n",
+    )
+
+    entries = build_migration_manifest(sql_root)
+
+    assert entries[0]["requiresTargetPreflight"] is True
+
+
+def test_migration_manifest_rejects_invalid_requires_target_preflight_metadata(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_invalid_target_preflight.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=; type=schema; riskLevel=high; requiresTargetPreflight=yes\n"
+        "SELECT 1;\n",
+    )
+
+    with pytest.raises(MigrationManifestError, match="invalid requiresTargetPreflight"):
+        build_migration_manifest(sql_root)
+
+
+def test_migration_manifest_excludes_target_preflight_contract_files(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_release_schema.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium\n"
+        "SELECT 1;\n",
+    )
+    write_sql(
+        sql_root / "target-preflight",
+        "20260613_release_schema.preflight.sql",
+        "-- release-target-preflight: migrationId=20260613_release_schema; allowedEnvironments=test,backup,prod\n"
+        "SELECT 'TARGET_PREFLIGHT_PASS:20260613_release_schema';\n",
+    )
+
+    entries = build_migration_manifest(sql_root)
+
+    assert [entry["migrationId"] for entry in entries] == ["20260613_release_schema"]
 
 
 def test_migration_manifest_rejects_duplicate_migration_id(tmp_path: Path) -> None:

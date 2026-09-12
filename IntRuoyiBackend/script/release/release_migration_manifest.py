@@ -47,6 +47,7 @@ def _parse_metadata(path: Path) -> dict[str, list[str] | str]:
             "dependsOn": [],
             "type": DEFAULT_TYPE,
             "riskLevel": DEFAULT_RISK_LEVEL,
+            "requiresTargetPreflight": "false",
         }
 
     metadata: dict[str, list[str] | str] = {
@@ -54,6 +55,7 @@ def _parse_metadata(path: Path) -> dict[str, list[str] | str]:
         "dependsOn": [],
         "type": DEFAULT_TYPE,
         "riskLevel": DEFAULT_RISK_LEVEL,
+        "requiresTargetPreflight": "false",
     }
     for segment in match.group(1).split(";"):
         if not segment.strip():
@@ -79,6 +81,10 @@ def _parse_metadata(path: Path) -> dict[str, list[str] | str]:
             if len(values) != 1 or values[0] not in ALLOWED_RISK_LEVELS:
                 raise MigrationManifestError(f"invalid riskLevel in {path}: {value}")
             metadata[key] = values[0]
+        elif key == "requiresTargetPreflight":
+            if len(values) != 1 or values[0] not in {"true", "false"}:
+                raise MigrationManifestError(f"invalid requiresTargetPreflight in {path}: {value}")
+            metadata[key] = values[0]
         else:
             raise MigrationManifestError(f"unknown release-migration metadata key in {path}: {key}")
     return metadata
@@ -100,7 +106,12 @@ def build_migration_manifest(
     seen: dict[str, Path] = {}
     if sql_paths is None:
         paths = sorted(
-            (path for path in root.rglob("20*.sql") if not is_rollback_migration(path)),
+            (
+                path
+                for path in root.rglob("20*.sql")
+                if not is_rollback_migration(path)
+                and "target-preflight" not in path.relative_to(root).parts
+            ),
             key=lambda item: item.relative_to(root).as_posix(),
         )
     else:
@@ -137,6 +148,7 @@ def build_migration_manifest(
                 "allowedEnvironments": metadata["allowedEnvironments"],
                 "dependsOn": metadata["dependsOn"],
                 "riskLevel": metadata["riskLevel"],
+                "requiresTargetPreflight": metadata["requiresTargetPreflight"] == "true",
             }
         )
 
