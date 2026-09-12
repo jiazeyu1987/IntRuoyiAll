@@ -8,8 +8,8 @@
 
 - [x] M1：识别当前脏改动、任务归属和提交边界。
 - [x] M2：为纳入提交的后端、前端和迁移改动执行 BDD/TDD 定向验证。
-- [ ] M3：完成 staged 清单、敏感信息和大文件检查，提交实现。
-- [ ] M4：执行 task closeout，提交收尾记录并推送 `int_main`。
+- [x] M3：完成 staged 清单、敏感信息和大文件检查，提交实现。
+- [x] M4：执行 task closeout，提交收尾记录并推送 `int_main`。
 
 ## Expected Verification
 
@@ -27,4 +27,6 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+实现提交与 cleanup 已完成；最终收尾提交和 push 在本记录提交后执行。

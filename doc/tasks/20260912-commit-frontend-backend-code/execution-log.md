@@ -18,3 +18,11 @@ BDD: 推送后分支与远端一致 -> Given 实现和收尾提交均通过验�
 
 - 提交范围：前后端源码、正式测试、SQL 迁移、已完成任务记录和长期规则文档。
 - 排除范围：`resource/` Office 文件、临时 tsconfig、运行输出、未完成任务的专用中间产物。
+
+## Closeout
+
+- IMPLEMENTATION COMMIT: `a80a88a97 chore: submit current frontend backend code`，115 files changed。
+- STAGED CHECK: `git diff --cached --check` -> PASS；禁止资源/临时文件扫描 -> PASS。
+- CLEANUP: `task_closeout.py --mode preview` -> PASS；`--mode apply` -> PASS；keep 3、delete 0、blocked 0、warnings 0。
+- EXPERIENCE: `project-experience-consolidation` 检查现有经验文档后确认无需新增长期条目；现有迁移、PowerShell、并行暂存门禁已覆盖本次经验。
+- PUSH: 待最终收尾提交后执行并核对 `origin/int_main`。

@@ -24,4 +24,6 @@ PASS_WITH_SCOPED_WARNINGS
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+Implementation commit `a80a88a97`; task closeout preview/apply passed with no deletions, blockers, or warnings.
