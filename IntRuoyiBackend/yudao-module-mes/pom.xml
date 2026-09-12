@@ -372,6 +372,7 @@
                                 <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest.java</testInclude>
                                 <testInclude>**/MesPqcReleaseBatchExecutionServiceTest.java</testInclude>
+                                <testInclude>**/MesProductionReleaseReportServiceTest.java</testInclude>
                                 <testInclude>**/MesProductionReleaseManagerApprovalServiceTest.java</testInclude>
                             </testIncludes>
                         </configuration>
@@ -386,6 +387,7 @@
                                 <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderVersionUpgradeServiceImplTest.java</include>
                                 <include>**/MesPqcReleaseBatchExecutionServiceTest.java</include>
+                                <include>**/MesProductionReleaseReportServiceTest.java</include>
                                 <include>**/MesProductionReleaseManagerApprovalServiceTest.java</include>
                             </includes>
                             <systemPropertyVariables>

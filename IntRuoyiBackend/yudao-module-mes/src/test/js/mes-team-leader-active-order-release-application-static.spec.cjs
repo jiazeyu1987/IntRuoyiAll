@@ -42,6 +42,9 @@ const pqcReleaseSource = read(
 const managerReleaseSource = read(
   'src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/manager/MesProductionReleaseManagerApprovalServiceImpl.java'
 )
+const reportReleaseSource = read(
+  'src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/report/MesProductionReleaseReportServiceImpl.java'
+)
 const dossierPortSource = read(
   'src/main/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseDossierPortImpl.java'
 )
@@ -208,6 +211,26 @@ const managerCandidateBlock = sliceBetween(
   'private void requireManagerCandidate',
   'private List<MesProductionReleaseReportNodeEvidence>'
 )
+const pqcReplayBlock = sliceBetween(
+  pqcReleaseSource,
+  'private MesPqcProductionReleaseDecisionResult replayOrRejectProcessedApplication',
+  'private MesPqcProductionReleaseDecisionResult parseStoredDecision'
+)
+const pqcDecisionHashBlock = sliceBetween(
+  pqcReleaseSource,
+  'private String decisionPayloadHash',
+  'private boolean empty'
+)
+const reportReplayBlock = sliceBetween(
+  reportReleaseSource,
+  'private MesProductionReleaseReportNodeCompleteResult replayIfCompleted',
+  'private void recordAudit'
+)
+const reportPayloadHashBlock = sliceBetween(
+  reportReleaseSource,
+  'private String payloadHash',
+  'private void recordAudit'
+)
 assert(
   pqcAuthorizationBlock.includes('containsCandidate(workTask.getCandidateUserSnapshot(), actorUserId)') &&
     !pqcAuthorizationBlock.includes('candidateResolver.resolveRequiredCandidates') &&
@@ -218,6 +241,18 @@ assert(
     managerCandidateBlock.includes('MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE') &&
     !managerCandidateBlock.includes('candidateResolver.resolveRequiredCandidates'),
   'PQC page/actions and manager approval must authorize the frozen work-task candidate snapshot instead of rechecking changed live role membership.'
+)
+
+assert(
+  pqcDecisionHashBlock.includes('String.valueOf(actorUserId), detail') &&
+    pqcReplayBlock.includes('requireFrozenPqcTask(application, workTask, actorUserId)') &&
+    pqcReplayBlock.indexOf('requireFrozenPqcTask(application, workTask, actorUserId)') <
+      pqcReplayBlock.indexOf('parseStoredDecision(application)') &&
+    reportPayloadHashBlock.includes('String.valueOf(actorUserId), attachments') &&
+    reportReplayBlock.includes('requireReplayAuthorized(application, workTask, batchTask, actorUserId)') &&
+    reportReplayBlock.indexOf('requireReplayAuthorized(application, workTask, batchTask, actorUserId)') <
+      reportReplayBlock.indexOf('JSON.parseObject(batchTask.getSpecialPayloadJson())'),
+  'Decision and report idempotency replay must bind the actor into the payload hash and authorize the frozen candidate before returning a stored receipt.'
 )
 
 assert(

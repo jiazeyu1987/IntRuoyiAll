@@ -130,10 +130,10 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 requireApplicationForUpdate(workTask.getBatchExecutionId());
         MesProEdhrBatchExecutionTaskDO batchTask = requireBatchTaskForUpdate(command.getBatchTaskId());
-        String payloadHash = payloadHash(command, batchTask.getNodeType());
+        String payloadHash = payloadHash(command, batchTask.getNodeType(), actorUserId);
 
         MesProductionReleaseReportNodeCompleteResult replay = replayIfCompleted(
-                batchTask, idempotencyKey, payloadHash);
+                application, workTask, batchTask, actorUserId, idempotencyKey, payloadHash);
         if (replay != null) {
             return replay;
         }
@@ -409,13 +409,17 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
     }
 
     private MesProductionReleaseReportNodeCompleteResult replayIfCompleted(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrWorkTaskDO workTask,
             MesProEdhrBatchExecutionTaskDO batchTask,
+            Long actorUserId,
             String idempotencyKey,
             String payloadHash) {
         if (!Objects.equals(batchTask.getStatus(), BATCH_TASK_STATUS_APPROVED)
                 || StrUtil.isBlank(batchTask.getSpecialPayloadJson())) {
             return null;
         }
+        requireReplayAuthorized(application, workTask, batchTask, actorUserId);
         JSONObject payload = JSON.parseObject(batchTask.getSpecialPayloadJson());
         String storedKey = payload.getString("releaseReportIdempotencyKey");
         String storedHash = payload.getString("releaseReportPayloadHash");
@@ -434,14 +438,29 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
                 "use the original completion receipt and do not resubmit with another key");
     }
 
-    private String payloadHash(MesProductionReleaseReportNodeCompleteCommand command, String nodeType) {
+    private void requireReplayAuthorized(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrWorkTaskDO workTask,
+            MesProEdhrBatchExecutionTaskDO batchTask,
+            Long actorUserId) {
+        if (!Objects.equals(application.getBatchExecutionId(), workTask.getBatchExecutionId())
+                || !Objects.equals(batchTask.getBatchExecutionId(), application.getBatchExecutionId())
+                || !isAssignedOrCandidate(workTask, actorUserId)) {
+            throw blocker(application, MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
+                    "current user is not an active frozen candidate for this report task",
+                    "use the assigned report owner account and refresh the candidate task list");
+        }
+    }
+
+    private String payloadHash(MesProductionReleaseReportNodeCompleteCommand command, String nodeType,
+                               Long actorUserId) {
         String attachments = command.getAttachments().stream()
                 .map(attachment -> String.valueOf(attachment.getFileId()) + ":" + StrUtil.trim(attachment.getSha256()))
                 .sorted()
                 .collect(java.util.stream.Collectors.joining("|"));
         return MesReleaseFlowIdempotency.payloadHash(
                 String.valueOf(command.getBatchTaskId()), nodeType,
-                StrUtil.trim(command.getSterilizationBatchNo()), attachments);
+                StrUtil.trim(command.getSterilizationBatchNo()), String.valueOf(actorUserId), attachments);
     }
 
     private void recordAudit(

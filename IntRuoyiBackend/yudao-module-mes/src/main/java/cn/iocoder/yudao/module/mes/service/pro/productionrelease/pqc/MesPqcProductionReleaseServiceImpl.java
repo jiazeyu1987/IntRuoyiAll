@@ -116,10 +116,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String opinion = trimAndValidateOptionalText(command.getApprovalOpinion(), "approvalOpinion");
         String payloadHash = decisionPayloadHash("APPROVE", command.getApplicationId(),
-                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), opinion);
+                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, opinion);
         MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
-                application, "APPROVE", idempotencyKey, payloadHash);
+                application, actorUserId, "APPROVE", idempotencyKey, payloadHash);
         if (replay != null) {
             return replay;
         }
@@ -234,10 +234,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "provide the formal PQC rejection reason");
         }
         String payloadHash = decisionPayloadHash("REJECT", command.getApplicationId(),
-                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), reason);
+                command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId, reason);
         MesProcessPoolActiveOrderReleaseApplicationDO application = requireApplicationForUpdate(command.getApplicationId());
         MesPqcProductionReleaseDecisionResult replay = replayOrRejectProcessedApplication(
-                application, "REJECT", idempotencyKey, payloadHash);
+                application, actorUserId, "REJECT", idempotencyKey, payloadHash);
         if (replay != null) {
             return replay;
         }
@@ -276,7 +276,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "production release application does not exist", "query an existing release application");
         }
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
-        requireAuthorized(application, workTask, actorUserId);
+        requireFrozenPqcTask(application, workTask, actorUserId);
         MesPqcProductionReleaseDecisionResult stored = parseStoredDecision(application);
         return stored == null ? baseResult(application, workTask)
                 .setDecision(application.getPqcDecision())
@@ -528,6 +528,21 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         }
     }
 
+    private void requireFrozenPqcTask(MesProcessPoolActiveOrderReleaseApplicationDO application,
+                                      MesProEdhrWorkTaskDO workTask,
+                                      Long actorUserId) {
+        if (workTask == null
+                || !TASK_TYPE_PQC_RELEASE.equals(workTask.getTaskType())
+                || !BUSINESS_SCOPE_RELEASE_APPLICATION.equals(workTask.getBusinessScopeType())
+                || !Objects.equals(application.getId(), workTask.getBusinessScopeId())
+                || !containsCandidate(workTask.getCandidateUserSnapshot(), actorUserId)) {
+            throw blocker(MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE, application,
+                    "WORK_TASK", workTask == null ? null : String.valueOf(workTask.getId()),
+                    "current user is not in the frozen PQC candidate snapshot",
+                    "use an authorized frozen PQC candidate");
+        }
+    }
+
     private boolean containsCandidate(String snapshot, Long userId) {
         if (StrUtil.isBlank(snapshot) || userId == null) {
             return false;
@@ -605,12 +620,15 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
 
     private MesPqcProductionReleaseDecisionResult replayOrRejectProcessedApplication(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long actorUserId,
             String decision,
             String idempotencyKey,
             String payloadHash) {
         if (MesReleaseFlowStatus.PQC_RELEASE_PENDING.equals(application.getApplicationStatus())) {
             return null;
         }
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(application.getPqcReleaseWorkTaskId());
+        requireFrozenPqcTask(application, workTask, actorUserId);
         MesPqcProductionReleaseDecisionResult stored = parseStoredDecision(application);
         if (stored != null && Objects.equals(idempotencyKey, stored.getDecisionIdempotencyKey())) {
             if (Objects.equals(decision, stored.getDecision())
@@ -686,9 +704,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     }
 
     private String decisionPayloadHash(
-            String decision, Long applicationId, Long workTaskId, Integer expectedVersion, String detail) {
+            String decision, Long applicationId, Long workTaskId, Integer expectedVersion, Long actorUserId,
+            String detail) {
         return MesReleaseFlowIdempotency.payloadHash(decision, String.valueOf(applicationId),
-                String.valueOf(workTaskId), String.valueOf(expectedVersion), detail);
+                String.valueOf(workTaskId), String.valueOf(expectedVersion), String.valueOf(actorUserId), detail);
     }
 
     private boolean empty(List<?> values) {

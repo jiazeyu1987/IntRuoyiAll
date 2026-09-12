@@ -147,6 +147,31 @@ class MesProductionReleaseReportServiceTest {
     }
 
     @Test
+    void sameKeyAndPayloadReplayRequiresFrozenReportCandidate() {
+        MesProductionReleaseReportNodeCompleteResult stored = new MesProductionReleaseReportNodeCompleteResult()
+                .setBatchExecutionId(BATCH_EXECUTION_ID)
+                .setBatchTaskId(BATCH_TASK_ID)
+                .setWorkTaskId(WORK_TASK_ID)
+                .setNodeType("INCOMING_INSPECTION_REPORT")
+                .setNodeStatus("COMPLETED")
+                .setActiveAttachmentVersion(1)
+                .setAttachmentIds(List.of(101L))
+                .setAttachmentHashes(List.of("a".repeat(64)))
+                .setReportUploadStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setVersion(VERSION + 1);
+        when(batchTaskMapper.selectByIdForUpdate(BATCH_TASK_ID)).thenReturn(batchTask(
+                BATCH_TASK_ID, "INCOMING_INSPECTION_REPORT", 40, storedPayload(stored)));
+
+        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.complete(7999L, command()));
+
+        assertEquals(MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
+        verify(reportNodePort, never()).complete(any());
+        verify(workTaskMapper, never()).completeReleaseReportTask(any(), any());
+    }
+
+    @Test
     void sameKeyWithDifferentPayloadReturnsConflict() {
         MesProductionReleaseReportNodeCompleteResult stored = new MesProductionReleaseReportNodeCompleteResult()
                 .setBatchExecutionId(BATCH_EXECUTION_ID)
@@ -278,7 +303,7 @@ class MesProductionReleaseReportServiceTest {
         payload.put("releaseReportIdempotencyKey", "report-complete-9101");
         payload.put("releaseReportPayloadHash", MesReleaseFlowIdempotency.payloadHash(
                 String.valueOf(BATCH_TASK_ID), "INCOMING_INSPECTION_REPORT", null,
-                "101:" + "a".repeat(64)));
+                String.valueOf(ACTOR_ID), "101:" + "a".repeat(64)));
         payload.put("releaseReportReceipt", JSON.toJSON(stored));
         return payload.toJSONString();
     }

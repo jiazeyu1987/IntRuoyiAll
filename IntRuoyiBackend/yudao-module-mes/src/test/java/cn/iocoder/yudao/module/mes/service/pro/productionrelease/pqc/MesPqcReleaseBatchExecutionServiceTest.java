@@ -328,7 +328,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         MesPqcProductionReleaseApproveCommand command = approveCommand("pqc-approve-replay");
         String payloadHash = MesReleaseFlowIdempotency.payloadHash(
                 "APPROVE", String.valueOf(APPLICATION_ID), String.valueOf(PQC_WORK_TASK_ID),
-                String.valueOf(VERSION), null);
+                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null);
         MesPqcProductionReleaseDecisionResult stored = new MesPqcProductionReleaseDecisionResult()
                 .setApplicationId(APPLICATION_ID)
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
@@ -356,6 +356,60 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
         assertEquals(BATCH_EXECUTION_ID, replay.getBatchExecutionId());
         assertEquals("pqc-approve-replay", replay.getDecisionIdempotencyKey());
+        verify(batchExecutionPort, never()).openOrCreate(any());
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void sameIdempotencyKeyAndPayloadRequiresFrozenCandidateForStoredDecisionReplay() {
+        MesPqcProductionReleaseApproveCommand command = approveCommand("pqc-approve-replay-forbidden");
+        String payloadHash = MesReleaseFlowIdempotency.payloadHash(
+                "APPROVE", String.valueOf(APPLICATION_ID), String.valueOf(PQC_WORK_TASK_ID),
+                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null);
+        MesPqcProductionReleaseDecisionResult stored = new MesPqcProductionReleaseDecisionResult()
+                .setApplicationId(APPLICATION_ID)
+                .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
+                .setDecision("APPROVE")
+                .setStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setDecisionIdempotencyKey(command.getIdempotencyKey())
+                .setDecisionPayloadHash(payloadHash);
+        when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application()
+                .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setVersion(2)
+                .setDossierSummaryJson(JSON.toJSONString(stored)));
+
+        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.approve(7999L, command));
+
+        assertEquals(MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
+        verify(batchExecutionPort, never()).openOrCreate(any());
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void sameIdempotencyKeyCannotReplayStoredDecisionForAnotherFrozenCandidate() {
+        MesPqcProductionReleaseApproveCommand command = approveCommand("pqc-approve-replay-actor-bound");
+        String payloadHash = MesReleaseFlowIdempotency.payloadHash(
+                "APPROVE", String.valueOf(APPLICATION_ID), String.valueOf(PQC_WORK_TASK_ID),
+                String.valueOf(VERSION), String.valueOf(PQC_USER_ID), null);
+        MesPqcProductionReleaseDecisionResult stored = new MesPqcProductionReleaseDecisionResult()
+                .setApplicationId(APPLICATION_ID)
+                .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
+                .setDecision("APPROVE")
+                .setStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setDecisionIdempotencyKey(command.getIdempotencyKey())
+                .setDecisionPayloadHash(payloadHash);
+        when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application()
+                .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setVersion(2)
+                .setDossierSummaryJson(JSON.toJSONString(stored)));
+
+        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.approve(7102L, command));
+
+        assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
         verify(batchExecutionPort, never()).openOrCreate(any());
         verify(auditRecorder, never()).record(any());
     }
