@@ -38,4 +38,4 @@ P2-P5 不在本次执行范围，不实现完整状态机、持久化 workflow�
 
 in_progress
 
-P1 实现与执行者验证已完成，等待主线程独立验证后决定是否进入 P2。服务器、NAS、数据库、MinIO、服务启动和真实 E2E 均未执行。
+P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，本 worktree 已补齐该迁移预检合同并通过本机 RED/GREEN；等待主线程使用新的应用提交继续生成 without-data/app-release 程序包。服务器、NAS、数据库、MinIO、服务启动和真实 E2E 仍未在本应用 worktree 内执行。

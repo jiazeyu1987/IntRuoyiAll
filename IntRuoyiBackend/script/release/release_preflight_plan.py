@@ -16,7 +16,7 @@ BLOCKED_ACTIONS = {
 }
 SKIP_ENV_NOT_ALLOWED = "SKIP_ENV_NOT_ALLOWED"
 SKIP_SCOPE_EXCLUDED = "SKIP_SCOPE_EXCLUDED"
-SUPPORTED_PUBLISH_SCOPES = {"code-only", "with-data"}
+SUPPORTED_PUBLISH_SCOPES = {"app-release", "code-only", "with-data"}
 SUPPORTED_MIGRATION_TYPES = {"schema", "data", "menu", "config", "permission", "seed"}
 
 

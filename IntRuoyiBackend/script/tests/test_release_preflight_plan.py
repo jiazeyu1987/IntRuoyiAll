@@ -197,6 +197,21 @@ def test_with_data_scope_applies_data_dependency_and_child() -> None:
     assert [item["action"] for item in plan["items"]] == ["APPLY", "APPLY"]
 
 
+def test_app_release_scope_applies_versioned_data_dependency_and_child() -> None:
+    plan = build_preflight_plan(
+        [
+            migration(migrationId="data-root", type="data"),
+            migration(migrationId="schema-child", dependsOn=["data-root"]),
+        ],
+        {},
+        target_environment="test",
+        publish_scope="app-release",
+    )
+
+    assert plan["status"] == "passed"
+    assert [item["action"] for item in plan["items"]] == ["APPLY", "APPLY"]
+
+
 def test_preflight_preserves_manifest_order_when_dependencies_become_ready() -> None:
     plan = build_preflight_plan(
         [
@@ -244,6 +259,26 @@ def test_cli_generates_plan_from_manifest_schema_migrations(tmp_path) -> None:
     plan = json.loads(output.read_text(encoding="utf-8"))
     assert plan["status"] == "passed"
     assert plan["items"][0]["action"] == "SKIP_ALREADY_APPLIED"
+
+
+def test_cli_accepts_app_release_publish_scope(tmp_path) -> None:
+    manifest = tmp_path / "manifest.json"
+    target_state = tmp_path / "target-state.json"
+    output = tmp_path / "preflight-plan.json"
+    manifest.write_text(json.dumps({"schemaMigrations": [migration(type="data")]}), encoding="utf-8")
+    target_state.write_text(json.dumps({}), encoding="utf-8")
+
+    assert main([
+        "--manifest", str(manifest),
+        "--target-state", str(target_state),
+        "--target-environment", "test",
+        "--publish-scope", "app-release",
+        "--output", str(output),
+    ]) == 0
+
+    plan = json.loads(output.read_text(encoding="utf-8"))
+    assert plan["status"] == "passed"
+    assert plan["items"][0]["action"] == "APPLY"
 
 
 def test_cli_generates_plan_from_manifest_v1_database_schema_migrations(tmp_path) -> None:
