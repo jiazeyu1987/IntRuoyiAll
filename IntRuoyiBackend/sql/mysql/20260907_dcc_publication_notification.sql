@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260815_system_notify_message_business_key,20260907_dcc_publication_impact_assessment; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260815_system_notify_message_business_key,20260907_dcc_publication_impact_assessment; type=schema; riskLevel=medium; requiresTargetPreflight=true
 -- Idempotent notification delivery ledger for new DCC publication follow-up batches only.
 
 SET NAMES utf8mb4;
