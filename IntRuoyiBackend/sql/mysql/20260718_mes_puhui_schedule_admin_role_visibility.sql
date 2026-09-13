@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260629_mes_smart_scheduling_role_scope; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260629_mes_smart_scheduling_role_scope; type=data; riskLevel=medium; requiresTargetPreflight=true
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS ensure_mes_puhui_schedule_admin_role_visibility;
@@ -7,6 +7,7 @@ DELIMITER //
 CREATE PROCEDURE ensure_mes_puhui_schedule_admin_role_visibility()
 BEGIN
   DECLARE v_admin_user_id BIGINT DEFAULT NULL;
+  DECLARE v_smart_scheduling_parent_id BIGINT DEFAULT NULL;
 
   IF EXISTS (
     SELECT 1
@@ -30,17 +31,23 @@ BEGIN
       SET MESSAGE_TEXT = 'Missing MES root menu 5100; cannot scope Puhui schedule admin role';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM `system_menu`
-    WHERE `deleted` = b'0'
-      AND `status` = 0
-      AND `id` = 900120
-      AND `parent_id` = 5100
-      AND `name` = '智能排产'
-  ) THEN
+  SELECT `parent_id`
+  INTO v_smart_scheduling_parent_id
+  FROM `system_menu`
+  WHERE `deleted` = b'0'
+    AND `status` = 0
+    AND `id` = 900120
+    AND `name` = '智能排产'
+  LIMIT 1;
+
+  IF v_smart_scheduling_parent_id IS NULL THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Missing MES smart scheduling menu 900120; cannot scope Puhui schedule admin role';
+  END IF;
+
+  IF v_smart_scheduling_parent_id NOT IN (0, 5100) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Unsupported MES smart scheduling menu 900120 parent; cannot scope Puhui schedule admin role';
   END IF;
 
   IF NOT EXISTS (

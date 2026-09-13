@@ -187,6 +187,15 @@ def test_mes_smart_scheduling_role_scope_preflight_matches_active_route_menu_con
     assert "new_route_menus" in text
 
 
+def test_puhui_schedule_admin_preflight_accepts_root_smart_scheduling_menu() -> None:
+    text = (TARGET_PREFLIGHT_ROOT / "20260718_mes_puhui_schedule_admin_role_visibility.preflight.sql").read_text(encoding="utf-8")
+
+    assert "900120" in text
+    assert "parent_id IN (0, 5100)" in text
+    assert "MesProPuhuiSchedule" in text
+    assert "mes:pro-puhui-schedule:query" in text
+
+
 def test_balloon_xlsx_cleanup_preflight_matches_current_or_legacy_target_contract() -> None:
     text = (TARGET_PREFLIGHT_ROOT / "20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql").read_text(encoding="utf-8")
 

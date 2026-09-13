@@ -15,6 +15,7 @@ def test_puhui_schedule_admin_sql_declares_role_menu_and_guards() -> None:
     text = _read_sql()
 
     required = [
+        "requiresTargetPreflight=true",
         "SET NAMES utf8mb4;",
         "ensure_mes_puhui_schedule_admin_role_visibility",
         "'璞慧排产管理员'",
@@ -22,6 +23,7 @@ def test_puhui_schedule_admin_sql_declares_role_menu_and_guards() -> None:
         "`id` = 5100",
         "`id` = 900120",
         "`id` = 900104",
+        "v_smart_scheduling_parent_id NOT IN (0, 5100)",
         "`path` = '/mes/pro/puhui-schedule'",
         "`component_name` = 'MesProPuhuiSchedule'",
         "SIGNAL SQLSTATE '45000'",
@@ -32,6 +34,16 @@ def test_puhui_schedule_admin_sql_declares_role_menu_and_guards() -> None:
 
     for snippet in required:
         assert snippet in text
+
+
+def test_puhui_schedule_admin_accepts_current_root_smart_scheduling_menu() -> None:
+    text = _read_sql()
+
+    assert "`id` = 900120" in text
+    assert "`parent_id` = 5100" not in text
+    assert "SELECT `parent_id`" in text
+    assert "INTO v_smart_scheduling_parent_id" in text
+    assert "v_smart_scheduling_parent_id NOT IN (0, 5100)" in text
 
 
 def test_puhui_schedule_admin_sql_grants_only_minimum_menu_tree() -> None:

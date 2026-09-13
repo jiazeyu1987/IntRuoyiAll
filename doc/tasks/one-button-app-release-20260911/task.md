@@ -38,4 +38,4 @@ P2-P5 不在本次执行范围，不实现完整状态机、持久化 workflow�
 
 in_progress
 
-P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，且 `20260629_mes_smart_scheduling_role_scope` 仍硬编码旧路线菜单 `900121/900122`，与 `20260709_mes_route_flow_config_unification` 后的 `5726/5727` 活跃菜单不兼容。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析和目标只读预检合同，本机 RED/GREEN 已通过；等待主线程使用新的应用提交继续生成 without-data/app-release 程序包。服务器、NAS、数据库、MinIO、服务启动和真实 E2E 仍未在本应用 worktree 内执行。
+P1 已完成。主线程后续进入 P3 后发现应用仓 `release_preflight_plan.py` 尚未接受标准 `app-release` scope，`20260629_mes_smart_scheduling_role_scope` 仍硬编码旧路线菜单 `900121/900122`，且 R31 包内 `20260718_mes_puhui_schedule_admin_role_visibility.sql` 缺少 target preflight 与当前 `900120` 父级兼容逻辑。本 worktree 已补齐 `app-release` 迁移预检合同、活跃路线菜单解析、璞慧排产管理员菜单父级兼容和目标只读预检合同，本机 RED/GREEN 已通过；等待主线程使用新的应用提交继续生成 without-data/app-release 程序包。服务器、NAS、数据库、MinIO、服务启动和真实 E2E 仍未在本应用 worktree 内执行。
