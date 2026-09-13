@@ -32,4 +32,5 @@ in_progress
 
 - RED target-preflight-file-contract: 58 planned target preflight SQL files were missing.
 - GREEN app-preflight-regression: 61 passed across target preflight file contracts, manifest metadata, migration policy gate, release preflight plan and manifest validator.
+- GREEN app-infra-c07-regression: after aligning runtime-control test fixtures to the `manifest.json`/`packageId` and tested-operation evidence contract, and mechanically refreshing stale codegen snapshots from the existing generator, `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra test` passed with 546 tests, 0 failures, 0 errors, 10 skipped.
 - Scope: no server write, NAS upload, Docker build, Maven package, MinIO operation or production action was performed.

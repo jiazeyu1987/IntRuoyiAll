@@ -45,3 +45,17 @@ RED: `mvn -pl yudao-module-infra -Dtest=ReleaseWorkflowOrchestratorTest#buildBut
 GREEN: 同一 Maven 单测 -> PASS；`mvn -pl yudao-module-infra -Dtest=ReleaseWorkflow*Test test` -> PASS，25 tests；workflow package 静态扫描确认不再存在 `setPublishScope("code-only")`。
 
 NOTE: 本修正只修改本机 app worktree 中的 workflow 契约与测试；未启动服务、未发布、未访问服务器、NAS、数据库、MinIO 或正式服。
+
+## P3 C07 Regression Unblocker
+
+BDD: infra 全量回归必须保持可运行 -> Given 发布 workflow 已收紧为 `app-release` / `manifest.json` / 已测试证据合同 / When 运行主程序 infra 模块全量测试 / Then 旧测试 fixture 不能继续使用 `release-manifest.json` 或缺失测试服验收证据，且 codegen 快照必须与现有生成器输出一致。
+
+RED: `mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra test` -> FAIL，首次 546 tests 中 12 failures、2 errors；runtime-control 两个错误分别为 rollback fixture 缺 `manifest.json.packageId`、promotion fixture 缺 `testOperationEvidence`。
+
+GREEN: runtime-control fixture contract -> PASS，`mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=RuntimeControlHighRiskActionContractTest,RuntimeOpsResponsibilityServiceImplTest" test` 通过 14 tests。
+
+RED: app-infra-c07-after-runtime-fixture-fix -> FAIL，`mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra test` 仍有 `CodegenEngineVue2Test` / `CodegenEngineVue3Test` 12 个 stale snapshot mismatch；确认本任务未改 codegen 生产逻辑。
+
+GREEN: codegen snapshot contract -> PASS，使用既有 `-Dcodegen.regenerate=true` 只刷新 `CodegenEngineVue2Test` / `CodegenEngineVue3Test` 对应测试资源后，`mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=CodegenEngineVue2Test,CodegenEngineVue3Test" test` 通过 12 tests。
+
+GREEN: app-infra-c07-regression -> PASS，`mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra test` 通过 546 tests、0 failures、0 errors、10 skipped；未执行服务器写入、数据库写入、NAS 上传、Docker build、MinIO 或正式服动作。

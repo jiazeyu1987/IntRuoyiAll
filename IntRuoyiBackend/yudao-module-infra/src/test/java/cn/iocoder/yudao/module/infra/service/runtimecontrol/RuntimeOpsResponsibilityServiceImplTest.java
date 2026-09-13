@@ -216,6 +216,8 @@ class RuntimeOpsResponsibilityServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setReason("上线正式服");
         reqVO.setProdConfirmText("PROD");
         reqVO.setReleaseTag("20260528_220000");
+        reqVO.setTestOperationId("publish-test-20260528");
+        reqVO.setTestOperationEvidencePath("Backup/ReleasePackage/20260528_220000/tested.json");
 
         RuntimeControlOperationRespVO operation = runtimeControlService.executeAction(reqVO, "1001");
 
@@ -227,10 +229,17 @@ class RuntimeOpsResponsibilityServiceImplTest extends BaseMockitoUnitTest {
         try {
             Path root = tempDir.resolve("Backup").resolve("ReleasePackage").resolve(releaseTag);
             java.nio.file.Files.createDirectories(root);
-            java.nio.file.Files.writeString(root.resolve("release-manifest.json"),
-                    "{\"releaseTag\":\"" + releaseTag + "\",\"packageDirectoryName\":\"" + releaseTag
-                            + "\",\"component\":\"backend\",\"includeShowroomBuildPackage\":false"
-                            + ",\"onlyOfficeIncluded\":false,\"artifacts\":[{\"path\":\"image.tar\",\"sha256\":\"abc\"}]}");
+            java.nio.file.Files.writeString(root.resolve("manifest.json"),
+                    "{\"releaseTag\":\"" + releaseTag + "\",\"packageId\":\"" + releaseTag
+                            + "\",\"publishScope\":\"app-release\",\"component\":\"backend\""
+                            + ",\"includeShowroomBuildPackage\":false,\"onlyOfficeIncluded\":false"
+                            + ",\"packageDigest\":\"abc123\""
+                            + ",\"sourceRoots\":[{\"role\":\"maintenance\",\"gitRoot\":\"D:/ProjectPackage/Int/IntRuoyiMaintance\",\"commit\":\"111\",\"dirty\":false}"
+                            + ",{\"role\":\"application\",\"gitRoot\":\"E:/IntRuoyi\",\"commit\":\"222\",\"dirty\":false}]"
+                            + ",\"sourceRoles\":[{\"role\":\"maintenance\",\"sourceRootRole\":\"maintenance\"}"
+                            + ",{\"role\":\"backend\",\"sourceRootRole\":\"application\"}"
+                            + ",{\"role\":\"frontend\",\"sourceRootRole\":\"application\"}]"
+                            + ",\"artifacts\":[{\"path\":\"image.tar\",\"sha256\":\"abc\"}]}");
             java.nio.file.Files.writeString(root.resolve("tested.json"),
                     "{\"releaseTag\":\"" + releaseTag + "\",\"packageDirectoryName\":\"" + releaseTag
                             + "\",\"testedAt\":\"2026-05-30T00:00:00Z\",\"operatorName\":\"tester\"}");

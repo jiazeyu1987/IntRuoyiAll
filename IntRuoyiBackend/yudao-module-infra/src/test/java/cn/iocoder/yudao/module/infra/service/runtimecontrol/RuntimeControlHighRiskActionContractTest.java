@@ -165,8 +165,8 @@ class RuntimeControlHighRiskActionContractTest extends BaseMockitoUnitTest {
         try {
             Path root = tempDir.resolve("Backup").resolve("ReleasePackage").resolve(imageTag);
             java.nio.file.Files.createDirectories(root);
-            java.nio.file.Files.writeString(root.resolve("release-manifest.json"),
-                    "{\"releaseTag\":\"" + backupId + "\",\"packageDirectoryName\":\"" + imageTag + "\"}");
+            java.nio.file.Files.writeString(root.resolve("manifest.json"),
+                    "{\"releaseTag\":\"" + backupId + "\",\"packageId\":\"" + imageTag + "\"}");
             java.nio.file.Files.writeString(root.resolve("prod-latest.json"),
                     "{\"releaseTag\":\"" + backupId + "\",\"packageDirectoryName\":\"" + imageTag
                             + "\",\"action\":\"deploy\",\"environment\":\"prod\"}");
