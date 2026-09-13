@@ -3,7 +3,7 @@
 ## 追加静态检查（2026-09-13，排除010）
 
 - 本轮重新核对第1—90步，明确排除DCC-STATIC-010；未重新判断或修改010的既有状态。
-- 新确认12项逻辑问题：DCC-STATIC-016至027，P1 6项、P2 6项，均为OPEN_STATIC_CONFIRMED。仅登记，尚未修复。
+- 新确认12项逻辑问题：DCC-STATIC-016至027，P1 6项、P2 6项；DCC-STATIC-016、022、023 已完成当前源码层修复，017至021及024至027仍为OPEN_STATIC_CONFIRMED。
 - 001—015的历次修复汇总属于历史记录；本节追加不同触发条件或不同根因的问题，不将新问题混入旧修复结论。
 - 逐步覆盖、当前源码指纹、排除理由及文档校验见 `doc/tasks/20260913-dcc-90-step-followup-audit/verification-report.md`。
 - 证据为当前工作区代码、页面契约及随库流程/表结构；未执行产品测试、构建、E2E、API、数据库或线上配置核验。并发项明确采用代码交错推导。
@@ -14,13 +14,13 @@
 - 日期：2026-09-12；工作区：E:/IntRuoyi；基准HEAD：6c6487c9f151244910b9ff80454c397bc303e330。
 - 以工作区实际源码为准，包含前次修复及其它既有未提交改动，不代表已部署版本。
 - 检查方式：页面、请求、Controller、Service、Mapper、随库流程定义和现有测试的交叉静态核对。未执行产品测试、构建、E2E、API或运行数据库操作。
-- 最新代码复核（2026-09-13，第三轮）：DCC-STATIC-001至015已完成当前源码层静态修复；010已补齐统一受控候选关闭及连续检入后的返工祖先解析。追加审计登记的016至027仍为开放项。
+- 最新代码复核（2026-09-13，第三轮）：DCC-STATIC-001至016、022、023已完成当前源码层静态修复；010已补齐统一受控候选关闭及连续检入后的返工祖先解析。追加审计登记的017至021及024至027仍为开放项。
 - P1表示正常业务闭环被阻断或正式内容/授权/影响证据受损；P2表示条件性恢复失败、入口错误或展示不一致。确认的是所列条件下的代码逻辑，不声称线上已发生。
 - 完整90步覆盖、源码指纹、文档校验与收尾证据见 doc/tasks/20260912-dcc-90-step-static-audit/verification-report.md。
 
 ## 最新源码复核（2026-09-13，第三轮）
 
-- **结论**：DCC-STATIC-010 的两个重开断点已补齐；001至015当前源码层均为 FIXED_STATIC_VERIFIED。追加审计项016至027不属于本轮010修复，仍按 OPEN_STATIC_CONFIRMED 保留。
+- **结论**：DCC-STATIC-010 的两个重开断点已补齐；001至016、022、023当前源码层均为 FIXED_STATIC_VERIFIED。追加审计项017至021及024至027仍按 OPEN_STATIC_CONFIRMED 保留。
 - **010断点一**：修正版本重新送审时，旧A/1退回流程会同步取消 BPM、关闭DCC文件行，并调用统一受控候选 withdraw，释放 open candidate 后再登记新候选。
 - **010断点二**：返工祖先识别已沿同 Master、同申请人、同 Revision 的 predecessor 链回溯，可越过 A/2 等 WORKING 修正版本找到原 A/1 退回版本并终结。
 - **验证**：DCC-STATIC-001、002、003、006、007、008、009、010、011、012、013、014、015 静态合同 PASS；DCC 工作版本提交、平台适配器、审批工作流相关 150 项 Maven 定向测试 PASS。
@@ -45,7 +45,7 @@
 | DCC-STATIC-013 | P1 | 36、52、54、77、80、88 | 影响评估关联B/1后发布B/2，修订跟踪无法自动完成 | FIXED_STATIC_VERIFIED |
 | DCC-STATIC-014 | P2 | 36、50、51、52、77、88 | 浏览页“升大版本”按钮的资格与后端OWNER规则不一致 | FIXED_STATIC_VERIFIED |
 | DCC-STATIC-015 | P2 | 51、52、53、88 | 同一人检出另一小版本时返回成功，却未切换实际检出基础版本 | FIXED_STATIC_VERIFIED |
-| DCC-STATIC-016 | P2 | 10、16 | 产品建档审批入口误用创建权限，只有审批权限的人员无法续办 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-016 | P2 | 10、16 | 产品建档审批入口误用创建权限，只有审批权限的人员无法续办 | FIXED_STATIC_VERIFIED |
 | DCC-STATIC-017 | P2 | 11、12、16、55 | 不存在的角色、部门或岗位可保存为唯一负责人，正式授权实际无人获得 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-018 | P1 | 15、47、56、57、58、59 | 路线可保存审批方式、比例及必需开关，但实际审批仍按固定流程模型执行 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-019 | P1 | 15、47、56、57、58、59 | 同一审批环节可重复配置，启动流程时后续同环节人员被静默丢弃 | OPEN_STATIC_CONFIRMED |
@@ -60,7 +60,7 @@
 
 ## 最终修复结果（2026-09-13）
 
-- **代码结论**：DCC-STATIC-001至015均已完成当前源码层修复；追加审计登记的016至027仍为开放项。
+- **代码结论**：DCC-STATIC-001至016、022、023均已完成当前源码层修复；追加审计登记的017至021及024至027仍为开放项。
 - **010补齐**：A/2/A/3重新送审时会沿同Master、同申请人、同Revision且版本号前进的predecessor链识别PENDING_APPLICANT_REWORK前置版本；新审批流程创建后，旧A/1退回流程被发起人取消、旧版本标记为WITHDRAWN、统一受控候选同步WITHDRAWN并链接新候选，避免继续阻塞“修正后重新送审”。
 - **011同步**：静态合同不再写死旧局部变量名recipientUserIds，改为锁定当前正式orderedRecipientUserIds快照仍会调用保存名单人员有效性校验。
 - **静态验证**：DCC-STATIC-001、002、003、006、007、008、009、010、011、012、013、014、015及DCC详情返工静态合同全部PASS；DCC工作版本提交、平台适配器、审批工作流相关151项Maven定向测试PASS；未执行E2E。
@@ -274,7 +274,7 @@
 
 ### DCC-STATIC-016 产品建档审批入口误用创建权限，只有审批权限的人员无法续办
 
-- **级别/状态**：P2 / OPEN_STATIC_CONFIRMED。
+- **级别/状态**：P2 / FIXED_STATIC_VERIFIED。
 - **涉及步骤**：10、16。
 - **触发条件**：已有待审批产品建档申请；处理人具备项目查询和 update 权限，但没有 create 权限。
 - **预期行为**：获准查询待审批并批准申请的人员，能从正式页面进入待审批清单并办理。
@@ -284,6 +284,7 @@
 - **关系与边界**：与002“关闭后丢失申请ID”不同：恢复列表已存在，本项是审批角色无法进入恢复列表。
 - **建议修复边界**：按查询/审批权限提供可达入口，弹窗内创建与批准动作分别守卫。
 - **BDD（后续修复验收，未执行）**：Given 仅有查询与审批权限且存在待审批申请 When 从项目页面打开待办并批准 Then 能完成批准，仍不能创建申请。
+- **修复证据（2026-09-13）**：产品建档入口改为 create 或 update 任一权限可见；弹窗加载正式待审批列表，审批人可恢复待办并通过 update 守卫批准；创建申请按钮仍仅由 create 守卫，恢复待办后表单锁定避免审批路径变成编辑回退。新增后端 `/pending` 查询和 Mapper 待审批列表，服务测试覆盖待审批读取。验证：`node IntRuoyiFronted/tests/e2e/dcc-static-016-product-onboarding-approval-entry-static.spec.cjs` PASS；`node IntRuoyiFronted/tests/e2e/dcc-project-code-product-onboarding-static.spec.js` PASS；`mvn.cmd -q -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS；`pnpm.cmd ts:check` PASS；`git diff --check` PASS。证据见 `doc/tasks/20260913-dcc-static-016-approval-entry/verification-report.md`。
 
 ### DCC-STATIC-017 不存在的角色、部门或岗位可保存为唯一负责人，正式授权实际无人获得
 
@@ -429,4 +430,3 @@
 - **关系与边界**：当前代码的旧身份查找分支可能让NEW查询恢复命中，因此不声称NEW一定查不到。确认的是旧逻辑键错误命中及身份不一致；不将文控明确授权的基础信息修改本身判为越权。
 - **建议修复边界**：明确身份变更边界；若允许修改，在同一事务内校验新逻辑键唯一性并同步权威身份和相关投影，读取时拒绝不一致身份。
 - **BDD（后续修复验收，未执行）**：Given 新身份文件OLD已正式生效 When 文控合法更名为NEW并再次按OLD查询 Then 不得返回NEW为OLD的当前版本；NEW按同一权威身份查询且冲突校验一致。
-
