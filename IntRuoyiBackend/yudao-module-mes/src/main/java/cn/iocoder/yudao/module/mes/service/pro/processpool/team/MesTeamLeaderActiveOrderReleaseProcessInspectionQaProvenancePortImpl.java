@@ -7,6 +7,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+import java.util.Set;
+
 @Service
 public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImpl
         implements MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort {
@@ -22,14 +25,15 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
                 && StrUtil.isNotBlank(projectCode)
                 && regulation != null && regulation.getId() != null
                 && StrUtil.isNotBlank(regulationCode)
+                && Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA, regulation.getOwnerModule())
                 && java.util.Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
                 && "PUBLISHED".equals(regulation.getLifecycleStatus())
                 && version != null && versionId != null
-                && java.util.Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
+                && Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
                 && version.getPublishedAt() != null
-                && java.util.Objects.equals(regulation.getId(), version.getRegulationId())
-                && java.util.Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
-                && java.util.Objects.equals(regulation.getTenantId(), version.getTenantId());
+                && Objects.equals(regulation.getId(), version.getRegulationId())
+                && Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
+                && Objects.equals(regulation.getTenantId(), version.getTenantId());
         if (lockedIdentity) {
             return new Resolution()
                     .setDccProjectCodeId(dccProject.getId())
@@ -40,6 +44,32 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
                     .setProvenanceSnapshotHash(hash("DCC_QA_PROJECT_RELATION_V2",
                             dccProject.getTenantId(), dccProject.getId(), projectCode,
                             regulation.getTenantId(), regulation.getId(), regulation.getDccProjectCodeId(),
+                            regulationCode,
+                            version.getTenantId(), versionId, version.getRegulationId(), version.getVersionNo(),
+                            version.getLifecycleStatus(), version.getPublishedAt(), version.getSnapshotJson()));
+        }
+        boolean commonIdentity = dccProject != null && dccProject.getId() != null
+                && regulation != null && regulation.getId() != null
+                && StrUtil.isNotBlank(regulationCode)
+                && Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                regulation.getOwnerModule())
+                && "PUBLISHED".equals(regulation.getLifecycleStatus())
+                && version != null && versionId != null
+                && Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
+                && version.getPublishedAt() != null
+                && Objects.equals(regulation.getId(), version.getRegulationId())
+                && Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
+                && Objects.equals(regulation.getTenantId(), version.getTenantId());
+        if (commonIdentity) {
+            return new Resolution()
+                    .setDccProjectCodeId(dccProject.getId())
+                    .setRegulationId(regulation.getId())
+                    .setRegulationVersionId(versionId)
+                    .setProvenanceType("COMMON_QA_REGULATION_VERSION")
+                    .setProvenanceId(regulation.getId() + ":" + versionId)
+                    .setProvenanceSnapshotHash(hash("COMMON_QA_REGULATION_VERSION_V1",
+                            dccProject.getTenantId(), dccProject.getId(), projectCode,
+                            regulation.getTenantId(), regulation.getId(), regulation.getOwnerModule(),
                             regulationCode,
                             version.getTenantId(), versionId, version.getRegulationId(), version.getVersionNo(),
                             version.getLifecycleStatus(), version.getPublishedAt(), version.getSnapshotJson()));

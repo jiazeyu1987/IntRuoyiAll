@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -67,6 +66,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String PQC_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
     private static final String LEADER_TYPE_PQC = "PQC";
+    private static final Set<String> SUPPORTED_QA_OWNER_MODULES = Set.of(
+            MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA,
+            MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON);
     private static final List<String> DYNAMIC_SUMMARY_FIELDS = List.of(
             "dccProjectCode", "dccProjectName", "qaVersionNo", "itemSummary", "resultSummary",
             "equipmentSummary", "overallJudgement", "inspectorSignedInfo", "reviewerSignedInfo");
@@ -383,11 +385,13 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         MesPqcInspectionTaskDO task = source.getTask();
         MesQaInspectionRegulationDO regulation = source.getRegulation();
         MesQaInspectionRegulationVersionDO version = source.getRegulationVersion();
+        String ownerModule = regulation == null ? null : regulation.getOwnerModule();
+        boolean dedicatedQa = MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(ownerModule);
         boolean regulationValid = regulation != null && regulation.getId() != null
                 && Objects.equals(command.getTenantId(), regulation.getTenantId())
-                && source.getDccProject() != null
-                && Objects.equals(source.getDccProject().getId(), regulation.getDccProjectCodeId())
-                && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
+                && SUPPORTED_QA_OWNER_MODULES.contains(ownerModule)
+                && (!dedicatedQa || (source.getDccProject() != null
+                && Objects.equals(source.getDccProject().getId(), regulation.getDccProjectCodeId())))
                 && "PUBLISHED".equals(regulation.getLifecycleStatus());
         boolean versionValid = version != null && version.getId() != null
                 && Objects.equals(command.getTenantId(), version.getTenantId())
@@ -451,11 +455,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
 
     private String qaMismatchItem(MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source) {
         MesPqcInspectionTaskDO task = source.getTask();
-        List<MesQaInspectionRegulationItemDO> items = source.getRegulationItems() == null ? List.of()
-                : source.getRegulationItems().stream()
-                .filter(Objects::nonNull)
-                .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
-                .toList();
+        List<MesQaInspectionRegulationItemDO> items = taskScopedQaItems(source);
         Map<String, MesQaInspectionRegulationItemDO> itemByCode = new LinkedHashMap<>();
         for (MesQaInspectionRegulationItemDO item : items) {
             if (StrUtil.isBlank(item.getItemCode()) || itemByCode.putIfAbsent(item.getItemCode(), item) != null) {
@@ -490,6 +490,20 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
         return Objects.equals(expectedInspectionResult, source.getPqcRecord().getInspectionResult())
                 ? null : source.getAggregateDetails().get(0).getItemCode();
+    }
+
+    private List<MesQaInspectionRegulationItemDO> taskScopedQaItems(
+            MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source) {
+        MesPqcInspectionTaskDO task = source.getTask();
+        String taskQaItemCode = StrUtil.trim(task.getQaItemCode());
+        return source.getRegulationItems() == null ? List.of() : source.getRegulationItems().stream()
+                .filter(Objects::nonNull)
+                .filter(item -> Objects.equals(task.getRegulationVersionId(), item.getRegulationVersionId()))
+                .filter(item -> Objects.equals(task.getQaProcessId(), item.getQaProcessId()))
+                .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
+                .filter(item -> StrUtil.isBlank(taskQaItemCode)
+                        || Objects.equals(taskQaItemCode, StrUtil.trim(item.getItemCode())))
+                .toList();
     }
 
     private boolean sampleNumbersComplete(MesPqcInspectionTaskDO task,
@@ -771,9 +785,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     private Set<String> requiredSourceKeys(
             MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source) {
         LinkedHashSet<String> required = new LinkedHashSet<>();
-        Map<String, MesQaInspectionRegulationItemDO> itemByCode = source.getRegulationItems().stream()
-                .filter(item -> Objects.equals(source.getTask().getInspectionType(), item.getInspectionType()))
-                .collect(Collectors.toMap(MesQaInspectionRegulationItemDO::getItemCode, Function.identity()));
         for (MesPqcProcessInspectionAggregateDetailDO detail : source.getAggregateDetails()) {
             for (String field : List.of("itemCode", "itemName", "inspectionMethod", "standardText",
                     "resultType", "measuredValue", "judgement")) {
@@ -876,8 +887,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 hashRegulationVersion(source.getRegulationVersion()));
         addEvidence(sourceObjectIds, hashes, source.getDccProject().getId(), hashDccProject(source.getDccProject()));
         hashes.add(hashQaDccProvenance(source.getQaDccProvenance()));
-        for (MesQaInspectionRegulationItemDO item : source.getRegulationItems().stream()
-                .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
+        for (MesQaInspectionRegulationItemDO item : taskScopedQaItems(source).stream()
                 .sorted(Comparator.comparing(MesQaInspectionRegulationItemDO::getItemCode)).toList()) {
             addEvidence(sourceObjectIds, hashes, item.getId(), hashQaItem(item));
         }

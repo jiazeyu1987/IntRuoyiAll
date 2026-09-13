@@ -381,6 +381,41 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
+    void itemScopedTaskDoesNotRequireSiblingQaItemsInSameFrozenVersion() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
+        source.setRegulationItems(List.of(source.getRegulationItems().get(0), qaItem(704L, "FLOW", "流量")));
+        stubFormalPlan(command, source);
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
+
+        assertTrue(plan.getBlockers().isEmpty(), () -> "blockers=" + blockerTypes(plan));
+    }
+
+    @Test
+    void commonQaTaskPlansWithItsOwnFrozenVersionAndItemScope() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
+        source.getRegulation()
+                .setDccProjectCodeId(null)
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .setRegulationCode("COMMON-PACK")
+                .setRegulationName("通用包装检验规程");
+        source.setRegulationItems(List.of(source.getRegulationItems().get(0), qaItem(704L, "FLOW", "流量")));
+        source.getQaDccProvenance()
+                .setProvenanceType("COMMON_QA_REGULATION_VERSION")
+                .setProvenanceId("common:" + source.getRegulationVersion().getId())
+                .setProvenanceSnapshotHash("common-provenance-hash");
+        stubFormalPlan(command, source);
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
+
+        assertTrue(plan.getBlockers().isEmpty(), () -> "blockers=" + blockerTypes(plan));
+        assertEquals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                plan.getPreparedInspections().get(0).getSource().getRegulation().getOwnerModule());
+    }
+
+    @Test
     void routeProjectCodeMismatchBlocksBeforeBindingOrAnyTargetWrite() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source()
                 .setRouteProjectCode("IDPR");
@@ -503,7 +538,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .id(TASK_ID).activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                 .routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
-                .qaProcessId(8001L)
+                .qaProcessId(8001L).qaItemCode("PRESSURE")
                 .regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
                 .businessDate(LocalDate.of(2026, 8, 9)).shiftCode("DAY").roundNo(1)
                 .plannedInspectionQuantity(1).actualInspectionQuantity(1)
@@ -563,7 +598,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         version.setTenantId(TENANT_ID);
         MesQaInspectionRegulationItemDO item = MesQaInspectionRegulationItemDO.builder()
                 .id(703L).regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
-                .itemCode("PRESSURE").itemName("压力").inspectionMethod("压力表测量")
+                .qaProcessId(8001L).itemCode("PRESSURE").itemName("压力").inspectionMethod("压力表测量")
                 .standardText("10.0-11.0 MPa").standardLowerLimit(new BigDecimal("10.0"))
                 .standardUpperLimit(new BigDecimal("11.0")).standardUnit("MPa").standardPrecision(1)
                 .equipmentRequired(true).resultType("NUMERIC").build();
@@ -583,6 +618,17 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                                 .setProvenanceType("DCC_QA_PROJECT_RELATION")
                                 .setProvenanceId("relation-" + version.getId())
                                 .setProvenanceSnapshotHash("provenance-hash-" + version.getId()));
+    }
+
+    private static MesQaInspectionRegulationItemDO qaItem(long id, String itemCode, String itemName) {
+        MesQaInspectionRegulationItemDO item = MesQaInspectionRegulationItemDO.builder()
+                .id(id).regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
+                .qaProcessId(8001L).itemCode(itemCode).itemName(itemName).inspectionMethod("压力表测量")
+                .standardText("10.0-11.0 MPa").standardLowerLimit(new BigDecimal("10.0"))
+                .standardUpperLimit(new BigDecimal("11.0")).standardUnit("MPa").standardPrecision(1)
+                .equipmentRequired(true).resultType("NUMERIC").build();
+        item.setTenantId(TENANT_ID);
+        return item;
     }
 
     private static MesProRouteFlowProcessBatchRecordDO binding() {

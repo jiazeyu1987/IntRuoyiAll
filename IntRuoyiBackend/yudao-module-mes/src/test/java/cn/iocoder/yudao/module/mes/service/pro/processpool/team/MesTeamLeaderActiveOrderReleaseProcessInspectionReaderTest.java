@@ -47,6 +47,10 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
     private static final long EVENT_ID = 108L;
     private static final long REVIEW_ID = 109L;
     private static final long REGULATION_VERSION_ID = 110L;
+    private static final long COMMON_TASK_ID = 207L;
+    private static final long COMMON_REGULATION_ID = 208L;
+    private static final long COMMON_REGULATION_VERSION_ID = 210L;
+    private static final long COMMON_QA_PROCESS_ID = 211L;
 
     private MesPqcInspectionTaskMapper taskMapper;
     private MesPqcProcessInspectionAggregateDetailMapper aggregateMapper;
@@ -176,6 +180,53 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
     }
 
     @Test
+    void readsDedicatedAndCommonQaTasksByEachTaskFrozenRegulationVersion() {
+        MesPqcInspectionTaskDO dedicatedTask = task();
+        MesPqcInspectionTaskDO commonTask = task()
+                .setId(COMMON_TASK_ID)
+                .setQaProcessId(COMMON_QA_PROCESS_ID)
+                .setQaItemCode("SEAL")
+                .setRegulationVersionId(COMMON_REGULATION_VERSION_ID);
+        MesQaInspectionRegulationDO commonRegulation = new MesQaInspectionRegulationDO()
+                .setId(COMMON_REGULATION_ID)
+                .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .setRegulationCode("COMMON-PACK")
+                .setRegulationName("通用包装检验规程")
+                .setLifecycleStatus("PUBLISHED")
+                .setCurrentVersionId(COMMON_REGULATION_VERSION_ID);
+        MesQaInspectionRegulationVersionDO commonVersion = new MesQaInspectionRegulationVersionDO()
+                .setId(COMMON_REGULATION_VERSION_ID)
+                .setRegulationId(COMMON_REGULATION_ID)
+                .setLifecycleStatus("PUBLISHED")
+                .setPublishedAt(LocalDateTime.of(2026, 8, 9, 11, 0))
+                .setSnapshotJson("common-version-snapshot");
+        MesQaInspectionRegulationItemDO dedicatedItem = new MesQaInspectionRegulationItemDO()
+                .setId(301L).setRegulationVersionId(REGULATION_VERSION_ID)
+                .setQaProcessId(8001L).setInspectionType("PQC").setItemCode("PRESSURE");
+        MesQaInspectionRegulationItemDO commonItem = new MesQaInspectionRegulationItemDO()
+                .setId(302L).setRegulationVersionId(COMMON_REGULATION_VERSION_ID)
+                .setQaProcessId(COMMON_QA_PROCESS_ID).setInspectionType("PQC").setItemCode("SEAL");
+        when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(dedicatedTask, commonTask));
+        when(aggregateMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+        when(versionMapper.selectById(COMMON_REGULATION_VERSION_ID)).thenReturn(commonVersion);
+        when(regulationMapper.selectById(COMMON_REGULATION_ID)).thenReturn(commonRegulation);
+        when(itemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(dedicatedItem));
+        when(itemMapper.selectListByVersionId(COMMON_REGULATION_VERSION_ID)).thenReturn(List.of(commonItem));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle result = reader.read(command());
+
+        assertEquals(List.of(REGULATION_VERSION_ID, COMMON_REGULATION_VERSION_ID), result.getSources().stream()
+                .map(source -> source.getRegulationVersion().getId()).toList());
+        assertEquals(List.of(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON), result.getSources().stream()
+                .map(source -> source.getRegulation().getOwnerModule()).toList());
+        assertEquals(List.of(List.of("PRESSURE"), List.of("SEAL")), result.getSources().stream()
+                .map(source -> source.getRegulationItems().stream()
+                        .map(MesQaInspectionRegulationItemDO::getItemCode).toList())
+                .toList());
+    }
+
+    @Test
     void frozenDccIdentityDoesNotScanEnabledProjectsOrDeriveFromProductCodes() {
         when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(task()));
         when(aggregateMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
@@ -229,7 +280,11 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
                 .setId(TASK_ID)
                 .setActiveOrderId(ACTIVE_ORDER_ID)
                 .setRouteProcessId(ROUTE_PROCESS_ID)
-                .setProcessId(PROCESS_ID);
+                .setProcessId(PROCESS_ID)
+                .setQaProcessId(8001L)
+                .setQaItemCode("PRESSURE")
+                .setRegulationVersionId(REGULATION_VERSION_ID)
+                .setInspectionType("PQC");
     }
 
     private MesPqcProcessInspectionAggregateDetailDO aggregate(long eventId) {
