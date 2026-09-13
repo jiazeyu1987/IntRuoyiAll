@@ -337,6 +337,14 @@
 - Verification: 记录 task-owned commit hash、fast-forward 后的 `int_main` HEAD、主线程测试摘要、目标路径 diff-check 结果；并明确未运行服务、数据库和写入型 E2E 的边界。
 - Forbidden action: 禁止用“任务文档 completed”替代代码融合证据，禁止清理或覆盖并行 dirty 改动，禁止把窄测通过升级为全链路 GREEN。
 
+### Detached HEAD linked worktree 收尾门禁
+
+- Trigger: linked worktree 的 `git status --short --branch` 显示 `HEAD (no branch)`，且 `task_closeout.py --mode preview` 返回 `Current worktree branch could not be resolved.`。
+- Preflight check: 先记录 `git rev-parse --git-dir`、`git rev-parse --git-common-dir`、`git status --short --branch --untracked-files=all` 和 cleanup preview JSON；若任务限制禁止 commit/push，保持 `ready_for_closeout` 或明确 `blocked`，不要执行 cleanup apply。
+- Blocker: 当前 worktree 无可解析分支、用户未授权创建具名任务分支、任务规则禁止 Git 提交/推送、或 cleanup apply 会触发自动提交/合并/删除 worktree 时必须停止并记录冲突。
+- Verification: 任务日志记录实现验证 PASS、bug/evidence validator PASS、cleanup preview 的 keep/delete/blocked/warnings，以及未运行 apply/commit/push/remove 的原因。
+- Forbidden action: 禁止在 detached HEAD 下强行 cleanup apply、临时创建分支绕过授权、把 `ready_for_closeout` 改写成 `completed`，或删除仍承载未提交实现 diff 的 worktree。
+
 ## 主线程复验时的主线漂移与 PowerShell 参数门禁
 
 - Trigger: 定向 Maven 验证期间并行提交推进 `int_main`，或 PowerShell 将逗号分隔的 `-Dtest` 值拆成参数，导致命令尚未进入 Maven。
