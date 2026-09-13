@@ -18,6 +18,9 @@ DCC-STATIC-026 only: finalization retry event key generation after repeated publ
 - Recheck after Git authorization: bug regression evidence validator -> PASS.
 - Recheck after Git authorization: targeted JUnit -> PASS, 1 test run.
 - Recheck after Git authorization: DCC dependency-chain compile -> PASS.
+- Git implementation commit -> `4aec42d0c91d5b88b49c45a8feb80068586760b4`.
+- Git branch push -> PASS; remote branch `codex/20260913-dcc-static-026-finalization-retry-event-key-closeout` verified at `4aec42d0c91d5b88b49c45a8feb80068586760b4`.
+- Cleanup preview -> BLOCKED because local `int_main` cannot ff-only receive this branch and `E:\IntRuoyi` has unrelated untracked files.
 
 ## RED Evidence
 
@@ -37,4 +40,4 @@ DCC-STATIC-026 only: finalization retry event key generation after repeated publ
 
 ## Result
 
-PASS for scoped static, unit, and main-code compile verification. User authorized Git commit/push closeout; cleanup preview remains pending.
+PASS for scoped static, unit, and main-code compile verification. Implementation branch is committed and pushed. Final automatic closeout remains BLOCKED by local `int_main` ff-only merge prerequisites and unrelated untracked files in `E:\IntRuoyi`.

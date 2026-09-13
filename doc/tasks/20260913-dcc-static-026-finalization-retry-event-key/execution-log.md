@@ -30,3 +30,10 @@
 - RECHECK: `git diff --check -- <task-owned files>` -> PASS with line-ending warnings only.
 - RECHECK: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileFinalizationServiceImplTest#retryStamp_failedRetryThenSecondRetryUsesNewAttemptEventKey" test` -> PASS, 1 test run.
 - RECHECK: `mvn -pl yudao-module-dcc -am "-DskipTests" compile` -> PASS.
+- COMMIT: `git commit -m "fix: stabilize DCC finalization retry key"` -> `4aec42d0c91d5b88b49c45a8feb80068586760b4`, 12 task-owned files.
+- PUSH: `git push origin codex/20260913-dcc-static-026-finalization-retry-event-key-closeout` -> PASS; remote branch SHA verified as `4aec42d0c91d5b88b49c45a8feb80068586760b4`.
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-026-finalization-retry-event-key --mode preview` -> BLOCKED.
+  - Blocker: current branch cannot be fast-forward merged into local `int_main`.
+  - Blocker: main worktree `E:\IntRuoyi` has unrelated untracked files, so it cannot receive cleanup merge.
+- CLEANUP APPLY: not run because preview is blocked.
+- Final status: blocked by closeout merge prerequisites after successful implementation commit and branch push.
