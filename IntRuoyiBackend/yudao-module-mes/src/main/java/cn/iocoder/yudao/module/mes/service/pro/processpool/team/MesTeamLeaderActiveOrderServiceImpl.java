@@ -3034,6 +3034,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesProScheduleOrderProcessDO process) {
         MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(activeOrder.getRouteVersionId());
         JSONObject routeProductionConfig = requireRouteProductionProcessConfig(routeVersion, activeOrder, process);
+        String inputMaterialIdsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("inputMaterialIds"));
+        String outputMaterialIdsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("outputMaterialIds"));
         String lossReasonsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("lossReasons"));
         String parameterJson = MesDeviceParameterSnapshotCodec.canonicalizeSnapshotRules(
                 JsonUtils.parseArray(routeProductionConfig.getJSONArray("parameterRules").toJSONString(),
@@ -3044,6 +3046,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         snapshot.put("routeProcessId", process.getRouteProcessId());
         snapshot.put("processId", process.getProcessId());
         snapshot.put("overagePercent", routeProductionConfig.getBigDecimal("overagePercent"));
+        snapshot.put("inputMaterialIds", JSON.parseArray(inputMaterialIdsJson));
+        snapshot.put("outputMaterialIds", JSON.parseArray(outputMaterialIdsJson));
         snapshot.put("lossReasons", JSON.parseArray(lossReasonsJson));
         snapshot.put("deviceSelectionGroups", JSON.parseArray(deviceJson));
         snapshot.put("parameterRules", JSON.parseArray(parameterJson));
@@ -3078,6 +3082,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     && Objects.equals(config.getLong("routeProcessId"), process.getRouteProcessId())
                     && Objects.equals(config.getLong("processId"), process.getProcessId())) {
                 if (config.getBigDecimal("overagePercent") == null
+                        || config.getJSONArray("inputMaterialIds") == null
+                        || config.getJSONArray("outputMaterialIds") == null
                         || config.getJSONArray("lossReasons") == null
                         || config.getJSONArray("deviceSelectionGroups") == null
                         || config.getJSONArray("parameterRules") == null) {

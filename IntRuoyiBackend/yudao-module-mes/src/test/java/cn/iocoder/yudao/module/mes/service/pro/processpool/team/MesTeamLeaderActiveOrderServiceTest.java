@@ -814,6 +814,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 "200", "1.000000", "200.000000");
         assertSnapshot(snapshots.get(1), 8101L, 9001L, 922119L, 448L, 928602L, 6002L,
                 "200", "1.000000", "200.000000");
+        assertTrue(snapshots.get(0).getProductionConfigSnapshotJson().contains("\"outputMaterialIds\":[1002]"));
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
                 ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
         verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
@@ -2845,7 +2846,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         String productionConfigs = source.stream()
                 .map(regulation -> "{\"routeProcessId\":" + regulation.getRouteProcessId()
                         + ",\"processId\":" + regulation.getProcessId()
-                        + ",\"overagePercent\":10,\"lossReasons\":[],"
+                        + ",\"overagePercent\":10,\"inputMaterialIds\":[],\"outputMaterialIds\":[1002],\"lossReasons\":[],"
                         + "\"deviceSelectionGroups\":[],\"parameterRules\":[]}")
                 .collect(java.util.stream.Collectors.joining(","));
         return """
@@ -2876,7 +2877,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         String productionConfigs = java.util.stream.IntStream.rangeClosed(1, processCount)
                 .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
                         + ",\"processId\":" + (6000L + index)
-                        + ",\"overagePercent\":10,\"lossReasons\":[],"
+                        + ",\"overagePercent\":10,\"inputMaterialIds\":[],\"outputMaterialIds\":[1002],\"lossReasons\":[],"
                         + "\"deviceSelectionGroups\":[],\"parameterRules\":[]}")
                 .collect(java.util.stream.Collectors.joining(","));
         return """

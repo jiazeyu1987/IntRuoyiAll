@@ -358,7 +358,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (workOrder == null || workOrder.getId() == null) {
             return;
         }
-        boolean keepFrozen = hasOriginalExternalFreezeSnapshot(workOrder.getId())
+        boolean keepFrozen = hasCurrentExternalFreeze(workOrder, review)
                 || DISPOSITION_VOID.equals(disposition)
                 || reviewMapper.selectBlockingCountByWorkOrderId(workOrder.getId()) > 0;
         requireWorkOrderUpdate(workOrder.getId(), keepFrozen);
@@ -376,10 +376,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return activeReviewFreezeCount == null || activeReviewFreezeCount == 0;
     }
 
-    private boolean hasOriginalExternalFreezeSnapshot(Long workOrderId) {
-        Long externalFreezeSnapshotCount =
-                reviewMapper.selectOriginalExternalFreezeSnapshotCountByWorkOrderId(workOrderId);
-        return externalFreezeSnapshotCount != null && externalFreezeSnapshotCount > 0;
+    private boolean hasCurrentExternalFreeze(MesProWorkOrderDO workOrder,
+                                             MesProEdhrNonconformanceReviewDO review) {
+        return Boolean.TRUE.equals(workOrder.getTemporaryFrozen())
+                && review != null
+                && Boolean.TRUE.equals(review.getPreviousWorkOrderTemporaryFrozen());
     }
 
     private MesProEdhrWorkTaskDO requirePqcTaskForUpdate(

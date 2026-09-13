@@ -120,24 +120,6 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                         .eq(MesProEdhrNonconformanceReviewDO::getDisposition, "void")));
     }
 
-    @Select({
-            "<script>",
-            "SELECT COUNT(1)",
-            "FROM mes_pro_edhr_nonconformance_review r",
-            "WHERE r.work_order_id = #{workOrderId}",
-            "  AND r.deleted = b'0'",
-            "  AND r.previous_work_order_temporary_frozen = b'1'",
-            "  AND NOT EXISTS (",
-            "      SELECT 1",
-            "      FROM mes_pro_edhr_nonconformance_review older",
-            "      WHERE older.work_order_id = r.work_order_id",
-            "        AND older.deleted = b'0'",
-            "        AND older.id &lt; r.id",
-            "  )",
-            "</script>"
-    })
-    Long selectOriginalExternalFreezeSnapshotCountByWorkOrderId(@Param("workOrderId") Long workOrderId);
-
     default MesProEdhrNonconformanceReviewDO selectFirstBlockingByWorkOrderId(Long workOrderId) {
         return selectOne(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
