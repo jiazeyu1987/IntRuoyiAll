@@ -128,7 +128,7 @@ assert(completionBackfill.includes('coversEveryProcessSnapshot')
   'EDHR-STATIC-004: completion backfill must accept multiple formal sources per process while requiring every snapshot to be covered')
 
 const processReader = read(mes, 'service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl.java')
-assert(processReader.includes('selectLockedQa(lockedDccQa, task)')
+assert(/selectLockedQa\(\s*task,\s*lockedDccQa\s*\)/.test(processReader)
   && processReader.includes('task.getRegulationVersionId()'),
   'EDHR-STATIC-005: process inspection reader must use each task frozen QA regulation identity')
 const processWriter = read(mes, 'service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl.java')

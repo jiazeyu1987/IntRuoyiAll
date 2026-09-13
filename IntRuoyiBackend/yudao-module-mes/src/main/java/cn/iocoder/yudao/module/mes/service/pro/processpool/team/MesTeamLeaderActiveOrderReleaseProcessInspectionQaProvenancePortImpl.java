@@ -7,6 +7,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+import java.util.Set;
+
 @Service
 public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImpl
         implements MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort {
@@ -22,12 +25,12 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
                 && StrUtil.isNotBlank(projectCode)
                 && regulation != null && regulation.getId() != null
                 && StrUtil.isNotBlank(regulationCode)
-                && java.util.Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
-                && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
+                && Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA, regulation.getOwnerModule())
+                && Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
                 && "PUBLISHED".equals(regulation.getLifecycleStatus())
                 && isPublishedVersion(regulation, version)
-                && java.util.Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
-                && java.util.Objects.equals(regulation.getTenantId(), version.getTenantId());
+                && Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
+                && Objects.equals(regulation.getTenantId(), version.getTenantId());
         if (lockedIdentity) {
             return new Resolution()
                     .setDccProjectCodeId(dccProject.getId())
@@ -45,11 +48,12 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
         boolean commonIdentity = dccProject != null && dccProject.getId() != null
                 && regulation != null && regulation.getId() != null
                 && StrUtil.isNotBlank(regulationCode)
-                && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(regulation.getOwnerModule())
+                && Objects.equals(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON,
+                regulation.getOwnerModule())
                 && "PUBLISHED".equals(regulation.getLifecycleStatus())
                 && isPublishedVersion(regulation, version)
-                && java.util.Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
-                && java.util.Objects.equals(regulation.getTenantId(), version.getTenantId());
+                && Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
+                && Objects.equals(regulation.getTenantId(), version.getTenantId());
         if (commonIdentity) {
             return new Resolution()
                     .setDccProjectCodeId(dccProject.getId())
@@ -76,9 +80,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
     private boolean isPublishedVersion(MesQaInspectionRegulationDO regulation,
                                        MesQaInspectionRegulationVersionDO version) {
         return version != null && version.getId() != null
-                && java.util.Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
+                && Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
                 && version.getPublishedAt() != null
-                && java.util.Objects.equals(regulation.getId(), version.getRegulationId());
+                && Objects.equals(regulation.getId(), version.getRegulationId());
     }
 
     private String hash(Object... values) {
