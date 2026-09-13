@@ -223,7 +223,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             throw exception(CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED);
         }
         requirePublishPermission(userId, file);
-        String eventKey = "dcc-finalization-retry:" + id;
+        String eventKey = platformAdapter.nextFinalizationRetryEventKey(file);
         platformAdapter.recordFinalizationRetried(file, userId, eventKey);
         runFinalizationWithFailureHandling(file, userId, eventKey);
     }

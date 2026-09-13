@@ -24,4 +24,10 @@ public interface ControlledContentTransitionAuditMapper extends BaseMapperX<Cont
                 .eq(ControlledContentTransitionAuditDO::getContentKey, contentKey));
     }
 
+    default Long countByVersionRefIdAndAction(Long versionRefId, String action) {
+        return selectCount(new LambdaQueryWrapperX<ControlledContentTransitionAuditDO>()
+                .eq(ControlledContentTransitionAuditDO::getVersionRefId, versionRefId)
+                .eq(ControlledContentTransitionAuditDO::getAction, action));
+    }
+
 }
