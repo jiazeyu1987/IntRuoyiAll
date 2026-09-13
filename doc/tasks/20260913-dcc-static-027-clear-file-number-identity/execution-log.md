@@ -49,10 +49,12 @@ STATIC: `git diff --check` -> PASS, no whitespace errors; only touched Java file
 
 - 经验归宿检查：已有 `docs/backend-development.md#MyBatis Plus 空值更新门禁`，无需新建长期经验文档；本任务仅在任务记录中保留具体证据。
 - cleanup preview：已执行并返回 BLOCKED；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为空；因当前 worktree 为 detached HEAD，脚本无法解析当前分支。正式静态合同位于 `src/test/js`，不得清理。
-- Git implementation commit：`4cd77e18a`，message 为 `fix: clear DCC file number identity projection`；仅包含 3 个生产/Java 测试文件和 1 个正式 `src/test/js` 静态合同。
-- Git push：PASS；`git push -u origin codex/20260914-dcc-static-027-clear-file-number-identity` 已创建并设置远端跟踪分支。
+- Git implementation commit（rebase 前）：`4cd77e18a`；rebase 到当前 `int_main` 后为 `207600902`，message 为 `fix: clear DCC file number identity projection`；仅包含 3 个生产/Java 测试文件和 1 个正式 `src/test/js` 静态合同。
+- Git closeout commit（rebase 前）：`d0feb6002`；rebase 到当前 `int_main` 后为 `6d337c286`。
+- Git push：已推送旧基线；rebase 后需使用 `--force-with-lease` 更新任务分支远端。
 - 任务分支 runtime profile：已登记为 `int_main` slot 18，前端 8099、后端 48099，提交钩子已通过。
-- cleanup preview（第二次）：BLOCKED；keep 为三份任务记录，delete 为空；阻塞原因为任务分支不能 fast-forward 到本地 `int_main`，且 `E:\IntRuoyi` 主工作区存在其他并行未提交改动。
-- cleanup apply、主分支合并、worktree 删除：未执行，因 preview 已有 blocker；保持并行改动不受影响。
-- 任务状态：`blocked`；实现提交和远端分支推送已完成，剩余 blocker 仅为主工作区集成收尾。
+- cleanup preview（rebase 前）：BLOCKED；keep 为三份任务记录，delete 为空；阻塞原因为任务分支不能 fast-forward 到本地 `int_main`，且 `E:\IntRuoyi` 主工作区存在其他并行未提交改动。
+- rebase：PASS；任务分支已基于本地 `int_main` 重放，`git merge-base --is-ancestor int_main HEAD` 通过。
+- cleanup apply、主分支合并、worktree 删除：待保护主工作区并行改动后执行。
+- 任务状态：`ready_for_closeout`。
 - E2E、服务启动/重启、数据库写入、远程服务器操作：未执行。

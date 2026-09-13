@@ -10,7 +10,7 @@
 - [x] P002 补充能暴露“清空编号后旧身份索引未清除”的 BDD/RED 回归测试或静态合同。
 - [x] P003 最小代码修复：清空编号时同步清除 Master 身份投影，正常改编号路径不回退。
 - [x] P004 运行定向单元/合同测试、必要编译或静态检查。
-- [x] P005 按 `docs/task-closeout-rules.md` 记录验证、执行 cleanup preview，并完成本任务分支提交与推送；主工作区并行改动导致自动合并收尾阻塞。
+- [x] P005 按 `docs/task-closeout-rules.md` 记录验证、完成本任务分支提交与推送，并准备合并到当前 `int_main`。
 
 ## BDD
 
@@ -34,9 +34,9 @@ BDD: DCC-STATIC-027 rename file number identity still works -> Given 已发布�
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-实现、验证、实现提交和分支推送已完成；实现提交为 `4cd77e18a`，任务分支已推送到 `origin`。cleanup preview 已识别主工作区脏改动和非 fast-forward blocker，因此未执行 apply、主分支合并或 worktree 删除。不得触碰 `E:\IntRuoyi` 的并行改动。
+实现、验证和 rebase 已完成；任务分支已重放到当前 `int_main` 之后，当前实现提交为 `207600902`，收尾提交为 `6d337c286`。待保护主工作区并行改动后执行 cleanup apply 完成 fast-forward 合并。
 
 ## Verification Summary
 

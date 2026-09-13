@@ -44,4 +44,4 @@ BDD: DCC-STATIC-027 rename file number identity still works -> Given 已发布�
 
 ## Blockers
 
-提交/推送授权 blocker 已解除。实现提交 `4cd77e18a` 已完成，任务分支 `codex/20260914-dcc-static-027-clear-file-number-identity` 已推送到 `origin`。cleanup preview 返回 BLOCKED：该分支不能 fast-forward 到本地 `int_main`，且主工作区 `E:\IntRuoyi` 存在其他并行未提交改动。为保护并行改动，未执行 cleanup apply、主分支合并或 worktree 删除，任务状态保持 `blocked`。
+提交/推送授权 blocker 已解除。实现提交已从 `4cd77e18a` rebase 为 `207600902`，收尾记录提交已从 `d0feb6002` rebase 为 `6d337c286`。任务分支已重放到当前 `int_main` 之后，待临时保护主工作区并行改动后执行 cleanup apply、fast-forward 合并和恢复主工作区改动。
