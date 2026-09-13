@@ -40,3 +40,4 @@ ready_for_closeout
 - User authorized local fusion into `int_main` on 2026-09-13; remote push remains outside the explicit request.
 - Latest local `int_main` `a54464ac3c2053d58f9477f49623f0b7693e4d17` was merged into the task branch as `a8eb02bb29c821133e1919b06ed2cb01f59ad89a`; DCC-STATIC-025 implementation commit `46139d4996d4ee09eeb3732249b9bf28782c2d9f` remains an ancestor.
 - Post-merge local fusion verification passed: DCC-STATIC-025 static contract, targeted DCC Maven test, `git diff --check int_main..HEAD`, bug-regression evidence validator, and branch runtime port guard.
+- During fusion, `origin/int_main` advanced to `f117a3275491b6c5c83b41b18fe4386cf5a6bef6`; it was merged into the task branch as `f9d761c5261481c7802f92315b7b60260cf33015`, and the same DCC-STATIC-025 verification set passed again.

@@ -45,8 +45,11 @@ Given B/1 is derived from A/2 while A/3 is the formal baseline at major-revision
 - `git diff --check int_main..HEAD` -> PASS, no whitespace errors.
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `Branch runtime port guard passed for codex/dcc-static-025-revision-baseline-history/int_main: frontend 8084, backend 48084.`
 - Bug regression evidence validator -> PASS, `Bug regression evidence is valid.`
+- `git merge origin/int_main` after remote drift -> PASS, no conflicts, merge commit `f9d761c5261481c7802f92315b7b60260cf33015`; latest absorbed `origin/int_main` was `f117a3275491b6c5c83b41b18fe4386cf5a6bef6`.
+- After absorbing latest `origin/int_main`, DCC-STATIC-025 static contract -> PASS; targeted DCC Maven test -> PASS with `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`; `git diff --check origin/int_main..HEAD` -> PASS; branch runtime port guard -> PASS; bug-regression evidence validator -> PASS.
 
 ## Blockers
 
 - `docs/bugs/20260912-dcc-90-step-static-audit.md` is not present in the clean `origin/int_main` worktree, so the shared bug file was not imported from the dirty main worktree and not edited.
 - The user authorized local fusion into `int_main`; remote push remains outside the explicit request unless separately authorized.
+- Local `E:\IntRuoyi` cannot receive this task directly while it has unrelated unresolved conflicts in MES process-pool files and staged EDHR static task records; this task must not stage, clean, reset, or resolve those unrelated files.
