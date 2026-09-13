@@ -25,13 +25,21 @@
 - 已修改 `DccControlledFileQueryServiceImpl`：WORKING/待审批当前版本预览改为解析当前源件，图纸源件返回当前 `drawingPdfFileId`；替换图纸源件检入时若无当前配套 PDF 则拒绝，不复制旧 PDF。
 - Root Cause: `resolveBinaryFileId` 对 WORKING/待审批版本直接返回 `sourceFileId`，导致 DWG/SolidWorks 源件进入预览链路；检入复制下一小版本时也会无条件沿用旧 `drawingPdfFileId`，存在源件 S2 误配旧 PDF P1 的风险。
 - 2026-09-14 用户授权“融合进 int_main”；本任务仅执行本地任务提交和本地 `int_main` 融合，不执行远程推送。
+- 已从本地 `int_main` `cd376a2a2` fast-forward 到 `b80fd2655`，post-merge branch runtime port guard PASS。
+- 已运行 `task_closeout.py --mode apply --worktree-closeout off`，结果 PASS；delete `<none>`，保留任务记录与 `bug-regression-evidence.md`。
+- 已使用 `project-experience-consolidation` 规则复核，本次复用既有 `docs/worktree-memory.md` 经验，无需新增长期经验文档。
+- 主工作区既有未提交 dirty 通过 stash 暂存后恢复，未纳入本任务提交；远程 push 仍未授权未执行。
 
 ## Verification Evidence
 
 - GREEN: `node IntRuoyiBackend\yudao-module-dcc\src\test\js\dcc-static-021-drawing-preview-pdf-contract.spec.cjs` -> PASS, `DCC-STATIC-021 drawing preview PDF contract passed`。
 - GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest#readPreviewFile_workingDrawingRequesterReadsCurrentDrawingPdfBinary+getPreviewMetadata_workingDrawingWithoutCurrentPdfRejectsBeforeSourcePreview+checkinDrawingSourceWithoutCurrentPdfRejectsBeforeCopyingOldPdf" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`; reactor `BUILD SUCCESS`。
+- GREEN: post-merge `node IntRuoyiBackend\yudao-module-dcc\src\test\js\dcc-static-021-drawing-preview-pdf-contract.spec.cjs` -> PASS。
+- GREEN: post-merge `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260913-dcc-static-021-drawing-preview-pdf\bug-regression-evidence.md` -> PASS。
+- GREEN: post-merge Maven targeted regression on local `int_main` -> PASS, `Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`; reactor `BUILD SUCCESS`。
+- CLEANUP_APPLY: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-021-drawing-preview-pdf --mode apply --worktree-closeout off` -> PASS, delete `<none>`。
 - Verification scope: 静态合同 + DCC 查询服务定向单测/编译链路；未执行 E2E、服务启动/重启、数据库写入、远程操作。
 
 ## Blockers
 
-- 暂无。
+- 暂无本任务阻塞；远程 push 未授权，未执行。

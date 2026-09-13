@@ -12,7 +12,7 @@
 - [x] 最小化修复图纸类 WORKING/待审批预览二进制选择逻辑。
 - [x] 执行定向单元/静态合同/编译验证，不执行 E2E、服务启动、数据库写入或远程操作。
 - [x] 更新本项 bug 状态/证据与任务验证报告。
-- [ ] 按 2026-09-14 用户授权，将本任务实现融合进本地 `int_main`；远程推送仍未授权。
+- [x] 按 2026-09-14 用户授权，将本任务实现融合进本地 `int_main`；远程推送仍未授权。
 
 ## Expected Verification
 
@@ -23,9 +23,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现与定向验证已完成，等待 closeout cleanup、任务提交和本地 `int_main` 融合。
+实现、定向验证、cleanup apply 和本地 `int_main` fast-forward 融合已完成；远程推送未授权未执行。
 
 ## Design Constraints Check
 
@@ -43,6 +43,12 @@ ready_for_closeout
 - Branch: `codex/20260913-dcc-static-021-drawing-preview-pdf-clean`
 - Base HEAD: `f773eab07ff86df182ef404e8279040468608dec`
 - Runtime slot reservation: `int_main` slot `9`, frontend `8090`, backend `48090`; services will not be started.
+- Clean worktree implementation commit: `328323cc3`
+- Latest int_main fusion worktree: `D:\IntRuoyiWorktree\20260914-dcc-static-021-int-main-fusion-v2`
+- Local int_main FF merge: `cd376a2a2..b80fd2655`
+- Post-merge branch runtime port guard: PASS for `int_main/int_main`, frontend `8081`, backend `48081`
+- Closeout cleanup apply: PASS, delete `<none>`, keep task records and `bug-regression-evidence.md`
+- Pre-existing main-worktree dirty changes were preserved outside this task; they were not staged or committed by DCC-STATIC-021.
 
 ## Cleanup Keep
 
