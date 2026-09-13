@@ -171,6 +171,20 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                 .set(MesProcessPoolReportAllocationDO::getConfirmedAt, confirmedAt));
     }
 
+    default int refreshReviewEvidenceForCurrentRowsByReviewId(Long eventId, Long reviewId, Long leaderUserId,
+                                                              LocalDateTime confirmedAt) {
+        if (eventId == null || reviewId == null || leaderUserId == null || confirmedAt == null) {
+            return 0;
+        }
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolReportAllocationDO>()
+                .eq(MesProcessPoolReportAllocationDO::getEventId, eventId)
+                .eq(MesProcessPoolReportAllocationDO::getLifecycleStatus,
+                        MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                .eq(MesProcessPoolReportAllocationDO::getReviewId, reviewId)
+                .set(MesProcessPoolReportAllocationDO::getLeaderUserId, leaderUserId)
+                .set(MesProcessPoolReportAllocationDO::getConfirmedAt, confirmedAt));
+    }
+
     default int deleteAllByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteAllByActiveOrderId(activeOrderId);
     }

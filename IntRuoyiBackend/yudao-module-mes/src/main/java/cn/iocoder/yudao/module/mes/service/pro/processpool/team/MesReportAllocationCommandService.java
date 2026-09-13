@@ -292,11 +292,24 @@ public class MesReportAllocationCommandService {
                 long missingReviewCount = current.stream()
                         .filter(row -> row != null && row.getReviewId() == null)
                         .count();
-                int attached = allocationMapper.attachReviewToCurrentRowsByEventId(
-                        event.getId(), reviewId, command.getLeaderUserId(), review.getReviewedAt());
-                if (attached != missingReviewCount) {
-                    throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
-                            event.getId(), command.getExpectedVersion(), state.getCurrentVersion());
+                if (missingReviewCount > 0) {
+                    int attached = allocationMapper.attachReviewToCurrentRowsByEventId(
+                            event.getId(), reviewId, command.getLeaderUserId(), review.getReviewedAt());
+                    if (attached != missingReviewCount) {
+                        throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
+                                event.getId(), command.getExpectedVersion(), state.getCurrentVersion());
+                    }
+                }
+                if (reviewRequirement.reviewToBackfill() != null) {
+                    long linkedReviewCount = current.stream()
+                            .filter(row -> row != null && Objects.equals(row.getReviewId(), reviewId))
+                            .count();
+                    int refreshed = allocationMapper.refreshReviewEvidenceForCurrentRowsByReviewId(
+                            event.getId(), reviewId, command.getLeaderUserId(), review.getReviewedAt());
+                    if (refreshed != linkedReviewCount) {
+                        throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
+                                event.getId(), command.getExpectedVersion(), state.getCurrentVersion());
+                    }
                 }
                 current = allocationMapper.selectListByEventIdForUpdate(event.getId());
                 state.setLastIdempotencyKey(command.getIdempotencyKey())
@@ -604,6 +617,10 @@ public class MesReportAllocationCommandService {
                 ? reviewMapper.selectLatestByEventIdForUpdate(event.getId()) : reviewToBackfill;
         if (review != null) {
             if (MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())) {
+                throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
+                        event.getId(), review.getReviewStatus());
+            }
+            if (!MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(review.getReviewStatus())) {
                 throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                         event.getId(), review.getReviewStatus());
             }
