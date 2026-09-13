@@ -61,3 +61,16 @@ The create path now captures whether the work order was externally frozen at the
 ## Blockers
 
 Detached worktree closeout blocker was resolved by integrating from the main `E:\IntRuoyi` `int_main` worktree after explicit user authorization. No remaining blocker is known before final cleanup preview/apply and push verification.
+
+## Closeout
+
+- GREEN: `git fetch origin` -> PASS.
+- GREEN: `git rebase origin/int_main` -> PASS, local `int_main` replayed cleanly onto the latest remote baseline.
+- GREEN: post-rebase `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-011-freeze-lifecycle-static.spec.cjs` -> PASS.
+- GREEN: post-rebase `git diff --check origin/int_main..HEAD` -> PASS.
+- GREEN: post-rebase `mvn -pl yudao-module-mes -Dtest=MesProEdhrNonconformanceReviewApplicationScopeTest test "-Dsurefire.failIfNoSpecifiedTests=false"` -> PASS, `Tests run: 18, Failures: 0, Errors: 0, Skipped: 0`.
+- GREEN: `task-closeout-cleanup --mode preview --json` from `E:\IntRuoyi` -> PASS, keep set contained `task.md`, `execution-log.md`, `verification-report.md`, and `bug-regression-evidence.md`; delete/blocked/warnings were empty.
+- GREEN: `task-closeout-cleanup --mode apply --json` from `E:\IntRuoyi` -> PASS, deleted paths were empty and this is the main worktree (`linked=false`).
+- Implementation commit on `int_main`: `b0bf6686e chore: submit current int_main state`.
+- Task evidence commit on `int_main`: `aef23c05a docs: record int_main task evidence`.
+- Closeout note: unrelated parallel DCC task docs under `doc/tasks/20260913-dcc-static-026-finalization-retry-event-key/` were dirty during EDHR closeout and intentionally excluded from EDHR commits.

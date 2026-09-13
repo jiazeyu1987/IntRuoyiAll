@@ -17,7 +17,10 @@
 - PASS: main-worktree static contract re-run: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-011-freeze-lifecycle-static.spec.cjs`.
 - PASS: main-worktree Maven re-run: `mvn -pl yudao-module-mes -Dtest=MesProEdhrNonconformanceReviewApplicationScopeTest test "-Dsurefire.failIfNoSpecifiedTests=false"` with `Tests run: 18, Failures: 0, Errors: 0, Skipped: 0`.
 - PASS: main-worktree `git diff --check` reported no whitespace errors.
-- Closeout status: implementation and required verification are complete; final status remains `ready_for_closeout` until cleanup preview/apply and push verification finish.
+- PASS: post-rebase static contract re-run passed on `int_main`.
+- PASS: post-rebase Maven re-run passed on `int_main` with `Tests run: 18, Failures: 0, Errors: 0, Skipped: 0`.
+- PASS: `task-closeout-cleanup --mode preview --json` and `--mode apply --json` kept required task records and reported no delete, blocked, or warning entries.
+- Closeout status: completed.
 
 ## Risk And Regression Scope
 

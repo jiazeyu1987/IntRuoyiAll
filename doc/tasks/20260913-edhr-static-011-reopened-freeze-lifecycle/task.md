@@ -11,7 +11,7 @@ Fix reopened EDHR-STATIC-011 so eDHR nonconformance review disposal recalculates
 - [x] Implement the minimal backend fix in the eDHR nonconformance review scope.
 - [x] Run targeted non-E2E static/unit verification.
 - [x] Integrate the fix into `int_main` after explicit user authorization.
-- [ ] Complete closeout checks and mark task completed.
+- [x] Complete closeout checks and mark task completed.
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@ Fix reopened EDHR-STATIC-011 so eDHR nonconformance review disposal recalculates
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Design Constraints Check
 
