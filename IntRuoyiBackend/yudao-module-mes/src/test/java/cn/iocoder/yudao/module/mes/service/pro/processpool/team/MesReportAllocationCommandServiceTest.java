@@ -201,7 +201,7 @@ class MesReportAllocationCommandServiceTest {
         when(targetService.requireUniqueTargetForProcess(activeOrder(8103L, 9003L), 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5301L, 6001L, new BigDecimal("300"),
                         BigDecimal.ONE, new BigDecimal("300")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(approvedReview(7301L));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
         when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
@@ -589,6 +589,13 @@ class MesReportAllocationCommandServiceTest {
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
                         BigDecimal.ZERO, new BigDecimal("300")));
         when(reviewMapper.updateById(legacyUnsignedReview)).thenReturn(1);
+        when(allocationMapper.refreshReviewEvidenceForCurrentRowsByReviewId(
+                org.mockito.ArgumentMatchers.eq(1001L), org.mockito.ArgumentMatchers.eq(7301L),
+                org.mockito.ArgumentMatchers.eq(3001L), any())).thenAnswer(invocation -> {
+            current.setLeaderUserId(invocation.getArgument(2, Long.class));
+            current.setConfirmedAt(invocation.getArgument(3, LocalDateTime.class));
+            return 1;
+        });
         when(stateMapper.updateById(state)).thenReturn(1);
         when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
         when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
@@ -606,7 +613,11 @@ class MesReportAllocationCommandServiceTest {
         assertEquals(9901L, legacyUnsignedReview.getReviewSignatureId());
         assertEquals(3001L, legacyUnsignedReview.getReviewSignatureUserId());
         assertNotNull(legacyUnsignedReview.getReviewSignatureSnapshotJson());
+        assertEquals(legacyUnsignedReview.getReviewedAt(), current.getConfirmedAt());
         verify(reviewMapper).updateById(legacyUnsignedReview);
+        verify(allocationMapper).refreshReviewEvidenceForCurrentRowsByReviewId(
+                org.mockito.ArgumentMatchers.eq(1001L), org.mockito.ArgumentMatchers.eq(7301L),
+                org.mockito.ArgumentMatchers.eq(3001L), any());
         verify(allocationMapper, never()).attachReviewToCurrentRowsByEventId(any(), any(), any(), any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(completionService).reconcileAffectedAllocations(event, List.of(current));
@@ -692,7 +703,7 @@ class MesReportAllocationCommandServiceTest {
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(approvedReview(7301L));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
         when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -718,7 +729,7 @@ class MesReportAllocationCommandServiceTest {
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(approvedReview(7301L));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
         when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -930,22 +941,6 @@ class MesReportAllocationCommandServiceTest {
         return 1;
     }
 
-    private static MesProcessPoolSubmissionReviewDO approvedReview(Long id) {
-        return MesProcessPoolSubmissionReviewDO.builder()
-                .id(id)
-                .eventId(1001L)
-                .leaderUserId(3001L)
-                .leaderType("PRODUCTION")
-                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
-                .reviewRemark("urgent C")
-                .reviewedAt(LocalDateTime.parse("2026-08-01T09:00:00"))
-                .reviewSignatureId(9901L)
-                .reviewSignatureUserId(3001L)
-                .reviewSignatureSnapshotJson(
-                        "{\"signatureId\":9901,\"actorId\":3001,\"reviewStatus\":\"APPROVED\",\"reviewedAt\":\"2026-08-01T09:00:00\"}")
-                .build();
-    }
-
     private void assertFullAllocationSameAsCurrentReconcilesCompletionProgress(String allocationMode) {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO currentFull = allocation(7101L, 8101L, 9001L, 5101L, "300");
@@ -957,6 +952,7 @@ class MesReportAllocationCommandServiceTest {
         when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(currentFull));
+        when(reviewMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(signedApprovedReview()));
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
@@ -977,9 +973,25 @@ class MesReportAllocationCommandServiceTest {
         verify(completionService).reconcileAffectedAllocations(event, List.of(currentFull));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).attachReviewToCurrentRowsByEventId(any(), any(), any(), any());
-        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
         verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
+        verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
         verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
+    }
+
+    private static MesProcessPoolSubmissionReviewDO signedApprovedReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(7301L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewRemark("已确认")
+                .reviewedAt(LocalDateTime.parse("2026-08-01T09:00:00"))
+                .reviewSignatureId(9901L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"review\"}")
+                .build();
     }
 
     private static MesProProcessPoolEventDO event() {
