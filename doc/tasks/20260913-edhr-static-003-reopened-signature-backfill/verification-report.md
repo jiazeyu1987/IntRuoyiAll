@@ -21,6 +21,7 @@
 - PASS：融合后修正过期静态合同锚点并重跑 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS。
 - PASS：融合后重跑 `git diff --check` -> PASS，仅有 LF/CRLF 工作区提示，无 whitespace error。
 - PASS：融合后重跑 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS，静态合同已适配复核证据补齐逻辑。
+- PASS：融合后 bug regression evidence validator、`git diff --check`、branch runtime port guard、task-closeout-cleanup preview/apply 均通过。
 
 ## Risk And Regression Scope
 

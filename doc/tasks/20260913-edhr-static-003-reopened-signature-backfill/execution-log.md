@@ -38,8 +38,10 @@
 - 2026-09-13：`mvn -pl yudao-module-mes -am "-Dtest=MesReportAllocationCommandServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，47 tests / 0 failures / 0 errors / 0 skipped。
 - 2026-09-13：主干融合后同步修正 `mes-edhr-static-findings-fix-static.spec.cjs` 对 `reviewEvidenceRequirement` / `requireReview(event, command, reviewToBackfill)` 的静态合同断言。
 - 2026-09-13：`node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS，eDHR static findings fix contract。
-- 2026-09-13：融合后 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` 首次 FAIL，原因是静态合同仍锚定旧 `requiresFormalReview(current)`/两参 `requireReview` 字符串；已改为检查当前 `reviewEvidenceRequirement`、三参 `requireReview`、null `reviewId` 补正式复核和签名回填边界后重跑 PASS。
 - 2026-09-13：融合后 `git diff --check` -> PASS，仅有 LF/CRLF 工作区提示，无 whitespace error。
+- 2026-09-13：融合后 `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260913-edhr-static-003-reopened-signature-backfill/execution-log.md` -> PASS。
+- 2026-09-13：融合后 `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-edhr-static-003-reopened-signature-backfill --mode preview --worktree-closeout off --json` -> READY，keep=3，delete=[]，blocked=[]，warnings=[]。
+- 2026-09-13：融合后 `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-edhr-static-003-reopened-signature-backfill --mode apply --worktree-closeout off --json` -> APPLIED，deleted_paths=[]。
 
 ## Bug Regression Evidence
 
