@@ -35,14 +35,17 @@ final class MesOutputMaterialProgressCalculator {
         Map<Long, BigDecimal> quantitiesByMaterial = new LinkedHashMap<>();
         outputMaterialIds.forEach(materialId -> quantitiesByMaterial.put(materialId, zero(snapshot)));
 
-        Set<Long> currentAllocationEventIds = currentAllocationEventIds(activeOrder, snapshot, currentAllocations);
-        if (currentAllocationEventIds.isEmpty()) {
+        Map<Long, BigDecimal> currentAllocationQuantityByEventId =
+                currentAllocationQuantityByEventId(activeOrder, snapshot, currentAllocations);
+        if (currentAllocationQuantityByEventId.isEmpty()) {
             return zero(snapshot);
         }
         Set<Long> matchedEventIds = new LinkedHashSet<>();
         for (MesProProcessPoolEventDO event : productionEvents == null
                 ? List.<MesProProcessPoolEventDO>of() : productionEvents) {
-            if (event == null || event.getId() == null || !currentAllocationEventIds.contains(event.getId())) {
+            BigDecimal allocatedQuantity = event == null || event.getId() == null
+                    ? null : currentAllocationQuantityByEventId.get(event.getId());
+            if (allocatedQuantity == null) {
                 continue;
             }
             validateProductionEventIdentity(activeOrder, snapshot, event);
@@ -56,10 +59,10 @@ final class MesOutputMaterialProgressCalculator {
                 if (outputQuantity == null || outputQuantity.signum() < 0) {
                     throw sourceMissing(activeOrder, "PRODUCTION_OUTPUT_MATERIAL_QUANTITY");
                 }
-                quantitiesByMaterial.merge(materialId, outputQuantity, BigDecimal::add);
+                quantitiesByMaterial.merge(materialId, outputQuantity.min(allocatedQuantity), BigDecimal::add);
             }
         }
-        if (!matchedEventIds.containsAll(currentAllocationEventIds)) {
+        if (!matchedEventIds.containsAll(currentAllocationQuantityByEventId.keySet())) {
             throw sourceMissing(activeOrder, "PRODUCTION_EVENT_FOR_CURRENT_ALLOCATION");
         }
         return quantitiesByMaterial.values().stream()
@@ -68,11 +71,11 @@ final class MesOutputMaterialProgressCalculator {
                 .setScale(scale(snapshot), RoundingMode.HALF_UP);
     }
 
-    private static Set<Long> currentAllocationEventIds(
+    private static Map<Long, BigDecimal> currentAllocationQuantityByEventId(
             MesProcessPoolActiveOrderDO activeOrder,
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
             Collection<MesProcessPoolReportAllocationDO> currentAllocations) {
-        Set<Long> result = new LinkedHashSet<>();
+        Map<Long, BigDecimal> result = new LinkedHashMap<>();
         for (MesProcessPoolReportAllocationDO allocation : currentAllocations == null
                 ? List.<MesProcessPoolReportAllocationDO>of() : currentAllocations) {
             if (allocation == null) {
@@ -93,7 +96,7 @@ final class MesOutputMaterialProgressCalculator {
             if (allocation.getEventId() == null || allocation.getEventId() <= 0) {
                 throw sourceMissing(activeOrder, "REPORT_ALLOCATION_EVENT_ID");
             }
-            result.add(allocation.getEventId());
+            result.merge(allocation.getEventId(), allocation.getAllocatedQuantity(), BigDecimal::add);
         }
         return result;
     }

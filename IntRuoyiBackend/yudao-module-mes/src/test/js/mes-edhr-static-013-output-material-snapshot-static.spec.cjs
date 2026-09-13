@@ -68,9 +68,10 @@ assert(
     outputMaterialCalculator.includes('calculateConservativeProcessProgress') &&
     outputMaterialCalculator.includes('parseRequiredOutputMaterialIds') &&
     outputMaterialCalculator.includes('PRODUCTION_OUTPUT_MATERIAL_IDS_REQUIRED') &&
-    outputMaterialCalculator.includes('currentAllocationEventIds') &&
+    outputMaterialCalculator.includes('currentAllocationQuantityByEventId') &&
+    outputMaterialCalculator.includes('outputQuantity.min(allocatedQuantity)') &&
     !outputMaterialCalculator.includes('return allocationProgress == null ? BigDecimal.ZERO : allocationProgress'),
-  'Shared output-material progress calculator must fail fast on missing outputMaterialIds and must not fall back to allocation progress.'
+  'Shared output-material progress calculator must fail fast on missing outputMaterialIds, cap event materialDetails by formal allocation quantity, and must not fall back to allocation progress.'
 )
 
 assert(
