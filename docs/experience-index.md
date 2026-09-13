@@ -60,6 +60,7 @@
 - Keywords: 确认分配, 确认提交, leaderType null, 请求参数不正确, 不能为空null, queryParams.leaderType, activeLeaderTab, 当前页签上下文漂移 -> `docs/frontend-development.md#前端确认提交上下文来源门禁`
 - Keywords: 一线生产提交快照校验, 最大化快照切换, runtime-config 快照, 服务端快照编号, 快照校验值, 快照过期, 快照篡改, 所选工序与运行配置不一致, 所选员工与提交签名不一致, 提交时实时刷新快照禁止, 后端实时工序员工模板读取禁止, 设备参数损耗原因按快照 -> `docs/frontend-development.md#前端提交结构字段严格校验门禁`
 - Keywords: PQC 任务生成, 生产工序 + QA工序 + QA项目 + 规则键, routeProcessId + processId, 遍历全部冻结工序, 禁止只取第一道工序, 同工序多个 FINAL 项目, FINAL 任务按项目拆分, inspectionRuleKey, qaItemCode, 活跃订单加入生成任务 -> `docs/backend-development.md#qa-首检数量和巡检比例按检验项目配置末检适用性项目级统一`
+- Keywords: eDHR 放行预检, INSPECTION_RESULT, PQC任务身份, 多QA项目, 产品专用规程, 通用规程, CONFIRMED不等于结果证据, submittedEventId, mes_pro_process_pool_pqc_record, mes_pqc_inspection_piece_detail, mes_pqc_process_inspection_aggregate_detail, PQC_SUBMISSION不合格处置 -> `docs/backend-development.md#mes-一线设备账号权限门禁`
 - Keywords: 排产员工作台产能覆盖, 班次产能编辑, 手工调整产能, process-wip-settings, MANUAL_OVERRIDE, 小时产量覆盖值, 班次小时重算, refreshScheduleOrderProcessesFromRouteConfig, 重排刷新路线配置覆盖工作台产能 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台产能覆盖门禁`
 - Keywords: 排产员工作台最近一次排产口径, process-wip-statistics, 最近只排5个订单但显示9个订单在做, AUTO_APPLY, REPLAN_APPLY, afterSnapshotJson.scheduleOrderIds, operation_log.schedule_order_id 不补范围, 历史排产工单混入, process-wip-settings, 班次小时刷新不更新历史工单 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台最近一次排产口径门禁`
 - Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#重复任务记录收口门禁`
