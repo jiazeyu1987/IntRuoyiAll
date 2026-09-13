@@ -25,6 +25,14 @@
 - Verification: 写入后分别检查指定 worktree 与主工作区的同路径存在性和 `git status --short --branch`；若发生误落，先用精确补丁删除误落文件，再重新写入指定 worktree，并在任务日志记录无残留。
 - Forbidden action: 禁止在用户指定 worktree 的任务中把主工作区误落文件继续当作任务产物；禁止用 `git add -A` 或整目录复制掩盖路径归属错误。
 
+## Codex 临时 Worktree 提交迁移门禁
+
+- Trigger: 当前工作区位于 `C:\Users\<user>\.codex\worktrees\...`、处于 detached HEAD，或切到任务分支后 `branch-runtime-port-guard.ps1` 报当前路径属于 `int_main` 但分支不是 `int_main`。
+- Preflight check: 不在 C 盘临时 worktree 用 `--no-verify` 绕过提交钩子；先从最新 `int_main` 在 `D:\IntRuoyiWorktree\` 创建任务专属 worktree，运行 `reserve-worktree-slot.ps1` 登记 profile、slot、前后端端口，再迁移当前任务最小 diff。
+- Blocker: C 盘临时 worktree 混有其它任务 dirty/untracked、主工作区 dirty、或新 worktree 未登记端口槽位时，只能记录阻断并保留现场；不得把无关 dirty 整体提交、stash、reset 或混入任务分支。
+- Verification: 记录 C 盘 guard 失败摘要、D 盘 worktree 路径、分支、slot、`branch-runtime-port-guard.ps1` PASS、最小 diff 清单和后续 Maven/静态验证。
+- Forbidden action: 禁止在 profile 不匹配的临时 worktree 上 `git commit --no-verify`，禁止为通过 closeout 把 C 盘混合 dirty 改动全量提交，禁止绕过 D 盘 worktree 根目录和端口登记规则。
+
 ## 运行时 smoke 进程归属与日志时间窗门禁
 
 - 触发场景：验证需要启动后端端口，但目标端口已经被长期 runtime-control 服务监听，或共享日志包含多次启动记录。

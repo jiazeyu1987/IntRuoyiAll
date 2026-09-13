@@ -161,6 +161,16 @@ public class DccControlledContentAdapter {
                 requireEventKey(eventKey, "finalization") + ":retry-finalization");
     }
 
+    public String nextFinalizationRetryEventKey(DccControlledFileDO file) {
+        requireFile(file);
+        if (!DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(file.getStatus())) {
+            throw new IllegalStateException("DCC finalization retry event key requires FINALIZATION_FAILED status");
+        }
+        long retryAttemptCount = lifecycleCoreService.countVersionRefTransitions(dccKey(file), file.getId(),
+                ControlledContentTransitionAction.RETRY_FINALIZATION);
+        return "dcc-finalization-retry:" + file.getId() + ":attempt-" + (retryAttemptCount + 1);
+    }
+
     public void recordFinalized(DccControlledFileDO previousActive, DccControlledFileDO candidate,
                                 Long actorId, String eventKey) {
         requireFile(candidate);
