@@ -23,9 +23,9 @@ Fix DCC-STATIC-018: DCC approval routes must not allow editable approval method,
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-Implementation and required verification are complete. User authorized Git closeout on 2026-09-13, and task-owned changes were migrated from the detached Codex worktree to the registered `D:\IntRuoyiWorktree\20260913-dcc-static-018-route-approval-policy` worktree for compliant commit, push, and integration.
+Implementation, required verification, task branch push, remote `int_main` fast-forward integration, and cleanup apply are complete. User authorized Git closeout on 2026-09-13; task-owned changes were migrated from the detached Codex worktree to the registered `D:\IntRuoyiWorktree\20260913-dcc-static-018-route-approval-policy` worktree for compliant commit, push, and integration.
 
 ## Design Constraints Check
 

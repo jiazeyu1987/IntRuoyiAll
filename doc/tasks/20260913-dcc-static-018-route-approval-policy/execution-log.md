@@ -57,3 +57,19 @@ GREEN: post-rebase `node scripts\dcc-route-fixed-approval-policy-static.test.mjs
 GREEN: post-rebase `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260913-dcc-static-018-route-approval-policy/int_main`, frontend `8089`, backend `48089`.
 
 CHECK: post-rebase `git diff --check` -> PASS.
+
+CHECK: implementation commit -> `ee386f6e9b6a5e113904f92269b99d2448f377ff` contains the DCC-STATIC-018 implementation, regression/static tests, and task evidence after rebasing onto `origin/int_main`.
+
+GREEN: `git push --force-with-lease origin codex/20260913-dcc-static-018-route-approval-policy` -> PASS, task branch updated from pre-rebase `06ea1f3e1` to post-rebase `ee386f6e9`.
+
+GREEN: `git push origin HEAD:int_main` -> PASS, remote `int_main` fast-forwarded from `f773eab07` to `ee386f6e9`.
+
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-018-route-approval-policy --mode preview --worktree-closeout off` -> PASS, kept the three task evidence files, no delete candidates, no blockers.
+
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-018-route-approval-policy --mode apply --worktree-closeout off` -> PASS, deleted no files and reported no blockers.
+
+CHECK: dirty main workspace boundary -> `E:\IntRuoyi` was behind `origin/int_main` and had unrelated MES/task-memory changes, so local main-worktree auto merge/removal was not used; remote fast-forward integration followed `docs\worktree-memory.md` dirty-main guidance without touching those unrelated files.
+
+CHECK: final remote drift rebase -> `origin/int_main` advanced again with unrelated eDHR commits; replayed the DCC-STATIC-018 closeout commit on top of latest `origin/int_main`.
+
+GREEN: final pre-push verification -> branch runtime port guard PASS, frontend static contract PASS with 2 tests, backend targeted Maven PASS with 24 tests, and `git diff --check origin/int_main..HEAD` PASS.

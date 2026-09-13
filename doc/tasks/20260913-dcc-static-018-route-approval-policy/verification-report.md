@@ -57,7 +57,16 @@ Route save and route snapshots kept user-editable approval policy fields, but `c
 
 Verified the requested static/unit scope only. No E2E was run, no service was started or restarted, and no database write was performed. Git closeout was resumed only after explicit user authorization on 2026-09-13.
 
-## Blockers
+## Closeout
+
+- Implementation commit after rebase: `ee386f6e9b6a5e113904f92269b99d2448f377ff`.
+- Task branch push: `codex/20260913-dcc-static-018-route-approval-policy` updated to `ee386f6e9`.
+- Remote `int_main` integration: `git push origin HEAD:int_main` fast-forwarded `origin/int_main` to `ee386f6e9`.
+- Cleanup preview/apply: PASS with `--worktree-closeout off`, no delete candidates and no blockers.
+- Local `E:\IntRuoyi` main worktree was not modified because it had unrelated dirty changes.
+- Final pre-push verification after replaying closeout over latest `origin/int_main`: branch runtime port guard PASS, frontend static contract PASS with 2 tests, backend targeted Maven PASS with 24 tests, and `git diff --check origin/int_main..HEAD` PASS.
+
+## Non-Gating Blockers
 
 - Frontend lint was not available in this clean worktree: `pnpm exec eslint ...` failed because `eslint` was not installed/resolvable.
 - Frontend `pnpm ts:check` did not run because `cross-env` was not installed/resolvable and pnpm reported missing local `node_modules`.
