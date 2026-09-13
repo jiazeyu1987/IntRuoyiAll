@@ -12,6 +12,7 @@
 - [x] 最小化修复前端入口权限与创建/批准动作守卫。
 - [x] 运行定向静态合同、类型/编译或静态验证，并记录 GREEN。
 - [x] 收尾前更新共享 bug 状态/证据（仅 DCC-STATIC-016）。
+- [x] 按用户授权提交任务分支，并将 DCC-STATIC-016 融合到远端 `origin/int_main`。
 
 ## Expected Verification
 
@@ -37,4 +38,4 @@
 
 ready_for_closeout
 
-DCC-STATIC-016 已完成实现、静态合同、后端定向测试、前端类型检查、端口门禁和 bug 文档状态更新。用户已在后续指令中授权先提交再融合 `int_main`；当前分支准备提交后追上最新 `int_main` 并复验。
+DCC-STATIC-016 已完成实现、静态合同、后端定向测试、前端类型检查、端口门禁和 bug 文档状态更新。实现提交 `9109431c0` 已推送到任务分支并快进融合到远端 `origin/int_main`。本地 `E:\IntRuoyi` 主工作区存在无关 MES 冲突，`task-closeout-cleanup --mode apply` 仍需等待主工作区 clean 后执行；当前无 DCC-STATIC-016 实现或远端融合 blocker。

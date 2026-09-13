@@ -2,7 +2,7 @@
 
 ## Result
 
-PASS_READY_FOR_INT_MAIN_FUSION
+PASS_REMOTE_INT_MAIN_FUSED_LOCAL_CLOSEOUT_BLOCKED
 
 ## Bug
 
@@ -46,11 +46,18 @@ The formal pending/approval backend path already separated create and update per
 - GREEN: after conflict resolution, `pnpm.cmd ts:check` -> PASS.
 - GREEN: `git diff --cached --check` -> PASS.
 - GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS after Git common-dir slot 11 registration.
+- GREEN: after rebase onto latest local `int_main`, `node IntRuoyiFronted/tests/e2e/dcc-static-016-product-onboarding-approval-entry-static.spec.cjs` -> PASS.
+- GREEN: after rebase onto latest local `int_main`, `node IntRuoyiFronted/tests/e2e/dcc-project-code-product-onboarding-static.spec.js` -> PASS.
+- GREEN: after rebase onto latest local `int_main`, `mvn.cmd -q -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
+- GREEN: after rebase onto latest local `int_main`, `pnpm.cmd ts:check` -> PASS.
+- GREEN: after rebase onto latest local `int_main`, `git diff --check` and `branch-runtime-port-guard.ps1` -> PASS.
+- GREEN: `git push origin codex/20260913-dcc-static-016-approval-entry` -> PASS.
+- GREEN: `git push origin HEAD:int_main` -> PASS; `origin/int_main` contains implementation commit `9109431c0`.
 
 ## Verification
 
-Verified the DCC-STATIC-016 permission boundary by static contract, adjacent product onboarding frontend contract, backend DCC service unit test, frontend relaxed TypeScript check, whitespace check, and branch runtime port guard. No real E2E, service start/restart, or database write was performed.
+Verified the DCC-STATIC-016 permission boundary by static contract, adjacent product onboarding frontend contract, backend DCC service unit test, frontend relaxed TypeScript check, whitespace check, branch runtime port guard, task branch push, and remote `origin/int_main` fast-forward push. No real E2E, service start/restart, or database write was performed.
 
 ## Blockers
 
-None for DCC-STATIC-016 implementation and verification. Remaining audit items DCC-STATIC-017 to DCC-STATIC-021 and DCC-STATIC-024 to DCC-STATIC-027 are still open and outside this task; DCC-STATIC-022/023 were pre-existing fixed items preserved during conflict resolution.
+None for DCC-STATIC-016 implementation, verification, task branch push, or remote `origin/int_main` fusion. Local closeout cleanup remains blocked by unrelated unmerged files in `E:\IntRuoyi` under the MES process-inspection static task plus `docs/backend-development.md`; those files are outside DCC-STATIC-016 and were not modified. Remaining audit items DCC-STATIC-017 to DCC-STATIC-021 and DCC-STATIC-024 to DCC-STATIC-027 are still open and outside this task; DCC-STATIC-022/023 were pre-existing fixed items preserved during conflict resolution.

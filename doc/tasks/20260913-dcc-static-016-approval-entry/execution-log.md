@@ -29,3 +29,11 @@
 - GREEN: `git diff --cached --check` -> PASS.
 - PORT GUARD: first run failed because interrupted rebase detached `HEAD`; after returning the worktree to branch `codex/20260913-dcc-static-016-approval-entry`, default Git common-dir registry was missing the current entry. Ran `reserve-worktree-slot.ps1` with profile `int_main`, slot `11`, frontend `8092`, backend `48092`; then `branch-runtime-port-guard.ps1` -> PASS.
 - MAIN DRIFT: before commit, `E:\IntRuoyi` / `int_main` had advanced to `391972a0c`; this branch will commit the scoped DCC-STATIC-016 changes first, then rebase onto the latest `int_main` and rerun target verification before fusion.
+- COMMIT: `git commit -m "fix(dcc): repair product onboarding approval entry"` -> `7bc78597a`, then `git rebase int_main` -> `9109431c0` on top of local `int_main` `be043c42b`.
+- GREEN: on rebased `9109431c0`, `node IntRuoyiFronted/tests/e2e/dcc-static-016-product-onboarding-approval-entry-static.spec.cjs` -> PASS.
+- GREEN: on rebased `9109431c0`, `node IntRuoyiFronted/tests/e2e/dcc-project-code-product-onboarding-static.spec.js` -> PASS.
+- GREEN: on rebased `9109431c0`, `mvn.cmd -q -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` from `IntRuoyiBackend` -> PASS.
+- GREEN: on rebased `9109431c0`, `pnpm.cmd ts:check` from `IntRuoyiFronted` -> PASS.
+- GREEN: on rebased `9109431c0`, `git diff --check` -> PASS; `branch-runtime-port-guard.ps1` -> PASS.
+- PUSH: `git push origin codex/20260913-dcc-static-016-approval-entry` -> PASS; `git push origin HEAD:int_main` -> PASS, fast-forwarded `origin/int_main` from `391972a0c` to `9109431c0`; `git merge-base --is-ancestor HEAD origin/int_main` -> PASS.
+- CLEANUP PREVIEW: reran `task_closeout.py --task-id 20260913-dcc-static-016-approval-entry --mode preview` -> BLOCKED only because main worktree `E:\IntRuoyi` is dirty with unrelated MES conflict files and `docs/backend-development.md`. No cleanup apply, worktree removal, stash, reset, or unrelated conflict resolution was performed.
