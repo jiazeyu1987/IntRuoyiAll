@@ -6,11 +6,12 @@ EDHR-STATIC-013 reopened fix: active-order production process config snapshots m
 
 ## Verification Status
 
-- Status: ready_for_closeout
+- Status: blocked
 - E2E: not run by explicit user instruction.
 - Service startup: not run by explicit user instruction.
 - Database writes: not run by explicit user instruction.
-- Git commit/fusion: authorized in current follow-up; EDHR implementation commit `2618a4a3f` exists on local `int_main`, and merge commit `362929947` reconciles latest `origin/int_main`.
+- Git commit/fusion: EDHR implementation commit `2618a4a3f` exists on local `int_main`, and merge commit `362929947` reconciles latest `origin/int_main`.
+- Git push: pending explicit authorization.
 
 ## Results
 
@@ -38,4 +39,5 @@ Formal active-order production config snapshots did not freeze the route snapsho
 ## Blockers / Exclusions
 
 - No remaining code verification blocker for the scoped static/backend compile checks.
-- E2E, service startup, database writes, and new Git push remain intentionally excluded. No current code/fusion blocker remains; task is ready for closeout once the new local commits are explicitly pushed.
+- E2E, service startup, and database writes remain intentionally excluded.
+- Final project completion is blocked only by Git push authorization: local `int_main` is ahead of `origin/int_main` by 3 commits.

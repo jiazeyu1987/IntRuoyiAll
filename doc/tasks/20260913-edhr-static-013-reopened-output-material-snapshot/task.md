@@ -22,9 +22,9 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-已完成 EDHR-STATIC-013 定向静态合同、最小生产修复、Java 编译门禁、`git diff --check`、变更范围静态审查和经验沉淀。用户要求先提交再融合 `int_main` 后，已在 `E:\IntRuoyi` 的 `int_main` 完成本地实现提交 `2618a4a3f`，并通过 merge commit `362929947` 整合最新 `origin/int_main`；融合后静态合同、端口矩阵门禁、MES 编译、bug evidence 校验和 cleanup preview/apply 均通过。新本地提交尚未获明确 Git push 授权，因此任务保持 `ready_for_closeout`。
+本地融合已完成：`E:\IntRuoyi` 的 `int_main` 已提交 EDHR-STATIC-013 修复，并通过 merge commit `362929947` 整合最新 `origin/int_main`；融合后静态合同、端口矩阵门禁、MES 编译、bug evidence 校验和 cleanup preview/apply 均通过。按项目规则最终完成还需要推送 `int_main`；本轮只明确授权本地融合，未明确授权 Git push，因此状态保持 blocked。
 
 ## Design Constraints Check
 
