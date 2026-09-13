@@ -82,11 +82,11 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         DccCategoryApprovalRouteDO route = createRoute(category.getId());
 
         routeNodeMapper.insert(createRouteNode(route.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
-                "POSITION", position.getId(), "ALL", false, 1));
+                "POSITION", position.getId(), "ANY", false, 1));
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
 
@@ -106,7 +106,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
 
@@ -135,7 +135,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
         doThrow(new ServiceException(1_002_000_004, "user disabled"))
@@ -156,7 +156,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
         doThrow(exception(CONTROLLED_FILE_APPROVER_POST_REQUIRED))
@@ -188,7 +188,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
         doThrow(new ServiceException(1_002_000_004, "user disabled"))
@@ -253,6 +253,25 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void testSaveRoute_unsupportedFixedApprovalPolicy_throwsExplicitFailure() {
+        DccFileCategoryDO category = createCategory("SOP");
+
+        DccApprovalRouteSaveReqVO reqVO = new DccApprovalRouteSaveReqVO();
+        reqVO.setEffectiveTime(LocalDateTime.now());
+        reqVO.setRemark("unsupported approval policy");
+        reqVO.setNodes(List.of(
+                createNodeReq(1, "文控审核", "USER", 200L, "ANY", 1),
+                createNodeReq(2, "会签审核", "USER", 201L, "ALL", 2),
+                createNodeReq(3, "会签批准", "USER", 202L, "ALL", 3),
+                createNodeReq(4, "文控批准", "USER", 203L, "ANY", 4)
+        ));
+
+        assertServiceException(() -> routeAdminService.saveRoute(category.getId(), reqVO),
+                DccApprovalRouteAdminServiceImpl.APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+        assertEquals(0L, routeMapper.selectCount(DccCategoryApprovalRouteDO::getCategoryId, category.getId()));
+    }
+
+    @Test
     void testSaveRoute_persistsFixedStageMetadata() {
         DccFileCategoryDO category = createCategory("PROC");
 
@@ -262,7 +281,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setNodes(List.of(
                 createNodeReq(1, "文控审核", "USER", 200L, "ANY", 1),
                 createNodeReq(2, "会签审核", "POSITION", 300L, "ALL", 2),
-                createNodeReq(3, "会签批准", "POSITION", 301L, "ALL", 3),
+                createNodeReq(3, "会签批准", "POSITION", 301L, "ANY", 3),
                 createNodeReq(4, "文控批准", "USER", 202L, "ANY", 4)
         ));
 
@@ -289,7 +308,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setNodes(List.of(
                 createNodeReq(1, "文控审核", "USER", 300L, "ANY", 1),
                 createNodeReq(2, "会签审核", "USER", 301L, "ALL", 2),
-                createNodeReq(3, "会签批准", "USER", 302L, "ALL", 3),
+                createNodeReq(3, "会签批准", "USER", 302L, "ANY", 3),
                 createNodeReq(4, "文控批准", "USER", 303L, "ANY", 4)
         ));
 
@@ -312,7 +331,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(currentRoute.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(currentRoute.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(currentRoute.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
         routeNodeMapper.insert(createRouteNode(futureRoute.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
@@ -320,7 +339,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(futureRoute.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 301L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(futureRoute.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 302L, "ALL", true, 3));
+                "USER", 302L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(futureRoute.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 303L, "ANY", false, 4));
 
@@ -371,7 +390,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "POSITION", position.getId(), "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
 
@@ -400,7 +419,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
                 "USER", 201L, "ALL", true, 2));
         routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
-                "USER", 202L, "ALL", true, 3));
+                "USER", 202L, "ANY", false, 3));
         routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
                 "USER", 203L, "ANY", false, 4));
 
@@ -444,7 +463,7 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setNodes(List.of(
                 createNodeReq(1, "文控审核", "USER", 200L, "ANY", 1),
                 createNodeReq(2, "会签审核", "USER", 201L, "ALL", 2),
-                createNodeReq(3, "会签批准", "USER", 202L, "ALL", 3),
+                createNodeReq(3, "会签批准", "USER", 202L, "ANY", 3),
                 createNodeReq(4, "文控批准", "USER", 203L, "ANY", 4)));
 
         routeAdminService.deleteRoute(route.getId());
