@@ -36,4 +36,15 @@
   - Blocker: current branch cannot be fast-forward merged into local `int_main`.
   - Blocker: main worktree `E:\IntRuoyi` has unrelated untracked files, so it cannot receive cleanup merge.
 - CLEANUP APPLY: not run because preview is blocked.
-- Final status: blocked by closeout merge prerequisites after successful implementation commit and branch push.
+- USER REQUEST: user asked `先提交主干,然后融合进int_main`, authorizing the mainline submit and integration step.
+- MAIN SUBMIT: `git commit -m "chore: submit current int_main state"` and `git commit -m "docs: record int_main task evidence"` captured the dirty `E:\IntRuoyi` main worktree before integration.
+- INT_MAIN INTEGRATION: merged the DCC finalization retry fix into local `int_main`, then merged remote `origin/int_main` so the branch could be pushed without non-fast-forward risk.
+- INT_MAIN RECHECK: `node IntRuoyiBackend\yudao-module-dcc\src\test\js\dcc-static-026-finalization-retry-event-key-static.spec.cjs` -> PASS.
+- INT_MAIN RECHECK: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-011-freeze-lifecycle-static.spec.cjs` -> PASS.
+- INT_MAIN RECHECK: `git diff --check origin/int_main..HEAD` -> PASS.
+- INT_MAIN RECHECK: `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `int_main/int_main`, frontend `8081`, backend `48081`.
+- INT_MAIN RECHECK: `mvn -pl yudao-module-dcc -am "-DskipTests" compile` -> PASS.
+- INT_MAIN PUSH: `git push origin int_main` -> PASS; `origin/int_main` updated to `a54464ac3`.
+- CLEANUP PREVIEW RECHECK: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-026-finalization-retry-event-key --mode preview` -> READY, keep list only, blocked `<none>`, warnings `<none>`.
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-026-finalization-retry-event-key --mode apply` -> APPLIED, keep list only, delete `<none>`, blocked `<none>`, warnings `<none>`.
+- Final status: completed after user-authorized `int_main` integration, remote push, and cleanup apply.
