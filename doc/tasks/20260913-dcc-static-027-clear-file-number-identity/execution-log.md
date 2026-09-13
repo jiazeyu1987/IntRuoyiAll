@@ -55,6 +55,10 @@ STATIC: `git diff --check` -> PASS, no whitespace errors; only touched Java file
 - 任务分支 runtime profile：已登记为 `int_main` slot 18，前端 8099、后端 48099，提交钩子已通过。
 - cleanup preview（rebase 前）：BLOCKED；keep 为三份任务记录，delete 为空；阻塞原因为任务分支不能 fast-forward 到本地 `int_main`，且 `E:\IntRuoyi` 主工作区存在其他并行未提交改动。
 - rebase：PASS；任务分支已基于本地 `int_main` 重放，`git merge-base --is-ancestor int_main HEAD` 通过。
-- cleanup apply、主分支合并、worktree 删除：待保护主工作区并行改动后执行。
-- 任务状态：`ready_for_closeout`。
+- cleanup apply：首次执行因任务目录的本地 exclude 规则导致普通 `git add` 失败，未删除任何文件；随后通过已授权的 `git add -f` 纳入三份正式任务记录。
+- 主分支合并：PASS；主工作区并行改动临时保存后，`git -C E:\IntRuoyi merge --ff-only codex/20260914-dcc-static-027-clear-file-number-identity` 成功，`int_main` 指向 `73ea976ab`。
+- 主工作区恢复：PASS；临时 stash 已恢复，原有并行改动仍保持未提交状态，未混入本任务。
+- worktree 删除：未执行；当前 Codex 任务仍使用该 worktree，保留已验证工作区。
+- 任务状态：`completed`。
 - E2E、服务启动/重启、数据库写入、远程服务器操作：未执行。
+- `int_main` 推送：未执行；本地 `int_main` 原本已包含其他未推送任务提交，推送会扩大本任务范围。任务分支已按授权推送到 `origin`。
