@@ -1060,6 +1060,54 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getCurrentVersionByFileNumber_rejectsMasterActiveFileIdentityMismatch() {
+        DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
+                .id(700L)
+                .categoryId(10L)
+                .directoryId(21L)
+                .fileName("SOP-001")
+                .fileNumber("DOC-OLD")
+                .dccProjectCodeId(3000L)
+                .fileTypeTaxonomyLeafId(8803L)
+                .normalizedFileNumber("DOC-OLD")
+                .currentActiveControlledFileId(800L)
+                .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
+                .build();
+        DccControlledFileDO activeFile = DccControlledFileDO.builder()
+                .id(800L)
+                .masterId(700L)
+                .categoryId(10L)
+                .directoryId(21L)
+                .fileName("SOP-001")
+                .fileNumber("DOC-NEW")
+                .versionNo("A/1")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .dccProjectCodeId(3000L)
+                .fileTypeTaxonomyId(8803L)
+                .sourceFileId(100L)
+                .originalFileId(100L)
+                .build();
+        when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
+                .id(3000L).status(DccProjectCodeStatusConstants.ENABLE).build());
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8803L)).thenReturn(defaultTaxonomyPath());
+        when(fileTypeTaxonomyAdminService.listActiveDescendantIds(8803L)).thenReturn(List.of(8803L));
+        when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(8803L)).thenReturn(List.of(defaultTaxonomyPath()));
+        when(controlledFileMasterMapper.selectListByLogicalIdentity(3000L, 8803L, "DOC-OLD"))
+                .thenReturn(List.of(master));
+        when(controlledFileMapper.selectById(800L)).thenReturn(activeFile);
+        when(fileMapper.selectById(100L)).thenReturn(FileDO.builder()
+                .id(100L).name("DOC-NEW.docx").path("dcc/source/DOC-NEW.docx").build());
+        DccControlledFileRespVO detail = new DccControlledFileRespVO();
+        detail.setActionProjection(new DccControlledFileActionProjectionRespVO());
+        when(queryService.getControlledFile(99L, 800L)).thenReturn(detail);
+
+        assertServiceException(() -> workflowService.getCurrentVersionByFileNumber(99L, "DOC-OLD", 3000L, 8803L),
+                CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+
+        verify(queryService, never()).getControlledFile(any(), any());
+    }
+
+    @Test
     void submitControlledFile_unfinishedSameNumberWorkflow_throwsInProgress() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.1");
         reqVO.setChangeType(DccControlledFileChangeTypeEnum.REVISION.getCode());
