@@ -20,7 +20,7 @@
 
 ## 最新源码复核（2026-09-13，第三轮）
 
-- **结论**：DCC-STATIC-010 的两个重开断点已补齐；001至016、022、023当前源码层均为 FIXED_STATIC_VERIFIED。追加审计项017至021及024至027仍按 OPEN_STATIC_CONFIRMED 保留。
+- **结论**：DCC-STATIC-010 的两个重开断点已补齐；001至016、019、022、023当前源码层均为 FIXED_STATIC_VERIFIED。追加审计项017、018、020、021及024至027仍按 OPEN_STATIC_CONFIRMED 保留。
 - **010断点一**：修正版本重新送审时，旧A/1退回流程会同步取消 BPM、关闭DCC文件行，并调用统一受控候选 withdraw，释放 open candidate 后再登记新候选。
 - **010断点二**：返工祖先识别已沿同 Master、同申请人、同 Revision 的 predecessor 链回溯，可越过 A/2 等 WORKING 修正版本找到原 A/1 退回版本并终结。
 - **验证**：DCC-STATIC-001、002、003、006、007、008、009、010、011、012、013、014、015 静态合同 PASS；DCC 工作版本提交、平台适配器、审批工作流相关 150 项 Maven 定向测试 PASS。
@@ -48,7 +48,7 @@
 | DCC-STATIC-016 | P2 | 10、16 | 产品建档审批入口误用创建权限，只有审批权限的人员无法续办 | FIXED_STATIC_VERIFIED |
 | DCC-STATIC-017 | P2 | 11、12、16、55 | 不存在的角色、部门或岗位可保存为唯一负责人，正式授权实际无人获得 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-018 | P1 | 15、47、56、57、58、59 | 路线可保存审批方式、比例及必需开关，但实际审批仍按固定流程模型执行 | OPEN_STATIC_CONFIRMED |
-| DCC-STATIC-019 | P1 | 15、47、56、57、58、59 | 同一审批环节可重复配置，启动流程时后续同环节人员被静默丢弃 | OPEN_STATIC_CONFIRMED |
+| DCC-STATIC-019 | P1 | 15、47、56、57、58、59 | 同一审批环节可重复配置，启动流程时后续同环节人员被静默丢弃 | FIXED_STATIC_VERIFIED |
 | DCC-STATIC-020 | P2 | 15、47、54、56 | 审批路线生效时间未参与选用，未来路线保存后立即替代现行路线 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-021 | P1 | 42、43、44、52、56、57、58、59、60、86 | 工程图纸已上传配套PDF，工作稿及审批预览仍选择无法在线显示的CAD源件 | OPEN_STATIC_CONFIRMED |
 | DCC-STATIC-022 | P2 | 51、52、88 | 仅修改备注的检入能力存在于后端，但正式检入页面强制上传新文件 | FIXED_STATIC_VERIFIED |
@@ -60,10 +60,10 @@
 
 ## 最终修复结果（2026-09-13）
 
-- **代码结论**：DCC-STATIC-001至016、022、023均已完成当前源码层修复；追加审计登记的017至021及024至027仍为开放项。
+- **代码结论**：DCC-STATIC-001至016、019、022、023均已完成当前源码层修复；追加审计登记的017、018、020、021及024至027仍为开放项。
 - **010补齐**：A/2/A/3重新送审时会沿同Master、同申请人、同Revision且版本号前进的predecessor链识别PENDING_APPLICANT_REWORK前置版本；新审批流程创建后，旧A/1退回流程被发起人取消、旧版本标记为WITHDRAWN、统一受控候选同步WITHDRAWN并链接新候选，避免继续阻塞“修正后重新送审”。
 - **011同步**：静态合同不再写死旧局部变量名recipientUserIds，改为锁定当前正式orderedRecipientUserIds快照仍会调用保存名单人员有效性校验。
-- **静态验证**：DCC-STATIC-001、002、003、006、007、008、009、010、011、012、013、014、015及DCC详情返工静态合同全部PASS；DCC工作版本提交、平台适配器、审批工作流相关151项Maven定向测试PASS；未执行E2E。
+- **静态验证**：DCC-STATIC-001、002、003、006、007、008、009、010、011、012、013、014、015、019及DCC详情返工静态合同全部PASS；DCC工作版本提交、平台适配器、审批工作流相关151项Maven定向测试PASS；019追加保存/预览/运行态回归测试、前端类型检查和路线摘要静态合同PASS；未执行E2E。
 
 ## 独立复核结果（2026-09-13，修复前）
 
@@ -314,7 +314,7 @@
 
 ### DCC-STATIC-019 同一审批环节可重复配置，启动流程时后续同环节人员被静默丢弃
 
-- **级别/状态**：P1 / OPEN_STATIC_CONFIRMED。
+- **级别/状态**：P1 / FIXED_STATIC_VERIFIED。
 - **涉及步骤**：15、47、56、57、58、59。
 - **触发条件**：保存环节编号为1、2、2、3、4的路线，两条2号环节分别配置不同且具备资格的审核人员。
 - **预期行为**：固定四环节应拒绝重复编号；若允许同环节多个候选来源，应按正式规则完整合并，不能丢人。
@@ -323,7 +323,9 @@
 - **代码证据**：`IntRuoyiFronted/src/views/dcc/controlled-file/routes/components/RouteForm.vue:49`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/route/DccApprovalRouteAdminServiceImpl.java:378`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApprovalRouteAssigneeResolver.java:91`；`IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java:2934`；`IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql:186`。
 - **关系与边界**：与018不同：这里是同环节节点身份重复造成候选人丢失，任何审批完成比例都无法补回被丢弃的人。随库节点表未提供环节唯一约束。
 - **建议修复边界**：固定环节在前后端均要求恰好一条；若采用多来源设计，必须显式合并去重并统一预览、快照、运行授权。
-- **BDD（后续修复验收，未执行）**：Given 固定四环节路线 When 保存两条2号环节 Then 保存拒绝重复；不得保存成功后仅派发第一组人员。
+- **修复结果**：后端保存和预览校验保留节点总数并检查阶段集合，重复固定阶段明确抛出 `APPROVAL_ROUTE_FIXED_STAGE_INVALID`；运行态重复 `stageCode` 明确抛出 `CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH`，不再使用第一条映射静默丢弃后续人员；前端在保存前检查阶段1、2、3、4各恰好一条。
+- **BDD（修复验收，静态/单元证据）**：Given 固定四环节路线 When 保存两条2号环节 Then 保存拒绝重复；不得保存成功后仅派发第一组人员。保存、预览、运行态重复环节回归测试及前端静态合同均PASS。
+- **验证边界**：未执行真实页面E2E、服务启动或数据库写入；详见 `doc/tasks/20260913-dcc-static-019-duplicate-route-stage-clean/verification-report.md`。
 
 ### DCC-STATIC-020 审批路线生效时间未参与选用，未来路线保存后立即替代现行路线
 

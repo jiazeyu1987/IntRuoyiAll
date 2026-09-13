@@ -253,6 +253,47 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void testSaveRoute_duplicateFixedStage_throwsExplicitFailureAndDoesNotPersist() {
+        DccFileCategoryDO category = createCategory("DUP_STAGE_SAVE");
+
+        DccApprovalRouteSaveReqVO reqVO = new DccApprovalRouteSaveReqVO();
+        reqVO.setEffectiveTime(LocalDateTime.now());
+        reqVO.setRemark("duplicate matrix review");
+        reqVO.setNodes(List.of(
+                createNodeReq(1, "文控审核", "USER", 200L, "ANY", 1),
+                createNodeReq(2, "会签审核-第一组", "USER", 201L, "ALL", 2),
+                createNodeReq(2, "会签审核-第二组", "USER", 202L, "ALL", 3),
+                createNodeReq(3, "会签批准", "USER", 203L, "ANY", 4),
+                createNodeReq(4, "文控批准", "USER", 204L, "ANY", 5)
+        ));
+
+        assertServiceException(() -> routeAdminService.saveRoute(category.getId(), reqVO),
+                DccApprovalRouteAdminServiceImpl.APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+        assertEquals(0L, routeMapper.selectCount(DccCategoryApprovalRouteDO::getCategoryId, category.getId()));
+    }
+
+    @Test
+    void testPreviewRoute_duplicatePersistedFixedStage_throwsExplicitFailure() {
+        DccFileCategoryDO category = createCategory("DUP_STAGE_PREVIEW");
+        DccCategoryApprovalRouteDO route = createRoute(category.getId());
+        routeNodeMapper.insert(createRouteNode(route.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 200L, "ANY", false, 1));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核-第一组",
+                "USER", 201L, "ALL", true, 2));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核-第二组",
+                "USER", 202L, "ALL", true, 3));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
+                "USER", 203L, "ANY", false, 4));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                "USER", 204L, "ANY", false, 5));
+        DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
+        reqVO.setCategoryId(category.getId());
+
+        assertServiceException(() -> routeAdminService.previewRoute(reqVO),
+                DccApprovalRouteAdminServiceImpl.APPROVAL_ROUTE_FIXED_STAGE_INVALID);
+    }
+
+    @Test
     void testSaveRoute_unsupportedFixedApprovalPolicy_throwsExplicitFailure() {
         DccFileCategoryDO category = createCategory("SOP");
 

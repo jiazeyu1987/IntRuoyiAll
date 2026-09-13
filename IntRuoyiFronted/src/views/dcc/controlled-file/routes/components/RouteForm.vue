@@ -210,6 +210,7 @@ const FIXED_ROUTE_APPROVAL_POLICY: Record<number, FixedRouteApprovalPolicy> = {
 
 const getFixedRouteApprovalPolicy = (stageNo?: number) =>
   stageNo == null ? undefined : FIXED_ROUTE_APPROVAL_POLICY[stageNo]
+const EXPECTED_FIXED_ROUTE_STAGE_NOS = [1, 2, 3, 4]
 
 const { t } = useI18n()
 const message = useMessage()
@@ -336,6 +337,23 @@ const normalizeRouteNodeFixedApprovalPolicy = (item: ControlledFileApprovalRoute
   }
 }
 
+const validateFixedRouteStageUniqueness = (nodes: ControlledFileApprovalRouteSaveReqVO['nodes']) => {
+  const expectedStageNos = new Set<number>(EXPECTED_FIXED_ROUTE_STAGE_NOS)
+  const seenStageNos = new Set<number>()
+  if (nodes.length !== expectedStageNos.size) {
+    message.warning('固定四阶段审批路线要求每个阶段恰好一条')
+    return false
+  }
+  for (const node of nodes) {
+    if (!expectedStageNos.has(node.stageNo) || seenStageNos.has(node.stageNo)) {
+      message.warning('固定四阶段审批路线要求每个阶段恰好一条')
+      return false
+    }
+    seenStageNos.add(node.stageNo)
+  }
+  return true
+}
+
 const submitForm = async () => {
   const valid = await formRef.value?.validate()
   if (!valid) {
@@ -372,6 +390,9 @@ const submitForm = async () => {
   }
   if (fixedNodes.length !== formData.value.nodes.length) {
     message.warning('审批路线仅支持固定四阶段审批策略')
+    return
+  }
+  if (!validateFixedRouteStageUniqueness(fixedNodes)) {
     return
   }
   formLoading.value = true
