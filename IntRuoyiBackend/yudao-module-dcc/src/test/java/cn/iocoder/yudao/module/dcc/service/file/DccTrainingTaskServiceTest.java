@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -155,7 +156,7 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
     @Test
     void heartbeatViewSession_accumulatesSecondsAndUnlocksAcknowledgement() {
         LocalDateTime now = LocalDateTime.now();
-        when(trainingProgressMapper.selectById(1002L)).thenReturn(DccControlledFileTrainingProgressDO.builder()
+        when(trainingProgressMapper.selectByIdForUpdate(1002L)).thenReturn(DccControlledFileTrainingProgressDO.builder()
                 .id(1002L)
                 .controlledFileId(901L)
                 .userId(99L)
@@ -181,6 +182,7 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
                         .lastHeartbeatAt(now.minusSeconds(10))
                         .accumulatedSeconds(20)
                         .build());
+        when(trainingViewSessionMapper.selectActiveListByProgressId(1002L)).thenReturn(List.of());
 
         DccTrainingTaskRespVO respVO = trainingTaskService.heartbeatViewSession(99L, 1002L,
                 new DccTrainingViewSessionHeartbeatReqVO().setClientSessionId("session-1"));
@@ -195,26 +197,21 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void startViewSession_preservesTailSecondsSettledFromPreviousSession() {
-        when(trainingProgressMapper.selectById(1006L))
-                .thenReturn(
-                        DccControlledFileTrainingProgressDO.builder()
-                                .id(1006L).controlledFileId(905L).userId(99L)
-                                .requiredViewSeconds(600).accumulatedViewSeconds(100).build(),
-                        DccControlledFileTrainingProgressDO.builder()
-                                .id(1006L).controlledFileId(905L).userId(99L)
-                                .requiredViewSeconds(600).accumulatedViewSeconds(100).build(),
-                        DccControlledFileTrainingProgressDO.builder()
-                                .id(1006L).controlledFileId(905L).userId(99L)
-                                .requiredViewSeconds(600).accumulatedViewSeconds(115).build(),
-                        DccControlledFileTrainingProgressDO.builder()
-                                .id(1006L).controlledFileId(905L).userId(99L)
-                                .requiredViewSeconds(600).accumulatedViewSeconds(115).build());
+    void startViewSession_locksProgressAndCountsOnlyOnePreviousTail() {
+        LocalDateTime now = LocalDateTime.now();
+        when(trainingProgressMapper.selectByIdForUpdate(1006L)).thenReturn(DccControlledFileTrainingProgressDO.builder()
+                .id(1006L)
+                .controlledFileId(905L)
+                .userId(99L)
+                .requiredViewSeconds(600)
+                .accumulatedViewSeconds(100)
+                .build());
         when(controlledFileMapper.selectById(905L)).thenReturn(DccControlledFileDO.builder()
                 .id(905L)
                 .publishedFileId(505L)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .fileName("training.pdf")
+                .title("SOP-006")
                 .fileNumber("TR-001")
                 .versionNo("A/1")
                 .build());
@@ -223,25 +220,40 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
                         .id(8001L)
                         .trainingProgressId(1006L)
                         .userId(99L)
-                        .clientSessionId("old-session")
-                        .lastHeartbeatAt(LocalDateTime.now().minusSeconds(15))
+                        .clientSessionId("old-session-a")
+                        .startedAt(now.minusSeconds(20))
+                        .lastHeartbeatAt(now.minusSeconds(15))
+                        .accumulatedSeconds(30)
+                        .build(),
+                DccControlledFileTrainingViewSessionDO.builder()
+                        .id(8002L)
+                        .trainingProgressId(1006L)
+                        .userId(99L)
+                        .clientSessionId("old-session-b")
+                        .startedAt(now.minusSeconds(20))
+                        .lastHeartbeatAt(now.minusSeconds(15))
                         .accumulatedSeconds(30)
                         .build()));
         when(trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(1006L, "new-session"))
                 .thenReturn(null);
-        DccTrainingViewSessionStartReqVO request = new DccTrainingViewSessionStartReqVO();
-        request.setClientSessionId("new-session");
 
-        DccTrainingTaskRespVO respVO = trainingTaskService.startViewSession(99L, 1006L, request);
+        DccTrainingTaskRespVO respVO = trainingTaskService.startViewSession(99L, 1006L,
+                new DccTrainingViewSessionStartReqVO().setClientSessionId("new-session"));
 
         ArgumentCaptor<DccControlledFileTrainingProgressDO> progressCaptor =
                 ArgumentCaptor.forClass(DccControlledFileTrainingProgressDO.class);
-        verify(trainingProgressMapper, org.mockito.Mockito.times(2)).updateById(progressCaptor.capture());
+        verify(trainingProgressMapper, times(2)).updateById(progressCaptor.capture());
         List<DccControlledFileTrainingProgressDO> updates = progressCaptor.getAllValues();
-        assertTrue(updates.get(0).getAccumulatedViewSeconds() >= 115);
+        assertEquals(115, updates.get(0).getAccumulatedViewSeconds());
         assertEquals(115, updates.get(1).getAccumulatedViewSeconds());
         assertEquals(115, respVO.getAccumulatedViewSeconds());
-        verify(trainingViewSessionMapper).insert(any(DccControlledFileTrainingViewSessionDO.class));
+        verify(trainingViewSessionMapper, times(2)).updateById(org.mockito.ArgumentMatchers
+                .<DccControlledFileTrainingViewSessionDO>argThat(session -> session.getEndedAt() != null));
+        verify(trainingViewSessionMapper).insert(org.mockito.ArgumentMatchers
+                .<DccControlledFileTrainingViewSessionDO>argThat(session ->
+                        "new-session".equals(session.getClientSessionId())
+                                && session.getTrainingProgressId().equals(1006L)
+                                && session.getUserId().equals(99L)));
     }
 
     @Test

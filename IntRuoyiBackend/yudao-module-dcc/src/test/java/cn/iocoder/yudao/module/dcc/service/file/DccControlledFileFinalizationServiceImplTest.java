@@ -933,6 +933,8 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         when(categoryMapper.selectById(12L)).thenReturn(category(12L, false, false));
         stubStampedArtifact(102L, 602L);
         when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
+        when(platformAdapter.nextFinalizationRetryEventKey(file))
+                .thenReturn("dcc-finalization-retry:902:attempt-1");
 
         finalizationService.retryStamp(99L, 902L);
 
@@ -941,8 +943,44 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), fileCaptor.getValue().getStatus());
         assertEquals(602L, fileCaptor.getValue().getPublishedFileId());
         assertEquals(602L, fileCaptor.getValue().getStampedFileId());
-        verify(platformAdapter).recordFinalizationRetried(file, 99L, "dcc-finalization-retry:902");
-        verify(platformAdapter).recordFinalized(null, file, 99L, "dcc-finalization-retry:902");
+        verify(platformAdapter).recordFinalizationRetried(file, 99L, "dcc-finalization-retry:902:attempt-1");
+        verify(platformAdapter).recordFinalized(null, file, 99L, "dcc-finalization-retry:902:attempt-1");
+    }
+
+    @Test
+    void retryStamp_failedRetryThenSecondRetryUsesNewAttemptEventKey() throws Exception {
+        DccControlledFileDO file = buildFinalizingFile(902L, 702L, 12L, 102L);
+        file.setStatus(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus());
+        file.setFinalizationError("initial failure");
+        when(controlledFileMapper.selectById(902L)).thenReturn(file, file, file, file);
+        when(controlledFileMasterMapper.selectById(702L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(702L).categoryId(12L).fileName("SOP-003").fileNumber("FI-003").build());
+        when(categoryMapper.selectById(12L)).thenReturn(category(12L, false, false));
+        stubStampedArtifact(102L, 602L);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:approve")).thenReturn(true);
+        when(platformAdapter.nextFinalizationRetryEventKey(file))
+                .thenReturn("dcc-finalization-retry:902:attempt-1",
+                        "dcc-finalization-retry:902:attempt-2");
+        doThrow(new IllegalStateException("stamp binding failed"))
+                .doNothing()
+                .when(signatureBindingService).bindPublishedCopy(eq(file), eq(602L), eq(99L), any());
+
+        ServiceException firstRetryFailure = assertThrows(ServiceException.class,
+                () -> finalizationService.retryStamp(99L, 902L));
+        assertEquals(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(), firstRetryFailure.getCode());
+
+        finalizationService.retryStamp(99L, 902L);
+
+        ArgumentCaptor<String> retryEventKeyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(platformAdapter, times(2)).recordFinalizationRetried(eq(file), eq(99L),
+                retryEventKeyCaptor.capture());
+        assertEquals(List.of("dcc-finalization-retry:902:attempt-1",
+                "dcc-finalization-retry:902:attempt-2"), retryEventKeyCaptor.getAllValues());
+        verify(finalizationFailureService).recordFailure(any(), eq(902L),
+                eq(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus()), eq(99L),
+                eq("stamp binding failed"), eq("dcc-finalization-retry:902:attempt-1"));
+        verify(platformAdapter).recordFinalized(null, file, 99L,
+                "dcc-finalization-retry:902:attempt-2");
     }
 
     @org.junit.jupiter.params.ParameterizedTest

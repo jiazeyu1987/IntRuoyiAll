@@ -309,6 +309,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (activeFile == null || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(activeFile.getStatus())) {
             throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
         }
+        assertCurrentVersionIdentityConsistent(normalizedFileNumber, dccProjectCodeId,
+                fileTypeTaxonomyLeafId, master, activeFile);
         List<DccControlledFileDO> chainFiles = controlledFileMapper.selectListByMasterId(master.getId());
         if (chainFiles == null) {
             chainFiles = List.of(activeFile);
@@ -354,6 +356,59 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .modifying(chainFiles.stream().anyMatch(this::isUnfinishedWorkflowVersion))
                 .actionProjection(projectedDetail.getActionProjection())
                 .build();
+    }
+
+    private void assertCurrentVersionIdentityConsistent(String requestedNormalizedFileNumber,
+                                                        Long requestedProjectCodeId,
+                                                        Long requestedFileTypeTaxonomyLeafId,
+                                                        DccControlledFileMasterDO master,
+                                                        DccControlledFileDO activeFile) {
+        String activeNormalizedFileNumber = normalizeStoredFileNumber(activeFile.getFileNumber());
+        if (!Objects.equals(activeNormalizedFileNumber, requestedNormalizedFileNumber)) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+        String masterNormalizedFileNumber = normalizeStoredFileNumberOrNull(master.getNormalizedFileNumber());
+        if (masterNormalizedFileNumber != null
+                && !Objects.equals(masterNormalizedFileNumber, requestedNormalizedFileNumber)) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+
+        Long expectedProjectCodeId = requestedProjectCodeId == null
+                ? master.getDccProjectCodeId() : requestedProjectCodeId;
+        if (expectedProjectCodeId != null && !Objects.equals(activeFile.getDccProjectCodeId(), expectedProjectCodeId)) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+        if (requestedProjectCodeId != null && master.getDccProjectCodeId() != null
+                && !Objects.equals(master.getDccProjectCodeId(), requestedProjectCodeId)) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+
+        Long activeTaxonomyLeafId = resolveControlledFileTypeTaxonomyId(activeFile);
+        Long expectedTaxonomyLeafId = requestedFileTypeTaxonomyLeafId == null
+                ? master.getFileTypeTaxonomyLeafId() : requestedFileTypeTaxonomyLeafId;
+        if (expectedTaxonomyLeafId != null && !Objects.equals(activeTaxonomyLeafId, expectedTaxonomyLeafId)) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+        if (requestedFileTypeTaxonomyLeafId != null && master.getFileTypeTaxonomyLeafId() != null
+                && !Objects.equals(master.getFileTypeTaxonomyLeafId(), requestedFileTypeTaxonomyLeafId)) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+    }
+
+    private String normalizeStoredFileNumber(String fileNumber) {
+        String normalized = normalizeStoredFileNumberOrNull(fileNumber);
+        if (normalized == null) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
+        return normalized;
+    }
+
+    private String normalizeStoredFileNumberOrNull(String fileNumber) {
+        String normalized = StrUtil.trim(fileNumber);
+        if (StrUtil.isBlank(normalized)) {
+            return null;
+        }
+        return normalized.toUpperCase(Locale.ROOT);
     }
 
     Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO) {

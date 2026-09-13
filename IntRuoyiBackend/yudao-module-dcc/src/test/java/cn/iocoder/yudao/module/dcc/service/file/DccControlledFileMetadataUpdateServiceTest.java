@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
@@ -20,6 +21,8 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCode
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -71,6 +74,16 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     @InjectMocks
     private DccControlledFileMetadataUpdateServiceImpl metadataUpdateService;
 
+    @BeforeEach
+    void setTenantContext() {
+        TenantContextHolder.setTenantId(1L);
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
+    }
+
     @Test
     void updateMetadata_docControlUpdatesFieldsMaintainsMasterAndDoesNotTouchWorkflow() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
@@ -114,6 +127,57 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         assertEquals(null, fileCaptor.getValue().getStatus());
         assertEquals(null, fileCaptor.getValue().getProcessInstanceId());
         verify(metadataChangeAuditService).recordMetadataChange(any());
+    }
+
+    @Test
+    void updateMetadata_identityChangeSyncsMasterLogicalKey() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setFileTypeTaxonomyId(8801L);
+        DccControlledFileDO file = activeFile();
+        mockDocControl();
+        mockTargetCategoryAndDirectory();
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
+                8801L, "技术文档", "设计和开发策划阶段", "项目策划书", "草案", "归档件"));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+
+        metadataUpdateService.updateMetadata(99L, 900L, reqVO);
+
+        verify(controlledFileMasterMapper).selectByNewLogicalIdentity(1L, 3000L, 8801L, "DOC-NEW");
+        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
+        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
+        assertEquals(3000L, masterCaptor.getValue().getDccProjectCodeId());
+        assertEquals(8801L, masterCaptor.getValue().getFileTypeTaxonomyLeafId());
+        assertEquals("DOC-NEW", masterCaptor.getValue().getNormalizedFileNumber());
+    }
+
+    @Test
+    void updateMetadata_conflictingLogicalIdentityFailsBeforeWriting() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setFileTypeTaxonomyId(8801L);
+        DccControlledFileDO file = activeFile();
+        mockDocControl();
+        mockTargetCategoryAndDirectory();
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8801L)).thenReturn(new DccFileTypeTaxonomyPath(
+                8801L, "技术文档", "设计和开发策划阶段", "项目策划书", "草案", "归档件"));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(controlledFileMasterMapper.selectByNewLogicalIdentity(1L, 3000L, 8801L, "DOC-NEW"))
+                .thenReturn(DccControlledFileMasterDO.builder()
+                        .id(800L)
+                        .dccProjectCodeId(3000L)
+                        .fileTypeTaxonomyLeafId(8801L)
+                        .normalizedFileNumber("DOC-NEW")
+                        .currentActiveControlledFileId(901L)
+                        .build());
+
+        assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, reqVO),
+                CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
     }
 
     @Test

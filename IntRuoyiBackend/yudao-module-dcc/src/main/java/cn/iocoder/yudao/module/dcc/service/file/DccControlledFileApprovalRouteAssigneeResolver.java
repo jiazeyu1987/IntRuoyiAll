@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeM
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
+import cn.iocoder.yudao.module.dcc.service.route.DccFixedApprovalRoutePolicy;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 
 @Service
@@ -79,6 +81,7 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         if (routeNodes.isEmpty()) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
+        DccFixedApprovalRoutePolicy.validateRouteNodes(routeNodes, CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
         List<ResolvedRouteNode> resolvedNodes = routeNodes.stream()
                 .map(routeNode -> resolveRouteNode(routeNode, submitterUserId, requireConfiguredPosts))
                 .toList();

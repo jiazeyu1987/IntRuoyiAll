@@ -33,6 +33,7 @@ import org.springframework.validation.annotation.Validated;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -113,8 +114,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Long workOrderId = batch != null ? batch.getWorkOrderId()
                 : application != null ? application.getWorkOrderId() : pqcSubmissionEvent.getWorkOrderId();
         MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
-        Boolean previousExternalWorkOrderFrozen = resolvePreviousExternalWorkOrderFrozen(workOrder);
         LocalDateTime now = now();
+        Boolean previousWorkOrderTemporaryFrozen = captureWorkOrderExternalFreezeAtReviewStart(workOrder, now);
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(batch == null ? reqVO.getSourceId() : batch.getId(), now))
                 .sourceType(sourceType)
@@ -127,7 +128,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .batchCode(batch != null ? batch.getBatchCode()
                         : application != null ? application.getBatchCode() : workOrder.getBatchCode())
                 .previousBatchStatus(batch == null ? null : batch.getStatus())
-                .previousWorkOrderTemporaryFrozen(previousExternalWorkOrderFrozen)
+                .previousWorkOrderTemporaryFrozen(previousWorkOrderTemporaryFrozen)
                 .reviewStatus(STATUS_PENDING_REVIEW)
                 .nonconformanceReason(reason)
                 .frozenAt(now)
@@ -197,7 +198,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                     .setStatus(nextBatchStatus));
         }
         if (workOrder != null) {
-            recomputeWorkOrderTemporaryFreeze(workOrder, review, disposition);
+            requireWorkOrderUpdate(workOrder.getId(), recomputeWorkOrderTemporaryFreeze(workOrder, review, disposition, now));
         }
         if (application != null && (DISPOSITION_REWORK.equals(disposition) || DISPOSITION_VOID.equals(disposition))) {
             MesProEdhrWorkTaskDO task = requirePqcTaskForUpdate(application);
@@ -346,41 +347,131 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return workOrder;
     }
 
+    private Boolean captureWorkOrderExternalFreezeAtReviewStart(MesProWorkOrderDO workOrder, LocalDateTime frozenAt) {
+        if (workOrder == null) {
+            return null;
+        }
+        if (!Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+            return Boolean.FALSE;
+        }
+        List<MesProEdhrNonconformanceReviewDO> lifecycleReviews =
+                reviewMapper.selectFreezeLifecycleByWorkOrderId(workOrder.getId());
+        boolean alreadyFrozenByReview = lifecycleReviews.stream().anyMatch(this::isReviewFreezeBlocking);
+        if (!alreadyFrozenByReview) {
+            return Boolean.TRUE;
+        }
+        return hasExternalFreezeInLifecycle(lifecycleReviews, new FreezeWindow(null, frozenAt,
+                LocalDateTime.MAX, false), true);
+    }
+
+    private boolean recomputeWorkOrderTemporaryFreeze(MesProWorkOrderDO workOrder,
+                                                     MesProEdhrNonconformanceReviewDO closingReview,
+                                                     String disposition,
+                                                     LocalDateTime closedAt) {
+        if (DISPOSITION_VOID.equals(disposition)) {
+            return true;
+        }
+        List<MesProEdhrNonconformanceReviewDO> lifecycleReviews =
+                reviewMapper.selectFreezeLifecycleByWorkOrderId(closingReview.getWorkOrderId());
+        if (lifecycleReviews.stream()
+                .anyMatch(review -> !Objects.equals(review.getId(), closingReview.getId())
+                        && isReviewFreezeBlocking(review))) {
+            return true;
+        }
+        if (!Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+            return false;
+        }
+        return hasExternalFreezeInLifecycle(lifecycleReviews,
+                toFreezeWindow(closingReview, closingReview.getId(), disposition, closedAt, false), false);
+    }
+
+    private boolean hasExternalFreezeInLifecycle(List<MesProEdhrNonconformanceReviewDO> reviews,
+                                                 FreezeWindow anchor,
+                                                 boolean extendBlockingWindows) {
+        List<FreezeWindow> windows = new ArrayList<>();
+        boolean anchorIncluded = false;
+        for (MesProEdhrNonconformanceReviewDO review : reviews) {
+            if (Objects.equals(review.getId(), anchor.id)) {
+                windows.add(anchor);
+                anchorIncluded = true;
+                continue;
+            }
+            FreezeWindow window = toFreezeWindow(review, anchor.id, null, null, extendBlockingWindows);
+            windows.add(window);
+        }
+        if (!anchorIncluded) {
+            windows.add(anchor);
+        }
+        LocalDateTime cycleStart = anchor.start;
+        LocalDateTime cycleEnd = anchor.end;
+        boolean changed;
+        do {
+            changed = false;
+            for (FreezeWindow window : windows) {
+                if (!overlaps(window, cycleStart, cycleEnd)) {
+                    continue;
+                }
+                if (window.start.isBefore(cycleStart)) {
+                    cycleStart = window.start;
+                    changed = true;
+                }
+                if (window.end.isAfter(cycleEnd)) {
+                    cycleEnd = window.end;
+                    changed = true;
+                }
+            }
+        } while (changed);
+        for (FreezeWindow window : windows) {
+            if (window.start.equals(cycleStart) && overlaps(window, cycleStart, cycleEnd)
+                    && window.previousExternalFreeze) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private FreezeWindow toFreezeWindow(MesProEdhrNonconformanceReviewDO review,
+                                        Long closingReviewId,
+                                        String closingDisposition,
+                                        LocalDateTime closingAt,
+                                        boolean extendBlockingWindows) {
+        LocalDateTime start = requireFreezeWindowStart(review);
+        LocalDateTime end;
+        if (Objects.equals(review.getId(), closingReviewId) && closingAt != null) {
+            end = DISPOSITION_VOID.equals(closingDisposition) ? LocalDateTime.MAX : closingAt;
+        } else if (extendBlockingWindows && isReviewFreezeBlocking(review)) {
+            end = LocalDateTime.MAX;
+        } else if (review.getClosedAt() != null) {
+            end = review.getClosedAt();
+        } else if (isReviewFreezeBlocking(review)) {
+            end = LocalDateTime.MAX;
+        } else {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED);
+        }
+        return new FreezeWindow(review.getId(), start, end,
+                Boolean.TRUE.equals(review.getPreviousWorkOrderTemporaryFrozen()));
+    }
+
+    private LocalDateTime requireFreezeWindowStart(MesProEdhrNonconformanceReviewDO review) {
+        if (review.getFrozenAt() == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED);
+        }
+        return review.getFrozenAt();
+    }
+
+    private boolean overlaps(FreezeWindow window, LocalDateTime start, LocalDateTime end) {
+        return !window.start.isAfter(end) && !window.end.isBefore(start);
+    }
+
+    private boolean isReviewFreezeBlocking(MesProEdhrNonconformanceReviewDO review) {
+        return STATUS_PENDING_REVIEW.equals(review.getReviewStatus())
+                || DISPOSITION_VOID.equals(review.getDisposition());
+    }
+
     private void requireWorkOrderUpdate(Long workOrderId, Boolean temporaryFrozen) {
         if (workOrderMapper.updateTemporaryFrozenByIds(List.of(workOrderId), temporaryFrozen) != 1) {
             throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS);
         }
-    }
-
-    private void recomputeWorkOrderTemporaryFreeze(MesProWorkOrderDO workOrder,
-                                                   MesProEdhrNonconformanceReviewDO review,
-                                                   String disposition) {
-        if (workOrder == null || workOrder.getId() == null) {
-            return;
-        }
-        boolean keepFrozen = hasCurrentExternalFreeze(workOrder, review)
-                || DISPOSITION_VOID.equals(disposition)
-                || reviewMapper.selectBlockingCountByWorkOrderId(workOrder.getId()) > 0;
-        requireWorkOrderUpdate(workOrder.getId(), keepFrozen);
-    }
-
-    private Boolean resolvePreviousExternalWorkOrderFrozen(MesProWorkOrderDO workOrder) {
-        if (workOrder == null) {
-            return null;
-        }
-        boolean frozenBeforeReview = Boolean.TRUE.equals(workOrder.getTemporaryFrozen());
-        if (!frozenBeforeReview) {
-            return false;
-        }
-        Long activeReviewFreezeCount = reviewMapper.selectBlockingCountByWorkOrderId(workOrder.getId());
-        return activeReviewFreezeCount == null || activeReviewFreezeCount == 0;
-    }
-
-    private boolean hasCurrentExternalFreeze(MesProWorkOrderDO workOrder,
-                                             MesProEdhrNonconformanceReviewDO review) {
-        return Boolean.TRUE.equals(workOrder.getTemporaryFrozen())
-                && review != null
-                && Boolean.TRUE.equals(review.getPreviousWorkOrderTemporaryFrozen());
     }
 
     private MesProEdhrWorkTaskDO requirePqcTaskForUpdate(
@@ -529,5 +620,20 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
 
     private LocalDateTime now() {
         return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    private static final class FreezeWindow {
+
+        private final Long id;
+        private final LocalDateTime start;
+        private final LocalDateTime end;
+        private final boolean previousExternalFreeze;
+
+        private FreezeWindow(Long id, LocalDateTime start, LocalDateTime end, boolean previousExternalFreeze) {
+            this.id = id;
+            this.start = start;
+            this.end = end;
+            this.previousExternalFreeze = previousExternalFreeze;
+        }
     }
 }

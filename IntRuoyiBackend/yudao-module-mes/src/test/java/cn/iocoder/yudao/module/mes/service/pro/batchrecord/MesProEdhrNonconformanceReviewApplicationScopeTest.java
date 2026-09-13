@@ -26,6 +26,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -34,6 +36,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
@@ -291,7 +294,6 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Test
     void concessionRestoresOriginalWorkOrderStateAndKeepsPqcTaskActive() {
         stubPendingReview("concession_release");
-        when(reviewMapper.selectBlockingCountByWorkOrderId(3001L)).thenReturn(0L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
 
         service.dispose(disposeRequest("concession_release"));
@@ -305,7 +307,6 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Test
     void reworkClosesApplicationAndPqcTaskAndRestoresOriginalWorkOrderState() {
         stubPendingReview("rework");
-        when(reviewMapper.selectBlockingCountByWorkOrderId(3001L)).thenReturn(0L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
                 isNull(), any(), eq("返工处理"), any())).thenReturn(1);
@@ -336,7 +337,6 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Test
     void disposeRecordsQaElectronicSignatureSnapshot() {
         stubPendingReview("rework");
-        when(reviewMapper.selectBlockingCountByWorkOrderId(3001L)).thenReturn(0L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
                 isNull(), any(), eq("返工处理"), any())).thenReturn(1);
@@ -372,137 +372,179 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     }
 
     @Test
-    void closingLaterReviewDoesNotKeepReviewIntroducedFreeze() {
-        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
-                .id(1005L)
-                .sourceType("PQC_RELEASE")
-                .sourceId(7005L)
-                .workOrderId(3005L)
-                .workOrderCode("WO-005")
+    void overlappingSecondReviewCapturesReviewIntroducedFreezeAsNonExternal() {
+        LocalDateTime firstFrozenAt = LocalDateTime.of(2026, 9, 13, 9, 0);
+        MesProEdhrNonconformanceReviewDO firstReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2101L)
+                .workOrderId(3010L)
                 .reviewStatus("pending_review")
                 .previousWorkOrderTemporaryFrozen(false)
-                .nonconformanceReason("第二份评审")
+                .frozenAt(firstFrozenAt)
                 .build();
-        when(reviewMapper.selectByIdForUpdate(1005L)).thenReturn(review);
-        when(reviewMapper.selectById(1005L)).thenReturn(review.setDisposition("rework"));
-        when(releaseApplicationMapper.selectByIdForUpdate(7005L)).thenReturn(
-                new MesProcessPoolActiveOrderReleaseApplicationDO()
-                        .setId(7005L)
-                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
-                        .setVersion(1)
-                        .setWorkOrderId(3005L)
-                        .setPqcReleaseWorkTaskId(8005L));
-        when(workOrderMapper.selectByIdForUpdate(3005L)).thenReturn(
-                new MesProWorkOrderDO().setId(3005L).setTemporaryFrozen(true));
-        when(signatureService.recordQaDispositionSignature(isNull(), eq(1005L), eq("qa-signature-password"),
-                eq("返工处理"), any())).thenReturn(9105L);
-        when(reviewMapper.selectBlockingCountByWorkOrderId(3005L)).thenReturn(0L);
-        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3005L), false)).thenReturn(1);
-        when(workTaskMapper.selectByIdForUpdate(8005L)).thenReturn(new MesProEdhrWorkTaskDO()
-                .setId(8005L)
-                .setTaskType("PQC_PRODUCTION_RELEASE")
-                .setBusinessScopeType("RELEASE_APPLICATION")
-                .setBusinessScopeId(7005L)
-                .setStatus(MesProEdhrWorkTaskStatus.TODO));
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7005L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8005L), any(), eq("NONCONFORMANCE_REWORK")))
-                .thenReturn(1);
+        when(processPoolEventMapper.selectByIdForUpdate(171L)).thenReturn(
+                new MesProProcessPoolEventDO()
+                        .setId(171L)
+                        .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .setWorkOrderId(3010L));
+        when(workOrderMapper.selectByIdForUpdate(3010L)).thenReturn(
+                new MesProWorkOrderDO()
+                        .setId(3010L)
+                        .setCode("WO-CYCLE")
+                        .setBatchCode("BATCH-CYCLE")
+                        .setTemporaryFrozen(true));
+        lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3010L)).thenReturn(
+                java.util.List.of(firstReview));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3010L), true)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            invocation.<MesProEdhrNonconformanceReviewDO>getArgument(0).setId(2102L);
+            return 1;
+        });
 
-        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
-                .setId(1005L)
-                .setDisposition("rework")
-                .setReviewMaterialUrl("https://example.invalid/review.pdf")
-                .setReviewOpinion("返工处理")
-                .setSignaturePassword("qa-signature-password"));
+        service.create(new MesProEdhrNonconformanceReviewCreateReqVO()
+                .setSourceType("PQC_SUBMISSION")
+                .setSourceId(171L)
+                .setNonconformanceReason("第二份同轮评审"));
 
-        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3005L), false);
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).insert(reviewCaptor.capture());
+        assertEquals(false, reviewCaptor.getValue().getPreviousWorkOrderTemporaryFrozen());
     }
 
     @Test
-    void secondRoundReviewPreservesManualFreezeIntroducedBeforeThatRound() {
-        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
-                .id(1006L)
-                .sourceType("PQC_RELEASE")
-                .sourceId(7006L)
-                .workOrderId(3006L)
-                .workOrderCode("WO-006")
+    void closingFirstOverlappingReviewKeepsFreezeUntilRemainingReviewCloses() {
+        LocalDateTime firstFrozenAt = LocalDateTime.of(2026, 9, 13, 9, 0);
+        LocalDateTime secondFrozenAt = LocalDateTime.of(2026, 9, 13, 9, 5);
+        MesProEdhrNonconformanceReviewDO firstReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2201L)
+                .sourceType("PQC_SUBMISSION")
+                .sourceId(181L)
+                .workOrderId(3020L)
                 .reviewStatus("pending_review")
-                .previousWorkOrderTemporaryFrozen(true)
-                .nonconformanceReason("第二轮评审前人工冻结")
+                .previousWorkOrderTemporaryFrozen(false)
+                .frozenAt(firstFrozenAt)
+                .nonconformanceReason("第一份同轮评审")
                 .build();
-        when(reviewMapper.selectByIdForUpdate(1006L)).thenReturn(review);
-        when(reviewMapper.selectById(1006L)).thenReturn(review.setDisposition("rework"));
-        when(releaseApplicationMapper.selectByIdForUpdate(7006L)).thenReturn(
-                new MesProcessPoolActiveOrderReleaseApplicationDO()
-                        .setId(7006L)
-                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
-                        .setVersion(1)
-                        .setWorkOrderId(3006L)
-                        .setPqcReleaseWorkTaskId(8006L));
-        when(workOrderMapper.selectByIdForUpdate(3006L)).thenReturn(
-                new MesProWorkOrderDO().setId(3006L).setTemporaryFrozen(true));
-        when(signatureService.recordQaDispositionSignature(isNull(), eq(1006L), eq("qa-signature-password"),
-                eq("返工处理"), any())).thenReturn(9106L);
-        when(reviewMapper.selectBlockingCountByWorkOrderId(3006L)).thenReturn(0L);
-        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3006L), true)).thenReturn(1);
-        when(workTaskMapper.selectByIdForUpdate(8006L)).thenReturn(new MesProEdhrWorkTaskDO()
-                .setId(8006L)
-                .setTaskType("PQC_PRODUCTION_RELEASE")
-                .setBusinessScopeType("RELEASE_APPLICATION")
-                .setBusinessScopeId(7006L)
-                .setStatus(MesProEdhrWorkTaskStatus.TODO));
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7006L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8006L), any(), eq("NONCONFORMANCE_REWORK")))
-                .thenReturn(1);
+        MesProEdhrNonconformanceReviewDO secondReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2202L)
+                .workOrderId(3020L)
+                .reviewStatus("pending_review")
+                .previousWorkOrderTemporaryFrozen(false)
+                .frozenAt(secondFrozenAt)
+                .build();
+        when(reviewMapper.selectByIdForUpdate(2201L)).thenReturn(firstReview);
+        when(reviewMapper.selectById(2201L)).thenReturn(firstReview.setDisposition("concession_release"));
+        when(workOrderMapper.selectByIdForUpdate(3020L)).thenReturn(
+                new MesProWorkOrderDO().setId(3020L).setTemporaryFrozen(true));
+        lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3020L)).thenReturn(
+                java.util.List.of(firstReview, secondReview));
+        lenient().when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3020L), false)).thenReturn(1);
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3020L), true)).thenReturn(1);
 
-        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
-                .setId(1006L)
-                .setDisposition("rework")
-                .setReviewMaterialUrl("https://example.invalid/review.pdf")
-                .setReviewOpinion("返工处理")
-                .setSignaturePassword("qa-signature-password"));
+        service.dispose(disposeRequest(2201L, "concession_release"));
 
-        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3006L), true);
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3020L), true);
     }
 
     @Test
-    void disposedReviewDoesNotRestoreExternalFreezeThatWasAlreadyCleared() {
-        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
-                .id(1007L)
-                .sourceType("PQC_RELEASE")
-                .sourceId(7007L)
-                .workOrderId(3007L)
-                .workOrderCode("WO-007")
+    void closingLaterOverlappingReviewDoesNotKeepReviewIntroducedFreezeAfterCycleEnds() {
+        LocalDateTime firstFrozenAt = LocalDateTime.of(2026, 9, 13, 9, 0);
+        LocalDateTime secondFrozenAt = LocalDateTime.of(2026, 9, 13, 9, 5);
+        LocalDateTime firstClosedAt = LocalDateTime.of(2026, 9, 13, 9, 10);
+        MesProEdhrNonconformanceReviewDO firstReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2301L)
+                .workOrderId(3030L)
+                .reviewStatus("closed")
+                .disposition("concession_release")
+                .previousWorkOrderTemporaryFrozen(false)
+                .frozenAt(firstFrozenAt)
+                .closedAt(firstClosedAt)
+                .build();
+        MesProEdhrNonconformanceReviewDO laterReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2302L)
+                .sourceType("PQC_SUBMISSION")
+                .sourceId(191L)
+                .workOrderId(3030L)
                 .reviewStatus("pending_review")
                 .previousWorkOrderTemporaryFrozen(true)
-                .nonconformanceReason("评审期间人工冻结已解除")
+                .frozenAt(secondFrozenAt)
+                .nonconformanceReason("第二份同轮评审")
                 .build();
-        when(reviewMapper.selectByIdForUpdate(1007L)).thenReturn(review);
-        when(reviewMapper.selectById(1007L)).thenReturn(review.setDisposition("concession_release"));
-        when(releaseApplicationMapper.selectByIdForUpdate(7007L)).thenReturn(
-                new MesProcessPoolActiveOrderReleaseApplicationDO()
-                        .setId(7007L)
-                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
-                        .setVersion(1)
-                        .setWorkOrderId(3007L)
-                        .setPqcReleaseWorkTaskId(8007L));
-        when(workOrderMapper.selectByIdForUpdate(3007L)).thenReturn(
-                new MesProWorkOrderDO().setId(3007L).setTemporaryFrozen(false));
-        when(signatureService.recordQaDispositionSignature(isNull(), eq(1007L), eq("qa-signature-password"),
-                eq("让步放行"), any())).thenReturn(9107L);
-        when(reviewMapper.selectBlockingCountByWorkOrderId(3007L)).thenReturn(0L);
-        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3007L), false)).thenReturn(1);
+        when(reviewMapper.selectByIdForUpdate(2302L)).thenReturn(laterReview);
+        when(reviewMapper.selectById(2302L)).thenReturn(laterReview.setDisposition("concession_release"));
+        when(workOrderMapper.selectByIdForUpdate(3030L)).thenReturn(
+                new MesProWorkOrderDO().setId(3030L).setTemporaryFrozen(true));
+        lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3030L)).thenReturn(
+                java.util.List.of(firstReview, laterReview));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3030L), false)).thenReturn(1);
+        lenient().when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3030L), true)).thenReturn(1);
 
-        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
-                .setId(1007L)
-                .setDisposition("concession_release")
-                .setReviewMaterialUrl("https://example.invalid/review.pdf")
-                .setReviewOpinion("让步放行")
-                .setSignaturePassword("qa-signature-password"));
+        service.dispose(disposeRequest(2302L, "concession_release"));
 
-        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3007L), false);
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3030L), false);
+    }
+
+    @Test
+    void secondRoundManualFreezeRemainsAfterLaterReviewCloses() {
+        LocalDateTime secondFrozenAt = LocalDateTime.of(2026, 9, 13, 10, 0);
+        MesProEdhrNonconformanceReviewDO laterReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2402L)
+                .sourceType("PQC_SUBMISSION")
+                .sourceId(201L)
+                .workOrderId(3040L)
+                .reviewStatus("pending_review")
+                .previousWorkOrderTemporaryFrozen(true)
+                .frozenAt(secondFrozenAt)
+                .nonconformanceReason("第二轮评审")
+                .build();
+        when(reviewMapper.selectByIdForUpdate(2402L)).thenReturn(laterReview);
+        when(reviewMapper.selectById(2402L)).thenReturn(laterReview.setDisposition("concession_release"));
+        when(workOrderMapper.selectByIdForUpdate(3040L)).thenReturn(
+                new MesProWorkOrderDO().setId(3040L).setTemporaryFrozen(true));
+        lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3040L)).thenReturn(
+                java.util.List.of(laterReview));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3040L), true)).thenReturn(1);
+
+        service.dispose(disposeRequest(2402L, "concession_release"));
+
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3040L), true);
+    }
+
+    @Test
+    void closedHistoricalExternalFreezeDoesNotRefreezeLaterLifecycle() {
+        LocalDateTime firstFrozenAt = LocalDateTime.of(2026, 9, 13, 9, 0);
+        LocalDateTime firstClosedAt = LocalDateTime.of(2026, 9, 13, 9, 10);
+        LocalDateTime secondFrozenAt = LocalDateTime.of(2026, 9, 13, 10, 0);
+        MesProEdhrNonconformanceReviewDO historicalReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2501L)
+                .workOrderId(3050L)
+                .reviewStatus("closed")
+                .disposition("concession_release")
+                .previousWorkOrderTemporaryFrozen(true)
+                .frozenAt(firstFrozenAt)
+                .closedAt(firstClosedAt)
+                .build();
+        MesProEdhrNonconformanceReviewDO laterReview = MesProEdhrNonconformanceReviewDO.builder()
+                .id(2502L)
+                .sourceType("PQC_SUBMISSION")
+                .sourceId(211L)
+                .workOrderId(3050L)
+                .reviewStatus("pending_review")
+                .previousWorkOrderTemporaryFrozen(false)
+                .frozenAt(secondFrozenAt)
+                .nonconformanceReason("第二轮评审")
+                .build();
+        when(reviewMapper.selectByIdForUpdate(2502L)).thenReturn(laterReview);
+        when(reviewMapper.selectById(2502L)).thenReturn(laterReview.setDisposition("concession_release"));
+        when(workOrderMapper.selectByIdForUpdate(3050L)).thenReturn(
+                new MesProWorkOrderDO().setId(3050L).setTemporaryFrozen(true));
+        lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3050L)).thenReturn(
+                java.util.List.of(historicalReview, laterReview));
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3050L), false)).thenReturn(1);
+
+        service.dispose(disposeRequest(2502L, "concession_release"));
+
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3050L), false);
     }
 
     private void stubPendingReview(String disposition) {
@@ -514,10 +556,13 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .workOrderCode("WO-001")
                 .reviewStatus("pending_review")
                 .previousWorkOrderTemporaryFrozen(false)
+                .frozenAt(LocalDateTime.of(2026, 9, 13, 8, 0))
                 .nonconformanceReason("检验结论需要评审")
                 .build();
         when(reviewMapper.selectByIdForUpdate(1001L)).thenReturn(review);
         when(reviewMapper.selectById(1001L)).thenReturn(review.setDisposition(disposition));
+        lenient().when(reviewMapper.selectFreezeLifecycleByWorkOrderId(3001L)).thenReturn(
+                java.util.List.of(review));
         when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenReturn(
                 new MesProcessPoolActiveOrderReleaseApplicationDO()
                         .setId(7001L)
@@ -549,5 +594,9 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .setReviewOpinion("void".equals(disposition) ? "作废处理" :
                         "rework".equals(disposition) ? "返工处理" : "让步放行")
                 .setSignaturePassword("qa-signature-password");
+    }
+
+    private MesProEdhrNonconformanceReviewDisposeReqVO disposeRequest(Long reviewId, String disposition) {
+        return disposeRequest(disposition).setId(reviewId);
     }
 }

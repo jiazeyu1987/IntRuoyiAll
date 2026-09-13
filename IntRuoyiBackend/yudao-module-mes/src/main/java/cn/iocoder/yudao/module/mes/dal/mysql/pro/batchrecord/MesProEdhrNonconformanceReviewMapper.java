@@ -130,6 +130,13 @@ public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesPro
                 .last("ORDER BY CASE WHEN review_status = 'pending_review' THEN 0 ELSE 1 END, id DESC LIMIT 1"));
     }
 
+    default List<MesProEdhrNonconformanceReviewDO> selectFreezeLifecycleByWorkOrderId(Long workOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
+                .eq(MesProEdhrNonconformanceReviewDO::getWorkOrderId, workOrderId)
+                .orderByAsc(MesProEdhrNonconformanceReviewDO::getFrozenAt)
+                .orderByAsc(MesProEdhrNonconformanceReviewDO::getId));
+    }
+
     default List<MesProEdhrNonconformanceReviewDO> selectListByBatchExecutionId(Long batchExecutionId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrNonconformanceReviewDO>()
                 .eq(MesProEdhrNonconformanceReviewDO::getBatchExecutionId, batchExecutionId)

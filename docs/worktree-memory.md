@@ -25,6 +25,14 @@
 - Verification: 写入后分别检查指定 worktree 与主工作区的同路径存在性和 `git status --short --branch`；若发生误落，先用精确补丁删除误落文件，再重新写入指定 worktree，并在任务日志记录无残留。
 - Forbidden action: 禁止在用户指定 worktree 的任务中把主工作区误落文件继续当作任务产物；禁止用 `git add -A` 或整目录复制掩盖路径归属错误。
 
+## Codex 临时 Worktree 提交迁移门禁
+
+- Trigger: 当前工作区位于 `C:\Users\<user>\.codex\worktrees\...`、处于 detached HEAD，或切到任务分支后 `branch-runtime-port-guard.ps1` 报当前路径属于 `int_main` 但分支不是 `int_main`。
+- Preflight check: 不在 C 盘临时 worktree 用 `--no-verify` 绕过提交钩子；先从最新 `int_main` 在 `D:\IntRuoyiWorktree\` 创建任务专属 worktree，运行 `reserve-worktree-slot.ps1` 登记 profile、slot、前后端端口，再迁移当前任务最小 diff。
+- Blocker: C 盘临时 worktree 混有其它任务 dirty/untracked、主工作区 dirty、或新 worktree 未登记端口槽位时，只能记录阻断并保留现场；不得把无关 dirty 整体提交、stash、reset 或混入任务分支。
+- Verification: 记录 C 盘 guard 失败摘要、D 盘 worktree 路径、分支、slot、`branch-runtime-port-guard.ps1` PASS、最小 diff 清单和后续 Maven/静态验证。
+- Forbidden action: 禁止在 profile 不匹配的临时 worktree 上 `git commit --no-verify`，禁止为通过 closeout 把 C 盘混合 dirty 改动全量提交，禁止绕过 D 盘 worktree 根目录和端口登记规则。
+
 ## 运行时 smoke 进程归属与日志时间窗门禁
 
 - 触发场景：验证需要启动后端端口，但目标端口已经被长期 runtime-control 服务监听，或共享日志包含多次启动记录。
@@ -337,6 +345,14 @@
 - Verification: 记录 task-owned commit hash、fast-forward 后的 `int_main` HEAD、主线程测试摘要、目标路径 diff-check 结果；并明确未运行服务、数据库和写入型 E2E 的边界。
 - Forbidden action: 禁止用“任务文档 completed”替代代码融合证据，禁止清理或覆盖并行 dirty 改动，禁止把窄测通过升级为全链路 GREEN。
 
+### Detached HEAD linked worktree 收尾门禁
+
+- Trigger: linked worktree 的 `git status --short --branch` 显示 `HEAD (no branch)`，且 `task_closeout.py --mode preview` 返回 `Current worktree branch could not be resolved.`。
+- Preflight check: 先记录 `git rev-parse --git-dir`、`git rev-parse --git-common-dir`、`git status --short --branch --untracked-files=all` 和 cleanup preview JSON；若任务限制禁止 commit/push，保持 `ready_for_closeout` 或明确 `blocked`，不要执行 cleanup apply。
+- Blocker: 当前 worktree 无可解析分支、用户未授权创建具名任务分支、任务规则禁止 Git 提交/推送、或 cleanup apply 会触发自动提交/合并/删除 worktree 时必须停止并记录冲突。
+- Verification: 任务日志记录实现验证 PASS、bug/evidence validator PASS、cleanup preview 的 keep/delete/blocked/warnings，以及未运行 apply/commit/push/remove 的原因。
+- Forbidden action: 禁止在 detached HEAD 下强行 cleanup apply、临时创建分支绕过授权、把 `ready_for_closeout` 改写成 `completed`，或删除仍承载未提交实现 diff 的 worktree。
+
 ## 主线程复验时的主线漂移与 PowerShell 参数门禁
 
 - Trigger: 定向 Maven 验证期间并行提交推进 `int_main`，或 PowerShell 将逗号分隔的 `-Dtest` 值拆成参数，导致命令尚未进入 Maven。
@@ -429,3 +445,10 @@
 - 阻断处理：发现误写主工作区时，只能删除或回滚本次误创建且未跟踪的明确文件；若误改已存在 tracked 文件，必须停止并报告，不能用 restore/reset 隐藏。
 - 验证方式：记录误写路径清单、清理方式、主工作区 `git status --short -- <path>` 为空，以及目标 worktree 中对应文件存在并通过定向验证。
 - Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `D:\IntRuoyiWorktree\20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `E:\IntRuoyi` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件；`doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 表单解析任务中首次补丁误落主工作区后，按任务文件精确删除误建文档并精确 restore 本任务误改测试，再用目标 worktree 绝对路径重写并复核主工作区同路径 diff 为空。
+
+### 干净 Worktree 与主工作区未跟踪证据分离门禁
+
+- Trigger: 用户要求使用干净 worktree 修复，但缺陷清单、设计草稿或验收证据只存在于 `E:\IntRuoyi` 主工作区的未跟踪文件中，目标 clean worktree 不包含该文件。
+- Preflight check: 只读读取主工作区证据文件并记录 `git -C E:\IntRuoyi status --short -- <path>`；同时在目标 worktree 运行 `git status --short`，确认后续代码补丁只落入目标 worktree。不得把主工作区未跟踪证据复制进 clean worktree 来冒充基线文件。
+- Blocker: 用户要求更新该共享证据文件但目标 clean worktree 不包含它，或无法判断证据文件是正式基线还是并行任务未跟踪资产时，先停止并请用户确认更新归属。
+- Verification: 任务日志记录主工作区证据路径、主工作区文件状态、目标 worktree 路径、目标 dirty 文件清单，以及未编辑主工作区证据文件的原因。
