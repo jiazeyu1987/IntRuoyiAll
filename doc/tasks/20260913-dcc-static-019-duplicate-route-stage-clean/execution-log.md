@@ -70,3 +70,14 @@
 - Experience consolidation: reread `project-experience-consolidation`; existing `docs/worktree-memory.md#Worktree-端口段与原子槽位门禁` already covers the pre-commit runtime slot blocker and official `reserve-worktree-slot.ps1` recovery, so no long-term experience document change was required.
 - Closeout blocker after authorization: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` -> main worktree `int_main...origin/int_main [ahead 8]` with many unrelated dirty/untracked files. Per cleanup rules, cleanup apply / ff-only merge / worktree removal are blocked until the main worktree is clean or the dirty state is resolved by its owners.
 - Cleanup preview after authorization: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-dcc-static-019-duplicate-route-stage-clean --mode preview` -> BLOCKED; keep `task.md`, `execution-log.md`, `verification-report.md`; delete none; blocked only by `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`.
+
+## Merge Request To int_main 2026-09-14
+
+- User request: 用户要求“合并到int_main”。
+- Main drift check: `git log --oneline --left-right --cherry-pick int_main...codex/dcc-static-019-duplicate-route-stage-clean` -> local `int_main` had one new commit, `8239aef40 fix: align PQC release conclusion with scrap quantity`.
+- Rebase: `git rebase int_main` -> PASS；branch is now fast-forwardable from local `int_main` with `git rev-list --left-right --count int_main...codex/dcc-static-019-duplicate-route-stage-clean` -> `0 2` before this documentation update.
+- Static GREEN after latest rebase: `node tests\e2e\dcc-static-019-approval-route-duplicate-stage-static.spec.js` -> PASS。
+- Static GREEN after latest rebase: `node tests\e2e\dcc-route-summary-static.spec.js` -> PASS。
+- Hygiene: `git diff --check int_main..HEAD` first found trailing whitespace in task BDD lines; fixed the task document and reran before final push.
+- Merge blocker: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 9]` with many parallel dirty/untracked files. Dirty files include same-path overlap with this task (`DccFixedApprovalRoutePolicy.java`, `DccApprovalRouteAdminServiceImplTest.java`, `docs/bugs/20260912-dcc-90-step-static-audit.md`), so merging into the checked-out main worktree would risk mixing unrelated work.
+- Final merge status: BLOCKED by dirty main worktree; did not run `git -C E:\IntRuoyi merge` and did not stash, reset, clean, or baseline-commit unrelated changes.
