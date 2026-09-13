@@ -3,7 +3,7 @@
 ## Scope
 
 - EDHR-STATIC-003 reopened path only：旧记录已有 `reviewId` 但缺签名，保持数量重新确认时必须补齐正式签名证据。
-- 未执行 E2E、未启动服务、未写数据库、未提交/推送 Git。
+- 未执行 E2E、未启动服务、未写数据库；已按用户授权提交/推送任务分支并融合进 `int_main`。
 
 ## Results
 
@@ -15,6 +15,12 @@
 - PASS：task-closeout-cleanup preview/apply 通过，keep=3 个核心任务文档，delete=[]，blocked=[]，warnings=[]。
 - NOTE：未执行 E2E、未启动服务、未写数据库，符合当前任务 Expected Verification 范围；Git 提交/推送已由用户在 2026-09-13 单独授权。
 - PASS：实现提交已创建，commit=`06de7883e4610f9d9729ad9eb22c53f6df327310`；commit hook 通过分支运行态端口门禁，登记 slot=48，frontendPort=8263，backendPort=48263。
+- PASS：用户继续授权后，`int_main` 已提交既有 DCC 收尾记录、融合任务分支并解决 4 个 MES 冲突文件。
+- PASS：融合后重跑 `mvn -pl yudao-module-mes -am "-Dtest=cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，28 tests / 0 failures / 0 errors / 0 skipped。
+- PASS：融合后重跑 `mvn -pl yudao-module-mes -am "-Dtest=MesReportAllocationCommandServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，47 tests / 0 failures / 0 errors / 0 skipped。
+- PASS：融合后修正过期静态合同锚点并重跑 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS。
+- PASS：融合后重跑 `git diff --check` -> PASS，仅有 LF/CRLF 工作区提示，无 whitespace error。
+- PASS：融合后重跑 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS，静态合同已适配复核证据补齐逻辑。
 
 ## Risk And Regression Scope
 
