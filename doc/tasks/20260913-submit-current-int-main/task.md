@@ -11,7 +11,7 @@
 - [x] 排除不属于当前提交范围的资源大文件和临时 tsconfig。
 - [x] 运行提交前静态检查并核对 staged 文件清单。
 - [x] 提交并推送到 `origin/int_main`。
-- [ ] 记录最终 commit hash、push 结果和剩余本地未跟踪文件。
+- [x] 记录最终 commit hash、push 结果和剩余本地未跟踪文件。
 
 ## Expected Verification
 
@@ -23,9 +23,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-当前代码批次已提交并推送到 `origin/int_main`，提交为 `ccf7fe08c`。等待 cleanup preview/apply 及最终收尾记录提交。
+当前 `int_main` 已提交并推送到 `origin/int_main`。代码批次提交为 `ccf7fe08c`，补充 tracked MES 改动与 ready_for_closeout 记录的提交为 `c0be9c8b6`。cleanup preview/apply 均通过，无删除项；最终收尾记录随本次文档提交推送。
 
 ## Design Constraints Check
 

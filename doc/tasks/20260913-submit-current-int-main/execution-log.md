@@ -14,3 +14,9 @@
 - `git rebase origin/int_main` -> PASS。
 - `git push origin int_main` -> PASS，`5f22cf5f7..ccf7fe08c int_main -> int_main`。
 - 推送后发现两个新的 tracked MES 改动继续落盘，将纳入本任务收尾提交以保持已跟踪工作区干净。
+- `git diff --check` -> PASS，仅 LF/CRLF warning。
+- `git commit -m "chore: submit remaining int_main changes"` -> PASS，提交 `c0be9c8b6`。
+- `git push origin int_main` -> PASS，`ccf7fe08c..c0be9c8b6 int_main -> int_main`。
+- `task-closeout-cleanup preview` -> PASS，keep 三份任务记录，delete none，blocked none，warnings none。
+- `task-closeout-cleanup apply` -> PASS，delete none，blocked none，warnings none。
+- 收尾时 `git status --short --branch` -> `int_main` 与 `origin/int_main` 一致，只剩 `resource/` Office 资源大文件和 `IntRuoyiFronted/tsconfig.route-production-migration.tmp.json` 未跟踪排除项。
