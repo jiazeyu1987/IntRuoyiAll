@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -92,17 +93,24 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     }
 
     public Map<String, List<Long>> buildStartUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
-        return nodes.stream()
-                .filter(node -> DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()))
-                .collect(Collectors.toMap(ResolvedRouteNode::stageCode,
-                        ResolvedRouteNode::resolvedUserIds, (left, right) -> left, HashMap::new));
+        return buildUniqueStageAssigneeMap(nodes,
+                node -> DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()));
     }
 
     public Map<String, List<Long>> buildApproveUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
-        return nodes.stream()
-                .filter(node -> !DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()))
-                .collect(Collectors.toMap(ResolvedRouteNode::stageCode,
-                        ResolvedRouteNode::resolvedUserIds, (left, right) -> left, HashMap::new));
+        return buildUniqueStageAssigneeMap(nodes,
+                node -> !DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(node.stageCode()));
+    }
+
+    private Map<String, List<Long>> buildUniqueStageAssigneeMap(List<ResolvedRouteNode> nodes,
+                                                                Predicate<ResolvedRouteNode> nodeFilter) {
+        Map<String, List<Long>> assigneeMap = new HashMap<>();
+        nodes.stream().filter(nodeFilter).forEach(node -> {
+            if (assigneeMap.putIfAbsent(node.stageCode(), node.resolvedUserIds()) != null) {
+                throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+            }
+        });
+        return assigneeMap;
     }
 
     private ResolvedRouteNode resolveRouteNode(DccCategoryApprovalRouteNodeDO routeNode, Long submitterUserId,

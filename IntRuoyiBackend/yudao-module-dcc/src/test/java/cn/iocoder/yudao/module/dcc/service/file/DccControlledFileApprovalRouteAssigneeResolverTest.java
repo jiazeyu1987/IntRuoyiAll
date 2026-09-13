@@ -184,6 +184,24 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
         verifyNoInteractions(positionAssignmentMapper, positionRuntimeResolver, adminUserApi);
     }
 
+    @Test
+    void buildApproveUserSelectAssigneeMap_duplicateStageCodeFailsFast() {
+        List<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode> nodes = List.of(
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "会签审核-第一组", 2,
+                        "USER", 201L, List.of(201L), "ALL", 100, Boolean.TRUE, List.of(201L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "会签审核-第二组", 2,
+                        "USER", 202L, List.of(202L), "ALL", 100, Boolean.TRUE, List.of(202L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "会签批准", 3,
+                        "USER", 203L, List.of(203L), "ANY", null, Boolean.FALSE, List.of(203L))
+        );
+
+        assertServiceException(() -> resolver.buildApproveUserSelectAssigneeMap(nodes),
+                CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+    }
+
     private DccCategoryApprovalRouteNodeDO routeNode(Integer stageNo, String stageCode, String candidateSourceType,
                                                     Long candidateSourceId, String candidateSourceIds, Integer sort) {
         boolean matrixReview = DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(stageCode);

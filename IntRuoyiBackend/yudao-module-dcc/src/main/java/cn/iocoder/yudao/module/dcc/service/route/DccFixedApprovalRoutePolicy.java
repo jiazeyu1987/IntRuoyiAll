@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,12 +43,8 @@ public final class DccFixedApprovalRoutePolicy {
     public static void validateSaveNodes(List<DccApprovalRouteNodeSaveReqVO> nodes, ErrorCode errorCode) {
         List<Integer> stageNos = nodes.stream()
                 .map(DccApprovalRouteNodeSaveReqVO::getStageNo)
-                .distinct()
-                .sorted()
                 .toList();
-        if (!stageNos.equals(FIXED_STAGE_NOS)) {
-            throw exception(errorCode);
-        }
+        validateFixedStageNos(stageNos, errorCode);
         nodes.forEach(node -> {
             FixedStageDefinition stage = requireStage(node.getStageNo(), errorCode);
             if (!matchesFixedPolicy(stage, node.getApproveMethod(), node.getApproveRatio(), node.getRequired())) {
@@ -59,12 +56,8 @@ public final class DccFixedApprovalRoutePolicy {
     public static void validateRouteNodes(List<DccCategoryApprovalRouteNodeDO> nodes, ErrorCode errorCode) {
         List<Integer> stageNos = nodes.stream()
                 .map(DccCategoryApprovalRouteNodeDO::getStageNo)
-                .distinct()
-                .sorted()
                 .toList();
-        if (!stageNos.equals(FIXED_STAGE_NOS)) {
-            throw exception(errorCode);
-        }
+        validateFixedStageNos(stageNos, errorCode);
         nodes.forEach(node -> {
             FixedStageDefinition stage = requireStage(node.getStageNo(), errorCode);
             if (!Objects.equals(stage.stageCode(), node.getStageCode())
@@ -74,6 +67,16 @@ public final class DccFixedApprovalRoutePolicy {
                 throw exception(errorCode);
             }
         });
+    }
+
+    private static void validateFixedStageNos(List<Integer> stageNos, ErrorCode errorCode) {
+        if (stageNos.size() != FIXED_STAGE_NOS.size()) {
+            throw exception(errorCode);
+        }
+        Set<Integer> seenStageNos = stageNos.stream().collect(Collectors.toSet());
+        if (seenStageNos.size() != FIXED_STAGE_NOS.size() || !seenStageNos.containsAll(FIXED_STAGE_NOS)) {
+            throw exception(errorCode);
+        }
     }
 
     private static boolean matchesFixedPolicy(FixedStageDefinition stage, String approveMethod,
