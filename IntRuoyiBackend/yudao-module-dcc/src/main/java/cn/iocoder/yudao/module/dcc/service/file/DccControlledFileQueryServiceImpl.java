@@ -148,6 +148,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_NOT_OWNER;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_CHECKED_OUT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CATEGORY_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
@@ -552,12 +553,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
         }
         DccControlledFilePreparedSource preparedSource;
+        DccUploadTicketBoundFile sourceUpload = null;
         String uploadTicket = StrUtil.trimToNull(reqVO.getUploadTicket());
         if (hasUpload) {
-            DccUploadTicketBoundFile bound = uploadTicketService.resolveForBinding(
+            sourceUpload = uploadTicketService.resolveForBinding(
                     new DccUploadTicketResolveCommand(uploadTicket, userId, file.getCategoryId(),
                             reqVO.getSessionId(), "SOURCE"));
-            preparedSource = sourceOwnershipService.prepareSubmissionSource(bound.storageFileId(), false);
+            preparedSource = sourceOwnershipService.prepareSubmissionSource(sourceUpload.storageFileId(), false);
         } else {
             preparedSource = sourceOwnershipService.prepareSubmissionSource(file.getSourceFileId(), false);
         }
@@ -570,8 +572,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKIN_NO_CHANGE);
         }
         DccWindchillVersionNumber nextVersion = resolveNextIteration(file);
+        Long checkinDrawingPdfFileId = resolveCheckinDrawingPdfFileId(file, preparedSource.sourceFileId(),
+                hasUpload, sourceUpload);
         DccControlledFileDO next = copyForCheckin(file, userId, nextVersion, preparedSource,
-                baseHash, reqVO);
+                baseHash, checkinDrawingPdfFileId, reqVO);
         try {
             controlledFileMapper.insert(next);
             if (next.getId() == null) {
@@ -761,6 +765,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                DccWindchillVersionNumber version,
                                                DccControlledFilePreparedSource preparedSource,
                                                String previousHash,
+                                               Long drawingPdfFileId,
                                                DccControlledFileCheckinReqVO reqVO) {
         return DccControlledFileDO.builder()
                 .tenantId(TenantContextHolder.getRequiredTenantId())
@@ -769,7 +774,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .directoryId(file.getDirectoryId())
                 .sourceFileId(preparedSource.sourceFileId())
                 .originalFileId(file.getOriginalFileId())
-                .drawingPdfFileId(file.getDrawingPdfFileId())
+                .drawingPdfFileId(drawingPdfFileId)
                 .fileName(file.getFileName())
                 .title(file.getTitle())
                 .fileNumber(file.getFileNumber())
@@ -800,6 +805,22 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .submitterId(userId)
                 .requesterId(file.getRequesterId())
                 .build();
+    }
+
+    private Long resolveCheckinDrawingPdfFileId(DccControlledFileDO file, Long nextSourceFileId,
+                                                boolean hasUpload, DccUploadTicketBoundFile sourceUpload) {
+        if (!hasUpload) {
+            return file.getDrawingPdfFileId();
+        }
+        String sourceFileName = sourceUpload == null ? null : sourceUpload.fileName();
+        if (StrUtil.isBlank(sourceFileName) && nextSourceFileId != null) {
+            FileDO nextSourceFile = fileMapper.selectById(nextSourceFileId);
+            sourceFileName = nextSourceFile == null ? null : nextSourceFile.getName();
+        }
+        if (DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFileName)) {
+            throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+        }
+        return null;
     }
 
     private void cleanupPreparedSourceIfNeeded(DccControlledFilePreparedSource preparedSource) {
@@ -1687,16 +1708,34 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 return file.getStampedFileId();
             }
             if (DccControlledFileStatusEnum.WORKING.getStatus().equals(status)) {
-                return file.getSourceFileId();
+                return resolveCurrentRevisionPreviewFileId(file, file.getSourceFileId());
             }
             if (DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)
                     || isPendingPreviewStatus(status)
                     || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
-                return file.getSourceFileId() == null ? file.getOriginalFileId() : file.getSourceFileId();
+                return resolveCurrentRevisionPreviewFileId(file,
+                        file.getSourceFileId() == null ? file.getOriginalFileId() : file.getSourceFileId());
             }
             return null;
         }
         return file.getPublishedFileId();
+    }
+
+    private Long resolveCurrentRevisionPreviewFileId(DccControlledFileDO file, Long currentSourceFileId) {
+        if (currentSourceFileId == null) {
+            return null;
+        }
+        FileDO sourceFile = fileMapper.selectById(currentSourceFileId);
+        if (sourceFile == null) {
+            return currentSourceFileId;
+        }
+        if (DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFile.getName())) {
+            if (file.getDrawingPdfFileId() == null) {
+                throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+            }
+            return file.getDrawingPdfFileId();
+        }
+        return currentSourceFileId;
     }
 
     private FileDO resolveBinaryFileRecord(DccControlledFileDO file, DccAccessTypeEnum accessType) {
