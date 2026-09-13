@@ -108,17 +108,20 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         validateNoTargetChainConflict(master, file, metadata, selectedDirectoryId);
         validateChainContainsFile(chainFiles, file);
 
-        controlledFileMasterMapper.updateById(DccControlledFileMasterDO.builder()
-                .id(master.getId())
-                .categoryId(metadata.categoryId())
-                .directoryId(selectedDirectoryId)
-                .fileName(metadata.fileName())
-                .fileNumber(metadata.fileNumber())
-                .dccProjectCodeId(metadata.dccProjectCodeId())
-                .fileTypeTaxonomyLeafId(metadata.fileTypeTaxonomyId())
-                .normalizedFileNumber(metadata.normalizedFileNumber())
-                .currentActiveControlledFileId(resolveCurrentActiveControlledFileId(master, file))
-                .build());
+        int masterUpdated = controlledFileMasterMapper.updateMetadataIdentity(
+                master.getId(),
+                metadata.categoryId(),
+                selectedDirectoryId,
+                metadata.fileName(),
+                metadata.fileNumber(),
+                metadata.dccProjectCodeId(),
+                metadata.fileTypeTaxonomyId(),
+                metadata.normalizedFileNumber(),
+                resolveCurrentActiveControlledFileId(master, file),
+                userId == null ? null : String.valueOf(userId));
+        if (masterUpdated != 1) {
+            throw exception(CONTROLLED_FILE_FILE_NUMBER_CONFLICT);
+        }
         DccControlledFileDO afterFile = DccControlledFileDO.builder()
                 .id(file.getId())
                 .masterId(master.getId())
