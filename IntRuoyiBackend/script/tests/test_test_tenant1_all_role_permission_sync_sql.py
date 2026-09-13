@@ -1,11 +1,12 @@
 from pathlib import Path
+import re
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SQL_PATH = REPO_ROOT / "sql" / "mysql" / "20260807_test_tenant1_all_role_permission_sync.sql"
 
 SOURCE_ROLE_COUNT = 60
-SOURCE_ROLE_PERMISSION_COUNT = 1676
+SOURCE_ROLE_PERMISSION_COUNT = 1678
 SOURCE_MISSING_PERMISSION_COUNT = 12
 
 MISSING_PERMISSIONS = {
@@ -29,6 +30,19 @@ def read_sql() -> str:
     return SQL_PATH.read_text(encoding="utf-8")
 
 
+def extract_insert_rows(sql: str, table_name: str) -> list[str]:
+    marker = f"INSERT INTO `{table_name}`"
+    start = sql.index(marker)
+    values_start = sql.index("VALUES", start)
+    end = sql.index(";", values_start)
+    values_block = sql[values_start:end]
+    return [
+        line.strip()
+        for line in values_block.splitlines()
+        if re.match(r"^\('[^']+", line.strip())
+    ]
+
+
 def test_all_role_permission_sync_has_test_only_high_risk_release_contract() -> None:
     sql = read_sql()
     first_line = sql.splitlines()[0]
@@ -41,6 +55,27 @@ def test_all_role_permission_sync_has_test_only_high_risk_release_contract() -> 
     assert f"-- source-active-role-count: {SOURCE_ROLE_COUNT}" in sql
     assert f"-- source-role-permission-count: {SOURCE_ROLE_PERMISSION_COUNT}" in sql
     assert f"-- source-missing-permission-count: {SOURCE_MISSING_PERMISSION_COUNT}" in sql
+
+
+def test_all_role_permission_sync_static_counts_match_source_rows_and_guards() -> None:
+    sql = read_sql()
+
+    role_rows = extract_insert_rows(sql, "tmp_test_tenant1_role_source")
+    missing_menu_rows = extract_insert_rows(sql, "tmp_test_tenant1_missing_menu_source")
+    permission_rows = extract_insert_rows(sql, "tmp_test_tenant1_role_permission_source")
+    missing_permission_count = len({
+        re.match(r"^\('(?:[^']|'')*',\s*'(?:[^']|'')*',\s*'((?:[^']|'')*)'", row).group(1)
+        for row in missing_menu_rows
+    })
+
+    assert f"-- source-active-role-count: {len(role_rows)}" in sql
+    assert f"-- source-missing-permission-count: {missing_permission_count}" in sql
+    assert f"-- source-role-permission-count: {len(permission_rows)}" in sql
+    assert f"COUNT(*) FROM `tmp_test_tenant1_role_source`) <> {len(role_rows)}" in sql
+    assert f"COUNT(DISTINCT `permission`) FROM `tmp_test_tenant1_missing_menu_source`) <> {missing_permission_count}" in sql
+    assert f"COUNT(*) FROM `tmp_test_tenant1_role_permission_source`) <> {len(permission_rows)}" in sql
+    assert f"COUNT(*) FROM `tmp_test_tenant1_role_target`) <> {len(role_rows)}" in sql
+    assert f"COUNT(*) FROM `tmp_test_tenant1_permission_menu_target`) <> {len(permission_rows)}" in sql
 
 
 def test_all_role_permission_sync_uses_stable_role_and_category_keys() -> None:

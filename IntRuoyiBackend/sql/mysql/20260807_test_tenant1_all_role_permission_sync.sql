@@ -1,7 +1,7 @@
 -- release-migration: allowedEnvironments=test; dependsOn=20260728_mes_scheduler_route_flow_list_permission; type=data; riskLevel=high
 -- Purpose: align every active tenant-1 local role and effective permission with the test environment by stable keys.
 -- source-active-role-count: 60
--- source-role-permission-count: 1676
+-- source-role-permission-count: 1678
 -- source-missing-permission-count: 12
 -- Target-only roles and all user-role bindings must remain unchanged.
 -- Other-tenant role-menu rows must remain unchanged.
@@ -1929,7 +1929,7 @@ BEGIN
   ('wenkong_download', 'dcc:controlled-file:query', 2, 'controlled-file/browser', 'dcc/controlled-file/browser/index', 'DccControlledFileBrowser'),
   ('wenkong_download', 'mes:pro-feedback:frontline-pressure-pump:all-processes', 3, '', '', '');
 
-  IF (SELECT COUNT(*) FROM `tmp_test_tenant1_role_permission_source`) <> 1676 THEN
+  IF (SELECT COUNT(*) FROM `tmp_test_tenant1_role_permission_source`) <> 1678 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Unexpected source role-permission count';
   END IF;
 
@@ -2112,7 +2112,7 @@ BEGIN
   ) AS `ranked`
   WHERE `ranked`.`row_number` = 1;
 
-  IF (SELECT COUNT(*) FROM `tmp_test_tenant1_permission_menu_target`) <> 1676 THEN
+  IF (SELECT COUNT(*) FROM `tmp_test_tenant1_permission_menu_target`) <> 1678 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing source permissions after target menu resolution';
   END IF;
 
