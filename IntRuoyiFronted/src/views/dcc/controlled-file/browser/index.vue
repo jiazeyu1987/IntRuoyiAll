@@ -954,12 +954,12 @@
   <el-dialog
     v-model="checkinDialogVisible"
     title="检入新小版本"
-    width="520px"
+    width="560px"
     destroy-on-close
     @closed="resetCheckinDialog"
   >
     <el-form label-position="top">
-      <el-form-item label="修改后的源文件" required>
+      <el-form-item label="修改后的源文件（可选）">
         <el-upload
           data-testid="dcc-controlled-browser-checkin-upload"
           v-model:file-list="checkinFileList"
@@ -976,6 +976,9 @@
         <div v-if="checkinUpload" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
           已上传：{{ checkinUpload.fileName }}
         </div>
+        <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+          源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。
+        </div>
       </el-form-item>
       <el-form-item label="修改说明" required>
         <el-input
@@ -985,6 +988,17 @@
           :rows="3"
           maxlength="1000"
           show-word-limit
+        />
+      </el-form-item>
+      <el-form-item label="检入备注">
+        <el-input
+          v-model="checkinForm.remark"
+          data-testid="dcc-controlled-browser-checkin-remark"
+          type="textarea"
+          :rows="3"
+          maxlength="1000"
+          show-word-limit
+          placeholder="请输入本次检入后的文件备注"
         />
       </el-form-item>
     </el-form>
@@ -1219,7 +1233,7 @@ const checkinTarget = ref<ControlledFileBrowserVersion>()
 const checkinUploadSessionId = ref(createControlledFileUploadSessionId())
 const checkinUpload = ref<ControlledFileUploadRespVO>()
 const checkinFileList = ref<UploadUserFile[]>([])
-const checkinForm = reactive({ changeDescription: '' })
+const checkinForm = reactive({ changeDescription: '', remark: '' })
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1840,6 +1854,7 @@ const handleCheckin = (file: ControlledFileBrowserVersion) => {
   if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
   resetCheckinDialog()
   checkinTarget.value = file
+  checkinForm.remark = String(file.remark || '')
   checkinDialogVisible.value = true
 }
 
@@ -1848,6 +1863,7 @@ const resetCheckinDialog = () => {
   checkinUpload.value = undefined
   checkinFileList.value = []
   checkinForm.changeDescription = ''
+  checkinForm.remark = ''
   checkinUploadSessionId.value = createControlledFileUploadSessionId()
 }
 
@@ -1896,13 +1912,17 @@ const submitCheckin = async () => {
   const target = checkinTarget.value
   const uploaded = checkinUpload.value
   const changeDescription = checkinForm.changeDescription.trim()
+  const normalizedCheckinRemark = checkinForm.remark.trim()
   if (!target || !isValidBrowserOptionId(target.id)) return
-  if (!uploaded?.uploadTicket) {
-    message.warning('请先上传修改后的源文件。')
-    return
-  }
   if (!changeDescription) {
     message.warning('请输入修改说明。')
+    return
+  }
+  const hasCheckinUpload = Boolean(uploaded?.uploadTicket)
+  const hasCheckinRemarkChange =
+    Boolean(normalizedCheckinRemark) && normalizedCheckinRemark !== String(target.remark || '').trim()
+  if (!hasCheckinUpload && !hasCheckinRemarkChange) {
+    message.warning('请上传修改后的源文件，或修改检入备注。')
     return
   }
   const baseId = target.id
@@ -1910,9 +1930,10 @@ const submitCheckin = async () => {
   checkoutLoadingId.value = baseId
   try {
     const updatedFile = await checkinControlledFile(baseId, {
-      uploadTicket: uploaded.uploadTicket,
-      sessionId: checkinUploadSessionId.value,
-      changeDescription
+      uploadTicket: hasCheckinUpload ? uploaded?.uploadTicket : undefined,
+      sessionId: hasCheckinUpload ? checkinUploadSessionId.value : undefined,
+      changeDescription,
+      remark: normalizedCheckinRemark
     })
     checkinDialogVisible.value = false
     await getList()
