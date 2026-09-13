@@ -38,8 +38,8 @@ blocked
 - RED：DCC-019 前端静态合同、后端保存/预览回归测试、运行态重复 Map 回归测试均按预期暴露修复前缺陷。
 - GREEN：前端静态合同 PASS；`DccApprovalRouteAdminServiceImplTest` 与 `DccControlledFileApprovalRouteAssigneeResolverTest` 合计 27 tests PASS；已有 DCC 路线摘要静态合同 PASS；`pnpm ts:check` PASS；`git diff --check` PASS。
 - 依赖准备：`corepack pnpm install --frozen-lockfile` PASS，pnpm v10.25.0。
-- 授权后复验：任务分支 rebase 到本地 `int_main` 后，`git diff --check`、两个前端静态合同、`pnpm ts:check`、后端 27 项定向测试均 PASS；实现提交随后再次 rebase 到最新本地 `int_main`，当前实现提交为 `6c4631d5c`。
-- 合并请求复验：用户要求合并到 `int_main` 后，任务分支再次 rebase 到本地 `int_main` 的 `8239aef40`，两个前端静态合同 PASS；初次 `git diff --check int_main..HEAD` 发现任务文档 BDD 行尾空格，已修复。
+- 授权后复验：任务分支 rebase 到本地 `int_main` 后，`git diff --check`、两个前端静态合同、`pnpm ts:check`、后端 27 项定向测试均 PASS；实现提交随后再次 rebase 到最新本地 `int_main`，当前实现提交为 `34b5585ed`。
+- 合并请求复验：用户要求合并到 `int_main` 后，任务分支再次 rebase 到本地 `int_main` 的 `cd376a2a2`，`git diff --check int_main..HEAD`、两个前端静态合同、`pnpm ts:check`、后端 27 项定向测试均 PASS。
 
 RED: 修复前静态合同、保存/预览回归测试和运行态重复 Map 回归测试均失败，原因分别为前端未拦截、后端未拒绝和后续人员被静默丢弃。
 
@@ -54,8 +54,8 @@ GREEN: 修复后静态合同、27 项后端定向测试、路线摘要静态合�
 
 - 未执行真实页面 E2E、服务启动或数据库写入；这是本任务用户约束的验证边界，不是代码测试失败。
 - 用户授权后已创建具名任务分支并登记 runtime slot 17，detached HEAD blocker 已解除。
-- cleanup preview after authorization 保留三份任务记录、删除项为空；cleanup apply / ff-only 合入 / worktree 删除仍 BLOCKED：主工作区 `E:\IntRuoyi` 当前 `int_main...origin/int_main [ahead 9]` 且存在大量并行脏改动，其中包含与本任务同路径重叠文件，按 closeout 规则不能作为安全合入目标。
+- cleanup preview after authorization 保留三份任务记录、删除项为空；cleanup apply / ff-only 合入 / worktree 删除仍 BLOCKED：主工作区 `E:\IntRuoyi` 当前 `int_main...origin/int_main [ahead 13]` 且存在并行脏改动，按 closeout 规则不能作为安全合入目标。
 
 ## Closeout Blocker
 
-实现与验证已完成，用户授权后已创建任务分支、登记 runtime slot 并提交实现。用户要求合并到 `int_main` 时，任务分支已对齐最新本地 `int_main`，但主工作区存在并行脏改动且与本任务同路径重叠；cleanup apply 需要主工作区干净后才能 ff-only 合入并删除当前 worktree。因此最终状态仍为 `blocked`，不能标记 `completed`。
+实现与验证已完成，用户授权后已创建任务分支、登记 runtime slot 并提交实现。用户要求合并到 `int_main` 时，任务分支已对齐最新本地 `int_main`，但主工作区存在并行脏改动；cleanup apply 需要主工作区干净后才能 ff-only 合入并删除当前 worktree。因此最终状态仍为 `blocked`，不能标记 `completed`。

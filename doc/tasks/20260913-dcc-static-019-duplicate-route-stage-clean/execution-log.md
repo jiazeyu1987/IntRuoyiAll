@@ -81,3 +81,10 @@
 - Hygiene: `git diff --check int_main..HEAD` first found trailing whitespace in task BDD lines; fixed the task document and reran before final push.
 - Merge blocker: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 9]` with many parallel dirty/untracked files. Dirty files include same-path overlap with this task (`DccFixedApprovalRoutePolicy.java`, `DccApprovalRouteAdminServiceImplTest.java`, `docs/bugs/20260912-dcc-90-step-static-audit.md`), so merging into the checked-out main worktree would risk mixing unrelated work.
 - Final merge status: BLOCKED by dirty main worktree; did not run `git -C E:\IntRuoyi merge` and did not stash, reset, clean, or baseline-commit unrelated changes.
+- Second main drift check: local `int_main` advanced again to `cd376a2a2 docs: mark DCC static 027 merge complete`; `git rebase int_main` -> PASS, branch remained fast-forwardable with `git rev-list --left-right --count int_main...HEAD` -> `0 3`.
+- Final GREEN after second rebase: `git diff --check int_main..HEAD` -> PASS。
+- Final GREEN after second rebase: `node tests\e2e\dcc-static-019-approval-route-duplicate-stage-static.spec.js` -> PASS。
+- Final GREEN after second rebase: `node tests\e2e\dcc-route-summary-static.spec.js` -> PASS。
+- Final GREEN after second rebase: `pnpm ts:check` -> PASS。
+- Final GREEN after second rebase: `mvn -pl yudao-module-dcc -am "-Dtest=DccApprovalRouteAdminServiceImplTest,DccControlledFileApprovalRouteAssigneeResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，27 tests, failures 0, errors 0。
+- Final merge blocker check: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 13]` with dirty files `IntRuoyiFronted/scripts/dcc-frontend-api-fail-closed-contract.test.mjs` and `IntRuoyiFronted/tests/e2e/dcc-controlled-file-protection.contract.test.js`; per cleanup rules, main worktree is still not a clean merge target.
