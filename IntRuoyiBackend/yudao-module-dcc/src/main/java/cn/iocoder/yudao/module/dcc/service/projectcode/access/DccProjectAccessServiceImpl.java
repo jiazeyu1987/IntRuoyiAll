@@ -1,12 +1,17 @@
 package cn.iocoder.yudao.module.dcc.service.projectcode.access;
 
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
+import cn.iocoder.yudao.module.system.api.dept.PostApi;
+import cn.iocoder.yudao.module.system.api.dept.dto.PostRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -39,7 +44,11 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     @Resource
     private PermissionApi permissionApi;
     @Resource
+    private RoleApi roleApi;
+    @Resource
     private DeptApi deptApi;
+    @Resource
+    private PostApi postApi;
 
     @Override
     public List<DccProjectAccessRuleDO> getProjectAccessRules(Long projectCodeId) {
@@ -162,6 +171,7 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         if (changeReason == null || changeReason.isEmpty()) {
             throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
         }
+        validateAssignableSubject(subjectType, rule.getSubjectId());
         DccProjectAccessRuleDO accessRule = new DccProjectAccessRuleDO();
         accessRule.setDccProjectCodeId(projectCodeId);
         accessRule.setSubjectType(subjectType);
@@ -180,6 +190,45 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         }
         String normalized = value.trim().toUpperCase();
         return allowedValues.contains(normalized) ? normalized : null;
+    }
+
+    private void validateAssignableSubject(String subjectType, Long subjectId) {
+        boolean valid = switch (subjectType) {
+            case "USER" -> isAssignableUser(subjectId);
+            case "DEPT" -> isAssignableDept(subjectId);
+            case "ROLE" -> isAssignableRole(subjectId);
+            case "POSITION" -> isAssignablePost(subjectId);
+            default -> false;
+        };
+        if (!valid) {
+            throw exception(DCC_PROJECT_ACCESS_RULE_INVALID);
+        }
+    }
+
+    private boolean isAssignableUser(Long subjectId) {
+        AdminUserRespDTO user = adminUserApi.getUser(subjectId);
+        return user != null && subjectId.equals(user.getId()) && isEnabled(user.getStatus());
+    }
+
+    private boolean isAssignableDept(Long subjectId) {
+        DeptRespDTO dept = deptApi.getDept(subjectId);
+        return dept != null && subjectId.equals(dept.getId()) && isEnabled(dept.getStatus());
+    }
+
+    private boolean isAssignableRole(Long subjectId) {
+        List<RoleRespDTO> roles = roleApi.getRoleList(List.of(subjectId));
+        return roles != null && roles.stream()
+                .anyMatch(role -> role != null && subjectId.equals(role.getId()) && isEnabled(role.getStatus()));
+    }
+
+    private boolean isAssignablePost(Long subjectId) {
+        List<PostRespDTO> posts = postApi.getPostList(List.of(subjectId));
+        return posts != null && posts.stream()
+                .anyMatch(post -> post != null && subjectId.equals(post.getId()) && isEnabled(post.getStatus()));
+    }
+
+    private boolean isEnabled(Integer status) {
+        return CommonStatusEnum.ENABLE.getStatus().equals(status);
     }
 
     private boolean isCurrentlyActiveOwner(DccProjectAccessRuleDO rule) {
