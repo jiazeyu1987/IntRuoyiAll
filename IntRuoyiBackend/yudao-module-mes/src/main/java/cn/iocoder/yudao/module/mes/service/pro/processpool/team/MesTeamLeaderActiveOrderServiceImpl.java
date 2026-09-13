@@ -1978,25 +1978,37 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
+        List<Long> routeIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getRouteId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         Map<Long, List<MesProcessPoolActiveOrderProcessSnapshotDO>> snapshotsByActiveOrderId =
                 processSnapshotMapper.selectListByActiveOrderIds(activeOrderIds).stream()
                         .filter(snapshot -> snapshot.getActiveOrderId() != null)
                         .collect(Collectors.groupingBy(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId,
                                 LinkedHashMap::new, Collectors.toList()));
-        Map<ActiveOrderProcessIdentity, BigDecimal> allocatedQuantityByProcess =
-                reportAllocationMapper.selectListByActiveOrderIds(activeOrderIds).stream()
-                        .filter(allocation -> allocation.getActiveOrderId() != null
-                                && allocation.getRouteProcessId() != null
-                                && allocation.getProcessId() != null)
-                        .collect(Collectors.groupingBy(allocation -> new ActiveOrderProcessIdentity(
-                                        allocation.getActiveOrderId(), allocation.getRouteProcessId(),
-                                        allocation.getProcessId()),
-                                LinkedHashMap::new,
-                                Collectors.reducing(BigDecimal.ZERO, this::requireAllocationQuantity, BigDecimal::add)));
+        List<MesProcessPoolReportAllocationDO> reportAllocations =
+                reportAllocationMapper.selectListByActiveOrderIds(activeOrderIds);
+        Map<Long, List<MesProcessPoolReportAllocationDO>> allocationsByActiveOrderId = reportAllocations.stream()
+                .filter(allocation -> allocation.getActiveOrderId() != null)
+                .collect(Collectors.groupingBy(MesProcessPoolReportAllocationDO::getActiveOrderId,
+                        LinkedHashMap::new, Collectors.toList()));
+        reportAllocations.stream()
+                .filter(allocation -> allocation.getActiveOrderId() != null
+                        && allocation.getRouteProcessId() != null
+                        && allocation.getProcessId() != null)
+                .forEach(this::requireAllocationQuantity);
         Map<Long, List<MesPqcInspectionTaskDO>> pqcTasksByActiveOrderId =
                 pqcInspectionTaskMapper.selectListByActiveOrderIds(activeOrderIds).stream()
                         .filter(task -> task.getActiveOrderId() != null)
                         .collect(Collectors.groupingBy(MesPqcInspectionTaskDO::getActiveOrderId,
+                                LinkedHashMap::new, Collectors.toList()));
+        Map<WorkOrderRouteIdentity, List<MesProProcessPoolEventDO>> productionEventsByWorkOrderRoute =
+                processPoolEventMapper.selectProductionSubmitsByWorkOrderIdsAndRouteIds(workOrderIds, routeIds).stream()
+                        .filter(event -> event.getWorkOrderId() != null && event.getRouteId() != null)
+                        .collect(Collectors.groupingBy(event -> new WorkOrderRouteIdentity(event.getWorkOrderId(),
+                                        event.getRouteId()),
                                 LinkedHashMap::new, Collectors.toList()));
         Map<Long, ActiveOrderProgress> progressByActiveOrderId = new LinkedHashMap<>();
         activeOrders.forEach(activeOrder -> {
@@ -2007,8 +2019,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         snapshots);
                 Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = progressTargetQuantities(activeOrder,
                         snapshots);
+                List<MesProcessPoolReportAllocationDO> allocations =
+                        allocationsByActiveOrderId.getOrDefault(activeOrder.getId(), List.of());
+                List<MesProProcessPoolEventDO> productionEvents = productionEventsByWorkOrderRoute.getOrDefault(
+                        new WorkOrderRouteIdentity(activeOrder.getWorkOrderId(), activeOrder.getRouteId()),
+                        List.of());
+                Map<ActiveOrderProcessIdentity, BigDecimal> progressQuantityByProcess =
+                        resolveConservativeProcessProgressQuantities(activeOrder, snapshots,
+                                allocations, productionEvents);
                 List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity> processRemainingQuantities =
-                        resolveProcessRemainingQuantities(activeOrder, snapshots, allocatedQuantityByProcess);
+                        resolveProcessRemainingQuantities(activeOrder, snapshots, progressQuantityByProcess);
                 int quantityConflictProcessCount = (int) processRemainingQuantities.stream()
                         .filter(item -> Boolean.TRUE.equals(item.getQuantityConflict()))
                         .count();
@@ -2021,7 +2041,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 int totalProcessCount = processIdentities.size();
                 long completedProcessCount = processIdentities.stream()
                         .filter(process -> isProductionProcessFullyAllocated(activeOrder, process,
-                                targetQuantityByProcess, allocatedQuantityByProcess))
+                                targetQuantityByProcess, progressQuantityByProcess))
                         .count();
                 List<MesPqcInspectionTaskDO> pqcTasks = pqcTasksByActiveOrderId.getOrDefault(activeOrder.getId(),
                         List.of());
@@ -2042,17 +2062,33 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return progressByActiveOrderId;
     }
 
+    private static Map<ActiveOrderProcessIdentity, BigDecimal> resolveConservativeProcessProgressQuantities(
+            MesProcessPoolActiveOrderDO activeOrder,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
+            List<MesProcessPoolReportAllocationDO> allocations,
+            List<MesProProcessPoolEventDO> productionEvents) {
+        Map<ActiveOrderProcessIdentity, BigDecimal> result = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            ActiveOrderProcessIdentity identity = new ActiveOrderProcessIdentity(activeOrder.getId(),
+                    snapshot.getRouteProcessId(), snapshot.getProcessId());
+            BigDecimal progressQuantity = MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(
+                    activeOrder, snapshot, productionEvents, allocations);
+            result.put(identity, progressQuantity);
+        }
+        return result;
+    }
+
     private static List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity> resolveProcessRemainingQuantities(
             MesProcessPoolActiveOrderDO activeOrder,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
-            Map<ActiveOrderProcessIdentity, BigDecimal> allocatedQuantityByProcess) {
+            Map<ActiveOrderProcessIdentity, BigDecimal> progressQuantityByProcess) {
         return snapshots.stream()
                 .map(snapshot -> {
                     BigDecimal plannedQuantity = snapshot.getPlannedQuantitySnapshot();
                     if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
                         throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
                     }
-                    BigDecimal allocatedQuantity = allocatedQuantityByProcess.getOrDefault(
+                    BigDecimal allocatedQuantity = progressQuantityByProcess.getOrDefault(
                             new ActiveOrderProcessIdentity(activeOrder.getId(), snapshot.getRouteProcessId(),
                                     snapshot.getProcessId()),
                             BigDecimal.ZERO);
@@ -2102,7 +2138,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesProcessPoolActiveOrderDO activeOrder,
             ProcessIdentity process,
             Map<ProcessIdentity, BigDecimal> targetQuantityByProcess,
-            Map<ActiveOrderProcessIdentity, BigDecimal> allocatedQuantityByProcess) {
+            Map<ActiveOrderProcessIdentity, BigDecimal> progressQuantityByProcess) {
         BigDecimal targetQuantity = targetQuantityByProcess.get(process);
         if (targetQuantity == null) {
             BigDecimal erpQuantity = activeOrder.getErpFixedQuantitySnapshot();
@@ -2111,7 +2147,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             }
             targetQuantity = erpQuantity;
         }
-        BigDecimal allocatedQuantity = allocatedQuantityByProcess.getOrDefault(new ActiveOrderProcessIdentity(
+        BigDecimal allocatedQuantity = progressQuantityByProcess.getOrDefault(new ActiveOrderProcessIdentity(
                 activeOrder.getId(), process.routeProcessId(), process.processId()), BigDecimal.ZERO);
         return allocatedQuantity.compareTo(targetQuantity) >= 0;
     }
@@ -3035,13 +3071,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(activeOrder.getRouteVersionId());
         JSONObject routeProductionConfig = requireRouteProductionProcessConfig(routeVersion, activeOrder, process);
         String inputMaterialIdsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("inputMaterialIds"));
-        String outputMaterialIdsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("outputMaterialIds"));
         String lossReasonsJson = canonicalProductionArray(routeProductionConfig.getJSONArray("lossReasons"));
         String parameterJson = MesDeviceParameterSnapshotCodec.canonicalizeSnapshotRules(
                 JsonUtils.parseArray(routeProductionConfig.getJSONArray("parameterRules").toJSONString(),
                         MesDeviceParameterSnapshotRule.class),
                 process.getRouteProcessId(), process.getProcessId());
         String deviceJson = canonicalProductionArray(routeProductionConfig.getJSONArray("deviceSelectionGroups"));
+        String outputMaterialIdsJson = requireOutputMaterialIds(activeOrder, process, routeProductionConfig.getJSONArray("outputMaterialIds"));
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeProcessId", process.getRouteProcessId());
         snapshot.put("processId", process.getProcessId());
@@ -3097,6 +3133,27 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private String canonicalProductionArray(JSONArray array) {
         return JSON.toJSONString(array == null ? new JSONArray() : array);
+    }
+
+    private String requireOutputMaterialIds(MesProcessPoolActiveOrderDO activeOrder,
+                                            MesProScheduleOrderProcessDO process,
+                                            JSONArray outputMaterialIds) {
+        if (outputMaterialIds == null || outputMaterialIds.isEmpty()) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, activeOrder.getRouteVersionId());
+        }
+        Set<Long> materialIds = new LinkedHashSet<>();
+        for (Object rawMaterialId : outputMaterialIds) {
+            Long materialId;
+            try {
+                materialId = rawMaterialId == null ? null : Long.valueOf(String.valueOf(rawMaterialId));
+            } catch (NumberFormatException ex) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, activeOrder.getRouteVersionId());
+            }
+            if (materialId == null || materialId <= 0 || !materialIds.add(materialId)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, activeOrder.getRouteVersionId());
+            }
+        }
+        return JSON.toJSONString(outputMaterialIds);
     }
 
     private record ProductionProcessConfigSnapshot(String lossReasonSnapshotJson,
@@ -3156,6 +3213,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         private boolean complete() {
             return activeOrderId != null && routeProcessId != null && processId != null;
         }
+    }
+
+    private record WorkOrderRouteIdentity(Long workOrderId, Long routeId) {
     }
 
     private record CandidateEligibility(boolean eligible, String candidateState, String ineligibleReason) {

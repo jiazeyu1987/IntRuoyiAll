@@ -1230,6 +1230,7 @@
 - Lifecycle mutation rule: 提交、撤回、重开和取消候选版本都必须在事务内先 `SELECT ... FOR UPDATE`，再根据锁定后的状态执行变更；撤回不仅要修改返回对象，还必须持久化 `DRAFT` 并清空提交人、提交时间和审批实例字段。
 - Full replacement rule: 声明“覆盖全部工序”的识别导入必须以候选流程图重新构造输出集合；旧配置只能作为仍存在工序的非目标字段来源，候选流程图已删除的工序不得继续进入输出数组。
 - Partial material rule: 多输出物料允许提交冻结集合的非空子集，但进入提交集合的每条物料完成数量必须大于零。空白表示未提交，显式零不能生成签名反馈、工序事件或零进度事实。
+- Output material progress snapshot extension: 多输出物料进度必须从活跃订单冻结生产配置中的全体 `outputMaterialIds` 取全集；列表进度、完工门禁和工序完成记录应按正式生产事件 `materialDetails` 对每个输出物料累计后取最小完成数量。缺少 `outputMaterialIds`、事件来源、物料明细或数量时必须 fail fast，禁止回退到 allocation 累加、把分次提交的不同输出物料相加成目标，或用测试手工字段掩盖生产快照缺口。Evidence: `doc/tasks/20260913-edhr-static-013-reopened-output-material-snapshot/verification-report.md`。
 - Blocker: 直接比较 PQC 台账设备 ID 与路线班组设备 ID、完整配置只校验数组存在、生成活跃订单快照时静默过滤身份不匹配参数、缺少冻结快照返回空配置、或并发保存只做内存哈希比较时必须停止。
 - Verification: 单测使用“不同数据库 ID、相同正式设备编码”证明 PQC 设备交集和参数关联；覆盖未知/禁用/重复编码设备、跨工序参数、无效值类型和范围、旧哈希并发冲突、缺冻结快照失败，并运行一线生产/PQC/路线静态合同。
 - Forbidden action: 禁止用名称、数组位置或碰巧相同的数字主键关联设备，禁止把 `MISSING_LEGACY` 当空配置继续生产，禁止信任客户端设备编号和名称作为审计事实。

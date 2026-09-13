@@ -135,6 +135,20 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .orderByDesc(MesProProcessPoolEventDO::getId));
     }
 
+    default List<MesProProcessPoolEventDO> selectProductionSubmitsByWorkOrderIdsAndRouteIds(
+            Collection<Long> workOrderIds, Collection<Long> routeIds) {
+        if (workOrderIds == null || workOrderIds.isEmpty() || routeIds == null || routeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .in(MesProProcessPoolEventDO::getWorkOrderId, workOrderIds)
+                .in(MesProProcessPoolEventDO::getRouteId, routeIds)
+                .orderByAsc(MesProProcessPoolEventDO::getWorkOrderId)
+                .orderByAsc(MesProProcessPoolEventDO::getRouteId)
+                .orderByAsc(MesProProcessPoolEventDO::getId));
+    }
+
     default List<MesProProcessPoolEventDO> selectProductionSubmitsByWorkOrderAndRouteForUpdate(Long workOrderId,
                                                                                                Long routeId) {
         if (workOrderId == null || routeId == null) {

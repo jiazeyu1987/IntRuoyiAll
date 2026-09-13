@@ -177,10 +177,29 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
                     || config.getJSONArray("parameterRules") == null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
             }
+            validateOutputMaterialIds(routeVersionId, config.getJSONArray("outputMaterialIds"));
             validateDeviceConfiguration(routeVersionId, config);
         }
         if (!actualRouteProcessIds.equals(expectedProcesses.keySet())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+    }
+
+    private static void validateOutputMaterialIds(Long routeVersionId, JSONArray outputMaterialIds) {
+        if (outputMaterialIds == null || outputMaterialIds.isEmpty()) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        Set<Long> materialIds = new LinkedHashSet<>();
+        for (Object rawMaterialId : outputMaterialIds) {
+            Long materialId;
+            try {
+                materialId = rawMaterialId == null ? null : Long.valueOf(String.valueOf(rawMaterialId));
+            } catch (NumberFormatException ex) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+            if (materialId == null || materialId <= 0 || !materialIds.add(materialId)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
         }
     }
 
