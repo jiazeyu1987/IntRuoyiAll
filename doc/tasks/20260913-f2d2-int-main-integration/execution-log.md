@@ -15,3 +15,6 @@
 - 端口门禁：`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` frontend 8081 backend 48081。
 - 推送：`git push origin int_main` -> PASS，`origin/int_main` 更新到 `92b5a6dc2`。
 - 追加收口：主线后续出现 `MesProEdhrNonconformanceReviewServiceImpl` 与 `MesProEdhrNonconformanceReviewApplicationScopeTest` unmerged index；工作区内容已合并为 QA 电子签名快照与工单冻结生命周期同版逻辑，并确认无冲突标记。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-011-freeze-lifecycle-static.spec.cjs` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrNonconformanceReviewApplicationScopeTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests，0 failures，0 errors，0 skipped。
+- GREEN: `git diff --check` -> PASS。

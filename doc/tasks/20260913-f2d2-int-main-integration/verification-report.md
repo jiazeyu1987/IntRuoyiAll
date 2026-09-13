@@ -15,9 +15,11 @@ PASS. f2d2 工作树 HEAD `6c6487c9f` 已是 `int_main` 祖先，当前 `int_mai
 ## Static Verification
 
 - `node IntRuoyiBackend\yudao-module-dcc\src\test\js\dcc-static-024-training-session-concurrency-contract.spec.cjs` -> PASS。
+- `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-011-freeze-lifecycle-static.spec.cjs` -> PASS。
 - `node IntRuoyiFronted\tests\e2e\dcc-static-022-remark-only-checkin-static.spec.cjs` -> PASS。
 - `node IntRuoyiFronted\tests\e2e\dcc-browser-checkout-static.spec.js` -> PASS。
 - `mvn -pl yudao-module-dcc "-Dtest=DccApprovalRouteAdminServiceImplTest,DccControlledFileMetadataUpdateServiceTest,DccControlledFileWorkflowServiceImplTest,DccTrainingTaskServiceTest" test` -> PASS，176 tests，0 failures，0 errors，0 skipped。
+- `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrNonconformanceReviewApplicationScopeTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests，0 failures，0 errors，0 skipped。
 
 ## Scope Notes
 
