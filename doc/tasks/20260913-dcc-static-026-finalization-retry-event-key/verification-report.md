@@ -21,6 +21,16 @@ DCC-STATIC-026 only: finalization retry event key generation after repeated publ
 - Git implementation commit -> `4aec42d0c91d5b88b49c45a8feb80068586760b4`.
 - Git branch push -> PASS; remote branch `codex/20260913-dcc-static-026-finalization-retry-event-key-closeout` verified at `4aec42d0c91d5b88b49c45a8feb80068586760b4`.
 - Cleanup preview -> BLOCKED because local `int_main` cannot ff-only receive this branch and `E:\IntRuoyi` has unrelated untracked files.
+- User-authorized mainline submit -> PASS; local `int_main` dirty state committed before integration.
+- User-authorized `int_main` integration -> PASS; DCC finalization retry fix is present in `int_main`.
+- Recheck on `int_main`: `node IntRuoyiBackend\yudao-module-dcc\src\test\js\dcc-static-026-finalization-retry-event-key-static.spec.cjs` -> PASS.
+- Recheck on `int_main`: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-011-freeze-lifecycle-static.spec.cjs` -> PASS.
+- Recheck on `int_main`: `git diff --check origin/int_main..HEAD` -> PASS.
+- Recheck on `int_main`: branch runtime guard -> PASS for frontend `8081`, backend `48081`.
+- Recheck on `int_main`: `mvn -pl yudao-module-dcc -am "-DskipTests" compile` -> PASS.
+- `git push origin int_main` -> PASS; `origin/int_main` updated to `a54464ac3`.
+- Cleanup preview recheck from `E:\IntRuoyi` -> READY; blocked `<none>`, warnings `<none>`, delete `<none>`.
+- Cleanup apply from `E:\IntRuoyi` -> APPLIED; blocked `<none>`, warnings `<none>`, deleted paths `<none>`.
 
 ## RED Evidence
 
@@ -40,4 +50,4 @@ DCC-STATIC-026 only: finalization retry event key generation after repeated publ
 
 ## Result
 
-PASS for scoped static, unit, and main-code compile verification. Implementation branch is committed and pushed. Final automatic closeout remains BLOCKED by local `int_main` ff-only merge prerequisites and unrelated untracked files in `E:\IntRuoyi`.
+PASS for scoped static, unit, main-code compile verification, user-authorized `int_main` integration, `origin/int_main` push, and cleanup apply. Final task status is `completed`.

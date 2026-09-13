@@ -13,6 +13,7 @@ Fix DCC-STATIC-026: publication finalization retry must use a stable key for one
 - [x] Run targeted static/unit/compile verification without E2E, services, database writes, or remote server work.
 - [x] Commit and push the task branch after verification.
 - [x] Run cleanup preview and record final closeout blocker or completion evidence.
+- [x] Submit local `int_main`, integrate the DCC retry fix into `int_main`, and push `origin/int_main`.
 
 ## Expected Verification
 
@@ -32,7 +33,7 @@ Fix DCC-STATIC-026: publication finalization retry must use a stable key for one
 
 ## Current Status
 
-blocked - Minimal implementation and targeted verification passed; task branch `codex/20260913-dcc-static-026-finalization-retry-event-key-closeout` was committed and pushed, but automatic closeout apply cannot run because local `int_main` cannot receive an ff-only merge from this task branch and `E:\IntRuoyi` still has untracked unrelated files.
+completed - Implementation, targeted verification, task branch push, local `int_main` submission, DCC retry fix integration, `origin/int_main` push, cleanup preview, and cleanup apply are complete. Cleanup kept only task records and the formal static regression; no paths were deleted.
 
 ## Cleanup Keep
 
