@@ -429,3 +429,10 @@
 - 阻断处理：发现误写主工作区时，只能删除或回滚本次误创建且未跟踪的明确文件；若误改已存在 tracked 文件，必须停止并报告，不能用 restore/reset 隐藏。
 - 验证方式：记录误写路径清单、清理方式、主工作区 `git status --short -- <path>` 为空，以及目标 worktree 中对应文件存在并通过定向验证。
 - Evidence: `doc/tasks/20260909-epassword-compliance-hardening/execution-log.md`，在 `D:\IntRuoyiWorktree\20260909_epassword` 继续补 4.10 文档时，首次相对路径补丁默认解析到 `E:\IntRuoyi` 并失败，随后改用 worktree 绝对路径写入并复核主工作区无误落文件；`doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 表单解析任务中首次补丁误落主工作区后，按任务文件精确删除误建文档并精确 restore 本任务误改测试，再用目标 worktree 绝对路径重写并复核主工作区同路径 diff 为空。
+
+### 干净 Worktree 与主工作区未跟踪证据分离门禁
+
+- Trigger: 用户要求使用干净 worktree 修复，但缺陷清单、设计草稿或验收证据只存在于 `E:\IntRuoyi` 主工作区的未跟踪文件中，目标 clean worktree 不包含该文件。
+- Preflight check: 只读读取主工作区证据文件并记录 `git -C E:\IntRuoyi status --short -- <path>`；同时在目标 worktree 运行 `git status --short`，确认后续代码补丁只落入目标 worktree。不得把主工作区未跟踪证据复制进 clean worktree 来冒充基线文件。
+- Blocker: 用户要求更新该共享证据文件但目标 clean worktree 不包含它，或无法判断证据文件是正式基线还是并行任务未跟踪资产时，先停止并请用户确认更新归属。
+- Verification: 任务日志记录主工作区证据路径、主工作区文件状态、目标 worktree 路径、目标 dirty 文件清单，以及未编辑主工作区证据文件的原因。

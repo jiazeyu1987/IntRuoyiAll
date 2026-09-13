@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -118,6 +119,7 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         }
         validateFixedStages(reqVO.getNodes());
         Integer maxVersion = routeMapper.selectMaxVersionNoIncludingDeleted(categoryId);
+        LocalDateTime now = LocalDateTime.now();
         DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
                 .categoryId(categoryId)
                 .versionNo(maxVersion + 1)
@@ -127,13 +129,17 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
                 .build();
         routeMapper.insert(route);
 
-        List<DccCategoryApprovalRouteDO> oldRoutes = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId);
-        oldRoutes.stream()
-                .filter(item -> !item.getId().equals(route.getId()) && Boolean.TRUE.equals(item.getActive()))
-                .forEach(item -> routeMapper.updateById(DccCategoryApprovalRouteDO.builder()
-                        .id(item.getId())
-                        .active(Boolean.FALSE)
-                        .build()));
+        if (isEffectiveAt(reqVO.getEffectiveTime(), now)) {
+            List<DccCategoryApprovalRouteDO> oldRoutes = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId);
+            oldRoutes.stream()
+                    .filter(item -> !item.getId().equals(route.getId()))
+                    .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                    .filter(item -> isEffectiveAt(item.getEffectiveTime(), now))
+                    .forEach(item -> routeMapper.updateById(DccCategoryApprovalRouteDO.builder()
+                            .id(item.getId())
+                            .active(Boolean.FALSE)
+                            .build()));
+        }
 
         CollectionUtils.convertList(reqVO.getNodes(), nodeReq -> toRouteNode(route.getId(), nodeReq))
                 .forEach(routeNodeMapper::insert);
@@ -154,10 +160,10 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     @Override
     public List<DccApprovalRoutePreviewRespVO> previewRoute(DccApprovalRoutePreviewReqVO reqVO) {
         validateCategoryExists(reqVO.getCategoryId());
-        DccCategoryApprovalRouteDO route = routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, reqVO.getCategoryId()).stream()
-                .filter(item -> Boolean.TRUE.equals(item.getActive()))
-                .max(Comparator.comparing(DccCategoryApprovalRouteDO::getVersionNo))
-                .orElseThrow(() -> exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NOT_EXISTS));
+        DccCategoryApprovalRouteDO route = routeMapper.selectLatestActiveByCategoryId(reqVO.getCategoryId());
+        if (route == null) {
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NOT_EXISTS);
+        }
         List<DccCategoryApprovalRouteNodeDO> nodes = routeNodeMapper.selectList(DccCategoryApprovalRouteNodeDO::getRouteId, route.getId()).stream()
                 .sorted(Comparator.comparing(DccCategoryApprovalRouteNodeDO::getStageOrder, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(DccCategoryApprovalRouteNodeDO::getSort)
@@ -373,6 +379,10 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
             throw exception(FILE_CATEGORY_NOT_EXISTS);
         }
         return category;
+    }
+
+    private boolean isEffectiveAt(LocalDateTime effectiveTime, LocalDateTime selectionTime) {
+        return effectiveTime == null || !effectiveTime.isAfter(selectionTime);
     }
 
     private void validateFixedStages(List<DccApprovalRouteNodeSaveReqVO> nodes) {
