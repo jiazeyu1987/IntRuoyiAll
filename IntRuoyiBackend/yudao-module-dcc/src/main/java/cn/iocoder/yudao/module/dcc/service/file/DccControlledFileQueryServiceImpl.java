@@ -85,6 +85,7 @@ import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.preview.DccControlledPreviewAccessService;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessRequest;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessResult;
+import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenExpectedContext;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketBoundFile;
@@ -156,6 +157,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REUSED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
@@ -194,6 +196,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private static final String ACTION_UPLOAD_TRAINING_RECORD = "UPLOAD_TRAINING_RECORD";
     private static final String ACTION_ACKNOWLEDGE_TRAINING = "ACKNOWLEDGE_TRAINING";
     private static final String ACTION_RETRY_FINALIZATION = "RETRY_FINALIZATION";
+    private static final String ACTION_MAJOR_REVISION = "MAJOR_REVISION";
     private static final String APPROVE_PERMISSION = "dcc:controlled-file:approve";
 
     @Resource
@@ -272,6 +275,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private DccControlledFileBrowserSettingsService browserSettingsService;
     @Resource
     private DccControlledFileAssignmentScopeService assignmentScopeService;
+    @Resource
+    private DccProjectAccessService projectAccessService;
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
@@ -456,9 +461,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!isEditableWorkingVersion(file, master)) {
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
+        assertCanMutateControlledFile(userId, file);
         DccControlledFileCheckoutDO active = checkoutMapper.selectActiveByMasterId(tenantId, master.getId());
         if (active != null) {
-            if (Objects.equals(active.getActorId(), userId)) {
+            if (Objects.equals(active.getActorId(), userId)
+                    && Objects.equals(active.getBaseIterationId(), id)) {
                 file.setCheckedOutBy(userId);
                 file.setCheckedOutTime(active.getCreateTime());
                 file.setCheckedOutReason(active.getReason());
@@ -516,15 +523,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        assertCanMutateControlledFile(userId, file);
         DccControlledFileCheckoutDO checkout = file.getMasterId() == null ? null
                 : checkoutMapper.selectActiveByMasterId(tenantId, file.getMasterId());
         if (checkout == null) {
             DccControlledFileCheckoutDO latest = checkoutMapper.selectLatestByBaseIterationId(tenantId, id);
-            if (latest != null && "CHECKED_IN".equals(latest.getStatus())
-                    && StrUtil.equals(latest.getCheckinUploadTicket(), StrUtil.trimToNull(reqVO.getUploadTicket()))) {
+            if (latest != null && isSameCheckinReplay(latest, userId, id, reqVO)) {
                 DccControlledFileDO existing = latest.getCheckinIterationId() == null ? null
                         : controlledFileMapper.selectById(latest.getCheckinIterationId());
-                if (existing != null) {
+                if (existing != null && matchesCheckinReplayPayload(file, existing, latest, reqVO)) {
                     return toBrowserRespVO(userId, existing);
                 }
             }
@@ -571,6 +578,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
             }
             sourceOwnershipService.claimSubmissionSource(next.getId(), preparedSource, userId, "CHECKIN");
+            relatedFileService.inheritRelatedFiles(file.getId(), next.getId());
             if (hasUpload) {
                 uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(
                         uploadTicket, userId, file.getCategoryId(), reqVO.getSessionId(), "SOURCE", next.getId()));
@@ -653,7 +661,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return false;
         }
         String status = StrUtil.trimToEmpty(file.getStatus());
-        if ("WORKING".equals(status) || DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)) {
+        if ("WORKING".equals(status)
+                || DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)
+                || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
             return true;
         }
         if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)) {
@@ -676,6 +686,50 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private boolean hasRemarkChange(DccControlledFileDO file, String remark) {
         return StrUtil.isNotBlank(remark) && !Objects.equals(StrUtil.trim(remark), StrUtil.trim(file.getRemark()));
+    }
+
+    private void assertCanMutateControlledFile(Long userId, DccControlledFileDO file) {
+        if (file == null || file.getDccProjectCodeId() == null || file.getCategoryId() == null) {
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
+        projectAccessService.assertProjectEditorOrOwner(userId, file.getDccProjectCodeId());
+        if (!permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
+                DccFileCategoryPermissionActionEnum.UPLOAD)) {
+            throw exception(DCC_PROJECT_ACCESS_DENIED);
+        }
+    }
+
+    private boolean isSameCheckinReplay(DccControlledFileCheckoutDO latest, Long userId, Long baseIterationId,
+                                        DccControlledFileCheckinReqVO reqVO) {
+        return latest != null
+                && "CHECKED_IN".equals(latest.getStatus())
+                && Objects.equals(latest.getActorId(), userId)
+                && Objects.equals(latest.getBaseIterationId(), baseIterationId)
+                && StrUtil.equals(latest.getCheckinUploadTicket(), StrUtil.trimToNull(reqVO.getUploadTicket()));
+    }
+
+    private boolean matchesCheckinReplayPayload(DccControlledFileDO base, DccControlledFileDO existing,
+                                                DccControlledFileCheckoutDO latest,
+                                                DccControlledFileCheckinReqVO reqVO) {
+        return existing != null
+                && Objects.equals(existing.getPredecessorControlledFileId(), latest.getBaseIterationId())
+                && Objects.equals(normalizeCheckinReplayPayload(base, existing),
+                normalizeCheckinReplayPayload(base, reqVO));
+    }
+
+    private CheckinReplayPayload normalizeCheckinReplayPayload(DccControlledFileDO base,
+                                                               DccControlledFileCheckinReqVO reqVO) {
+        String effectiveRemark = StrUtil.isBlank(reqVO.getRemark())
+                ? StrUtil.trim(base.getRemark()) : StrUtil.trim(reqVO.getRemark());
+        return new CheckinReplayPayload(StrUtil.trim(reqVO.getChangeDescription()), effectiveRemark);
+    }
+
+    private CheckinReplayPayload normalizeCheckinReplayPayload(DccControlledFileDO base, DccControlledFileDO existing) {
+        return new CheckinReplayPayload(StrUtil.trim(existing.getChangeDescription()),
+                StrUtil.trim(existing.getRemark()));
+    }
+
+    private record CheckinReplayPayload(String changeDescription, String remark) {
     }
 
     private DccWindchillVersionNumber resolveNextIteration(DccControlledFileDO file) {
@@ -774,9 +828,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        if (!Objects.equals(userId, file.getRequesterId())
-                && !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
-                DccFileCategoryPermissionActionEnum.UPLOAD)) {
+        if (!Objects.equals(userId, file.getRequesterId())) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
         return file;
@@ -1419,9 +1471,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private boolean canReadBinary(Long userId, DccControlledFileDO file, DccAccessTypeEnum accessType,
                                   boolean hasDirectoryManagementPermission,
                                   Map<Long, Boolean> currentViewMatrixAccessByCategory) {
+        Long previewBinaryFileId = accessType == DccAccessTypeEnum.PREVIEW
+                ? resolveBinaryFileId(file, accessType) : null;
         if (accessType == DccAccessTypeEnum.PREVIEW
                 && isPendingPreviewStatus(file.getStatus())
-                && file.getOriginalFileId() != null
+                && previewBinaryFileId != null
                 && hasCurrentRunningApprovalTask(userId, file)) {
             return true;
         }
@@ -1439,7 +1493,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         || hasActiveElectronicDistributionAccess(userId, file);
                 return allowed;
             }
-            if (isPendingPreviewStatus(file.getStatus()) && file.getOriginalFileId() != null) {
+            if (isPendingPreviewStatus(file.getStatus()) && previewBinaryFileId != null) {
                 if (userId != null && userId.equals(file.getRequesterId())) {
                     return true;
                 }
@@ -1447,6 +1501,18 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         || isCurrentRouteSnapshotParticipant(userId, file)
                         || hasCurrentRunningApprovalTask(userId, file);
                 return allowed;
+            }
+            if ((DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
+                    || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus()))
+                    && previewBinaryFileId != null) {
+                return userId != null && userId.equals(file.getRequesterId());
+            }
+            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+                    && previewBinaryFileId != null) {
+                return userId != null && userId.equals(file.getRequesterId())
+                        || hasDirectoryManagementPermission
+                        || permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
+                        DccFileCategoryPermissionActionEnum.APPROVE);
             }
             return false;
         }
@@ -1610,8 +1676,24 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private Long resolveBinaryFileId(DccControlledFileDO file, DccAccessTypeEnum accessType) {
-        if (accessType == DccAccessTypeEnum.PREVIEW && isPendingPreviewStatus(file.getStatus())) {
-            return file.getOriginalFileId();
+        if (accessType == DccAccessTypeEnum.PREVIEW) {
+            String status = file.getStatus();
+            if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)
+                    || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status)) {
+                return file.getPublishedFileId();
+            }
+            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status)) {
+                return file.getStampedFileId();
+            }
+            if (DccControlledFileStatusEnum.WORKING.getStatus().equals(status)) {
+                return file.getSourceFileId();
+            }
+            if (DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)
+                    || isPendingPreviewStatus(status)
+                    || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
+                return file.getSourceFileId() == null ? file.getOriginalFileId() : file.getSourceFileId();
+            }
+            return null;
         }
         return file.getPublishedFileId();
     }
@@ -1629,7 +1711,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus().equals(status)
-                || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(status);
+                || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(status)
+                || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status);
     }
 
     private boolean isCurrentRouteSnapshotParticipant(Long userId, DccControlledFileDO file) {
@@ -1675,6 +1758,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         if (DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(status)) {
             return DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode();
+        }
+        if (DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
+            return DccControlledFileStageCodeEnum.APPLICANT_REWORK.getCode();
         }
         return null;
     }
@@ -2168,13 +2254,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         boolean requester = userId != null && userId.equals(file.getRequesterId());
         boolean active = DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status);
         boolean superseded = DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status);
+        boolean working = DccControlledFileStatusEnum.WORKING.getStatus().equals(status);
+        boolean readyToPublish = DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status);
         boolean pendingWithdrawable = isWithdrawableWorkflowStatus(status);
         boolean pendingOpenCandidate = isOpenCandidateActionStatus(status);
         FormActionInstanceDO obsoleteFormPending = active ? formActionPendingService.findOpenObsoleteAction(file.getId()) : null;
         boolean obsoleteApprovalPending = obsoleteFormPending != null;
         requirePendingRequestIdentity(file, pendingOpenCandidate);
 
-        if (active || superseded) {
+        if (active || superseded || working || readyToPublish) {
             addBinaryActions(allowedActions, canPreview, canDownload);
         }
         if (active && Boolean.TRUE.equals(canPrint)) {
@@ -2182,6 +2270,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         if (active && Boolean.TRUE.equals(canObsolete) && !obsoleteApprovalPending) {
             allowedActions.add(ACTION_OBSOLETE);
+        }
+        if ((active || superseded) && canCreateMajorRevision(userId, file)) {
+            allowedActions.add(ACTION_MAJOR_REVISION);
         }
         if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status)
                 && Boolean.TRUE.equals(canPublish)) {
@@ -2219,6 +2310,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 : (pendingOpenCandidate ? file.getId() : null));
         projection.setPendingVersionNo((pendingOpenCandidate || obsoleteApprovalPending) ? file.getVersionNo() : null);
         return projection;
+    }
+
+    private boolean canCreateMajorRevision(Long userId, DccControlledFileDO file) {
+        return userId != null
+                && file != null
+                && file.getId() != null
+                && file.getMasterId() != null
+                && file.getDccProjectCodeId() != null
+                && projectAccessService.hasProjectOwner(userId, file.getDccProjectCodeId());
     }
 
     private void requireActionProjectionIdentity(DccControlledFileDO file) {
@@ -2717,6 +2817,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         return DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
                 || isPendingPreviewStatus(file.getStatus());
     }
 
@@ -2729,8 +2832,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private String buildPreviewArtifactMissingReason(DccControlledFileDO file) {
+        if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
+            return "待发布盖章预览文件不存在或已被删除";
+        }
+        if (DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())) {
+            return "工作稿源文件不存在或已被删除";
+        }
         return isPendingPreviewStatus(file.getStatus())
-                ? "待审批源文件不存在或已被删除"
+                || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
+                ? "受审源文件不存在或已被删除"
                 : "正式预览文件不存在或已被删除";
     }
 

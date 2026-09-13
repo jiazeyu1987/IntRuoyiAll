@@ -172,6 +172,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper;
     @Resource
+    private MesProEdhrBatchTraceabilityService batchTraceabilityService;
+    @Resource
     private AdminUserApi adminUserApi;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
@@ -531,6 +533,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setWorkTaskId(reqVO.getWorkTaskId())
                 .setExpectedVersion(reqVO.getExpectedVersion())
                 .setSignoffEvidenceHash(reqVO.getSignoffEvidenceHash())
+                .setSignoffSubjectId(reqVO.getSignoffSubjectId())
                 .setApprovalOpinion(reqVO.getApprovalOpinion())
                 .setIndependentPrerequisiteReceipt(reqVO.getIndependentPrerequisiteReceipt())
                 .setMaterialGateReceipt(reqVO.getMaterialGateReceipt()));
@@ -552,6 +555,16 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         command.setActorUserId(authenticatedActorUserId);
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
             hydrateBatchExecutionIdFromReleaseTransaction(command);
+            MesProEdhrReleaseTransactionDO current = requireTransactionForUpdate(command.getReleaseTransactionId());
+            if (STATUS_RELEASED.equals(current.getReleaseStatus())
+                    && managerApprovalService.isManagedReleaseTransaction(current.getId())) {
+                var replay = managerApprovalService.prepareForFinalization(authenticatedActorUserId,
+                        toManagerApprovalCommand(command));
+                if (!replay.isReplayed()) {
+                    throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
+                }
+                return toResp(replay.getBatchExecution(), replay.getReleaseTransaction());
+            }
             MesProEdhrFourMaterialGateResult currentGate =
                     fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId());
             MesReleaseFinalizationEvidence evidence = authoritativeContextPort.require(command);
@@ -578,6 +591,38 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (!Objects.equals(command.getBatchExecutionId(), transaction.getBatchExecutionId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
+    }
+
+    private MesProEdhrReleaseApproveReqVO toManagerApprovalCommand(MesReleaseFinalizationCommand command) {
+        return new MesProEdhrReleaseApproveReqVO()
+                .setReleaseTransactionId(command.getReleaseTransactionId())
+                .setReleaseApplicationId(command.getReleaseApplicationId())
+                .setBatchExecutionId(command.getBatchExecutionId())
+                .setWorkOrderId(command.getWorkOrderId())
+                .setOrigin(command.getOrigin())
+                .setEntryType(command.getEntryType())
+                .setActiveOrderId(command.getActiveOrderId())
+                .setActiveOrderExpectedVersion(command.getActiveOrderExpectedVersion())
+                .setPickListBindingId(command.getPickListBindingId())
+                .setPickListId(command.getPickListId())
+                .setCompletionEventId(command.getCompletionEventId())
+                .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
+                .setIndependentPrerequisiteReceiptId(command.getIndependentPrerequisiteReceiptId())
+                .setMaterialGateReceiptId(command.getMaterialGateReceiptId())
+                .setMaterialGateManifestHash(command.getMaterialGateManifestHash())
+                .setMaterialGateSourceSnapshotHash(command.getMaterialGateSourceSnapshotHash())
+                .setDualProgressCompleted(command.getDualProgressCompleted())
+                .setThreeBackfillsSucceeded(command.getThreeBackfillsSucceeded())
+                .setSourceRelation(command.getSourceRelation())
+                .setSourceSnapshotHash(command.getSourceSnapshotHash())
+                .setWorkTaskId(command.getWorkTaskId())
+                .setExpectedVersion(command.getExpectedVersion())
+                .setIdempotencyKey(command.getIdempotencyKey())
+                .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
+                .setSignoffSubjectId(command.getSignoffSubjectId())
+                .setApprovalOpinion(command.getApprovalOpinion())
+                .setIndependentPrerequisiteReceipt(command.getIndependentPrerequisiteReceipt())
+                .setMaterialGateReceipt(command.getMaterialGateReceipt());
     }
 
     private void hydrateFromAuthoritativeEvidence(MesReleaseFinalizationCommand command,
@@ -629,6 +674,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     .setExpectedVersion(command.getExpectedVersion())
                     .setIdempotencyKey(command.getIdempotencyKey())
                     .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
+                    .setSignoffSubjectId(command.getSignoffSubjectId())
                     .setApprovalOpinion(command.getApprovalOpinion());
             MesProductionReleaseManagerApprovalResult prepared = managerApprovalService.prepareForFinalization(
                     command.getActorUserId(), approve);
@@ -648,7 +694,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
             }
             MesProEdhrReleaseDecisionDO decision = recordFinalizationDecision(command, released,
-                    evidence, STATUS_RELEASED, managerPayloadHash, null, command.getApprovalOpinion(), occurredAt);
+                    evidence, STATUS_RELEASED, managerPayloadHash, command.getSignoffEvidenceHash(), command.getApprovalOpinion(), occurredAt);
             released.setReleaseDecisionId(decision.getId())
                     .setFinalizationPayloadHash(managerPayloadHash);
             releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
@@ -658,6 +704,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             MesProductionReleaseManagerApprovalResult result = managerApprovalService.completeAfterFinalization(
                     command.getActorUserId(), approve, prepared, released);
             closeBatchAfterFinalRelease(batch, released, command, occurredAt);
+            appendReleaseDecision(command, decision);
             closeUpstreamAfterRelease(command, released, decision);
             reportManagementSummaryService.refreshByReleaseTransactionId(command.getReleaseTransactionId());
             return toResp(result.getBatchExecution(), released);
@@ -1740,6 +1787,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("entryType", command.getEntryType());
         snapshot.put("sourceRelation", command.getSourceRelation());
         snapshot.put("sourceSnapshotHash", command.getSourceSnapshotHash());
+        snapshot.put("signoffSubjectId", command.getSignoffSubjectId());
+        snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());
         snapshot.put("materialGateReceiptId", gate == null ? null : gate.getReceiptId());
         snapshot.put("materialGateManifestHash", gate == null ? null : gate.getManifestHash());
         snapshot.put("materialGateSourceSnapshotHash", gate == null ? null : gate.getSourceSnapshotHash());
@@ -1797,6 +1846,25 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setActiveOrderExpectedVersion(command.getActiveOrderExpectedVersion())
                 .setWorkOrderId(transaction.getWorkOrderId())
                 .setActorUserId(command.getActorUserId()));
+    }
+
+    private void appendReleaseDecision(MesReleaseFinalizationCommand command, MesProEdhrReleaseDecisionDO decision) {
+        var trace = batchTraceabilityService.getTraceability(decision.getBatchExecutionId());
+        var origins = trace.getOrigins().stream()
+                .filter(origin -> Objects.equals(origin.getActiveOrderId(), command.getActiveOrderId()))
+                .filter(origin -> Objects.equals(origin.getWorkOrderId(), decision.getWorkOrderId()))
+                .filter(origin -> Objects.equals(origin.getSourceSnapshotHash(), command.getSourceSnapshotHash()))
+                .toList();
+        if (origins.size() != 1 || decision.getId() == null || decision.getReleaseApplicationId() == null) {
+            throw exception(MesProEdhrBatchTraceabilityErrorCodeConstants.RELEASE_DECISION_SOURCE_REQUIRED);
+        }
+        String snapshot = decision.getAuditSnapshotJson();
+        batchTraceabilityService.appendReleaseDecision(new MesProEdhrBatchTraceReleaseDecisionCommand()
+                .setBatchExecutionId(decision.getBatchExecutionId()).setOriginId(origins.get(0).getId())
+                .setReleaseApplicationId(decision.getReleaseApplicationId()).setReleaseDecisionId(decision.getId())
+                .setSourceSnapshotJson(snapshot)
+                .setSourceSnapshotHash(MesProEdhrBatchTraceSourceHash.calculate(MesProEdhrBatchTraceLinkType.RELEASE_DECISION, snapshot))
+                .setIdempotencyKey("RELEASE_DECISION:" + decision.getId()).setCapturedBy(command.getActorUserId()));
     }
 
     private void requireSameFinalizationPayload(MesProEdhrReleaseTransactionEventDO existingEvent,

@@ -154,7 +154,12 @@
                    WHEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.scrapQuantity')) REGEXP '^[0-9]+$'
                        THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.scrapQuantity')) AS SIGNED)
                    ELSE NULL
-               END AS scrapQuantity
+               END AS scrapQuantity,
+               CASE
+                   WHEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.productionSubmitEventId')) REGEXP '^[0-9]+$'
+                       THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.productionSubmitEventId')) AS UNSIGNED)
+                   ELSE NULL
+               END AS productionEventId
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN system_users submitter
           ON submitter.id = pool_event.actual_employee_id

@@ -452,17 +452,19 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void resolveLinkedRevisionAfterPublication_onlyResolvesConcreteActiveRevision() {
+    void resolveLinkedRevisionAfterPublication_resolvesLinkedRevisionChainToPublishedIteration() {
         DccPublicationImpactTaskDO task = revisionRequiredTask(10L, 99L, 3);
         task.setLinkedRevisionControlledFileId(500L);
+        task.setLinkedRevisionVersionSnapshot("B/1");
         task.setRevisionTrackingStatus("REVISION_LINKED");
-        when(taskMapper.selectListByLinkedRevisionId(1L, 500L)).thenReturn(List.of(task));
-        when(taskMapper.resolveRevision(1L, 10L, 3, 500L)).thenReturn(1);
+        when(taskMapper.selectListByLinkedRevisionChain(1L, 20L, "B")).thenReturn(List.of(task));
+        when(taskMapper.resolveRevision(1L, 10L, 3, 501L, "B/2")).thenReturn(1);
 
         service.resolveLinkedRevisionAfterPublication(DccControlledFileDO.builder()
-                .id(500L).masterId(20L).status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+                .id(501L).masterId(20L).versionNo("B/2").revisionCode("B").iterationNo(2)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
 
-        verify(taskMapper).resolveRevision(1L, 10L, 3, 500L);
+        verify(taskMapper).resolveRevision(1L, 10L, 3, 501L, "B/2");
         verify(auditMapper).insert(any(DccPublicationImpactAuditDO.class));
     }
 
@@ -474,8 +476,8 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         DccPublicationImpactTaskDO current = revisionRequiredTask(10L, 99L, 4);
         current.setLinkedRevisionControlledFileId(500L);
         current.setRevisionTrackingStatus("RESOLVED");
-        when(taskMapper.selectListByLinkedRevisionId(1L, 500L)).thenReturn(List.of(selected));
-        when(taskMapper.resolveRevision(1L, 10L, 3, 500L)).thenReturn(0);
+        when(taskMapper.selectListByLinkedRevisionChain(1L, 20L, "B")).thenReturn(List.of(selected));
+        when(taskMapper.resolveRevision(1L, 10L, 3, 500L, "B/1")).thenReturn(0);
         when(taskMapper.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(current);
 
         assertDoesNotThrow(() -> service.resolveLinkedRevisionAfterPublication(activeRevision(500L, 20L)));
@@ -491,8 +493,8 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         DccPublicationImpactTaskDO reopened = task(10L, "PENDING", 99L, 4);
         reopened.setLinkedRevisionControlledFileId(null);
         reopened.setDecision(null);
-        when(taskMapper.selectListByLinkedRevisionId(1L, 500L)).thenReturn(List.of(selected));
-        when(taskMapper.resolveRevision(1L, 10L, 3, 500L)).thenReturn(0);
+        when(taskMapper.selectListByLinkedRevisionChain(1L, 20L, "B")).thenReturn(List.of(selected));
+        when(taskMapper.resolveRevision(1L, 10L, 3, 500L, "B/1")).thenReturn(0);
         when(taskMapper.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(reopened);
 
         assertDoesNotThrow(() -> service.resolveLinkedRevisionAfterPublication(activeRevision(500L, 20L)));
@@ -508,8 +510,8 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         DccPublicationImpactTaskDO stillLinked = revisionRequiredTask(10L, 99L, 4);
         stillLinked.setLinkedRevisionControlledFileId(500L);
         stillLinked.setRevisionTrackingStatus("REVISION_LINKED");
-        when(taskMapper.selectListByLinkedRevisionId(1L, 500L)).thenReturn(List.of(selected));
-        when(taskMapper.resolveRevision(1L, 10L, 3, 500L)).thenReturn(0);
+        when(taskMapper.selectListByLinkedRevisionChain(1L, 20L, "B")).thenReturn(List.of(selected));
+        when(taskMapper.resolveRevision(1L, 10L, 3, 500L, "B/1")).thenReturn(0);
         when(taskMapper.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(stillLinked);
 
         assertServiceException(() -> service.resolveLinkedRevisionAfterPublication(activeRevision(500L, 20L)),
@@ -523,7 +525,7 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
         service.resolveLinkedRevisionAfterPublication(DccControlledFileDO.builder()
                 .id(500L).masterId(20L).status(DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus()).build());
 
-        verify(taskMapper, never()).selectListByLinkedRevisionId(any(), any());
+        verify(taskMapper, never()).selectListByLinkedRevisionChain(any(), any(), any());
         verifyNoInteractions(auditMapper);
     }
 
@@ -571,6 +573,7 @@ class DccRelatedFileImpactAssessmentServiceTest extends BaseMockitoUnitTest {
 
     private DccControlledFileDO activeRevision(Long id, Long masterId) {
         return DccControlledFileDO.builder().id(id).masterId(masterId)
+                .versionNo("B/1").revisionCode("B").iterationNo(1)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
     }
 }

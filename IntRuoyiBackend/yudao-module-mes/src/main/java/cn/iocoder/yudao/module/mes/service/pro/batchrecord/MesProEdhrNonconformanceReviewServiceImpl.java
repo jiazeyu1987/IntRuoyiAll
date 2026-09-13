@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -75,6 +76,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private MesProWorkOrderMapper workOrderMapper;
+    @Resource
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -110,6 +113,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Long workOrderId = batch != null ? batch.getWorkOrderId()
                 : application != null ? application.getWorkOrderId() : pqcSubmissionEvent.getWorkOrderId();
         MesProWorkOrderDO workOrder = lockWorkOrder(workOrderId);
+        Boolean previousExternalWorkOrderFrozen = resolvePreviousExternalWorkOrderFrozen(workOrder);
         LocalDateTime now = now();
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .reviewCode(buildReviewCode(batch == null ? reqVO.getSourceId() : batch.getId(), now))
@@ -123,7 +127,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .batchCode(batch != null ? batch.getBatchCode()
                         : application != null ? application.getBatchCode() : workOrder.getBatchCode())
                 .previousBatchStatus(batch == null ? null : batch.getStatus())
-                .previousWorkOrderTemporaryFrozen(workOrder == null ? null : workOrder.getTemporaryFrozen())
+                .previousWorkOrderTemporaryFrozen(previousExternalWorkOrderFrozen)
                 .reviewStatus(STATUS_PENDING_REVIEW)
                 .nonconformanceReason(reason)
                 .frozenAt(now)
@@ -147,7 +151,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         String disposition = requireDisposition(reqVO.getDisposition());
         String reviewMaterialUrl = requireText(reqVO.getReviewMaterialUrl());
         String reviewOpinion = requireText(reqVO.getReviewOpinion());
-        String qaSignature = requireText(reqVO.getQaSignature());
+        String signaturePassword = requireText(reqVO.getSignaturePassword());
         MesProEdhrNonconformanceReviewDO review = requirePendingReviewForUpdate(reqVO.getId());
         MesProEdhrBatchExecutionDO batch = review.getBatchExecutionId() == null
                 ? null : requireBatchExecution(review.getBatchExecutionId());
@@ -167,6 +171,13 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         Integer nextBatchStatus = batch == null ? null : DISPOSITION_VOID.equals(disposition)
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED : review.getPreviousBatchStatus();
         Long qaUserId = SecurityFrameworkUtils.getLoginUserId();
+        String qaDispositionAggregateHash = buildQaDispositionAggregateHash(review, disposition, reviewMaterialUrl,
+                reviewOpinion, qaUserId);
+        Long qaDispositionSignatureId = recordQaDispositionSignature(qaUserId, review.getId(),
+                signaturePassword, reviewOpinion, qaDispositionAggregateHash);
+        String qaSignature = "QA电子签名#" + qaDispositionSignatureId;
+        String qaSignatureSnapshotJson = buildQaSignatureSnapshotJson(review, qaUserId, qaDispositionSignatureId,
+                disposition, now, qaDispositionAggregateHash);
         MesProEdhrNonconformanceReviewDO update = new MesProEdhrNonconformanceReviewDO()
                 .setId(review.getId())
                 .setReviewStatus(STATUS_CLOSED)
@@ -178,7 +189,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .setClosedAt(now)
                 .setUnfrozenAt(DISPOSITION_VOID.equals(disposition) ? null : now)
                 .setVoidedAt(DISPOSITION_VOID.equals(disposition) ? now : null);
-        update.setTraceSnapshotJson(buildTraceSnapshotJson(review, update, nextBatchStatus));
+        update.setTraceSnapshotJson(buildTraceSnapshotJson(review, update, nextBatchStatus, qaSignatureSnapshotJson));
         reviewMapper.updateById(update);
         if (batch != null) {
             batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
@@ -186,9 +197,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                     .setStatus(nextBatchStatus));
         }
         if (workOrder != null) {
-            boolean keepFrozen = DISPOSITION_VOID.equals(disposition);
-            requireWorkOrderUpdate(workOrder.getId(), keepFrozen
-                    ? true : review.getPreviousWorkOrderTemporaryFrozen());
+            recomputeWorkOrderTemporaryFreeze(workOrder, review, disposition);
         }
         if (application != null && (DISPOSITION_REWORK.equals(disposition) || DISPOSITION_VOID.equals(disposition))) {
             MesProEdhrWorkTaskDO task = requirePqcTaskForUpdate(application);
@@ -343,6 +352,36 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         }
     }
 
+    private void recomputeWorkOrderTemporaryFreeze(MesProWorkOrderDO workOrder,
+                                                   MesProEdhrNonconformanceReviewDO review,
+                                                   String disposition) {
+        if (workOrder == null || workOrder.getId() == null) {
+            return;
+        }
+        boolean keepFrozen = hasOriginalExternalFreezeSnapshot(workOrder.getId())
+                || DISPOSITION_VOID.equals(disposition)
+                || reviewMapper.selectBlockingCountByWorkOrderId(workOrder.getId()) > 0;
+        requireWorkOrderUpdate(workOrder.getId(), keepFrozen);
+    }
+
+    private Boolean resolvePreviousExternalWorkOrderFrozen(MesProWorkOrderDO workOrder) {
+        if (workOrder == null) {
+            return null;
+        }
+        boolean frozenBeforeReview = Boolean.TRUE.equals(workOrder.getTemporaryFrozen());
+        if (!frozenBeforeReview) {
+            return false;
+        }
+        Long activeReviewFreezeCount = reviewMapper.selectBlockingCountByWorkOrderId(workOrder.getId());
+        return activeReviewFreezeCount == null || activeReviewFreezeCount == 0;
+    }
+
+    private boolean hasOriginalExternalFreezeSnapshot(Long workOrderId) {
+        Long externalFreezeSnapshotCount =
+                reviewMapper.selectOriginalExternalFreezeSnapshotCountByWorkOrderId(workOrderId);
+        return externalFreezeSnapshotCount != null && externalFreezeSnapshotCount > 0;
+    }
+
     private MesProEdhrWorkTaskDO requirePqcTaskForUpdate(
             MesProcessPoolActiveOrderReleaseApplicationDO application) {
         if (application.getPqcReleaseWorkTaskId() == null) {
@@ -383,13 +422,56 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         return text;
     }
 
+    private Long recordQaDispositionSignature(Long qaUserId, Long reviewId, String signaturePassword,
+                                              String reviewOpinion, String qaDispositionAggregateHash) {
+        return signatureService.recordQaDispositionSignature(qaUserId, reviewId, signaturePassword, reviewOpinion,
+                qaDispositionAggregateHash);
+    }
+
+    private String buildQaDispositionAggregateHash(MesProEdhrNonconformanceReviewDO review,
+                                                   String disposition,
+                                                   String reviewMaterialUrl,
+                                                   String reviewOpinion,
+                                                   Long qaUserId) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("reviewId", review.getId());
+        payload.put("reviewCode", review.getReviewCode());
+        payload.put("sourceType", review.getSourceType());
+        payload.put("sourceId", review.getSourceId());
+        payload.put("batchExecutionId", review.getBatchExecutionId());
+        payload.put("workOrderId", review.getWorkOrderId());
+        payload.put("disposition", disposition);
+        payload.put("reviewMaterialUrl", reviewMaterialUrl);
+        payload.put("reviewOpinion", reviewOpinion);
+        payload.put("qaUserId", qaUserId);
+        return DigestUtil.sha256Hex(JSON.toJSONString(payload));
+    }
+
+    private String buildQaSignatureSnapshotJson(MesProEdhrNonconformanceReviewDO review,
+                                                Long qaUserId,
+                                                Long qaDispositionSignatureId,
+                                                String disposition,
+                                                LocalDateTime signedAt,
+                                                String qaDispositionAggregateHash) {
+        JSONObject qaSignatureSnapshot = new JSONObject(true);
+        qaSignatureSnapshot.put("reviewId", review.getId());
+        qaSignatureSnapshot.put("qaUserId", qaUserId);
+        qaSignatureSnapshot.put("signatureId", qaDispositionSignatureId);
+        qaSignatureSnapshot.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION);
+        qaSignatureSnapshot.put("disposition", disposition);
+        qaSignatureSnapshot.put("signedAt", signedAt);
+        qaSignatureSnapshot.put("aggregateHash", qaDispositionAggregateHash);
+        return JSON.toJSONString(qaSignatureSnapshot);
+    }
+
     private String buildReviewCode(Long batchExecutionId, LocalDateTime occurredAt) {
         return "EDHR-NCR-" + REVIEW_CODE_FORMATTER.format(occurredAt) + "-" + batchExecutionId;
     }
 
     private String buildTraceSnapshotJson(MesProEdhrNonconformanceReviewDO review,
-                                          MesProEdhrNonconformanceReviewDO update,
-                                          Integer nextBatchStatus) {
+                                           MesProEdhrNonconformanceReviewDO update,
+                                           Integer nextBatchStatus,
+                                           String qaSignatureSnapshotJson) {
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("reviewId", review.getId());
         snapshot.put("reviewCode", review.getReviewCode());
@@ -403,6 +485,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         snapshot.put("reviewMaterialUrl", update.getReviewMaterialUrl());
         snapshot.put("reviewOpinion", update.getReviewOpinion());
         snapshot.put("qaSignature", update.getQaSignature());
+        snapshot.put("qaSignatureSnapshotJson", JSON.parseObject(qaSignatureSnapshotJson));
         snapshot.put("qaUserId", update.getQaUserId());
         snapshot.put("disposition", update.getDisposition());
         snapshot.put("previousBatchStatus", review.getPreviousBatchStatus());

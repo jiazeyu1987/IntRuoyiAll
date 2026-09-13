@@ -52,6 +52,15 @@ class MesReportAllocationReleaseStateServiceTest {
         assertEquals(Set.of(8101L), service.findReleasedActiveOrderIdsForUpdate(ids));
     }
 
+    @Test
+    void productionWriteLockMustTreatAnyReleaseApplicationAsClosedSourceBoundary() {
+        List<Long> ids = List.of(8101L, 8102L);
+        when(applicationMapper.selectListByActiveOrderIdsForUpdate(ids))
+                .thenReturn(List.of(application(8101L, 9101L), application(8102L, null)));
+
+        assertEquals(Set.of(8101L, 8102L), service.findReleaseApplicationLockedActiveOrderIdsForUpdate(ids));
+    }
+
     private static MesProcessPoolActiveOrderReleaseApplicationDO application(Long activeOrderId, Long transactionId) {
         return MesProcessPoolActiveOrderReleaseApplicationDO.builder()
                 .activeOrderId(activeOrderId).releaseTransactionId(transactionId).build();

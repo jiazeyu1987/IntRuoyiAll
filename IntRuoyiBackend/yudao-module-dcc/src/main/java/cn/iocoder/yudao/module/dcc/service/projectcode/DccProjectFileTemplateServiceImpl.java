@@ -119,6 +119,9 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
         if (taxonomy == null || !Boolean.TRUE.equals(taxonomy.getActive()) || StrUtil.isBlank(path.level3())) {
             throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
         }
+        if (hasActiveChildTaxonomy(taxonomyId, taxonomyById)) {
+            throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+        }
         if (!Objects.equals(activeCategoryCounts.get(taxonomyId), 1L)) {
             throw exception(PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
         }
@@ -140,9 +143,14 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
                                                        List<DccProjectFileTemplateItemDO> items) {
         Map<Long, DccFileTypeTaxonomyDO> taxonomyById = taxonomyMap(taxonomyRows);
         Map<Long, Long> activeCategoryCounts = activeCategoryCounts();
-        if (items.stream().anyMatch(item ->
-                !Objects.equals(activeCategoryCounts.get(item.getFileTypeTaxonomyId()), 1L))) {
-            throw exception(PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        for (DccProjectFileTemplateItemDO item : items) {
+            Long taxonomyId = item.getFileTypeTaxonomyId();
+            if (hasActiveChildTaxonomy(taxonomyId, taxonomyById)) {
+                throw exception(PROJECT_FILE_TEMPLATE_TAXONOMY_INVALID);
+            }
+            if (!Objects.equals(activeCategoryCounts.get(taxonomyId), 1L)) {
+                throw exception(PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+            }
         }
         DccProjectFileTemplateRespVO response = new DccProjectFileTemplateRespVO();
         response.setProjectCodeId(projectCodeId);
@@ -163,6 +171,7 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
         Set<Long> visibleIds = new HashSet<>();
         activeCategoryCounts.entrySet().stream()
                 .filter(entry -> Objects.equals(entry.getValue(), 1L))
+                .filter(entry -> !hasActiveChildTaxonomy(entry.getKey(), taxonomyById))
                 .map(Map.Entry::getKey)
                 .forEach(taxonomyId -> {
                     List<DccFileTypeTaxonomyDO> lineage = resolveLineage(taxonomyId, taxonomyById);
@@ -236,6 +245,12 @@ public class DccProjectFileTemplateServiceImpl implements DccProjectFileTemplate
                 .filter(Objects::nonNull)
                 .forEach(taxonomyId -> result.merge(taxonomyId, 1L, Long::sum));
         return result;
+    }
+
+    private boolean hasActiveChildTaxonomy(Long taxonomyId, Map<Long, DccFileTypeTaxonomyDO> taxonomyById) {
+        return taxonomyById.values().stream()
+                .anyMatch(item -> Objects.equals(item.getParentId(), taxonomyId)
+                        && Boolean.TRUE.equals(item.getActive()));
     }
 
     private List<String> nonBlankPathParts(DccFileTypeTaxonomyPath path) {

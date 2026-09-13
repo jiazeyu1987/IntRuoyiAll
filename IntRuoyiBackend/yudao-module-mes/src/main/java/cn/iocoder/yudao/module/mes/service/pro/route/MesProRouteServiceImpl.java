@@ -1010,6 +1010,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private JSONObject buildBatchRecordReportSnapshot(MesProRouteFlowProcessBatchRecordDO record) {
         JSONObject report = new JSONObject(true);
+        report.put("routeBindingId", record.getId());
         report.put("batchRecordReportId", record.getBatchRecordReportId());
         report.put("batchRecordDefinitionId", record.getBatchRecordDefinitionId());
         report.put("batchRecordVersionId", record.getBatchRecordVersionId());

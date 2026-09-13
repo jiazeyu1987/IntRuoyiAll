@@ -57,6 +57,8 @@ public interface FormCenterRuntimeService {
 
     FormInstanceRespVO findActiveBusinessAction(BusinessActionContextReqVO reqVO);
 
+    FormInstanceRespVO findBusinessActionByIdempotency(BusinessActionContextReqVO reqVO, String idempotencyKey);
+
     FormInstanceRespVO createInstance(FormInstanceCreateReqVO reqVO, Long userId);
 
     void saveDraft(Long instanceId, FormInstanceDraftReqVO reqVO, Long userId);

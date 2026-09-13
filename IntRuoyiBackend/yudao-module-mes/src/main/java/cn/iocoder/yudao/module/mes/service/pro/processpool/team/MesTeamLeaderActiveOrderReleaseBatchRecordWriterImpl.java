@@ -18,6 +18,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotResolver;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +64,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     private final MesTeamLeaderBatchRecordBackfillService backfillService;
     private final MesProductionPickListSourceService productionPickListSourceService;
+    private final MesProRouteVersionSnapshotResolver routeVersionSnapshotResolver;
 
     public MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
             MesProRouteFlowProcessBatchRecordMapper bindingMapper,
@@ -67,13 +72,15 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             MesProBatchRecordCellLinkRuleMapper ruleMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
             MesTeamLeaderBatchRecordBackfillService backfillService,
-            MesProductionPickListSourceService productionPickListSourceService) {
+            MesProductionPickListSourceService productionPickListSourceService,
+            MesProRouteVersionSnapshotResolver routeVersionSnapshotResolver) {
         this.bindingMapper = bindingMapper;
         this.reportMapper = reportMapper;
         this.ruleMapper = ruleMapper;
         this.batchTaskMapper = batchTaskMapper;
         this.backfillService = backfillService;
         this.productionPickListSourceService = productionPickListSourceService;
+        this.routeVersionSnapshotResolver = routeVersionSnapshotResolver;
     }
 
     @Override
@@ -101,7 +108,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                 continue;
             }
 
-            MesProRouteFlowProcessBatchRecordDO binding = formalBinding(snapshot, blockers);
+            MesProRouteFlowProcessBatchRecordDO binding = formalBinding(command, snapshot, blockers);
             if (binding == null) {
                 continue;
             }
@@ -180,6 +187,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                             .setPickListBindingId(plan.getCommand().getPickListBindingIds().size() == 1
                                     ? plan.getCommand().getPickListBindingIds().get(0) : null)
                             .setDccProjectCodeId(plan.getCommand().getDccProjectCodeId())
+                            .setRouteBinding(prepared.getBinding())
                             .setBatchExecutionId(batchExecutionId)
                             .setBatchExecutionTaskId(task.getId()));
             if (backfill == null || backfill.getExecutionId() == null || backfill.getAuditBatchId() == null) {
@@ -259,13 +267,13 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     }
 
     private MesProRouteFlowProcessBatchRecordDO formalBinding(
+            MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command,
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
-        List<MesProRouteFlowProcessBatchRecordDO> formal = bindingMapper
-                .selectListByRouteProcessIdsAndUseType(List.of(snapshot.getRouteProcessId()), USE_TYPE_BATCH)
-                .stream()
+        List<MesProRouteFlowProcessBatchRecordDO> formal;
+        try {
+            formal = selectVersionedProductionReportBindings(command, snapshot).stream()
                 .filter(binding -> binding != null
-                        && binding.getId() != null
                         && Objects.equals(snapshot.getRouteId(), binding.getRouteId())
                         && Objects.equals(snapshot.getRouteProcessId(), binding.getRouteProcessId())
                         && StrUtil.isNotBlank(binding.getBatchRecordReportId())
@@ -273,9 +281,15 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                         && !PROCESS_INSPECTION.equals(binding.getFormSlotType())
                         && !LOSS_REPORT.equals(binding.getFormSlotType()))
                 .toList();
+        } catch (RuntimeException ex) {
+            blockers.add(blocker("BATCH_RECORD_BINDING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
+                    "订单冻结路线版本缺少可解析的逐工序正式批记录绑定：" + ex.getMessage(),
+                    "请恢复该订单冻结路线版本的批记录绑定快照后重新申请"));
+            return null;
+        }
         if (formal.isEmpty()) {
             blockers.add(blocker("BATCH_RECORD_BINDING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
-                    "工序缺少逐工序正式批记录绑定", "请在工序设置中绑定唯一正式批记录表单"));
+                    "订单冻结路线版本缺少逐工序正式批记录绑定", "请恢复该订单冻结路线版本的批记录绑定快照"));
             return null;
         }
         if (formal.size() != 1) {
@@ -307,6 +321,100 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
         resolved.setBatchRecordDefinitionId(report.getBatchRecordDefinitionId());
         resolved.setBatchRecordVersionId(report.getBatchRecordVersionId());
         return resolved;
+    }
+
+    private List<MesProRouteFlowProcessBatchRecordDO> selectVersionedProductionReportBindings(
+            MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        MesProRouteVersionSnapshotResolver.ResolvedRouteVersionSnapshot resolvedVersion =
+                routeVersionSnapshotResolver.resolveVersion(command.getRouteVersionId());
+        if (!Objects.equals(command.getRouteId(), resolvedVersion.routeId())
+                || !Objects.equals(snapshot.getRouteId(), resolvedVersion.routeId())) {
+            throw new IllegalStateException("route version does not belong to active order route");
+        }
+        JSONObject routeSnapshot = JSON.parseObject(resolvedVersion.routeSnapshotJson());
+        JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject("configSnapshots");
+        JSONArray batchUseConfigs = configSnapshots == null ? null : configSnapshots.getJSONArray("batchUseConfigs");
+        if (batchUseConfigs == null || batchUseConfigs.isEmpty()) {
+            throw new IllegalStateException("batchUseConfigs missing");
+        }
+        List<MesProRouteFlowProcessBatchRecordDO> result = new ArrayList<>();
+        for (Object value : batchUseConfigs) {
+            if (!(value instanceof JSONObject processConfig)) {
+                throw new IllegalStateException("batchUseConfigs contains non-object");
+            }
+            Long routeProcessId = processConfig.getLong("routeProcessId");
+            if (!Objects.equals(snapshot.getRouteProcessId(), routeProcessId)) {
+                continue;
+            }
+            for (JSONObject report : resolveVersionedProductionReportConfigs(processConfig)) {
+                result.add(toVersionedProductionReportBinding(command, routeProcessId, processConfig, report));
+            }
+        }
+        return result;
+    }
+
+    private List<JSONObject> resolveVersionedProductionReportConfigs(JSONObject processConfig) {
+        JSONArray reports = processConfig.getJSONArray("batchRecordReports");
+        if (reports == null || reports.isEmpty()) {
+            String reportId = StrUtil.blankToDefault(StrUtil.trim(processConfig.getString("batchRecordReportId")),
+                    StrUtil.trim(processConfig.getString("reportId")));
+            if (StrUtil.isBlank(reportId)) {
+                return List.of();
+            }
+            return List.of(processConfig);
+        }
+        List<JSONObject> result = new ArrayList<>();
+        for (Object value : reports) {
+            if (!(value instanceof JSONObject report)) {
+                throw new IllegalStateException("batchRecordReports contains non-object");
+            }
+            String reportId = StrUtil.blankToDefault(StrUtil.trim(report.getString("batchRecordReportId")),
+                    StrUtil.trim(report.getString("reportId")));
+            if (StrUtil.isNotBlank(reportId)) {
+                result.add(report);
+            }
+        }
+        return result;
+    }
+
+    private MesProRouteFlowProcessBatchRecordDO toVersionedProductionReportBinding(
+            MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command,
+            Long routeProcessId,
+            JSONObject processConfig,
+            JSONObject report) {
+        String reportId = StrUtil.blankToDefault(StrUtil.trim(report.getString("batchRecordReportId")),
+                StrUtil.trim(report.getString("reportId")));
+        if (StrUtil.isBlank(reportId)) {
+            throw new IllegalStateException("batchRecordReportId missing");
+        }
+        Integer reportSort = report.getInteger("reportSort");
+        return MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(report.getLong("routeBindingId"))
+                .routeId(command.getRouteId())
+                .routeProcessId(routeProcessId)
+                .useType(StrUtil.blankToDefault(StrUtil.trim(processConfig.getString("useType")), USE_TYPE_BATCH))
+                .batchRecordReportId(reportId)
+                .batchRecordDefinitionId(report.getLong("batchRecordDefinitionId"))
+                .batchRecordVersionId(report.getLong("batchRecordVersionId"))
+                .formSlotType(StrUtil.blankToDefault(StrUtil.trim(report.getString("formSlotType")), "MAIN"))
+                .instanceScope(report.getString("instanceScope"))
+                .sharedFormKey(StrUtil.blankToDefault(StrUtil.trim(report.getString("sharedFormKey")), null))
+                .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getString("fillableScopeJson")), null))
+                .recordCategory(StrUtil.blankToDefault(StrUtil.trim(report.getString("recordCategory")),
+                        RECORD_CATEGORY_BATCH_RECORD))
+                .validationProfile(report.getString("validationProfile"))
+                .recordbookEnabled(report.getBoolean("recordbookEnabled"))
+                .permissionScopeId(report.getLong("permissionScopeId"))
+                .recordCategorySnapshotHash(report.getString("recordCategorySnapshotHash"))
+                .requiredPolicy(report.getString("requiredPolicy"))
+                .requiredConditionJson(report.getString("requiredConditionJson"))
+                .ownerRoleKey(report.getString("ownerRoleKey"))
+                .archiveVisibility(report.getString("archiveVisibility"))
+                .slotConfigSnapshotHash(report.getString("slotConfigSnapshotHash"))
+                .reportSort(reportSort == null ? 1 : reportSort)
+                .remark(StrUtil.blankToDefault(report.getString("remark"), processConfig.getString("remark")))
+                .build();
     }
 
     private List<MesProBatchRecordCellLinkRuleDO> formalRules(

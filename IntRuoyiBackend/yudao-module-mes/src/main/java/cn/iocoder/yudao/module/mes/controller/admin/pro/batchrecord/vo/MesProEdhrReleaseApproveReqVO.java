@@ -26,6 +26,8 @@ public class MesProEdhrReleaseApproveReqVO {
     @NotBlank(message = "签核证据不能为空")
     private String signoffEvidenceHash;
 
+    private String signoffSubjectId;
+
     private String approvalOpinion;
 
     /** Release provenance and gate receipts are required by finalizeRelease. */

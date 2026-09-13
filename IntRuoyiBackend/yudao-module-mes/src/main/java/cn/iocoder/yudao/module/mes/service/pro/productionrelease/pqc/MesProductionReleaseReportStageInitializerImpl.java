@@ -109,8 +109,6 @@ public class MesProductionReleaseReportStageInitializerImpl
                         .setCandidateSourceType("FROZEN_REPORT_OWNER")
                         .setCandidateUserSnapshot(candidateSnapshot)
                         .setStatus(MesProEdhrWorkTaskStatus.TODO)
-                        .setActionUrl("/mes/production-release/report?applicationId=" + command.getApplicationId()
-                                + "&nodeType=" + batchTask.getNodeType())
                         .setRemark("production release required report upload");
                 if (workTaskMapper.insert(workTask) != 1 || workTask.getId() == null) {
                     throw blocker(command, "report upload work task persistence failed");
@@ -119,6 +117,14 @@ public class MesProductionReleaseReportStageInitializerImpl
                     || !Objects.equals(batchTask.getId(), workTask.getBatchTaskId())
                     || !Objects.equals(candidateSnapshot, workTask.getCandidateUserSnapshot())) {
                 throw blocker(command, "existing report upload work task does not match its frozen owner snapshot");
+            }
+            String actionUrl = reportActionUrl(batch, batchTask, workTask);
+            if (!Objects.equals(actionUrl, workTask.getActionUrl())) {
+                if (workTaskMapper.updateById(new MesProEdhrWorkTaskDO()
+                        .setId(workTask.getId()).setActionUrl(actionUrl)) != 1) {
+                    throw blocker(command, "report upload work task route persistence failed");
+                }
+                workTask.setActionUrl(actionUrl);
             }
             receipts.add(new MesProductionReleaseReportUploadTaskReceipt()
                     .setNodeType(batchTask.getNodeType())
@@ -136,6 +142,15 @@ public class MesProductionReleaseReportStageInitializerImpl
         return new MesProductionReleaseReportStageInitializationResult()
                 .setReportUploadTasks(List.copyOf(receipts))
                 .setReportSnapshotHash(reportSnapshotHash);
+    }
+
+    private String reportActionUrl(MesProEdhrBatchExecutionDO batch,
+                                   MesProEdhrBatchExecutionTaskDO batchTask,
+                                   MesProEdhrWorkTaskDO workTask) {
+        return "/mes/pro/feedback/edhr-batch-execution/detail?id=" + batch.getId()
+                + "&batchTaskId=" + batchTask.getId()
+                + "&workTaskId=" + workTask.getId()
+                + "&nodeType=" + batchTask.getNodeType();
     }
 
     private Map<String, OwnerConfig> parseOwnerConfigs(

@@ -98,7 +98,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         MesProProcessPoolEventDO event = eventId == null ? null : eventMapper.selectById(eventId);
         MesProProcessPoolPqcRecordDO record = eventId == null ? null : pqcRecordMapper.selectByEventId(eventId);
         MesProcessPoolSubmissionReviewDO review = reviewId == null ? null : reviewMapper.selectById(reviewId);
-        PublishedQa publishedQa = selectLockedQa(lockedDccQa);
+        PublishedQa publishedQa = selectLockedQa(lockedDccQa, task);
         MesQaInspectionRegulationDO regulation = publishedQa.regulation();
         MesQaInspectionRegulationVersionDO version = publishedQa.version();
         List<MesQaInspectionRegulationItemDO> items = version == null ? List.of()
@@ -137,27 +137,31 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
             throw new IllegalStateException("活跃订单冻结 DCC 项目身份无效，activeOrderId="
                     + command.getActiveOrderId() + "，dccProjectCodeId=" + snapshot.dccProjectCodeId());
         }
-        return new LockedDccQa(StrUtil.trim(project.getProjectCode()), project,
-                snapshot.qaRegulationId(), snapshot.qaRegulationVersionId());
+        return new LockedDccQa(StrUtil.trim(project.getProjectCode()), project);
     }
 
-    private PublishedQa selectLockedQa(LockedDccQa lockedDccQa) {
+    private PublishedQa selectLockedQa(LockedDccQa lockedDccQa, MesPqcInspectionTaskDO task) {
         DccProjectCodeDO dccProject = lockedDccQa.project();
-        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(lockedDccQa.qaRegulationId());
-        if (regulation == null || regulation.getId() == null
-                || !Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
-                || !MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
-                || !"PUBLISHED".equals(regulation.getLifecycleStatus())) {
-            throw new IllegalStateException("活跃订单冻结 QA 规程身份无效，qaRegulationId="
-                    + lockedDccQa.qaRegulationId());
-        }
         MesQaInspectionRegulationVersionDO version = regulationVersionMapper
-                .selectById(lockedDccQa.qaRegulationVersionId());
+                .selectById(task == null ? null : task.getRegulationVersionId());
+        MesQaInspectionRegulationDO regulation = version == null || version.getRegulationId() == null
+                ? null : regulationMapper.selectById(version.getRegulationId());
+        boolean regulationValid = regulation != null && regulation.getId() != null
+                && Set.of(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON).contains(regulation.getOwnerModule())
+                && "PUBLISHED".equals(regulation.getLifecycleStatus());
+        if (!regulationValid) {
+            throw new IllegalStateException("PQC 任务冻结 QA 规程身份无效，pqcTaskId="
+                    + (task == null ? null : task.getId()) + "，regulationVersionId="
+                    + (task == null ? null : task.getRegulationVersionId()));
+        }
         if (version == null || version.getId() == null || version.getPublishedAt() == null
                 || !Objects.equals(regulation.getId(), version.getRegulationId())
+                || !Objects.equals(task.getRegulationVersionId(), version.getId())
                 || !Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())) {
-            throw new IllegalStateException("活跃订单冻结 QA 版本身份无效，qaRegulationVersionId="
-                    + lockedDccQa.qaRegulationVersionId());
+            throw new IllegalStateException("PQC 任务冻结 QA 版本身份无效，pqcTaskId="
+                    + (task == null ? null : task.getId()) + "，regulationVersionId="
+                    + (task == null ? null : task.getRegulationVersionId()));
         }
         MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution provenance =
                 qaProvenancePort.verify(dccProject, regulation, version);
@@ -186,8 +190,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
     }
 
     private record LockedDccQa(String projectCode,
-                               DccProjectCodeDO project,
-                               Long qaRegulationId,
-                               Long qaRegulationVersionId) {
+                               DccProjectCodeDO project) {
     }
 }

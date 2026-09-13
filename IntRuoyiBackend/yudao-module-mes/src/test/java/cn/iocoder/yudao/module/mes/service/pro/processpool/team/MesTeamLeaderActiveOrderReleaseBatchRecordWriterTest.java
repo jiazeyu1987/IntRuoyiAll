@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,6 +63,8 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     private MesTeamLeaderBatchRecordBackfillService backfillService;
     @Mock
     private MesProductionPickListSourceService productionPickListSourceService;
+    @Mock
+    private MesProRouteVersionSnapshotResolver routeVersionSnapshotResolver;
 
     private MesTeamLeaderActiveOrderReleaseBatchRecordWriter writer;
 
@@ -69,7 +72,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
                 bindingMapper, reportMapper, ruleMapper, batchTaskMapper, backfillService,
-                productionPickListSourceService);
+                productionPickListSourceService, routeVersionSnapshotResolver);
     }
 
     @Test
@@ -176,8 +179,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
         MesProRouteFlowProcessBatchRecordDO unresolved = binding();
         unresolved.setBatchRecordDefinitionId(null);
         unresolved.setBatchRecordVersionId(null);
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
-                .thenReturn(List.of(unresolved));
+        mockRouteVersionSnapshot(unresolved);
         when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity")));
@@ -229,8 +231,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
 
     @Test
     void shouldPreflightProductionPickListMappingsBeforeAnyBatchRecordWrite() {
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
-                .thenReturn(List.of(binding()));
+        mockRouteVersionSnapshot(binding());
         when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity"), pickRule(2L, "material.3201.lotNumber")));
@@ -253,8 +254,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
 
     @Test
     void shouldBlockWhenProductionPickListResolverViolatesContractBeforeAnyWrite() {
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
-                .thenReturn(List.of(binding()));
+        mockRouteVersionSnapshot(binding());
         when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity"), pickRule(2L, "material.3201.lotNumber")));
@@ -268,11 +268,29 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     }
 
     private void mockFormalPlanSources() {
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
-                .thenReturn(List.of(binding()));
+        mockRouteVersionSnapshot(binding());
         when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity"), rule(2L, "pressure")));
+    }
+
+    private void mockRouteVersionSnapshot(MesProRouteFlowProcessBatchRecordDO binding) {
+        when(routeVersionSnapshotResolver.resolveVersion(ROUTE_VERSION_ID))
+                .thenReturn(new MesProRouteVersionSnapshotResolver.ResolvedRouteVersionSnapshot(
+                        ROUTE_ID, ROUTE_VERSION_ID, routeSnapshotJson(binding), "route-snapshot-hash"));
+    }
+
+    private static String routeSnapshotJson(MesProRouteFlowProcessBatchRecordDO binding) {
+        return "{\"routeId\":" + ROUTE_ID
+                + ",\"configSnapshots\":{\"flowGraph\":{\"nodes\":[{\"routeProcessId\":"
+                + ROUTE_PROCESS_ID + ",\"processId\":" + PROCESS_ID
+                + ",\"sort\":1,\"processName\":\"装配\"}]},\"batchUseConfigs\":[{\"routeProcessId\":"
+                + ROUTE_PROCESS_ID + ",\"processId\":" + PROCESS_ID
+                + ",\"sort\":1,\"processName\":\"装配\",\"useType\":\"BATCH\",\"batchRecordReports\":[{\"routeBindingId\":"
+                + binding.getId() + ",\"batchRecordReportId\":\"" + binding.getBatchRecordReportId()
+                + "\",\"batchRecordDefinitionId\":" + binding.getBatchRecordDefinitionId()
+                + ",\"batchRecordVersionId\":" + binding.getBatchRecordVersionId()
+                + ",\"formSlotType\":\"MAIN\",\"recordCategory\":\"BATCH_RECORD\",\"permissionScopeId\":9901,\"reportSort\":1}]}]}}";
     }
 
     private static MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command() {

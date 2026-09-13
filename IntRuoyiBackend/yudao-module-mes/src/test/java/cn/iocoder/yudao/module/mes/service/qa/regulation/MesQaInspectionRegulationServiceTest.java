@@ -8,8 +8,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationVersionOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationBindReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetVersionSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaCommonRegulationSetVersionMemberDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -688,6 +690,31 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
+    void saveCommonRegulationSetVersion_rejectsPublishedVersionMutationBeforeMemberReplace() {
+        long setId = 71L;
+        long setVersionId = 72L;
+        when(commonRegulationSetMapper.selectById(setId)).thenReturn(commonRegulationSet(setId, setVersionId));
+        when(commonRegulationSetVersionMapper.selectById(setVersionId)).thenReturn(
+                MesQaCommonRegulationSetVersionDO.builder()
+                        .id(setVersionId)
+                        .setId(setId)
+                        .versionNo("A/1")
+                        .lifecycleStatus(MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)
+                        .build());
+        MesQaCommonRegulationSetVersionSaveReqVO reqVO = commonSetVersionSaveRequest(setId, setVersionId);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.saveCommonRegulationSetVersion(reqVO));
+
+        assertEquals(QA_COMMON_REGULATION_SET_INVALID.getCode(), ex.getCode());
+        verify(commonRegulationSetVersionMapper, never()).updateById(any(MesQaCommonRegulationSetVersionDO.class));
+        verify(commonRegulationSetVersionMemberMapper, never()).deleteBySetVersionId(setVersionId);
+        verify(commonRegulationSetVersionMemberMapper, never())
+                .insert((MesQaCommonRegulationSetVersionMemberDO)
+                        any(MesQaCommonRegulationSetVersionMemberDO.class));
+    }
+
+    @Test
     void deleteCommonRegulationSetVersion_rejectsCurrentPublishedVersion() {
         long setId = 71L;
         long setVersionId = 72L;
@@ -698,21 +725,38 @@ class MesQaInspectionRegulationServiceTest {
                         .versionNo("A/1")
                         .lifecycleStatus(MesQaCommonRegulationSetVersionDO.STATUS_PUBLISHED)
                         .build());
-        when(commonRegulationSetMapper.selectById(setId)).thenReturn(
-                MesQaCommonRegulationSetDO.builder()
-                        .id(setId)
-                        .setCode("PKG-A")
-                        .setName("包装检验 A 套")
-                        .setStatus(MesQaCommonRegulationSetDO.STATUS_ENABLED)
-                        .currentVersionId(setVersionId)
-                        .build());
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.deleteCommonRegulationSetVersion(setVersionId));
 
         assertEquals(QA_COMMON_REGULATION_SET_INVALID.getCode(), ex.getCode());
-        verifyNoInteractions(commonRegulationSetVersionMemberMapper,
+        verifyNoInteractions(commonRegulationSetMapper, commonRegulationSetVersionMemberMapper,
                 commonRegulationProductBindingMapper);
+    }
+
+    private static MesQaCommonRegulationSetDO commonRegulationSet(long setId, long currentVersionId) {
+        return MesQaCommonRegulationSetDO.builder()
+                .id(setId)
+                .setCode("PKG-A")
+                .setName("包装检验 A 套")
+                .setStatus(MesQaCommonRegulationSetDO.STATUS_ENABLED)
+                .currentVersionId(currentVersionId)
+                .build();
+    }
+
+    private static MesQaCommonRegulationSetVersionSaveReqVO commonSetVersionSaveRequest(
+            long setId, long setVersionId) {
+        MesQaCommonRegulationSetVersionSaveReqVO reqVO = new MesQaCommonRegulationSetVersionSaveReqVO();
+        reqVO.setId(setVersionId);
+        reqVO.setSetId(setId);
+        reqVO.setVersionNo("A/1");
+        reqVO.setLifecycleStatus(MesQaCommonRegulationSetVersionDO.STATUS_DRAFT);
+        MesQaCommonRegulationSetVersionSaveReqVO.Member member =
+                new MesQaCommonRegulationSetVersionSaveReqVO.Member();
+        member.setCommonRegulationVersionId(VERSION_ID);
+        member.setSort(10);
+        reqVO.setMembers(List.of(member));
+        return reqVO;
     }
 
     private static DccProjectCodeDO enabledDccProject() {

@@ -2,10 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
-import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
-import cn.iocoder.yudao.module.bpm.dal.mysql.signature.BpmApprovalSignatureRecordMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
@@ -68,7 +65,8 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
-    private final BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper;
+    private final MesProductionReleaseSignoffService signoffService;
+    private final MesProductionReleaseBusinessReadinessService businessReadinessService;
     private final MesReleaseFlowAuditRecorder auditRecorder;
     private final Clock clock;
 
@@ -80,10 +78,11 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
-            BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper,
+            MesProductionReleaseSignoffService signoffService,
+            MesProductionReleaseBusinessReadinessService businessReadinessService,
             MesReleaseFlowAuditRecorder auditRecorder) {
         this(applicationMapper, releaseTransactionMapper, releaseEventMapper, workTaskMapper,
-                batchExecutionMapper, batchTaskMapper, approvalSignatureRecordMapper,
+                batchExecutionMapper, batchTaskMapper, signoffService, businessReadinessService,
                 auditRecorder, Clock.systemUTC());
     }
 
@@ -94,7 +93,8 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
-            BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper,
+            MesProductionReleaseSignoffService signoffService,
+            MesProductionReleaseBusinessReadinessService businessReadinessService,
             MesReleaseFlowAuditRecorder auditRecorder,
             Clock clock) {
         this.applicationMapper = applicationMapper;
@@ -103,7 +103,8 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         this.workTaskMapper = workTaskMapper;
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchTaskMapper = batchTaskMapper;
-        this.approvalSignatureRecordMapper = approvalSignatureRecordMapper;
+        this.signoffService = signoffService;
+        this.businessReadinessService = businessReadinessService;
         this.auditRecorder = auditRecorder;
         this.clock = clock;
     }
@@ -167,7 +168,8 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                     "one or more frozen report evidences changed before final release",
                     "restore the four approved report evidences and retry with a fresh task receipt");
         }
-        requireSignoffEvidence(workTask, actorUserId, command.getSignoffEvidenceHash(), application);
+        requireBusinessReadiness(application, batch);
+        requireSignoffEvidence(workTask, actorUserId, command, application);
 
         return new MesProductionReleaseManagerApprovalResult()
                 .setBatchExecution(batch)
@@ -355,21 +357,10 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     private void requireSignoffEvidence(
             MesProEdhrWorkTaskDO workTask,
             Long actorUserId,
-            String signoffEvidenceHash,
+            MesProEdhrReleaseApproveReqVO command,
             MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        List<BpmApprovalSignatureRecordDO> records = approvalSignatureRecordMapper.selectList(
-                new LambdaQueryWrapperX<BpmApprovalSignatureRecordDO>()
-                        .eq(BpmApprovalSignatureRecordDO::getModuleCode, "EDHR")
-                        .eq(BpmApprovalSignatureRecordDO::getSourceTaskType, "EDHR_WORK_TASK")
-                        .eq(BpmApprovalSignatureRecordDO::getSourceTaskId, String.valueOf(workTask.getId()))
-                        .eq(BpmApprovalSignatureRecordDO::getSignerUserId, actorUserId)
-                        .eq(BpmApprovalSignatureRecordDO::getReviewResult, "APPROVE"));
-        boolean evidenceMatched = records.stream().anyMatch(record ->
-                Boolean.TRUE.equals(record.getPasswordVerified())
-                        && StrUtil.isNotBlank(record.getSignatureImageFileUrl())
-                        && Objects.equals(DigestUtil.sha256Hex(StrUtil.trim(record.getSignatureImageFileUrl())),
-                        signoffEvidenceHash));
-        if (!evidenceMatched) {
+        if (!signoffService.isVerified(workTask.getId(), actorUserId, command.getSignoffSubjectId(),
+                command.getSignoffEvidenceHash(), command.getApprovalOpinion())) {
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "verified manager electronic signoff evidence is required",
                     "complete password verification and submit the resulting signature evidence hash");
@@ -381,10 +372,21 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             Long actorUserId,
             MesProEdhrReleaseApproveReqVO command,
             MesProEdhrReleaseTransactionEventDO existingEvent) {
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(command.getWorkTaskId());
+        if (workTask == null || !Objects.equals(application.getReleaseApprovalWorkTaskId(), workTask.getId())
+                || !Objects.equals(workTask.getBusinessScopeId(), command.getReleaseTransactionId())
+                || !BUSINESS_SCOPE_RELEASE_TRANSACTION.equals(workTask.getBusinessScopeType())
+                || !TASK_TYPE_RELEASE_APPROVE.equals(workTask.getTaskType())
+                || !containsCandidate(workTask.getCandidateUserSnapshot(), actorUserId)) {
+            throw blocker(application, MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
+                    "replay requires the original frozen manager task candidate", "use the original task and actor");
+        }
         JSONObject snapshot = JSON.parseObject(existingEvent.getEventSnapshotJson());
         String storedPayloadHash = snapshot == null ? null : snapshot.getString("managerApprovalPayloadHash");
         String reportSnapshotHash = snapshot == null ? null : snapshot.getString("reportSnapshotHash");
-        String incomingPayloadHash = approvalPayloadHash(actorUserId, command, reportSnapshotHash);
+        Integer storedExpectedVersion = snapshot == null ? null : snapshot.getInteger("expectedVersion");
+        String incomingPayloadHash = storedExpectedVersion == null
+                ? null : approvalPayloadHash(actorUserId, command, reportSnapshotHash, storedExpectedVersion);
         if (!Objects.equals(storedPayloadHash, incomingPayloadHash)) {
             throw blocker(application, MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
                     "manager approval idempotency key was used with a different payload",
@@ -450,11 +452,31 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             Long actorUserId,
             MesProEdhrReleaseApproveReqVO command,
             String reportSnapshotHash) {
+        return approvalPayloadHash(actorUserId, command, reportSnapshotHash, command.getExpectedVersion());
+    }
+
+    private void requireBusinessReadiness(MesProcessPoolActiveOrderReleaseApplicationDO application,
+                                          MesProEdhrBatchExecutionDO batch) {
+        MesProductionReleaseBusinessReadiness businessReadiness =
+                businessReadinessService.resolveBusinessReadinessChecks(batch);
+        if (businessReadiness.hasBlockingChecks()) {
+            throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                    "business readiness checks changed before final release",
+                    "complete DHR, inspection, deviation, rework, scrap and inventory checks before final release");
+        }
+    }
+
+    private String approvalPayloadHash(
+            Long actorUserId,
+            MesProEdhrReleaseApproveReqVO command,
+            String reportSnapshotHash,
+            Integer expectedVersion) {
         return MesReleaseFlowIdempotency.payloadHash(
                 String.valueOf(command.getReleaseTransactionId()),
                 String.valueOf(command.getWorkTaskId()),
-                String.valueOf(command.getExpectedVersion()),
+                String.valueOf(expectedVersion),
                 String.valueOf(actorUserId),
+                StrUtil.trim(command.getSignoffSubjectId()),
                 StrUtil.trim(command.getSignoffEvidenceHash()),
                 StrUtil.trim(command.getApprovalOpinion()),
                 StrUtil.trim(reportSnapshotHash));

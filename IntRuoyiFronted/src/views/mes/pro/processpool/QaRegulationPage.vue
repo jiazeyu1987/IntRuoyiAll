@@ -810,6 +810,7 @@
                       <el-button
                         link
                         type="primary"
+                        :disabled="!canEditCommonSetVersion(row)"
                         @click.stop="
                           openCommonRegulationSetVersionDialog(selectedCommonRegulationSet, row)
                         "
@@ -819,6 +820,7 @@
                       <el-button
                         link
                         type="danger"
+                        :disabled="!canEditCommonSetVersion(row)"
                         @click.stop="deleteCommonRegulationSetVersion(row)"
                       >
                         删除
@@ -853,7 +855,10 @@
                   <el-button
                     plain
                     data-qa-common-set-document-maintain
-                    :disabled="!selectedCommonRegulationSet"
+                    :disabled="
+                      !selectedCommonRegulationSet ||
+                      !canEditCommonSetVersion(selectedCommonRegulationSetVersionPreview)
+                    "
                     @click="openSelectedCommonRegulationSetVersionDialog"
                   >
                     维护文档组成
@@ -2636,6 +2641,9 @@ const selectCommonRegulationSetVersion = (version: QaCommonRegulationSetVO['vers
   commonRegulationSetDetailActiveTab.value = 'byDocument'
 }
 
+const canEditCommonSetVersion = (version?: QaCommonRegulationSetVO['versions'][number]) =>
+  version?.lifecycleStatus === 'DRAFT'
+
 const openSelectedCommonRegulationSetVersionDialog = () => {
   if (!selectedCommonRegulationSet.value || !selectedCommonRegulationSetVersionPreview.value) {
     return
@@ -3482,6 +3490,10 @@ const openCommonRegulationSetVersionDialog = (
   if (!set.id) {
     throw new Error('通用规程套 ID 不能为空')
   }
+  if (version && !canEditCommonSetVersion(version)) {
+    ElMessage.warning('已发布通用规程套版本不可原地编辑，请新建草稿版本后发布')
+    return
+  }
   commonRegulationSetVersionForm.id = version?.id
   commonRegulationSetVersionForm.setId = set.id
   commonRegulationSetVersionForm.versionNo = version?.versionNo || ''
@@ -3569,6 +3581,10 @@ const deleteCommonRegulationSetVersion = async (
 ) => {
   if (!version.id) {
     throw new Error('通用规程套版本 ID 不能为空')
+  }
+  if (!canEditCommonSetVersion(version)) {
+    ElMessage.warning('非草稿通用规程套版本不可删除')
+    return
   }
   await ElMessageBox.confirm('删除套版本后，不能再被产品绑定。是否继续？', '删除通用规程套版本', {
     type: 'warning'

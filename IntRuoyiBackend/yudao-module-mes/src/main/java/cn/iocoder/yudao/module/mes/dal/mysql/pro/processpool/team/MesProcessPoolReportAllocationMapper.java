@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -153,6 +154,21 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                 .set(MesProcessPoolReportAllocationDO::getLifecycleStatus,
                         MesProcessPoolReportAllocationDO.LIFECYCLE_SUPERSEDED)
                 .set(MesProcessPoolReportAllocationDO::getSupersededVersion, supersededVersion));
+    }
+
+    default int attachReviewToCurrentRowsByEventId(Long eventId, Long reviewId, Long leaderUserId,
+                                                   LocalDateTime confirmedAt) {
+        if (eventId == null || reviewId == null || leaderUserId == null || confirmedAt == null) {
+            return 0;
+        }
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolReportAllocationDO>()
+                .eq(MesProcessPoolReportAllocationDO::getEventId, eventId)
+                .eq(MesProcessPoolReportAllocationDO::getLifecycleStatus,
+                        MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                .isNull(MesProcessPoolReportAllocationDO::getReviewId)
+                .set(MesProcessPoolReportAllocationDO::getReviewId, reviewId)
+                .set(MesProcessPoolReportAllocationDO::getLeaderUserId, leaderUserId)
+                .set(MesProcessPoolReportAllocationDO::getConfirmedAt, confirmedAt));
     }
 
     default int deleteAllByActiveOrderId(Long activeOrderId) {

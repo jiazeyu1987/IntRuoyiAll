@@ -779,7 +779,7 @@ public class DccControlledFileController {
     @Operation(summary = "Retry controlled file finalization")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:stamp:retry')")
     public CommonResult<Boolean> retryControlledFileStamp(@PathVariable("id") Long id) {
-        finalizationService.retryStamp(id);
+        finalizationService.retryStamp(getLoginUserId(), id);
         return success(true);
     }
 

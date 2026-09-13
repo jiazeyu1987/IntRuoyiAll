@@ -1072,6 +1072,7 @@ import { useUserStore } from '@/store/modules/user'
 import { openControlledFileTraceability } from '../shared/viewer-navigation'
 import {
   hasDccControlledFileActionProjection,
+  isDccControlledFileActionAllowed,
   isDccControlledFileActionUnlocked
 } from '../shared/lifecycle'
 import { buildControlledFileViewerPath } from '../view/presentation'
@@ -1659,7 +1660,7 @@ const canEditVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) =
   Boolean(file.requesterId && String(file.requesterId) === String(userStore.getUser.id))
 
 const canCreateMajorRevision = (file: ControlledFileVO | ControlledFileBrowserVersion) =>
-  Boolean(file.id && file.status === 'WORKING' && canEditVersion(file))
+  Boolean(file.id && isDccControlledFileActionAllowed(file, 'MAJOR_REVISION'))
 
 const parseWindchillVersion = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
   const revisionCode = String(file.revisionCode || '').trim().toUpperCase()
@@ -1703,6 +1704,7 @@ const canSubmitLatestWorkingIteration = (
 ) => Boolean(
   file.id &&
   file.status === 'WORKING' &&
+  canEditVersion(file) &&
   isLatestWorkingIteration(row, file) &&
   !file.checkedOut &&
   !file.checkedOutBy

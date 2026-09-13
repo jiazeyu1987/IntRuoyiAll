@@ -116,6 +116,23 @@ public class DccControlledFileRouteReadinessService {
                 .build());
     }
 
+    public void requireReadyParticipants(String stageCode, List<Long> userIds) {
+        String permission = requiredPermission(stageCode);
+        Map<Long, Boolean> authorizations = signatureAuthorizationService.getAuthorizationMap(userIds);
+        Map<Long, Boolean> images = resolveImageValidity(userIds);
+        for (Long userId : userIds) {
+            if (!permissionApi.hasAnyPermissions(userId, permission)) {
+                throw exception(CONTROLLED_FILE_ROUTE_NOT_READY, "目标审批人 " + userId + " 缺少当前阶段文控权限");
+            }
+            if (!Boolean.TRUE.equals(authorizations.get(userId))) {
+                throw exception(CONTROLLED_FILE_ROUTE_NOT_READY, "目标审批人 " + userId + " 未获电子签名授权");
+            }
+            if (!Boolean.TRUE.equals(images.get(userId))) {
+                throw exception(CONTROLLED_FILE_ROUTE_NOT_READY, "目标审批人 " + userId + " 未配置有效签名图片");
+            }
+        }
+    }
+
     private Map<Long, Boolean> resolveImageValidity(Collection<Long> userIds) {
         Map<Long, Boolean> result = new LinkedHashMap<>();
         for (Long userId : userIds) {

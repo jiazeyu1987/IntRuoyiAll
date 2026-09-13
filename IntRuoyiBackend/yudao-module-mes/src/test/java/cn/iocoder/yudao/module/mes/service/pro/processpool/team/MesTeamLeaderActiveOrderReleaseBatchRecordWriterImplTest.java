@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,13 +51,14 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImplTest {
     @Mock private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Mock private MesTeamLeaderBatchRecordBackfillService backfillService;
     @Mock private MesProductionPickListSourceService productionPickListSourceService;
+    @Mock private MesProRouteVersionSnapshotResolver routeVersionSnapshotResolver;
 
     private MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl writer;
 
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(bindingMapper, reportMapper, ruleMapper,
-                batchTaskMapper, backfillService, productionPickListSourceService);
+                batchTaskMapper, backfillService, productionPickListSourceService, routeVersionSnapshotResolver);
     }
 
     @Test

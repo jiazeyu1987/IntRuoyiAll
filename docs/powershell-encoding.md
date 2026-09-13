@@ -9,6 +9,7 @@
 
 - PowerShell 命令不得使用 `&&`。
 - 需要串联命令时使用分行或分号。
+- Maven/Java 命令中的 `-D` 参数，尤其属性名包含点号时，必须整体加引号，例如 `"-Dsurefire.failIfNoSpecifiedTests=false"`，避免被 PowerShell 解析成错误 lifecycle phase。
 - 命令失败必须按真实失败处理，不得静默忽略退出码。
 - 执行高风险命令前必须明确工作目录、目标路径和退出码检查方式。
 

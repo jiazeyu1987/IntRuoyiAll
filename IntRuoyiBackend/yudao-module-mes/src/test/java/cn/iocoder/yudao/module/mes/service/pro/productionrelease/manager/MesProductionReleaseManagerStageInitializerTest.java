@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationCommand;
@@ -31,7 +33,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +47,7 @@ class MesProductionReleaseManagerStageInitializerTest {
     @Mock private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
+    @Mock private MesProductionReleaseBusinessReadinessService businessReadinessService;
 
     private MesProductionReleaseManagerStageInitializerImpl initializer;
 
@@ -50,7 +55,8 @@ class MesProductionReleaseManagerStageInitializerTest {
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         initializer = new MesProductionReleaseManagerStageInitializerImpl(
-                applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper, candidateResolver);
+                applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper,
+                candidateResolver, businessReadinessService);
     }
 
     @AfterEach
@@ -70,6 +76,8 @@ class MesProductionReleaseManagerStageInitializerTest {
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
                         List.of(8101L, 8102L), "manager-candidate-hash"));
+        when(businessReadinessService.resolveBusinessReadinessChecks(any()))
+                .thenReturn(passReadiness());
         AtomicLong ids = new AtomicLong(1000L);
         when(releaseTransactionMapper.insert(any(MesProEdhrReleaseTransactionDO.class))).thenAnswer(invocation -> {
             MesProEdhrReleaseTransactionDO transaction = invocation.getArgument(0);
@@ -98,8 +106,18 @@ class MesProductionReleaseManagerStageInitializerTest {
         verify(releaseTransactionMapper).insert(transactionCaptor.capture());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
                 transactionCaptor.getValue().getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, transactionCaptor.getValue().getDhrStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                transactionCaptor.getValue().getDeviationStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                transactionCaptor.getValue().getReworkStatus());
+        assertEquals(6, transactionCaptor.getValue().getRequiredCheckCount());
+        assertEquals(0, transactionCaptor.getValue().getFailedCheckCount());
+        assertEquals(0, transactionCaptor.getValue().getBlockingCheckCount());
         org.junit.jupiter.api.Assertions.assertTrue(
                 transactionCaptor.getValue().getPrecheckSnapshotJson().contains(reportSnapshotHash));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                transactionCaptor.getValue().getPrecheckSnapshotJson().contains("business-readiness-hash"));
         ArgumentCaptor<MesProEdhrWorkTaskDO> taskCaptor = ArgumentCaptor.forClass(MesProEdhrWorkTaskDO.class);
         verify(workTaskMapper).insert(taskCaptor.capture());
         MesProEdhrWorkTaskDO task = taskCaptor.getValue();
@@ -109,6 +127,60 @@ class MesProductionReleaseManagerStageInitializerTest {
         assertEquals(77L, task.getCandidateSourceId());
         assertEquals("8101,8102", task.getCandidateUserSnapshot());
         assertEquals("manager-candidate-hash", task.getResponsibilitySourceVersion());
+    }
+
+    @Test
+    void blocksManagerStageWhenBusinessReadinessHasUnverifiedFormalCheck() {
+        MesProcessPoolActiveOrderReleaseApplicationDO application = application();
+        List<MesProductionReleaseReportNodeEvidence> evidences = evidences();
+        String reportSnapshotHash = MesProductionReleaseReportSnapshots.hash(application, evidences);
+        when(applicationMapper.selectById(701L)).thenReturn(application);
+        when(batchExecutionMapper.selectById(901L)).thenReturn(batch());
+        when(candidateResolver.resolveRequiredCandidates(1L,
+                MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
+                .thenReturn(new MesProductionReleaseRoleCandidates(
+                        77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
+                        List.of(8101L, 8102L), "manager-candidate-hash"));
+        when(businessReadinessService.resolveBusinessReadinessChecks(any()))
+                .thenReturn(blockingReadiness());
+
+        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> initializer.initializeManagerReleaseStage(
+                        new MesProductionReleaseManagerStageInitializationCommand()
+                                .setApplicationId(701L)
+                                .setBatchExecutionId(901L)
+                                .setReportSnapshotHash(reportSnapshotHash)
+                                .setReportEvidences(evidences)
+                                .setExpectedApplicationVersion(4)));
+
+        assertEquals(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
+        verify(releaseTransactionMapper, never()).insert((MesProEdhrReleaseTransactionDO)
+                any(MesProEdhrReleaseTransactionDO.class));
+        verify(workTaskMapper, never()).insert((MesProEdhrWorkTaskDO)
+                any(MesProEdhrWorkTaskDO.class));
+    }
+
+    private MesProductionReleaseBusinessReadiness passReadiness() {
+        return new MesProductionReleaseBusinessReadiness(
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                6, 0, 0, "{\"items\":[]}", "business-readiness-hash", List.of());
+    }
+
+    private MesProductionReleaseBusinessReadiness blockingReadiness() {
+        return new MesProductionReleaseBusinessReadiness(
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_REQUIRED,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
+                6, 1, 1, "{\"items\":[]}", "business-readiness-blocked-hash", List.of());
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO application() {

@@ -428,6 +428,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             commonRegulationSetVersionMapper.insert(version);
         } else {
             version = requireCommonRegulationSetVersion(reqVO.getId());
+            assertCommonRegulationSetVersionMutable(version);
             if (!Objects.equals(version.getSetId(), set.getId())) {
                 throw exception(QA_COMMON_REGULATION_SET_INVALID, "套版本不属于指定套：" + reqVO.getId());
             }
@@ -459,10 +460,19 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 commonRegulationSetVersionMemberMapper.selectListBySetVersionId(version.getId()));
     }
 
+    private void assertCommonRegulationSetVersionMutable(MesQaCommonRegulationSetVersionDO version) {
+        if (version != null && !Objects.equals(version.getLifecycleStatus(),
+                MesQaCommonRegulationSetVersionDO.STATUS_DRAFT)) {
+            throw exception(QA_COMMON_REGULATION_SET_INVALID,
+                    "非草稿通用规程套版本不可原地修改：" + version.getId());
+        }
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteCommonRegulationSetVersion(Long setVersionId) {
         MesQaCommonRegulationSetVersionDO version = requireCommonRegulationSetVersion(setVersionId);
+        assertCommonRegulationSetVersionMutable(version);
         MesQaCommonRegulationSetDO set = requireCommonRegulationSet(version.getSetId());
         if (Objects.equals(set.getCurrentVersionId(), version.getId())) {
             throw exception(QA_COMMON_REGULATION_SET_INVALID,

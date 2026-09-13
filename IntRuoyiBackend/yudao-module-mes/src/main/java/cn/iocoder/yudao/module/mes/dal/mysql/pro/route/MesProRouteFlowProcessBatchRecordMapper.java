@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -18,12 +19,8 @@ public interface MesProRouteFlowProcessBatchRecordMapper
         extends BaseMapperX<MesProRouteFlowProcessBatchRecordDO> {
 
     default List<MesProRouteFlowProcessBatchRecordDO> selectListByRouteIdAndUseType(Long routeId, String useType) {
-        return selectList(new LambdaQueryWrapperX<MesProRouteFlowProcessBatchRecordDO>()
-                .eq(MesProRouteFlowProcessBatchRecordDO::getRouteId, routeId)
-                .eq(MesProRouteFlowProcessBatchRecordDO::getUseType, useType)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getReportSort)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
+        return selectCurrentProjectionListByRouteIdAndUseType(
+                routeId, useType, TenantContextHolder.getRequiredTenantId());
     }
 
     default List<MesProRouteFlowProcessBatchRecordDO> selectListByRouteIdsAndUseType(
@@ -31,27 +28,86 @@ public interface MesProRouteFlowProcessBatchRecordMapper
         if (routeIds == null || routeIds.isEmpty()) {
             return Collections.emptyList();
         }
-        return selectList(new LambdaQueryWrapperX<MesProRouteFlowProcessBatchRecordDO>()
-                .in(MesProRouteFlowProcessBatchRecordDO::getRouteId, routeIds)
-                .eq(MesProRouteFlowProcessBatchRecordDO::getUseType, useType)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteId)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getReportSort)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
+        return selectCurrentProjectionListByRouteIdsAndUseType(
+                routeIds, useType, TenantContextHolder.getRequiredTenantId());
     }
 
     default List<MesProRouteFlowProcessBatchRecordDO> selectListByRouteIds(Collection<Long> routeIds) {
         if (routeIds == null || routeIds.isEmpty()) {
             return Collections.emptyList();
         }
-        return selectList(new LambdaQueryWrapperX<MesProRouteFlowProcessBatchRecordDO>()
-                .in(MesProRouteFlowProcessBatchRecordDO::getRouteId, routeIds)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteId)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getUseType)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getReportSort)
-                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
+        return selectCurrentProjectionListByRouteIds(routeIds, TenantContextHolder.getRequiredTenantId());
     }
+
+    @Select("""
+            SELECT br.*
+            FROM mes_pro_route_flow_process_batch_record br
+            INNER JOIN mes_pro_route_flow_process_config pc
+              ON pc.id = br.route_flow_process_config_id
+             AND pc.tenant_id = br.tenant_id
+             AND pc.deleted = FALSE
+             AND pc.route_id = br.route_id
+             AND pc.route_process_id = br.route_process_id
+             AND pc.use_type = br.use_type
+            WHERE br.deleted = FALSE
+              AND br.route_id = #{routeId}
+              AND br.use_type = #{useType}
+              AND br.tenant_id = #{tenantId}
+            ORDER BY br.route_process_id ASC, br.report_sort ASC, br.id ASC
+            """)
+    @InterceptorIgnore(tenantLine = "true")
+    List<MesProRouteFlowProcessBatchRecordDO> selectCurrentProjectionListByRouteIdAndUseType(
+            @Param("routeId") Long routeId,
+            @Param("useType") String useType,
+            @Param("tenantId") Long tenantId);
+
+    @Select({
+            "<script>",
+            "SELECT br.* ",
+            "FROM mes_pro_route_flow_process_batch_record br ",
+            "INNER JOIN mes_pro_route_flow_process_config pc ",
+            "  ON pc.id = br.route_flow_process_config_id ",
+            " AND pc.tenant_id = br.tenant_id ",
+            " AND pc.deleted = FALSE ",
+            " AND pc.route_id = br.route_id ",
+            " AND pc.route_process_id = br.route_process_id ",
+            " AND pc.use_type = br.use_type ",
+            "WHERE br.deleted = FALSE ",
+            "  AND br.route_id IN ",
+            "<foreach collection='routeIds' item='routeId' open='(' separator=',' close=')'>#{routeId}</foreach>",
+            "  AND br.use_type = #{useType} ",
+            "  AND br.tenant_id = #{tenantId} ",
+            "ORDER BY br.route_id ASC, br.route_process_id ASC, br.report_sort ASC, br.id ASC",
+            "</script>"
+    })
+    @InterceptorIgnore(tenantLine = "true")
+    List<MesProRouteFlowProcessBatchRecordDO> selectCurrentProjectionListByRouteIdsAndUseType(
+            @Param("routeIds") Collection<Long> routeIds,
+            @Param("useType") String useType,
+            @Param("tenantId") Long tenantId);
+
+    @Select({
+            "<script>",
+            "SELECT br.* ",
+            "FROM mes_pro_route_flow_process_batch_record br ",
+            "INNER JOIN mes_pro_route_flow_process_config pc ",
+            "  ON pc.id = br.route_flow_process_config_id ",
+            " AND pc.tenant_id = br.tenant_id ",
+            " AND pc.deleted = FALSE ",
+            " AND pc.route_id = br.route_id ",
+            " AND pc.route_process_id = br.route_process_id ",
+            " AND pc.use_type = br.use_type ",
+            "WHERE br.deleted = FALSE ",
+            "  AND br.route_id IN ",
+            "<foreach collection='routeIds' item='routeId' open='(' separator=',' close=')'>#{routeId}</foreach>",
+            "  AND br.tenant_id = #{tenantId} ",
+            "ORDER BY br.route_id ASC, br.use_type ASC, br.route_process_id ASC, br.report_sort ASC, br.id ASC",
+            "</script>"
+    })
+    @InterceptorIgnore(tenantLine = "true")
+    List<MesProRouteFlowProcessBatchRecordDO> selectCurrentProjectionListByRouteIds(
+            @Param("routeIds") Collection<Long> routeIds,
+            @Param("tenantId") Long tenantId);
 
     default List<MesProRouteFlowProcessBatchRecordDO> selectListByRouteProcessIdsAndUseType(
             Collection<Long> routeProcessIds, String useType) {

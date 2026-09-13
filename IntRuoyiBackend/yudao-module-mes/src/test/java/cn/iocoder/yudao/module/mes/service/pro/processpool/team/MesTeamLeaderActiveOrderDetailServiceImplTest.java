@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.lang.reflect.Method;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -154,6 +155,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(7101L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
                         .setEventId(7101L)
+                        .setProductionEventId(7001L)
                         .setSubmitterName("PQC王五")
                         .setReviewerName("PQC主管甲")));
         when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
@@ -186,6 +188,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pqcSubmission = process.getPqcSubmissions().get(0);
         assertEquals(4101L, pqcSubmission.getPqcTaskId());
         assertEquals(7101L, pqcSubmission.getSubmittedEventId());
+        assertEquals(7001L, pqcSubmission.getProductionEventId());
+        assertEquals(List.of(7001L), pqcSubmission.getProductionEventIds());
         assertEquals("PQC王五", pqcSubmission.getSubmitterName());
         assertEquals("PQC主管甲", pqcSubmission.getReviewerName());
         assertEquals(1, pqcSubmission.getItems().size());
@@ -322,10 +326,12 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(8869L, 8872L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
                         .setEventId(8869L)
+                        .setProductionEventId(7001L)
                         .setSubmitterName("PQC王五")
                         .setReviewerName("PQC主管甲"),
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
                         .setEventId(8872L)
+                        .setProductionEventId(7002L)
                         .setSubmitterName("PQC赵六")
                         .setReviewerName("PQC主管甲")));
         when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
@@ -362,6 +368,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals("FINAL", appearance.getInspectionRuleKey());
         assertEquals("APPEARANCE", appearance.getQaItemCode());
         assertEquals(List.of(8869L), appearance.getSubmittedEventIds());
+        assertEquals(List.of(7001L), appearance.getProductionEventIds());
         assertEquals("PQC王五", appearance.getSubmitterName());
         assertEquals(1, appearance.getItems().size());
         assertEquals("APPEARANCE", appearance.getItems().get(0).getItemCode());
@@ -369,6 +376,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals("FINAL", clean.getInspectionRuleKey());
         assertEquals("CLEAN", clean.getQaItemCode());
         assertEquals(List.of(8872L), clean.getSubmittedEventIds());
+        assertEquals(List.of(7002L), clean.getProductionEventIds());
         assertEquals("PQC赵六", clean.getSubmitterName());
         assertEquals(1, clean.getItems().size());
         assertEquals("CLEAN", clean.getItems().get(0).getItemCode());
@@ -430,10 +438,12 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         when(detailReadMapper.selectEventPartiesByEventIds(List.of(10287L, 10288L))).thenReturn(List.of(
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
                         .setEventId(10287L)
+                        .setProductionEventId(7001L)
                         .setSubmitterName("PQC管理员")
                         .setReviewerName("PQC管理员"),
                 new MesTeamLeaderActiveOrderEventPartyReadDO()
                         .setEventId(10288L)
+                        .setProductionEventId(7002L)
                         .setSubmitterName("PQC管理员")
                         .setReviewerName("PQC管理员")));
         when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
@@ -468,8 +478,134 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail pm = process.getPqcSubmissions().get(1);
         assertEquals("PATROL_AM", am.getInspectionRuleKey());
         assertEquals(List.of(10287L), am.getSubmittedEventIds());
+        assertEquals(List.of(7001L), am.getProductionEventIds());
         assertEquals("PATROL_PM", pm.getInspectionRuleKey());
         assertEquals(List.of(10288L), pm.getSubmittedEventIds());
+        assertEquals(List.of(7002L), pm.getProductionEventIds());
+    }
+
+    @Test
+    void shouldKeepSamePqcScrapItemRowsSeparatedBySubmittedAndProductionEvent() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(9201L)
+                .activeStatus("ACTIVE")
+                .build());
+        MesTeamLeaderActiveOrderDetailReadDO firstProduction = row(9101L, 5001L, 6001L, "清洗",
+                "100.000000", 7001L, "40", "甲", "生产组长甲", "2026-08-13T08:10:00")
+                .setSubmitterSignatureId(17001L)
+                .setSubmitterSignedAt(LocalDateTime.parse("2026-08-13T08:10:00"));
+        MesTeamLeaderActiveOrderDetailReadDO secondProduction = row(9101L, 5001L, 6001L, "清洗",
+                "100.000000", 7002L, "60", "乙", "生产组长甲", "2026-08-13T15:20:00")
+                .setSubmitterSignatureId(17002L)
+                .setSubmitterSignedAt(LocalDateTime.parse("2026-08-13T15:20:00"));
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(firstProduction, secondProduction));
+        when(processMaterialService.listFrozenMaterials(8101L, 9201L, 5001L, 6001L)).thenReturn(List.of());
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder()
+                        .id(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .inspectionType("FINAL")
+                        .qaItemCode("APPEARANCE")
+                        .inspectionRuleKey("FINAL")
+                        .businessDate(LocalDate.of(2026, 8, 13))
+                        .shiftCode("AM")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
+                        .actualInspectionQuantity(1)
+                        .qaProcessId(5101L)
+                        .regulationVersionId(5201L)
+                        .submittedEventId(7101L)
+                        .build(),
+                MesPqcInspectionTaskDO.builder()
+                        .id(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .inspectionType("FINAL")
+                        .qaItemCode("APPEARANCE")
+                        .inspectionRuleKey("FINAL")
+                        .businessDate(LocalDate.of(2026, 8, 13))
+                        .shiftCode("PM")
+                        .roundNo(1)
+                        .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
+                        .actualInspectionQuantity(1)
+                        .qaProcessId(5101L)
+                        .regulationVersionId(5201L)
+                        .submittedEventId(7102L)
+                        .build()));
+        when(qaProcessMapper.selectBatchIds(List.of(5101L))).thenReturn(List.of(
+                MesQaInspectionRegulationProcessDO.builder()
+                        .id(5101L)
+                        .regulationVersionId(5201L)
+                        .processCode("PQC-清洗")
+                        .processName("清洗")
+                        .build()));
+        when(detailReadMapper.selectEventPartiesByEventIds(List.of(7101L, 7102L))).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderEventPartyReadDO()
+                        .setEventId(7101L)
+                        .setProductionEventId(7001L)
+                        .setSubmitterName("PQC王五")
+                        .setReviewerName("PQC主管甲")
+                        .setScrapQuantity(2),
+                new MesTeamLeaderActiveOrderEventPartyReadDO()
+                        .setEventId(7102L)
+                        .setProductionEventId(7002L)
+                        .setSubmitterName("PQC赵六")
+                        .setReviewerName("PQC主管甲")
+                        .setScrapQuantity(3)));
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4201L)
+                        .pqcTaskId(4101L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("APPEARANCE")
+                        .itemName("外观")
+                        .judgement("FAIL")
+                        .build(),
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(4202L)
+                        .pqcTaskId(4102L)
+                        .activeOrderId(8101L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .sampleNo(1)
+                        .itemCode("APPEARANCE")
+                        .itemName("外观")
+                        .judgement("FAIL")
+                        .build()));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
+        assertEquals(2, process.getPqcSubmissions().size());
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail firstScrap = process.getPqcSubmissions().get(0);
+        MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail secondScrap = process.getPqcSubmissions().get(1);
+        assertEquals(List.of(7101L), firstScrap.getSubmittedEventIds());
+        assertEquals(List.of(7001L), firstScrap.getProductionEventIds());
+        assertEquals(1, firstScrap.getProductionSubmitterSignatures().size());
+        assertEquals(17001L, firstScrap.getProductionSubmitterSignatures().get(0).getSignatureId());
+        assertEquals("甲", firstScrap.getProductionSubmitterSignatures().get(0).getSignerName());
+        assertEquals(LocalDateTime.parse("2026-08-13T08:10:00"),
+                firstScrap.getProductionSubmitterSignatures().get(0).getSignedAt());
+        assertEquals(2, firstScrap.getScrapQuantity());
+        assertEquals("PQC王五", firstScrap.getSubmitterName());
+        assertEquals(List.of(7102L), secondScrap.getSubmittedEventIds());
+        assertEquals(List.of(7002L), secondScrap.getProductionEventIds());
+        assertEquals(1, secondScrap.getProductionSubmitterSignatures().size());
+        assertEquals(17002L, secondScrap.getProductionSubmitterSignatures().get(0).getSignatureId());
+        assertEquals("乙", secondScrap.getProductionSubmitterSignatures().get(0).getSignerName());
+        assertEquals(LocalDateTime.parse("2026-08-13T15:20:00"),
+                secondScrap.getProductionSubmitterSignatures().get(0).getSignedAt());
+        assertEquals(3, secondScrap.getScrapQuantity());
+        assertEquals("PQC赵六", secondScrap.getSubmitterName());
     }
 
     @Test
@@ -537,6 +673,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                                                              String submitterName,
                                                              String reviewerName,
                                                              String submittedAt) {
+        LocalDateTime parsedSubmittedAt = submittedAt == null ? null : LocalDateTime.parse(submittedAt);
         return new MesTeamLeaderActiveOrderDetailReadDO()
                 .setSnapshotId(snapshotId)
                 .setActiveOrderId(8101L)
@@ -553,7 +690,9 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .setSubmittedQuantity(submittedQuantity == null ? null : new BigDecimal(submittedQuantity))
                 .setSubmitterName(submitterName)
                 .setReviewerName(reviewerName)
-                .setSubmittedAt(submittedAt == null ? null : LocalDateTime.parse(submittedAt));
+                .setSubmittedAt(parsedSubmittedAt)
+                .setSubmitterSignatureId(eventId == null ? null : eventId + 10000)
+                .setSubmitterSignedAt(parsedSubmittedAt);
     }
 
     private static Boolean invokeBoolean(Object target, String methodName) throws Exception {

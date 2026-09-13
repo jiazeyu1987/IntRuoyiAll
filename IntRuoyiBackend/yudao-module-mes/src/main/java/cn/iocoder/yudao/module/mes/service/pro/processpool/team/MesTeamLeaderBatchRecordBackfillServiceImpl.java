@@ -97,7 +97,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         List<MesProcessPoolReportAllocationDO> allocations = allocations(command);
         List<MesProcessPoolSubmissionReviewDO> reviews = reviews(command);
         validateSources(event, allocation, sourceEvents, allocations);
-        MesProRouteFlowProcessBatchRecordDO binding = requireFormalBinding(allocation.getRouteProcessId());
+        MesProRouteFlowProcessBatchRecordDO binding = requireFormalBinding(command);
         List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
                 SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId());
         if (rules.isEmpty()) {
@@ -211,6 +211,35 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
 
     private static boolean hasDuplicates(List<Long> ids) {
         return ids.size() != new LinkedHashSet<>(ids).size();
+    }
+
+    private MesProRouteFlowProcessBatchRecordDO requireFormalBinding(MesTeamLeaderBatchRecordBackfillCommand command) {
+        if (command.getRouteBinding() != null) {
+            return requireVersionedFormalBinding(command);
+        }
+        return requireFormalBinding(command.getAllocation().getRouteProcessId());
+    }
+
+    private MesProRouteFlowProcessBatchRecordDO requireVersionedFormalBinding(
+            MesTeamLeaderBatchRecordBackfillCommand command) {
+        MesProRouteFlowProcessBatchRecordDO binding = command.getRouteBinding();
+        MesProcessPoolReportAllocationDO allocation = command.getAllocation();
+        MesProProcessPoolEventDO event = command.getEvent();
+        if (binding.getRouteProcessId() == null
+                || !Objects.equals(allocation.getRouteProcessId(), binding.getRouteProcessId())
+                || !Objects.equals(allocation.getProcessId(), event.getProcessId())
+                || event.getRouteId() != null && binding.getRouteId() != null
+                && !Objects.equals(event.getRouteId(), binding.getRouteId())
+                || !Objects.equals(USE_TYPE_BATCH, binding.getUseType())
+                || StrUtil.isBlank(binding.getBatchRecordReportId())
+                || !Objects.equals(RECORD_CATEGORY_BATCH_RECORD, binding.getRecordCategory())
+                || Objects.equals(FORM_SLOT_TYPE_PROCESS_INSPECTION, binding.getFormSlotType())
+                || Objects.equals(FORM_SLOT_TYPE_LOSS_REPORT, binding.getFormSlotType())
+                || binding.getBatchRecordDefinitionId() == null
+                || binding.getBatchRecordVersionId() == null) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_BINDING_REQUIRED, allocation.getRouteProcessId());
+        }
+        return binding;
     }
 
     private MesProRouteFlowProcessBatchRecordDO requireFormalBinding(Long routeProcessId) {

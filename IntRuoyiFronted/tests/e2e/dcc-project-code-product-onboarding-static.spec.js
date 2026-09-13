@@ -27,6 +27,8 @@ for (const apiToken of [
   'export interface DccProductOnboardingRespVO',
   'createProductOnboardingRequest',
   '/dcc/product-onboarding-requests/create',
+  'getPendingProductOnboardingRequests',
+  '/dcc/product-onboarding-requests/pending',
   'approveProductOnboardingRequest',
   '/dcc/product-onboarding-requests/${id}/approve'
 ]) {
@@ -36,12 +38,17 @@ for (const apiToken of [
 for (const panelToken of [
   '产品建档申请',
   'data-testid="dcc-product-onboarding-open"',
+  'data-testid="dcc-product-onboarding-pending-list"',
+  'data-testid="dcc-product-onboarding-recover"',
   'data-testid="dcc-product-onboarding-submit"',
   'data-testid="dcc-product-onboarding-approve"',
   'getProductSimpleList',
+  'getPendingProductOnboardingRequests',
   'createProductOnboardingRequest',
   'approveProductOnboardingRequest',
+  'applyPendingProductOnboardingRequest',
   'productOnboardingFormData',
+  'productOnboardingPendingRequests',
   'productMasterId',
   'dccProductCode',
   'productNameCn',

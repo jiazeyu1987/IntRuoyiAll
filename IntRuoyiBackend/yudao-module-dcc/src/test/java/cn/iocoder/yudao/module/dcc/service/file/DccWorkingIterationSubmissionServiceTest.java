@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceCancelReqVO;
+import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitIterationReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -40,6 +43,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class DccWorkingIterationSubmissionServiceTest {
@@ -58,6 +62,8 @@ class DccWorkingIterationSubmissionServiceTest {
     private DccControlledFileApprovalRouteAssigneeResolver routeAssigneeResolver;
     @Mock
     private BpmProcessInstanceApi bpmProcessInstanceApi;
+    @Mock
+    private BpmProcessInstanceService bpmProcessInstanceService;
     @Mock
     private DccControlledContentAdapter platformAdapter;
     @Mock
@@ -78,6 +84,7 @@ class DccWorkingIterationSubmissionServiceTest {
         ReflectionTestUtils.setField(service, "routeReadinessService", routeReadinessService);
         ReflectionTestUtils.setField(service, "approvalRouteAssigneeResolver", routeAssigneeResolver);
         ReflectionTestUtils.setField(service, "bpmProcessInstanceApi", bpmProcessInstanceApi);
+        ReflectionTestUtils.setField(service, "bpmProcessInstanceService", bpmProcessInstanceService);
         ReflectionTestUtils.setField(service, "platformAdapter", platformAdapter);
         ReflectionTestUtils.setField(service, "projectAccessService", projectAccessService);
         ReflectionTestUtils.setField(service, "categoryPermissionSupport", categoryPermissionSupport);
@@ -223,6 +230,78 @@ class DccWorkingIterationSubmissionServiceTest {
         assertEquals(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED.getCode(), error.getCode());
         verify(routeSnapshotMapper, never()).insert(any(DccControlledFileRouteSnapshotDO.class));
         verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any());
+    }
+
+    @Test
+    void submitWorkingIteration_byAnotherProjectEditor_isRejectedBeforeRouteResolution() {
+        DccControlledFileDO working = iteration(901L, "B/1", DccControlledFileStatusEnum.WORKING.getStatus());
+        when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        when(masterMapper.selectByIdForUpdate(700L)).thenReturn(master());
+        DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
+        request.setIdempotencyKey("submit-working-901-by-another-editor");
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.submitWorkingIteration(100L, 901L, request));
+
+        assertEquals(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED.getCode(), error.getCode());
+        verify(routeReadinessService, never()).evaluate(any(), any(), any());
+        verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any());
+    }
+
+    @Test
+    void submitCorrectedIterationAfterMultipleCheckins_closesReturnedAncestorAndPlatformCandidate() {
+        DccControlledFileDO returnedA1 = iteration(900L, "A/1",
+                DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus());
+        returnedA1.setProcessInstanceId("proc-returned-a1");
+        DccControlledFileDO correctedA2 = iteration(901L, "A/2",
+                DccControlledFileStatusEnum.WORKING.getStatus());
+        correctedA2.setPredecessorControlledFileId(900L);
+        DccControlledFileDO correctedA3 = iteration(902L, "A/3",
+                DccControlledFileStatusEnum.WORKING.getStatus());
+        correctedA3.setPredecessorControlledFileId(901L);
+        when(controlledFileMapper.selectById(902L)).thenReturn(correctedA3);
+        when(masterMapper.selectByIdForUpdate(700L)).thenReturn(
+                DccControlledFileMasterDO.builder().id(700L).build());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(
+                List.of(returnedA1, correctedA2, correctedA3));
+        when(categoryPermissionSupport.hasCategoryPermission(eq(10L), eq(99L), any())).thenReturn(true);
+        when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(null);
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode node =
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                        1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "文控审核", 1,
+                        "USER", 200L, List.of(200L), "ANY", 100, false, List.of(200L));
+        DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route =
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
+                        DccCategoryApprovalRouteDO.builder().id(30L).versionNo(2).build(), List.of(node));
+        when(routeReadinessService.evaluate(10L, 99L, List.of())).thenReturn(
+                new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(route,
+                        DccControlledFileRouteReadinessRespVO.builder()
+                                .ready(true).nodes(List.of()).blockers(List.of()).build()));
+        when(routeAssigneeResolver.buildStartUserSelectAssigneeMap(List.of(node))).thenReturn(
+                Map.of(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), List.of(200L)));
+        when(routeAssigneeResolver.buildApproveUserSelectAssigneeMap(List.of(node))).thenReturn(Map.of());
+        when(bpmProcessInstanceApi.createProcessInstance(eq(99L), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-corrected-a3");
+        when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
+        DccControlledFileSubmitIterationReqVO request = new DccControlledFileSubmitIterationReqVO();
+        request.setIdempotencyKey("submit-corrected-a3");
+        request.setSelectedSignoffUserIds(List.of());
+
+        Long result = service.submitWorkingIteration(99L, 902L, request);
+
+        assertEquals(902L, result);
+        ArgumentCaptor<BpmProcessInstanceCancelReqVO> cancelCaptor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCancelReqVO.class);
+        verify(bpmProcessInstanceService).cancelProcessInstanceByStartUser(eq(99L), cancelCaptor.capture());
+        assertEquals("proc-returned-a1", cancelCaptor.getValue().getId());
+        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper, org.mockito.Mockito.times(3)).updateById(updateCaptor.capture());
+        assertEquals(DccControlledFileStatusEnum.WITHDRAWN.getStatus(),
+                updateCaptor.getAllValues().get(2).getStatus());
+        InOrder platformOrder = inOrder(platformAdapter);
+        platformOrder.verify(platformAdapter).recordWithdrawn(returnedA1, 99L, cancelCaptor.getValue().getReason());
+        platformOrder.verify(platformAdapter).recordSubmitted(correctedA3, 99L, "proc-corrected-a3");
+        platformOrder.verify(platformAdapter).recordResubmitted(returnedA1, 902L);
     }
 
     private DccControlledFileDO iteration(Long id, String versionNo, String status) {

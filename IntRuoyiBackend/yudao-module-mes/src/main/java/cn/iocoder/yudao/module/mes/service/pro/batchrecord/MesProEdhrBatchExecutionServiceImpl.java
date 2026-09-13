@@ -2020,6 +2020,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             Long taskId, Long actorUserId, String sterilizationBatchNo,
             List<MesProEdhrSpecialNodeAttachment> attachments) {
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
+        validateBatchForSpecialAttachmentSave(task.getBatchExecutionId());
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectReleaseReportByBatchTaskId(taskId);
         if (workTask == null || !Objects.equals(actorUserId, currentUserId())
                 || !isAssignedOrCandidate(workTask, actorUserId)) {
@@ -2065,6 +2066,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_NODE_NOT_PROCESSABLE,
                     "release report node was completed concurrently");
         }
+        syncBatchStatus(validateBatchExists(task.getBatchExecutionId()));
         recordOperationAudit("BATCH_EXECUTION_TASK", String.valueOf(task.getId()), "COMPLETE_RELEASE_REPORT",
                 "完成生产放行报告节点", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
                 null, task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
@@ -2852,6 +2854,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private MesProEdhrBatchExecutionDO validateBatchForSpecialAttachmentSave(Long batchExecutionId) {
         MesProEdhrBatchExecutionDO batch = validateBatchExists(batchExecutionId);
+        validateBatchNotFrozenForSpecialAttachmentSave(batch);
         if (Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
@@ -2864,6 +2867,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         return batch;
+    }
+
+    private void validateBatchNotFrozenForSpecialAttachmentSave(MesProEdhrBatchExecutionDO batch) {
+        if (batch == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "eDHR批次操作");
+        if (Objects.equals(batch.getStatus(), BATCH_STATUS_FROZEN)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
     }
 
     private MesProEdhrBatchExecutionTaskDO validateSpecialNodeTaskBeforeRelease(Long taskId) {
@@ -7981,8 +7994,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private String buildArchiveManifest(MesProEdhrBatchExecutionDO batch, LocalDateTime generatedAt) {
+        requireArchiveFrozenRouteIdentity(batch);
         Map<String, Object> manifest = new LinkedHashMap<>();
-        MesProRouteDO route = batch.getRouteId() == null ? null : routeMapper.selectById(batch.getRouteId());
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId()).stream()
                 .sorted(this::compareRouteProcessOrder)
                 .toList();
@@ -7992,8 +8005,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         manifest.put("batchExecutionId", batch.getId());
         manifest.put("batchCode", batch.getBatchCode());
         manifest.put("routeId", batch.getRouteId());
-        manifest.put("routeCode", route == null ? null : route.getCode());
-        manifest.put("routeName", route == null ? null : route.getName());
+        manifest.put("routeCode", batch.getRouteCode());
+        manifest.put("routeName", batch.getRouteName());
         manifest.put("aggregateHash", batch.getAggregateHash());
         manifest.put("generatedAt", generatedAt.toString());
         manifest.put("releaseTransactionSnapshot", toArchiveReleaseTransactionManifest(releaseTransaction));
@@ -8034,6 +8047,25 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 })
                 .toList());
         return JSON.toJSONString(manifest);
+    }
+
+    private void requireArchiveFrozenRouteIdentity(MesProEdhrBatchExecutionDO batch) {
+        if (batch.getRouteId() == null || StrUtil.isBlank(batch.getRouteCode())
+                || StrUtil.isBlank(batch.getRouteName()) || StrUtil.isBlank(batch.getRouteSnapshotJson())) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        JSONObject routeSnapshot;
+        try {
+            routeSnapshot = JSON.parseObject(batch.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
+        if (routeSnapshot == null
+                || !Objects.equals(batch.getRouteId(), routeSnapshot.getLong("routeId"))
+                || !Objects.equals(batch.getRouteCode(), routeSnapshot.getString("routeCode"))
+                || !Objects.equals(batch.getRouteName(), routeSnapshot.getString("routeName"))) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_SNAPSHOT_REQUIRED);
+        }
     }
 
     private Map<String, Object> toArchiveReleaseTransactionManifest(MesProEdhrReleaseTransactionDO transaction) {

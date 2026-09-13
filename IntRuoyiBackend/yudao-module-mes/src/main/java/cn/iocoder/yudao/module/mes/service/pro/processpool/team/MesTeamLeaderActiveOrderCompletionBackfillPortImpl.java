@@ -162,8 +162,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                         .setProcessSnapshots(snapshots);
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources = lossSourceReader.read(lossCommand);
         if (lossSources == null || lossSources.getBlockers() == null || !lossSources.getBlockers().isEmpty()
-                || lossSources.getProcessSources() == null
-                || lossSources.getProcessSources().size() != snapshots.size()) {
+                || !coversEveryProcessSnapshot(lossSources.getProcessSources(), snapshots)) {
             throw sourceMissing(activeOrder, "LOSS_CONDITION_FACTS");
         }
         List<MesTeamLeaderActiveOrderCompletionLossCondition> conditions = lossSources.getProcessSources().stream()
@@ -367,6 +366,28 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             throw sourceMissing(order, "REPORT_ALLOCATION");
         }
         return result;
+    }
+
+    private boolean coversEveryProcessSnapshot(
+            List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource> sources,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
+        if (sources == null || sources.isEmpty() || snapshots == null || snapshots.isEmpty()) {
+            return false;
+        }
+        Set<String> covered = new java.util.LinkedHashSet<>();
+        for (MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource source : sources) {
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = source == null ? null : source.getSnapshot();
+            if (snapshot != null && snapshot.getRouteProcessId() != null && snapshot.getProcessId() != null) {
+                covered.add(snapshot.getRouteProcessId() + ":" + snapshot.getProcessId());
+            }
+        }
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            if (snapshot == null || snapshot.getRouteProcessId() == null || snapshot.getProcessId() == null
+                    || !covered.contains(snapshot.getRouteProcessId() + ":" + snapshot.getProcessId())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private List<Long> validateProductionSources(MesProcessPoolActiveOrderDO order,

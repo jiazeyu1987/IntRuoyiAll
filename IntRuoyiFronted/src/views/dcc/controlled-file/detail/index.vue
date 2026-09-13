@@ -448,11 +448,18 @@
           <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
             {{ currentStageSameLayerHint }}
           </div>
-          <div v-if="isReturnedApplicantTask" class="mt-6px text-13px text-[var(--el-color-warning)]">
-            有流程回退，需处理；处理后将继续提交原流程。
+          <div
+            v-if="isReturnedApplicantTask"
+            class="mt-6px text-13px text-[var(--el-color-warning)]"
+            data-testid="dcc-returned-applicant-rework-guide"
+          >
+            有流程回退，需先到受控浏览检出并检入修正文档，生成新工作版本后再提交审批。
           </div>
           <div class="mt-14px flex flex-wrap gap-8px">
-            <el-button type="primary" @click="openActionDialog('approve')">
+            <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
+              去修改正文
+            </el-button>
+            <el-button v-else type="primary" @click="openActionDialog('approve')">
               {{ approvalActionLabels.approveText }}
             </el-button>
             <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
@@ -641,11 +648,18 @@
         <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
           {{ currentStageSameLayerHint }}
         </div>
-        <div v-if="isReturnedApplicantTask" class="mt-6px text-13px text-[var(--el-color-warning)]">
-          有流程回退，需处理；处理后将继续提交原流程。
+        <div
+          v-if="isReturnedApplicantTask"
+          class="mt-6px text-13px text-[var(--el-color-warning)]"
+          data-testid="dcc-returned-applicant-rework-guide"
+        >
+          有流程回退，需先到受控浏览检出并检入修正文档，生成新工作版本后再提交审批。
         </div>
         <div class="mt-14px flex flex-wrap gap-8px">
-          <el-button type="primary" @click="openActionDialog('approve')">
+          <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
+            去修改正文
+          </el-button>
+          <el-button v-else type="primary" @click="openActionDialog('approve')">
             {{ approvalActionLabels.approveText }}
           </el-button>
           <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
@@ -3567,7 +3581,7 @@ const actionDialogSubmitFlowText = computed(() => {
   if (actionDialog.mode === 'reject') {
     return '提交后流转：当前节点驳回，流程回到发起人或按后端路线规则处理。'
   }
-  return `提交后流转：${currentStageLabel.value}完成后进入下一审批节点；末级文控批准后文件发布为 ACTIVE。`
+  return `提交后流转：${currentStageLabel.value}按审批路线完成后继续流转；末级文控批准后进入“待文控发布”，由文控执行发布。如需培训和人工分发，须完成后才正式受控。`
 })
 const getStageRouteSnapshot = (stage: DccTaskStageProgress) =>
   fileDetail.value?.routeSnapshots?.find(
@@ -4057,8 +4071,7 @@ const isReturnedApplicantTask = computed(
   () =>
     Boolean(approvalTodoTask.value?.id) &&
     fileStatus.value === 'PENDING_APPLICANT_REWORK' &&
-    fileDetail.value?.requesterId === currentUserId.value &&
-    Boolean(fileDetail.value?.rejectReason?.includes('流程回退'))
+    fileDetail.value?.requesterId === currentUserId.value
 )
 const approvalActionLabels = computed(() => {
   const labels = getDccApprovalActionLabels(approvalTodoTask.value?.taskDefinitionKey)
@@ -4068,7 +4081,7 @@ const approvalActionLabels = computed(() => {
   return {
     ...labels,
     approveText: '处理回退',
-    dialogTitle: '流程回退处理签名'
+    dialogTitle: '申请人返工修改'
   }
 })
 const actionDialogSignatureMeaning = computed(() => {
@@ -4712,6 +4725,20 @@ const openBpmDetail = () => {
         activeObsoleteAction.value?.bpmProcessInstanceId ||
         activePublishAction.value?.bpmProcessInstanceId,
       taskId: route.query.taskId
+    }
+  })
+}
+
+const openReturnedApplicantReworkInBrowser = () => {
+  const file = fileDetail.value
+  if (!file?.id) {
+    return
+  }
+  router.push({
+    name: 'DccControlledFileBrowser',
+    query: {
+      status: 'PENDING_APPLICANT_REWORK',
+      keyword: file.fileNumber || file.title || file.fileName || undefined
     }
   })
 }

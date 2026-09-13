@@ -9,6 +9,8 @@ public interface DccControlledFileRelatedFileService {
 
     void validateAndBindRelatedFiles(Long controlledFileId, Long projectCodeId, List<Long> relatedControlledFileIds);
 
+    void inheritRelatedFiles(Long sourceControlledFileId, Long targetControlledFileId);
+
     List<DccControlledFileRelatedFileRespVO> listRelatedFiles(Long controlledFileId);
 
     List<DccControlledFileRelatedFileDO> listForwardRelations(Long controlledFileId);

@@ -13,12 +13,14 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMappe
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileMessageJobStatusEnum;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
-import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserReqDTO;
+import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -27,6 +29,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServic
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MESSAGE_JOB_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MESSAGE_JOB_REPLAY_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -46,11 +49,16 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileTrainingMapper trainingMapper;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
+    private java.util.Map<Long, DccControlledFileMessageJobDO> messageJobs;
     private DccControlledFileMessageReplayServiceImpl replayService;
+
+    @org.junit.jupiter.api.AfterEach
+    void clearMessageTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
 
     @BeforeEach
     void setUp() {
         messageDeliveryService = new DccControlledFileMessageDeliveryService();
+        messageJobs = DccMessageDeliveryTestSupport.wire(messageDeliveryService, messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "messageJobMapper", messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "notifyMessageSendApi", notifyMessageSendApi);
         ReflectionTestUtils.setField(messageDeliveryService, "controlledFileMapper", controlledFileMapper);
@@ -71,6 +79,7 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
                 .recipientUserId(501L)
                 .status(DccControlledFileMessageJobStatusEnum.PENDING.getCode())
                 .build();
+        messageJobs.put(job.getId(), job);
         when(messageJobMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(job));
         when(distributionMapper.selectById(2001L)).thenReturn(DccControlledFileDistributionDO.builder()
                 .id(2001L)
@@ -83,14 +92,14 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
                 .versionNo("A.2")
                 .effectiveDate(LocalDate.of(2026, 5, 20))
                 .build());
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9001L);
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class))).thenReturn(9001L);
 
         int replayedCount = replayService.replayMessageJobs(req(List.of(1001L)));
 
         assertEquals(1, replayedCount);
-        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
-                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(notifyCaptor.capture());
+        ArgumentCaptor<NotifySendSingleToUserIdempotentReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserIdempotentReqDTO.class);
+        verify(notifyMessageSendApi).sendSingleMessageIdempotentlyToAdmin(notifyCaptor.capture());
         assertEquals(501L, notifyCaptor.getValue().getUserId());
         assertEquals(DccControlledFileFinalizationServiceImpl.MESSAGE_TEMPLATE_DISTRIBUTION,
                 notifyCaptor.getValue().getTemplateCode());
@@ -108,6 +117,7 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
                 .recipientUserId(601L)
                 .status(DccControlledFileMessageJobStatusEnum.FAILED.getCode())
                 .build();
+        messageJobs.put(job.getId(), job);
         when(messageJobMapper.selectBatchIds(List.of(1002L))).thenReturn(List.of(job));
         when(trainingMapper.selectById(2002L)).thenReturn(DccControlledFileTrainingDO.builder()
                 .id(2002L)
@@ -120,12 +130,12 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
                 .versionNo("1.0")
                 .effectiveDate(LocalDate.of(2026, 5, 21))
                 .build());
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class))).thenReturn(9002L);
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class))).thenReturn(9002L);
 
         int replayedCount = replayService.replayMessageJobs(req(List.of(1002L)));
 
         assertEquals(1, replayedCount);
-        verify(notifyMessageSendApi).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+        verify(notifyMessageSendApi).sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class));
         verify(messageJobMapper).updateById(any(DccControlledFileMessageJobDO.class));
     }
 
@@ -167,7 +177,8 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
                 .versionNo("0.9")
                 .obsoleteReason("版本升级")
                 .build());
-        when(notifyMessageSendApi.sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class)))
+        messageJobs.put(job.getId(), job);
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
                 .thenThrow(new ServiceException(1234, "notify failed"));
 
         ServiceException ex = org.junit.jupiter.api.Assertions.assertThrows(ServiceException.class,
@@ -179,6 +190,37 @@ class DccControlledFileMessageReplayServiceTest extends BaseMockitoUnitTest {
         verify(messageJobMapper).updateById(updateCaptor.capture());
         assertEquals(DccControlledFileMessageJobStatusEnum.FAILED.getCode(), updateCaptor.getValue().getStatus());
         assertTrue(updateCaptor.getValue().getErrorMessage().contains("notify failed"));
+    }
+
+    @Test
+    void dispatchMessageJob_afterCommitFailureRecordsFailedWithoutPropagatingToPublisher() {
+        DccControlledFileMessageJobDO job = DccControlledFileMessageJobDO.builder()
+                .id(1006L)
+                .businessType("DISTRIBUTION")
+                .businessId(2006L)
+                .templateCode("dcc_distribution")
+                .recipientUserId(702L)
+                .status(DccControlledFileMessageJobStatusEnum.PENDING.getCode())
+                .build();
+        messageJobs.put(job.getId(), job);
+        when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
+                .thenThrow(new ServiceException(1234, "notify failed after commit"));
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            messageDeliveryService.dispatchMessageJob(job, java.util.Map.of("title", "发布文件"));
+            TransactionSynchronization callback = TransactionSynchronizationManager.getSynchronizations().get(0);
+
+            assertDoesNotThrow(callback::afterCommit);
+
+            ArgumentCaptor<DccControlledFileMessageJobDO> updateCaptor =
+                    ArgumentCaptor.forClass(DccControlledFileMessageJobDO.class);
+            verify(messageJobMapper).updateById(updateCaptor.capture());
+            assertEquals(DccControlledFileMessageJobStatusEnum.FAILED.getCode(), updateCaptor.getValue().getStatus());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 
     private static DccControlledFileMessageJobReplayReqVO req(List<Long> jobIds) {

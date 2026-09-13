@@ -67,9 +67,29 @@ public interface DccPublicationImpactTaskMapper extends BaseMapperX<DccPublicati
               AND revision_tracking_status = 'REVISION_LINKED'
               AND deleted = 0
             ORDER BY id
-            """)
+    """)
     List<DccPublicationImpactTaskDO> selectListByLinkedRevisionId(@Param("tenantId") Long tenantId,
                                                                   @Param("revisionId") Long revisionId);
+
+    @Select("""
+            SELECT t.*
+            FROM dcc_publication_impact_task t
+            INNER JOIN dcc_controlled_file f
+                    ON f.id = t.linked_revision_controlled_file_id
+                   AND f.tenant_id = t.tenant_id
+                   AND f.deleted = 0
+            WHERE t.tenant_id = #{tenantId}
+              AND t.related_master_id = #{masterId}
+              AND t.decision = 'REVISION_REQUIRED'
+              AND t.revision_tracking_status = 'REVISION_LINKED'
+              AND t.deleted = 0
+              AND f.master_id = #{masterId}
+              AND COALESCE(f.revision_code, SUBSTRING_INDEX(f.version_no, '/', 1)) = #{revisionCode}
+            ORDER BY t.id
+            """)
+    List<DccPublicationImpactTaskDO> selectListByLinkedRevisionChain(@Param("tenantId") Long tenantId,
+                                                                     @Param("masterId") Long masterId,
+                                                                     @Param("revisionCode") String revisionCode);
 
     @Select("SELECT * FROM dcc_publication_impact_task WHERE tenant_id=#{tenantId} AND batch_id=#{batchId} AND deleted=0 ORDER BY id")
     List<DccPublicationImpactTaskDO> selectListByBatchId(@Param("tenantId") Long tenantId, @Param("batchId") Long batchId);
@@ -178,13 +198,21 @@ public interface DccPublicationImpactTaskMapper extends BaseMapperX<DccPublicati
     @Update("""
             UPDATE dcc_publication_impact_task
             SET revision_tracking_status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP,
+                linked_revision_controlled_file_id = #{revisionId},
+                linked_revision_version_snapshot = #{revisionVersion},
                 row_version = row_version + 1, update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId} AND id = #{taskId} AND deleted = 0
               AND row_version = #{expectedVersion} AND task_status = 'COMPLETED'
               AND decision = 'REVISION_REQUIRED' AND revision_tracking_status = 'REVISION_LINKED'
-              AND linked_revision_controlled_file_id = #{revisionId}
             """)
     int resolveRevision(@Param("tenantId") Long tenantId, @Param("taskId") Long taskId,
                         @Param("expectedVersion") Integer expectedVersion,
-                        @Param("revisionId") Long revisionId);
+                        @Param("revisionId") Long revisionId,
+                        @Param("revisionVersion") String revisionVersion);
+
+    default int resolveRevision(@Param("tenantId") Long tenantId, @Param("taskId") Long taskId,
+                                @Param("expectedVersion") Integer expectedVersion,
+                                @Param("revisionId") Long revisionId) {
+        return resolveRevision(tenantId, taskId, expectedVersion, revisionId, null);
+    }
 }

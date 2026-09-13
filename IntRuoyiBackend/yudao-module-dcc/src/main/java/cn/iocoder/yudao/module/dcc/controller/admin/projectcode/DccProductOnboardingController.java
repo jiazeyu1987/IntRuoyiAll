@@ -11,11 +11,14 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
@@ -34,6 +37,15 @@ public class DccProductOnboardingController {
     @PreAuthorize("@ss.hasPermission('dcc:project-code:create')")
     public CommonResult<Long> createRequest(@Valid @RequestBody DccProductOnboardingCreateReqVO reqVO) {
         return success(onboardingService.createRequest(getLoginUserId(), reqVO));
+    }
+
+    @GetMapping("/pending")
+    @Operation(summary = "查询待审批产品建档申请")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:create') or @ss.hasPermission('dcc:project-code:update')")
+    public CommonResult<List<DccProductOnboardingRespVO>> getPendingRequests() {
+        return success(onboardingService.getPendingRequests().stream()
+                .map(request -> BeanUtils.toBean(request, DccProductOnboardingRespVO.class))
+                .toList());
     }
 
     @PostMapping("/{id:\\d+}/approve")

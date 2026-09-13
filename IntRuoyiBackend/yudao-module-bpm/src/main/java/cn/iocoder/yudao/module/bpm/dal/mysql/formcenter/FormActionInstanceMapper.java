@@ -31,6 +31,19 @@ public interface FormActionInstanceMapper extends BaseMapperX<FormActionInstance
                 .last("LIMIT 1"));
     }
 
+    default FormActionInstanceDO selectByBusinessActionAndIdempotency(Long tenantId, String systemCode,
+            String objectType, String objectId, String objectVersion, String actionCode, String idempotencyKey) {
+        return selectOne(new QueryWrapperX<FormActionInstanceDO>()
+                .eq("tenant_id", tenantId)
+                .eq("system_code", systemCode)
+                .eq("object_type", objectType)
+                .eq("object_id", objectId)
+                .eq("object_version", objectVersion)
+                .eq("action_code", actionCode)
+                .eq("idempotency_key", idempotencyKey)
+                .last("LIMIT 1"));
+    }
+
     default List<FormActionInstanceDO> selectByBusinessActionAndStatuses(Long tenantId, String systemCode,
             String objectType, String objectId, String actionCode, Collection<String> statuses) {
         return selectList(new QueryWrapperX<FormActionInstanceDO>()

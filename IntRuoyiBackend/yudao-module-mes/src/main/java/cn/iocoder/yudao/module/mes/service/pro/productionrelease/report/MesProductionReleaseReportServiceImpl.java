@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureR
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.beans.factory.ObjectProvider;
@@ -50,6 +51,7 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
+    private final MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     private final MesProductionReleaseReportNodePort reportNodePort;
     private final MesProductionReleaseManagerStageInitializer managerStageInitializer;
     private final MesReleaseFlowAuditRecorder auditRecorder;
@@ -60,10 +62,11 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
+            MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProductionReleaseReportNodePort reportNodePort,
             ObjectProvider<MesProductionReleaseManagerStageInitializer> managerStageInitializerProvider,
             MesReleaseFlowAuditRecorder auditRecorder) {
-        this(applicationMapper, workTaskMapper, batchTaskMapper, reportNodePort,
+        this(applicationMapper, workTaskMapper, batchTaskMapper, nonconformanceReviewService, reportNodePort,
                 managerStageInitializerProvider.getIfUnique(), auditRecorder, Clock.systemUTC());
     }
 
@@ -71,6 +74,7 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
+            MesProEdhrNonconformanceReviewService nonconformanceReviewService,
             MesProductionReleaseReportNodePort reportNodePort,
             MesProductionReleaseManagerStageInitializer managerStageInitializer,
             MesReleaseFlowAuditRecorder auditRecorder,
@@ -78,6 +82,7 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
         this.applicationMapper = applicationMapper;
         this.workTaskMapper = workTaskMapper;
         this.batchTaskMapper = batchTaskMapper;
+        this.nonconformanceReviewService = nonconformanceReviewService;
         this.reportNodePort = reportNodePort;
         this.managerStageInitializer = managerStageInitializer;
         this.auditRecorder = auditRecorder;
@@ -254,6 +259,8 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
         if (!Objects.equals(expectedVersion, application.getVersion())) {
             throw versionConflict(application);
         }
+        nonconformanceReviewService.ensureBatchNotFrozen(application.getBatchExecutionId(), "生产放行报告上传");
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "生产放行报告上传");
         if (!Objects.equals(application.getBatchExecutionId(), workTask.getBatchExecutionId())
                 || !Objects.equals(batchTask.getBatchExecutionId(), application.getBatchExecutionId())
                 || !isProcessableWorkTask(workTask)

@@ -57,6 +57,32 @@ export interface DccProjectCodeUpdateReqVO extends DccProjectCodeSaveReqVO {
   id: number
 }
 
+export interface DccProjectAccessRuleRespVO {
+  id?: number
+  dccProjectCodeId?: number
+  subjectType: string
+  subjectId: number
+  accessLevel: string
+  active: boolean
+  validFrom?: string | null
+  expireTime?: string | null
+  changeReason?: string | null
+}
+
+export interface DccProjectAccessRuleSaveReqVO {
+  subjectType: string
+  subjectId: number
+  accessLevel: string
+  active: boolean
+  validFrom?: string | null
+  expireTime?: string | null
+  changeReason?: string | null
+}
+
+export interface DccProjectAccessRuleBatchSaveReqVO {
+  rules: DccProjectAccessRuleSaveReqVO[]
+}
+
 export interface DccProjectCodeControlledFilePageReqVO extends PageParam {
   keyword?: string
   status?: string
@@ -188,6 +214,19 @@ export const deleteProjectCode = async (id: number): Promise<boolean> => {
   return await request.delete({ url: `/dcc/project-codes/delete?id=${id}` })
 }
 
+export const getProjectCodeAccessRules = async (
+  projectCodeId: number | string
+): Promise<DccProjectAccessRuleRespVO[]> => {
+  return await request.get({ url: `/dcc/project-codes/${projectCodeId}/access-rules` })
+}
+
+export const replaceProjectCodeAccessRules = async (
+  projectCodeId: number | string,
+  data: DccProjectAccessRuleBatchSaveReqVO
+): Promise<DccProjectAccessRuleRespVO[]> => {
+  return await request.put({ url: `/dcc/project-codes/${projectCodeId}/access-rules`, data })
+}
+
 export const getProjectCodeControlledFilesPage = async (
   id: number | string,
   params: DccProjectCodeControlledFilePageReqVO
@@ -255,6 +294,10 @@ export const createProductOnboardingRequest = async (
   data: DccProductOnboardingCreateReqVO
 ): Promise<number> => {
   return await request.post({ url: '/dcc/product-onboarding-requests/create', data })
+}
+
+export const getPendingProductOnboardingRequests = async (): Promise<DccProductOnboardingRespVO[]> => {
+  return await request.get({ url: '/dcc/product-onboarding-requests/pending' })
 }
 
 export const approveProductOnboardingRequest = async (

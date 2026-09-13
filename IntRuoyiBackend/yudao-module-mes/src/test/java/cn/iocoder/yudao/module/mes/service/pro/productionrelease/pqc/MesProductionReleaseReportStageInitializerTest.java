@@ -63,6 +63,7 @@ class MesProductionReleaseReportStageInitializerTest {
         when(batchTaskMapper.selectListByBatchExecutionId(901L)).thenReturn(batchTasks());
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
                 8101L, enabledUser(8101L), 8102L, enabledUser(8102L), 8103L, enabledUser(8103L)));
+        when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
         AtomicLong ids = new AtomicLong(950L);
         when(workTaskMapper.insert(any(MesProEdhrWorkTaskDO.class))).thenAnswer(invocation -> {
             MesProEdhrWorkTaskDO task = invocation.getArgument(0);
@@ -80,6 +81,12 @@ class MesProductionReleaseReportStageInitializerTest {
         ArgumentCaptor<MesProEdhrWorkTaskDO> captor = ArgumentCaptor.forClass(MesProEdhrWorkTaskDO.class);
         verify(workTaskMapper, org.mockito.Mockito.times(4)).insert(captor.capture());
         assertFalse(captor.getAllValues().stream().anyMatch(task -> StrUtil.isBlank(task.getTaskCode())));
+        for (MesProEdhrWorkTaskDO task : captor.getAllValues()) {
+            java.net.URI uri = java.net.URI.create(task.getActionUrl());
+            assertEquals("/mes/pro/feedback/edhr-batch-execution/detail", uri.getPath());
+            org.junit.jupiter.api.Assertions.assertTrue(uri.getQuery().contains("id=901"));
+            org.junit.jupiter.api.Assertions.assertTrue(uri.getQuery().contains("batchTaskId=" + task.getBatchTaskId()));
+        }
     }
 
     @Test

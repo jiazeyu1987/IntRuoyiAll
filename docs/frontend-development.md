@@ -39,6 +39,7 @@
 - Verification: 静态合同应锁定入口模式与正式状态共同参与判定，并锁定文件 ID 等值限制；真实页面验证时应从目标列表入口进入，而不是直接拼详情 URL 或 API-only。
 - Forbidden action: 禁止用默认失效、默认当前、文件名包含关键字、列表缓存或后端文件名猜测入口语义；禁止让预览链路、申请下载链路和正式下载链路互相替代验证。
 - Evidence: 任务 `doc/tasks/20260902-registration-old-download-expired-filename-fix/`，老证详情下载日志出现 `expired: false` 后，将旧证判定从仅 `detail.status === 'OLD'` 补强为 `mode=old-detail` 或正式 OLD 状态，并且仅作用于详情主注册证文件。
+- DCC applicant-rework extension: 受控文件详情页识别申请人返工任务时，必须使用正式 `taskDefinitionKey/status/requesterId` 等流程身份；`rejectReason` 只能作为展示事实，不得参与按钮可见性、路由或是否允许签名处理的判断。退回申请人后若需要正文修改，页面应引导到受控检出/检入或其它明确内容修改入口生成新工作版本，禁止继续展示签名-only 的“处理回退”主动作。Evidence: 任务 `doc/tasks/20260913-dcc-static-010-applicant-rework-content-change/verification-report.md`。
 - Detail action state extension: 详情附件区的“申请下载”这类状态型动作，应直接调用正式申请接口并原地切换按钮状态；审批结果、撤销授权、grant 下载等治理控件只属于明确的审批/工作台入口；若产品要求去除独立治理入口，静态合同必须锁定对应页签、testid、handler 和 API import 在源码中均不存在，而不是只断言普通详情页不可见。刷新后状态必须来自后端只读投影（如当前用户待处理申请 ID），不得靠路由 `mode`、滚动到面板或前端临时缓存冒充持久状态。若同页同时存在内联按钮和流程/访问申请面板，静态合同必须覆盖所有可提交同一申请的入口；项目代码等可选业务事实不得在任一入口被重新变成前端必填。Evidence: 任务 `doc/tasks/20260903-registration-download-request-inline-ux/`、`doc/tasks/20260903-registration-download-request-project-scope/`、`doc/tasks/20260904-registration-download-flow-alignment/`。
 - Generated-detail entry extension: 列表动作如果会创建或切换到“生成对象”的详情页（如模拟、复制、派生版本），同一源行后续普通详情入口必须复用后端返回的生成对象 ID 或本页刚生成的映射；不得一个入口看生成对象、另一个入口又看源对象。静态合同必须同时锁定生成后自动跳转、列表行后续详情解析、刷新后持久字段复用和普通未生成行仍打开自身。Evidence: 任务 `doc/tasks/stage1-detail-entry-mismatch-20260905/`。
 - Stage1 clicked-order identity extension: 若用户口径明确为“点击哪条活跃订单就模拟/查看哪条活跃订单的数据”，Stage1 不属于“生成对象详情”入口；前端请求字段必须使用 `activeOrderId`，模拟成功后和普通详情入口都必须打开当前点击行自身，禁止读取 `stage1GeneratedActiveOrderId` 或维护源订单到 `STAGE1-WO-*` 的跳转映射。后端可清理历史内部承载对象，但响应给前端的 `activeOrderId` 必须是被点击活跃订单。Evidence: 任务 `doc/tasks/20260906-stage1-simulate-clicked-order-identity/`。
@@ -915,6 +916,14 @@
   - 对应的 `pnpm e2e:*` 脚本
 - 涉及用户路径时，使用 Playwright 通过真实前端页面验证。
 - 动态菜单页面必须同时核对组件文件、菜单配置、角色菜单绑定和登录后权限响应。
+
+## PQC 生产放行列表可空预检字段门禁
+
+- Trigger: PQC 生产放行待放行列表、`approvalReady`、`approvalBlockerReason`、`data-pqc-production-release-approve`，或列表接口为性能而省略资料预检字段。
+- Preflight check: 先区分“字段未返回/未计算”和“明确阻塞”。`approvalReady` 为 `null/undefined` 只能表示列表接口没有给出资料预检结论，不得按 `false` 禁用放行；只有 `approvalReady === false` 或 `underReview` 等正式阻塞条件才能禁用按钮。正式放行动作仍由后端 approve 接口执行资料、冻结、签名和 CAS 门禁。
+- Blocker: 前端把 `!row.approvalReady` 当作禁用条件、为恢复按钮伪造 `approvalReady=true`、移除权限指令、隐藏 blocker，或把列表预览字段当作正式放行授权时必须停止。
+- Verification: 静态合同必须同时锁定按钮禁用表达式不包含 `!row.approvalReady`、处置信息只在 `approvalReady === false` 展示，以及打开弹窗不因空值再次阻断；配合 `pnpm ts:check` 和目标回归合同验证。
+- Evidence: `doc/tasks/20260912-pqc-release-button-disabled/verification-report.md`。
 
 ## 禁止做法
 

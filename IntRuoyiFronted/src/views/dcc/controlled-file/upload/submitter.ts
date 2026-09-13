@@ -71,6 +71,18 @@ const VERSION_INVALID_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.
 const PRODUCT_CODE_PATTERN = /^[A-Za-z0-9]{14}$/
 const DRAWING_SOURCE_EXT_PATTERN = /\.(dwg|sldprt|sldasm|slddrw)$/i
 const PRODUCT_BOUND_CATEGORY_PREFIXES = ['DCC_FVM_DHF_', 'DCC_FVM_DMR_']
+
+export const isFileNumberChainConflictMessage = (message: string | null | undefined) => {
+  const normalizedMessage = trimText(message).toLowerCase()
+  return Boolean(
+    normalizedMessage &&
+      (normalizedMessage === FILE_NUMBER_CHAIN_CONFLICT_MESSAGE.toLowerCase() ||
+        normalizedMessage.includes(FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE.toLowerCase()) ||
+        normalizedMessage.includes('controlled_file_file_number_conflict') ||
+        normalizedMessage.includes('logical document chain'))
+  )
+}
+
 export const EDITABLE_SOURCE_EXTENSIONS = [
   'doc',
   'docx',
@@ -193,11 +205,7 @@ const normalizeKnownUploadErrorMessage = (message: string, fallback: string) => 
     return fallback
   }
   const normalizedMessage = rawMessage.toLowerCase()
-  if (
-    normalizedMessage.includes(FILE_NUMBER_CHAIN_CONFLICT_RAW_MESSAGE.toLowerCase()) ||
-    normalizedMessage.includes('controlled_file_file_number_conflict') ||
-    normalizedMessage.includes('logical document chain')
-  ) {
+  if (isFileNumberChainConflictMessage(rawMessage)) {
     return FILE_NUMBER_CHAIN_CONFLICT_MESSAGE
   }
   if (

@@ -2662,6 +2662,13 @@ const resolveLatestProductionSubmitterSignature = (
   )
 }
 
+const resolveLossProductionSignatures = (
+  submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
+) =>
+  (submission.productionSubmitterSignatures ?? []).filter(
+    (signature) => Boolean(signature?.signatureId)
+  )
+
 const formatSummarySignatureOperator = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
@@ -2724,6 +2731,13 @@ const formatLossReportSignatureDateText = (
   return [operator, date].filter(Boolean).join(' / ')
 }
 
+const formatLossReportSignaturesDateText = (
+  signatures: TeamLeaderActiveOrderSignatureDetailRespVO[] = []
+) => {
+  const texts = signatures.map(formatLossReportSignatureDateText).filter(Boolean)
+  return texts.length ? texts.join('；') : blankSummaryField
+}
+
 const formatPqcLossReason = (
   submission: TeamLeaderActiveOrderPqcSubmissionDetailRespVO
 ) => {
@@ -2745,13 +2759,13 @@ const formatPqcLossReason = (
 const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
   const rows: ActiveOrderPqcLossReportRow[] = []
   for (const process of props.detail?.processes ?? []) {
-    const latestProductionSignature = resolveLatestProductionSubmitterSignature(process.submissions)
-    const productionOperatorDateText = formatLossReportSignatureDateText(latestProductionSignature)
     for (const submission of process.pqcSubmissions ?? []) {
       const scrapQuantity = Number(submission.scrapQuantity)
       if (!Number.isFinite(scrapQuantity) || scrapQuantity <= 0) {
         continue
       }
+      const productionSignatures = resolveLossProductionSignatures(submission)
+      const productionOperatorDateText = formatLossReportSignaturesDateText(productionSignatures)
       const latestPqcSubmitterSignature = resolveLatestSignature(submission.submitterSignatures)
       const latestPqcReviewerSignature = resolveLatestSignature(submission.reviewerSignatures)
       rows.push({

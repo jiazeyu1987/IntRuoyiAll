@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -288,19 +289,23 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             if (accumulator == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
+            MesTeamLeaderActiveOrderEventPartyReadDO eventParty = eventPartiesById.get(task.getSubmittedEventId());
             PqcSubmissionIdentity submissionIdentity = new PqcSubmissionIdentity(
                     new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()),
-                    task.getQaProcessId(), trimToNull(task.getQaItemCode()), task.getInspectionRuleKey());
+                    task.getQaProcessId(), trimToNull(task.getQaItemCode()), task.getInspectionRuleKey(),
+                    task.getBusinessDate(), trimToNull(task.getShiftCode()), task.getRoundNo(),
+                    task.getSubmittedEventId(), eventParty == null ? null : eventParty.getProductionEventId());
             pqcSubmissionAccumulators.computeIfAbsent(submissionIdentity,
                             ignored -> new PqcSubmissionAccumulator(task, qaProcess))
-                    .add(task, taskDetails, eventPartiesById.get(task.getSubmittedEventId()), activeOrderId);
+                    .add(task, taskDetails, eventParty, activeOrderId);
         }
         for (Map.Entry<PqcSubmissionIdentity, PqcSubmissionAccumulator> entry : pqcSubmissionAccumulators.entrySet()) {
             ProcessAccumulator accumulator = accumulators.get(entry.getKey().processIdentity());
             if (accumulator == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
-            accumulator.addPqcSubmission(entry.getValue().toDetail());
+            accumulator.addPqcSubmission(entry.getValue().toDetail(
+                    accumulator.productionSubmitterSignaturesByEventId()));
         }
     }
 
@@ -405,7 +410,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     }
 
     private record PqcSubmissionIdentity(ProcessIdentity processIdentity, Long qaProcessId, String qaItemCode,
-                                         String inspectionRuleKey) {
+                                         String inspectionRuleKey, LocalDate businessDate, String shiftCode,
+                                         Integer roundNo, Long submittedEventId, Long productionEventId) {
     }
 
     private static final class SupplementAccumulator {
@@ -464,6 +470,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private final MesQaInspectionRegulationProcessDO qaProcess;
         private final LinkedHashSet<Long> pqcTaskIds = new LinkedHashSet<>();
         private final LinkedHashSet<Long> submittedEventIds = new LinkedHashSet<>();
+        private final LinkedHashSet<Long> productionEventIds = new LinkedHashSet<>();
         private final LinkedHashSet<String> submitterNames = new LinkedHashSet<>();
         private final LinkedHashSet<String> reviewerNames = new LinkedHashSet<>();
         private final List<MesTeamLeaderActiveOrderDetail.SignatureDetail> submitterSignatures = new ArrayList<>();
@@ -493,6 +500,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 addSignature(reviewerSignatures, eventParty.getReviewerSignatureId(),
                         eventParty.getReviewerName(), eventParty.getReviewerSignedAt(), "FORM_REVIEW");
                 scrapQuantity = addScrapQuantity(scrapQuantity, eventParty.getScrapQuantity());
+                if (eventParty.getProductionEventId() != null) {
+                    productionEventIds.add(eventParty.getProductionEventId());
+                }
             }
             if (actualInspectionQuantity == null
                     || (task.getActualInspectionQuantity() != null
@@ -511,14 +521,27 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .forEach(items::add);
         }
 
-        private MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail toDetail() {
+        private MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail toDetail(
+                Map<Long, MesTeamLeaderActiveOrderDetail.SignatureDetail> productionSignaturesByEventId) {
             List<Long> taskIds = List.copyOf(pqcTaskIds);
             List<Long> eventIds = List.copyOf(submittedEventIds);
+            List<Long> productionIds = List.copyOf(productionEventIds);
+            List<MesTeamLeaderActiveOrderDetail.SignatureDetail> productionSignatures = productionEventIds.stream()
+                    .map(productionSignaturesByEventId::get)
+                    .filter(Objects::nonNull)
+                    .filter(signature -> signature.getSignatureId() != null)
+                    .collect(Collectors.collectingAndThen(
+                            Collectors.toMap(MesTeamLeaderActiveOrderDetail.SignatureDetail::getSignatureId,
+                                    Function.identity(), (left, right) -> left, LinkedHashMap::new),
+                            signaturesById -> List.copyOf(signaturesById.values())));
             return new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail()
                     .setPqcTaskId(taskIds.isEmpty() ? null : taskIds.get(0))
                     .setPqcTaskIds(taskIds)
                     .setSubmittedEventId(eventIds.isEmpty() ? null : eventIds.get(0))
                     .setSubmittedEventIds(eventIds)
+                    .setProductionEventId(productionIds.isEmpty() ? null : productionIds.get(0))
+                    .setProductionEventIds(productionIds)
+                    .setProductionSubmitterSignatures(productionSignatures)
                     .setQaProcessId(qaProcess.getId())
                     .setQaProcessCode(qaProcess.getProcessCode())
                     .setQaProcessName(qaProcess.getProcessName())
@@ -636,6 +659,18 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
         private void addPqcSubmission(MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail submission) {
             this.pqcSubmissions.add(submission);
+        }
+
+        private Map<Long, MesTeamLeaderActiveOrderDetail.SignatureDetail> productionSubmitterSignaturesByEventId() {
+            Map<Long, MesTeamLeaderActiveOrderDetail.SignatureDetail> signaturesByEventId = new LinkedHashMap<>();
+            for (MesTeamLeaderActiveOrderDetail.SubmissionDetail submission : submissions) {
+                if (submission.getEventId() == null || submission.getSubmitterSignature() == null
+                        || submission.getSubmitterSignature().getSignatureId() == null) {
+                    continue;
+                }
+                signaturesByEventId.put(submission.getEventId(), submission.getSubmitterSignature());
+            }
+            return signaturesByEventId;
         }
 
         private MesTeamLeaderActiveOrderDetail.ProcessDetail toDetail() {

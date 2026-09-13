@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseDecisionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleasePageItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
@@ -98,5 +100,29 @@ class MesProductionReleaseControllerJsonTest {
                 reject.getAnnotation(PreAuthorize.class).value());
         assertEquals("@ss.hasPermission('mes:pro-production-release:query')",
                 get.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
+    void pageItemResponsePreservesApprovalReadinessProjection() throws Exception {
+        MesPqcProductionReleasePageItem item = new MesPqcProductionReleasePageItem()
+                .setApplicationId(53L)
+                .setPqcReleaseWorkTaskId(2443L)
+                .setVersion(1)
+                .setViewStatus("PENDING")
+                .setApplicationStatus("PQC_RELEASE_PENDING")
+                .setApprovalReady(false)
+                .setApprovalBlockerReason("批记录尚未完成")
+                .setApprovalBlockerSuggestion("完成批记录后再放行");
+
+        Method mapper = MesProductionReleaseController.class.getDeclaredMethod(
+                "toPageItemResp", MesPqcProductionReleasePageItem.class);
+        mapper.setAccessible(true);
+        MesPqcProductionReleasePageItemRespVO response =
+                (MesPqcProductionReleasePageItemRespVO) mapper.invoke(
+                        new MesProductionReleaseController(null), item);
+
+        assertEquals(item.getApprovalReady(), response.getApprovalReady());
+        assertEquals(item.getApprovalBlockerReason(), response.getApprovalBlockerReason());
+        assertEquals(item.getApprovalBlockerSuggestion(), response.getApprovalBlockerSuggestion());
     }
 }

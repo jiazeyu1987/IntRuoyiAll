@@ -1,4 +1,9 @@
 # 项目经验索引
+
+- Keywords: DCC 90步静态检查, 新项目授权入口, 产品建档续办, 模板分类与上传不一致, 检入丢关联, 审批预览旧原件, 影响评估小版本跟踪 -> `docs/bugs/20260912-dcc-90-step-static-audit.md`；检查顺序 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`
+- Keywords: DCC 路线配置未执行, 重复审批环节丢人, 路线未来生效, CAD配套PDF, 仅元数据检入, 重放文本碰撞, 培训并发计时, 发布连续重试, Master逻辑身份漂移, 大版本正式基线 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`；追加静态证据 -> `doc/tasks/20260913-dcc-90-step-followup-audit/verification-report.md`
+
+- Keywords: DCC 上传异常误报成功, 根行唯一冲突, 幂等赢家, 盖章重试权限, 转办加签资格, 培训并发确认卡死, 停用培训人员, 通知 afterCommit 独立事务, 通知重复重放 -> `docs/backend-development.md#dcc-失败重试和并发收口门禁`
 - Keywords: CSV 验证最小包, 计算机化系统验证, GAMP 分类, IQ OQ PQ, URS FS 风险评估, CSV 追溯矩阵, 供应商评估, 周期回顾, 验证报告审批, 中文 Word 交付包, CSV 签字矩阵, 00A 正式递交说明与签字责任矩阵, 正式送审分册包, 药监现场核查 CSV 包, 药监审核老师不代替企业内部批准签字, official-submission-package, 5.1 5.16 -> `docs/csv-validation/README.md`
 - Keywords: 表单解析 JSON 下载, parse-only, 上传 Word 下载 JSON, 不创建模板版本, 不触发表单模板升版审批, 禁止调用 import-doc, recognizedSchemaJson, jimuSchemaJson, FormTemplateRecognizer never insert -> `docs/system/shared-word-template-parser-design.md#parse-only-json-export-boundary`
 - Keywords: 表单解析多页签, QA 检验规程 JSON, 生产批记录隔离, 一线 PQC 预览, 独立状态, 独立解析接口, 页面查询权限, 按钮可见, 禁止跨页签覆盖 -> `docs/system/shared-word-template-parser-design.md#多业务文档解析页签隔离经验`
@@ -22,12 +27,15 @@
 - Keywords: 离职账号停用, 转岗账号停用, 账号生命周期, lifecycle_document_type, lifecycle_document_no, lifecycle_effective_time, lifecycle_deactivated_time, userLifecycleDeactivateJob, HR/BPM 单据, 任务参数缺失, explicit limit -> `docs/login-access.md#离职转岗账号联动停用门禁`
 - Keywords: 发票凭证打印助手, 分贝通费用报销助手, 外部助手直连, 短期票据, /auth/callback, assistantSession, x-invoice-voucher-print-session, x-fenbeitong-assistant-session, 旧助手Cookie复用, query config save权限集合, API显式会话头, INVOICE_VOUCHER_PRINT_TICKET_VALIDATE_URL, FENBEITONG_ASSISTANT_TICKET_VALIDATE_URL, invoice-voucher-print-assistant/status, fenbeitong-assistant/status, 启动助手, 助手未启动显示按钮, 直接访问助手403, 固定18733, 固定18734, 外部助手端口, 跨服务器复用端口, ERP 配置快照, kingdeeConfig, KINGDEE_RUNTIME_DIR, 禁止 KINGDEE_ENV_PATH 全局回退, ERP配置文件不存在, runtime/.env.kingdee, /opt/invoice-voucher-print-assistant/runtime/.env.kingdee, erp-invoice-voucher-print-assistant.service, systemd ExecStart, 公开service必须启动鉴权入口, 助手镜像标签 -> `docs/login-access.md#erp-外部助手短期票据授权门禁` and `docs/frontend-development.md#动态菜单真实可见性缓存门禁`
 - Keywords: 普通用户不能分配管理员角色, 日志权限, user-role assignment, RoleCodeEnum, PermissionServiceImpl, USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN -> `docs/backend-development.md#系统用户角色分配高权限拦截门禁`
+- Keywords: 不合格冻结, 报告上传, 附件 prepare, 附件保存, 文件存储前拒绝, completeProductionReleaseReportNode, ensureBatchNotFrozen, 高权限不得绕过 -> `docs/backend-development.md#业务冻结不得被高权限操作绕过`
 - Keywords: 审批中心入口, approval_center_entry, 压力泵全工序切换, 智能排产误显示, 报工父级菜单, 子按钮带出父菜单, 审批入口角色污染 -> `docs/login-access.md#审批中心入口角色菜单隔离门禁`
 - Keywords: 审批模型新建, 新建审批模型, 新建审批流, 手工输入流程名字, 审批模型修改, 修改审批模型, 当前审批情况, 回显审批情况, 审核人必填, 批准人可选, 审批对象, 审批人员配置, CandidateStrategy.MIXED, BpmTaskCandidateMixedStrategy, 和关系, 或关系, 发起对象直属主管 -> `docs/frontend-development.md#流程模型人员配置入口门禁` and `docs/backend-development.md#bpm-审批模型人员配置候选人门禁`
 
 - Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照、Stage4、Stage4 独立输入、STAGE4_INDEPENDENT_BATCH_EXECUTION、stage4IndependentBatchExecutionSnapshot.v1、trace origin、trace links、trace manifest、completeSpecialNode、completePreReleaseDossierNode、createNextFillAfterSpecialNodeResolved -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
 - Keywords: Stage2.5, completion receipt, sourceCredentialId, sourceContextHash, sourceSnapshotHash, nested receipt, LOSS_CONDITION_FACTS, no-loss fact closure, confirmedAt, reviewedAt, MES_PRO_FEEDBACK, lossDetails -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源` and `docs/backend-development.md#edhr-批次创建入口必须与正式入口合同一致`
+- Keywords: EDHR-STATIC-005, PQC生产放行, 过程检验回填, 专用QA, 通用QA, PQC task冻结版本, regulationVersionId, OWNER_MODULE_MES_QA_COMMON -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行不合格评审, 工单冻结, temporary_frozen, previousWorkOrderTemporaryFrozen, 返工恢复冻结, 作废保持冻结, 让步继续签字, 生产报工冻结门禁, 领料出库冻结门禁, 申请待办原子终结 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: PQC生产放行列表按钮灰色, approvalReady, approvalBlockerReason, approvalBlockerSuggestion, service item 到 Controller response VO 映射, 列表状态正常但操作不可用, 禁止前端默认放行 -> `docs/backend-development.md#controller-列表响应必须完整透传服务层就绪投影`
 
 - Keywords: 租户级 PQC 检验设备配置、QA 项目切换、dccProjectCodeId、item-equipment/items、历史 QA 脏数据、同名检验项目、项目范围先过滤 -> `docs/backend-development.md#项目范围设备候选必须先过滤正式项目身份`
 - Keywords: 工艺路线过程检验映射, PQC_AGGREGATE_DETAIL, routeProcessId, PROCESS_INSPECTION, formTemplateId, lastPublishedTemplateVersionId, QA工序缺失, 清洗冒充粗洗, 表单槽位正常入口 -> `docs/e2e-rules.md#工艺路线过程检验映射正式来源门禁`
@@ -334,6 +342,7 @@
 - Keywords: worktree 任务 blocked, clean branch 但验证未达成, stale branch 大量删除主线证据, blocked worktree 不得强行 merge -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: Maven 用户级 MAVEN_HOME 已更新但当前进程继承旧值, Maven 绝对路径, 受限 javac/JUnit 不能替代模块级 GREEN, Surefire, BUILD SUCCESS, 正式适配器缺失 fail-fast, blocked worktree 不得 commit/merge -> `docs/worktree-memory.md#maven-环境刷新与受限测试证据门禁`
 - Keywords: 主工作区持续并行写入, 先融合再测试, 远端快进融合, clean integration worktree, git push origin HEAD:int_main, origin/int_main ancestor, dirty main workspace closeout blocked, 相邻静态合同失败不得继续推送, Maven -am 依赖模块 testCompile 失败, DccFileCategoryMatchRuleDO, DccFileCategoryMatchRuleMapper, 当前任务源码未改依赖模块不得跳过 -> `docs/worktree-memory.md#并行主工作区远端快进融合门禁`
+- Keywords: Mockito 重载方法, BaseMapper insert(any()) 歧义, insert(T) insert(Collection<T>), typed any, ArgumentCaptor, testCompile 重载匹配不明确 -> `docs/backend-development.md#mockito-重载-mapper-方法匹配门禁`
 - Keywords: D-Main 本地主线滞后远端, int_main ahead behind, origin/int_main behind 445, git diff --cached --check upstream whitespace, 冲突经验门禁文档, rg -n "^(<<<<<<<|=======|>>>>>>>)", conflict marker anchored scan, branch-runtime-port-guard after merge -> `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`
 - Keywords: schema-backed E2E, 运行库迁移未应用, 表不存在, dcc_nas_control_audit_file, import snapshot, audit_task_id, local_relative_path, archive_category_id_snapshot, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
@@ -347,7 +356,7 @@
 - Keywords: 审批中心已办 DCC 系统异常, DccApprovalTaskAdapter, DCC 历史审批行, versionNo null, categoryId null, APPROVAL_BUSINESS_VERSION_REQUIRED, APPROVAL_BUSINESS_CATEGORY_REQUIRED, 版本：-, 分类：-, DONE 历史展示占位, TODO 必填不放宽 -> `docs/backend-development.md#统一审批中心-dcc-已办历史快照展示门禁`
 - Keywords: 审批中心待办为空, approval-center TODO, viewType TODO, 左侧徽标有数量列表为空, ApprovalCenterServiceImpl total 大于 0 list 为空, APPROVAL_ADAPTER_PAGE_INCONSISTENT, DCC FORM_ACTION 共用 process key, 物理分页后过滤, 语义集合分页, moduleCode 隐藏筛选, keyword 隐藏筛选, BPM 原生待办摘要, Flowable variables, businessTitle, businessCode, businessContextTags, currentNodeName, 0 个模块 -> `docs/backend-development.md#统一审批中心待办聚合一致性门禁` and `docs/frontend-development.md#审批中心路由筛选可见性门禁`
 - Keywords: 放行负责人, 工序结束放行责任人, releaseOwnerLabel, RELEASE_APPROVE, CLOSE 关闭负责人不能放行, stageOwnerRole 执行人兜底, 角色成员均可放行 -> `docs/backend-development.md#edhr-放行负责人来源门禁`
-- Keywords: 活跃订单申请放行, 活跃订单完工, 活跃订单完成, 生产放行, 管理者代表, xujianhai, active-order/release/apply, MesTeamLeaderActiveOrderReleaseApplicationService, 批记录回填, 过程检验单回填, 损耗单回填, 三类统一回填, 同一节点回填, 无损耗不写损耗单, 回填后创建批次执行, 来料检文件, 灭菌文件, 成品检文件, 三类文件上传后放行, 正式批记录数据, 正式过程检验单, 正式损耗单, 放行资料, 双100%, 生产进度100, 检验进度100, RELEASE_APPROVE, RECORD_CATEGORY_BATCH_RECORD, LOSS_REPORT, PQC 汇集明细, 过程检验设备快照, 放行不反查QA版本设备, 放行不反查当前最新设备配置, 生产工单领料单对应, formBindings 禁止, 默认 MAIN 禁止, submitForApproval, 多阶段接口合同, 状态所有者, 迁移审计编码, 同步内部端口, 结构化 blocker, CommonResult data, Long ID 字符串, 提供方消费方合同测试, 共享迁移单一所有者, expectedVersion 聚合归属, 工作待办版本禁止, 业务作用域条件生成列唯一索引 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: 活跃订单申请放行, 活跃订单完工, 活跃订单完成, 生产放行, 管理者代表, xujianhai, active-order/release/apply, MesTeamLeaderActiveOrderReleaseApplicationService, 批记录回填, 过程检验单回填, 损耗单回填, 三类统一回填, 同一节点回填, 无损耗不写损耗单, 回填后创建批次执行, 来料检文件, 灭菌文件, 成品检文件, 三类文件上传后放行, 正式批记录数据, 正式过程检验单, 正式损耗单, 放行资料, 双100%, 生产进度100, 检验进度100, RELEASE_APPROVE, RECORD_CATEGORY_BATCH_RECORD, LOSS_REPORT, PQC 汇集明细, 过程检验设备快照, 放行不反查QA版本设备, 放行不反查当前最新设备配置, 生产工单领料单对应, formBindings 禁止, 默认 MAIN 禁止, submitForApproval, 多阶段接口合同, 状态所有者, 迁移审计编码, 同步内部端口, 结构化 blocker, CommonResult data, Long ID 字符串, 提供方消费方合同测试, 共享迁移单一所有者, expectedVersion 聚合归属, 工作待办版本禁止, 业务作用域条件生成列唯一索引, EDHR-STATIC-007, 放行申请存在即锁定生产写入, businessStatus非ACTIVE拒绝, assertActiveOrderOpenForProduction, assertActiveOrdersOpenForProduction -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 活跃订单详情资料硬切换, 批次执行表替代, 放弃批次执行真相源, 生产放行详情档案, 放行资料来源哈希, 幂等回放, 放行中禁止重建, 放行中禁止移除, 放行中禁止版本升级, 冻结审批候选快照, PQC 管理生产放行, 管理者代表上市放行, 追溯读取详情档案 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 活跃订单放行 A6, 三类传统 batchRecordReportId, batch_record_report_id 非空数, MAIN PROCESS_INSPECTION LOSS_REPORT 完整组合, form_template_id 不可替代, 多角色登录凭据, 签名口令未证明, fixture 前置阻塞 -> `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 放行阻塞异常被全局异常处理器改写为 HTTP 500, 控制器级 ExceptionHandler, 结构化 blocker data, 实际 HTTP 回归 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
@@ -486,6 +495,7 @@
 - Keywords: 生产组长活跃订单删除, active-order/remove, REMOVE_ACTIVE_ORDER, 报工分配失效, 物理删除禁止, 近似产品名, active_status REMOVED -> `docs/database-rules.md#生产组长活跃订单正式移除链门禁`
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
 - Keywords: 高频列表慢, 报工管理列表慢, 相关子查询, correlated subquery, SUM EXISTS, 逐行解析 JSON, 派生状态物化, 正式汇总字段, 同事务刷新, 历史迁移来源一致性, count page 同口径, 组合索引, 首屏请求数, 部署后时延复测 -> `docs/database-rules.md#高频列表派生状态物化门禁`
+- Keywords: PQC生产放行列表慢, 待放行刷新慢, 全量加载内存分页, dossier readiness N+1, 最新不合格评审, candidate_user_snapshot, 五类 viewStatus, request sequence guard, approvalReady 未预检 -> `docs/database-rules.md#pqc-生产放行列表查询性能门禁`
 - Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: tenant_id=0 全局只读种子, TenantIgnore, ignore-tables, Excel 源基线, 只读 Excel 目录, 业务租户列表为空, 主表明细表租户过滤 -> `docs/database-rules.md#全局只读-excel-种子租户边界门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
@@ -592,6 +602,7 @@
 - Keywords: 前端写入成功列表刷新失败, POST 成功 GET 失败, 保存成功但刷新失败, 连续独立提交, 成功后清空输入, 成功后轮换幂等键, 幂等键长度预算, event_idempotency_key, varchar(128), Data too long, 固定短前缀, 会话 token, 请求前越界阻断, finally 不得复位, 失败保留草稿和原幂等键, 重复新增, 写失败保留草稿, 删除成功误报失败, 正式提交响应不确定, submit-receipt, pqcTaskId, 只读回执确认, 不确定锁定态, 刷新首帧旧值, 保存后缓存同步, 租户隔离缓存, 版本化缓存 key, setup 同步水合, 正式 GET 校准缓存, 缓存不得作为 fallback -> `docs/frontend-development.md#前端写入成功与列表刷新失败分层门禁`
 - Keywords: 一线PQC连续提交, PQC回执锁定, pqcSubmitReceipt, 红框回执删除, 成功失败后继续提交, 隐藏回执状态禁用提交, 一线PQC提交后再次打开, task=null, pqcProcessOptionsCache, 旧pqcTaskId, 提交后缓存失效 -> `docs/frontend-development.md#前端写入成功与列表刷新失败分层门禁`
 - Keywords: 写入型 E2E 异常清理, Playwright 失败后清理, 任务自有数据残留, code=0 后记录状态, cleanupError, residualEnabledData, 禁止 API-only 清理 -> `docs/e2e-rules.md#写入型-e2e-异常路径任务数据清理门禁`
+- Keywords: 多页面数据清理, 全量删除, 页面无删除入口, 活跃订单移除, 生产放行锁定, 部分删除, 禁止 API 数据库绕过, 逐页最终数量 -> `docs/e2e-rules.md#多页面共享业务数据批量清理门禁`
 - Keywords: 当前共享数据写入 E2E, 用户明确授权 admin 当前数据, 派生进度恢复, 原始源事实快照, 正式重算规范基线, 相同分配重新保存进度变化, 恢复数量后复核进度, finally 页面恢复, 目标页面未刷新派生接口, 人效h, process-wip-statistics, RESOURCE_CALCULATED + WORKER, 手动产能覆盖不命中人效正向 -> `docs/e2e-rules.md#当前共享数据写入-e2e-派生状态恢复门禁`
 - Keywords: 共享数据并行删除, E2E 首次写入前身份复核, 目标路线不存在, ACTIVE/候选漂移, 预检 CREATE_REQUIRED, 禁止新建对象冒充恢复 -> `docs/e2e-rules.md#当前共享数据写入-e2e-派生状态恢复门禁`
 - Keywords: 顶部固定信息栏, 顶部订单摘要, 真实视口边界, viewportWidth, getBoundingClientRect, 左侧导航占宽, 1440x900, 全屏布局, 卡片重叠, 父卡片边界, white-space, text-overflow -> `docs/e2e-rules.md#顶部固定信息栏真实视口边界门禁`
@@ -631,4 +642,6 @@
 - Keywords: 可信时间, 审计追踪时间戳, chrony, Last offset, RMS offset, Leap status, 系统签名时间, 业务发生时间, selectedSignedAt, signatureDisplayAt, inspection-runs.json, 时间戳证据 ZIP, 审查摘要, SHA256SUMS, 审查服 -> `docs/backend-development.md#可信时间与正式签名时间边界门禁`、`docs/frontend-development.md#可信时间证据与业务发生时间展示门禁`
 - Keywords: DCC unified signature, 统一电子签名, 领域签名投影, DCC HMAC, HMAC_SHA256, 签名投影缺失 -> `docs/backend-development.md#dcc-统一签名与领域投影一致性门禁`
 - Keywords: DCC major revision, 既有版本升大版, 新文件目录模板, Master 身份继承, REVISION template validation -> `docs/backend-development.md#dcc-既有版本升大版与新文件模板边界`
+- Keywords: DCC WORKING残留, A/2创建B/1, 低版本工作稿收口, supersededByFileId, requester送审, requester检出, 发布幂等重放先于状态校验, READY_TO_PUBLISH重试, afterCommit通知失败隔离, approvedTime不得被publishedTime覆盖 -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁`
+- Keywords: DCC发布草稿误复用, createInstance DRAFT, K2提交K1草稿, FORM_ACTION_IDEMPOTENCY_CONFLICT, 缺失键不得默认重放, 同键零写入回读, 表单中心跨服务幂等边界 -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁`
 - Keywords: audit reason capacity, 审计原因长度, varchar(2000), Data truncation, 基础 schema 与增量迁移 -> `docs/database-rules.md#审计原因字段容量合同门禁`

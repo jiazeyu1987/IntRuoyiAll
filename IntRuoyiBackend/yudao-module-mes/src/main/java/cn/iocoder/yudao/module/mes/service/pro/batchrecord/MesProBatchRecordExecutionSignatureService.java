@@ -60,6 +60,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_QUALITY_REJECT = "QUALITY_REJECT";
     public static final String ACTION_SPECIAL_NODE_SKIP = "SPECIAL_NODE_SKIP";
     public static final String ACTION_ROUTE_FORM_OPTIONAL_SKIP = "ROUTE_FORM_OPTIONAL_SKIP";
+    public static final String ACTION_QA_DISPOSITION = "QA_DISPOSITION";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_DRAFT_SESSION = "DRAFT_SESSION";
     public static final String SIGNATURE_MODE_SIMULATION_SESSION = "SIMULATION_SESSION";
@@ -146,6 +147,17 @@ public class MesProBatchRecordExecutionSignatureService {
         return recordSignatureForActor(actorId, batchExecutionId, password, comment, actionType,
                 null, null, null, null, null, null, null, "EDHR_BATCH", batchExecutionId,
                 reviewSourceName, actionType, comment, null, null, aggregateHash, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordQaDispositionSignature(Long actorId, Long reviewId, String password, String comment,
+                                             String aggregateHash) {
+        if (reviewId == null || reviewId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        return recordSignatureForActor(actorId, 0L, password, comment, ACTION_QA_DISPOSITION,
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
+                "eDHR不合格评审处置", ACTION_QA_DISPOSITION, comment, null, null, aggregateHash, null);
     }
 
     public void validatePqcSubmitSignature(Long actorId, String password) {
@@ -834,6 +846,7 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_PQC_SUBMIT -> "PQC检验提交";
             case ACTION_PQC_RELEASE -> "PQC生产放行";
             case ACTION_TEAM_LEADER_REVIEW -> "组长复核";
+            case ACTION_QA_DISPOSITION -> "QA不合格评审处置";
             default -> actionType;
         };
     }

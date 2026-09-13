@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.bpm.formcenter.runtime;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
@@ -543,6 +544,23 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     }
 
     @Override
+    public FormInstanceRespVO findBusinessActionByIdempotency(BusinessActionContextReqVO reqVO,
+                                                               String idempotencyKey) {
+        if (reqVO == null || StrUtil.isBlank(idempotencyKey)
+                || StrUtil.isBlank(reqVO.getSystemCode()) || StrUtil.isBlank(reqVO.getObjectType())
+                || StrUtil.isBlank(reqVO.getObjectId()) || StrUtil.isBlank(reqVO.getObjectVersion())
+                || StrUtil.isBlank(reqVO.getActionCode())) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Business action idempotency lookup context is incomplete");
+        }
+        reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
+        FormActionInstanceDO existing = actionInstanceMapper.selectByBusinessActionAndIdempotency(
+                reqVO.getTenantId(), reqVO.getSystemCode(), reqVO.getObjectType(), reqVO.getObjectId(),
+                reqVO.getObjectVersion(), reqVO.getActionCode(), StrUtil.trim(idempotencyKey));
+        return existing == null ? null : toInstanceResp(existing);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public FormInstanceRespVO createInstance(FormInstanceCreateReqVO reqVO, Long userId) {
         reqVO.getContext().setTenantId(resolveTenantId(reqVO.getContext().getTenantId()));
@@ -551,7 +569,9 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
                 reqVO.getContext().getTenantId(), reqVO.getContext().getSystemCode(), reqVO.getContext().getObjectType(),
                 reqVO.getContext().getObjectId(), reqVO.getContext().getObjectVersion(), reqVO.getContext().getActionCode());
         for (FormActionInstanceDO sameInstance : sameInstances) {
-            if (sameInstance.getApplicantUserId().equals(userId) && FormInstanceStatus.DRAFT.name().equals(sameInstance.getStatus())) {
+            if (Objects.equals(sameInstance.getApplicantUserId(), userId)
+                    && FormInstanceStatus.DRAFT.name().equals(sameInstance.getStatus())) {
+                ensureDraftIdempotencyMatches(reqVO, sameInstance);
                 return toInstanceResp(sameInstance);
             }
             if (FormInstanceStatus.IN_APPROVAL.name().equals(sameInstance.getStatus())
@@ -580,6 +600,16 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         actionInstanceMapper.insert(insertObj);
         recordSnapshot(insertObj, FormSnapshotType.DRAFT, insertObj.getFormDataJson());
         return toInstanceResp(insertObj);
+    }
+
+    private void ensureDraftIdempotencyMatches(FormInstanceCreateReqVO reqVO, FormActionInstanceDO sameInstance) {
+        String requestedKey = StrUtil.trim(reqVO.getIdempotencyKey());
+        String existingKey = StrUtil.trim(sameInstance.getIdempotencyKey());
+        if (StrUtil.isNotBlank(requestedKey) && StrUtil.equals(requestedKey, existingKey)) {
+            return;
+        }
+        throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_IDEMPOTENCY_CONFLICT,
+                "当前请求与已有草稿的请求标识不一致或缺失，不能复用草稿：" + sameInstance.getInstanceCode());
     }
 
     @Override

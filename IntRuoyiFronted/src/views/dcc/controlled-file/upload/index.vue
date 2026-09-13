@@ -599,6 +599,7 @@ import {
   createUploadSubmitterService,
   EDITABLE_SOURCE_MESSAGE,
   formatPreviewFileSize,
+  isFileNumberChainConflictMessage,
   resolveUploadErrorMessage,
   resolveUploadPreviewErrorMessage,
   isDccProductRequiredForCategoryCode,
@@ -1179,6 +1180,18 @@ const buildUploadPreviewContext = () => {
   }
 }
 
+const canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage = (
+  errorMessage: string | null | undefined
+) =>
+  !isExternalReview.value &&
+  formData.changeType === 'NEW' &&
+  previewUpload.value?.sessionId === uploadSessionId &&
+  Boolean(previewUpload.value?.uploadTicket) &&
+  isFileNumberChainConflictMessage(errorMessage)
+
+const canRetryWorkingDraftCreationAfterCurrentVersionConflict = () =>
+  canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage(currentVersionLookupError.value)
+
 const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
   projectCodeOptionsError.value = ''
@@ -1742,7 +1755,9 @@ const refreshRouteReadiness = async () => {
   }
 }
 
-const loadCurrentVersionByFileNumber = async () => {
+const loadCurrentVersionByFileNumber = async (options: {
+  suppressWorkingDraftRetryConflictMessage?: boolean
+} = {}) => {
   const fileNumber = formData.fileNumber.trim()
   const requestSeq = ++currentVersionLookupSeq
   if (!fileNumber) {
@@ -1782,10 +1797,18 @@ const loadCurrentVersionByFileNumber = async () => {
     }
   } catch (error) {
     if (requestSeq === currentVersionLookupSeq) {
+      const errorMessage = resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试')
       currentVersionInfo.value = undefined
-      currentVersionLookupError.value = resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试')
+      currentVersionLookupError.value = errorMessage
+      if (
+        !(
+          options.suppressWorkingDraftRetryConflictMessage &&
+          canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage(errorMessage)
+        )
+      ) {
+        message.error(errorMessage)
+      }
     }
-    message.error(currentVersionLookupError.value || resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试'))
   } finally {
     if (requestSeq === currentVersionLookupSeq) {
       currentVersionLookupLoading.value = false
@@ -2041,11 +2064,13 @@ const submitForm = async () => {
     clearTimeout(currentVersionLookupTimer)
     currentVersionLookupTimer = undefined
   }
-  await loadCurrentVersionByFileNumber()
+  await loadCurrentVersionByFileNumber({ suppressWorkingDraftRetryConflictMessage: true })
   if (currentVersionLookupError.value) {
-    submitFieldErrors.versionNo = currentVersionLookupError.value
-    message.warning(currentVersionLookupError.value)
-    return
+    if (!canRetryWorkingDraftCreationAfterCurrentVersionConflict()) {
+      submitFieldErrors.versionNo = currentVersionLookupError.value
+      message.warning(currentVersionLookupError.value)
+      return
+    }
   }
   if (revisionTargetPreflightBlockReason.value) {
     submitFieldErrors.versionNo = revisionTargetPreflightBlockReason.value

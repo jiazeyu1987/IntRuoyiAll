@@ -42,7 +42,8 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 action(MesProBatchRecordExecutionSignatureService.ACTION_BATCH_CLOSE, "关闭eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_QUALITY_REJECT, "质量终态拒收eDHR批次"),
                 action(MesProBatchRecordExecutionSignatureService.ACTION_SPECIAL_NODE_SKIP, "跳过eDHR特殊工序"),
-                action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单")
+                action(MesProBatchRecordExecutionSignatureService.ACTION_ROUTE_FORM_OPTIONAL_SKIP, "跳过eDHR可选路线表单"),
+                action(MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION, "QA不合格评审处置")
         );
     }
 

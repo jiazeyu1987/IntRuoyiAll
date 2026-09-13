@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.training.vo.DccTrainingExecu
 import cn.iocoder.yudao.module.dcc.controller.admin.training.vo.DccTrainingTaskPageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.training.vo.DccTrainingTaskRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.training.vo.DccTrainingViewSessionHeartbeatReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.training.vo.DccTrainingViewSessionStartReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkOverlayRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAccessLogDO;
@@ -191,6 +192,56 @@ class DccTrainingTaskServiceTest extends BaseMockitoUnitTest {
         assertTrue(Boolean.TRUE.equals(respVO.getEligibleToAcknowledge()));
         assertEquals("sop-002.pdf", respVO.getFileName());
         assertEquals("READY_TO_ACKNOWLEDGE", respVO.getStatus());
+    }
+
+    @Test
+    void startViewSession_preservesTailSecondsSettledFromPreviousSession() {
+        when(trainingProgressMapper.selectById(1006L))
+                .thenReturn(
+                        DccControlledFileTrainingProgressDO.builder()
+                                .id(1006L).controlledFileId(905L).userId(99L)
+                                .requiredViewSeconds(600).accumulatedViewSeconds(100).build(),
+                        DccControlledFileTrainingProgressDO.builder()
+                                .id(1006L).controlledFileId(905L).userId(99L)
+                                .requiredViewSeconds(600).accumulatedViewSeconds(100).build(),
+                        DccControlledFileTrainingProgressDO.builder()
+                                .id(1006L).controlledFileId(905L).userId(99L)
+                                .requiredViewSeconds(600).accumulatedViewSeconds(115).build(),
+                        DccControlledFileTrainingProgressDO.builder()
+                                .id(1006L).controlledFileId(905L).userId(99L)
+                                .requiredViewSeconds(600).accumulatedViewSeconds(115).build());
+        when(controlledFileMapper.selectById(905L)).thenReturn(DccControlledFileDO.builder()
+                .id(905L)
+                .publishedFileId(505L)
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .fileName("training.pdf")
+                .fileNumber("TR-001")
+                .versionNo("A/1")
+                .build());
+        when(trainingViewSessionMapper.selectActiveListByProgressId(1006L)).thenReturn(List.of(
+                DccControlledFileTrainingViewSessionDO.builder()
+                        .id(8001L)
+                        .trainingProgressId(1006L)
+                        .userId(99L)
+                        .clientSessionId("old-session")
+                        .lastHeartbeatAt(LocalDateTime.now().minusSeconds(15))
+                        .accumulatedSeconds(30)
+                        .build()));
+        when(trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(1006L, "new-session"))
+                .thenReturn(null);
+        DccTrainingViewSessionStartReqVO request = new DccTrainingViewSessionStartReqVO();
+        request.setClientSessionId("new-session");
+
+        DccTrainingTaskRespVO respVO = trainingTaskService.startViewSession(99L, 1006L, request);
+
+        ArgumentCaptor<DccControlledFileTrainingProgressDO> progressCaptor =
+                ArgumentCaptor.forClass(DccControlledFileTrainingProgressDO.class);
+        verify(trainingProgressMapper, org.mockito.Mockito.times(2)).updateById(progressCaptor.capture());
+        List<DccControlledFileTrainingProgressDO> updates = progressCaptor.getAllValues();
+        assertTrue(updates.get(0).getAccumulatedViewSeconds() >= 115);
+        assertEquals(115, updates.get(1).getAccumulatedViewSeconds());
+        assertEquals(115, respVO.getAccumulatedViewSeconds());
+        verify(trainingViewSessionMapper).insert(any(DccControlledFileTrainingViewSessionDO.class));
     }
 
     @Test

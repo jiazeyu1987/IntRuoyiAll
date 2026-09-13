@@ -150,6 +150,9 @@ public class MesTeamLeaderActiveOrderDetail {
         private List<Long> pqcTaskIds = List.of();
         private Long submittedEventId;
         private List<Long> submittedEventIds = List.of();
+        private Long productionEventId;
+        private List<Long> productionEventIds = List.of();
+        private List<SignatureDetail> productionSubmitterSignatures = List.of();
         private Long qaProcessId;
         private String qaProcessCode;
         private String qaProcessName;

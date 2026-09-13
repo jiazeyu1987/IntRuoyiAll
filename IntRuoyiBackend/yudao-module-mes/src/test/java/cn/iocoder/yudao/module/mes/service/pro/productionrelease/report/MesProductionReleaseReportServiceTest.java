@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.productionrelease.report;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerE
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachment;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -28,6 +30,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -35,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,11 +51,13 @@ class MesProductionReleaseReportServiceTest {
     private static final Long BATCH_EXECUTION_ID = 9001L;
     private static final Long BATCH_TASK_ID = 9101L;
     private static final Long WORK_TASK_ID = 9201L;
+    private static final Long WORK_ORDER_ID = 9301L;
     private static final int VERSION = 2;
 
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
     @Mock private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
+    @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Mock private MesProductionReleaseReportNodePort reportNodePort;
     @Mock private MesProductionReleaseManagerStageInitializer managerStageInitializer;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
@@ -62,7 +68,7 @@ class MesProductionReleaseReportServiceTest {
     void setUp() {
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesProductionReleaseReportServiceImpl(
-                applicationMapper, workTaskMapper, batchTaskMapper, reportNodePort,
+                applicationMapper, workTaskMapper, batchTaskMapper, nonconformanceReviewService, reportNodePort,
                 managerStageInitializer, auditRecorder,
                 Clock.fixed(Instant.parse("2026-08-16T00:00:00Z"), ZoneOffset.UTC));
         when(workTaskMapper.selectReleaseReportByBatchTaskId(BATCH_TASK_ID)).thenReturn(workTask());
@@ -121,6 +127,38 @@ class MesProductionReleaseReportServiceTest {
         assertEquals(VERSION, result.getVersion());
         verify(applicationMapper, never()).advanceReportVersion(any(), any());
         verify(applicationMapper, never()).handoffReportsToManager(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void frozenBatchRejectsPrepareAttachmentBeforeStoragePort() {
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService)
+                .ensureBatchNotFrozen(BATCH_EXECUTION_ID, "生产放行报告上传");
+
+        ServiceException failure = assertThrows(ServiceException.class, () -> service.prepareAttachment(
+                ACTOR_ID, new MesProductionReleaseReportAttachmentPrepareCommand()
+                        .setBatchTaskId(BATCH_TASK_ID)
+                        .setExpectedVersion(VERSION)
+                        .setIdempotencyKey("report-prepare-9101")
+                        .setFileName("incoming.pdf")
+                        .setContentType("application/pdf")
+                        .setContent(new byte[]{1, 2, 3})));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), failure.getCode());
+        verify(reportNodePort, never()).prepareAttachment(any());
+    }
+
+    @Test
+    void frozenWorkOrderRejectsCompleteBeforeReportNodePort() {
+        doThrow(new ServiceException(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED))
+                .when(nonconformanceReviewService)
+                .ensureWorkOrderNotFrozen(WORK_ORDER_ID, "生产放行报告上传");
+
+        ServiceException failure = assertThrows(ServiceException.class, () -> service.complete(ACTOR_ID, command()));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), failure.getCode());
+        verify(reportNodePort, never()).complete(any());
+        verify(workTaskMapper, never()).completeReleaseReportTask(any(), any());
     }
 
     @Test
@@ -271,6 +309,7 @@ class MesProductionReleaseReportServiceTest {
         return new MesProcessPoolActiveOrderReleaseApplicationDO()
                 .setId(APPLICATION_ID)
                 .setBatchExecutionId(BATCH_EXECUTION_ID)
+                .setWorkOrderId(WORK_ORDER_ID)
                 .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
                 .setVersion(VERSION);
     }

@@ -152,6 +152,9 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private List<Long> pqcTaskIds;
         private Long submittedEventId;
         private List<Long> submittedEventIds;
+        private Long productionEventId;
+        private List<Long> productionEventIds;
+        private List<SignatureDetail> productionSubmitterSignatures;
         private Long qaProcessId;
         private String qaProcessCode;
         private String qaProcessName;

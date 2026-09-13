@@ -926,6 +926,15 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     @Override
+    public MesProEdhrWorkTaskDO getReleaseApprovalTaskForReview(Long workTaskId, Long releaseTransactionId) {
+        MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(workTaskId, releaseTransactionId);
+        if (!isAssignedOrCandidate(workTask, requireLoginUserId())) {
+            throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
+        }
+        return workTask;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void completeReleaseApprovalTask(Long workTaskId, Long releaseTransactionId, String result, String reason) {
         MesProEdhrWorkTaskDO workTask = validateReleaseApprovalTask(workTaskId, releaseTransactionId);

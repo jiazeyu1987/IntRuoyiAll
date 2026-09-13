@@ -6,8 +6,18 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProductOnboardi
 import cn.iocoder.yudao.module.dcc.enums.DccProductOnboardingStatusConstants;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 @Mapper
 public interface DccProductOnboardingRequestMapper extends BaseMapperX<DccProductOnboardingRequestDO> {
+
+    default List<DccProductOnboardingRequestDO> selectPendingList() {
+        return selectList(new LambdaQueryWrapperX<DccProductOnboardingRequestDO>()
+                .eq(DccProductOnboardingRequestDO::getStatus,
+                        DccProductOnboardingStatusConstants.PENDING_APPROVAL)
+                .orderByDesc(DccProductOnboardingRequestDO::getCreateTime)
+                .orderByDesc(DccProductOnboardingRequestDO::getId));
+    }
 
     default DccProductOnboardingRequestDO selectPendingByProjectNameAndProjectCode(String projectName,
                                                                                    String projectCode) {

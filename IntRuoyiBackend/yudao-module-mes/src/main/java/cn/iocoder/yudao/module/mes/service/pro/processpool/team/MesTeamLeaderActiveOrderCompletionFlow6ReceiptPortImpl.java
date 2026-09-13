@@ -26,15 +26,27 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
     public MesFlow6CompletionBackfillReceipt getByReceiptId(Long receiptId, Long tenantId) {
         MesProcessPoolActiveOrderCompletionReceiptDO receipt = receiptId == null ? null
                 : receiptMapper.selectByIdAndTenantId(receiptId, tenantId);
+        return toReceipt(receipt, receiptId, tenantId);
+    }
+
+    @Override
+    public MesFlow6CompletionBackfillReceipt getByActiveOrderId(Long activeOrderId, Long tenantId) {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = activeOrderId == null ? null
+                : receiptMapper.selectByActiveOrderIdForUpdate(activeOrderId);
+        return toReceipt(receipt, activeOrderId, tenantId);
+    }
+
+    private MesFlow6CompletionBackfillReceipt toReceipt(
+            MesProcessPoolActiveOrderCompletionReceiptDO receipt, Long lookupValue, Long tenantId) {
         if (receipt == null) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND, receiptId);
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND, lookupValue);
         }
         if (receipt.getTenantId() == null || !receipt.getTenantId().equals(tenantId)) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND, receiptId);
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND, lookupValue);
         }
         if (receipt.getReceiptHash() == null || receipt.getReceiptHash().isBlank()
                 || !receipt.getReceiptHash().equals(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt))) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_TAMPERED, receiptId);
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_TAMPERED, lookupValue);
         }
         if (!MesProcessPoolActiveOrderCompletionReceiptDO.STATUS_SUCCESS.equals(receipt.getCompletionStatus())
                 || !MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS

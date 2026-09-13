@@ -44,18 +44,21 @@ public class MesProductionReleaseManagerStageInitializerImpl
     private final MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
+    private final MesProductionReleaseBusinessReadinessService businessReadinessService;
 
     public MesProductionReleaseManagerStageInitializerImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrReleaseTransactionMapper releaseTransactionMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
-            MesProductionReleaseRequiredCandidateResolver candidateResolver) {
+            MesProductionReleaseRequiredCandidateResolver candidateResolver,
+            MesProductionReleaseBusinessReadinessService businessReadinessService) {
         this.applicationMapper = applicationMapper;
         this.batchExecutionMapper = batchExecutionMapper;
         this.releaseTransactionMapper = releaseTransactionMapper;
         this.workTaskMapper = workTaskMapper;
         this.candidateResolver = candidateResolver;
+        this.businessReadinessService = businessReadinessService;
     }
 
     @Override
@@ -97,9 +100,10 @@ public class MesProductionReleaseManagerStageInitializerImpl
         MesProductionReleaseRoleCandidates candidates = candidateResolver.resolveRequiredCandidates(
                 tenantId, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE);
         requireCandidates(application, candidates);
+        MesProductionReleaseBusinessReadiness businessReadiness = resolveBusinessReadinessChecks(application, batch);
 
         MesProEdhrReleaseTransactionDO transaction = buildTransaction(
-                batch, application, command.getReportSnapshotHash());
+                batch, application, command.getReportSnapshotHash(), businessReadiness);
         if (releaseTransactionMapper.insert(transaction) != 1 || transaction.getId() == null) {
             throw new IllegalStateException("manager release transaction insert failed");
         }
@@ -111,6 +115,19 @@ public class MesProductionReleaseManagerStageInitializerImpl
                 .setReleaseTransactionId(transaction.getId())
                 .setManagerReleaseWorkTaskId(workTask.getId())
                 .setManagerCandidateSnapshotHash(candidates.candidateSnapshotHash());
+    }
+
+    private MesProductionReleaseBusinessReadiness resolveBusinessReadinessChecks(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrBatchExecutionDO batch) {
+        MesProductionReleaseBusinessReadiness businessReadiness =
+                businessReadinessService.resolveBusinessReadinessChecks(batch);
+        if (businessReadiness.hasBlockingChecks()) {
+            throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                    "business readiness checks block manager-stage initialization",
+                    "complete DHR, inspection, deviation, rework, scrap and inventory checks before final release");
+        }
+        return businessReadiness;
     }
 
     private void requireCommand(MesProductionReleaseManagerStageInitializationCommand command) {
@@ -139,7 +156,8 @@ public class MesProductionReleaseManagerStageInitializerImpl
     private MesProEdhrReleaseTransactionDO buildTransaction(
             MesProEdhrBatchExecutionDO batch,
             MesProcessPoolActiveOrderReleaseApplicationDO application,
-            String reportSnapshotHash) {
+            String reportSnapshotHash,
+            MesProductionReleaseBusinessReadiness businessReadiness) {
         LocalDateTime now = LocalDateTime.now();
         return new MesProEdhrReleaseTransactionDO()
                 .setReleaseCode("EDHR-REL-" + batch.getId())
@@ -154,20 +172,22 @@ public class MesProductionReleaseManagerStageInitializerImpl
                 .setRouteId(batch.getRouteId())
                 .setRouteCode(batch.getRouteCode())
                 .setRouteName(batch.getRouteName())
-                .setDhrStatus("PASS")
-                .setInspectionStatus("PASS")
-                .setDeviationStatus("PASS")
-                .setReworkStatus("PASS")
-                .setScrapStatus("PASS")
-                .setInventoryStatus("PASS")
+                .setDhrStatus(businessReadiness.dhrStatus())
+                .setInspectionStatus(businessReadiness.inspectionStatus())
+                .setDeviationStatus(businessReadiness.deviationStatus())
+                .setReworkStatus(businessReadiness.reworkStatus())
+                .setScrapStatus(businessReadiness.scrapStatus())
+                .setInventoryStatus(businessReadiness.inventoryStatus())
                 .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL)
-                .setRequiredCheckCount(4)
-                .setFailedCheckCount(0)
-                .setBlockingCheckCount(0)
+                .setRequiredCheckCount(businessReadiness.requiredCheckCount())
+                .setFailedCheckCount(businessReadiness.failedCheckCount())
+                .setBlockingCheckCount(businessReadiness.blockingCheckCount())
                 .setLastPrecheckAt(now)
                 .setPrecheckSnapshotJson(JSON.toJSONString(Map.of(
                         "applicationId", application.getId(),
-                        "reportSnapshotHash", reportSnapshotHash)))
+                        "reportSnapshotHash", reportSnapshotHash,
+                        "businessReadinessSnapshotHash", businessReadiness.snapshotHash(),
+                        "businessReadinessSnapshotJson", businessReadiness.snapshotJson())))
                 .setVersion(1)
                 .setRemark("production release manager approval");
     }

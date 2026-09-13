@@ -66,6 +66,13 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     private static final long AGGREGATE_ID = 605L;
     private static final long REGULATION_ID = 701L;
     private static final long REGULATION_VERSION_ID = 702L;
+    private static final long COMMON_TASK_ID = 1601L;
+    private static final long COMMON_EVENT_ID = 1602L;
+    private static final long COMMON_PQC_RECORD_ID = 1603L;
+    private static final long COMMON_REVIEW_ID = 1604L;
+    private static final long COMMON_AGGREGATE_ID = 1605L;
+    private static final long COMMON_REGULATION_ID = 1701L;
+    private static final long COMMON_REGULATION_VERSION_ID = 1702L;
     private static final long BINDING_ID = 801L;
     private static final String REPORT_ID = "PI-REPORT-1";
     private static final long BATCH_EXECUTION_ID = 901L;
@@ -381,6 +388,29 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
+    void commonQaTaskPlansAlongsideDedicatedQaTaskByItsFrozenTaskVersion() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource dedicatedSource = source();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource commonSource = commonQaSource();
+        when(reader.read(command)).thenReturn(new MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle()
+                .setSources(List.of(dedicatedSource, commonSource)));
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules());
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
+
+        assertTrue(plan.getBlockers().isEmpty());
+        assertEquals(List.of(REGULATION_VERSION_ID, COMMON_REGULATION_VERSION_ID),
+                plan.getPreparedInspections().stream()
+                        .map(inspection -> inspection.getSource().getRegulationVersion().getId())
+                        .toList());
+        assertTrue(plan.getPreparedInspections().stream()
+                .anyMatch(inspection -> MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON.equals(
+                        inspection.getSource().getRegulation().getOwnerModule())));
+        assertEquals(COMMON_TASK_ID, plan.getPreparedInspections().get(1).getSource().getTask().getId());
+    }
+
+    @Test
     void routeProjectCodeMismatchBlocksBeforeBindingOrAnyTargetWrite() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source()
                 .setRouteProjectCode("IDPR");
@@ -583,6 +613,57 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                                 .setProvenanceType("DCC_QA_PROJECT_RELATION")
                                 .setProvenanceId("relation-" + version.getId())
                                 .setProvenanceSnapshotHash("provenance-hash-" + version.getId()));
+    }
+
+    private static MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource commonQaSource() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
+        MesPqcInspectionTaskDO task = source.getTask()
+                .setId(COMMON_TASK_ID)
+                .setRegulationVersionId(COMMON_REGULATION_VERSION_ID);
+        MesPqcProcessInspectionAggregateDetailDO detail = source.getAggregateDetails().get(0)
+                .setId(COMMON_AGGREGATE_ID)
+                .setSourcePqcRecordId(COMMON_PQC_RECORD_ID)
+                .setEventId(COMMON_EVENT_ID)
+                .setReviewId(COMMON_REVIEW_ID)
+                .setPqcTaskId(COMMON_TASK_ID)
+                .setRegulationVersionId(COMMON_REGULATION_VERSION_ID);
+        source.getEvent()
+                .setId(COMMON_EVENT_ID)
+                .setFeedbackSourceId(COMMON_TASK_ID);
+        source.getPqcRecord()
+                .setId(COMMON_PQC_RECORD_ID)
+                .setEventId(COMMON_EVENT_ID)
+                .setProcessInspectionReviewId(COMMON_REVIEW_ID);
+        source.getReview()
+                .setId(COMMON_REVIEW_ID)
+                .setEventId(COMMON_EVENT_ID);
+        MesQaInspectionRegulationDO regulation = MesQaInspectionRegulationDO.builder()
+                .id(COMMON_REGULATION_ID).productId(PRODUCT_ID)
+                .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
+                .regulationCode("COMMON-QA").regulationName("通用过程检验规程")
+                .lifecycleStatus("PUBLISHED").currentVersionId(COMMON_REGULATION_VERSION_ID).build();
+        regulation.setTenantId(TENANT_ID);
+        MesQaInspectionRegulationVersionDO version = MesQaInspectionRegulationVersionDO.builder()
+                .id(COMMON_REGULATION_VERSION_ID).regulationId(COMMON_REGULATION_ID).versionNo("C1")
+                .lifecycleStatus("PUBLISHED").publishedAt(LocalDateTime.of(2026, 8, 1, 9, 0))
+                .snapshotJson("common-qa-version-snapshot").build();
+        version.setTenantId(TENANT_ID);
+        MesQaInspectionRegulationItemDO item = source.getRegulationItems().get(0)
+                .setId(1703L)
+                .setRegulationVersionId(COMMON_REGULATION_VERSION_ID);
+        source.setTask(task)
+                .setAggregateDetails(List.of(detail))
+                .setRegulation(regulation)
+                .setRegulationVersion(version)
+                .setRegulationItems(List.of(item))
+                .setQaDccProvenance(new MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution()
+                        .setDccProjectCodeId(source.getDccProject().getId())
+                        .setRegulationId(regulation.getId())
+                        .setRegulationVersionId(version.getId())
+                        .setProvenanceType("COMMON_QA_REGULATION_VERSION")
+                        .setProvenanceId("common-" + version.getId())
+                        .setProvenanceSnapshotHash("common-provenance-hash-" + version.getId()));
+        return source;
     }
 
     private static MesProRouteFlowProcessBatchRecordDO binding() {

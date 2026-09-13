@@ -43,6 +43,25 @@ public class MesReportAllocationReleaseStateService {
         return resolveReleasedActiveOrderIds(applications, true);
     }
 
+    public boolean isReleaseApplicationLockedForUpdate(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return false;
+        }
+        return !findReleaseApplicationLockedActiveOrderIdsForUpdate(List.of(activeOrderId)).isEmpty();
+    }
+
+    public Set<Long> findReleaseApplicationLockedActiveOrderIdsForUpdate(Collection<Long> activeOrderIds) {
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
+                applicationMapper.selectListByActiveOrderIdsForUpdate(activeOrderIds);
+        return resolveReleaseApplicationLockedActiveOrderIds(applications);
+    }
+
+    public Set<Long> findReleaseApplicationLockedActiveOrderIds(Collection<Long> activeOrderIds) {
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
+                applicationMapper.selectListByActiveOrderIds(activeOrderIds);
+        return resolveReleaseApplicationLockedActiveOrderIds(applications);
+    }
+
     private Set<Long> resolveReleasedActiveOrderIds(
             List<MesProcessPoolActiveOrderReleaseApplicationDO> applications, boolean forUpdate) {
         if (applications == null || applications.isEmpty()) {
@@ -70,5 +89,16 @@ public class MesReportAllocationReleaseStateService {
             }
         }
         return Set.copyOf(released);
+    }
+
+    private Set<Long> resolveReleaseApplicationLockedActiveOrderIds(
+            List<MesProcessPoolActiveOrderReleaseApplicationDO> applications) {
+        if (applications == null || applications.isEmpty()) {
+            return Set.of();
+        }
+        return applications.stream()
+                .map(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 }

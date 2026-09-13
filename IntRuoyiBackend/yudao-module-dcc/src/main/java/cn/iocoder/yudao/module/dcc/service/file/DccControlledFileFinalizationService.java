@@ -7,7 +7,7 @@ public interface DccControlledFileFinalizationService {
 
     void handleProcessInstanceStatusChanged(BpmProcessInstanceStatusEvent event);
 
-    void retryStamp(Long id);
+    void retryStamp(Long userId, Long id);
 
     void precheckPublishControlledFile(Long userId, Long id);
 

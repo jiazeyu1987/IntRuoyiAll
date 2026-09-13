@@ -3337,14 +3337,22 @@
     width="min(1120px, calc(100vw - 32px))"
     class="team-leader-workbench__review-dialog"
   >
-    <el-form v-if="reviewDialogMode !== 'ALLOCATION'" :model="reviewForm" label-width="92px">
+    <el-form :model="reviewForm" label-width="92px">
       <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
         <el-select v-model="reviewForm.reviewStatus">
           <el-option label="正确" value="APPROVED" />
           <el-option label="不正确" value="REJECTED" />
         </el-select>
       </el-form-item>
-      <el-form-item :label="reviewDialogMode === 'REJECTION' ? '驳回原因' : '复核说明'">
+      <el-form-item
+        :label="
+          reviewDialogMode === 'REJECTION'
+            ? '驳回原因'
+            : reviewDialogMode === 'ALLOCATION'
+              ? '分配说明'
+              : '复核说明'
+        "
+      >
         <el-input
           v-model="reviewForm.reviewRemark"
           type="textarea"
@@ -8674,6 +8682,7 @@ const submitReview = async () => {
     } else if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
       if (reviewDialogMode.value === 'ALLOCATION') {
         const allocations = buildAllocationSubmitLines()
+        const reviewSignaturePayload = buildReviewSignaturePayload()
         const snapshot = await confirmTeamLeaderReportAllocation({
           eventId,
           leaderType,
@@ -8688,6 +8697,7 @@ const submitReview = async () => {
             allocations
           }),
           reviewRemark,
+          ...reviewSignaturePayload,
           allocations
         })
         applyAllocationSnapshot(snapshot)

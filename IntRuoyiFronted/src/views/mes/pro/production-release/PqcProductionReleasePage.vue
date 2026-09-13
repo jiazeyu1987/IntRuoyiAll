@@ -82,7 +82,7 @@
                   v-hasPermi="['mes:pro-production-release:pqc-approve']"
                   link
                   type="success"
-                  :disabled="row.underReview || !row.approvalReady"
+                  :disabled="row.underReview || row.approvalReady === false"
                   :title="row.approvalBlockerReason || '放行'"
                   data-pqc-production-release-approve
                   @click="openReleaseDialog(row)"
@@ -240,6 +240,7 @@ const selectedRow = ref<MesPqcProductionReleasePageItemRespVO>()
 const releaseResult = ref<MesPqcProductionReleaseDecisionRespVO>()
 const releaseOutcomeUncertain = ref(false)
 const releaseIdempotencyKeys = new Map<string, string>()
+let listRequestSequence = 0
 
 const queryParams = reactive({
   pageNo: 1,
@@ -264,6 +265,7 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
 }
 
 const getList = async () => {
+  const requestId = ++listRequestSequence
   loading.value = true
   loadError.value = ''
   try {
@@ -274,14 +276,16 @@ const getList = async () => {
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
     })
+    if (requestId !== listRequestSequence) return
     list.value = data.list || []
     total.value = data.total || 0
   } catch (error) {
+    if (requestId !== listRequestSequence) return
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'PQC生产放行列表加载失败。')
   } finally {
-    loading.value = false
+    if (requestId === listRequestSequence) loading.value = false
   }
 }
 

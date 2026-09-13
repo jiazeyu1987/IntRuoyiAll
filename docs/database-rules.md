@@ -58,6 +58,15 @@
 - Forbidden action: 禁止用缓存、前端去重、减少页大小、延长超时、返回默认状态或把历史数量写成猜测值掩盖读模型根因；禁止在未执行正式迁移和重启新后端时宣称运行态接口已经加速。
 - Evidence: `doc/tasks/20260813-production-leader-report-management-performance/verification-report.md`。
 
+### PQC 生产放行列表查询性能门禁
+
+- Trigger: PQC 生产放行待放行列表刷新、`/mes/pro/production-release/pqc/page`、生产放行历史评审和 `approvalReady` 展示。
+- Preflight check: 列表必须把租户、冻结候选、五类 viewStatus、筛选条件和 pageNo/pageSize 下推到数据库；最新不合格评审按 `source_id + tenant_id + MAX(id)` 只取一条。列表读取不得执行完整 dossier 资料规划或写路径锁查询，正式 approve 仍必须保留完整资料、冻结、签名和 CAS 门禁。
+- Blocker: 先全量加载申请再内存分页、按页逐行执行完整 dossier readiness、评审历史全量传输后 Java 去重、跨租户 source_id 串状态、或通过移除列表预检而弱化正式放行门禁时必须停止。
+- Verification: 静态合同和 Mapper/服务测试断言 SQL 真分页、五状态与旧状态机一致、候选快照空格语义一致、最新评审与租户过滤完整、列表不调用 dossier readiness；部署迁移并重启新后端后，再用真实页面记录首屏请求数和接口 TTFB。
+- Forbidden action: 禁止用延长超时、减少 pageSize、前端伪造 `approvalReady`、缓存旧状态、API-only 或 mock 数据掩盖列表查询慢；禁止把列表预览结果当作正式放行授权。
+- Evidence: `doc/tasks/20260912-pqc-production-release-page-performance/execution-log.md`。
+
 ### 只读资源池引用完整性门禁
 
 - Trigger: 资源池、MES 工序、工艺路线资源、报工映射等只读列表复用关系表组装跨主数据读模型，出现 `Missing route`、`Missing item`、`Missing process`、`Missing machinery` 或页面 `系统异常`。
@@ -152,9 +161,9 @@
 ### DCC 项目代码 MDM 产品建档绑定门禁
 
 - Trigger: DCC 产品立项、产品建档申请、`dcc_product_onboarding_request`、`dcc_project_code.product_master_id`、MDM 产品绑定、受控文件提交需要按项目代码带出产品主数据。
-- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。
+- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；建档申请创建后必须有按待审批状态查询和恢复原申请 ID 的正式入口，不得只依赖弹窗临时状态；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。
 - Blocker: 缺申请表、缺项目代码 MDM 绑定字段、目标项目代码已存在、其它待审批申请重复、审批把当前申请自身误判为重复、MDM 产品禁用或缺正式 DCC 产品编号、受控文件提交只能从前端 payload/项目名/空值推断产品时必须停止。
-- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
+- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；产品建档恢复回归必须覆盖关闭弹窗或刷新后通过待审批列表找回原申请 ID；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
 - Forbidden action: 禁止用 DCC 产品目录、`formBindings`、默认项目代码、前端文案、空 `productMasterId`、直接 SQL 补字段、API-only 审批或 mock MDM 产品替代正式建档审批和 MDM 主数据绑定。
 - Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`。
 

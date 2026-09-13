@@ -153,6 +153,7 @@ public class DccTrainingTaskServiceImpl implements DccTrainingTaskService {
         loadTrainingVisibleFile(progress.getControlledFileId());
         LocalDateTime now = LocalDateTime.now();
         closeOtherActiveSessions(progressId, userId, reqVO.getClientSessionId(), now);
+        progress = loadOwnedProgress(userId, progressId);
         DccControlledFileTrainingViewSessionDO existing =
                 trainingViewSessionMapper.selectActiveByProgressIdAndClientSessionId(progressId, reqVO.getClientSessionId());
         if (existing == null) {

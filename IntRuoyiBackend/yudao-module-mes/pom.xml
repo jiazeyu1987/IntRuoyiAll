@@ -367,6 +367,11 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
                             <testIncludes>
+                            <testInclude>**/MesProductionReleaseSignoffServiceTest.java</testInclude>
+                                <testInclude>**/MesProductionReleaseBatchExecutionPortTest.java</testInclude>
+                                <testInclude>**/MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest.java</testInclude>
+                                <testInclude>**/MesProEdhrApprovalTaskAdapterTest.java</testInclude>
+                                <testInclude>**/MesProductionReleaseReportStageInitializerTest.java</testInclude>
                                 <testInclude>**/MesProductionReleaseApplySp1Test.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
@@ -382,6 +387,11 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
+                                <include>**/MesProductionReleaseSignoffServiceTest.java</include>
+                                <include>**/MesProductionReleaseBatchExecutionPortTest.java</include>
+                                <include>**/MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest.java</include>
+                                <include>**/MesProEdhrApprovalTaskAdapterTest.java</include>
+                                <include>**/MesProductionReleaseReportStageInitializerTest.java</include>
                                 <include>**/MesProductionReleaseApplySp1Test.java</include>
                                 <include>**/MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
@@ -389,6 +399,34 @@
                                 <include>**/MesPqcReleaseBatchExecutionServiceTest.java</include>
                                 <include>**/MesProductionReleaseReportServiceTest.java</include>
                                 <include>**/MesProductionReleaseManagerApprovalServiceTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-edhr-static-003-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesReportAllocationCommandServiceTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesReportAllocationCommandServiceTest.java</include>
                             </includes>
                             <systemPropertyVariables>
                                 <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>

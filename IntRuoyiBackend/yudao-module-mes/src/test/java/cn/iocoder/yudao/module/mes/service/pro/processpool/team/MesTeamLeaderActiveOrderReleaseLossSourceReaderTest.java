@@ -102,30 +102,41 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     @Test
-    void shouldRejectDuplicateProductionSubmitsForTheSameSnapshot() {
-        MesProProcessPoolEventDO firstEvent = event(1001L,
+    void shouldAcceptMultipleFormalProductionSubmitsForTheSameSnapshot() {
+        MesProProcessPoolEventDO firstEvent = event(1001L, 5101L,
                 "{\"lossQuantity\":999,\"lossDetails\":[{\"reasonId\":8301,"
                         + "\"reasonCode\":\"LOSS-001\",\"reasonName\":\"正常损耗\","
                         + "\"quantity\":2.500}]}"
         );
-        MesProProcessPoolEventDO secondEvent = event(1002L,
+        MesProProcessPoolEventDO secondEvent = event(1002L, 5102L,
                 "{\"lossQuantity\":999,\"lossDetails\":[{\"reasonId\":8301,"
                         + "\"reasonCode\":\"LOSS-001\",\"reasonName\":\"正常损耗\","
-                        + "\"quantity\":2.500}]}"
+                        + "\"quantity\":1.500}]}"
         );
         when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(List.of(firstEvent, secondEvent));
-        when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L)))
-                .thenReturn(List.of(feedback()));
+        when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L, 5102L)))
+                .thenReturn(List.of(feedback(5101L, new BigDecimal("2.500")),
+                        feedback(5102L, new BigDecimal("1.500"))));
+        when(allocationMapper.selectListByEventIdForUpdate(1001L))
+                .thenReturn(List.of(allocation(1001L, 7101L, 7201L)));
+        when(allocationMapper.selectListByEventIdForUpdate(1002L))
+                .thenReturn(List.of(allocation(1002L, 7102L, 7202L)));
+        when(reviewMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(review(1001L, 7201L)));
+        when(reviewMapper.selectListByEventIdForUpdate(1002L)).thenReturn(List.of(review(1002L, 7202L)));
 
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult result = reader.read(command());
 
-        assertTrue(result.getBlockers().stream().anyMatch(blocker ->
-                "LOSS_SOURCE_REQUIRED".equals(blocker.getBlockerType())
-                        && ROUTE_PROCESS_ID.equals(blocker.getRouteProcessId())
-                        && "PRODUCTION_EVENT".equals(blocker.getObjectType())
-                        && "当前活跃订单工序存在重复签名生产提交，无法形成唯一损耗来源闭环".equals(blocker.getReason())));
-        assertTrue(result.getProcessSources().isEmpty());
+        assertAll(
+                () -> assertTrue(result.getBlockers().isEmpty()),
+                () -> assertEquals(2, result.getProcessSources().size()),
+                () -> assertEquals(List.of(1001L, 1002L), result.getProcessSources().stream()
+                        .map(source -> source.getEvent().getId()).toList()),
+                () -> assertEquals(List.of(5101L, 5102L), result.getProcessSources().stream()
+                        .map(source -> source.getFeedback().getId()).toList()),
+                () -> assertEquals(List.of(new BigDecimal("2.500"), new BigDecimal("1.500")),
+                        result.getProcessSources().stream()
+                                .map(source -> source.getLossDetails().get(0).getQuantity()).toList()));
     }
 
     private static MesTeamLeaderActiveOrderReleaseLossReportPlanCommand command() {
@@ -150,10 +161,14 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     private static MesProProcessPoolEventDO event(String payload) {
-        return event(1001L, payload);
+        return event(1001L, 5101L, payload);
     }
 
     private static MesProProcessPoolEventDO event(Long id, String payload) {
+        return event(id, 5101L, payload);
+    }
+
+    private static MesProProcessPoolEventDO event(Long id, Long feedbackSourceId, String payload) {
         return MesProProcessPoolEventDO.builder()
                 .id(id)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
@@ -163,7 +178,7 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
                 .processId(PROCESS_ID)
                 .actualEmployeeId(2101L)
                 .feedbackSourceType("MES_PRO_FEEDBACK")
-                .feedbackSourceId(5101L)
+                .feedbackSourceId(feedbackSourceId)
                 .rawPayload(payload)
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 1, 8, 30))
                 .signatureId(1101L)
@@ -173,16 +188,20 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     private static MesProFeedbackDO feedback() {
+        return feedback(5101L, new BigDecimal("2.500"));
+    }
+
+    private static MesProFeedbackDO feedback(Long id, BigDecimal unqualifiedQuantity) {
         return MesProFeedbackDO.builder()
-                .id(5101L)
-                .code("FB-5101")
+                .id(id)
+                .code("FB-" + id)
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .processId(PROCESS_ID)
                 .feedbackTime(LocalDateTime.of(2026, 8, 1, 8, 30))
                 .feedbackQuantity(new BigDecimal("100.000"))
-                .qualifiedQuantity(new BigDecimal("97.500"))
-                .unqualifiedQuantity(new BigDecimal("2.500"))
+                .qualifiedQuantity(new BigDecimal("100.000").subtract(unqualifiedQuantity))
+                .unqualifiedQuantity(unqualifiedQuantity)
                 .laborScrapQuantity(new BigDecimal("1.000"))
                 .materialScrapQuantity(new BigDecimal("1.500"))
                 .otherScrapQuantity(BigDecimal.ZERO)
@@ -196,10 +215,14 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     private static MesProcessPoolReportAllocationDO allocation() {
+        return allocation(1001L, 7101L, 7201L);
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long eventId, Long allocationId, Long reviewId) {
         return MesProcessPoolReportAllocationDO.builder()
-                .id(7101L)
-                .eventId(1001L)
-                .reviewId(7201L)
+                .id(allocationId)
+                .eventId(eventId)
+                .reviewId(reviewId)
                 .leaderUserId(3001L)
                 .activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID)
@@ -212,9 +235,13 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     private static MesProcessPoolSubmissionReviewDO review() {
+        return review(1001L, 7201L);
+    }
+
+    private static MesProcessPoolSubmissionReviewDO review(Long eventId, Long reviewId) {
         return MesProcessPoolSubmissionReviewDO.builder()
-                .id(7201L)
-                .eventId(1001L)
+                .id(reviewId)
+                .eventId(eventId)
                 .leaderUserId(3001L)
                 .leaderType("PRODUCTION")
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)

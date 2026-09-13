@@ -415,7 +415,7 @@
             label="关联文档"
             prop="actions"
             fixed="right"
-            :width="getProjectCodeColumnWidthString('actions', 360)"
+            :width="getProjectCodeColumnWidthString('actions', 420)"
           >
             <template #default="{ row }">
               <el-button
@@ -426,6 +426,16 @@
                 v-hasPermi="['dcc:project-code:update']"
               >
                 编辑
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                data-testid="dcc-project-code-access-rules-open"
+                @click="openProjectAccessRules(row)"
+                v-hasPermi="['dcc:project-code:update']"
+              >
+                权限
               </el-button>
               <el-button
                 link
@@ -654,11 +664,46 @@
       title="审批通过后生成 DCC 项目代码并绑定 MDM 产品"
       show-icon
     />
+    <el-alert
+      v-if="productOnboardingPendingRequests.length > 0"
+      class="mb-12px"
+      type="warning"
+      :closable="false"
+      title="已有待审批建档申请，请先恢复原申请继续审批，重复提交仍会被拦截"
+      show-icon
+    />
+    <el-table
+      v-if="productOnboardingPendingRequests.length > 0"
+      class="mb-12px"
+      data-testid="dcc-product-onboarding-pending-list"
+      :data="productOnboardingPendingRequests"
+      border
+      size="small"
+      max-height="220"
+    >
+      <el-table-column prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="projectCode" label="项目代码" min-width="140" show-overflow-tooltip />
+      <el-table-column prop="productNameCn" label="产品中文名" min-width="160" show-overflow-tooltip />
+      <el-table-column prop="dccProductCode" label="DCC 产品编号" min-width="150" show-overflow-tooltip />
+      <el-table-column label="操作" width="110" fixed="right">
+        <template #default="{ row }">
+          <el-button
+            link
+            type="primary"
+            data-testid="dcc-product-onboarding-recover"
+            @click="applyPendingProductOnboardingRequest(row)"
+          >
+            恢复审批
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
     <el-form
       ref="productOnboardingFormRef"
       v-loading="productOnboardingLoading"
       :model="productOnboardingFormData"
       :rules="productOnboardingFormRules"
+      :disabled="Boolean(productOnboardingCreatedRequestId)"
       label-width="130px"
     >
       <el-form-item label="关联 MDM 产品" prop="productMasterId">
@@ -731,6 +776,7 @@
           class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
           data-testid="dcc-product-onboarding-submit"
+          :disabled="Boolean(productOnboardingCreatedRequestId)"
           :loading="productOnboardingSubmitting"
           @click="submitProductOnboardingRequest"
         >
@@ -778,6 +824,19 @@
       <div class="dcc-project-code-associated-heading">
         <span>项目文件模板</span>
         <div class="dcc-project-code-associated-heading-actions">
+          <el-button
+            class="scheme-d-btn scheme-d-btn--primary"
+            data-testid="dcc-project-code-access-rules-open"
+            size="small"
+            type="primary"
+            plain
+            :disabled="!selectedProjectCode?.id || projectAccessRulesLoading"
+            @click="openProjectAccessRules()"
+            v-hasPermi="['dcc:project-code:update']"
+          >
+            <Icon icon="ep:user-filled" class="mr-5px" />
+            正式负责人/编制权限
+          </el-button>
           <el-button
             class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-file-template-edit"
@@ -1208,6 +1267,165 @@
       @pagination="loadAssignmentRecords"
     />
   </el-drawer>
+
+  <Dialog
+    v-model="projectAccessRulesVisible"
+    class="scheme-d-form-control"
+    title="正式负责人/编制权限"
+    width="1080px"
+    data-testid="dcc-project-code-access-rules-dialog"
+  >
+    <div v-loading="projectAccessRulesLoading">
+      <el-alert
+        class="mb-12px"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="上传、升版和编制授权只读取 dcc_project_access_rule；项目负责人文本不作为正式授权。"
+      />
+      <div class="mb-12px flex items-center justify-between">
+        <span>
+          当前项目：{{ projectAccessRuleProject?.projectName || '-' }}
+          <template v-if="projectAccessRuleProject?.projectCode">
+            / {{ projectAccessRuleProject.projectCode }}
+          </template>
+        </span>
+        <div class="flex gap-8px">
+          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('OWNER')">
+            添加负责人
+          </el-button>
+          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('EDIT')">
+            添加编制
+          </el-button>
+          <el-button class="scheme-d-btn scheme-d-btn--neutral" plain @click="addProjectAccessRuleRow('VIEW')">
+            添加查看
+          </el-button>
+        </div>
+      </div>
+      <el-table
+        :data="projectAccessRuleFormRows"
+        border
+        data-testid="dcc-project-code-access-rules-table"
+      >
+        <el-table-column label="授权主体类型" min-width="140">
+          <template #default="{ row }">
+            <el-select
+              v-model="row.subjectType"
+              class="!w-full"
+              @change="handleProjectAccessSubjectTypeChange(row)"
+            >
+              <el-option
+                v-for="option in projectAccessSubjectTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="授权主体" min-width="220">
+          <template #default="{ row }">
+            <el-select
+              v-if="row.subjectType === 'USER'"
+              v-model="row.subjectId"
+              class="!w-full"
+              filterable
+              :loading="projectAccessRuleUsersLoading"
+            >
+              <el-option
+                v-for="user in projectAccessRuleUsers"
+                :key="user.id"
+                :label="`${user.nickname || user.username} / ${user.username}`"
+                :value="user.id"
+              />
+            </el-select>
+            <el-input-number
+              v-else
+              v-model="row.subjectId"
+              class="!w-full"
+              :min="1"
+              :precision="0"
+              controls-position="right"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="权限级别" min-width="140">
+          <template #default="{ row }">
+            <el-select v-model="row.accessLevel" class="!w-full">
+              <el-option
+                v-for="option in projectAccessLevelOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="启用" width="88" align="center">
+          <template #default="{ row }">
+            <el-switch v-model="row.active" />
+          </template>
+        </el-table-column>
+        <el-table-column label="生效时间" min-width="190">
+          <template #default="{ row }">
+            <el-date-picker
+              v-model="row.validFrom"
+              class="!w-full"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="过期时间" min-width="190">
+          <template #default="{ row }">
+            <el-date-picker
+              v-model="row.expireTime"
+              class="!w-full"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="变更原因" min-width="220">
+          <template #default="{ row }">
+            <el-input
+              v-model="row.changeReason"
+              maxlength="512"
+              show-word-limit
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              link
+              class="scheme-d-row-action scheme-d-row-action--danger"
+              type="danger"
+              @click="removeProjectAccessRuleRow(row.rowKey)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+    <template #footer>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="projectAccessRulesVisible = false">
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          data-testid="dcc-project-code-access-rules-save"
+          :loading="projectAccessRulesSaving"
+          @click="submitProjectAccessRules"
+        >
+          保存正式权限
+        </el-button>
+      </div>
+    </template>
+  </Dialog>
 </template>
 
 <script lang="ts" setup>
@@ -1239,6 +1457,8 @@ import {
 } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import type {
   DccProjectCodeAssociatedFileAiCategoryRespVO,
+  DccProjectAccessRuleRespVO,
+  DccProjectAccessRuleSaveReqVO,
   DccProjectCodeImportPreviewRespVO,
   DccProjectCodeImportRowRespVO,
   DccProjectCodePageReqVO,
@@ -1247,7 +1467,8 @@ import type {
   DccProjectCodeUpdateReqVO,
   DccProjectFileTemplateItemRespVO,
   DccProjectFileTemplateRespVO,
-  DccProductOnboardingCreateReqVO
+  DccProductOnboardingCreateReqVO,
+  DccProductOnboardingRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   approveProductOnboardingRequest,
@@ -1259,13 +1480,16 @@ import {
   deleteProjectCode,
   exportProjectCodeExcel,
   getProjectCodeAssociatedFileAiCategoryCandidates,
+  getProjectCodeAccessRules,
   getProjectCode,
   getProjectCodeControlledFilesPage,
   getProjectCodeFileTemplate,
   getProjectCodeImportTemplate,
+  getPendingProductOnboardingRequests,
   getProjectCodePage,
   importProjectCodeConfirm,
   importProjectCodePreview,
+  replaceProjectCodeAccessRules,
   updateProjectCode
 } from '@/api/dcc/controlledFile/projectCodes'
 import ProjectFileTemplateEditor from './ProjectFileTemplateEditor.vue'
@@ -1329,6 +1553,11 @@ type AssociatedStageGroup = {
 type AssignmentUserOption = Pick<UserVO, 'id' | 'nickname' | 'username'> &
   Partial<Pick<UserVO, 'status' | 'disabled'>>
 
+type ProjectAccessRuleFormRow = Omit<DccProjectAccessRuleSaveReqVO, 'subjectId'> & {
+  rowKey: string
+  subjectId?: number
+}
+
 type ProductOnboardingFormData = DccProductOnboardingCreateReqVO
 
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
@@ -1340,6 +1569,39 @@ const projectCodeConfigurationFilterOptions = [
   { label: '已配置', value: true },
   { label: '未配置', value: false }
 ]
+const projectAccessSubjectTypeOptions = [
+  { label: '用户', value: 'USER' },
+  { label: '部门', value: 'DEPT' },
+  { label: '角色', value: 'ROLE' },
+  { label: '岗位', value: 'POSITION' }
+]
+const projectAccessLevelOptions = [
+  { label: '负责人 OWNER', value: 'OWNER' },
+  { label: '编制 EDIT', value: 'EDIT' },
+  { label: '查看 VIEW', value: 'VIEW' }
+]
+
+const submitProjectAccessRules = async () => {
+  const projectCodeId = projectAccessRuleProject.value?.id
+  if (!projectCodeId) {
+    message.error('请选择项目代码')
+    return
+  }
+  const rules = normalizeProjectAccessRulePayload()
+  if (!rules) {
+    return
+  }
+  projectAccessRulesSaving.value = true
+  try {
+    const savedRules = await replaceProjectCodeAccessRules(projectCodeId, { rules })
+    projectAccessRules.value = savedRules
+    projectAccessRuleFormRows.value = savedRules.map((rule) => buildProjectAccessRuleFormRow(rule))
+    message.success('正式负责人/编制权限已保存')
+    projectAccessRulesVisible.value = false
+  } finally {
+    projectAccessRulesSaving.value = false
+  }
+}
 
 const projectCodeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -1483,6 +1745,14 @@ const assignmentRecordsVisible = ref(false)
 const assignmentRecordsLoading = ref(false)
 const assignmentRecords = ref<DccProjectCodeAssignmentRespVO[]>([])
 const assignmentRecordsTotal = ref(0)
+const projectAccessRulesVisible = ref(false)
+const projectAccessRulesLoading = ref(false)
+const projectAccessRulesSaving = ref(false)
+const projectAccessRuleUsersLoading = ref(false)
+const projectAccessRuleProject = ref<DccProjectCodeRespVO | null>(null)
+const projectAccessRules = ref<DccProjectAccessRuleRespVO[]>([])
+const projectAccessRuleFormRows = ref<ProjectAccessRuleFormRow[]>([])
+const projectAccessRuleUsers = ref<AssignmentUserOption[]>([])
 const selectedAssociatedFileIds = ref<Array<number | string>>([])
 const selectedAssociatedStageKey = ref('')
 const selectedAssociatedTypeKey = ref('')
@@ -1502,6 +1772,7 @@ let detailRequestSequence = 0
 let qaRegulationStatusLoadSerial = 0
 let batchAiCategoryPollTimer: ReturnType<typeof setTimeout> | null = null
 let batchAiCategoryTerminalHandledTaskId: number | null = null
+let projectAccessRuleRowSequence = 0
 const importFileList = ref<any[]>([])
 const importFile = ref<File | null>(null)
 const previewResult = ref<DccProjectCodeImportPreviewRespVO | null>(null)
@@ -1514,6 +1785,110 @@ const productOnboardingProductLoading = ref(false)
 const productOnboardingCreatedRequestId = ref<number | null>(null)
 const productOnboardingFormRef = ref()
 const productOnboardingProducts = ref<MdmProductSimpleRespVO[]>([])
+const productOnboardingPendingRequests = ref<DccProductOnboardingRespVO[]>([])
+
+const buildProjectAccessRuleFormRow = (
+  rule: Partial<DccProjectAccessRuleRespVO> = { subjectType: 'USER', accessLevel: 'EDIT', active: true }
+): ProjectAccessRuleFormRow => ({
+  rowKey: `project-access-rule-${++projectAccessRuleRowSequence}`,
+  subjectType: rule.subjectType || 'USER',
+  subjectId: rule.subjectId || undefined,
+  accessLevel: rule.accessLevel || 'EDIT',
+  active: rule.active ?? true,
+  validFrom: rule.validFrom || null,
+  expireTime: rule.expireTime || null,
+  changeReason: rule.changeReason || ''
+})
+
+const createProjectAccessRuleSeedRows = (): ProjectAccessRuleFormRow[] => [
+  buildProjectAccessRuleFormRow({ subjectType: 'USER', accessLevel: 'OWNER', active: true }),
+  buildProjectAccessRuleFormRow({ subjectType: 'USER', accessLevel: 'EDIT', active: true })
+]
+
+const loadProjectAccessRuleUsers = async () => {
+  projectAccessRuleUsersLoading.value = true
+  try {
+    projectAccessRuleUsers.value = (await getSimpleUserList()).filter(
+      (user: AssignmentUserOption) =>
+        user.disabled !== true && (typeof user.status === 'undefined' || user.status === 0)
+    )
+  } finally {
+    projectAccessRuleUsersLoading.value = false
+  }
+}
+
+const openProjectAccessRules = async (projectCode?: DccProjectCodeRespVO) => {
+  const targetProject = projectCode || selectedProjectCode.value
+  if (!targetProject?.id) {
+    message.error('请选择项目代码')
+    return
+  }
+  projectAccessRuleProject.value = targetProject
+  projectAccessRulesVisible.value = true
+  projectAccessRulesLoading.value = true
+  try {
+    const [rules] = await Promise.all([
+      getProjectCodeAccessRules(targetProject.id),
+      loadProjectAccessRuleUsers()
+    ])
+    projectAccessRules.value = rules
+    projectAccessRuleFormRows.value = rules.length > 0
+      ? rules.map((rule) => buildProjectAccessRuleFormRow(rule))
+      : createProjectAccessRuleSeedRows()
+  } finally {
+    projectAccessRulesLoading.value = false
+  }
+}
+
+const addProjectAccessRuleRow = (accessLevel: 'OWNER' | 'EDIT' | 'VIEW' = 'EDIT') => {
+  const ruleByAccessLevel: Record<'OWNER' | 'EDIT' | 'VIEW', Partial<DccProjectAccessRuleRespVO>> = {
+    OWNER: { subjectType: 'USER', accessLevel: 'OWNER', active: true },
+    EDIT: { subjectType: 'USER', accessLevel: 'EDIT', active: true },
+    VIEW: { subjectType: 'USER', accessLevel: 'VIEW', active: true }
+  }
+  projectAccessRuleFormRows.value.push(buildProjectAccessRuleFormRow(ruleByAccessLevel[accessLevel]))
+}
+
+const removeProjectAccessRuleRow = (rowKey: string) => {
+  projectAccessRuleFormRows.value = projectAccessRuleFormRows.value.filter(
+    (row) => row.rowKey !== rowKey
+  )
+}
+
+const handleProjectAccessSubjectTypeChange = (row: ProjectAccessRuleFormRow) => {
+  row.subjectId = undefined
+}
+
+const normalizeProjectAccessRulePayload = (): DccProjectAccessRuleSaveReqVO[] | null => {
+  const rules: DccProjectAccessRuleSaveReqVO[] = []
+  for (const row of projectAccessRuleFormRows.value) {
+    const subjectId = Number(row.subjectId)
+    if (!Number.isInteger(subjectId) || subjectId <= 0) {
+      message.error('正式权限规则必须填写有效授权主体')
+      return null
+    }
+    const changeReason = row.changeReason?.trim()
+    if (!changeReason) {
+      message.error('正式权限规则必须填写变更原因')
+      return null
+    }
+    rules.push({
+      subjectType: row.subjectType,
+      subjectId,
+      accessLevel: row.accessLevel,
+      active: row.active,
+      validFrom: row.validFrom || null,
+      expireTime: row.expireTime || null,
+      changeReason
+    })
+  }
+  if (!rules.some((rule) => rule.active && rule.accessLevel === 'OWNER')) {
+    message.error('正式权限规则至少需要一名启用的负责人 OWNER')
+    return null
+  }
+  return rules
+}
+
 const productOnboardingFormData = reactive<ProductOnboardingFormData>({
   productMasterId: undefined,
   productCode: '',
@@ -2452,6 +2827,7 @@ const resetProductOnboardingFormData = () => {
     priority: ''
   })
   productOnboardingCreatedRequestId.value = null
+  productOnboardingPendingRequests.value = []
   productOnboardingFormRef.value?.resetFields()
 }
 
@@ -2467,15 +2843,42 @@ const loadProductOnboardingProducts = async () => {
   }
 }
 
+const loadPendingProductOnboardingRequests = async () => {
+  productOnboardingPendingRequests.value = await getPendingProductOnboardingRequests()
+}
+
 const openProductOnboardingDialog = async () => {
   productOnboardingVisible.value = true
   productOnboardingLoading.value = true
   resetProductOnboardingFormData()
   try {
-    await loadProductOnboardingProducts()
+    await Promise.all([loadProductOnboardingProducts(), loadPendingProductOnboardingRequests()])
   } finally {
     productOnboardingLoading.value = false
   }
+}
+
+const applyPendingProductOnboardingRequest = (request: DccProductOnboardingRespVO) => {
+  productOnboardingCreatedRequestId.value = request.id
+  Object.assign(productOnboardingFormData, {
+    productMasterId: request.productMasterId ?? undefined,
+    productCode: request.productCode || '',
+    dccProductCode: request.dccProductCode || '',
+    productNameCn: request.productNameCn || '',
+    productNameEn: request.productNameEn || '',
+    modelSpecification: request.modelSpecification || '',
+    productCategory: request.productCategory || '',
+    docControlNo: request.docControlNo || '',
+    projectName: request.projectName,
+    projectCode: request.projectCode,
+    category: request.category || '',
+    commissionedProduction: request.commissionedProduction || '',
+    projectLeader: request.projectLeader || '',
+    projectEngineer: request.projectEngineer || '',
+    storageLocation: request.storageLocation || '',
+    priority: request.priority || ''
+  })
+  productOnboardingFormRef.value?.clearValidate?.()
 }
 
 const handleProductOnboardingMdmProductChange = (productId?: number | string) => {
@@ -2510,6 +2913,7 @@ const submitProductOnboardingRequest = async () => {
       ...productOnboardingFormData,
       productMasterId: productOnboardingFormData.productMasterId || undefined
     })
+    await loadPendingProductOnboardingRequests()
     message.success('产品建档申请已提交')
   } finally {
     productOnboardingSubmitting.value = false
@@ -2525,6 +2929,8 @@ const approveProductOnboardingCreatedRequest = async () => {
     await approveProductOnboardingRequest(productOnboardingCreatedRequestId.value)
     message.success('产品建档申请已审批通过')
     productOnboardingVisible.value = false
+    productOnboardingCreatedRequestId.value = null
+    productOnboardingPendingRequests.value = []
     await getList()
   } finally {
     productOnboardingApproving.value = false

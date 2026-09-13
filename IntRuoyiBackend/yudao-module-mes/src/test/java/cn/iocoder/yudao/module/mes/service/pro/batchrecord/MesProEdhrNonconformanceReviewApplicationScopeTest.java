@@ -30,10 +30,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,6 +48,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Mock private MesProProcessPoolEventMapper processPoolEventMapper;
     @Mock private MesProWorkOrderMapper workOrderMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Mock private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProEdhrNonconformanceReviewServiceImpl service;
 
@@ -58,6 +61,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "processPoolEventMapper", processPoolEventMapper);
         ReflectionTestUtils.setField(service, "workOrderMapper", workOrderMapper);
         ReflectionTestUtils.setField(service, "workTaskMapper", workTaskMapper);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
     }
 
     @Test
@@ -269,6 +273,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 new MesProEdhrBatchExecutionDO().setId(9001L).setStatus(15));
         when(workOrderMapper.selectByIdForUpdate(3002L)).thenReturn(
                 new MesProWorkOrderDO().setId(3002L).setTemporaryFrozen(true));
+        when(signatureService.recordQaDispositionSignature(isNull(), eq(1002L), eq("qa-signature-password"),
+                eq("作废处理"), any())).thenReturn(9102L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3002L), true)).thenReturn(1);
 
         service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
@@ -276,7 +282,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .setDisposition("void")
                 .setReviewMaterialUrl("https://example.invalid/review.pdf")
                 .setReviewOpinion("作废处理")
-                .setQaSignature("QA-SIGNATURE"));
+                .setSignaturePassword("qa-signature-password"));
 
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3002L), true);
         verify(batchExecutionMapper).updateById(any(MesProEdhrBatchExecutionDO.class));
@@ -285,6 +291,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Test
     void concessionRestoresOriginalWorkOrderStateAndKeepsPqcTaskActive() {
         stubPendingReview("concession_release");
+        when(reviewMapper.selectOriginalExternalFreezeSnapshotCountByWorkOrderId(3001L)).thenReturn(0L);
+        when(reviewMapper.selectBlockingCountByWorkOrderId(3001L)).thenReturn(0L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
 
         service.dispose(disposeRequest("concession_release"));
@@ -298,6 +306,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @Test
     void reworkClosesApplicationAndPqcTaskAndRestoresOriginalWorkOrderState() {
         stubPendingReview("rework");
+        when(reviewMapper.selectOriginalExternalFreezeSnapshotCountByWorkOrderId(3001L)).thenReturn(0L);
+        when(reviewMapper.selectBlockingCountByWorkOrderId(3001L)).thenReturn(0L);
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
                 isNull(), any(), eq("返工处理"), any())).thenReturn(1);
@@ -325,6 +335,94 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(workTaskMapper).completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_VOID"));
     }
 
+    @Test
+    void disposeRecordsQaElectronicSignatureSnapshot() {
+        stubPendingReview("rework");
+        when(reviewMapper.selectOriginalExternalFreezeSnapshotCountByWorkOrderId(3001L)).thenReturn(0L);
+        when(reviewMapper.selectBlockingCountByWorkOrderId(3001L)).thenReturn(0L);
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+                .thenReturn(1);
+
+        service.dispose(disposeRequest("rework"));
+
+        verify(signatureService).recordQaDispositionSignature(isNull(), eq(1001L), eq("qa-signature-password"),
+                eq("返工处理"), any());
+        ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
+        verify(reviewMapper).updateById(updateCaptor.capture());
+        assertEquals("QA电子签名#9101", updateCaptor.getValue().getQaSignature());
+        assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"qaSignatureSnapshotJson\""));
+        assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"signatureId\":9101"));
+        assertTrue(updateCaptor.getValue().getTraceSnapshotJson().contains("\"actionType\":\"QA_DISPOSITION\""));
+    }
+
+    @Test
+    void disposeWithoutSignaturePasswordFailsBeforeMutation() {
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
+                        .setId(1001L)
+                        .setDisposition("rework")
+                        .setReviewMaterialUrl("https://example.invalid/review.pdf")
+                        .setReviewOpinion("返工处理")
+                        .setSignaturePassword(" ")));
+
+        assertEquals(PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED.getCode(), exception.getCode());
+        verifyNoInteractions(reviewMapper, batchExecutionMapper, releaseApplicationMapper, workOrderMapper,
+                workTaskMapper, signatureService);
+    }
+
+    @Test
+    void closingLaterReviewDoesNotKeepReviewIntroducedFreeze() {
+        MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
+                .id(1005L)
+                .sourceType("PQC_RELEASE")
+                .sourceId(7005L)
+                .workOrderId(3005L)
+                .workOrderCode("WO-005")
+                .reviewStatus("pending_review")
+                .previousWorkOrderTemporaryFrozen(true)
+                .nonconformanceReason("第二份评审")
+                .build();
+        when(reviewMapper.selectByIdForUpdate(1005L)).thenReturn(review);
+        when(reviewMapper.selectById(1005L)).thenReturn(review.setDisposition("rework"));
+        when(releaseApplicationMapper.selectByIdForUpdate(7005L)).thenReturn(
+                new MesProcessPoolActiveOrderReleaseApplicationDO()
+                        .setId(7005L)
+                        .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_PENDING)
+                        .setVersion(1)
+                        .setWorkOrderId(3005L)
+                        .setPqcReleaseWorkTaskId(8005L));
+        when(workOrderMapper.selectByIdForUpdate(3005L)).thenReturn(
+                new MesProWorkOrderDO().setId(3005L).setTemporaryFrozen(true));
+        when(signatureService.recordQaDispositionSignature(isNull(), eq(1005L), eq("qa-signature-password"),
+                eq("返工处理"), any())).thenReturn(9105L);
+        when(reviewMapper.selectOriginalExternalFreezeSnapshotCountByWorkOrderId(3005L)).thenReturn(0L);
+        when(reviewMapper.selectBlockingCountByWorkOrderId(3005L)).thenReturn(0L);
+        when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3005L), false)).thenReturn(1);
+        when(workTaskMapper.selectByIdForUpdate(8005L)).thenReturn(new MesProEdhrWorkTaskDO()
+                .setId(8005L)
+                .setTaskType("PQC_PRODUCTION_RELEASE")
+                .setBusinessScopeType("RELEASE_APPLICATION")
+                .setBusinessScopeId(7005L)
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+        when(releaseApplicationMapper.closeFromNonconformance(eq(7005L), eq(1), eq("NONCONFORMANCE_REWORK"),
+                isNull(), any(), eq("返工处理"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(8005L), any(), eq("NONCONFORMANCE_REWORK")))
+                .thenReturn(1);
+
+        service.dispose(new MesProEdhrNonconformanceReviewDisposeReqVO()
+                .setId(1005L)
+                .setDisposition("rework")
+                .setReviewMaterialUrl("https://example.invalid/review.pdf")
+                .setReviewOpinion("返工处理")
+                .setSignaturePassword("qa-signature-password"));
+
+        verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3005L), false);
+    }
+
     private void stubPendingReview(String disposition) {
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
                 .id(1001L)
@@ -347,6 +445,10 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                         .setPqcReleaseWorkTaskId(8001L));
         when(workOrderMapper.selectByIdForUpdate(3001L)).thenReturn(
                 new MesProWorkOrderDO().setId(3001L).setTemporaryFrozen(true));
+        when(signatureService.recordQaDispositionSignature(isNull(), eq(1001L), eq("qa-signature-password"),
+                eq("void".equals(disposition) ? "作废处理" :
+                        "rework".equals(disposition) ? "返工处理" : "让步放行"), any()))
+                .thenReturn(9101L);
         if (!"concession_release".equals(disposition)) {
             when(workTaskMapper.selectByIdForUpdate(8001L)).thenReturn(new MesProEdhrWorkTaskDO()
                     .setId(8001L)
@@ -364,6 +466,6 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 .setReviewMaterialUrl("https://example.invalid/review.pdf")
                 .setReviewOpinion("void".equals(disposition) ? "作废处理" :
                         "rework".equals(disposition) ? "返工处理" : "让步放行")
-                .setQaSignature("QA-SIGNATURE");
+                .setSignaturePassword("qa-signature-password");
     }
 }

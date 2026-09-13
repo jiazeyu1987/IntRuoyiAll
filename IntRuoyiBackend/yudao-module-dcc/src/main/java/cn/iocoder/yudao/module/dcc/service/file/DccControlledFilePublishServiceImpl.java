@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRe
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceSubmitReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormActionResolutionRespVO;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
@@ -45,9 +46,18 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "dcc.controlled-file.publish")
     public FormInstanceRespVO publishControlledFile(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
-        DccControlledFileDO file = requirePublishRequest(userId, id, reqVO);
-        Map<String, Object> formData = buildPublishFormData(file, reqVO);
+        DccControlledFileDO file = requirePublishIdentity(id, reqVO);
         BusinessActionContextReqVO publishContext = buildPublishContext(file, reqVO);
+        FormInstanceRespVO existing = formCenterRuntimeService.findBusinessActionByIdempotency(
+                publishContext, reqVO.getIdempotencyKey());
+        if (existing != null) {
+            validateIdempotentReplay(existing, publishContext);
+            if (!FormInstanceStatus.DRAFT.name().equals(existing.getStatus())) {
+                return existing;
+            }
+        }
+        finalizationService.precheckPublishControlledFile(userId, id);
+        Map<String, Object> formData = buildPublishFormData(file, reqVO);
         FormActionResolutionRespVO resolution = formCenterRuntimeService.resolveAction(publishContext);
         if (resolution == null || StrUtil.isBlank(resolution.getApprovalMode())) {
             throw new IllegalStateException("DCC publish action policy could not be resolved");
@@ -78,7 +88,7 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
         return submitted;
     }
 
-    private DccControlledFileDO requirePublishRequest(Long userId, Long id, DccControlledFilePublishReqVO reqVO) {
+    private DccControlledFileDO requirePublishIdentity(Long id, DccControlledFilePublishReqVO reqVO) {
         if (reqVO == null || StrUtil.isBlank(reqVO.getReason())) {
             throw new IllegalArgumentException("DCC publish reason is required");
         }
@@ -89,8 +99,20 @@ public class DccControlledFilePublishServiceImpl implements DccControlledFilePub
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        finalizationService.precheckPublishControlledFile(userId, id);
         return file;
+    }
+
+    private void validateIdempotentReplay(FormInstanceRespVO existing,
+                                          BusinessActionContextReqVO requestedContext) {
+        BusinessActionContextReqVO existingContext = existing.getContext();
+        if (existingContext == null
+                || !StrUtil.equals(existingContext.getObjectId(), requestedContext.getObjectId())
+                || !StrUtil.equals(existingContext.getObjectVersion(), requestedContext.getObjectVersion())
+                || !StrUtil.equals(existingContext.getActionCode(), requestedContext.getActionCode())
+                || !StrUtil.equals(StrUtil.trim(existingContext.getReason()),
+                StrUtil.trim(requestedContext.getReason()))) {
+            throw new IllegalArgumentException("DCC publish idempotency key payload conflicts with the existing action");
+        }
     }
 
     private BusinessActionContextReqVO buildPublishContext(DccControlledFileDO file,

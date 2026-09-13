@@ -575,6 +575,9 @@ export interface TeamLeaderActiveOrderPqcSubmissionDetailRespVO {
   pqcTaskIds?: number[]
   submittedEventId?: number
   submittedEventIds?: number[]
+  productionEventId?: number | string
+  productionEventIds?: Array<number | string>
+  productionSubmitterSignatures?: TeamLeaderActiveOrderSignatureDetailRespVO[]
   qaProcessId?: number
   qaProcessCode?: string
   qaProcessName?: string
@@ -837,7 +840,7 @@ export interface TeamLeaderReportAllocationConfirmReqVO {
   expectedVersion?: number
   idempotencyKey?: string
   reviewRemark?: string
-  signaturePassword?: string
+  signaturePassword: string
   allocations: TeamLeaderReportAllocationLine[]
 }
 
@@ -1253,6 +1256,7 @@ export const previewTeamLeaderReportFifoAllocation = async (
 export const confirmTeamLeaderReportAllocation = async (
   data: TeamLeaderReportAllocationConfirmReqVO
 ) => {
+  requireReviewSignaturePayload(data)
   return await request.post<TeamLeaderReportAllocationSnapshotRespVO>({
     url: '/mes/pro/process-pool/team-leader/submission/allocation/confirm',
     data

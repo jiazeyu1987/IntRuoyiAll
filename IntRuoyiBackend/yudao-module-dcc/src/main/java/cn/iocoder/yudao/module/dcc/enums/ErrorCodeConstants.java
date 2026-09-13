@@ -592,5 +592,7 @@ public interface ErrorCodeConstants {
             "Only an unlocked WORKING controlled file iteration can be submitted");
     ErrorCode CONTROLLED_FILE_ITERATION_NOT_LATEST = new ErrorCode(1_080_000_345,
             "Only the latest WORKING controlled file iteration can be submitted");
+    ErrorCode DCC_PROJECT_ACCESS_RULE_INVALID = new ErrorCode(1_080_000_346,
+            "DCC project access rules are invalid: include at least one active OWNER and non-blank change reason");
 
 }

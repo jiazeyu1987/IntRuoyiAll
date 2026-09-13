@@ -39,6 +39,7 @@
 - 运行 task-closeout-cleanup preview，确认 keep/delete/blocked/warnings。
 - preview 无异常后运行 apply。
 - apply 通过后再标记 `completed`。
+- 若用户当轮明确禁止 Git 提交/推送，而项目规则仍要求提交推送才能完成，则实现与验证完成后记录为 `blocked`；cleanup preview 可作为清理证据，cleanup apply 若因 `blocked` 状态拒绝执行必须如实记录为 BLOCKED，禁止写成 PASS。
 - 默认保留 `task.md`、`execution-log.md`、`verification-report.md`。
 
 ## 重复任务记录收口门禁
