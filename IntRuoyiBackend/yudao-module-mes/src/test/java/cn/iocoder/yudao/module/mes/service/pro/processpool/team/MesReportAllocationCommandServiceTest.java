@@ -29,11 +29,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.any;
@@ -198,8 +200,7 @@ class MesReportAllocationCommandServiceTest {
         when(targetService.requireUniqueTargetForProcess(activeOrder(8103L, 9003L), 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5301L, 6001L, new BigDecimal("300"),
                         BigDecimal.ONE, new BigDecimal("300")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
-                MesProcessPoolSubmissionReviewDO.builder().id(7301L).eventId(1001L).build());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
         when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
@@ -248,7 +249,8 @@ class MesReportAllocationCommandServiceTest {
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
                         BigDecimal.ZERO, new BigDecimal("300")));
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenReturn(1);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
+                .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -288,7 +290,8 @@ class MesReportAllocationCommandServiceTest {
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("100"),
                         BigDecimal.ONE, new BigDecimal("100")));
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenReturn(1);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
+                .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -353,6 +356,71 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
+    void unchangedAllocationWithLegacyUnsignedReviewMustBackfillReviewSignatureEvidence() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO current =
+                allocation(7101L, 8101L, 9001L, 5101L, "300").setReviewId(7301L);
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(1).build();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
+        MesProWorkOrderDO workOrder = workOrder(9001L, "A");
+        MesProcessPoolSubmissionReviewDO legacyUnsignedReview = MesProcessPoolSubmissionReviewDO.builder()
+                .id(7301L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewRemark("旧复核")
+                .reviewedAt(LocalDateTime.parse("2026-08-01T09:00:00"))
+                .build();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(current));
+        when(reviewMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(legacyUnsignedReview));
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8101L), 6001L))
+                .thenReturn(List.of(current));
+        when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
+                        BigDecimal.ZERO, new BigDecimal("300")));
+        when(reviewMapper.updateById(legacyUnsignedReview)).thenReturn(1);
+        when(allocationMapper.refreshReviewEvidenceForCurrentRowsByReviewId(
+                org.mockito.ArgumentMatchers.eq(1001L), org.mockito.ArgumentMatchers.eq(7301L),
+                org.mockito.ArgumentMatchers.eq(3001L), any())).thenAnswer(invocation -> {
+            current.setLeaderUserId(invocation.getArgument(2, Long.class));
+            current.setConfirmedAt(invocation.getArgument(3, LocalDateTime.class));
+            return 1;
+        });
+        when(stateMapper.updateById(state)).thenReturn(1);
+        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
+
+        MesReportAllocationSnapshot snapshot = service.save(MesReportAllocationSaveCommand.builder()
+                .eventId(1001L).leaderUserId(3001L).leaderType("PRODUCTION").expectedVersion(1)
+                .idempotencyKey("legacy-review-signature-backfill")
+                .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                .reason("保持原数量重新确认").signaturePassword("review-pass")
+                .allocations(List.of(MesReportAllocationSaveLine.builder().activeOrderId(8101L)
+                        .allocatedQuantity(new BigDecimal("300")).build())).build());
+
+        assertEquals(1, snapshot.getVersion());
+        assertEquals(7301L, current.getReviewId());
+        assertEquals(9901L, legacyUnsignedReview.getReviewSignatureId());
+        assertEquals(3001L, legacyUnsignedReview.getReviewSignatureUserId());
+        assertNotNull(legacyUnsignedReview.getReviewSignatureSnapshotJson());
+        assertEquals(legacyUnsignedReview.getReviewedAt(), current.getConfirmedAt());
+        verify(reviewMapper).updateById(legacyUnsignedReview);
+        verify(allocationMapper).refreshReviewEvidenceForCurrentRowsByReviewId(
+                org.mockito.ArgumentMatchers.eq(1001L), org.mockito.ArgumentMatchers.eq(7301L),
+                org.mockito.ArgumentMatchers.eq(3001L), any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(completionService).reconcileAffectedAllocations(event, List.of(current));
+    }
+
+    @Test
     void shouldRejectAllocationTotalBeyondSubmittedPoolInsteadOfSilentlyCapping() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
@@ -398,7 +466,8 @@ class MesReportAllocationCommandServiceTest {
         when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
                         BigDecimal.ZERO, new BigDecimal("300")));
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenReturn(1);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class)))
+                .thenAnswer(invocation -> assignReviewId(invocation, 7301L));
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -408,7 +477,7 @@ class MesReportAllocationCommandServiceTest {
         MesReportAllocationSaveCommand command = MesReportAllocationSaveCommand.builder()
                 .eventId(1001L).leaderUserId(3001L).leaderType("PRODUCTION").expectedVersion(0)
                 .idempotencyKey("req-no-reason").allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO)
-                .reason(null).allocations(List.of(MesReportAllocationSaveLine.builder()
+                .reason(null).signaturePassword("leader-password").allocations(List.of(MesReportAllocationSaveLine.builder()
                         .activeOrderId(8101L).allocatedQuantity(new BigDecimal("100")).build())).build();
         service.save(command);
 
@@ -431,8 +500,7 @@ class MesReportAllocationCommandServiceTest {
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
-                MesProcessPoolSubmissionReviewDO.builder().id(7301L).eventId(1001L).build());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
         when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -458,8 +526,7 @@ class MesReportAllocationCommandServiceTest {
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
-        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
-                MesProcessPoolSubmissionReviewDO.builder().id(7301L).eventId(1001L).build());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
         when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
@@ -662,7 +729,13 @@ class MesReportAllocationCommandServiceTest {
                                                                List<MesReportAllocationSaveLine> lines) {
         return MesReportAllocationSaveCommand.builder().eventId(1001L).leaderUserId(3001L)
                 .leaderType("PRODUCTION").expectedVersion(version).idempotencyKey("req-1")
-                .allocationMode(allocationMode).reason("urgent C").allocations(lines).build();
+                .allocationMode(allocationMode).reason("urgent C").signaturePassword("leader-password")
+                .allocations(lines).build();
+    }
+
+    private static int assignReviewId(org.mockito.invocation.InvocationOnMock invocation, Long reviewId) {
+        invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(reviewId);
+        return 1;
     }
 
     private void assertFullAllocationSameAsCurrentReconcilesCompletionProgress(String allocationMode) {
@@ -676,6 +749,7 @@ class MesReportAllocationCommandServiceTest {
         when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(currentFull));
+        when(reviewMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(signedApprovedReview()));
         when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
         when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
@@ -695,7 +769,25 @@ class MesReportAllocationCommandServiceTest {
         assertAmount("300", snapshot.getTotalAllocatedQuantity());
         verify(completionService).reconcileAffectedAllocations(event, List.of(currentFull));
         verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
         verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
+    }
+
+    private static MesProcessPoolSubmissionReviewDO signedApprovedReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(7301L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewRemark("已确认")
+                .reviewedAt(LocalDateTime.parse("2026-08-01T09:00:00"))
+                .reviewSignatureId(9901L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"review\"}")
+                .build();
     }
 
     private static MesProProcessPoolEventDO event() {

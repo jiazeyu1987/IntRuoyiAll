@@ -1225,6 +1225,8 @@ public interface ErrorCodeConstants {
             "报工确认 PQC 合格可分配数量不足，eventId={}，confirmQuantity={}，qualifiedQuantity={}，consumedQuantity={}，allocatableQuantity={}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS = new ErrorCode(1_040_760_329,
             "工序池提交事件已存在复核终态，禁止重复确认或退回：eventId={}，status={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_SIGNATURE_REQUIRED = new ErrorCode(1_040_760_330,
+            "生产组长复核必须提供本人电子签名密码：eventId={}");
     ErrorCode PRO_PROCESS_POOL_PQC_RECORD_REQUIRED = new ErrorCode(1_040_760_331,
             "PQC 提交事件缺少可汇集的正式检验记录：eventId={}");
     ErrorCode PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED = new ErrorCode(1_040_760_332,
