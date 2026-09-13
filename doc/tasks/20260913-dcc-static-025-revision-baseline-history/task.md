@@ -37,9 +37,10 @@ ready_for_closeout
 - Clean worktree: `D:\IntRuoyiWorktree\20260913-dcc-static-025-revision-baseline-history`.
 - Branch: `codex/dcc-static-025-revision-baseline-history`.
 - Base: `origin/int_main` at `6c6487c9f151244910b9ff80454c397bc303e330`.
-- User authorized local fusion into `int_main` on 2026-09-13; remote push remains outside the explicit request.
+- User authorized fusion into `int_main` on 2026-09-13, including remote fast-forward push when the local main worktree remained dirty with unrelated files.
 - Latest local `int_main` `a54464ac3c2053d58f9477f49623f0b7693e4d17` was merged into the task branch as `a8eb02bb29c821133e1919b06ed2cb01f59ad89a`; DCC-STATIC-025 implementation commit `46139d4996d4ee09eeb3732249b9bf28782c2d9f` remains an ancestor.
 - Post-merge local fusion verification passed: DCC-STATIC-025 static contract, targeted DCC Maven test, `git diff --check int_main..HEAD`, bug-regression evidence validator, and branch runtime port guard.
 - During fusion, `origin/int_main` advanced to `f117a3275491b6c5c83b41b18fe4386cf5a6bef6`; it was merged into the task branch as `f9d761c5261481c7802f92315b7b60260cf33015`, and the same DCC-STATIC-025 verification set passed again.
 - Latest `int_main`/`origin_int_main` `fdaae3de2a7695d326ed462bad71719c3a7c84bc` was merged into the task branch as `0df657daa9686ff8e6a89f380d8726c483135261`; verification passed again, but local `E:\IntRuoyi` has an unrelated dirty MES static file, so local fast-forward is blocked until that worktree is clean or remote fast-forward push is explicitly authorized.
 - User confirmed conflicts were fixed and authorized fusion into `int_main`; latest `origin/int_main` `5eb62893a19f7d81382ad113e425d8b2ce4a62a4` was merged into the task branch as `db1b58109264224c8ab73f446cc138073878dec8`, and the DCC-STATIC-025 verification set passed again.
+- Remote `origin/int_main` was fast-forwarded from `5eb62893a19f7d81382ad113e425d8b2ce4a62a4` to `c8f860a8293d3d124bdda317ef607fe71db624ef`; local `E:\IntRuoyi` closeout remains blocked by unrelated dirty EDHR-STATIC-013 worktree files.

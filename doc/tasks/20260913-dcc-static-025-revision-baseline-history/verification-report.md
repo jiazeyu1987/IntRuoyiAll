@@ -54,11 +54,12 @@ Given B/1 is derived from A/2 while A/3 is the formal baseline at major-revision
 - After user re-authorized fusion, `origin/int_main` at `5eb62893a19f7d81382ad113e425d8b2ce4a62a4` was merged into the task branch as `db1b58109264224c8ab73f446cc138073878dec8` with no conflicts.
 - After absorbing `5eb62893a19f7d81382ad113e425d8b2ce4a62a4`, DCC-STATIC-025 static contract -> PASS; targeted DCC Maven test -> PASS with `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`; `git diff --check origin/int_main..HEAD` -> PASS; branch runtime port guard -> PASS; bug-regression evidence validator -> PASS.
 - Current task branch is fast-forward-ready relative to latest `origin/int_main`: ancestry check returned exit `0`.
+- Remote fusion completed: `git push origin HEAD:int_main` -> PASS, advancing remote `int_main` from `5eb62893a19f7d81382ad113e425d8b2ce4a62a4` to `c8f860a8293d3d124bdda317ef607fe71db624ef`.
+- Post-push verification confirmed `HEAD` equals `origin/int_main` at `c8f860a8293d3d124bdda317ef607fe71db624ef`.
 
 ## Blockers
 
 - `docs/bugs/20260912-dcc-90-step-static-audit.md` is not present in the clean `origin/int_main` worktree, so the shared bug file was not imported from the dirty main worktree and not edited.
-- The user authorized local fusion into `int_main`; remote push remains outside the explicit request unless separately authorized.
+- Remote `int_main` fusion is complete; local worktree cleanup is still blocked because `E:\IntRuoyi` is dirty and behind the remote.
 - Earlier during fusion, local `E:\IntRuoyi` temporarily had unrelated MES process-pool conflict/staged EDHR task state; this task did not stage, clean, reset, or resolve those unrelated files.
-- Current local `E:\IntRuoyi` now has one unrelated dirty MES static file, `IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-static-findings-fix-static.spec.cjs`; local fast-forward remains blocked by the dirty-main gate until that file is resolved by its owner or a remote fast-forward push is explicitly authorized.
-- On reauthorization, local `E:\IntRuoyi` still showed unrelated `UU` state in EDHR-STATIC-013 MES files and additional staged/untracked EDHR task files; remote fast-forward is used to avoid overwriting or staging unrelated main-worktree changes.
+- On reauthorization, local `E:\IntRuoyi` still showed unrelated EDHR-STATIC-013 dirty files including `UU` state; remote fast-forward was used to avoid overwriting or staging unrelated main-worktree changes.

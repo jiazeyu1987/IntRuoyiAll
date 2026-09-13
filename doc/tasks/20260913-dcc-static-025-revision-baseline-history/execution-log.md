@@ -56,3 +56,6 @@
 - GREEN: after absorbing `5eb62893a19f7d81382ad113e425d8b2ce4a62a4`, `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `Branch runtime port guard passed for codex/dcc-static-025-revision-baseline-history/int_main: frontend 8084, backend 48084.`
 - GREEN: after absorbing `5eb62893a19f7d81382ad113e425d8b2ce4a62a4`, bug-regression evidence validator -> PASS, `Bug regression evidence is valid.`
 - Pre-push check: `git merge-base --is-ancestor origin/int_main HEAD` -> exit `0`; incoming task delta vs `origin/int_main` remains limited to `DccControlledFileQueryServiceImpl.java`, `dcc-static-025-revision-baseline-history-contract.spec.cjs`, and the DCC-STATIC-025 task records.
+- Push: `git push origin HEAD:int_main` -> PASS; remote `int_main` advanced `5eb62893a19f7d81382ad113e425d8b2ce4a62a4..c8f860a8293d3d124bdda317ef607fe71db624ef`.
+- Post-push verification: `git fetch origin int_main`, then `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `c8f860a8293d3d124bdda317ef607fe71db624ef`; task branch status matched `origin/int_main`.
+- Cleanup preview after remote fusion still blocked because local `E:\IntRuoyi` is dirty and behind remote by 11 commits; dirty files belong to EDHR-STATIC-013 and were not modified by this task.
