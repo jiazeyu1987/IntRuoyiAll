@@ -43,7 +43,7 @@
           data-testid="dcc-product-onboarding-open"
           :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="openProductOnboardingDialog"
-          v-hasPermi="['dcc:project-code:create']"
+          v-hasPermi="['dcc:project-code:create', 'dcc:project-code:update']"
         >
           <Icon icon="ep:connection" class="mr-5px" />
           产品建档申请
@@ -692,6 +692,7 @@
             type="primary"
             data-testid="dcc-product-onboarding-recover"
             @click="applyPendingProductOnboardingRequest(row)"
+            v-hasPermi="['dcc:project-code:create', 'dcc:project-code:update']"
           >
             恢复审批
           </el-button>
@@ -779,6 +780,7 @@
           :disabled="Boolean(productOnboardingCreatedRequestId)"
           :loading="productOnboardingSubmitting"
           @click="submitProductOnboardingRequest"
+          v-hasPermi="['dcc:project-code:create']"
         >
           提交申请
         </el-button>
@@ -789,6 +791,7 @@
           :disabled="!productOnboardingCreatedRequestId"
           :loading="productOnboardingApproving"
           @click="approveProductOnboardingCreatedRequest"
+          v-hasPermi="['dcc:project-code:update']"
         >
           审批通过
         </el-button>
@@ -1943,6 +1946,7 @@ const canRunAssociatedNameAutoClassify = computed(() => checkPermi(['dcc:control
 const canRunProjectCodeListNameAutoClassify = computed(
   () => canRunAssociatedNameAutoClassify.value
 )
+const canCreateProductOnboardingRequest = computed(() => checkPermi(['dcc:project-code:create']))
 const canRunBatchAiCategory = computed(
   () => canRunAiCategory.value && checkRole(['doc_control'])
 )
@@ -2852,7 +2856,11 @@ const openProductOnboardingDialog = async () => {
   productOnboardingLoading.value = true
   resetProductOnboardingFormData()
   try {
-    await Promise.all([loadProductOnboardingProducts(), loadPendingProductOnboardingRequests()])
+    const loaders = [loadPendingProductOnboardingRequests()]
+    if (canCreateProductOnboardingRequest.value) {
+      loaders.push(loadProductOnboardingProducts())
+    }
+    await Promise.all(loaders)
   } finally {
     productOnboardingLoading.value = false
   }

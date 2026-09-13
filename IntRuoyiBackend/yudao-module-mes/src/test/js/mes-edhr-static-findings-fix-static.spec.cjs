@@ -71,11 +71,21 @@ const saveAllocation = sliceMethod(
   allocation,
   'public MesReportAllocationSnapshot save(MesReportAllocationSaveCommand command)'
 )
-assert(saveAllocation.includes('requiresFormalReview(current)') && saveAllocation.includes('requireReview(event, command)'),
-  'EDHR-STATIC-002: unchanged first allocations with null reviewId must still create formal review evidence')
-const requireReview = sliceMethod(
+const reviewEvidenceRequirement = sliceMethod(
   allocation,
-  'private MesProcessPoolSubmissionReviewDO requireReview(MesProProcessPoolEventDO event,'
+  'private ReviewEvidenceRequirement reviewEvidenceRequirement(MesProProcessPoolEventDO event,'
+)
+assert(saveAllocation.includes('ReviewEvidenceRequirement reviewRequirement = reviewEvidenceRequirement(event, current)')
+  && saveAllocation.includes('reviewRequirement.required()')
+  && saveAllocation.includes('requireReview(event, command,')
+  && saveAllocation.includes('attachReviewToCurrentRowsByEventId')
+  && reviewEvidenceRequirement.includes('anyMatch(allocation -> allocation.getReviewId() == null)')
+  && reviewEvidenceRequirement.includes('missingReviewId || reviewToBackfill != null'),
+  'EDHR-STATIC-002: unchanged first allocations with null reviewId must still create formal review evidence')
+const requireReview = sliceBetween(
+  allocation,
+  'MesProcessPoolSubmissionReviewDO reviewToBackfill) {',
+  'private ReviewSignaturePayload recordApprovedReviewSignature'
 )
 assert(requireReview.includes('StrUtil.isBlank(command.getSignaturePassword())'),
   'EDHR-STATIC-003: allocation approval must require signature password')
@@ -118,7 +128,7 @@ assert(completionBackfill.includes('coversEveryProcessSnapshot')
   'EDHR-STATIC-004: completion backfill must accept multiple formal sources per process while requiring every snapshot to be covered')
 
 const processReader = read(mes, 'service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl.java')
-assert(processReader.includes('selectLockedQa(lockedDccQa, task)')
+assert(/selectLockedQa\(\s*task,\s*lockedDccQa\s*\)/.test(processReader)
   && processReader.includes('task.getRegulationVersionId()'),
   'EDHR-STATIC-005: process inspection reader must use each task frozen QA regulation identity')
 const processWriter = read(mes, 'service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl.java')

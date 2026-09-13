@@ -12,6 +12,7 @@
 - [x] 最小修改 `MesReportAllocationCommandService`，统一分配复核写入与完工读取合同。
 - [x] 执行定向非 E2E 静态/单元验证、`git diff --check` 和变更范围静态审查。
 - [x] 收尾前标记 `ready_for_closeout`，运行清理预览/应用后标记 `completed`。
+- [x] 按用户授权将任务分支融合进 `int_main`，解决主干冲突并推送远端主干。
 
 ## Expected Verification
 
@@ -19,7 +20,7 @@
 - GREEN：同一定向回归通过，验证原分配引用不变、复核签名字段补齐、反馈批准人与确认时间仍满足下游同一证据检查。
 - REGRESSION：重复确认不得重复签名或新建复核。
 - 收尾静态检查：`git diff --check`、变更范围审查、UTF-8 文档读取验证。
-- 按任务范围不执行 E2E、不启动服务、不写数据库；2026-09-13 用户已授权本任务 Git 提交/推送。
+- 按任务范围不执行 E2E、不启动服务、不写数据库；2026-09-13 用户已授权本任务 Git 提交/推送与融合进 `int_main`。
 
 ## Current Status
 

@@ -28,6 +28,20 @@
 - 2026-09-13：detached HEAD 下直接 `git commit` 被 `branch-runtime-port-guard.ps1` 阻断；改到 `D:\IntRuoyiWorktree\20260913-edhr-static-003-reopened-signature-backfill` 的真实任务分支提交，未使用 `--no-verify`。
 - 2026-09-13：任务分支 commit hook 首次因端口登记缺失阻断；按项目脚本执行 `scripts\runtime\reserve-worktree-slot.ps1 -Name 20260913-edhr-static-003-reopened-signature-backfill -Path D:\IntRuoyiWorktree\20260913-edhr-static-003-reopened-signature-backfill -Branch codex/20260913-edhr-static-003-reopened-signature-backfill -Profile int_main -AsJson` -> PASS，登记 slot=48，frontendPort=8263，backendPort=48263，未启动服务。
 - 2026-09-13：实现提交 `06de7883e4610f9d9729ad9eb22c53f6df327310`，message=`fix: backfill EDHR reopened review signatures`，文件清单：`MesProcessPoolReportAllocationMapper.java`、`ErrorCodeConstants.java`、`MesReportAllocationCommandService.java`、`MesReportAllocationCommandServiceTest.java`。
+- 2026-09-13：用户追问“融合进int_main了吗”后继续回复“授权”，允许执行 `int_main` 融合与推送。
+- 2026-09-13：`git merge-base --is-ancestor 88effd0a77a8464bd11fa6da986f57aaf421000a int_main` / `origin/int_main` -> no，确认授权前尚未融合进主干。
+- 2026-09-13：`E:\IntRuoyi` 主干存在 3 个 DCC 收尾文档脏改动；按收尾规则先提交为 `1b25f3df6`，message=`docs: complete DCC finalization retry closeout`。
+- 2026-09-13：执行 `git merge --no-ff codex/20260913-edhr-static-003-reopened-signature-backfill -m "merge: integrate EDHR static 003 signature backfill"`，遇到 4 个预期冲突文件：`MesProcessPoolReportAllocationMapper.java`、`ErrorCodeConstants.java`、`MesReportAllocationCommandService.java`、`MesReportAllocationCommandServiceTest.java`。
+- 2026-09-13：冲突解决策略：保留 `int_main` 现有初始分配与发布锁回归，合入 EDHR-STATIC-003 复核签名补齐逻辑；错误码使用 `1_040_760_330`，避免与 `PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_CONFIRM_REQUIRED=1_040_760_384` 冲突。
+- 2026-09-13：`mvn -pl yudao-module-mes -am "-Dtest=cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandServiceTest" test` -> FAIL，expected reason：`-am` 上游模块无匹配测试触发 Surefire fail-if-no-specified-tests 门禁；按项目 PowerShell/Maven 规则补 `"-Dsurefire.failIfNoSpecifiedTests=false"` 后重跑。
+- 2026-09-13：`mvn -pl yudao-module-mes -am "-Dtest=cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，28 tests / 0 failures / 0 errors / 0 skipped。
+- 2026-09-13：`mvn -pl yudao-module-mes -am "-Dtest=MesReportAllocationCommandServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，47 tests / 0 failures / 0 errors / 0 skipped。
+- 2026-09-13：主干融合后同步修正 `mes-edhr-static-findings-fix-static.spec.cjs` 对 `reviewEvidenceRequirement` / `requireReview(event, command, reviewToBackfill)` 的静态合同断言。
+- 2026-09-13：`node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS，eDHR static findings fix contract。
+- 2026-09-13：融合后 `git diff --check` -> PASS，仅有 LF/CRLF 工作区提示，无 whitespace error。
+- 2026-09-13：融合后 `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260913-edhr-static-003-reopened-signature-backfill/execution-log.md` -> PASS。
+- 2026-09-13：融合后 `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-edhr-static-003-reopened-signature-backfill --mode preview --worktree-closeout off --json` -> READY，keep=3，delete=[]，blocked=[]，warnings=[]。
+- 2026-09-13：融合后 `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-edhr-static-003-reopened-signature-backfill --mode apply --worktree-closeout off --json` -> APPLIED，deleted_paths=[]。
 
 ## Bug Regression Evidence
 
@@ -54,6 +68,9 @@ EDHR-STATIC-003 重开路径中，旧 CURRENT 分配已有 `reviewId`，但对�
 - GREEN: `git diff --check` -> PASS；仅输出 Git LF/CRLF 工作区提示，无 whitespace error。
 - GREEN: `rg -n "1_040_760_330|1_040_760_384|PRO_PROCESS_POOL_SUBMISSION_REVIEW_SIGNATURE_REQUIRED|PRO_PROCESS_POOL_ACTIVE_ORDER_VERSION_UPGRADE_CONFIRM_REQUIRED" IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.java` -> PASS；新增签名必填错误码为 `1_040_760_330`，原版本升级确认错误码保持 `1_040_760_384`。
 - GREEN: 错误码修复后重跑 `mvn -pl yudao-module-mes "-Dtest=MesReportAllocationCommandServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderTraceServiceTest" test` -> PASS, 41 tests / 0 failures / 0 errors / 0 skipped，BUILD SUCCESS。
+- GREEN: 融合进 `int_main` 后重跑 `mvn -pl yudao-module-mes -am "-Dtest=MesReportAllocationCommandServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 47 tests / 0 failures / 0 errors / 0 skipped，BUILD SUCCESS。
+- GREEN: 融合进 `int_main` 后重跑 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS。
+- GREEN: 融合后重跑 `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-findings-fix-static.spec.cjs` -> PASS；静态合同已更新为当前 `reviewEvidenceRequirement`/三参 `requireReview` 实现边界。
 
 ### Blockers
 
