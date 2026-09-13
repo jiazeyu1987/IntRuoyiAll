@@ -74,6 +74,21 @@ def test_cleanup_migration_fails_fast_on_unexpected_or_reported_data():
         assert token in sql, f"cleanup migration must fail fast via: {token}"
 
 
+def test_cleanup_migration_skips_current_49_process_baseline_without_invalid_b320():
+    sql = read_sql()
+
+    for token in [
+        "cleanup_proc: BEGIN",
+        "v_xlsx_active_process_count",
+        "v_already_normalized_target_count",
+        "HEX(already_process.`code`) = @already_normalized_process_code_hex",
+        "SET @already_normalized_process_code_hex = '5A32363230'",
+        "balloon XLSX route 00002 invalid process cleanup already normalized",
+        "LEAVE cleanup_proc",
+    ]:
+        assert token in sql, f"cleanup migration must explicitly skip already-normalized target state via: {token}"
+
+
 def test_cleanup_migration_soft_deletes_invalid_route_and_derived_records():
     sql = read_sql()
 

@@ -59,3 +59,15 @@ RED: app-infra-c07-after-runtime-fixture-fix -> FAIL，`mvn -f D:\IntRuoyiWorktr
 GREEN: codegen snapshot contract -> PASS，使用既有 `-Dcodegen.regenerate=true` 只刷新 `CodegenEngineVue2Test` / `CodegenEngineVue3Test` 对应测试资源后，`mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra "-Dtest=CodegenEngineVue2Test,CodegenEngineVue3Test" test` 通过 12 tests。
 
 GREEN: app-infra-c07-regression -> PASS，`mvn -f D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\pom.xml -pl yudao-module-infra test` 通过 546 tests、0 failures、0 errors、10 skipped；未执行服务器写入、数据库写入、NAS 上传、Docker build、MinIO 或正式服动作。
+
+## R28 Balloon XLSX Route Cleanup Target Contract
+
+BDD: 已规范化路线不应被旧清理迁移阻断 -> Given 测试服 `ROUTE-XLSX-00001/00002` 当前活跃工序总数已为后续绑定迁移要求的 49，且 `ROUTE-XLSX-00002` 第 26 道为有效 `Z2620` 而不是旧无效 `B320` / When 发布执行 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.sql` / Then 迁移应输出 already-normalized 结果并不修改业务数据；target preflight 必须在构建前验证 legacy cleanup 或 already-normalized 两种合法目标状态。
+
+RED: `python -X utf8 -m pytest -q script\tests\test_mes_balloon_xlsx_route_00002_invalid_process_cleanup_sql.py script\tests\test_release_target_preflight_files.py --basetemp ..\.tmp-r28-balloon-cleanup-red` -> FAIL，新增测试证明迁移缺少 already-normalized 分支，且 target preflight 只检查弱条件，无法提前覆盖 `B320/Z2620/49` 目标合同。
+
+GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_balloon_xlsx_route_00002_invalid_process_cleanup_sql.py script\tests\test_release_target_preflight_files.py --basetemp ..\.tmp-r28-balloon-cleanup-green` -> PASS，11 passed；`python -X utf8 -m pytest -q script\tests\test_release_preflight_plan.py script\tests\test_release_manifest_migration_contract.py script\tests\test_release_migration_policy_gate.py --basetemp ..\.tmp-r28-balloon-cleanup-regression` -> PASS，40 passed。
+
+GREEN: remote-target-preflight-r28-fix -> PASS，只读执行 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql` 到测试服业务库，返回 `TARGET_PREFLIGHT_PASS:20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup`；查询证据显示 `ROUTE-XLSX-00001=23`、`ROUTE-XLSX-00002=26`、总数 `49`、`B320 target=0`、`Z2620 target=1`。
+
+NOTE: 本修复只修改应用仓迁移 SQL、target preflight SQL 和对应静态合同测试；没有手工修改测试库业务数据，没有执行正式服、审查服或 MinIO 数据操作。R28 发布包已判废，下一轮必须使用新 releaseTag。

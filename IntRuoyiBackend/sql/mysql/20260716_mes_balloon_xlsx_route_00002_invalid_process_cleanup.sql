@@ -14,17 +14,20 @@ SET @target_tenant_id = 1;
 SET @target_route_hex = '524F5554452D584C53582D3030303032';
 SET @target_sort = 26;
 SET @target_process_code_hex = '42333230';
+SET @already_normalized_process_code_hex = '5A32363230';
 
 DELIMITER $$
 
 DROP PROCEDURE IF EXISTS `migrate_mes_balloon_xlsx_route_00002_invalid_process_cleanup`$$
 CREATE PROCEDURE `migrate_mes_balloon_xlsx_route_00002_invalid_process_cleanup`()
-BEGIN
+cleanup_proc: BEGIN
     DECLARE v_route_id bigint DEFAULT NULL;
     DECLARE v_target_process_id bigint DEFAULT NULL;
     DECLARE v_target_route_process_id bigint DEFAULT NULL;
+    DECLARE v_xlsx_active_process_count int DEFAULT 0;
     DECLARE v_route_00002_active_process_count int DEFAULT 0;
     DECLARE v_target_route_process_count int DEFAULT 0;
+    DECLARE v_already_normalized_target_count int DEFAULT 0;
     DECLARE v_previous_link_count int DEFAULT 0;
     DECLARE v_target_schedule_reported_count int DEFAULT 0;
     DECLARE final_route_00002_active_process_count int DEFAULT 0;
@@ -75,6 +78,44 @@ BEGIN
        AND route_process.`sort` = @target_sort
        AND HEX(route.`code`) = @target_route_hex
        AND HEX(process.`code`) = @target_process_code_hex;
+
+    SELECT COUNT(*)
+      INTO v_xlsx_active_process_count
+      FROM `mes_pro_route_process` route_process
+      JOIN `mes_pro_route` route
+        ON route.`id` = route_process.`route_id`
+       AND route.`tenant_id` = route_process.`tenant_id`
+       AND route.`deleted` = b'0'
+     WHERE route_process.`tenant_id` = @target_tenant_id
+       AND route_process.`deleted` = b'0'
+       AND route.`code` IN ('ROUTE-XLSX-00001', 'ROUTE-XLSX-00002');
+
+    SELECT COUNT(*)
+      INTO v_already_normalized_target_count
+      FROM `mes_pro_route_process` already_route_process
+      JOIN `mes_pro_route` already_route
+        ON already_route.`id` = already_route_process.`route_id`
+       AND already_route.`tenant_id` = already_route_process.`tenant_id`
+       AND already_route.`deleted` = b'0'
+      JOIN `mes_pro_process` already_process
+        ON already_process.`id` = already_route_process.`process_id`
+       AND already_process.`tenant_id` = already_route_process.`tenant_id`
+       AND already_process.`deleted` = b'0'
+     WHERE already_route_process.`tenant_id` = @target_tenant_id
+       AND already_route_process.`deleted` = b'0'
+       AND already_route_process.`sort` = @target_sort
+       AND HEX(already_route.`code`) = @target_route_hex
+       AND HEX(already_process.`code`) = @already_normalized_process_code_hex;
+
+    IF v_target_route_process_count = 0
+       AND v_route_00002_active_process_count = 26
+       AND v_xlsx_active_process_count = 49
+       AND v_already_normalized_target_count = 1 THEN
+        SELECT 'balloon XLSX route 00002 invalid process cleanup already normalized' AS `status`,
+               v_xlsx_active_process_count AS `xlsx_active_process_count`,
+               v_route_00002_active_process_count AS `route_00002_active_process_count`;
+        LEAVE cleanup_proc;
+    END IF;
 
     IF v_target_route_process_count <> 1 THEN
         SIGNAL SQLSTATE '45000'

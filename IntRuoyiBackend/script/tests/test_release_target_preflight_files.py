@@ -185,3 +185,20 @@ def test_mes_smart_scheduling_role_scope_preflight_matches_active_route_menu_con
     assert "5727" in text
     assert "old_route_menus" in text
     assert "new_route_menus" in text
+
+
+def test_balloon_xlsx_cleanup_preflight_matches_current_or_legacy_target_contract() -> None:
+    text = (TARGET_PREFLIGHT_ROOT / "20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.preflight.sql").read_text(encoding="utf-8")
+
+    for token in [
+        "ROUTE-XLSX-00001",
+        "ROUTE-XLSX-00002",
+        "B320",
+        "Z2620",
+        "reported_quantity",
+        "total_active_process_count",
+        "already_normalized_target_count",
+        "legacy_cleanup_target_count",
+        "legacy_reported_schedule_count",
+    ]:
+        assert token in text, f"preflight must check the same target-data contract as migration SQL via: {token}"
