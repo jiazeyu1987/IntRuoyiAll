@@ -47,9 +47,13 @@ Given B/1 is derived from A/2 while A/3 is the formal baseline at major-revision
 - Bug regression evidence validator -> PASS, `Bug regression evidence is valid.`
 - `git merge origin/int_main` after remote drift -> PASS, no conflicts, merge commit `f9d761c5261481c7802f92315b7b60260cf33015`; latest absorbed `origin/int_main` was `f117a3275491b6c5c83b41b18fe4386cf5a6bef6`.
 - After absorbing latest `origin/int_main`, DCC-STATIC-025 static contract -> PASS; targeted DCC Maven test -> PASS with `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`; `git diff --check origin/int_main..HEAD` -> PASS; branch runtime port guard -> PASS; bug-regression evidence validator -> PASS.
+- `git merge int_main` after local/remote main advanced to `fdaae3de2a7695d326ed462bad71719c3a7c84bc` -> PASS, no conflicts, merge commit `0df657daa9686ff8e6a89f380d8726c483135261`.
+- After absorbing `fdaae3de2a7695d326ed462bad71719c3a7c84bc`, DCC-STATIC-025 static contract -> PASS; targeted DCC Maven test -> PASS with `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`; `git diff --check int_main..HEAD` -> PASS; branch runtime port guard -> PASS; bug-regression evidence validator -> PASS.
+- Current task branch is fast-forward-ready relative to `int_main` and `origin/int_main`: both ancestry checks returned exit `0`.
 
 ## Blockers
 
 - `docs/bugs/20260912-dcc-90-step-static-audit.md` is not present in the clean `origin/int_main` worktree, so the shared bug file was not imported from the dirty main worktree and not edited.
 - The user authorized local fusion into `int_main`; remote push remains outside the explicit request unless separately authorized.
 - Local `E:\IntRuoyi` cannot receive this task directly while it has unrelated unresolved conflicts in MES process-pool files and staged EDHR static task records; this task must not stage, clean, reset, or resolve those unrelated files.
+- Current local `E:\IntRuoyi` now has one unrelated dirty MES static file, `IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-static-findings-fix-static.spec.cjs`; local fast-forward remains blocked by the dirty-main gate until that file is resolved by its owner or a remote fast-forward push is explicitly authorized.
