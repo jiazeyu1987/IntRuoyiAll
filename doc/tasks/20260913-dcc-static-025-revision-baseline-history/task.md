@@ -13,7 +13,7 @@ Fix only DCC-STATIC-025: subsequent minor versions created by check-in must inhe
 - [x] Apply minimal backend fix for check-in copy and history projection.
 - [x] Run targeted verification only; no E2E, service restart, database write, remote operation, commit, or push.
 - [x] Record DCC-STATIC-025 evidence in task report; shared `docs/bugs/20260912-dcc-90-step-static-audit.md` is absent from clean `origin/int_main`, so it was not imported from the dirty main worktree.
-- [ ] Commit task-owned code/test/evidence and fast-forward merge into `int_main` per user request on 2026-09-13.
+- [x] Commit task-owned code/test/evidence and fast-forward merge into `int_main` per user request on 2026-09-13.
 
 ## Expected Verification
 
@@ -38,3 +38,5 @@ ready_for_closeout
 - Branch: `codex/dcc-static-025-revision-baseline-history`.
 - Base: `origin/int_main` at `6c6487c9f151244910b9ff80454c397bc303e330`.
 - User authorized local fusion into `int_main` on 2026-09-13; remote push remains outside the explicit request.
+- Latest local `int_main` `a54464ac3c2053d58f9477f49623f0b7693e4d17` was merged into the task branch as `a8eb02bb29c821133e1919b06ed2cb01f59ad89a`; DCC-STATIC-025 implementation commit `46139d4996d4ee09eeb3732249b9bf28782c2d9f` remains an ancestor.
+- Post-merge local fusion verification passed: DCC-STATIC-025 static contract, targeted DCC Maven test, `git diff --check int_main..HEAD`, bug-regression evidence validator, and branch runtime port guard.

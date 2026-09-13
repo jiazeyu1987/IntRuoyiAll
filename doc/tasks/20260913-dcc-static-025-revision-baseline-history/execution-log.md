@@ -23,3 +23,11 @@
 - Reserved worktree runtime slot before commit/merge guard: `profile=int_main`, `slot=46`, `frontendPort=8261`, `backendPort=48261`.
 - GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `Branch runtime port guard passed for codex/dcc-static-025-revision-baseline-history/int_main: frontend 8261, backend 48261.`
 - Main worktree `E:\IntRuoyi` contains unrelated untracked local files; fusion must not stage, delete, or overwrite them.
+- Rechecked main worktree `E:\IntRuoyi`: branch `int_main`, clean, HEAD `a54464ac3c2053d58f9477f49623f0b7693e4d17`, status `## int_main...origin/int_main [ahead 5]`.
+- Merged latest local `int_main` into task branch: `git merge int_main` -> PASS, no conflicts, merge commit `a8eb02bb29c821133e1919b06ed2cb01f59ad89a`; post-merge hook ran `branch-runtime-port-guard.ps1` and passed for `codex/dcc-static-025-revision-baseline-history/int_main` with frontend `8084`, backend `48084`.
+- Verified ancestry before fast-forwarding main: `git merge-base --is-ancestor int_main HEAD` -> exit `0`; `git merge-base --is-ancestor 46139d4996d4ee09eeb3732249b9bf28782c2d9f HEAD` -> exit `0`.
+- GREEN: `node IntRuoyiBackend/yudao-module-dcc/src/test/js/dcc-static-025-revision-baseline-history-contract.spec.cjs` -> PASS, `DCC-STATIC-025 revision baseline history contract passed`.
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=cn.iocoder.yudao.module.dcc.service.file.DccLifecycleVisibilityAuditTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` from `IntRuoyiBackend` -> PASS, `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`, reactor `BUILD SUCCESS`, total time `01:36 min`.
+- GREEN: `git diff --check int_main..HEAD` -> PASS, no whitespace errors.
+- GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `Branch runtime port guard passed for codex/dcc-static-025-revision-baseline-history/int_main: frontend 8084, backend 48084.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260913-dcc-static-025-revision-baseline-history\verification-report.md` -> PASS, `Bug regression evidence is valid.`
