@@ -790,6 +790,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .revisionCode(version.revisionCode())
                 .iterationNo(version.iterationNo())
                 .predecessorControlledFileId(file.getId())
+                .revisionBaseActiveControlledFileId(file.getRevisionBaseActiveControlledFileId())
                 .sourceSha256(preparedSource.sourceSha256())
                 .previousSourceSha256(previousHash)
                 .changeDescription(StrUtil.trim(reqVO.getChangeDescription()))
@@ -2601,6 +2602,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setRevisionCode(history.getRevisionCode());
                     respVO.setIterationNo(history.getIterationNo());
                     respVO.setPredecessorControlledFileId(history.getPredecessorControlledFileId());
+                    respVO.setRevisionBaseActiveControlledFileId(history.getRevisionBaseActiveControlledFileId());
                     respVO.setSourceSha256(history.getSourceSha256());
                     respVO.setPreviousSourceSha256(history.getPreviousSourceSha256());
                     respVO.setChangeDescription(history.getChangeDescription());
