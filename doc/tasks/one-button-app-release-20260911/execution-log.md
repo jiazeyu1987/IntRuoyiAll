@@ -46,3 +46,12 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - RED: `python -X utf8 -m pytest D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\script\tests\test_release_preflight_plan.py -q -k "app_release" --basetemp D:\IntRuoyiWorktree\r260911-release-button\a\.tmp-pytest-one-button-app-release-red` -> FAIL，2 failed，旧 allow-list 拒绝 `app-release`。
 - GREEN: `python -X utf8 -m pytest D:\IntRuoyiWorktree\r260911-release-button\a\IntRuoyiBackend\script\tests\test_release_preflight_plan.py -q --basetemp D:\IntRuoyiWorktree\r260911-release-button\a\.tmp-pytest-one-button-app-release-green` -> PASS，19 passed。
 - GREEN: `git -C D:\IntRuoyiWorktree\r260911-release-button\a diff --check -- IntRuoyiBackend/script/release/release_preflight_plan.py IntRuoyiBackend/script/tests/test_release_preflight_plan.py` -> PASS。
+
+## P3 Route Menu Contract Continuation
+
+- BDD: 活跃路线菜单兼容旧库和统一后库 -> Given `20260709_mes_route_flow_config_unification` 会把旧排产路线菜单 `900121/900122` 迁移为工艺路线下的 `5726/5727` / When `20260629_mes_smart_scheduling_role_scope` 在目标库执行或执行目标只读预检 / Then SQL 必须选择当前活跃的 query/update 菜单，不因旧菜单已删除而阻断，也不得跳过版本化权限迁移。
+- RED: `python -X utf8 -m pytest -q IntRuoyiBackend\script\tests\test_mes_smart_scheduling_role_scope_sql.py IntRuoyiBackend\script\tests\test_release_target_preflight_files.py --basetemp .tmp-pytest-current-dirty-tests` -> FAIL，4 failed；旧迁移硬编码 `900121/900122`，目标只读预检没有验证旧/新路线菜单组合。
+- GREEN: `python -X utf8 -m pytest -q IntRuoyiBackend\script\tests\test_mes_smart_scheduling_role_scope_sql.py IntRuoyiBackend\script\tests\test_release_target_preflight_files.py --basetemp .tmp-pytest-route-menu-green` -> PASS，29 passed。
+- REGRESSION: `python -X utf8 -m pytest -q script\tests\test_mes_smart_scheduling_role_scope_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_mes_route_flow_config_migration_sql.py script\tests\test_release_preflight_plan.py --basetemp ..\.tmp-pytest-route-menu-regression-2` from `IntRuoyiBackend` -> PASS，54 passed。
+- GREEN: `git diff --check -- IntRuoyiBackend/sql/mysql/20260629_mes_smart_scheduling_role_scope.sql IntRuoyiBackend/sql/mysql/target-preflight/20260629_mes_smart_scheduling_role_scope.preflight.sql IntRuoyiBackend/script/tests/test_mes_smart_scheduling_role_scope_sql.py IntRuoyiBackend/script/tests/test_release_target_preflight_files.py` -> PASS。
+- IMPLEMENTATION: `20260629_mes_smart_scheduling_role_scope.sql` 新增 `v_process_route_query_menu_id` / `v_process_route_update_menu_id` 解析，优先使用活跃 `5726/5727`，否则兼容尚未统一的 `900121/900122`；目标只读预检改为验证核心 18 个菜单和旧/新路线菜单任一完整组合。

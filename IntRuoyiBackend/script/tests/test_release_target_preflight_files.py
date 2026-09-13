@@ -171,3 +171,17 @@ def test_target_preflights_are_read_only_single_statement_contracts() -> None:
         statements = [statement.strip() for statement in executable.split(";") if statement.strip()]
         assert len(statements) == 1
         assert re.match(r"^(?:select|with)\b", statements[0], re.IGNORECASE)
+
+
+def test_mes_smart_scheduling_role_scope_preflight_matches_active_route_menu_contract() -> None:
+    text = (TARGET_PREFLIGHT_ROOT / "20260629_mes_smart_scheduling_role_scope.preflight.sql").read_text(encoding="utf-8")
+
+    for menu_id in ("900120", "5590", "5580", "5550", "5262", "5540", "900104", "5985", "5551", "5552", "5553", "5532", "5535", "5555", "5969", "900200", "5723", "5730"):
+        assert menu_id in text
+
+    assert "900121" in text
+    assert "900122" in text
+    assert "5726" in text
+    assert "5727" in text
+    assert "old_route_menus" in text
+    assert "new_route_menus" in text

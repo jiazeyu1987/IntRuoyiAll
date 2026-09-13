@@ -44,10 +44,11 @@ def test_role_scope_sql_contains_three_distinct_allowed_menu_sets() -> None:
     assert "scheduler" in text
     assert "workshop_director" in text
     assert "team_leader" in text
-    for menu_id in ["900120", "5590", "5580", "5550", "5262", "900121", "5540", "5985"]:
+    for menu_id in ["900120", "5590", "5580", "5550", "5262", "5540", "5985"]:
         assert f"UNION ALL SELECT {menu_id}" in text or f"SELECT {menu_id} AS `menu_id`" in text
-    for menu_id in ["900120", "5580", "5550", "900121"]:
+    for menu_id in ["900120", "5580", "5550"]:
         assert f"UNION ALL SELECT {menu_id}" in text or f"SELECT {menu_id} AS `menu_id`" in text
+    assert "UNION ALL SELECT v_process_route_query_menu_id" in text
     for menu_id in ["900120", "5550", "5551", "5552", "5553"]:
         assert f"UNION ALL SELECT {menu_id}" in text or f"SELECT {menu_id} AS `menu_id`" in text
     assert "900104" in text
@@ -150,8 +151,8 @@ def test_role_scope_sql_keeps_scheduler_process_schedule_route_save_permission()
         "INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)\n  SELECT 'workshop_director'"
     )[0]
 
-    assert "900121" in scheduler_block, "scheduler block must keep process schedule route page permission"
-    assert "900122" in scheduler_block, "scheduler block must keep process schedule route save permission"
+    assert "v_process_route_query_menu_id" in scheduler_block, "scheduler block must keep active process schedule route query permission"
+    assert "v_process_route_update_menu_id" in scheduler_block, "scheduler block must keep active process schedule route save permission"
 
 
 def test_role_scope_sql_keeps_scheduler_route_flow_list_operation_permissions() -> None:
@@ -209,8 +210,27 @@ def test_role_scope_sql_keeps_scheduler_feedback_button_permissions_without_expa
 def test_role_scope_sql_declares_button_permission_menu_baseline() -> None:
     text = _read_sql()
 
-    assert "WHERE `id` IN (900120, 5590, 5580, 5550, 5262, 900121, 900122, 5540, 900104, 5985, 5551, 5552, 5553, 5532, 5535, 5555, 5969, 900200, 5723, 5730)" in text
-    assert ") <> 20 THEN" in text
+    assert "WHERE `id` IN (900120, 5590, 5580, 5550, 5262, 5540, 900104, 5985, 5551, 5552, 5553, 5532, 5535, 5555, 5969, 900200, 5723, 5730)" in text
+    assert ") <> 18 THEN" in text
+
+
+def test_role_scope_sql_accepts_route_flow_replacement_menus_after_unification() -> None:
+    text = _read_sql()
+
+    required_snippets = [
+        "DECLARE v_process_route_query_menu_id BIGINT DEFAULT NULL;",
+        "DECLARE v_process_route_update_menu_id BIGINT DEFAULT NULL;",
+        "THEN 900121",
+        "THEN 5726",
+        "THEN 900122",
+        "THEN 5727",
+        "UNION ALL SELECT v_process_route_query_menu_id",
+        "UNION ALL SELECT v_process_route_update_menu_id",
+        "OR `menu`.`id` IN (v_process_route_query_menu_id, v_process_route_update_menu_id)",
+    ]
+
+    for snippet in required_snippets:
+        assert snippet in text
 
 
 def test_role_scope_sql_keeps_minimum_schedule_order_query_for_workshop_director() -> None:

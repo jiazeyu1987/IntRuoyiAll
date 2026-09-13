@@ -9,16 +9,49 @@ BEGIN
   DECLARE v_scheduler_role_id BIGINT DEFAULT NULL;
   DECLARE v_workshop_director_role_id BIGINT DEFAULT NULL;
   DECLARE v_team_leader_role_id BIGINT DEFAULT NULL;
+  DECLARE v_process_route_query_menu_id BIGINT DEFAULT NULL;
+  DECLARE v_process_route_update_menu_id BIGINT DEFAULT NULL;
 
   IF (
     SELECT COUNT(*)
     FROM `system_menu`
-    WHERE `id` IN (900120, 5590, 5580, 5550, 5262, 900121, 900122, 5540, 900104, 5985, 5551, 5552, 5553, 5532, 5535, 5555, 5969, 900200, 5723, 5730)
+    WHERE `id` IN (900120, 5590, 5580, 5550, 5262, 5540, 900104, 5985, 5551, 5552, 5553, 5532, 5535, 5555, 5969, 900200, 5723, 5730)
       AND `deleted` = b'0'
       AND `status` = 0
-  ) <> 20 THEN
+  ) <> 18 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Missing MES smart scheduling role-scope menu baseline';
+  END IF;
+
+  SELECT CASE
+      WHEN EXISTS (
+        SELECT 1 FROM `system_menu`
+        WHERE `id` = 5726 AND `deleted` = b'0' AND `status` = 0
+      ) THEN 5726
+      WHEN EXISTS (
+        SELECT 1 FROM `system_menu`
+        WHERE `id` = 900121 AND `deleted` = b'0' AND `status` = 0
+      ) THEN 900121
+      ELSE NULL
+    END
+  INTO v_process_route_query_menu_id;
+
+  SELECT CASE
+      WHEN EXISTS (
+        SELECT 1 FROM `system_menu`
+        WHERE `id` = 5727 AND `deleted` = b'0' AND `status` = 0
+      ) THEN 5727
+      WHEN EXISTS (
+        SELECT 1 FROM `system_menu`
+        WHERE `id` = 900122 AND `deleted` = b'0' AND `status` = 0
+      ) THEN 900122
+      ELSE NULL
+    END
+  INTO v_process_route_update_menu_id;
+
+  IF v_process_route_query_menu_id IS NULL OR v_process_route_update_menu_id IS NULL THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Missing active process schedule route query/update menu baseline';
   END IF;
 
   UPDATE `system_role`
@@ -276,8 +309,8 @@ BEGIN
     UNION ALL SELECT 5555
     UNION ALL SELECT 5969
     UNION ALL SELECT 5262
-    UNION ALL SELECT 900121
-    UNION ALL SELECT 900122
+    UNION ALL SELECT v_process_route_query_menu_id
+    UNION ALL SELECT v_process_route_update_menu_id
     UNION ALL SELECT 5540
     UNION ALL SELECT 5541
     UNION ALL SELECT 5583
@@ -310,7 +343,7 @@ BEGIN
     UNION ALL SELECT 5580
     UNION ALL SELECT 5581
     UNION ALL SELECT 5550
-    UNION ALL SELECT 900121
+    UNION ALL SELECT v_process_route_query_menu_id
   ) AS `workshop_director_menu_ids`;
 
   INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)
@@ -384,8 +417,9 @@ BEGIN
   WHERE `role_menu`.`deleted` = b'0'
     AND (
       `menu`.`id` = 900104
+      OR `menu`.`id` IN (v_process_route_query_menu_id, v_process_route_update_menu_id)
       OR `menu`.`parent_id` = 900120
-      OR `menu`.`parent_id` IN (5590, 5580, 5550, 900121)
+      OR `menu`.`parent_id` IN (5590, 5580, 5550, v_process_route_query_menu_id)
     )
     AND `effective_allowed_menu`.`menu_id` IS NULL;
 
