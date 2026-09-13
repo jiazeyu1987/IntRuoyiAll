@@ -23,7 +23,7 @@
 
 completed
 
-当前 f2d2 工作树 HEAD `6c6487c9f` 已是 `int_main` 祖先，无需再次重放旧快照。`E:\IntRuoyi` 的 `int_main` 与 `origin/int_main` 均为 `92b5a6dc2`，已包含本轮推送的 DCC 静态修复提交；冗余重放产生的冲突已按 HEAD 收口，未覆盖 `int_main` 新逻辑。
+当前 f2d2 工作树 HEAD `6c6487c9f` 已是 `int_main` 祖先，无需再次重放旧快照。`E:\IntRuoyi` 的 `int_main` 已包含本轮 DCC 静态修复提交；冗余重放产生的 MES 冲突已合并为“QA 电子签名快照 + 工单冻结生命周期”同版逻辑，未用旧文件覆盖主线新逻辑。
 
 ## Design Constraints Check
 

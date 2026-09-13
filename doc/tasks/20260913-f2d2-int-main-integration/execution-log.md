@@ -14,4 +14,4 @@
 - 差异检查：`git diff --check origin/int_main..HEAD` -> PASS。
 - 端口门禁：`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` frontend 8081 backend 48081。
 - 推送：`git push origin int_main` -> PASS，`origin/int_main` 更新到 `92b5a6dc2`。
-- 最终状态：`git rev-parse --short HEAD` 与 `git rev-parse --short origin/int_main` 均为 `92b5a6dc2`；仅剩明确排除的未跟踪 `resource/` Office 草稿和 `IntRuoyiFronted/tsconfig.route-production-migration.tmp.json`。
+- 追加收口：主线后续出现 `MesProEdhrNonconformanceReviewServiceImpl` 与 `MesProEdhrNonconformanceReviewApplicationScopeTest` unmerged index；工作区内容已合并为 QA 电子签名快照与工单冻结生命周期同版逻辑，并确认无冲突标记。
