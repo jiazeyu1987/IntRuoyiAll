@@ -39,7 +39,10 @@
 - GREEN: `mvn --% -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am -DskipTests compile` 于 `E:\IntRuoyi` `int_main` -> PASS，Reactor 25/25 SUCCESS，`BUILD SUCCESS`。
 - CLOSEOUT: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-edhr-static-013-reopened-output-material-snapshot --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`；delete/blocked/warnings 均为 `<none>`。
 - CLOSEOUT: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260913-edhr-static-013-reopened-output-material-snapshot --mode apply` -> PASS，deleted_paths 为 `<none>`。
-- Blockers: 当前无代码或融合冲突阻塞；本轮仍未执行 E2E、未启动服务、未写数据库。
+- SUBMIT: 本地实现提交 `2618a4a3f` 已落在 `E:\IntRuoyi` 的 `int_main`；随后本地文档修正提交 `16997a9c7`。
+- FUSION: `git merge origin/int_main` -> PASS，merge commit `362929947`，本地 `int_main` 已包含最新 `origin/int_main` 与 EDHR-STATIC-013 实现。
+- GREEN: 融合后复核 `scripts\preflight\branch-runtime-port-guard.ps1`、`node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-013-output-material-snapshot-static.spec.cjs`、`git diff --check`、`mvn --% -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am -DskipTests compile`、bug evidence validator、cleanup preview/apply 均 PASS。
+- Blockers: 当前无代码或融合冲突阻塞；本轮仍未执行 E2E、未启动服务、未写数据库。新本地提交尚未获明确 Git push 授权，因此保持 `ready_for_closeout`，不标记 `completed`。
 
 ## Current Notes
 

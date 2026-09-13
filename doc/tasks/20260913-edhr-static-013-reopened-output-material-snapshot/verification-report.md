@@ -10,7 +10,7 @@ EDHR-STATIC-013 reopened fix: active-order production process config snapshots m
 - E2E: not run by explicit user instruction.
 - Service startup: not run by explicit user instruction.
 - Database writes: not run by explicit user instruction.
-- Git commit/fusion: authorized in current follow-up; existing `int_main` ahead commits are already synchronized, EDHR implementation commit is pending.
+- Git commit/fusion: authorized in current follow-up; EDHR implementation commit `2618a4a3f` exists on local `int_main`, and merge commit `362929947` reconciles latest `origin/int_main`.
 
 ## Results
 
@@ -21,6 +21,7 @@ EDHR-STATIC-013 reopened fix: active-order production process config snapshots m
 - PASS: changed-path static review is limited to EDHR-STATIC-013 scope: active-order production snapshot generation, route production config validation, conservative output-material progress calculation, affected completion consumers, event mapper support, the static contract, and task evidence.
 - PASS: bug regression evidence contract validates: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260913-edhr-static-013-reopened-output-material-snapshot\execution-log.md`.
 - PASS: Earlier detached-worktree blocker was recovered by applying the task patch directly to `E:\IntRuoyi` `int_main` after existing mainline conflicts were resolved.
+- PASS: Post-fusion verification passed on `E:\IntRuoyi` `int_main`: branch runtime port guard, static contract, `git diff --check`, MES compile, bug evidence validator, and cleanup preview/apply.
 
 ## Root Cause
 
@@ -37,4 +38,4 @@ Formal active-order production config snapshots did not freeze the route snapsho
 ## Blockers / Exclusions
 
 - No remaining code verification blocker for the scoped static/backend compile checks.
-- E2E, service startup, database writes, and new Git push remain intentionally excluded. No current code/fusion blocker remains; implementation commit, `origin/int_main` merge reconciliation, and closeout record update are pending.
+- E2E, service startup, database writes, and new Git push remain intentionally excluded. No current code/fusion blocker remains; task is ready for closeout once the new local commits are explicitly pushed.

@@ -24,7 +24,7 @@
 
 ready_for_closeout
 
-已完成 EDHR-STATIC-013 定向静态合同、最小生产修复、Java 编译门禁、`git diff --check`、变更范围静态审查和经验沉淀。用户要求先提交再融合 `int_main` 后，已将本任务补丁应用到 `E:\IntRuoyi` 的 `int_main`，解决两处融合冲突并复跑静态合同、端口矩阵门禁和 MES 编译通过；当前待本地实现提交、整合远端最新 `origin/int_main` 和收尾记录。
+已完成 EDHR-STATIC-013 定向静态合同、最小生产修复、Java 编译门禁、`git diff --check`、变更范围静态审查和经验沉淀。用户要求先提交再融合 `int_main` 后，已在 `E:\IntRuoyi` 的 `int_main` 完成本地实现提交 `2618a4a3f`，并通过 merge commit `362929947` 整合最新 `origin/int_main`；融合后静态合同、端口矩阵门禁、MES 编译、bug evidence 校验和 cleanup preview/apply 均通过。新本地提交尚未获明确 Git push 授权，因此任务保持 `ready_for_closeout`。
 
 ## Design Constraints Check
 
