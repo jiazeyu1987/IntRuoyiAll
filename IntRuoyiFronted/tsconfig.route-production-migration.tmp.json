@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.relaxed.json",
+  "include": [
+    "types/**/*.d.ts",
+    "src/types/auto-imports.d.ts",
+    "src/types/auto-components.d.ts",
+    "src/api/mes/pro/route/index.ts",
+    "src/views/mes/pro/route/index.vue"
+  ]
+}
