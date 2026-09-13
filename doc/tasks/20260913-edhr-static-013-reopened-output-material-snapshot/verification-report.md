@@ -1,4 +1,4 @@
-﻿# Verification Report
+# Verification Report
 
 ## Scope
 
@@ -40,4 +40,4 @@ Formal active-order production config snapshots did not freeze the route snapsho
 
 - No remaining code verification blocker for the scoped static/backend compile checks.
 - E2E, service startup, and database writes remain intentionally excluded.
-- Final project completion is blocked only by Git push authorization: local `int_main` is ahead of `origin/int_main` by 3 commits.
+- Final project completion is blocked only by Git push authorization: local `int_main` is ahead of `origin/int_main`.
