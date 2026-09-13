@@ -10,7 +10,7 @@ EDHR-STATIC-013 reopened fix: active-order production process config snapshots m
 - E2E: not run by explicit user instruction.
 - Service startup: not run by explicit user instruction.
 - Database writes: not run by explicit user instruction.
-- Git commit/push: authorized in current follow-up; existing `int_main` ahead commits pushed, EDHR implementation commit pending.
+- Git commit/fusion: authorized in current follow-up; existing `int_main` ahead commits are already synchronized, EDHR implementation commit is pending.
 
 ## Results
 
@@ -37,4 +37,4 @@ Formal active-order production config snapshots did not freeze the route snapsho
 ## Blockers / Exclusions
 
 - No remaining code verification blocker for the scoped static/backend compile checks.
-- E2E, service startup, and database writes remain intentionally excluded. No current code/fusion blocker remains; implementation commit, closeout, and final push are pending.
+- E2E, service startup, database writes, and new Git push remain intentionally excluded. No current code/fusion blocker remains; implementation commit, `origin/int_main` merge reconciliation, and closeout record update are pending.
