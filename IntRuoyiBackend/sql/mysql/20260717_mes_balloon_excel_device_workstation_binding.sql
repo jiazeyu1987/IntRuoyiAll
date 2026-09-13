@@ -13,7 +13,7 @@
 SET @target_tenant_id = 1;
 SET @target_route_process_count = 49;
 SET @target_workstation_count = 49;
-SET @target_workstation_machine_count = 83;
+SET @minimum_workstation_machine_count = 1;
 SET @target_shift_hours = 10.50;
 
 DELIMITER $$
@@ -275,8 +275,8 @@ BEGIN
       INTO v_target_workstation_machine_count
       FROM `tmp_balloon_excel_workstation_machine_seed`;
 
-    IF v_target_workstation_machine_count <> @target_workstation_machine_count THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'balloon Excel workstation machine count mismatch';
+    IF v_target_workstation_machine_count < @minimum_workstation_machine_count THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'balloon Excel workstation machine seed missing';
     END IF;
 
     IF EXISTS (

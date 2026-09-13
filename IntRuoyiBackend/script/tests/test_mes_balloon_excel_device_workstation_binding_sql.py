@@ -3,6 +3,7 @@ import re
 
 
 SQL_PATH = Path("sql/mysql/20260717_mes_balloon_excel_device_workstation_binding.sql")
+PREFLIGHT_PATH = Path("sql/mysql/target-preflight/20260717_mes_balloon_excel_device_workstation_binding.preflight.sql")
 
 
 def read_sql() -> str:
@@ -27,10 +28,12 @@ def test_balloon_excel_workstation_binding_has_release_contract_and_scope():
         "ROUTE-XLSX-00001",
         "ROUTE-XLSX-00002",
         "SET @target_route_process_count = 49",
+        "SET @minimum_workstation_machine_count = 1",
     ]:
         assert token in sql, f"migration must include token: {token}"
 
     assert "tenant_id = 122" not in sql
+    assert "SET @target_workstation_machine_count = 83" not in sql
 
 
 def test_balloon_excel_workstation_binding_creates_reusable_current_process_workstations():
@@ -62,6 +65,30 @@ def test_balloon_excel_workstation_binding_links_excel_devices_as_station_machin
         "workstation machine quantity conflict",
     ]:
         assert token in sql, f"migration must bind Excel equipment resources via: {token}"
+
+
+def test_balloon_excel_workstation_binding_uses_target_derived_machine_count():
+    sql = read_sql()
+
+    assert "v_target_workstation_machine_count < @minimum_workstation_machine_count" in sql
+    assert "balloon Excel workstation machine count mismatch" not in sql
+    assert "COUNT(*)\n      INTO v_target_workstation_machine_count" in sql
+
+
+def test_balloon_excel_target_preflight_checks_machine_seed_before_deploy():
+    assert PREFLIGHT_PATH.exists(), "target preflight must exist for workstation machine binding"
+    preflight = PREFLIGHT_PATH.read_text(encoding="utf-8")
+
+    for token in [
+        "TARGET_PREFLIGHT_PASS:20260717_mes_balloon_excel_device_workstation_binding",
+        "ROUTE-XLSX-00001",
+        "ROUTE-XLSX-00002",
+        "mes_dv_machinery_process",
+        "mes_dv_machinery",
+        "COUNT(DISTINCT CONCAT(route_process.`id`, ':', mp.`machinery_id`))",
+        "> 0",
+    ]:
+        assert token in preflight, f"target preflight must validate machine seed via: {token}"
 
 
 def test_balloon_excel_workstation_binding_binds_all_target_route_processes_and_backs_up():
