@@ -25,6 +25,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.materialstock.MesWmMaterialStockMapper;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONException;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -462,9 +465,14 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 missing.add(taskText + " " + aggregateReason);
                 continue;
             }
-            String expectedResult = expectedInspectionResult(pieceDetails);
+            FormalScrapQuantityEvidence scrapQuantityEvidence = formalScrapQuantityEvidence(task, record);
+            if (scrapQuantityEvidence.invalidReason() != null) {
+                missing.add(taskText + " " + scrapQuantityEvidence.invalidReason());
+                continue;
+            }
+            String expectedResult = expectedInspectionResult(scrapQuantityEvidence.scrapQuantity(), pieceDetails);
             if (!Objects.equals(expectedResult, record.getInspectionResult())) {
-                missing.add(taskText + " 检验结论与逐件判定不一致，expected=" + expectedResult
+                missing.add(taskText + " 检验结论与报废数量/逐件判定不一致，expected=" + expectedResult
                         + ", actual=" + record.getInspectionResult());
                 continue;
             }
@@ -625,7 +633,39 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 && Objects.equals(record.getProcessInspectionAggregatedAt(), aggregateDetail.getAggregatedAt());
     }
 
-    private String expectedInspectionResult(List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+    private FormalScrapQuantityEvidence formalScrapQuantityEvidence(MesPqcInspectionTaskDO task,
+                                                                    MesProProcessPoolPqcRecordDO record) {
+        JSONObject payload;
+        try {
+            payload = JSON.parseObject(record.getRawPayload());
+        } catch (JSONException ex) {
+            return new FormalScrapQuantityEvidence(null, "正式 PQC payload 无法解析 scrapQuantity");
+        }
+        if (payload == null || !payload.containsKey("scrapQuantity")) {
+            return new FormalScrapQuantityEvidence(null, "正式 PQC payload 缺少 scrapQuantity");
+        }
+        Object rawScrapQuantity = payload.get("scrapQuantity");
+        if (!(rawScrapQuantity instanceof Number)) {
+            return new FormalScrapQuantityEvidence(null, "正式 PQC payload 的 scrapQuantity 不是数字");
+        }
+        int scrapQuantity;
+        try {
+            scrapQuantity = new BigDecimal(rawScrapQuantity.toString()).intValueExact();
+        } catch (ArithmeticException | NumberFormatException ex) {
+            return new FormalScrapQuantityEvidence(null, "正式 PQC payload 的 scrapQuantity 不是整数");
+        }
+        if (scrapQuantity < 0 || scrapQuantity > task.getActualInspectionQuantity()) {
+            return new FormalScrapQuantityEvidence(null,
+                    "正式 PQC payload 的 scrapQuantity 超出实际检验数量，scrapQuantity=" + scrapQuantity
+                            + ", actualInspectionQuantity=" + task.getActualInspectionQuantity());
+        }
+        return new FormalScrapQuantityEvidence(scrapQuantity, null);
+    }
+
+    private String expectedInspectionResult(Integer scrapQuantity, List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+        if (scrapQuantity != null && scrapQuantity > 0) {
+            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
+        }
         return pieceDetails.stream()
                 .anyMatch(detail -> MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(
                         detail.getJudgement()))
@@ -654,6 +694,9 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
 
     private boolean isPqcInspectionResult(String result) {
         return result != null && PQC_INSPECTION_RESULTS.contains(result);
+    }
+
+    private record FormalScrapQuantityEvidence(Integer scrapQuantity, String invalidReason) {
     }
 
     private String invalidInventoryTraceReason(MesProcessPoolActiveOrderTransferTraceDO trace) {

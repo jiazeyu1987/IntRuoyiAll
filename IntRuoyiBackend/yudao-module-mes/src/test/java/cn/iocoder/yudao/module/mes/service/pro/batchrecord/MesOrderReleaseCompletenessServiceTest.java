@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -185,6 +186,90 @@ class MesOrderReleaseCompletenessServiceTest {
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
         assertTrue(result.failureReason().contains("正式检验结论"));
+    }
+
+    @Test
+    void evaluateInspectionResultPassesWhenScrapOnlyFailureHasClosedQaDisposition() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM"),
+                confirmedPqcTask(4L, "FINAL", "FINAL"));
+        mockFormalSuccessEvidence(tasks);
+        MesPqcInspectionTaskDO scrapOnlyFailure = tasks.get(0);
+        mockFormalPqcEvidence(scrapOnlyFailure,
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE,
+                "{\"scrapQuantity\":1,\"inspectionResult\":\"FAILURE\"}",
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
+        lenient().when(nonconformanceReviewMapper.selectLatestBySource(
+                        MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION,
+                        scrapOnlyFailure.getSubmittedEventId()))
+                .thenReturn(closedPqcSubmissionReview(scrapOnlyFailure.getSubmittedEventId()));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
+        assertTrue(result.failureReason().contains("必要处置依据完整"));
+    }
+
+    @Test
+    void evaluateInspectionResultBlocksScrapOnlyFailureWithoutClosedQaDisposition() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM"),
+                confirmedPqcTask(4L, "FINAL", "FINAL"));
+        mockFormalSuccessEvidence(tasks);
+        MesPqcInspectionTaskDO scrapOnlyFailure = tasks.get(0);
+        mockFormalPqcEvidence(scrapOnlyFailure,
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE,
+                "{\"scrapQuantity\":1,\"inspectionResult\":\"FAILURE\"}",
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
+        assertTrue(result.failureReason().contains("失败检验缺少不合格处置记录"));
+    }
+
+    @Test
+    void evaluateInspectionResultBlocksWhenScrapQuantityEvidenceIsMissingFromFormalPayload() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM"),
+                confirmedPqcTask(4L, "FINAL", "FINAL"));
+        mockFormalSuccessEvidence(tasks);
+        mockFormalPqcEvidence(tasks.get(0),
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS,
+                "{\"inspectionResult\":\"SUCCESS\"}",
+                MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(tasks);
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
+        assertTrue(result.failureReason().contains("scrapQuantity"));
     }
 
     @Test
@@ -494,75 +579,98 @@ class MesOrderReleaseCompletenessServiceTest {
     }
 
     private void mockFormalSuccessEvidence(List<MesPqcInspectionTaskDO> tasks) {
-        LocalDateTime aggregatedAt = LocalDateTime.of(2026, 9, 13, 9, 30);
         for (MesPqcInspectionTaskDO task : tasks) {
-            MesProProcessPoolPqcRecordDO record = MesProProcessPoolPqcRecordDO.builder()
-                    .id(20000L + task.getId())
-                    .eventId(task.getSubmittedEventId())
-                    .workOrderId(task.getWorkOrderId())
-                    .routeId(task.getRouteId())
-                    .routeProcessId(task.getRouteProcessId())
-                    .processId(task.getProcessId())
-                    .qaProcessId(task.getQaProcessId())
-                    .actualEmployeeId(501L)
-                    .signatureId(30000L + task.getId())
-                    .signatureUserId(501L)
-                    .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                    .serverSubmitTime(aggregatedAt.minusMinutes(5))
-                    .rawPayload("{}")
-                    .processInspectionAggregationStatus(
-                            MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
-                    .processInspectionReviewId(40000L + task.getId())
-                    .processInspectionAggregatedAt(aggregatedAt)
-                    .build();
-            MesPqcInspectionPieceDetailDO pieceDetail = MesPqcInspectionPieceDetailDO.builder()
-                    .id(50000L + task.getId())
-                    .taskId(task.getId())
-                    .sampleNo(1)
-                    .itemCode(task.getQaItemCode())
-                    .itemName(task.getQaItemCode())
-                    .inspectionMethod("目视")
-                    .standardText("合格")
-                    .resultType("TEXT")
-                    .itemResult("OK")
-                    .measuredValue("OK")
-                    .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                    .build();
-            MesPqcProcessInspectionAggregateDetailDO aggregateDetail = MesPqcProcessInspectionAggregateDetailDO.builder()
-                    .id(60000L + task.getId())
-                    .sourcePqcRecordId(record.getId())
-                    .sourcePieceDetailId(pieceDetail.getId())
-                    .eventId(task.getSubmittedEventId())
-                    .reviewId(record.getProcessInspectionReviewId())
-                    .pqcTaskId(task.getId())
-                    .activeOrderId(task.getActiveOrderId())
-                    .workOrderId(task.getWorkOrderId())
-                    .routeId(task.getRouteId())
-                    .routeVersionId(task.getRouteVersionId())
-                    .routeProcessId(task.getRouteProcessId())
-                    .processId(task.getProcessId())
-                    .regulationVersionId(task.getRegulationVersionId())
-                    .inspectionType(task.getInspectionType())
-                    .businessDate(task.getBusinessDate())
-                    .shiftCode(task.getShiftCode())
-                    .roundNo(task.getRoundNo())
-                    .actualInspectionQuantity(task.getActualInspectionQuantity())
-                    .sampleNo(pieceDetail.getSampleNo())
-                    .itemCode(pieceDetail.getItemCode())
-                    .itemName(pieceDetail.getItemName())
-                    .inspectionMethod(pieceDetail.getInspectionMethod())
-                    .standardText(pieceDetail.getStandardText())
-                    .resultType(pieceDetail.getResultType())
-                    .itemResult(pieceDetail.getItemResult())
-                    .measuredValue(pieceDetail.getMeasuredValue())
-                    .judgement(pieceDetail.getJudgement())
-                    .aggregatedAt(aggregatedAt)
-                    .build();
-            lenient().when(pqcRecordMapper.selectByEventId(task.getSubmittedEventId())).thenReturn(record);
-            lenient().when(pqcPieceDetailMapper.selectListByTaskId(task.getId())).thenReturn(List.of(pieceDetail));
-            lenient().when(aggregateDetailMapper.selectListByEventId(task.getSubmittedEventId()))
-                    .thenReturn(List.of(aggregateDetail));
+            mockFormalPqcEvidence(task,
+                    MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS,
+                    "{\"scrapQuantity\":0,\"inspectionResult\":\"SUCCESS\"}",
+                    MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
         }
+    }
+
+    private void mockFormalPqcEvidence(MesPqcInspectionTaskDO task, String inspectionResult,
+                                       String rawPayload, String pieceJudgement) {
+        LocalDateTime aggregatedAt = LocalDateTime.of(2026, 9, 13, 9, 30);
+        MesProProcessPoolPqcRecordDO record = MesProProcessPoolPqcRecordDO.builder()
+                .id(20000L + task.getId())
+                .eventId(task.getSubmittedEventId())
+                .workOrderId(task.getWorkOrderId())
+                .routeId(task.getRouteId())
+                .routeProcessId(task.getRouteProcessId())
+                .processId(task.getProcessId())
+                .qaProcessId(task.getQaProcessId())
+                .actualEmployeeId(501L)
+                .signatureId(30000L + task.getId())
+                .signatureUserId(501L)
+                .inspectionResult(inspectionResult)
+                .serverSubmitTime(aggregatedAt.minusMinutes(5))
+                .rawPayload(rawPayload)
+                .processInspectionAggregationStatus(
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
+                .processInspectionReviewId(40000L + task.getId())
+                .processInspectionAggregatedAt(aggregatedAt)
+                .build();
+        MesPqcInspectionPieceDetailDO pieceDetail = MesPqcInspectionPieceDetailDO.builder()
+                .id(50000L + task.getId())
+                .taskId(task.getId())
+                .sampleNo(1)
+                .itemCode(task.getQaItemCode())
+                .itemName(task.getQaItemCode())
+                .inspectionMethod("目视")
+                .standardText("合格")
+                .resultType("TEXT")
+                .itemResult("OK")
+                .measuredValue("OK")
+                .judgement(pieceJudgement)
+                .build();
+        MesPqcProcessInspectionAggregateDetailDO aggregateDetail = MesPqcProcessInspectionAggregateDetailDO.builder()
+                .id(60000L + task.getId())
+                .sourcePqcRecordId(record.getId())
+                .sourcePieceDetailId(pieceDetail.getId())
+                .eventId(task.getSubmittedEventId())
+                .reviewId(record.getProcessInspectionReviewId())
+                .pqcTaskId(task.getId())
+                .activeOrderId(task.getActiveOrderId())
+                .workOrderId(task.getWorkOrderId())
+                .routeId(task.getRouteId())
+                .routeVersionId(task.getRouteVersionId())
+                .routeProcessId(task.getRouteProcessId())
+                .processId(task.getProcessId())
+                .regulationVersionId(task.getRegulationVersionId())
+                .inspectionType(task.getInspectionType())
+                .businessDate(task.getBusinessDate())
+                .shiftCode(task.getShiftCode())
+                .roundNo(task.getRoundNo())
+                .actualInspectionQuantity(task.getActualInspectionQuantity())
+                .sampleNo(pieceDetail.getSampleNo())
+                .itemCode(pieceDetail.getItemCode())
+                .itemName(pieceDetail.getItemName())
+                .inspectionMethod(pieceDetail.getInspectionMethod())
+                .standardText(pieceDetail.getStandardText())
+                .resultType(pieceDetail.getResultType())
+                .itemResult(pieceDetail.getItemResult())
+                .measuredValue(pieceDetail.getMeasuredValue())
+                .judgement(pieceDetail.getJudgement())
+                .aggregatedAt(aggregatedAt)
+                .build();
+        lenient().when(pqcRecordMapper.selectByEventId(task.getSubmittedEventId())).thenReturn(record);
+        lenient().when(pqcPieceDetailMapper.selectListByTaskId(task.getId())).thenReturn(List.of(pieceDetail));
+        lenient().when(aggregateDetailMapper.selectListByEventId(task.getSubmittedEventId()))
+                .thenReturn(List.of(aggregateDetail));
+    }
+
+    private static MesProEdhrNonconformanceReviewDO closedPqcSubmissionReview(Long submittedEventId) {
+        return MesProEdhrNonconformanceReviewDO.builder()
+                .id(70000L + submittedEventId)
+                .sourceType(MesProEdhrNonconformanceReviewService.SOURCE_TYPE_PQC_SUBMISSION)
+                .sourceId(submittedEventId)
+                .reviewStatus(MesProEdhrNonconformanceReviewService.STATUS_CLOSED)
+                .disposition(MesProEdhrNonconformanceReviewService.DISPOSITION_CONCESSION_RELEASE)
+                .reviewMaterialUrl("https://qa.example/review-material")
+                .reviewOpinion("QA 已完成让步放行处置")
+                .qaSignature("QA电子签名#9001")
+                .qaUserId(9001L)
+                .closedAt(LocalDateTime.of(2026, 9, 13, 10, 0))
+                .build();
     }
 
     private static List<MesProcessPoolActiveOrderTransferTraceDO> completeInventoryTraces() {
