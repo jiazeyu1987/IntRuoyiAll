@@ -21,9 +21,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和非 E2E 定向验证已完成；用户已授权提交并融合进 `int_main`，当前进入收尾提交与融合门禁。
+实现、非 E2E 定向验证、cleanup apply 和 `int_main` 融合均已完成。任务分支实现提交为 `7838ff738`；`int_main` 融合提交为 `ded9c4a51`。
 
 ## Design Constraints Check
 

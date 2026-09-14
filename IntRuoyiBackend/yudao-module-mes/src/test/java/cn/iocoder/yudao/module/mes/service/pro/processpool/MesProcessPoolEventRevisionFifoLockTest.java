@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,13 +39,15 @@ class MesProcessPoolEventRevisionFifoLockTest {
     private MesProcessPoolFifoAllocationService fifoAllocationService;
     @Mock
     private MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProcessPoolEventRevisionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
-                revisionDiffMapper, fifoAllocationService, submissionReviewMapper);
+                revisionDiffMapper, fifoAllocationService, submissionReviewMapper, signatureService);
     }
 
     @Test
@@ -87,6 +90,7 @@ class MesProcessPoolEventRevisionFifoLockTest {
                 .revisionSignatureUserId(2001L)
                 .revisionSignatureSnapshot("{\"signedBy\":\"张可莹\"}")
                 .modifiedByUserId(2001L)
+                .signaturePassword("signature-pass")
                 .changedFields(List.of(MesProcessPoolEventRevisionFieldChangeBO.builder()
                         .fieldCode("outputQuantity")
                         .fieldName("输出数量")

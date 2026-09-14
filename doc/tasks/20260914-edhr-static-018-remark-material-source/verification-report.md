@@ -56,7 +56,7 @@ RED result: FAIL, `formal source resolution must not inspect free-text work-orde
 
 ## Verification
 
-Verified the static source contract, adjacent multi-pick-list completion contract, adjacent Stage1 static contract, two targeted Java unit classes, and skill evidence contracts. No Playwright/E2E, database write, service start/stop/restart, remote operation, git commit, or git push was performed.
+Verified the static source contract, adjacent multi-pick-list completion contract, adjacent Stage1 static contract, two targeted Java unit classes, and skill evidence contracts. No Playwright/E2E, database write, service start/stop/restart, or remote operation was performed. Git commit/push was later authorized for the baseline, `int_main` fusion, and closeout records only.
 
 Cleanup preview:
 
@@ -64,13 +64,30 @@ Cleanup preview:
 python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode preview
 ```
 
-Result: BLOCKED. The script kept `task.md`, `execution-log.md`, and `verification-report.md`, planned no deletes, and reported `Current worktree branch could not be resolved.`
+Historical result before commit authorization: BLOCKED. The script kept `task.md`, `execution-log.md`, and `verification-report.md`, planned no deletes, and reported `Current worktree branch could not be resolved.`
+
+Final cleanup preview/apply on `int_main`:
+
+```powershell
+python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode preview
+python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode apply
+```
+
+Final result: PASS. Main worktree `int_main` was detected as non-linked, core task records were kept, no paths were deleted, and there were no blockers or warnings.
 
 ## Blockers
 
 - Product/code blocker: none after targeted verification.
 - Historical closeout blocker: the previous turn forbade git commit/push while `docs/task-closeout-rules.md` requires commit and push before a task may be marked `completed`; cleanup preview also reported the linked worktree had no resolved current branch.
-- Current closeout status: user has now authorized baseline commit plus fusion into `int_main`; final cleanup, push, and completion evidence is pending.
+- Current closeout status: none. User authorized baseline commit plus fusion into `int_main`; implementation is fused into `int_main` and final cleanup preview/apply passed.
+
+## Fusion Evidence
+
+- Baseline commit on `int_main`: `21edf83eb` (`chore: baseline int_main dirty worktree before EDHR static 018 fusion`).
+- Additional baseline commit on `int_main`: `06ad76877` (`chore: baseline int_main presentation change before EDHR static 018 closeout`).
+- Task branch implementation commit: `a23001447` (`fix: keep EDHR material source tied to current work order`).
+- `int_main` fused implementation commit: `9f211a1e7` (`fix: keep EDHR material source tied to current work order`).
+- Main branch re-verification: static contracts PASS; targeted Maven tests PASS with 14 tests, 0 failures, 0 errors, 0 skipped.
 
 ## Changed Paths
 

@@ -38,20 +38,32 @@
 
 ## Verification Evidence
 
-- Static contract and targeted Java unit verification passed. No E2E, database write, service start/stop/restart, remote operation, git commit, or git push was performed.
+- Static contract and targeted Java unit verification passed. No E2E, database write, service start/stop/restart, or remote operation was performed.
 - `task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode preview` -> BLOCKED: current linked worktree branch could not be resolved. Keep list contains task.md, execution-log.md, and verification-report.md; delete list is empty.
 - Project experience consolidation: updated existing `docs/experience-index.md` with an EDHR-STATIC-018 keyword entry pointing to the existing formal-source backend rule.
 
 ## Closeout Resume Evidence
 
 - User authorization: `先把 int_main 现有全部脏改动做基线提交，再提交并合入 EDHR-STATIC-018`.
-- Baseline commit on `int_main`: `61f313cc4` (`docs: record DCC static 021 cleanup note`) captured the pre-existing dirty `int_main` worktree before EDHR-STATIC-018 fusion.
-- Current task branch was attached from detached HEAD for an EDHR-STATIC-018-only implementation commit; unrelated worktree changes remain unstaged and out of scope.
+- Baseline commit on `int_main`: `21edf83eb` (`chore: baseline int_main dirty worktree before EDHR static 018 fusion`) captured the pre-existing dirty main worktree before EDHR-STATIC-018 fusion.
+- Additional baseline commit on `int_main`: `06ad76877` (`chore: baseline int_main presentation change before EDHR static 018 closeout`) captured the remaining one-file dirty main worktree change before final closeout.
+- Additional concurrent baseline commit on `int_main`: `d71675664` (`chore: baseline concurrent int_main changes before EDHR static 018 closeout`) captured non-018 dirty task-record drift before committing EDHR-STATIC-018 closeout records.
+- Current task branch was attached from detached HEAD with runtime profile `int_main` slot 29 (`8163/48163`) for an EDHR-STATIC-018-only implementation commit; unrelated worktree changes remain unstaged and out of scope.
+- Task branch implementation commit: `a23001447` (`fix: keep EDHR material source tied to current work order`).
+- `int_main` fused implementation commit: `9f211a1e7` (`fix: keep EDHR material source tied to current work order`).
+- Re-verified on `int_main`: `node .\IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-018-remark-material-source-static.spec.cjs` -> PASS.
+- Re-verified on `int_main`: `node .\IntRuoyiBackend\yudao-module-mes\src\test\js\mes-active-order-completion-all-pick-lists-static.spec.cjs` -> PASS.
+- Re-verified on `int_main`: `node .\IntRuoyiBackend\yudao-module-mes\src\test\js\mes-active-order-stage1-static.spec.cjs` -> PASS.
+- Re-verified on `int_main`: `mvn -pl yudao-module-mes "-Dtest=MesProFeedbackMaterialBatchQueryServiceTest,MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest" "-DfailIfNoTests=false" test` -> PASS, 14 tests, 0 failures, 0 errors, 0 skipped.
+- Cleanup preview on `int_main`: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode preview` -> PASS, keep task.md/execution-log.md/verification-report.md, delete none, blocked none, warnings none.
+- Cleanup apply on `int_main`: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode apply` -> PASS, delete none, blocked none, warnings none.
+- Closeout records commits on `int_main`: `2d8b19a16` (`docs: close out EDHR static 018 on int_main`) and `96d69f3c3` (`docs: close out EDHR static 018 int_main fusion`).
+- Push evidence: `git push origin int_main` -> PASS, remote `origin/int_main` advanced from `c45d3c6a4` to `86c3d121a`, including EDHR-STATIC-018 implementation commit `9f211a1e7` and closeout commits `2d8b19a16` / `96d69f3c3`.
 
 ## Blockers
 
 - Product/code blocker: none found after targeted verification.
-- Closeout blocker: none after user authorized commit and fusion into `int_main`; final cleanup, push, and completion evidence pending.
+- Closeout blocker: none after user authorized commit and fusion into `int_main`; implementation, closeout records, and push evidence are complete.
 
 ## Suggested Shared Defect Table Update
 
