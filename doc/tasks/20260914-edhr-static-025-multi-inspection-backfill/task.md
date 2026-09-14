@@ -24,7 +24,7 @@
 
 blocked
 
-实现、RED/GREEN、静态合同和任务分支提交准备已完成；2026-09-14 本轮用户授权“提交并融合进 int_main”，但本地融合被 `E:\IntRuoyi` 主工作区阻塞：`int_main` 当前存在其它 EDHR 015/016 任务的 staged/unmerged 改动，且 `MesProcessPoolPqcInspectionCorrectionServiceTest.java` 为 `UU` 未合并状态。按 worktree 与任务规则，本任务不得处理或提交该并行冲突，因此只能提交任务分支，暂不融合进 `int_main`，也不标记 completed。
+实现、RED/GREEN、静态合同、任务分支提交和 rebase 均已完成；2026-09-14 本轮用户授权“提交并融合进 int_main”，但本地融合被 `E:\IntRuoyi` 主工作区当前状态阻塞：`int_main` 处于 `ahead 1, behind 7`，且 staged 了其它任务记录 `doc/tasks/20260914-edhr-static-017-pqc-correction-quantity-limit/execution-log.md`。按 worktree 与任务规则，本任务不得提交、pull 或覆盖该并行状态，因此已提交任务分支 `codex/20260914-edhr-static-025-multi-inspection-backfill`，暂不融合进 `int_main`，也不标记 completed。
 
 ## Design Constraints Check
 
