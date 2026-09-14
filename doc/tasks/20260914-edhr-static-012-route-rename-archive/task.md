@@ -32,4 +32,3 @@ ready_for_closeout - EDHR-STATIC-012 implementation was locally fused into `int_
 - If required frozen identity is missing or inconsistent, fail fast with a deterministic blocker rather than using current route data.
 - Shared defect summary docs must not be edited in this task.
 - User later authorized commit and merge into `int_main`; no E2E, DB writes, service operations, remote operations, or push were requested.
-
