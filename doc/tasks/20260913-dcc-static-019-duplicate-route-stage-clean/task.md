@@ -64,9 +64,9 @@ And 预览、快照和流程授权使用同一组四个固定阶段及其候选�
 - 后端保存与预览对重复固定阶段抛出 `APPROVAL_ROUTE_FIXED_STAGE_INVALID`；运行态重复 `stageCode` 抛出 `CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH`。
 - 前端固定路线提交前检查四个阶段各恰好一条；前端静态合同、后端定向 Maven 测试、类型检查和 diff 检查均通过。
 - 用户授权后创建分支 `codex/dcc-static-019-duplicate-route-stage-clean`，登记 `int_main` slot 17（前端 8098 / 后端 48098），实现提交在 rebase 到最新本地 `int_main` 后为 `34b5585ed`。
-- 2026-09-14 继续融合：主工作区资源改动独立基线提交为 `02e0e32a6`；任务分支合入最新本地 `int_main` 的提交为 `5c93f7b34`，当前任务分支相对本地 `int_main` 为 `0 5`，可作为远端快进融合候选。
+- 2026-09-14 继续融合：主工作区资源改动独立基线提交为 `02e0e32a6`；任务分支先合入本地 `int_main` 为 `5c93f7b34`，再合入最新 `origin/int_main` 为 `59214c275`；非强制推送 `git push origin HEAD:int_main` 已将远端 `int_main` 快进到该融合提交。
 - 详见 `execution-log.md` 与 `verification-report.md`。
 
 ## Current Status
 
-blocked - 实现与定向验证已完成并提交到任务分支；任务分支已吸收最新本地 `int_main`，但主工作区 `E:\IntRuoyi` 又出现并行未合并冲突，按 closeout 规则暂不能执行 local cleanup apply 或删除当前 worktree；将改走非强制远端快进融合门禁。
+blocked - 实现与定向验证已完成并通过非强制推送融合进 `origin/int_main`；本地 `E:\IntRuoyi` 仍存在其它任务的 dirty/ahead-behind 状态，按 closeout 规则暂不能执行 local cleanup apply 或删除当前 worktree。

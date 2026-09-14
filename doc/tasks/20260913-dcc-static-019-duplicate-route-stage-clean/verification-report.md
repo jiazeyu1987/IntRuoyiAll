@@ -40,7 +40,8 @@ blocked
 - 依赖准备：`corepack pnpm install --frozen-lockfile` PASS，pnpm v10.25.0。
 - 授权后复验：任务分支 rebase 到本地 `int_main` 后，`git diff --check`、两个前端静态合同、`pnpm ts:check`、后端 27 项定向测试均 PASS；实现提交随后再次 rebase 到最新本地 `int_main`，当前实现提交为 `34b5585ed`。
 - 合并请求复验：用户要求合并到 `int_main` 后，任务分支再次 rebase 到本地 `int_main` 的 `cd376a2a2`，`git diff --check int_main..HEAD`、两个前端静态合同、`pnpm ts:check`、后端 27 项定向测试均 PASS。
-- 提交融合复核：用户继续要求“提交并融合进int_main”后，主工作区资源改动先独立基线提交为 `02e0e32a6`；任务分支合入最新本地 `int_main` 为 `5c93f7b34`，合入模拟无 DCC-019 冲突。
+- 提交融合复核：用户继续要求“提交并融合进int_main”后，主工作区资源改动先独立基线提交为 `02e0e32a6`；任务分支合入最新本地 `int_main` 为 `5c93f7b34`，再合入最新 `origin/int_main` 为 `59214c275`，合入模拟无 DCC-019 冲突。
+- 远端融合验证：最终推送前 `git diff --check origin/int_main..HEAD` PASS、端口守卫 PASS、两个前端静态合同 PASS、`pnpm ts:check` PASS、DCC 后端 27 项定向 Maven 测试 PASS；`git push origin HEAD:int_main` 非强制快进成功，`origin/int_main` 更新到 `59214c275`。
 
 RED: 修复前静态合同、保存/预览回归测试和运行态重复 Map 回归测试均失败，原因分别为前端未拦截、后端未拒绝和后续人员被静默丢弃。
 
@@ -55,8 +56,8 @@ GREEN: 修复后静态合同、27 项后端定向测试、路线摘要静态合�
 
 - 未执行真实页面 E2E、服务启动或数据库写入；这是本任务用户约束的验证边界，不是代码测试失败。
 - 用户授权后已创建具名任务分支并登记 runtime slot 17，detached HEAD blocker 已解除。
-- cleanup preview after authorization 保留三份任务记录、删除项为空；cleanup apply / ff-only 合入 / worktree 删除仍 BLOCKED：主工作区 `E:\IntRuoyi` 当前存在并行 MES dirty files 且 `MesProcessPoolPqcInspectionCorrectionServiceTest.java` 处于 `UU` 未合并冲突，按 closeout 规则不能作为安全本地合入目标。
+- cleanup preview after authorization 保留三份任务记录、删除项为空；远端 `origin/int_main` 已通过非强制快进完成融合；cleanup apply / 本地 ff-only 合入 / worktree 删除仍 BLOCKED：主工作区 `E:\IntRuoyi` 当前 `int_main...origin/int_main [ahead 1, behind 7]`，且存在其它任务 dirty 文件，按 closeout 规则不能作为安全本地合入目标。
 
 ## Closeout Blocker
 
-实现与验证已完成，用户授权后已创建任务分支、登记 runtime slot 并提交实现。用户要求合并到 `int_main` 时，任务分支已吸收最新本地 `int_main`，但主工作区出现并行未合并冲突；cleanup apply 需要主工作区干净后才能本地 ff-only 合入并删除当前 worktree。因此本地 closeout 仍为 `blocked`，不能标记 `completed`。若 `origin/int_main` 是任务分支祖先且复验通过，本次只允许走非强制远端快进融合。
+实现与验证已完成，用户授权后已创建任务分支、登记 runtime slot 并提交实现。用户要求合并到 `int_main` 后，任务分支已吸收最新远端主线并通过非强制推送融合进 `origin/int_main`。本地 `E:\IntRuoyi` 仍存在其它任务 dirty/ahead-behind 状态；cleanup apply 需要本地主工作区干净后才能执行本地 ff-only 合入和删除当前 worktree。因此本地 closeout 仍为 `blocked`，不能标记 `completed`。
