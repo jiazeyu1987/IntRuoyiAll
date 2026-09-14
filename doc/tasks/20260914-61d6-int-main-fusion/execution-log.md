@@ -2,6 +2,11 @@
 
 ## Local Integration And Cleanup
 
+- CLOSEOUT COMMIT: `d993d32a0`（仅本任务 task.md、execution-log.md、verification-report.md）已快进合入 int_main，合并后 guard PASS。
+- WORKTREE REMOVE: 从主工作区运行 `git worktree remove C:/Users/BJB110/.codex/worktrees/61d6/IntRuoyi` -> exit 0。复核注册列表已无该路径，但 Test-Path=True，残留仅 IntRuoyiFronted/node_modules 依赖目录。
+- BLOCKED: 验证绝对路径边界及残留仅依赖目录后，使用 PowerShell Remove-Item 清理被自动审批审查拒绝，原因为 `blocked by policy`，无更具体说明；该命令未执行，未重试绕过。物理目录保留，slot 26/8160/48160 登记继续保留，其他任务资源未修改。
+- FINAL STATUS: 本地提交、合并与验证完成；完整收尾因残留删除策略拒绝及远端未推送标记 blocked，不能写成 completed。
+
 - COMMIT: 最终实现提交 `f7c054cde137c00f938ca78e6a82b0bcc2b1a425`，46 个任务文件；文件清单可由 `git show --name-only f7c054cde` 重现。
 - REBASE: 从原融合基线推进到 `456847dffe448106a44c20d84b9618faaf845a2f`；`git range-diff 453207c..781c48588 int_main..HEAD` 显示实现补丁相等，新增主线仅文档/图片，因此保留已通过的代码验证证据。
 - GREEN: rebase 后分支端口 guard -> PASS，8160/48160；`git diff --check` -> PASS。

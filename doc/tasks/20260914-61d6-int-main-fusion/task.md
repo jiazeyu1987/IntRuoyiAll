@@ -23,9 +23,9 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-冲突后的定向验证通过：DCC 153 tests、MES 10 tests、server 4 tests、Python 154 tests、前端合同与类型检查。实现提交 f7c054cde 已快进合入 int_main，任务临时文件清理通过，待移除附加 worktree。当前授权范围是本地提交和融合；未执行推送。
+本地提交与融合已完成：实现 f7c054cde、收尾记录 d993d32a0 均进入 int_main，定向验证全部通过，任务临时文件清理通过。Git worktree 注册已移除，但物理目录残留 IntRuoyiFronted/node_modules；删除残留操作被自动审批策略拒绝。槽位 26 保留登记，不声明已释放。当前授权范围是本地提交和融合，未执行推送，项目远端推送完成门禁未满足。
 
 ## Design Constraints Check
 

@@ -2,7 +2,7 @@
 
 ## Current Result
 
-ready_for_closeout
+blocked: 本地融合验证通过，完整收尾存在明确阻塞。
 
 冲突后复验通过：DCC query 131 + route 22，MES correction 10，server multipart 4，Python 154；前端 API 合同 10、检入 5、静态 E2E 合同/语法与 `pnpm ts:check` 全部通过。真实 E2E 不在本次验收范围。
 
@@ -19,6 +19,8 @@ ready_for_closeout
 - yudao-server 单独目标测试：`mvn -pl yudao-server "-Dtest=cn.iocoder.yudao.server.UploadMultipartLimitConfigTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests。
 
 ## Known Boundaries
+
+- Git worktree 注册删除成功；物理路径仍残留 node_modules。自动审批策略拒绝残留清理，未删除、未释放 slot 26，不把目录清理记为 PASS。
 
 - 本地实现提交 `f7c054cde` 已快进进入 `int_main`；分支和主线端口门禁、任务临时产物 cleanup preview/apply 均 PASS，主线并行文档哈希未变。
 - 未推送远端；不能把本地融合完成记为项目要求的推送完成。
