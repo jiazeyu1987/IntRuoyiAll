@@ -13,7 +13,7 @@
 - [x] M5 运行用户允许范围内的非 E2E 定向验证，记录结果、风险和 blockers。
 - [x] M6 标记 ready_for_closeout，运行 cleanup preview；因用户禁止 git commit/push 且当前 detached worktree 无法解析分支，本轮不标记 completed。
 - [x] M7 用户已授权提交并融合进 `int_main`；按 worktree 门禁从最新 `int_main` 创建 D 盘任务 worktree、登记 slot，并迁移最小 EDHR-STATIC-013 diff。
-- [ ] M8 提交任务实现与证据，快进融合 `int_main`，推送远端，并完成 cleanup / completed 收尾记录。
+- [x] M8 提交任务实现与证据，快进融合 `int_main`，推送远端，并完成 cleanup / completed 收尾记录。
 
 ## Expected Verification
 
@@ -26,9 +26,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和用户允许范围内的静态/定向验证已完成；用户已在 2026-09-14 明确授权提交并融合进 `int_main`。当前收尾改为在 `D:\IntRuoyiWorktree\20260914-edhr-static-013-progress-reverification` 具名任务 worktree 中完成提交、主线复验、快进融合、推送与 cleanup。
+实现和用户允许范围内的静态/定向验证已完成；任务提交 `bc7c4df39697188bec628ea8c4e528218c07b194` 已快进融合进 `int_main`，`int_main` 已推送到 `origin/int_main`。D 盘任务 worktree 已从 Git 注册移除，物理目录已删除，端口登记 slot 9 已释放为 inactive。
 
 ## Design Constraints Check
 

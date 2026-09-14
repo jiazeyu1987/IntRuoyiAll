@@ -6,12 +6,12 @@ EDHR-STATIC-013 生产进度复核：验证部分分配、多输出物料和拆�
 
 ## Status
 
-- Status: ready_for_closeout
+- Status: completed
 - E2E / Playwright: not run by explicit user instruction.
 - Database writes: not run by explicit user instruction.
 - Service startup / restart / stop: not run by explicit user instruction.
 - Remote server operations: not run by explicit user instruction.
-- Git commit / push: not run by explicit user instruction.
+- Git commit / push: completed after explicit user authorization.
 
 ## Requirement Matrix
 
@@ -33,6 +33,8 @@ EDHR-STATIC-013 生产进度复核：验证部分分配、多输出物料和拆�
 - `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` from `D:\IntRuoyiWorktree\20260914-edhr-static-013-progress-reverification` -> PASS; branch `codex/20260914-edhr-static-013-progress-reverification`, profile `int_main`, frontend `8090`, backend `48090`.
 - `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-013-output-material-snapshot-static.spec.cjs` from the D worktree -> PASS.
 - `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes "-Dtest=MesOutputMaterialProgressCalculatorTest,MesTeamLeaderActiveOrderCompletionProgressPortImplTest,MesTeamLeaderOrderProcessCompletionServiceTest" test` from the D worktree -> PASS, 24 tests, 0 failures, 0 errors, 0 skipped.
+- Final rebase/fusion: task commit `bc7c4df39697188bec628ea8c4e528218c07b194` is an ancestor of `int_main`.
+- Final cleanup: D worktree Git registration removed, physical directory `D:\IntRuoyiWorktree\20260914-edhr-static-013-progress-reverification` deleted, slot `9` marked inactive.
 
 ## Findings
 
@@ -45,3 +47,4 @@ EDHR-STATIC-013 生产进度复核：验证部分分配、多输出物料和拆�
 - Prior blocker resolved: 用户已在 2026-09-14 明确授权 Git commit / merge / push；不再受此前禁止提交推送限制。
 - Prior cleanup blocker isolated: C 盘 Codex 临时 worktree 仍为 detached HEAD 且混有非本任务 dirty；本轮改用 D 盘具名任务 worktree 执行最小 EDHR-STATIC-013 diff 提交与融合。
 - Task evidence visibility: `doc/tasks/*/` 被 `E:/IntRuoyi/.git/info/exclude` 忽略；提交时需要对本任务三份记录使用 `git add -f`。
+- Residual risk: 未执行 Playwright/E2E、数据库写入、服务启动/停止/重启或远程服务器操作；本任务完成范围仍限定为用户允许的静态与定向非 E2E 验证。

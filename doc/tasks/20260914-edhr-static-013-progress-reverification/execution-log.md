@@ -51,3 +51,16 @@
 - GREEN: `git diff --check -- <EDHR-STATIC-013 三份测试与任务记录>` -> PASS；仅有 Java 测试文件 CRLF 规范化提示，无 whitespace error。
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-013-output-material-snapshot-static.spec.cjs` -> PASS，输出 `PASS: EDHR-STATIC-013 output-material snapshot and progress contract`。
 - GREEN: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes "-Dtest=MesOutputMaterialProgressCalculatorTest,MesTeamLeaderActiveOrderCompletionProgressPortImplTest,MesTeamLeaderOrderProcessCompletionServiceTest" test` -> PASS，24 tests, 0 failures, 0 errors, 0 skipped，`BUILD SUCCESS`。
+
+## 2026-09-14 Final Closeout
+
+- Mainline Baseline: 按用户“先提交主干,再融合”要求，已先推送 `int_main` 并行主干提交至 `origin/int_main`，再继续本任务融合。
+- Rebase: 任务分支多次随 `int_main` 并行推进重放，最终任务提交为 `bc7c4df39697188bec628ea8c4e528218c07b194`。
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，主工作区 `int_main/int_main` 使用前端 `8081`、后端 `48081`。
+- GREEN: `git diff --check int_main..HEAD` -> PASS。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-013-output-material-snapshot-static.spec.cjs` -> PASS。
+- GREEN: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes "-Dtest=MesOutputMaterialProgressCalculatorTest,MesTeamLeaderActiveOrderCompletionProgressPortImplTest,MesTeamLeaderOrderProcessCompletionServiceTest" test` -> PASS，24 tests, 0 failures, 0 errors, 0 skipped，`BUILD SUCCESS`。
+- CLOSEOUT PREVIEW: `task_closeout.py --task-id 20260914-edhr-static-013-progress-reverification --mode preview` -> READY，keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为 `<none>`，blocked 为 `<none>`。
+- CLOSEOUT APPLY: `task_closeout.py --task-id 20260914-edhr-static-013-progress-reverification --mode apply` 已完成 ff-only 融合，随后在删除物理目录阶段因 Windows 当前目录锁返回 `Permission denied`；复核确认任务提交已进入 `int_main`。
+- Cleanup: 从主工作区复核 `git worktree list --porcelain` 无本任务 worktree 注册，`D:\IntRuoyiWorktree\20260914-edhr-static-013-progress-reverification\.git` 不存在，随后删除物理残留目录，`Test-Path` 为 `False`。
+- Slot Release: 持登记表互斥锁将 `20260914-edhr-static-013-progress-reverification` 的 `int_main slot=9` 更新为 `active=false`，释放前端 `8090`、后端 `48090`。
