@@ -47,6 +47,7 @@
 - User authorization: `先把 int_main 现有全部脏改动做基线提交，再提交并合入 EDHR-STATIC-018`.
 - Baseline commit on `int_main`: `21edf83eb` (`chore: baseline int_main dirty worktree before EDHR static 018 fusion`) captured the pre-existing dirty main worktree before EDHR-STATIC-018 fusion.
 - Additional baseline commit on `int_main`: `06ad76877` (`chore: baseline int_main presentation change before EDHR static 018 closeout`) captured the remaining one-file dirty main worktree change before final closeout.
+- Additional concurrent baseline commit on `int_main`: `d71675664` (`chore: baseline concurrent int_main changes before EDHR static 018 closeout`) captured non-018 dirty task-record drift before committing EDHR-STATIC-018 closeout records.
 - Current task branch was attached from detached HEAD with runtime profile `int_main` slot 29 (`8163/48163`) for an EDHR-STATIC-018-only implementation commit; unrelated worktree changes remain unstaged and out of scope.
 - Task branch implementation commit: `a23001447` (`fix: keep EDHR material source tied to current work order`).
 - `int_main` fused implementation commit: `9f211a1e7` (`fix: keep EDHR material source tied to current work order`).
