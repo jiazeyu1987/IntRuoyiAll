@@ -4198,6 +4198,15 @@ function Get-ReleaseDatabaseSqlScripts {
         }
 
         foreach ($file in $files) {
+            if ($file.Name -match '_rollback\.sql$') {
+                $sqlText = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8)
+                if ($sqlText -match '(?im)^\s*--\s*rollback-migration\s*:') {
+                    if ($sqlText -match '(?im)^\s*--\s*release-migration\s*:') {
+                        Fail "Conflicting release and rollback migration metadata: $($file.FullName)"
+                    }
+                    continue
+                }
+            }
             if ($seenPackageFileNames.ContainsKey($file.Name)) {
                 Fail "Duplicate release database SQL file name: $($file.Name) in $($seenPackageFileNames[$file.Name]) and $($file.FullName)"
             }

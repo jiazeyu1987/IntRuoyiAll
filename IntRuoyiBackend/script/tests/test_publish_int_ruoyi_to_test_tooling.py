@@ -1650,7 +1650,7 @@ def test_publish_dockerfiles_point_at_current_workspace_artifacts() -> None:
     assert "docker.io" not in backend_dockerfile
     assert "docker-compose-v2" not in backend_dockerfile
     assert "FROM maven:" not in backend_dockerfile
-    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS}"]' in backend_dockerfile
+    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS} ${INTRUOYI_EXTRA_ARGS}"]' in backend_dockerfile
     assert "FROM eclipse-temurin:21-jre-noble" in backend_base_dockerfile
     assert "ARG APT_MIRROR=http://mirrors.aliyun.com/ubuntu" in backend_base_dockerfile
     assert "security.ubuntu.com/ubuntu#${APT_MIRROR}" in backend_base_dockerfile
@@ -1724,6 +1724,47 @@ def test_publish_script_fails_fast_when_backend_target_jar_is_locked_before_mave
     assert text.index("Assert-BackendJarAvailableForMavenClean -JarPath $backendJar") < text.index(
         "Invoke-CheckedCommand -FilePath 'mvn'"
     )
+
+
+def test_release_sql_discovery_excludes_manual_rollback_and_rejects_missing_metadata(tmp_path: Path) -> None:
+    forward = tmp_path / "20260914_forward.sql"
+    forward.write_text("-- release-migration: type=schema\nSELECT 1;\n", encoding="utf-8")
+    (tmp_path / "20260914_forward_rollback.sql").write_text(
+        "-- rollback-migration: type=schema\nDROP TABLE task_example;\n", encoding="utf-8"
+    )
+    source = read_publish_script()
+    functions = "\n".join(_extract_powershell_function(source, name) for name in (
+        "Read-ReleaseMigrationMetadata", "Get-ReleaseDatabaseSqlSortKey", "Get-ReleaseDatabaseSqlScripts"
+    ))
+    command = """
+$ErrorActionPreference = 'Stop'
+function Fail([string]$Message) { throw $Message }
+function Get-ReleaseDatabaseSqlRoots {
+    return @{ Root = $env:TEST_RELEASE_SQL_ROOT; RelativePath = 'sql/mysql'; IncludeFiles = @() }
+}
+""" + functions + "\n@(Get-ReleaseDatabaseSqlScripts) | ConvertTo-Json -Compress"
+    env = os.environ.copy()
+    env["TEST_RELEASE_SQL_ROOT"] = str(tmp_path)
+
+    def collect() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["powershell.exe", "-NoProfile", "-Command", command],
+                              env=env, capture_output=True, text=True, encoding="utf-8", timeout=30)
+
+    result = collect()
+    assert result.returncode == 0, result.stderr
+    assert "20260914_forward.sql" in result.stdout
+    assert "rollback.sql" not in result.stdout
+    forward.write_text("SELECT 1;\n", encoding="utf-8")
+    result = collect()
+    assert result.returncode != 0
+    assert "Release migration metadata missing" in result.stderr
+    forward.write_text("-- release-migration: type=schema\nSELECT 1;\n", encoding="utf-8")
+    (tmp_path / "20260914_forward_rollback.sql").write_text(
+        "-- rollback-migration: type=schema\n-- release-migration: type=schema\n", encoding="utf-8"
+    )
+    result = collect()
+    assert result.returncode != 0
+    assert "Conflicting release and rollback migration metadata" in result.stderr
 
 
 def test_build_release_backend_e2e_fails_fast_without_internal_backend_runtime_base_config(tmp_path: Path) -> None:

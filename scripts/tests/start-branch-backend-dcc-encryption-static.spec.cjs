@@ -51,7 +51,7 @@ const removedDownloadLoaderMessage =
 const removedDownloadInjectionMessage =
   'Backend start script must not inject removed DCC direct-download secret values into Java process env.'
 
-assert.doesNotMatch(
+assert.match(
   script,
   /--spring\.profiles\.active=local/,
   'Backend start script must still start the local Spring profile.'

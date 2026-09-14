@@ -1651,15 +1651,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         reqVO.setSelectedSignoffUserIds(List.of(301L));
         mockCommonSubmitDependencies();
-        when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
-                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L),
-                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "Matrix Review", "POSITION", 51L)));
-        when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of(
-                DccPositionAssignmentDO.builder().id(60L).positionId(50L).assignmentType("POST").systemPostId(500L).active(Boolean.TRUE).build()));
-        when(positionAssignmentMapper.selectActiveListByPositionId(51L)).thenReturn(List.of(
-                DccPositionAssignmentDO.builder().id(61L).positionId(51L).assignmentType("POST").systemPostId(501L).active(Boolean.TRUE).build()));
-        when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
-        when(adminUserApi.getUserListByPostIds(List.of(501L))).thenReturn(List.of(new AdminUserRespDTO().setId(201L).setStatus(0)));
+        mockFourStageRoute();
         doAnswer(invocation -> {
             Collection<Long> userIds = invocation.getArgument(0);
             if (userIds.contains(301L)) {
@@ -2469,7 +2461,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         List<DccControlledFileRoutePreviewRespVO> respVOS = readiness.getNodes();
 
         assertTrue(readiness.getReady());
-        assertEquals(1, respVOS.size());
+        assertEquals(4, respVOS.size());
         assertEquals(1, respVOS.get(0).getStageNo());
         assertEquals(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), respVOS.get(0).getStageCode());
         assertEquals(List.of(200L), respVOS.get(0).getResolvedUserIds());
@@ -2504,8 +2496,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
         List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L, List.of()).getNodes();
 
-        assertEquals(1, respVOS.size());
         assertEquals(List.of(300L), respVOS.get(0).getResolvedUserIds());
+        assertEquals(4, respVOS.size());
     }
 
     @Test
@@ -2523,8 +2515,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
         List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L, List.of()).getNodes();
 
-        assertEquals(1, respVOS.size());
         assertEquals(List.of(301L), respVOS.get(0).getResolvedUserIds());
+        assertEquals(4, respVOS.size());
         verify(positionRuntimeResolver, never()).resolveUserIds(900334L, 99L, false);
     }
 
