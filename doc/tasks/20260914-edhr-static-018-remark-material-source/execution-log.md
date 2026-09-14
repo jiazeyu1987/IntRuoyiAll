@@ -57,11 +57,13 @@
 - Re-verified on `int_main`: `mvn -pl yudao-module-mes "-Dtest=MesProFeedbackMaterialBatchQueryServiceTest,MesTeamLeaderActiveOrderPickListCompletionSourceServiceTest" "-DfailIfNoTests=false" test` -> PASS, 14 tests, 0 failures, 0 errors, 0 skipped.
 - Cleanup preview on `int_main`: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode preview` -> PASS, keep task.md/execution-log.md/verification-report.md, delete none, blocked none, warnings none.
 - Cleanup apply on `int_main`: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-018-remark-material-source --mode apply` -> PASS, delete none, blocked none, warnings none.
+- Closeout records commits on `int_main`: `2d8b19a16` (`docs: close out EDHR static 018 on int_main`) and `96d69f3c3` (`docs: close out EDHR static 018 int_main fusion`).
+- Push evidence: `git push origin int_main` -> PASS, remote `origin/int_main` advanced from `c45d3c6a4` to `86c3d121a`, including EDHR-STATIC-018 implementation commit `9f211a1e7` and closeout commits `2d8b19a16` / `96d69f3c3`.
 
 ## Blockers
 
 - Product/code blocker: none found after targeted verification.
-- Closeout blocker: none after user authorized commit and fusion into `int_main`; final closeout commit and push evidence pending.
+- Closeout blocker: none after user authorized commit and fusion into `int_main`; implementation, closeout records, and push evidence are complete.
 
 ## Suggested Shared Defect Table Update
 
