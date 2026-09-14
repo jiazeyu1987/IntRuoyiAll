@@ -17,8 +17,12 @@ Desktop.ini
 ######################################################################
 # Logs and local runtime output
 
+.runtime/
+
 *.log
 logs/
+!IntRuoyiFronted/src/views/dcc/controlled-file/logs/
+!IntRuoyiFronted/src/views/dcc/controlled-file/logs/**
 output/
 runtime/
 runtime-ops/
