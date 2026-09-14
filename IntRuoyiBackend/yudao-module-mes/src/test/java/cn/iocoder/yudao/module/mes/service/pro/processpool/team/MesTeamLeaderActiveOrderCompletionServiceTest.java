@@ -33,13 +33,15 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     private MesTeamLeaderActiveOrderCompletionProgressPort progressPort;
     @Mock
     private MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
+    @Mock
+    private MesActiveOrderTransferTraceService activeOrderTransferTraceService;
 
     private MesTeamLeaderActiveOrderCompletionServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
-                progressPort, backfillPort, pickListCompletionSourceService);
+                progressPort, backfillPort, pickListCompletionSourceService, activeOrderTransferTraceService);
     }
 
     @Test
@@ -102,6 +104,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         assertEquals(1L, receiptCaptor.getValue().getTenantId());
         assertEquals(101L, receiptCaptor.getValue().getBatchRecordId());
         assertEquals(102L, receiptCaptor.getValue().getProcessInspectionId());
+        verify(activeOrderTransferTraceService).recordProductIssueInventoryTracesForActiveOrder(order);
     }
 
     @Test
@@ -117,6 +120,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         assertThrows(RuntimeException.class, () -> service.complete(20L, command()));
 
         verify(backfillPort).write(any(), anyLong());
+        verify(activeOrderTransferTraceService, never()).recordProductIssueInventoryTracesForActiveOrder(any());
         verify(activeOrderMapper, never()).markCompleted(anyLong(), any(), anyLong());
         verify(receiptMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
     }

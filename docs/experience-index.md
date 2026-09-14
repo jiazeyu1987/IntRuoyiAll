@@ -33,6 +33,7 @@
 
 - Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照、Stage4、Stage4 独立输入、STAGE4_INDEPENDENT_BATCH_EXECUTION、stage4IndependentBatchExecutionSnapshot.v1、trace origin、trace links、trace manifest、completeSpecialNode、completePreReleaseDossierNode、createNextFillAfterSpecialNodeResolved -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
 - Keywords: Stage2.5, completion receipt, sourceCredentialId, sourceContextHash, sourceSnapshotHash, nested receipt, LOSS_CONDITION_FACTS, no-loss fact closure, confirmedAt, reviewedAt, MES_PRO_FEEDBACK, lossDetails -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源` and `docs/backend-development.md#edhr-批次创建入口必须与正式入口合同一致`
+- Keywords: EDHR-STATIC-026, CONDITIONAL_REQUIRED, requiredConditionJson, HAS_ACTUAL_LOSS, 条件必填, 不适用, NO_LOSS, DHR 完整性检查, 损耗表无损耗不阻断, hasActualLoss -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: EDHR-STATIC-005, PQC生产放行, 过程检验回填, 专用QA, 通用QA, PQC task冻结版本, regulationVersionId, OWNER_MODULE_MES_QA_COMMON -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行不合格评审, 工单冻结, temporary_frozen, previousWorkOrderTemporaryFrozen, 返工恢复冻结, 作废保持冻结, 让步继续签字, 生产报工冻结门禁, 领料出库冻结门禁, 申请待办原子终结 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行列表按钮灰色, approvalReady, approvalBlockerReason, approvalBlockerSuggestion, service item 到 Controller response VO 映射, 列表状态正常但操作不可用, 禁止前端默认放行 -> `docs/backend-development.md#controller-列表响应必须完整透传服务层就绪投影`
@@ -65,6 +66,7 @@
 - Keywords: 排产员工作台最近一次排产口径, process-wip-statistics, 最近只排5个订单但显示9个订单在做, AUTO_APPLY, REPLAN_APPLY, afterSnapshotJson.scheduleOrderIds, operation_log.schedule_order_id 不补范围, 历史排产工单混入, process-wip-settings, 班次小时刷新不更新历史工单 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台最近一次排产口径门禁`
 - Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#重复任务记录收口门禁`
 - Keywords: 活跃订单多张领料单, 完工时查询领料单, 一线输入批号共享正式领料单校验, 输入物料只读批号, 输出物料填写数量, 一对多领料来源, 部分绑定补齐, pick-list binding, pickListSources, sourceFid, sourceLineKey, ERP来源唯一键, 复制来源身份, 第二张领料单唯一键冲突, 来源证据ID, 物化回填ID, 全量来源清理 -> `docs/backend-development.md#关联从一对一扩展为一对多门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: EDHR-STATIC-018, 订单备注不能改变领料来源, sourceActiveOrderId, workOrder.remark, 自由文本备注, 正式领料resolver, 批号来源按当前工单编号, 跨订单来源必须受控关系 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 
 任务启动顺序固定为：先创建或识别 `doc/tasks/<task-id>/` 并写入最小 `task.md`（目标、里程碑、预期验证、当前状态），再读本文件并只打开命中的经验文档，随后把适用门禁补入任务文档；不要全量阅读所有经验。唯一例外：PowerShell / Windows shell 任务可先执行只读 UTF-8 bootstrap 读取适用规则，bootstrap 完成后必须立即创建或更新任务文档。
 
@@ -649,3 +651,5 @@
 - Keywords: DCC WORKING残留, A/2创建B/1, 低版本工作稿收口, supersededByFileId, requester送审, requester检出, 发布幂等重放先于状态校验, READY_TO_PUBLISH重试, afterCommit通知失败隔离, approvedTime不得被publishedTime覆盖 -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁`
 - Keywords: DCC发布草稿误复用, createInstance DRAFT, K2提交K1草稿, FORM_ACTION_IDEMPOTENCY_CONFLICT, 缺失键不得默认重放, 同键零写入回读, 表单中心跨服务幂等边界 -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁`
 - Keywords: audit reason capacity, 审计原因长度, varchar(2000), Data truncation, 基础 schema 与增量迁移 -> `docs/database-rules.md#审计原因字段容量合同门禁`
+- Keywords: PowerShell Maven -D 参数, surefire.failIfNoSpecifiedTests, Unknown lifecycle phase, 单引号引用, 命令包装错误不算业务 RED -> `docs/powershell-memory.md#powershell-maven--d-参数引用门禁`
+- Keywords: detached HEAD, current_branch=None, task-closeout-cleanup preview blocked, cleanup apply 禁止, 分支无法解析不标 completed -> `docs/worktree-memory.md#detached-head-收尾分支门禁`

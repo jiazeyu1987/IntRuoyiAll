@@ -343,3 +343,12 @@
 - Verification: 若三者已经一致且 ancestry 通过，再运行 scripts\preflight\branch-runtime-port-guard.ps1，记录最终 HEAD、guard 输出和任务状态更新；如果仍需删除 stale lock，必须重新满足零字节、超过 60 秒且无活动 Git 进程的原门禁。
 - Forbidden action: 禁止重启后跳过实际 HEAD 复核，禁止对可能已经完成的 fast-forward 再次合并、rebase、reset 或清理锁文件，禁止把旧 blocker 继续写成当前阻断。
 - Evidence: doc/tasks/20260816-registration-certificate-full-business-delivery/execution-log.md，T10-C 首次融合被外部 Git index.lock 阻塞；重启后只读复核发现 int_main、集成分支和 HEAD 已同为目标提交，随后只更新收尾记录并运行端口 guard。
+
+### PowerShell Maven -D 参数引用门禁
+
+- Trigger: PowerShell 中运行 Maven 定向测试，参数包含 `-Dtest=...`、`-Dsurefire.failIfNoSpecifiedTests=false` 等带点号的系统属性。
+- Preflight check: 用单引号包裹每个 `-D...` 参数，例如 `'-Dtest=FooTest'` 和 `'-Dsurefire.failIfNoSpecifiedTests=false'`，避免 PowerShell 把点号属性截断后让 Maven 收到伪 lifecycle phase。
+- Blocker: Maven 报 `Unknown lifecycle phase ".failIfNoSpecifiedTests=false"` 或类似属性残片时，应记录为命令包装错误并立即用引用后的同一目标命令重跑；不得写成业务 RED/GREEN。
+- Verification: 复跑引用后的标准 Maven 命令，必须到达 Surefire 并记录测试计数。
+- Forbidden action: 禁止把未引用 `-D` 导致的 Maven 参数解析失败当作产品测试失败，禁止改 POM 或测试名绕过参数问题。
+- Evidence: `doc/tasks/20260914-edhr-static-021-inventory-evidence-chain/execution-log.md`，EDHR-STATIC-021 首次未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被 PowerShell 截断，随后用单引号包裹 `-Dtest` 与 `-Dsurefire...` 后目标 Maven 进入 Surefire 并通过 19 个测试。

@@ -145,6 +145,7 @@ public class MesProductionReleaseController {
                 .setSignatureId(result.getSignatureId())
                 .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())
                 .setProcessInspectionEvidenceIds(result.getProcessInspectionEvidenceIds())
+                .setProcessInspectionFormCenterInstanceIds(result.getProcessInspectionFormCenterInstanceIds())
                 .setLossReportEvidenceIds(result.getLossReportEvidenceIds())
                 .setReportUploadTasks(result.getReportUploadTasks().stream()
                         .map(item -> new MesProductionReleaseReportUploadTaskRespVO()

@@ -3843,6 +3843,7 @@
             <el-input-number
               v-model="correctionForm.pqcScrapQuantity"
               :min="0"
+              :max="correctionForm.pqcActualInspectionQuantity"
               :precision="0"
               step-strictly
               :controls="false"
@@ -4287,6 +4288,10 @@ interface PqcInspectionCorrectionItemRow {
   itemName?: string
   selectedEquipmentId?: number
   selectedEquipmentNumber?: string
+  standardLowerLimit?: number | string
+  standardUpperLimit?: number | string
+  standardPrecision?: number
+  resultType?: string
   sampleValuesText: string
 }
 
@@ -8882,6 +8887,10 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
       itemName: item.itemName,
       selectedEquipmentId: item.selectedEquipmentId,
       selectedEquipmentNumber: item.selectedEquipmentNumber,
+      standardLowerLimit: item.standardLowerLimit,
+      standardUpperLimit: item.standardUpperLimit,
+      standardPrecision: item.standardPrecision,
+      resultType: item.resultType,
       sampleValuesText: normalizePqcSampleText(sampleValues)
     }
   })
@@ -9002,6 +9011,41 @@ const buildProductionCorrectionRequest = () => {
   }
 }
 
+const isPqcCorrectionFailedSampleValue = (
+  item: PqcInspectionCorrectionItemRow,
+  value: string
+) => {
+  const normalizedValue = value.trim()
+  const resultType = String(item.resultType || '').trim().toUpperCase()
+  if (resultType === 'BOOLEAN') {
+    return normalizedValue === '不合格'
+  }
+  if (resultType === 'NUMERIC') {
+    return isValueOutOfRange(normalizedValue, item.standardLowerLimit, item.standardUpperLimit)
+  }
+  return false
+}
+
+const resolvePqcCorrectionFailedSampleNos = (
+  items: PqcInspectionCorrectionItemRow[],
+  sampleValuesByItem: Map<string, string[]>
+) => {
+  const failedSampleNos = new Set<number>()
+  items.forEach((item) => {
+    const itemCode = item.itemCode.trim()
+    if (!itemCode) {
+      return
+    }
+    const sampleValues = sampleValuesByItem.get(itemCode) || []
+    sampleValues.forEach((value, index) => {
+      if (isPqcCorrectionFailedSampleValue(item, value)) {
+        failedSampleNos.add(index + 1)
+      }
+    })
+  })
+  return failedSampleNos
+}
+
 const buildPqcCorrectionRequest = () => {
   const actualInspectionQuantity = Number(correctionForm.pqcActualInspectionQuantity)
   if (!Number.isInteger(actualInspectionQuantity) || actualInspectionQuantity <= 0) {
@@ -9011,7 +9055,11 @@ const buildPqcCorrectionRequest = () => {
   if (!Number.isInteger(scrapQuantity) || scrapQuantity < 0) {
     throw new Error('PQC损耗数量必须为0或正整数')
   }
+  if (scrapQuantity > actualInspectionQuantity) {
+    throw new Error('PQC损耗数量不能大于检验数量')
+  }
   const auditFields = requireCorrectionAuditFields()
+  const sampleValuesByItem = new Map<string, string[]>()
   const itemResults = correctionForm.pqcItemResults.map((item) => {
     const itemCode = item.itemCode.trim()
     if (!itemCode) {
@@ -9021,6 +9069,7 @@ const buildPqcCorrectionRequest = () => {
     if (sampleValues.length !== actualInspectionQuantity) {
       throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须等于检验数量`)
     }
+    sampleValuesByItem.set(itemCode, sampleValues)
     return {
       itemCode,
       selectedEquipmentId: normalizePositiveNumber(item.selectedEquipmentId),
@@ -9030,6 +9079,13 @@ const buildPqcCorrectionRequest = () => {
   })
   if (!itemResults.length) {
     throw new Error('PQC检验项目不能为空')
+  }
+  const failedSampleCount = resolvePqcCorrectionFailedSampleNos(
+    correctionForm.pqcItemResults,
+    sampleValuesByItem
+  ).size
+  if (scrapQuantity < failedSampleCount) {
+    throw new Error(`PQC损耗数量不能小于逐件不合格数量（${failedSampleCount}）`)
   }
   return {
     eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),

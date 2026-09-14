@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
@@ -47,13 +49,18 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private MesProScheduleOrderMapper scheduleOrderMapper;
     @Mock
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
+    @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
+    private MesProProcessPoolEventMapper eventMapper;
 
     private MesTeamLeaderOrderProcessCompletionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
-                completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper);
+                completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
+                processSnapshotMapper, eventMapper);
     }
 
     @Test

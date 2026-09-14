@@ -12,6 +12,7 @@ public class MesPqcReleaseDossierWriteResult {
 
     private List<Long> batchRecordEvidenceIds;
     private List<Long> processInspectionEvidenceIds;
+    private List<Long> processInspectionFormCenterInstanceIds;
     private List<Long> lossReportEvidenceIds;
     private String lossReportStatus;
     private Boolean hasActualLoss;

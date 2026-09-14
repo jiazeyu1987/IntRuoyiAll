@@ -173,6 +173,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setSignatureId(signatureId)
                 .setBatchRecordEvidenceIds(copy(dossierWrite.getBatchRecordEvidenceIds()))
                 .setProcessInspectionEvidenceIds(copy(dossierWrite.getProcessInspectionEvidenceIds()))
+                .setProcessInspectionFormCenterInstanceIds(copy(
+                        dossierWrite.getProcessInspectionFormCenterInstanceIds()))
                 .setLossReportEvidenceIds(copy(dossierWrite.getLossReportEvidenceIds()))
                 .setLossReportStatus(dossierWrite.getLossReportStatus())
                 .setHasActualLoss(dossierWrite.getHasActualLoss())
@@ -475,12 +477,24 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 && Boolean.FALSE.equals(result.getHasActualLoss())
                 && result.getLossQuantity() != null && result.getLossQuantity().signum() == 0
                 && empty(result.getLossReportEvidenceIds())));
-        if (result == null || empty(result.getBatchRecordEvidenceIds())
-                || empty(result.getProcessInspectionEvidenceIds()) || !validLossReceipt) {
+        if (result == null || empty(result.getBatchRecordEvidenceIds())) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
                     "RELEASE_DOSSIER", String.valueOf(application.getId()),
-                    "all three formal document mappings must return persistent evidence identifiers",
-                    "repair the batch-record, process-inspection and loss-report mappings before retrying");
+                    "formal batch-record mapping must return persistent evidence identifiers",
+                    "repair the batch-record mapping before retrying");
+        }
+        if (empty(result.getProcessInspectionEvidenceIds())
+                && empty(result.getProcessInspectionFormCenterInstanceIds())) {
+            throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, application,
+                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
+                    "formal process-inspection mapping must return persistent evidence identifiers",
+                    "repair the process-inspection mapping before retrying");
+        }
+        if (!validLossReceipt) {
+            throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, application,
+                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
+                    "formal loss-report mapping must return a consistent status and evidence receipt",
+                    "repair the loss-report mapping before retrying");
         }
         return result;
     }
@@ -523,6 +537,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setPqcReleaseWorkTaskId(workTask == null ? application.getPqcReleaseWorkTaskId() : workTask.getId())
                 .setBatchRecordEvidenceIds(List.of())
                 .setProcessInspectionEvidenceIds(List.of())
+                .setProcessInspectionFormCenterInstanceIds(List.of())
                 .setLossReportEvidenceIds(List.of())
                 .setReportUploadTasks(List.of())
                 .setSourceSnapshotHash(application.getSourceSnapshotHash());

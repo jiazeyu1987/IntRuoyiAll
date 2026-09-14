@@ -1,0 +1,41 @@
+{
+  "taskId": "20260913-dcc-main-flow-completion",
+  "status": "completed",
+  "scope": "main-flow-fixes",
+  "bugs": [
+    "DCC-STATIC-017",
+    "DCC-STATIC-019",
+    "DCC-STATIC-021",
+    "DCC-STATIC-030"
+  ],
+  "milestones": {
+    "M1": "completed",
+    "M2": "completed",
+    "M3": "completed"
+  },
+  "results": {"DCC-STATIC-017": "FIXED_REGRESSION_VERIFIED", "DCC-STATIC-019": "FIXED_REGRESSION_VERIFIED", "DCC-STATIC-021": "FIXED_REGRESSION_VERIFIED", "DCC-STATIC-030": "FIXED_REGRESSION_VERIFIED"},
+  "verification": {
+    "backendTests": 423,
+    "backendFailures": 0,
+    "frontendTests": 5,
+    "frontendContractTests": {
+      "dccFrontendApiFailClosed": "PASS 10/10",
+      "dccControlledFileProtection": "PASS 1/1"
+    },
+    "staticContracts": 13,
+    "typecheck": "PASS",
+    "evidence": "PASS",
+    "sourceFingerprints": 17,
+    "e2e": "NOT_RUN",
+    "deployment": "NOT_RUN"
+  },
+  "closeout": {
+    "preview": "PASS",
+    "apply": "PASS",
+    "deletedPaths": 0,
+    "worktreeCloseout": "not_applicable_main_worktree",
+    "gitCommitPush": "PASS",
+    "gitStatus": "int_main and origin/int_main equal after push; rev-list left-right count 0 0",
+    "completedAt": "2026-09-14 09:25:15 +08:00"
+  }
+}
