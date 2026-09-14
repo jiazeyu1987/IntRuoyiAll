@@ -137,9 +137,14 @@ seed_block: BEGIN
      AND version_record.tenant_id = regulation.tenant_id
      AND version_record.lifecycle_status = 'PUBLISHED'
      AND version_record.deleted = b'0';
+  IF v_source_join_count = 0 AND v_source_reg_count = 0 THEN
+    COMMIT;
+    LEAVE seed_block;
+  END IF;
+
   IF v_source_join_count <> 3 OR v_source_reg_count <> 3 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'IDI旧QA规程源数据必须唯一命中3条';
+      SET MESSAGE_TEXT = 'IDI旧QA规程源数据必须为空或唯一命中3条';
   END IF;
 
   UPDATE tmp_mes_qa_idi_source_process source_process
