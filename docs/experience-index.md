@@ -33,6 +33,7 @@
 
 - Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照、Stage4、Stage4 独立输入、STAGE4_INDEPENDENT_BATCH_EXECUTION、stage4IndependentBatchExecutionSnapshot.v1、trace origin、trace links、trace manifest、completeSpecialNode、completePreReleaseDossierNode、createNextFillAfterSpecialNodeResolved -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
 - Keywords: Stage2.5, completion receipt, sourceCredentialId, sourceContextHash, sourceSnapshotHash, nested receipt, LOSS_CONDITION_FACTS, no-loss fact closure, confirmedAt, reviewedAt, MES_PRO_FEEDBACK, lossDetails -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源` and `docs/backend-development.md#edhr-批次创建入口必须与正式入口合同一致`
+- Keywords: EDHR-STATIC-026, CONDITIONAL_REQUIRED, requiredConditionJson, HAS_ACTUAL_LOSS, 条件必填, 不适用, NO_LOSS, DHR 完整性检查, 损耗表无损耗不阻断, hasActualLoss -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: EDHR-STATIC-005, PQC生产放行, 过程检验回填, 专用QA, 通用QA, PQC task冻结版本, regulationVersionId, OWNER_MODULE_MES_QA_COMMON -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行不合格评审, 工单冻结, temporary_frozen, previousWorkOrderTemporaryFrozen, 返工恢复冻结, 作废保持冻结, 让步继续签字, 生产报工冻结门禁, 领料出库冻结门禁, 申请待办原子终结 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: PQC生产放行列表按钮灰色, approvalReady, approvalBlockerReason, approvalBlockerSuggestion, service item 到 Controller response VO 映射, 列表状态正常但操作不可用, 禁止前端默认放行 -> `docs/backend-development.md#controller-列表响应必须完整透传服务层就绪投影`

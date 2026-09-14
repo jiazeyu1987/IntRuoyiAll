@@ -9,10 +9,12 @@ import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessCheck;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesOrderReleaseCompletenessService;
@@ -21,6 +23,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrApprovalSta
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseServiceImpl;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -37,6 +40,10 @@ public class MesProductionReleaseBusinessReadinessService {
     private static final String SEVERITY_BLOCKER = "BLOCKER";
     private static final String MODULE_EDHR = "EDHR";
     private static final String CATEGORY_DHR = "DHR";
+    private static final String REQUIRED_POLICY_CONDITIONAL_REQUIRED = "CONDITIONAL_REQUIRED";
+    private static final String REQUIRED_POLICY_SKIPPABLE_CONTROLLED = "SKIPPABLE_CONTROLLED";
+    private static final String FORM_SLOT_TYPE_LOSS_REPORT = "LOSS_REPORT";
+    private static final String CONDITION_TYPE_HAS_ACTUAL_LOSS = "HAS_ACTUAL_LOSS";
     private static final Set<String> KNOWN_RESULTS = Set.of(
             MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
             MesProEdhrReleaseServiceImpl.CHECK_RESULT_FAIL,
@@ -45,6 +52,7 @@ public class MesProductionReleaseBusinessReadinessService {
             MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_REQUIRED);
 
     private final MesProEdhrBatchExecutionTaskMapper batchExecutionTaskMapper;
+    private final MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     private final MesProBatchRecordExecutionMapper executionMapper;
     private final MesProBatchRecordExecutionSignatureMapper executionSignatureMapper;
     private final FormActionInstanceMapper formActionInstanceMapper;
@@ -52,12 +60,14 @@ public class MesProductionReleaseBusinessReadinessService {
 
     public MesProductionReleaseBusinessReadinessService(
             MesProEdhrBatchExecutionTaskMapper batchExecutionTaskMapper,
+            MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper,
             MesProBatchRecordExecutionMapper executionMapper,
             MesProBatchRecordExecutionSignatureMapper executionSignatureMapper,
             MesProBatchRecordExecutionAttachmentMapper ignoredAttachmentMapper,
             FormActionInstanceMapper formActionInstanceMapper,
             MesOrderReleaseCompletenessService releaseCompletenessService) {
         this.batchExecutionTaskMapper = batchExecutionTaskMapper;
+        this.batchExecutionOriginMapper = batchExecutionOriginMapper;
         this.executionMapper = executionMapper;
         this.executionSignatureMapper = executionSignatureMapper;
         this.formActionInstanceMapper = formActionInstanceMapper;
@@ -115,16 +125,49 @@ public class MesProductionReleaseBusinessReadinessService {
     private boolean ordinaryProcessFillEvidenceComplete(Long batchExecutionId) {
         List<MesProEdhrBatchExecutionTaskDO> tasks =
                 batchExecutionTaskMapper.selectListByBatchExecutionId(batchExecutionId);
+        List<MesProEdhrBatchExecutionOriginDO> origins = hasConditionalRequiredRouteForm(tasks)
+                ? batchExecutionOriginMapper.selectListByBatchExecutionId(batchExecutionId) : List.of();
         List<MesProEdhrBatchExecutionTaskDO> ordinaryTasks = tasks.stream()
                 .filter(task -> Objects.equals(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM,
                         task.getNodeType()))
                 .filter(task -> Boolean.TRUE.equals(task.getRequiredFlag()))
-                .filter(task -> !"SKIPPABLE_CONTROLLED".equals(task.getRequiredPolicy()))
+                .filter(task -> !REQUIRED_POLICY_SKIPPABLE_CONTROLLED.equals(task.getRequiredPolicy()))
+                .filter(task -> routeFormRequiredForReadiness(task, origins))
                 .toList();
         if (ordinaryTasks.isEmpty()) {
             return false;
         }
         return ordinaryTasks.stream().allMatch(this::ordinaryTaskFillEvidenceComplete);
+    }
+
+    private boolean hasConditionalRequiredRouteForm(List<MesProEdhrBatchExecutionTaskDO> tasks) {
+        return tasks.stream()
+                .filter(task -> Objects.equals(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM,
+                        task.getNodeType()))
+                .filter(task -> Boolean.TRUE.equals(task.getRequiredFlag()))
+                .anyMatch(task -> REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(task.getRequiredPolicy()));
+    }
+
+    private boolean routeFormRequiredForReadiness(MesProEdhrBatchExecutionTaskDO task,
+                                                  List<MesProEdhrBatchExecutionOriginDO> origins) {
+        if (!REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(task.getRequiredPolicy())) {
+            return true;
+        }
+        if (!FORM_SLOT_TYPE_LOSS_REPORT.equals(task.getFormSlotType())) {
+            return true;
+        }
+        JSONObject condition = JSON.parseObject(task.getRequiredConditionJson());
+        if (condition == null || !CONDITION_TYPE_HAS_ACTUAL_LOSS.equals(condition.getString("type"))) {
+            throw new IllegalStateException("unsupported conditional route form condition: "
+                    + task.getRequiredConditionJson());
+        }
+        List<MesProEdhrBatchExecutionOriginDO> formalLossDecisions = origins.stream()
+                .filter(origin -> origin.getHasActualLoss() != null)
+                .toList();
+        if (formalLossDecisions.isEmpty()) {
+            return true;
+        }
+        return formalLossDecisions.stream().anyMatch(origin -> Boolean.TRUE.equals(origin.getHasActualLoss()));
     }
 
     private boolean ordinaryTaskFillEvidenceComplete(MesProEdhrBatchExecutionTaskDO task) {
