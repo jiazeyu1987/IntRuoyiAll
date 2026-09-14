@@ -649,3 +649,5 @@
 - Keywords: DCC WORKING残留, A/2创建B/1, 低版本工作稿收口, supersededByFileId, requester送审, requester检出, 发布幂等重放先于状态校验, READY_TO_PUBLISH重试, afterCommit通知失败隔离, approvedTime不得被publishedTime覆盖 -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁`
 - Keywords: DCC发布草稿误复用, createInstance DRAFT, K2提交K1草稿, FORM_ACTION_IDEMPOTENCY_CONFLICT, 缺失键不得默认重放, 同键零写入回读, 表单中心跨服务幂等边界 -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁`
 - Keywords: audit reason capacity, 审计原因长度, varchar(2000), Data truncation, 基础 schema 与增量迁移 -> `docs/database-rules.md#审计原因字段容量合同门禁`
+- Keywords: PowerShell Maven -D 参数, surefire.failIfNoSpecifiedTests, Unknown lifecycle phase, 单引号引用, 命令包装错误不算业务 RED -> `docs/powershell-memory.md#powershell-maven--d-参数引用门禁`
+- Keywords: detached HEAD, current_branch=None, task-closeout-cleanup preview blocked, cleanup apply 禁止, 分支无法解析不标 completed -> `docs/worktree-memory.md#detached-head-收尾分支门禁`

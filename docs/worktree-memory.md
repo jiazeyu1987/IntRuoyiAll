@@ -452,3 +452,12 @@
 - Preflight check: 只读读取主工作区证据文件并记录 `git -C E:\IntRuoyi status --short -- <path>`；同时在目标 worktree 运行 `git status --short`，确认后续代码补丁只落入目标 worktree。不得把主工作区未跟踪证据复制进 clean worktree 来冒充基线文件。
 - Blocker: 用户要求更新该共享证据文件但目标 clean worktree 不包含它，或无法判断证据文件是正式基线还是并行任务未跟踪资产时，先停止并请用户确认更新归属。
 - Verification: 任务日志记录主工作区证据路径、主工作区文件状态、目标 worktree 路径、目标 dirty 文件清单，以及未编辑主工作区证据文件的原因。
+
+### Detached HEAD 收尾分支门禁
+
+- Trigger: 附加 worktree 处于 detached HEAD，且需要运行 `task-closeout-cleanup` preview/apply、提交、推送、融合或删除 worktree。
+- Preflight check: 在收尾前先运行 `git status --short --branch` 与 `git branch --show-current`；若当前分支为空，只允许记录 preview 结果和阻塞原因，不执行 cleanup apply、commit、push、merge 或 worktree remove。
+- Blocker: cleanup preview 输出 `current_branch=None` 或当前分支无法解析时，必须保持任务非 completed；先由用户明确选择应绑定的分支或允许建立正确分支后才能继续集成收尾。
+- Verification: 记录 detached 状态、cleanup preview 的 blocked 行、任务最终状态以及未执行 commit/push/apply 的原因。
+- Forbidden action: 禁止在 detached HEAD 上猜测分支名、强行提交、手工绕过 closeout guard、直接删除 worktree 或把 blocked preview 写成 cleanup PASS。
+- Evidence: `doc/tasks/20260914-edhr-static-021-inventory-evidence-chain/verification-report.md`，EDHR-STATIC-021 在 linked worktree 中 cleanup preview 阻塞于 `Current worktree branch could not be resolved`，任务按规则停在 blocked。

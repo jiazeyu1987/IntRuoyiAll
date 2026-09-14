@@ -34,18 +34,21 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private final MesTeamLeaderActiveOrderCompletionProgressPort progressPort;
     private final MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort;
     private final MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
+    private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper,
             MesTeamLeaderActiveOrderCompletionProgressPort progressPort,
             MesTeamLeaderActiveOrderCompletionBackfillPort backfillPort,
-            MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService) {
+            MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService,
+            MesActiveOrderTransferTraceService activeOrderTransferTraceService) {
         this.activeOrderMapper = activeOrderMapper;
         this.receiptMapper = receiptMapper;
         this.progressPort = progressPort;
         this.backfillPort = backfillPort;
         this.pickListCompletionSourceService = pickListCompletionSourceService;
+        this.activeOrderTransferTraceService = activeOrderTransferTraceService;
     }
 
     @Override
@@ -143,6 +146,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                 || (!Boolean.TRUE.equals(draft.getHasActualLoss()) && draft.getLossRecordId() != null)) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
         }
+        activeOrderTransferTraceService.recordProductIssueInventoryTracesForActiveOrder(activeOrder);
         Integer currentVersion = activeOrder.getVersion() == null ? 0 : activeOrder.getVersion();
         if (activeOrderMapper.markCompleted(activeOrder.getId(), currentVersion, leaderUserId) != 1) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT, activeOrder.getId(),
