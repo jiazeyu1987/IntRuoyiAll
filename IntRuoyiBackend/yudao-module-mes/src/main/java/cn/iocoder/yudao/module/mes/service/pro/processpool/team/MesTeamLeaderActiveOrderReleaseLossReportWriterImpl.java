@@ -446,10 +446,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                     "请由正式填写人和生产组长完成电子签名"));
             return;
         }
-        if (!validNonNegativeQuantities(feedback)
-                || !decimalEquals(feedback.getFeedbackQuantity(),
-                feedback.getQualifiedQuantity().add(feedback.getUnqualifiedQuantity()))
-                || !decimalEquals(feedback.getFeedbackQuantity(), allocation.getAllocatedQuantity())) {
+        if (!validQuantityReconciliation(feedback, allocation)) {
             blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, null, "PRODUCTION_FEEDBACK", feedback.getId(),
                     "lossQuantity", null,
                     "报工总量、合格量、损耗总量和当前活跃订单分配数量不一致",
@@ -575,6 +572,16 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 && nonNegative(feedback.getLaborScrapQuantity())
                 && nonNegative(feedback.getMaterialScrapQuantity())
                 && nonNegative(feedback.getOtherScrapQuantity());
+    }
+
+    private boolean validQuantityReconciliation(MesProFeedbackDO feedback,
+                                                MesProcessPoolReportAllocationDO allocation) {
+        if (!validNonNegativeQuantities(feedback) || !nonNegative(allocation.getAllocatedQuantity())) {
+            return false;
+        }
+        BigDecimal lossQuantity = feedback.getUnqualifiedQuantity();
+        return decimalEquals(feedback.getFeedbackQuantity(), feedback.getQualifiedQuantity().add(lossQuantity))
+                && decimalEquals(feedback.getFeedbackQuantity(), allocation.getAllocatedQuantity().add(lossQuantity));
     }
 
     private MesProRouteFlowProcessBatchRecordDO formalBinding(

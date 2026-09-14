@@ -103,7 +103,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
-    void shouldWritePositiveFormalLossIntoCurrentTraditionalLossReportTaskWithStableEvidence() {
+    void shouldWritePositiveFormalLossWhenQualifiedAllocationPlusLossExplainsTotal() {
         mockSuccessfulPlan();
         mockSuccessfulWrite();
 
@@ -179,6 +179,23 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
+    void shouldBlockPositiveLossWhenStructuredLossDetailsAreMissing() {
+        MesTeamLeaderActiveOrderReleaseLossSourceReadResult sources = formalSources();
+        sources.getProcessSources().get(0).setLossDetails(List.of());
+        when(sourceReader.read(any())).thenReturn(sources);
+
+        MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
+                "LOSS_SOURCE_REQUIRED".equals(blocker.getBlockerType())
+                        && ROUTE_PROCESS_ID.equals(blocker.getRouteProcessId())
+                        && "lossDetails".equals(blocker.getFieldCode())));
+        assertThrows(ServiceException.class, () -> writer.write(plan, BATCH_EXECUTION_ID));
+        verify(bindingMapper, never()).selectListByRouteProcessIdsAndUseType(any(), any());
+        verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void shouldBlockWhenAnyLossDetailReasonDoesNotMatchTheFormalFeedbackSnapshot() {
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult sources = formalSources();
         sources.getProcessSources().get(0).setLossDetails(List.of(
@@ -217,6 +234,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         feedback.setLossReasonId(null);
         feedback.setLossReasonCodeSnapshot(null);
         feedback.setLossReasonNameSnapshot(null);
+        sources.getProcessSources().get(0).getAllocation().setAllocatedQuantity(feedback.getFeedbackQuantity());
         sources.getProcessSources().get(0).setLossDetails(List.of());
         sources.getProcessSources().get(0).setHasActualLoss(false)
                 .setZeroLossConfirmed(true)
@@ -253,6 +271,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         feedback.setLossReasonId(null);
         feedback.setLossReasonCodeSnapshot(null);
         feedback.setLossReasonNameSnapshot(null);
+        sources.getProcessSources().get(0).getAllocation().setAllocatedQuantity(feedback.getFeedbackQuantity());
         sources.getProcessSources().get(0).setLossDetails(List.of())
                 .setHasActualLoss(null)
                 .setZeroLossConfirmed(null)
@@ -496,8 +515,8 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                 .routeId(ROUTE_ID)
                 .processId(PROCESS_ID)
                 .feedbackTime(LocalDateTime.of(2026, 8, 1, 8, 30))
-                .feedbackQuantity(new BigDecimal("100.000"))
-                .qualifiedQuantity(new BigDecimal("97.500"))
+                .feedbackQuantity(new BigDecimal("102.500"))
+                .qualifiedQuantity(new BigDecimal("100.000"))
                 .unqualifiedQuantity(new BigDecimal("2.500"))
                 .laborScrapQuantity(new BigDecimal("1.000"))
                 .materialScrapQuantity(new BigDecimal("1.500"))
