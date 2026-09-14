@@ -243,7 +243,7 @@ $env:DCC_E2E_TC010_DOWNLOAD_PATH='/dcc/controlled-file/detail/<real-downloadable
 $env:DCC_E2E_TC010_DOWNLOAD_TRIGGER_SELECTOR='<real-download-button-selector>'
 $env:DCC_E2E_TC010_DOWNLOAD_CONFIRM_SELECTOR='<real-download-confirm-button-selector>'
 $env:DCC_E2E_TC010_AUDIT_VERIFY_URL='<final-api-url-to-verify-download-success-audit>'
-$env:DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS='DOWNLOAD||ALLOWED||<real-controlled-file-id>||<user-id>'
+$env:DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS='DOWNLOAD||ALLOWED||CONTROLLED_DOWNLOAD||<real-controlled-file-id>||<user-id>'
 $env:DCC_E2E_TC010_AUDIT_EXPECT_FIELDS='actionType=DOWNLOAD||result=ALLOWED||sourceIp=*||userAgent=*||requestId=*'
 
 $env:DCC_E2E_TC011_DOWNLOAD_PATH='/dcc/controlled-file/detail/<real-source-read-failure-file-id>'

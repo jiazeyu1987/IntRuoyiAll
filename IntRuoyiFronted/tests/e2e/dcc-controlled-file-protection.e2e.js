@@ -1762,11 +1762,7 @@ async function runDirectDownloadSuccess(session, evidence) {
   for (const header of ['x-dcc-' + 'artifact-id', 'x-dcc-' + 'cipher-sha256']) {
     assert.equal(response.headers[header], undefined, `Direct download response must not include ${header}`)
   }
-  assert.equal(
-    plainSha256,
-    response.headers['x-dcc-plain-sha256'],
-    'Downloaded file hash must match plaintext evidence'
-  )
+  assert.equal(plainSha256, response.headers['x-dcc-plain-sha256'], 'Downloaded file hash must match plaintext evidence')
   await verifyFinalApi(page, 'DCC_E2E_TC010_AUDIT_VERIFY_URL', 'TC-E2E-010', {
     expectedContainsEnv: 'DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS',
     expectedFieldsEnv: 'DCC_E2E_TC010_AUDIT_EXPECT_FIELDS'

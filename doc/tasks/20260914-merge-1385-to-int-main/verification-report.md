@@ -1,29 +1,31 @@
-# Merge 1385 Dirty Worktree Verification Report
+# Merge 1385 Verification Report
 
-## Scope
+## Result
 
-User-authorized full dirty-state submission from `C:\Users\BJB110\.codex\worktrees\1385\IntRuoyi` into `int_main`.
+ready_for_closeout
 
-## Expected Result
+Required checks passed on the resolved integration tree including main 380a49b2a. Commit, push, cleanup and final fast-forward remain.
 
-The authorized dirty batch is committed, integrated into `int_main`, verified with focused/static checks, and pushed if repository state permits.
+## Verified Changes
 
-## Results
+- Authorized source batch preserved in 8aebc6eed; blockers fixed in 245c4a8fa, progress recorded in 465a717e0.
+- Explicit manual rollback SQL excluded from forward discovery; missing forward metadata and conflicting declarations remain errors. No database state changed.
+- Main DCC check-in cleanup, companion PDF ownership, preview permissions and four-stage route regressions retained.
+- MES inventory validation uses formal source identity rather than source type alone.
 
-- IN PROGRESS: backend blockers resolved; frontend and final integration verification pending.
-- Latest backend verification: DCC 347, MES 32, server multipart 4 tests PASS. Python tooling regression 156 tests PASS; added executable discovery regression also confirms conflicting declarations fail.
-- Manual rollback discovery now excludes explicitly declared rollback files while retaining strict forward metadata validation. No SQL file contents or database state changed.
-- Preserved fusion commit: `8aebc6eed`; rebased onto main baseline `90adf7d6e` after baseline commits `36548b47c` and `90adf7d6e`.
-- PASS: frontend API fail-closed contract (10 tests), upload-purpose static contract, backend direct-download runtime contract, and PowerShell direct-download runtime configuration tests.
-- FAIL: Python tooling suite with task-local temporary directory: 154 passed, 1 failed. Release SQL discovery includes `20260822_mes_process_pool_active_order_completion_receipt_rollback.sql`, which declares `rollback-migration` and manual destructive rollback, not forward `release-migration` metadata. Do not relabel it as a forward migration merely to pass this test.
-- BLOCKED: frontend check-in test cannot resolve `typescript`. `pnpm install --frozen-lockfile` was started, then interrupted after blockers were confirmed; dependency installation and type checking are not PASS.
-- Previous Maven run: 347 DCC tests, 4 failures in workflow tests. The four obsolete route fixtures/assertions were corrected; the new Maven run was interrupted without a completed result. MES/server tests remain unverified in this continuation.
-- Uncommitted corrections: Collection import, four-stage workflow test fixtures/assertions, local-profile static assertion, Docker extra-argument assertion.
-- E2E, deployment, database writes, and service restarts were not performed.
+## Verification
 
-## Risks And Blockers
+- DCC focused Maven: 350 tests PASS; MES: 42 tests PASS. Eleven selected classes, -pl yudao-module-dcc,yudao-module-mes -am; completed Surefire reports checked.
+- Server UploadMultipartLimitConfigTest: 4 tests PASS with standalone server module Maven invocation.
+- Python publish/local restart/runtime tooling: 155 tests PASS, pytest-integrated-07. Obsolete persistent-environment test removed because it contradicted main's negative contract.
+- Integrated frontend API: 10 PASS; check-in: 5 PASS; upload-purpose static contract PASS; pnpm ts:check PASS.
+- Direct-download PowerShell configuration and backend startup static contracts PASS.
+- Branch port guard PASS: slot 24, frontend 8158, backend 48158. git diff --check PASS.
+- pnpm install --frozen-lockfile PASS. Ignored dependency lifecycle scripts did not prevent required checks. No dependency or lockfile changes committed.
 
-- Source worktree starts on detached HEAD.
-- Dirty batch spans multiple domains and historical task scopes.
-- Latest main observation: `7393f6731`; unrelated edits in EDHR static-021 task records, DCC documentation, and closeout rules, plus a new DCC handoff document. These were left untouched. Re-read current rules and re-evaluate integration against current main before resuming.
-- Integration worktree and slot 24 remain allocated; source detached worktree is preserved. Cleanup preview/apply is not eligible while required verification is incomplete.
+## Boundaries
+
+- No real E2E, deployment, live database writes or service restart.
+- Main's three unrelated DCC/closeout documentation files remain outside task staging and merge scope; verify hashes around final fast-forward.
+- Cleanup keeps three task records and removes task-local temporary products. Source detached 1385 worktree remains preserved.
+- Reusable SQL-discovery lesson consolidated into docs/release-backup-restore.md.

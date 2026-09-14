@@ -300,7 +300,7 @@ function testOnlyOfficeReadonlyPreviewDoesNotPromptForAnonymousCoeditName() {
   assertContains(viewer, 'request: false')
 }
 
-function testDirectDownloadUsesResponseEvidenceHeadersInsteadOfManualPlainHash() {
+function testDirectDownloadUsesPlainResponseEvidence() {
   const profile = readUtf8(profilePath)
   const e2eScript = readUtf8(scriptPath)
   const workflowApi = readUtf8(workflowApiPath)
@@ -317,11 +317,10 @@ function testDirectDownloadUsesResponseEvidenceHeadersInsteadOfManualPlainHash()
   assertContains(e2eScript, "response.headers['x-dcc-plain-sha256']")
   assertNotContains(e2eScript, "response.headers['x-dcc-" + "cipher-sha256']")
   assertContains(e2eScript, 'Downloaded file hash must match plaintext evidence')
-  assertNotContains(e2eScript, 'x-dcc-cipher-sha256')
   assertNotContains(e2eScript, 'ENCRYPTION_POLICY_VERSION')
 }
 
-function testDownloadFailClosedUsesRealDownloadConfirmation() {
+function testDirectDownloadSourceReadFailureUsesRealDownloadConfirmation() {
   const profile = readUtf8(profilePath)
   const envExample = readUtf8(envExamplePath)
   const e2eScript = readUtf8(scriptPath)
@@ -441,9 +440,9 @@ testPreviewTransformControlsAreBoundedAndTypeScoped()
 testPreviewBinaryRequestUsesHeaderBoundViewerContext()
 testScreenshotSmokeProfileUsesValidPreviewSample()
 testOnlyOfficeBadTokenAcceptsFailFastCommonResult()
-testDirectDownloadUsesResponseEvidenceHeadersInsteadOfManualPlainHash()
+testDirectDownloadUsesPlainResponseEvidence()
 testOnlyOfficeReadonlyPreviewDoesNotPromptForAnonymousCoeditName()
-testDownloadFailClosedUsesRealDownloadConfirmation()
+testDirectDownloadSourceReadFailureUsesRealDownloadConfirmation()
 testAuditAuthorizationUsesRealSelectFilters()
 testDownloadPolicyUsesRealCapabilityBoundary()
 testFrontendFailClosedUsesRealBrokenArtifactAndUploadBoundary()

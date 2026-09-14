@@ -1242,7 +1242,7 @@ def test_publish_runtime_requires_dcc_signature_evidence_secret() -> None:
     assert "--dcc.signature.evidence.key-version=${DCC_SIGNATURE_EVIDENCE_KEY_VERSION}" in compose
 
 
-def test_publish_runtime_requires_viewer_token_and_onlyoffice_without_download_encryption_configuration() -> None:
+def test_publish_runtime_requires_dcc_viewer_token_onlyoffice_and_direct_download_configuration() -> None:
     text = read_publish_script()
     compose = (DEPLOY_ROOT / "int-ruoyi-test" / "docker-compose.yml").read_text(encoding="utf-8")
     status = (DEPLOY_ROOT / "show-int-ruoyi-remote-status.ps1").read_text(encoding="utf-8")

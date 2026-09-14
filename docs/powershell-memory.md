@@ -253,6 +253,22 @@
 - Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
 - Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
 
+### Pytest 任务自有 basetemp 门禁
+
+- Trigger: Windows 上 `pytest` 使用默认 `%TEMP%\pytest-of-<user>` 时 setup 阶段报 `PermissionError: [WinError 5]`，但测试本身尚未执行失败。
+- Preflight check: 先确认失败发生在 pytest 临时目录创建阶段；复跑同一测试集时可使用当前任务自有目录 `--basetemp .pytest-tmp\<task-id>`，并把首次环境失败和复跑命令都写入任务日志。
+- Blocker: 指定 basetemp 后仍失败、失败进入业务断言、或临时目录不属于当前任务可清理范围时，不得写成 GREEN。
+- Verification: 记录同一测试集的最终 `passed` 数量，并在 cleanup candidates 中列出任务自有 `.pytest-tmp`。
+- Forbidden action: 禁止把默认临时目录权限错误写成产品回归失败；禁止改用更少测试或删除系统临时目录来绕过。
+
+### yudao-server reactor unpack 测试门禁
+
+- Trigger: `mvn -pl yudao-server -am ... test` 在 `maven-dependency-plugin:unpack` 阶段报 `Artifact has not been packaged yet`，且目标测试只是 server 模块自身静态/配置测试。
+- Preflight check: 先确认同一命令已经让受影响兄弟模块到达 Surefire 并通过；再单独运行 `mvn -pl yudao-server "-Dtest=<目标类>" "-Dsurefire.failIfNoSpecifiedTests=false" test`，让 yudao-server 使用已存在的正式 report jar 进入自身 Surefire。
+- Blocker: 单独 server 命令仍无法进入 Surefire、目标测试依赖当前兄弟模块未安装的新接口、或失败来自业务断言时，不得把 reactor unpack 阻断降级为 PASS。
+- Verification: 任务日志同时记录 reactor 命令的 DCC/MES Surefire 结果、unpack 阻断摘要、单独 server 目标测试计数和最终结果。
+- Forbidden action: 禁止跳过 yudao-server 目标测试、关闭插件执行或把 `-am` reactor unpack 的生命周期阻断写成业务失败。
+
 ### Maven 同模块 target/classes 陈旧门禁
 
 - Trigger: 已修改当前模块 main 源码的方法签名、构造器参数、新增 mapper 或 mapper 默认方法，但 `mvn -pl <module> -am "-Dtest=..." test` 在 testCompile / Surefire 阶段仍报旧签名、旧构造器、`ClassNotFoundException` 缺少刚新增 mapper class，或“找不到刚新增的方法”，且日志显示 main `compile` 为 `Nothing to compile - all classes are up to date`。

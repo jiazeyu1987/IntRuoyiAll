@@ -115,7 +115,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.Arrays;
 import java.util.List;
@@ -610,6 +609,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         base.setSourceFileId(100L);
         base.setDrawingPdfFileId(700L);
         when(controlledFileMapper.selectById(900L)).thenReturn(base);
+        when(fileMapper.selectById(100L)).thenReturn(FileDO.builder()
+                .id(100L).name("current-drawing.dwg").type("application/acad").build());
         when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(DccControlledFileCheckoutDO.builder()
                 .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L)
                 .status("ACTIVE").baseSourceSha256("old-sha").build());
@@ -673,6 +674,45 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(fileService.getFileContent(1L, "dcc/corrected.pdf")).thenReturn(content);
     }
 
+    @Test
+    void metadataOnlyDrawingCheckinCopiesCompanionToKeepPreviewOwnershipUnambiguous() {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setUploadTicket(null);
+        request.setRemark("修正图纸备注");
+        when(sourceOwnershipService.prepareSubmissionSource(100L, false))
+                .thenReturn(new DccControlledFilePreparedSource(101L, 100L, "old-sha", true));
+        when(sourceOwnershipService.createVerifiedCopy(700L))
+                .thenReturn(new DccControlledFilePreparedSource(201L, 700L, "pdf-sha", true));
+        when(fileMapper.selectById(201L)).thenReturn(FileDO.builder()
+                .id(201L).name("same-content.pdf").type("application/pdf").build());
+        when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, null, 901L, 101L, "old-sha")).thenReturn(1);
+
+        assertEquals(901L, queryService.checkinControlledFile(99L, 900L, request).getId());
+
+        ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(inserted.capture());
+        assertEquals(201L, inserted.getValue().getDrawingPdfFileId());
+        assertEquals("old-sha", inserted.getValue().getSourceSha256());
+        verify(sourceOwnershipService).createVerifiedCopy(700L);
+    }
+
+    @Test
+    void metadataOnlyDrawingCopyFailureCleansPreparedSourceAndKeepsCheckout() {
+        DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
+        request.setUploadTicket(null);
+        request.setRemark("修正图纸备注");
+        DccControlledFilePreparedSource prepared = new DccControlledFilePreparedSource(101L, 100L, "old-sha", true);
+        when(sourceOwnershipService.prepareSubmissionSource(100L, false)).thenReturn(prepared);
+        IllegalStateException failure = new IllegalStateException("PDF copy failed");
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class,
+                () -> queryService.checkinControlledFile(99L, 900L, request)));
+        verify(sourceOwnershipService).cleanupPreparedSource(prepared);
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), any(),
+                anyLong(), anyLong(), anyString());
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(longs = {201L, 202L})
     void drawingCheckinReplayRequiresTheSameBoundCompanion(long boundPdfId) {
@@ -4771,7 +4811,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         String sqlSet = failureUpdate.getSqlSet();
         assertTrue(sqlSet.contains("plain_sha256="), sqlSet);
         assertTrue(sqlSet.contains("returned_at="), sqlSet);
-        Collection<Object> values = failureUpdate.getParamNameValuePairs().values();
+        var values = failureUpdate.getParamNameValuePairs().values();
         assertTrue(values.stream().filter(Objects::isNull).count() >= 2, values::toString);
         assertTrue(values.contains("FAILED"), values::toString);
         assertTrue(values.contains(failureCode), values::toString);

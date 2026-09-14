@@ -10,7 +10,7 @@ Commit the user-authorized full dirty state from `C:\Users\BJB110\.codex\worktre
 - [x] Capture current detached worktree dirty baseline and user authorization.
 - [x] Create a task-owned integration worktree/branch from the detached baseline and preserve the authorized dirty state.
 - [x] Rebase/merge the integration branch onto `int_main` (verified baseline 90adf7d6e; main has since advanced).
-- [ ] Run required static and focused regression verification.
+- [x] Run required static and focused regression verification.
 - [ ] Merge into `int_main`, push if possible, and record final evidence.
 - [ ] Mark ready_for_closeout, run cleanup preview/apply when safe, then mark completed.
 
@@ -24,9 +24,9 @@ Commit the user-authorized full dirty state from `C:\Users\BJB110\.codex\worktre
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-Focused verification is incomplete. The publish tooling test encounters a manual rollback SQL file while collecting release migrations and fails before the intended missing-runtime-base check (154 passed, 1 failed). Frontend check-in testing requires TypeScript dependencies; installation was interrupted after the merge blockers were confirmed. The Maven rerun was interrupted without a new Surefire result. Main has concurrently advanced to 7393f6731 and contains unrelated pending changes. No further commit, push, merge, cleanup, or slot release was performed on this continuation.
+All required checks pass: DCC 350, MES 42, server 4, Python 155, frontend contracts and type checking. Main 380a49b2a is integrated; final commit, push and closeout remain.
 
 Authorized by user on 2026-09-14 to treat all current dirty and untracked changes in the detached `1385` worktree as the fusion batch for submission into `int_main`.
 
@@ -41,4 +41,4 @@ Authorized by user on 2026-09-14 to treat all current dirty and untracked change
 
 ## Cleanup Candidates
 
-- `doc/tasks/20260914-merge-1385-to-int-main/pytest-temp-01/` (task-owned pytest output; retain until closeout).
+- doc/tasks/20260914-merge-1385-to-int-main/pytest-temp-01/

@@ -4231,6 +4231,7 @@ function Get-ReleaseDatabaseSqlScripts {
     return $entries
 }
 
+$backendRuntimeBaseConfig = Resolve-BackendRuntimeBaseConfig
 $requiredDatabaseSqlScripts = Get-ReleaseDatabaseSqlScripts
 $requiredSqlLocalDir = Join-Path $releaseDir 'required-sql'
 $opsRuntimeLocalDir = Join-Path $releaseDir 'ops-runtime'
@@ -4258,7 +4259,6 @@ $remoteSchedulerSmokeFrontendDir = "$remoteSchedulerSmokeRoot/yudao-ui-admin-vue
 $remoteSchedulerSmokeBinDir = "$remoteSchedulerSmokeRoot/bin"
 $remoteSchedulerSmokeNpmWrapper = "$remoteSchedulerSmokeBinDir/npm"
 $onlyOfficeReleasePreviewEnvFile = "$RemoteAppDir/onlyoffice-release-preview.env"
-$backendRuntimeBaseConfig = Resolve-BackendRuntimeBaseConfig
 $smartReleaseReportOnlyEnabled = Resolve-SmartReleaseReportOnlyEnabled
 if ($publishBackend -and $Mode -notin @('deploy-release', 'mark-tested')) {
     Assert-BackendJarAvailableForMavenClean -JarPath $backendJar

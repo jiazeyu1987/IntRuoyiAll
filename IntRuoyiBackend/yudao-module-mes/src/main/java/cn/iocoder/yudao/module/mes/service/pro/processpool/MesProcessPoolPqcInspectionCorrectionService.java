@@ -97,7 +97,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(event.getFeedbackSourceId());
         validateTask(event, task);
-        nonconformanceReviewService.ensureWorkOrderNotFrozen(task.getWorkOrderId(), "PQC更正");
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(task.getWorkOrderId(), "PQC检验更正");
         if (releaseStateService.findReleasedActiveOrderIdsForUpdate(List.of(task.getActiveOrderId()))
                 .contains(task.getActiveOrderId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "releasedPqcInspectionForm");
@@ -184,6 +184,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private void validateTask(MesProProcessPoolEventDO event, MesPqcInspectionTaskDO task) {
         if (task == null
                 || task.getActiveOrderId() == null
+                || task.getWorkOrderId() == null
                 || !Objects.equals(event.getTenantId(), task.getTenantId())
                 || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(event.getWorkOrderId(), task.getWorkOrderId())

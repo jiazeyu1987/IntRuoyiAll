@@ -35,6 +35,12 @@ BDD: Fusion reaches int_main only after verification -> Given the integration br
 ## 2026-09-14 Continuation
 
 - User authorized resolving blockers and merging. Resume status: in_progress.
+- GREEN: integrated Maven eleven-class DCC/MES selection -> PASS, DCC 350 and MES 42 tests; completed Surefire reports checked.
+- GREEN: integrated Python suite with pytest-integrated-07 -> PASS, 155 tests.
+- GREEN: integrated pnpm ts:check, frontend API (10), check-in (5), upload-purpose static, backend startup static and PowerShell runtime configuration -> PASS.
+- Cleanup plan: preserve unrelated main documentation via no-overlap check and hashes; artifact cleanup uses --worktree-closeout off, followed by explicit ff-only merge and task-only worktree removal. No unrelated baseline commit.
+- Merge resolution: retain current main DCC check-in cleanup/companion ownership, preview scope, four-stage test fixes and route regression coverage; retain this batch's MES inventory identity validation and manual rollback discovery fix.
+- RED: post-merge Python regression -> FAIL, retained historical persistent-environment test contradicted main's explicit removal of that unused helper. Removed the obsolete test; main's negative contract remains.
 - GREEN: pnpm install --frozen-lockfile -> PASS. Dependency build scripts were ignored by pnpm policy; required check-in and type checks completed successfully without their execution.
 - GREEN: node src/views/dcc/controlled-file/browser/checkin-main-flow.spec.cjs -> PASS, 5 tests.
 - GREEN: pnpm ts:check -> PASS (tsconfig.relaxed.json, repository-defined type-check command).
