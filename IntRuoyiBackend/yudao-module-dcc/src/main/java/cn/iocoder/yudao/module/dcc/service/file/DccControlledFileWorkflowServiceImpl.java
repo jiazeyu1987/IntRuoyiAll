@@ -660,7 +660,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void returnTask(Long userId, Long id, DccControlledFileReturnTaskReqVO reqVO) {
-        returnTaskWithProcessDefinitionKey(userId, id, reqVO, BPM_PROCESS_DEFINITION_KEY);
+        throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
     }
 
     void returnTaskWithProcessDefinitionKey(Long userId, Long id, DccControlledFileReturnTaskReqVO reqVO,
@@ -684,7 +684,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void transferTask(Long userId, Long id, DccControlledFileTransferTaskReqVO reqVO) {
-        transferTaskWithProcessDefinitionKey(userId, id, reqVO, BPM_PROCESS_DEFINITION_KEY);
+        throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
     }
 
     void transferTaskWithProcessDefinitionKey(Long userId, Long id, DccControlledFileTransferTaskReqVO reqVO,
@@ -705,7 +705,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createSignTask(Long userId, Long id, DccControlledFileCreateSignTaskReqVO reqVO) {
-        createSignTaskWithProcessDefinitionKey(userId, id, reqVO, BPM_PROCESS_DEFINITION_KEY);
+        throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
     }
 
     void createSignTaskWithProcessDefinitionKey(Long userId, Long id, DccControlledFileCreateSignTaskReqVO reqVO,

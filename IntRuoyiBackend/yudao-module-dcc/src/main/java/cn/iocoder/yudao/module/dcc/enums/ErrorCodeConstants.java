@@ -275,5 +275,7 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN = new ErrorCode(1_080_000_187,
             "DCC file type taxonomy parent cannot be changed");
     ErrorCode PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_188, "DCC project code is disabled");
+    ErrorCode FILE_DIRECTORY_HIERARCHY_CYCLE = new ErrorCode(1_080_000_189,
+            "目录关系存在循环，不能将目录设置为自身或下级目录的子目录：{}");
 
 }

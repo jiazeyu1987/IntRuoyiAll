@@ -25,10 +25,14 @@ public class BpmTaskExternalSignatureGuard {
     private FormActionInstanceMapper formActionInstanceMapper;
 
     public void assertGenericApproveOrRejectAllowed(Task task) {
-        assertGenericTaskMutationAllowed(task);
+        assertAllowed(task, false);
     }
 
     public void assertGenericTaskMutationAllowed(Task task) {
+        assertAllowed(task, true);
+    }
+
+    private void assertAllowed(Task task, boolean changesApprovalRoute) {
         if (task == null || StrUtil.isBlank(task.getProcessDefinitionId())) {
             return;
         }
@@ -37,7 +41,7 @@ public class BpmTaskExternalSignatureGuard {
             return;
         }
         if (StrUtil.equals(definition.getKey(), DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEY)
-                && !isFormCenterOwnedProcess(task)) {
+                && (changesApprovalRoute || !isFormCenterOwnedProcess(task))) {
             throw exception(TASK_APPROVAL_REQUIRES_DCC_SIGNATURE);
         }
         if (StrUtil.equals(definition.getKey(), EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY)

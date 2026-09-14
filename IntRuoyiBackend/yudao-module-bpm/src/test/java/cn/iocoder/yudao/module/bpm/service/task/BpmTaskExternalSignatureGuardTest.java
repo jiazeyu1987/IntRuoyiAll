@@ -19,6 +19,22 @@ import static org.mockito.Mockito.when;
 
 class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
 
+    @Test
+    void assertGenericTaskMutationAllowed_blocksEvenFormCenterOwnedDccProcess() {
+        TenantContextHolder.setTenantId(122L);
+        Task task = mock(Task.class);
+        ProcessDefinition definition = mock(ProcessDefinition.class);
+        when(task.getProcessDefinitionId()).thenReturn("definition-1");
+        org.mockito.Mockito.lenient().when(task.getProcessInstanceId()).thenReturn("form-center-process-1");
+        when(processDefinitionService.getProcessDefinition("definition-1")).thenReturn(definition);
+        when(definition.getKey()).thenReturn("dcc-controlled-file-approval");
+        org.mockito.Mockito.lenient().when(formActionInstanceMapper.selectByProcessInstanceId(122L, "form-center-process-1"))
+                .thenReturn(new FormActionInstanceDO().setId(100L));
+
+        assertServiceException(() -> guard.assertGenericTaskMutationAllowed(task),
+                TASK_APPROVAL_REQUIRES_DCC_SIGNATURE);
+    }
+
     @Mock
     private cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService processDefinitionService;
     @Mock
@@ -52,7 +68,6 @@ class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
         Task task = mock(Task.class);
         ProcessDefinition definition = mock(ProcessDefinition.class);
         when(task.getProcessDefinitionId()).thenReturn("definition-1");
-        when(task.getProcessInstanceId()).thenReturn("dcc-process-1");
         when(processDefinitionService.getProcessDefinition("definition-1")).thenReturn(definition);
         when(definition.getKey()).thenReturn("dcc-controlled-file-approval");
 

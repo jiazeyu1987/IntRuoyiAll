@@ -197,6 +197,14 @@
           </template>
 
           <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-alert
+          v-if="listLoadErrorMessage"
+          :title="listLoadErrorMessage"
+          type="error"
+          :closable="false"
+          show-icon
+          data-testid="dcc-browser-list-load-error"
+        />
         <el-table
           v-loading="loading"
           border
@@ -879,6 +887,7 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import { useUserStore } from '@/store/modules/user'
 import { openControlledFileViewer } from '../shared/viewer-navigation'
+import { resolveControlledFileReadErrorMessage } from '../shared/utils'
 import {
   hasDccControlledFileActionProjection,
   isDccControlledFileActionUnlocked
@@ -1007,6 +1016,8 @@ const batchRecognitionExistingRecordPolicyOptions = [
 
 const directoryLoading = ref(false)
 const loading = ref(false)
+const listLoadErrorMessage = ref('')
+let listRequestSequence = 0
 const total = ref(0)
 const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
@@ -1074,6 +1085,8 @@ const directoryNodeById = ref(new Map<number, ControlledFileDirectoryNode>())
 const directoryChildrenCache = ref(new Map<number | 'root', ControlledFileDirectoryNode[]>())
 const expandedDirectoryIds = ref<Set<number>>(new Set())
 let directorySearchSeq = 0
+let directoryLoadSequence = 0
+let categoryLoadSequence = 0
 
 const getBrowserCacheContext = () => {
   const userId = userStore.getUser.id
@@ -1836,6 +1849,8 @@ const findDirectoryNode = (
 }
 
 const resolveSelectedDirectory = async () => {
+  const directoryId = selectedDirectoryId.value
+  const cacheContextKey = JSON.stringify(getBrowserCacheContext())
   if (!selectedDirectoryId.value) {
     return
   }
@@ -1849,7 +1864,9 @@ const resolveSelectedDirectory = async () => {
     selectedDirectory.value = cachedDirectory
     return
   }
-  const directory = toDirectoryNode(await getDirectory(selectedDirectoryId.value))
+  const directory = toDirectoryNode(await getDirectory(directoryId!))
+  if (directoryId !== selectedDirectoryId.value ||
+      cacheContextKey !== JSON.stringify(getBrowserCacheContext())) return
   cacheDirectoryNodes([directory])
   selectedDirectory.value = directory
 }
@@ -1909,13 +1926,16 @@ const buildBrowserRouteQueryFromRoute = () =>
   buildBrowserRouteQueryFromRememberedState(buildBrowserRememberedStateFromRoute())
 
 let browserRouteSyncing = false
+let browserRouteSyncCount = 0
 
 async function withBrowserRouteSyncGuard(action: () => Promise<unknown>) {
+  browserRouteSyncCount += 1
   browserRouteSyncing = true
   try {
     return await action()
   } finally {
-    browserRouteSyncing = false
+    browserRouteSyncCount -= 1
+    browserRouteSyncing = browserRouteSyncCount > 0
   }
 }
 
@@ -1948,21 +1968,38 @@ const buildBrowserReturnPath = () => {
 }
 
 const getList = async () => {
+  const requestSequence = ++listRequestSequence
+  const requestParams = buildBrowserRequestParams()
+  const contextKey = JSON.stringify([route.path, getBrowserCacheContext(), requestParams])
+  const isCurrent = () => requestSequence === listRequestSequence && contextKey ===
+    JSON.stringify([route.path, getBrowserCacheContext(), buildBrowserRequestParams()])
+  listLoadErrorMessage.value = ''
+  list.value = []
+  total.value = 0
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
-    list.value = []
-    total.value = 0
+    loading.value = false
     return
   }
   loading.value = true
   try {
-    const data = await getControlledFileBrowserPage(buildBrowserRequestParams())
+    const data = await getControlledFileBrowserPage(requestParams)
+    if (!isCurrent()) return
     list.value = data.list.map((item) => ({
       ...item,
       selectedVersionId: resolveInitialSelectedVersionId(item)
     }))
     total.value = data.total
+  } catch (error) {
+    if (!isCurrent()) {
+      console.warn('DCC browser request failed after its context was superseded', error)
+      return
+    }
+    list.value = []
+    total.value = 0
+    listLoadErrorMessage.value = resolveControlledFileReadErrorMessage(error, '文件列表加载失败，请重试。')
+    throw error
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 const dccBrowserQuickFilter = useTableQuickFilter(
@@ -1973,26 +2010,43 @@ const dccBrowserQuickFilter = useTableQuickFilter(
 )
 
 const loadDirectories = async () => {
+  const sequence = ++directoryLoadSequence
+  const contextKey = JSON.stringify([route.path, getBrowserCacheContext()])
+  const isCurrent = () => sequence === directoryLoadSequence &&
+    contextKey === JSON.stringify([route.path, getBrowserCacheContext()])
   directoryLoading.value = true
   try {
     restoreBrowserMetadataCache()
     if (directories.value.length) {
-      if (await openRememberedDirectoryInTree()) {
+      if (await openRememberedDirectoryInTree() && isCurrent()) {
         persistBrowserMetadataCache()
       }
     }
+    if (!isCurrent()) return
     const rootDirectories = (await getDirectoryTree()).map(toDirectoryNode)
+    if (!isCurrent()) return
     applyDirectoryTree(rootDirectories)
     await openRememberedDirectoryInTree()
+    if (!isCurrent()) return
     persistBrowserMetadataCache()
+  } catch (error) {
+    if (!isCurrent()) {
+      console.warn('DCC directory load failed after its context was superseded', error)
+      return
+    }
+    throw error
   } finally {
-    directoryLoading.value = false
+    if (isCurrent()) directoryLoading.value = false
   }
 }
 
 const loadCategories = async () => {
+  const sequence = ++categoryLoadSequence
+  const contextKey = JSON.stringify(getBrowserCacheContext())
   restoreBrowserMetadataCache()
-  categories.value = await getFileCategoryList()
+  const loaded = await getFileCategoryList()
+  if (sequence !== categoryLoadSequence || contextKey !== JSON.stringify(getBrowserCacheContext())) return
+  categories.value = loaded
   persistBrowserMetadataCache()
 }
 

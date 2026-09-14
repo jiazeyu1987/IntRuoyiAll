@@ -2957,54 +2957,19 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void returnTask_updatesStatusToTargetStageAndDelegatesToBpm() {
-        mockTaskActionContext(900L, 99L, "task-3", "approveTask",
-                DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL,
-                DccControlledFileStageCodeEnum.MATRIX_APPROVAL, Boolean.FALSE);
-        DccControlledFileReturnTaskReqVO reqVO = new DccControlledFileReturnTaskReqVO();
-        reqVO.setTaskId("task-3");
-        reqVO.setPassword("secret");
-        reqVO.setTargetTaskDefinitionKey(DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode());
-        reqVO.setReason("缺少会签意见");
-
-        workflowService.returnTask(99L, 900L, reqVO);
-
-        verify(signatureVerificationService).verifyPasswordAndCreateSignature(99L, 900L, "task-3",
-                DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "RETURN", "secret", "缺少会签意见");
-        ArgumentCaptor<BpmTaskReturnReqVO> bpmReqCaptor = ArgumentCaptor.forClass(BpmTaskReturnReqVO.class);
-        verify(bpmTaskService).returnTask(eq(99L), bpmReqCaptor.capture());
-        assertEquals("task-3", bpmReqCaptor.getValue().getId());
-        assertEquals(DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), bpmReqCaptor.getValue().getTargetTaskDefinitionKey());
-        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).updateById(updateCaptor.capture());
-        assertEquals(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus(), updateCaptor.getValue().getStatus());
-        assertEquals("有流程回退，需处理：缺少会签意见", updateCaptor.getValue().getRejectReason());
+    void returnTask_updatesStatusToTargetStageAndDelegatesToBpm_removedByOrdinaryFilePolicy() {
+        assertServiceException(() -> workflowService.returnTask(99L, 900L, new DccControlledFileReturnTaskReqVO()),
+                CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        org.mockito.Mockito.verifyNoInteractions(controlledFileMapper, routeSnapshotMapper,
+                signatureVerificationService, bpmTaskService);
     }
 
     @Test
-    void returnTask_toApplicantReworkKeepsOriginalProcessInstance() {
-        mockTaskActionContext(900L, 99L, "task-3", "approveTask",
-                DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL,
-                DccControlledFileStageCodeEnum.MATRIX_APPROVAL, Boolean.FALSE);
-        DccControlledFileReturnTaskReqVO reqVO = new DccControlledFileReturnTaskReqVO();
-        reqVO.setTaskId("task-3");
-        reqVO.setPassword("secret");
-        reqVO.setTargetTaskDefinitionKey("APPLICANT_REWORK");
-        reqVO.setReason("申请人补充源文件说明");
-
-        workflowService.returnTask(99L, 900L, reqVO);
-
-        verify(signatureVerificationService).verifyPasswordAndCreateSignature(99L, 900L, "task-3",
-                DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "RETURN", "secret", "申请人补充源文件说明");
-        ArgumentCaptor<BpmTaskReturnReqVO> bpmReqCaptor = ArgumentCaptor.forClass(BpmTaskReturnReqVO.class);
-        verify(bpmTaskService).returnTask(eq(99L), bpmReqCaptor.capture());
-        assertEquals("task-3", bpmReqCaptor.getValue().getId());
-        assertEquals("APPLICANT_REWORK", bpmReqCaptor.getValue().getTargetTaskDefinitionKey());
-        ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).updateById(updateCaptor.capture());
-        assertEquals("PENDING_APPLICANT_REWORK", updateCaptor.getValue().getStatus());
-        assertEquals("有流程回退，需处理：申请人补充源文件说明", updateCaptor.getValue().getRejectReason());
-        verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any(BpmProcessInstanceCreateReqDTO.class));
+    void returnTask_toApplicantReworkKeepsOriginalProcessInstance_removedByOrdinaryFilePolicy() {
+        assertServiceException(() -> workflowService.returnTask(99L, 900L, new DccControlledFileReturnTaskReqVO()),
+                CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        org.mockito.Mockito.verifyNoInteractions(controlledFileMapper, routeSnapshotMapper,
+                signatureVerificationService, bpmTaskService);
     }
 
     @Test
@@ -3085,53 +3050,19 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void transferTask_updatesStageResolvedUsersAndDelegatesToBpm() {
-        mockTaskActionContext(900L, 99L, "task-2", "approveTask",
-                DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW,
-                DccControlledFileStageCodeEnum.MATRIX_REVIEW, Boolean.FALSE);
-        DccControlledFileTransferTaskReqVO reqVO = new DccControlledFileTransferTaskReqVO();
-        reqVO.setTaskId("task-2");
-        reqVO.setPassword("secret");
-        reqVO.setAssigneeUserId(101L);
-        reqVO.setReason("请代为评审");
-
-        workflowService.transferTask(99L, 900L, reqVO);
-
-        verify(signatureVerificationService).verifyPasswordAndCreateSignature(99L, 900L, "task-2",
-                DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "TRANSFER", "secret", "请代为评审");
-        ArgumentCaptor<BpmTaskTransferReqVO> bpmReqCaptor = ArgumentCaptor.forClass(BpmTaskTransferReqVO.class);
-        verify(bpmTaskService).transferTask(eq(99L), bpmReqCaptor.capture());
-        assertEquals("task-2", bpmReqCaptor.getValue().getId());
-        assertEquals(101L, bpmReqCaptor.getValue().getAssigneeUserId());
-        ArgumentCaptor<DccControlledFileRouteSnapshotDO> snapshotCaptor = ArgumentCaptor.forClass(DccControlledFileRouteSnapshotDO.class);
-        verify(routeSnapshotMapper).updateById(snapshotCaptor.capture());
-        assertEquals("101,100", snapshotCaptor.getValue().getResolvedUserIds());
+    void transferTask_updatesStageResolvedUsersAndDelegatesToBpm_removedByOrdinaryFilePolicy() {
+        assertServiceException(() -> workflowService.transferTask(99L, 900L, new DccControlledFileTransferTaskReqVO()),
+                CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        org.mockito.Mockito.verifyNoInteractions(controlledFileMapper, routeSnapshotMapper,
+                signatureVerificationService, bpmTaskService);
     }
 
     @Test
-    void createSignTask_appendsResolvedUsersAndDelegatesToBpm() {
-        mockTaskActionContext(900L, 99L, "task-2", "approveTask",
-                DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW,
-                DccControlledFileStageCodeEnum.MATRIX_REVIEW, Boolean.FALSE);
-        DccControlledFileCreateSignTaskReqVO reqVO = new DccControlledFileCreateSignTaskReqVO();
-        reqVO.setTaskId("task-2");
-        reqVO.setPassword("secret");
-        reqVO.setUserIds(new java.util.LinkedHashSet<>(List.of(101L, 102L)));
-        reqVO.setType("before");
-        reqVO.setReason("增加工艺确认");
-
-        workflowService.createSignTask(99L, 900L, reqVO);
-
-        verify(signatureVerificationService).verifyPasswordAndCreateSignature(99L, 900L, "task-2",
-                DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "ADD_SIGN", "secret", "增加工艺确认");
-        ArgumentCaptor<BpmTaskSignCreateReqVO> bpmReqCaptor = ArgumentCaptor.forClass(BpmTaskSignCreateReqVO.class);
-        verify(bpmTaskService).createSignTask(eq(99L), bpmReqCaptor.capture());
-        assertEquals("task-2", bpmReqCaptor.getValue().getId());
-        assertEquals(new java.util.LinkedHashSet<>(List.of(101L, 102L)), bpmReqCaptor.getValue().getUserIds());
-        assertEquals("before", bpmReqCaptor.getValue().getType());
-        ArgumentCaptor<DccControlledFileRouteSnapshotDO> snapshotCaptor = ArgumentCaptor.forClass(DccControlledFileRouteSnapshotDO.class);
-        verify(routeSnapshotMapper).updateById(snapshotCaptor.capture());
-        assertEquals("99,100,101,102", snapshotCaptor.getValue().getResolvedUserIds());
+    void createSignTask_appendsResolvedUsersAndDelegatesToBpm_removedByOrdinaryFilePolicy() {
+        assertServiceException(() -> workflowService.createSignTask(99L, 900L, new DccControlledFileCreateSignTaskReqVO()),
+                CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
+        org.mockito.Mockito.verifyNoInteractions(controlledFileMapper, routeSnapshotMapper,
+                signatureVerificationService, bpmTaskService);
     }
 
     @Test

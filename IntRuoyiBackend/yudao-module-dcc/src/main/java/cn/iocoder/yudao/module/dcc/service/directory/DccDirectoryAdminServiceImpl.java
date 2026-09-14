@@ -79,6 +79,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTOR
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_DELETE_MASTER_OUT_OF_SCOPE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_PARENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_HIERARCHY_CYCLE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_DIRECTORY_IMPORT_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.INTAUTH_DIRECTORY_IMPORT_SOURCE_INVALID;
 
@@ -149,7 +150,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createDirectory(DccDirectorySaveReqVO reqVO) {
-        validateParentExists(reqVO.getParentId());
+        validateParentHierarchy(null, reqVO.getParentId());
         DccFileDirectoryDO directory = BeanUtils.toBean(reqVO, DccFileDirectoryDO.class);
         directory.setAccessRuleManuallyBound(Boolean.FALSE);
         directoryMapper.insert(directory);
@@ -159,8 +160,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDirectory(DccDirectorySaveReqVO reqVO) {
-        validateDirectoryExists(reqVO.getId());
-        validateParentExists(reqVO.getParentId());
+        validateParentHierarchy(reqVO.getId(), reqVO.getParentId());
         directoryMapper.updateById(BeanUtils.toBean(reqVO, DccFileDirectoryDO.class));
     }
 
@@ -195,6 +195,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     @Override
     public List<DccFileDirectoryDO> getDirectoryTree(Long userId) {
         List<DccFileDirectoryDO> directories = directoryMapper.selectEnabledList();
+        validateNoCycles(directories);
         Set<Long> assignedDirectoryIds = resolveActiveAssignedDirectoryIds(userId);
         if (assignedDirectoryIds != null) {
             return filterDirectoriesByVisibleIds(directories, assignedDirectoryIds);
@@ -355,9 +356,43 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
         }
     }
 
-    private void validateParentExists(Long parentId) {
-        if (parentId != null && directoryMapper.selectById(parentId) == null) {
-            throw exception(FILE_DIRECTORY_PARENT_NOT_EXISTS);
+    private void validateParentHierarchy(Long directoryId, Long parentId) {
+        // Lock the tenant's topology in ID order so concurrent A->B and B->A edits cannot both pass.
+        List<DccFileDirectoryDO> directories = directoryMapper.selectList(
+                new LambdaQueryWrapperX<DccFileDirectoryDO>()
+                        .orderByAsc(DccFileDirectoryDO::getId).last("FOR UPDATE"));
+        Map<Long, DccFileDirectoryDO> byId = directories.stream()
+                .collect(Collectors.toMap(DccFileDirectoryDO::getId, Function.identity()));
+        if (directoryId != null && !byId.containsKey(directoryId)) {
+            throw exception(FILE_DIRECTORY_NOT_EXISTS);
+        }
+        Set<Long> visited = new HashSet<>();
+        if (directoryId != null) visited.add(directoryId);
+        Long currentId = parentId;
+        while (!isRootParentId(currentId)) {
+            requireUnvisited(visited, currentId);
+            DccFileDirectoryDO parent = byId.get(currentId);
+            if (parent == null) throw exception(FILE_DIRECTORY_PARENT_NOT_EXISTS);
+            currentId = parent.getParentId();
+        }
+    }
+
+    private void requireUnvisited(Set<Long> visited, Long directoryId) {
+        if (!visited.add(directoryId)) throw exception(FILE_DIRECTORY_HIERARCHY_CYCLE, directoryId);
+    }
+
+    private void validateNoCycles(List<DccFileDirectoryDO> directories) {
+        Map<Long, DccFileDirectoryDO> byId = directories.stream()
+                .collect(Collectors.toMap(DccFileDirectoryDO::getId, Function.identity()));
+        Set<Long> validated = new HashSet<>();
+        for (DccFileDirectoryDO directory : directories) {
+            Set<Long> path = new HashSet<>();
+            DccFileDirectoryDO current = directory;
+            while (current != null && !validated.contains(current.getId())) {
+                requireUnvisited(path, current.getId());
+                current = isRootParentId(current.getParentId()) ? null : byId.get(current.getParentId());
+            }
+            validated.addAll(path);
         }
     }
 
@@ -400,7 +435,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
         while (!pendingIds.isEmpty()) {
             Long currentId = pendingIds.remove(0);
             if (!directoryIds.add(currentId)) {
-                continue;
+                throw exception(FILE_DIRECTORY_HIERARCHY_CYCLE, currentId);
             }
             childrenByParentId.getOrDefault(currentId, List.of()).stream()
                     .map(DccFileDirectoryDO::getId)
@@ -636,7 +671,9 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
         Set<Long> keepIds = new HashSet<>(visibleIds);
         for (Long visibleId : visibleIds) {
             DccFileDirectoryDO current = directoryMap.get(visibleId);
+            Set<Long> visited = new HashSet<>();
             while (current != null && !isRootParentId(current.getParentId())) {
+                requireUnvisited(visited, current.getId());
                 keepIds.add(current.getParentId());
                 current = directoryMap.get(current.getParentId());
             }
@@ -763,7 +800,9 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     private String buildManagedDirectoryPath(DccFileDirectoryDO directory) {
         List<String> segments = new ArrayList<>();
         DccFileDirectoryDO current = directory;
+        Set<Long> visited = new HashSet<>();
         while (current != null) {
+            requireUnvisited(visited, current.getId());
             if (!Boolean.TRUE.equals(current.getActive())) {
                 throw exception(FILE_DIRECTORY_NOT_EXISTS);
             }
@@ -787,7 +826,9 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     private String buildDirectoryPath(Long directoryId, Map<Long, DccFileDirectoryDO> directoryMap) {
         List<String> segments = new ArrayList<>();
         DccFileDirectoryDO current = directoryMap.get(directoryId);
+        Set<Long> visited = new HashSet<>();
         while (current != null) {
+            requireUnvisited(visited, current.getId());
             segments.add(current.getName());
             current = isRootParentId(current.getParentId()) ? null : directoryMap.get(current.getParentId());
         }

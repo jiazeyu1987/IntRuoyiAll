@@ -392,15 +392,15 @@
           <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
             {{ approvalActionLabels.rejectText }}
           </el-button>
-          <el-button v-if="returnTargetOptions.length > 0" plain @click="openTaskActionDialog('return')">
+          <el-button v-if="isExternalReviewProcess && returnTargetOptions.length > 0" plain @click="openTaskActionDialog('return')">
             <Icon icon="ep:back" class="mr-5px" />
             回退
           </el-button>
-          <el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog('transfer')">
+          <el-button v-if="isExternalReviewProcess && !isReturnedApplicantTask" plain @click="openTaskActionDialog('transfer')">
             <Icon icon="fa:share-square-o" class="mr-5px" />
             转办
           </el-button>
-          <el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog('sign')">
+          <el-button v-if="isExternalReviewProcess && !isReturnedApplicantTask" plain @click="openTaskActionDialog('sign')">
             <Icon icon="ep:plus" class="mr-5px" />
             加签
           </el-button>
@@ -4303,6 +4303,10 @@ const resetTaskActionDialogForm = () => {
 }
 
 const openTaskActionDialog = (mode: DccTaskActionMode) => {
+  if (!isExternalReviewProcess.value) {
+    message.error('普通受控文件已停用退回、转办和加签，请使用批准或驳回。')
+    return
+  }
   if (!approvalTodoTask.value?.id) {
     return
   }
@@ -4349,6 +4353,10 @@ const validateTaskActionDialog = () => {
 }
 
 const submitTaskActionDialog = async () => {
+  if (!isExternalReviewProcess.value) {
+    message.error('普通受控文件已停用退回、转办和加签，请使用批准或驳回。')
+    return
+  }
   const taskId = String(approvalTodoTask.value?.id || '')
   if (!taskId || !validateTaskActionDialog()) {
     return

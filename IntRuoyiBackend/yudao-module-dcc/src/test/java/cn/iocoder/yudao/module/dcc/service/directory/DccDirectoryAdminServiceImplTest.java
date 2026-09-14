@@ -306,6 +306,7 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
         projectCodeAssignmentFileMapper.insert(DccProjectCodeAssignmentFileDO.builder()
                 .id(9202L)
                 .assignmentId(9201L)
+                .masterId(9100L)
                 .projectCodeId(3001L)
                 .controlledFileId(9101L)
                 .directoryIdSnapshot(assignedChild.getId())
