@@ -903,16 +903,11 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   `file_version_no` varchar(64) NOT NULL,
   `user_id` bigint NOT NULL,
   `policy_version` varchar(64) NOT NULL,
-  `encryption_status` varchar(32) NOT NULL,
-  `encryption_policy_version` varchar(64) DEFAULT NULL,
-  `artifact_id` varchar(128) DEFAULT NULL,
-  `cipher_file_ref` varchar(255) DEFAULT NULL,
+  `download_status` varchar(32) NOT NULL,
   `plain_sha256` varchar(128) DEFAULT NULL,
-  `cipher_sha256` varchar(128) DEFAULT NULL,
   `failure_code` varchar(64) DEFAULT NULL,
   `failure_reason` varchar(500) DEFAULT NULL,
   `requested_at` datetime NOT NULL,
-  `encrypted_at` datetime DEFAULT NULL,
   `returned_at` datetime DEFAULT NULL,
   `tenant_id` bigint NOT NULL DEFAULT 0,
   `create_time` datetime DEFAULT NULL,
@@ -925,7 +920,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
   KEY `idx_dcc_protection_download_event` (`access_event_id`),
   KEY `idx_dcc_protection_download_file` (`controlled_file_id`, `file_version_no`),
   KEY `idx_dcc_protection_download_user_time` (`user_id`, `requested_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file encrypted download record';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file download record';
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `id` bigint NOT NULL AUTO_INCREMENT,

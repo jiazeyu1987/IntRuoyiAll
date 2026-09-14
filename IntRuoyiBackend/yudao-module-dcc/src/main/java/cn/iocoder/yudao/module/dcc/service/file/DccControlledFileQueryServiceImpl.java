@@ -175,9 +175,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private static final String CONTROLLED_DOWNLOAD_PURPOSE = "CONTROLLED_DOWNLOAD";
     private static final String ACCESS_RESULT_SUCCESS = "SUCCESS";
     private static final String OFFICE_READ_ACTION_TYPE = "OFFICE_READ";
-    private static final String DOWNLOAD_ENCRYPTION_STATUS_REQUESTED = "REQUESTED";
-    private static final String DOWNLOAD_ENCRYPTION_STATUS_READY = "READY";
-    private static final String DOWNLOAD_ENCRYPTION_STATUS_FAILED = "FAILED";
+    private static final String DOWNLOAD_RECORD_STATUS_REQUESTED = "REQUESTED";
+    private static final String DOWNLOAD_RECORD_STATUS_READY = "READY";
+    private static final String DOWNLOAD_RECORD_STATUS_FAILED = "FAILED";
     private static final String FAILURE_SOURCE_READ_FAILED = "SOURCE_READ_FAILED";
     private static final String FAILURE_AUDIT_RECORD_FAILED = "AUDIT_RECORD_FAILED";
     private static final String PREVIEW_UNAVAILABLE_CONTENT_TYPE = "application/octet-stream";
@@ -1178,15 +1178,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
-        requireBusinessFileAccess(BusinessFileAccessOperation.PREVIEW, userId, binaryFileId,
-                TenantContextHolder.getRequiredTenantId(), null,
-                auditContext.withRequestId(auditContext.requestIdOr(accessEventCode)), null);
         if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
             recordAccess(file.getId(), userId, DccAccessTypeEnum.PREVIEW, false, "ACCESS_DENIED",
                     auditContext.withRequestId(auditContext.requestIdOr(accessEventCode)));
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
+        Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
+        requireBusinessFileAccess(BusinessFileAccessOperation.PREVIEW, userId, binaryFileId,
+                TenantContextHolder.getRequiredTenantId(), null,
+                auditContext.withRequestId(auditContext.requestIdOr(accessEventCode)), null);
         DccControlledFileAccessEventDO accessEvent = selectAccessEvent(accessEventCode);
         DccControlledFileWatermarkTraceDO watermarkTrace = selectWatermarkTrace(watermarkTraceCode);
         requireMatchingPreviewEvidence(userId, file, accessEvent, watermarkTrace);
@@ -1278,10 +1278,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     content,
                     downloadRequestId,
                     accessEvent.getAccessEventCode(),
-                    null,
-                    null,
-                    plainSha256,
-                    null);
+                    plainSha256);
         } catch (ServiceException ex) {
             String failureCode = downloadFailureCode(ex);
             markDownloadRecordFailed(downloadRecord, failureCode,
@@ -1361,7 +1358,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .fileVersionNo(StrUtil.trim(file.getVersionNo()))
                 .userId(userId)
                 .policyVersion(policyVersion)
-                .encryptionStatus(DOWNLOAD_ENCRYPTION_STATUS_REQUESTED)
+                .downloadStatus(DOWNLOAD_RECORD_STATUS_REQUESTED)
                 .requestedAt(requestedAt)
                 .build();
         int insertedRows;
@@ -1381,7 +1378,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                          LocalDateTime returnedAt) {
         int updatedRows = downloadRecordMapper.updateById(DccControlledFileDownloadRecordDO.builder()
                 .id(downloadRecord.getId())
-                .encryptionStatus(DOWNLOAD_ENCRYPTION_STATUS_READY)
+                .downloadStatus(DOWNLOAD_RECORD_STATUS_READY)
                 .plainSha256(plainSha256)
                 .returnedAt(returnedAt)
                 .build());
@@ -1395,15 +1392,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                           String failureReason) {
         int updatedRows = downloadRecordMapper.update(null, new UpdateWrapper<DccControlledFileDownloadRecordDO>()
                 .eq("id", downloadRecord.getId())
-                .set("encryption_status", DOWNLOAD_ENCRYPTION_STATUS_FAILED)
-                .set("encryption_policy_version", null)
-                .set("artifact_id", null)
-                .set("cipher_file_ref", null)
+                .set("download_status", DOWNLOAD_RECORD_STATUS_FAILED)
                 .set("plain_sha256", null)
-                .set("cipher_sha256", null)
                 .set("failure_code", failureCode)
                 .set("failure_reason", StrUtil.trim(failureReason))
-                .set("encrypted_at", LocalDateTime.now(ZoneOffset.UTC))
                 .set("returned_at", null));
         if (updatedRows <= 0) {
             throw exception(DCC_DOWNLOAD_AUDIT_RECORD_FAILED);
@@ -1493,49 +1485,56 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private boolean canReadBinary(Long userId, DccControlledFileDO file, DccAccessTypeEnum accessType,
                                   boolean hasDirectoryManagementPermission,
                                   Map<Long, Boolean> currentViewMatrixAccessByCategory) {
-        Long previewBinaryFileId = accessType == DccAccessTypeEnum.PREVIEW
-                ? resolveBinaryFileId(file, accessType) : null;
-        if (accessType == DccAccessTypeEnum.PREVIEW
-                && isPendingPreviewStatus(file.getStatus())
-                && previewBinaryFileId != null
-                && hasCurrentRunningApprovalTask(userId, file)) {
-            return true;
-        }
-        if (!isWithinAssignedFileScope(userId, file)) {
-            return false;
-        }
-        boolean allowed;
         if (accessType == DccAccessTypeEnum.PREVIEW) {
             if ((DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                     || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus()))
                     && file.getPublishedFileId() != null) {
-                allowed = userId != null && userId.equals(file.getRequesterId())
+                if (!isWithinAssignedFileScope(userId, file)) {
+                    return false;
+                }
+                boolean allowed = userId != null && userId.equals(file.getRequesterId())
                         || hasDirectoryManagementPermission
                         || canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory)
                         || hasActiveElectronicDistributionAccess(userId, file);
                 return allowed;
             }
-            if (isPendingPreviewStatus(file.getStatus()) && previewBinaryFileId != null) {
-                if (userId != null && userId.equals(file.getRequesterId())) {
+            if (isPendingPreviewStatus(file.getStatus())) {
+                boolean hasCurrentRunningApprovalTask = hasCurrentRunningApprovalTask(userId, file);
+                if (hasCurrentRunningApprovalTask && resolveBinaryFileId(file, accessType) != null) {
                     return true;
                 }
-                allowed = hasDirectoryManagementPermission
+                if (!isWithinAssignedFileScope(userId, file)) {
+                    return false;
+                }
+                if (userId != null && userId.equals(file.getRequesterId())) {
+                    return resolveBinaryFileId(file, accessType) != null;
+                }
+                boolean allowed = hasDirectoryManagementPermission
                         || isCurrentRouteSnapshotParticipant(userId, file)
-                        || hasCurrentRunningApprovalTask(userId, file);
-                return allowed;
+                        || hasCurrentRunningApprovalTask;
+                return allowed && resolveBinaryFileId(file, accessType) != null;
             }
-            if ((DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
-                    || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus()))
-                    && previewBinaryFileId != null) {
-                return userId != null && userId.equals(file.getRequesterId());
+            if (DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
+                    || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())) {
+                if (!isWithinAssignedFileScope(userId, file)) {
+                    return false;
+                }
+                boolean allowed = userId != null && userId.equals(file.getRequesterId());
+                return allowed && resolveBinaryFileId(file, accessType) != null;
             }
-            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
-                    && previewBinaryFileId != null) {
-                return userId != null && userId.equals(file.getRequesterId())
+            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
+                if (!isWithinAssignedFileScope(userId, file)) {
+                    return false;
+                }
+                boolean allowed = userId != null && userId.equals(file.getRequesterId())
                         || hasDirectoryManagementPermission
                         || permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                         DccFileCategoryPermissionActionEnum.APPROVE);
+                return allowed && resolveBinaryFileId(file, accessType) != null;
             }
+            return false;
+        }
+        if (!isWithinAssignedFileScope(userId, file)) {
             return false;
         }
         return canDownloadBinary(userId, file, hasDirectoryManagementPermission);

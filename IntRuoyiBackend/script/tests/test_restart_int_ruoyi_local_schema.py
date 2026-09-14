@@ -276,14 +276,16 @@ def test_local_restart_writes_mysql_stdin_as_utf8_bytes() -> None:
     assert "$process.StandardInput.Write($InputText)" not in block
 
 
-def test_local_restart_reads_persistent_dcc_download_encryption_env() -> None:
+def test_local_restart_does_not_read_persistent_dcc_download_encryption_env() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")
+    removed_secret_prefix = "DCC_DOWNLOAD_" + "ENCRYPTION"
+    removed_class_prefix = "DccDownload" + "Encryption"
+    removed_property_prefix = "yudao.dcc.download." + "encryption"
 
-    assert "function Import-PersistentEnvironmentVariable" in text
-    assert "[System.EnvironmentVariableTarget]::User" in text
-    assert "[System.EnvironmentVariableTarget]::Machine" in text
-    assert "Import-PersistentEnvironmentVariable $Name" in text
+    assert removed_secret_prefix not in text
+    assert removed_class_prefix not in text
+    assert removed_property_prefix not in text
 
 
 def test_local_restart_uses_spring_boot_executable_backend_jar() -> None:

@@ -161,10 +161,7 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
                         "%PDF-1.7".getBytes(),
                         "DR-20260528-0001",
                         "AE-20260528-0001",
-                        null,
-                        null,
-                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                        null));
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
 
         try (MockedStatic<SecurityFrameworkUtils> securityFrameworkUtilsMock = mockStatic(SecurityFrameworkUtils.class)) {
             securityFrameworkUtilsMock.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -202,10 +199,7 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
                         "%PDF-1.7".getBytes(),
                         "DR-20260603-0001",
                         "AE-20260603-0001",
-                        null,
-                        null,
-                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                        null));
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
 
         try (MockedStatic<SecurityFrameworkUtils> securityFrameworkUtilsMock = mockStatic(SecurityFrameworkUtils.class)) {
             securityFrameworkUtilsMock.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -256,10 +250,7 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
                         "%PDF-1.7".getBytes(),
                         "DR-20260603-0002",
                         "AE-20260603-0002",
-                        null,
-                        null,
-                        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-                        null));
+                        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"));
 
         try (MockedStatic<SecurityFrameworkUtils> securityFrameworkUtilsMock = mockStatic(SecurityFrameworkUtils.class)) {
             securityFrameworkUtilsMock.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);

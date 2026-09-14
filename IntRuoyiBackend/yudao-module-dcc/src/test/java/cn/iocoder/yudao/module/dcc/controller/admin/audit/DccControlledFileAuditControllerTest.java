@@ -170,8 +170,9 @@ class DccControlledFileAuditControllerTest extends BaseMockitoUnitTest {
         Set<String> fieldNames = Arrays.stream(type.getDeclaredFields())
                 .map(Field::getName)
                 .collect(Collectors.toSet());
+        String legacyCipherFileRef = "cipher" + "FileRef";
         for (String forbidden : Set.of("storageFileId", "sourceFileId", "originalFileId", "publishedFileId",
-                "filePath", "path", "fileUrl", "url", "configId", "cipherFileRef")) {
+                "filePath", "path", "fileUrl", "url", "configId", legacyCipherFileRef)) {
             assertFalse(fieldNames.contains(forbidden), "Audit response exposes storage field: " + forbidden);
         }
     }

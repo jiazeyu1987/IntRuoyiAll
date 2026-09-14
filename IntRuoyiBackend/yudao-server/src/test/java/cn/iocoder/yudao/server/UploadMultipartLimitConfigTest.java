@@ -58,7 +58,7 @@ class UploadMultipartLimitConfigTest {
         String content = Files.readString(projectDir.resolve("yudao-server/src/main/resources/application.yaml"));
 
         assertFalse(FORCE_ENCODING_ENABLED.matcher(content).find(),
-                "application.yaml must not force UTF-8 onto every response because DCC encrypted downloads are binary");
+                "application.yaml must not force UTF-8 onto every response because DCC controlled downloads are binary");
         assertTrue(FORCE_RESPONSE_DISABLED.matcher(content).find(),
                 "application.yaml must set server.servlet.encoding.force-response=false for binary download integrity");
     }

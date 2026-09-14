@@ -12,6 +12,9 @@ DEPLOY_ROOT = Path(__file__).resolve().parents[1] / "deploy"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = REPO_ROOT.parent
 PUBLISH_SCRIPT = DEPLOY_ROOT / "publish-int-ruoyi.ps1"
+REMOVED_DCC_DOWNLOAD_SECRET_PREFIX = "DCC_DOWNLOAD_" + "ENCRYPTION"
+REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX = "yudao.dcc.download." + "encryption"
+REMOVED_DCC_DOWNLOAD_CLASS_PREFIX = "DccDownload" + "Encryption"
 
 
 def _extract_nginx_block(text: str, marker: str) -> str:
@@ -1239,7 +1242,7 @@ def test_publish_runtime_requires_dcc_signature_evidence_secret() -> None:
     assert "--dcc.signature.evidence.key-version=${DCC_SIGNATURE_EVIDENCE_KEY_VERSION}" in compose
 
 
-def test_publish_runtime_requires_dcc_viewer_token_onlyoffice_and_download_encryption_configuration() -> None:
+def test_publish_runtime_requires_viewer_token_and_onlyoffice_without_download_encryption_configuration() -> None:
     text = read_publish_script()
     compose = (DEPLOY_ROOT / "int-ruoyi-test" / "docker-compose.yml").read_text(encoding="utf-8")
     status = (DEPLOY_ROOT / "show-int-ruoyi-remote-status.ps1").read_text(encoding="utf-8")
@@ -1248,28 +1251,22 @@ def test_publish_runtime_requires_dcc_viewer_token_onlyoffice_and_download_encry
     assert "[string]$DccOnlyOfficeJwtSecret = $env:DCC_ONLYOFFICE_JWT_SECRET" in text
     assert "[string]$DccOnlyOfficeBaseUrl = $env:DCC_ONLYOFFICE_BASE_URL" in text
     assert "[string]$DccOnlyOfficePublicFileBaseUrl = $env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL" in text
-    assert "[string]$DccDownloadEncryptionPolicyVersion = $env:DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION" in text
-    assert "[string]$DccDownloadEncryptionKeyId = $env:DCC_DOWNLOAD_ENCRYPTION_KEY_ID" in text
-    assert "[string]$DccDownloadEncryptionBase64Key = $env:DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY" in text
-    assert "[string]$DccDownloadEncryptionArtifactDirectory = $env:DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY" in text
     assert "Missing DCC_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "Missing DCC_ONLYOFFICE_JWT_SECRET" in text
     assert "Missing DCC_ONLYOFFICE_BASE_URL" in text
     assert "Missing DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_KEY_ID" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY" in text
-    assert "Missing DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY" in text
     assert "DCC_VIEWER_TOKEN_HMAC_SECRET=$DccViewerTokenHmacSecret" in text
     assert "DCC_ONLYOFFICE_JWT_SECRET=$DccOnlyOfficeJwtSecret" in text
     assert "DCC_ONLYOFFICE_BASE_URL=$DccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$DccOnlyOfficePublicFileBaseUrl" in text
-    assert "DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$DccDownloadEncryptionBase64Key" in text
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert REMOVED_DCC_DOWNLOAD_CLASS_PREFIX not in text
     assert "--yudao.dcc.viewer-token.hmac-secret=${DCC_VIEWER_TOKEN_HMAC_SECRET}" in compose
     assert "--yudao.dcc.preview.onlyoffice.base-url=${DCC_ONLYOFFICE_BASE_URL}" in compose
     assert "--yudao.dcc.preview.onlyoffice.jwt-secret=${DCC_ONLYOFFICE_JWT_SECRET}" in compose
     assert "--yudao.dcc.preview.onlyoffice.public-file-base-url=${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL}" in compose
-    assert "--yudao.dcc.download.encryption.base64-key=${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY}" in compose
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in compose
+    assert REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX not in compose
     assert "OnlyOffice" in status
 
 
@@ -1304,6 +1301,7 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
     assert "DCC_HARDCODED_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "DCC_HARDCODED_ONLYOFFICE_JWT_SECRET" in text
     assert "DCC_HARDCODED_SIGNATURE_EVIDENCE_HMAC_SECRET" in text
+    assert "DCC_HARDCODED_DOWNLOAD_ENCRYPTION" not in text
     assert "Write-ReleaseRuntimeEnvPackage" in text
     assert "New-ReleaseRuntimeEnvContent -TargetEnvironment $targetEnvironment -TargetServerHost $targetServerHost" in text
     assert "Apply-ReleaseRuntimeEnvPackage -TargetEnvironment $Environment" in text
@@ -1311,7 +1309,7 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
     assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
     assert "DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl" in text
-    assert "DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$resolvedDccDownloadEncryptionBase64Key" in text
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
 
 
 def test_onlyoffice_public_file_base_url_uses_compose_backend_service() -> None:
@@ -1563,7 +1561,8 @@ def test_publish_website_component_does_not_require_dcc_backend_runtime_secrets(
     assert "if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccSignatureEvidenceKeyVersion))" in text
     assert "if ($publishBackend -and $Mode -ne 'build-release' -and ([string]::IsNullOrWhiteSpace($DccViewerTokenHmacSecret)" in text
     assert "if ($publishBackend -and $IncludeOnlyOffice -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccOnlyOfficeJwtSecret))" in text
-    assert "if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion))" in text
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert REMOVED_DCC_DOWNLOAD_CLASS_PREFIX not in text
 
 
 def test_publish_website_component_deploy_skips_backend_required_sql_package_gate() -> None:
@@ -1794,7 +1793,8 @@ def test_publish_compose_uses_isolated_runtime_names_ports_and_dcc_config() -> N
     assert "JWT_SECRET:" not in compose
     assert "condition: service_healthy" in compose
     assert "--yudao.dcc.viewer-token.hmac-secret=${DCC_VIEWER_TOKEN_HMAC_SECRET}" in compose
-    assert "--yudao.dcc.download.encryption.artifact-directory=${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}" in compose
+    assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in compose
+    assert REMOVED_DCC_DOWNLOAD_PROPERTY_PREFIX not in compose
     assert "--yudao.dcc.project-code-recognition.codex-cli-command=${DCC_PROJECT_CODE_CODEX_CLI_COMMAND}" in compose
     assert "DCC_PROJECT_CODE_CODEX_HOME: ${DCC_PROJECT_CODE_CODEX_HOME}" in compose
     assert "CODEX_HOME: ${DCC_PROJECT_CODE_CODEX_HOME}" in compose

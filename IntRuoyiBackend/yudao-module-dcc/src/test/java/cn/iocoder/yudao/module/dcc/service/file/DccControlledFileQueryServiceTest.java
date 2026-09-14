@@ -1835,7 +1835,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void readDownloadFile_returnsOpenableControlledPdfWithoutEncryptionPackage() throws Exception {
+    void readDownloadFile_returnsOpenableControlledPdfDirectly() throws Exception {
         byte[] pdfBytes = "%PDF-1.7 controlled copy".getBytes(StandardCharsets.UTF_8);
         String pdfSha256 = sha256Hex(pdfBytes);
         stubActiveDownloadFile(918L, 519L, "openable-controlled.pdf");
@@ -1850,20 +1850,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals(pdfBytes, result.bytes());
         assertEquals(DOWNLOAD_REQUEST_ID, result.downloadRequestId());
-        assertNull(result.encryptionPolicyVersion());
-        assertNull(result.artifactId());
         assertEquals(pdfSha256, result.plainSha256());
-        assertNull(result.cipherSha256());
         verify(fileService).getFileContent(1L, "dcc/published/openable-controlled.pdf");
         verify(downloadRecordMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDownloadRecordDO>argThat(record ->
                 Long.valueOf(98018L).equals(record.getId())
-                        && "READY".equals(record.getEncryptionStatus())
+                        && "READY".equals(record.getDownloadStatus())
                         && pdfSha256.equals(record.getPlainSha256())
-                        && record.getEncryptionPolicyVersion() == null
-                        && record.getArtifactId() == null
-                        && record.getCipherFileRef() == null
-                        && record.getCipherSha256() == null
-                        && record.getEncryptedAt() == null
                         && record.getReturnedAt() != null));
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.<DccControlledFileAccessLogDO>argThat(log ->
                 "DOWNLOAD".equals(log.getActionType())
@@ -1887,10 +1879,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals(pdfBytes, result.bytes());
         assertEquals(DOWNLOAD_REQUEST_ID, result.downloadRequestId());
-        assertNull(result.encryptionPolicyVersion());
-        assertNull(result.artifactId());
         assertEquals(pdfSha256, result.plainSha256());
-        assertNull(result.cipherSha256());
 
         ArgumentCaptor<DccControlledFileAccessEventDO> eventCaptor =
                 ArgumentCaptor.forClass(DccControlledFileAccessEventDO.class);
@@ -1921,20 +1910,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("1.0", insertedRecord.getFileVersionNo());
         assertEquals(99L, insertedRecord.getUserId());
         assertEquals("dcc-download-policy-v1", insertedRecord.getPolicyVersion());
-        assertEquals("REQUESTED", insertedRecord.getEncryptionStatus());
+        assertEquals("REQUESTED", insertedRecord.getDownloadStatus());
         assertNotNull(insertedRecord.getRequestedAt());
-        assertNull(insertedRecord.getEncryptedAt());
         assertNull(insertedRecord.getReturnedAt());
 
         DccControlledFileDownloadRecordDO updatedRecord = updatedRecordCaptor.getValue();
         assertEquals(98008L, updatedRecord.getId());
-        assertEquals("READY", updatedRecord.getEncryptionStatus());
-        assertNull(updatedRecord.getEncryptionPolicyVersion());
-        assertNull(updatedRecord.getArtifactId());
-        assertNull(updatedRecord.getCipherFileRef());
+        assertEquals("READY", updatedRecord.getDownloadStatus());
         assertEquals(pdfSha256, updatedRecord.getPlainSha256());
-        assertNull(updatedRecord.getCipherSha256());
-        assertNull(updatedRecord.getEncryptedAt());
         assertNotNull(updatedRecord.getReturnedAt());
         assertNull(updatedRecord.getFailureCode());
         assertNull(updatedRecord.getFailureReason());
@@ -1990,10 +1973,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         verify(downloadRecordMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDownloadRecordDO>argThat(record ->
                 Long.valueOf(98016L).equals(record.getId())
-                        && "READY".equals(record.getEncryptionStatus())
-                        && pdfSha256.equals(record.getPlainSha256())
-                        && record.getArtifactId() == null
-                        && record.getCipherSha256() == null));
+                        && "READY".equals(record.getDownloadStatus())
+                        && pdfSha256.equals(record.getPlainSha256())));
         assertFailureUpdateClearsReturnableEvidence("AUDIT_RECORD_FAILED");
         verify(transactionManager).rollback(any());
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.<DccControlledFileAccessLogDO>argThat(log ->
@@ -2015,7 +1996,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn("%PDF ready-update-zero".getBytes(StandardCharsets.UTF_8));
         when(downloadRecordMapper.updateById(any(DccControlledFileDownloadRecordDO.class))).thenAnswer(invocation -> {
             DccControlledFileDownloadRecordDO record = invocation.getArgument(0);
-            if ("READY".equals(record.getEncryptionStatus())) {
+            if ("READY".equals(record.getDownloadStatus())) {
                 return 0;
             }
             return 1;
@@ -2066,9 +2047,6 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("application/pdf", result.contentType());
         assertArrayEquals(pdfBytes, result.bytes());
         assertEquals(pdfSha256, result.plainSha256());
-        assertNull(result.encryptionPolicyVersion());
-        assertNull(result.artifactId());
-        assertNull(result.cipherSha256());
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.<DccControlledFileAccessLogDO>argThat(log ->
                 "DOWNLOAD".equals(log.getActionType())
                         && "ALLOWED".equals(log.getResult())
@@ -4628,14 +4606,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         verify(downloadRecordMapper, atLeastOnce()).update(isNull(), updateCaptor.capture());
         UpdateWrapper failureUpdate = updateCaptor.getValue();
         String sqlSet = failureUpdate.getSqlSet();
-        assertTrue(sqlSet.contains("encryption_policy_version="), sqlSet);
-        assertTrue(sqlSet.contains("artifact_id="), sqlSet);
-        assertTrue(sqlSet.contains("cipher_file_ref="), sqlSet);
         assertTrue(sqlSet.contains("plain_sha256="), sqlSet);
-        assertTrue(sqlSet.contains("cipher_sha256="), sqlSet);
         assertTrue(sqlSet.contains("returned_at="), sqlSet);
         Collection<Object> values = failureUpdate.getParamNameValuePairs().values();
-        assertTrue(values.stream().filter(Objects::isNull).count() >= 6, values::toString);
+        assertTrue(values.stream().filter(Objects::isNull).count() >= 2, values::toString);
         assertTrue(values.contains("FAILED"), values::toString);
         assertTrue(values.contains(failureCode), values::toString);
         return failureUpdate;

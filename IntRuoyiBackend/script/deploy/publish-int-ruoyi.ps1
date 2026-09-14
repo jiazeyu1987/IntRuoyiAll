@@ -61,10 +61,6 @@ param(
     [string]$DccOnlyOfficeReleaseE2eDocxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID,
     [string]$DccOnlyOfficeReleaseE2eXlsxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID,
     [string]$DccOnlyOfficeReleaseE2ePptxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID,
-    [string]$DccDownloadEncryptionPolicyVersion = $env:DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION,
-    [string]$DccDownloadEncryptionKeyId = $env:DCC_DOWNLOAD_ENCRYPTION_KEY_ID,
-    [string]$DccDownloadEncryptionBase64Key = $env:DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY,
-    [string]$DccDownloadEncryptionArtifactDirectory = $env:DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY,
     [string]$DccProjectCodeCodexCliCommand = $env:DCC_PROJECT_CODE_CODEX_CLI_COMMAND,
     [string]$DccProjectCodeCodexHome = $env:DCC_PROJECT_CODE_CODEX_HOME,
     [string]$ReleaseChangeSummaryCodexCliCommand = $env:INTRUOYI_RELEASE_CHANGE_SUMMARY_CODEX_CLI_COMMAND,
@@ -181,10 +177,6 @@ $DCC_HARDCODED_SIGNATURE_EVIDENCE_HMAC_SECRET = 'INTRUOYI-DCC-HARDCODED-SIGNATUR
 $DCC_HARDCODED_SIGNATURE_EVIDENCE_KEY_VERSION = 'dcc-hardcoded-signature-20260601'
 $DCC_HARDCODED_VIEWER_TOKEN_HMAC_SECRET = 'INTRUOYI-DCC-HARDCODED-VIEWER-TOKEN-HMAC-20260601'
 $DCC_HARDCODED_ONLYOFFICE_JWT_SECRET = 'INTRUOYI-DCC-HARDCODED-ONLYOFFICE-JWT-20260601'
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_POLICY_VERSION = 'dcc-hardcoded-policy-v1'
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_KEY_ID = 'dcc-hardcoded-key-20260601'
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_BASE64_KEY = 'MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY='
-$DCC_HARDCODED_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY = 'dcc/download-encrypted-artifacts'
 
 function Require-ConfiguredTargetServerHost {
     param(
@@ -1215,22 +1207,6 @@ function Set-PublishRuntimeDefaultsForTarget {
         -CurrentValue $script:DccOnlyOfficeBaseUrl `
         -HardcodedValue "http://${TargetServerHost}:$OnlyOfficeHostPort"
     $script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
-    $script:DccDownloadEncryptionPolicyVersion = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION' `
-        -CurrentValue $script:DccDownloadEncryptionPolicyVersion `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_POLICY_VERSION
-    $script:DccDownloadEncryptionKeyId = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_KEY_ID' `
-        -CurrentValue $script:DccDownloadEncryptionKeyId `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_KEY_ID
-    $script:DccDownloadEncryptionBase64Key = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY' `
-        -CurrentValue $script:DccDownloadEncryptionBase64Key `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_BASE64_KEY
-    $script:DccDownloadEncryptionArtifactDirectory = Resolve-PublishRuntimeValue `
-        -Name 'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY' `
-        -CurrentValue $script:DccDownloadEncryptionArtifactDirectory `
-        -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY
 
     $script:EdhrS3Endpoint = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_ENDPOINT' -TargetEnvironment $TargetEnvironment -CurrentValue $script:EdhrS3Endpoint
     $script:EdhrS3Bucket = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_BUCKET' -TargetEnvironment $TargetEnvironment -CurrentValue $script:EdhrS3Bucket
@@ -1272,10 +1248,6 @@ function Set-PublishRuntimeValuesFromSettings {
     if ($Settings.ContainsKey('DCC_ONLYOFFICE_JWT_SECRET')) { $script:DccOnlyOfficeJwtSecret = $Settings['DCC_ONLYOFFICE_JWT_SECRET'] }
     if ($Settings.ContainsKey('DCC_ONLYOFFICE_BASE_URL')) { $script:DccOnlyOfficeBaseUrl = $Settings['DCC_ONLYOFFICE_BASE_URL'] }
     if ($Settings.ContainsKey('DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL')) { $script:DccOnlyOfficePublicFileBaseUrl = $Settings['DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION')) { $script:DccDownloadEncryptionPolicyVersion = $Settings['DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_KEY_ID')) { $script:DccDownloadEncryptionKeyId = $Settings['DCC_DOWNLOAD_ENCRYPTION_KEY_ID'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY')) { $script:DccDownloadEncryptionBase64Key = $Settings['DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY'] }
-    if ($Settings.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')) { $script:DccDownloadEncryptionArtifactDirectory = $Settings['DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'] }
     if ($Settings.ContainsKey('EDHR_S3_ENDPOINT')) { $script:EdhrS3Endpoint = $Settings['EDHR_S3_ENDPOINT'] }
     if ($Settings.ContainsKey('EDHR_S3_BUCKET')) { $script:EdhrS3Bucket = $Settings['EDHR_S3_BUCKET'] }
     if ($Settings.ContainsKey('EDHR_S3_REGION')) { $script:EdhrS3Region = $Settings['EDHR_S3_REGION'] }
@@ -1300,10 +1272,6 @@ function New-ReleaseRuntimeEnvContent {
     $resolvedDccOnlyOfficeJwtSecret = Resolve-PublishRuntimeValue -Name 'DCC_ONLYOFFICE_JWT_SECRET' -CurrentValue $DccOnlyOfficeJwtSecret -HardcodedValue $DCC_HARDCODED_ONLYOFFICE_JWT_SECRET
     $resolvedDccOnlyOfficeBaseUrl = "http://${TargetServerHost}:$OnlyOfficeHostPort"
     $resolvedDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
-    $resolvedDccDownloadEncryptionPolicyVersion = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION' -CurrentValue $DccDownloadEncryptionPolicyVersion -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_POLICY_VERSION
-    $resolvedDccDownloadEncryptionKeyId = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_KEY_ID' -CurrentValue $DccDownloadEncryptionKeyId -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_KEY_ID
-    $resolvedDccDownloadEncryptionBase64Key = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY' -CurrentValue $DccDownloadEncryptionBase64Key -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_BASE64_KEY
-    $resolvedDccDownloadEncryptionArtifactDirectory = Resolve-PublishRuntimeValue -Name 'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY' -CurrentValue $DccDownloadEncryptionArtifactDirectory -HardcodedValue $DCC_HARDCODED_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY
     $resolvedEdhrS3Endpoint = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_ENDPOINT' -TargetEnvironment $TargetEnvironment -CurrentValue $EdhrS3Endpoint
     $resolvedEdhrS3Bucket = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_BUCKET' -TargetEnvironment $TargetEnvironment -CurrentValue $EdhrS3Bucket
     $resolvedEdhrS3Region = Resolve-TargetPublishRuntimeValue -Name 'EDHR_S3_REGION' -TargetEnvironment $TargetEnvironment -CurrentValue $EdhrS3Region
@@ -1320,10 +1288,6 @@ DCC_VIEWER_TOKEN_HMAC_SECRET=$resolvedDccViewerTokenHmacSecret
 DCC_ONLYOFFICE_JWT_SECRET=$resolvedDccOnlyOfficeJwtSecret
 DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl
 DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl
-DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION=$resolvedDccDownloadEncryptionPolicyVersion
-DCC_DOWNLOAD_ENCRYPTION_KEY_ID=$resolvedDccDownloadEncryptionKeyId
-DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$resolvedDccDownloadEncryptionBase64Key
-DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY=$resolvedDccDownloadEncryptionArtifactDirectory
 EDHR_S3_ENDPOINT=$resolvedEdhrS3Endpoint
 EDHR_S3_BUCKET=$resolvedEdhrS3Bucket
 EDHR_S3_REGION=$resolvedEdhrS3Region
@@ -5076,22 +5040,6 @@ if ($publishBackend -and $IncludeOnlyOffice -and $Mode -ne 'build-release' -and 
     Fail 'Missing DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL; DCC OnlyOffice preview requires an explicit document-server-accessible backend URL.'
 }
 
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION; DCC controlled download encryption is fail-fast and requires an explicit policy version.'
-}
-
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionKeyId)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_KEY_ID; DCC controlled download encryption is fail-fast and requires an explicit key id.'
-}
-
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionBase64Key)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY; DCC controlled download encryption is fail-fast and requires an explicit AES key.'
-}
-
-if ($publishBackend -and $Mode -ne 'build-release' -and [string]::IsNullOrWhiteSpace($DccDownloadEncryptionArtifactDirectory)) {
-    Fail 'Missing DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY; DCC controlled download encryption is fail-fast and requires an explicit artifact directory.'
-}
-
 $edhrProtectedStorageSettings = Get-EdhrProtectedStorageSettings
 if ($publishBackend) {
     Assert-EdhrProtectedStorageConfig -Context 'target publish environment' -Settings $edhrProtectedStorageSettings
@@ -5416,10 +5364,6 @@ $effectiveDccViewerTokenHmacSecret = if (-not [string]::IsNullOrWhiteSpace($DccV
 $effectiveDccOnlyOfficeJwtSecret = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeJwtSecret)) { $DccOnlyOfficeJwtSecret } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_JWT_SECRET')) { $existingRemoteEnv['DCC_ONLYOFFICE_JWT_SECRET'] } else { '' }
 $effectiveDccOnlyOfficeBaseUrl = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeBaseUrl)) { $DccOnlyOfficeBaseUrl } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_BASE_URL')) { $existingRemoteEnv['DCC_ONLYOFFICE_BASE_URL'] } else { '' }
 $effectiveDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
-$effectiveDccDownloadEncryptionPolicyVersion = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion)) { $DccDownloadEncryptionPolicyVersion } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION'] } else { '' }
-$effectiveDccDownloadEncryptionKeyId = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionKeyId)) { $DccDownloadEncryptionKeyId } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_KEY_ID')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_KEY_ID'] } else { '' }
-$effectiveDccDownloadEncryptionBase64Key = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionBase64Key)) { $DccDownloadEncryptionBase64Key } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY'] } else { '' }
-$effectiveDccDownloadEncryptionArtifactDirectory = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionArtifactDirectory)) { $DccDownloadEncryptionArtifactDirectory } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'] } else { '' }
 $effectiveDccProjectCodeCodexCliCommand = if (-not [string]::IsNullOrWhiteSpace($DccProjectCodeCodexCliCommand)) { $DccProjectCodeCodexCliCommand } elseif ($existingRemoteEnv.ContainsKey('DCC_PROJECT_CODE_CODEX_CLI_COMMAND')) { $existingRemoteEnv['DCC_PROJECT_CODE_CODEX_CLI_COMMAND'] } else { '/opt/intruoyi/runtime/tools/codex' }
 $effectiveDccProjectCodeCodexHome = if (-not [string]::IsNullOrWhiteSpace($DccProjectCodeCodexHome)) { $DccProjectCodeCodexHome } elseif ($existingRemoteEnv.ContainsKey('DCC_PROJECT_CODE_CODEX_HOME')) { $existingRemoteEnv['DCC_PROJECT_CODE_CODEX_HOME'] } else { '/opt/intruoyi/runtime/backend-codex-home' }
 $effectiveBackendRuntimeBaseMode = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseMode)) { $BackendRuntimeBaseMode } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_MODE')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_MODE'] } else { '' }
@@ -5506,10 +5450,6 @@ $DccViewerTokenHmacSecret = $effectiveDccViewerTokenHmacSecret
 $DccOnlyOfficeJwtSecret = $effectiveDccOnlyOfficeJwtSecret
 $DccOnlyOfficeBaseUrl = $effectiveDccOnlyOfficeBaseUrl
 $DccOnlyOfficePublicFileBaseUrl = $effectiveDccOnlyOfficePublicFileBaseUrl
-$DccDownloadEncryptionPolicyVersion = $effectiveDccDownloadEncryptionPolicyVersion
-$DccDownloadEncryptionKeyId = $effectiveDccDownloadEncryptionKeyId
-$DccDownloadEncryptionBase64Key = $effectiveDccDownloadEncryptionBase64Key
-$DccDownloadEncryptionArtifactDirectory = $effectiveDccDownloadEncryptionArtifactDirectory
 $DccProjectCodeCodexCliCommand = $effectiveDccProjectCodeCodexCliCommand
 $DccProjectCodeCodexHome = $effectiveDccProjectCodeCodexHome
 $BackendRuntimeBaseMode = $effectiveBackendRuntimeBaseMode
@@ -5570,10 +5510,6 @@ DCC_VIEWER_TOKEN_HMAC_SECRET=$DccViewerTokenHmacSecret
 DCC_ONLYOFFICE_JWT_SECRET=$DccOnlyOfficeJwtSecret
 DCC_ONLYOFFICE_BASE_URL=$DccOnlyOfficeBaseUrl
 DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$DccOnlyOfficePublicFileBaseUrl
-DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION=$DccDownloadEncryptionPolicyVersion
-DCC_DOWNLOAD_ENCRYPTION_KEY_ID=$DccDownloadEncryptionKeyId
-DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$DccDownloadEncryptionBase64Key
-DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY=$DccDownloadEncryptionArtifactDirectory
 DCC_PROJECT_CODE_CODEX_CLI_COMMAND=$DccProjectCodeCodexCliCommand
 DCC_PROJECT_CODE_CODEX_HOME=$DccProjectCodeCodexHome
 RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_MODE=$BackendRuntimeBaseMode

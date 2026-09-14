@@ -4,6 +4,9 @@ import re
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION_PATH = REPO_ROOT / "sql" / "mysql" / "20260528_dcc_controlled_file_protection.sql"
+DIRECT_DOWNLOAD_SCHEMA_PATH = (
+    REPO_ROOT / "sql" / "mysql" / "20260914_dcc_download_record_direct_download_schema.sql"
+)
 BASE_SCHEMA_PATH = REPO_ROOT / "sql" / "mysql" / "20260513_dcc_base_schema.sql"
 H2_SCHEMA_PATH = REPO_ROOT / "yudao-module-dcc" / "src" / "test" / "resources" / "sql" / "create_tables.sql"
 H2_CLEAN_PATH = REPO_ROOT / "yudao-module-dcc" / "src" / "test" / "resources" / "sql" / "clean.sql"
@@ -83,19 +86,22 @@ PROTECTION_TABLE_COLUMNS = {
         "file_version_no",
         "user_id",
         "policy_version",
-        "encryption_status",
-        "encryption_policy_version",
-        "artifact_id",
-        "cipher_file_ref",
+        "download_status",
         "plain_sha256",
-        "cipher_sha256",
         "failure_code",
         "failure_reason",
         "requested_at",
-        "encrypted_at",
         "returned_at",
     ],
 }
+REMOVED_DOWNLOAD_ENCRYPTION_COLUMNS = [
+    "encryption_status",
+    "encryption_policy_version",
+    "artifact_id",
+    "cipher_file_ref",
+    "cipher_sha256",
+    "encrypted_at",
+]
 ACCESS_LOG_EXTENSION_COLUMNS = [
     "access_event_id",
     "access_event_code",
@@ -131,6 +137,7 @@ def test_runtime_migration_declares_protection_foundation_without_fallback_defau
         block = find_create_block(migration, table_name)
         assert block is not None, f"Missing runtime table {table_name}"
         assert_columns(block, table_name, columns + BASE_COLUMNS)
+    assert_removed_download_encryption_columns(migration)
     for column in ACCESS_LOG_EXTENSION_COLUMNS:
         assert f"'{column}'" in migration
         assert f"ADD COLUMN `{column}`" in migration
@@ -150,6 +157,7 @@ def test_fresh_base_schema_contains_protection_tables_and_audit_extensions() -> 
         block = find_create_block(base_schema, table_name)
         assert block is not None, f"Missing base schema table {table_name}"
         assert_columns(block, table_name, columns + BASE_COLUMNS)
+    assert_removed_download_encryption_columns(base_schema)
     access_log_block = find_create_block(base_schema, "dcc_controlled_file_access_log")
     assert access_log_block is not None
     assert_columns(access_log_block, "dcc_controlled_file_access_log", ACCESS_LOG_EXTENSION_COLUMNS)
@@ -164,9 +172,26 @@ def test_h2_schema_and_clean_are_aligned_with_runtime_foundation() -> None:
         assert block is not None, f"Missing H2 table {table_name}"
         assert_columns(block, table_name, columns + BASE_COLUMNS)
         assert f"DELETE FROM `{table_name}`;" in h2_clean
+    assert_removed_download_encryption_columns(h2_schema)
     access_log_block = find_create_block(h2_schema, "dcc_controlled_file_access_log")
     assert access_log_block is not None
     assert_columns(access_log_block, "dcc_controlled_file_access_log", ACCESS_LOG_EXTENSION_COLUMNS)
+
+
+def test_direct_download_schema_migration_removes_legacy_encrypted_columns() -> None:
+    migration = DIRECT_DOWNLOAD_SCHEMA_PATH.read_text(encoding="utf-8")
+
+    assert migration.startswith(
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=20260528_dcc_controlled_file_protection; type=schema; riskLevel=medium"
+    )
+    assert "information_schema.COLUMNS" in migration
+    assert "information_schema.TABLES" in migration
+    assert "SIGNAL SQLSTATE '45000'" in migration
+    assert "CHANGE COLUMN `encryption_status` `download_status` varchar(32) NOT NULL" in migration
+    for column in REMOVED_DOWNLOAD_ENCRYPTION_COLUMNS:
+        assert f"CALL drop_dcc_download_column_if_exists('{column}');" in migration
+    assert "DCC_DOWNLOAD_ENCRYPTION" not in migration
 
 
 def assert_schema_is_non_destructive(schema: str) -> None:
@@ -178,6 +203,15 @@ def assert_columns(create_block: str, table_name: str, columns: list[str]) -> No
     for column in columns:
         assert re.search(r"`" + re.escape(column) + r"`\s+", create_block, re.IGNORECASE), (
             f"Missing column {table_name}.{column}"
+        )
+
+
+def assert_removed_download_encryption_columns(schema: str) -> None:
+    block = find_create_block(schema, "dcc_controlled_file_download_record")
+    assert block is not None
+    for column in REMOVED_DOWNLOAD_ENCRYPTION_COLUMNS:
+        assert re.search(r"`" + re.escape(column) + r"`\s+", block, re.IGNORECASE) is None, (
+            f"Legacy encrypted download column should be removed: {column}"
         )
 
 

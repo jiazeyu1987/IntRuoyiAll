@@ -51,10 +51,6 @@ services:
         --spring.datasource.dynamic.datasource.slave.username=${SLAVE_DATASOURCE_USERNAME:-root}
         --spring.datasource.dynamic.datasource.slave.password=${SLAVE_DATASOURCE_PASSWORD:-123456}
         --spring.data.redis.host=${REDIS_HOST:-yudao-redis}
-        --yudao.dcc.download.encryption.policy-version=${DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION:?DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION is required}
-        --yudao.dcc.download.encryption.key-id=${DCC_DOWNLOAD_ENCRYPTION_KEY_ID:?DCC_DOWNLOAD_ENCRYPTION_KEY_ID is required}
-        --yudao.dcc.download.encryption.base64-key=${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY:?DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY is required}
-        --yudao.dcc.download.encryption.artifact-directory=${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY:?DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY is required}
     depends_on:
       - mysql
       - redis

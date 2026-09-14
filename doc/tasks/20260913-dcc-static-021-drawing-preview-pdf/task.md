@@ -49,6 +49,8 @@ completed
 - Post-merge branch runtime port guard: PASS for `int_main/int_main`, frontend `8081`, backend `48081`
 - Closeout cleanup apply: PASS, delete `<none>`, keep task records and `bug-regression-evidence.md`
 - Pre-existing main-worktree dirty changes were preserved outside this task; they were not staged or committed by DCC-STATIC-021.
+- Clean implementation worktree removed: `D:\IntRuoyiWorktree\20260913-dcc-static-021-drawing-preview-pdf-clean`; Git registration absent and runtime slot `9` marked inactive.
+- Retained worktree pending explicit discard authorization: `D:\IntRuoyiWorktree\20260914-dcc-static-021-int-main-fusion-v2`; it contains staged task-document drafts superseded by local `int_main` closeout commit.
 
 ## Cleanup Keep
 

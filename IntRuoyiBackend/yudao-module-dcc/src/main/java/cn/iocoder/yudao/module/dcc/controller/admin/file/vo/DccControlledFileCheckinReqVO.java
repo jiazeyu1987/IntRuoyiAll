@@ -7,6 +7,8 @@ public class DccControlledFileCheckinReqVO {
 
     private String uploadTicket;
 
+    private String drawingPdfUploadTicket;
+
     private String sessionId;
 
     private String changeDescription;

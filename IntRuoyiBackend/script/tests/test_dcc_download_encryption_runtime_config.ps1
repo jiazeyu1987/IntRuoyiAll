@@ -17,26 +17,16 @@ foreach ($path in @($restartScriptPath, $publishScriptPath, $composePath, $legac
     }
 }
 
-$restartSource = Get-Content -LiteralPath $restartScriptPath -Encoding UTF8 -Raw
-$publishSource = Get-Content -LiteralPath $publishScriptPath -Encoding UTF8 -Raw
-$composeSource = Get-Content -LiteralPath $composePath -Encoding UTF8 -Raw
-$legacyDockerCompose = Get-Content -LiteralPath $legacyDockerComposePath -Encoding UTF8 -Raw
-$legacyDockerEnv = Get-Content -LiteralPath $legacyDockerEnvPath -Encoding UTF8 -Raw
-$legacyDockerHowTo = Get-Content -LiteralPath $legacyDockerHowToPath -Encoding UTF8 -Raw
-$devYaml = Get-Content -LiteralPath $devYamlPath -Encoding UTF8 -Raw
-$localYaml = Get-Content -LiteralPath $localYamlPath -Encoding UTF8 -Raw
-
-function Assert-Match {
-    param(
-        [string]$Source,
-        [string]$Pattern,
-        [string]$Message
-    )
-
-    if ($Source -notmatch $Pattern) {
-        throw $Message
-    }
-}
+$sources = @(
+    @{ Label = 'local restart script'; Source = Get-Content -LiteralPath $restartScriptPath -Encoding UTF8 -Raw },
+    @{ Label = 'publish script'; Source = Get-Content -LiteralPath $publishScriptPath -Encoding UTF8 -Raw },
+    @{ Label = 'test compose'; Source = Get-Content -LiteralPath $composePath -Encoding UTF8 -Raw },
+    @{ Label = 'legacy Docker compose'; Source = Get-Content -LiteralPath $legacyDockerComposePath -Encoding UTF8 -Raw },
+    @{ Label = 'legacy docker.env'; Source = Get-Content -LiteralPath $legacyDockerEnvPath -Encoding UTF8 -Raw },
+    @{ Label = 'legacy Docker HOWTO'; Source = Get-Content -LiteralPath $legacyDockerHowToPath -Encoding UTF8 -Raw },
+    @{ Label = 'application-dev.yaml'; Source = Get-Content -LiteralPath $devYamlPath -Encoding UTF8 -Raw },
+    @{ Label = 'application-local.yaml'; Source = Get-Content -LiteralPath $localYamlPath -Encoding UTF8 -Raw }
+)
 
 function Assert-NotMatch {
     param(
@@ -50,30 +40,31 @@ function Assert-NotMatch {
     }
 }
 
-foreach ($name in @(
-    'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION',
-    'DCC_DOWNLOAD_ENCRYPTION_KEY_ID',
-    'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY',
-    'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'
-)) {
-    $placeholderPattern = '\$\{' + $name + '\}'
-    $defaultPattern = '\$\{' + $name + ':'
-    Assert-Match $restartSource $name "Local restart script must require $name before backend startup."
-    Assert-Match $publishSource $name "Unified publish script must require and write $name."
-    Assert-Match $composeSource $name "Test compose must pass $name into backend runtime."
-    Assert-Match $legacyDockerCompose $name "Legacy Docker compose must fail fast when $name is missing."
-    Assert-Match $legacyDockerEnv ('(?m)^' + $name + '=') "Legacy docker.env must expose $name as an explicit required placeholder."
-    Assert-Match $legacyDockerHowTo $name "Legacy Docker HOWTO must document required $name."
-    Assert-Match $devYaml $placeholderPattern "application-dev.yaml must bind $name without a default."
-    Assert-Match $localYaml $placeholderPattern "application-local.yaml must bind $name without a default."
-    Assert-NotMatch $devYaml $defaultPattern "application-dev.yaml must not define a default for $name."
-    Assert-NotMatch $localYaml $defaultPattern "application-local.yaml must not define a default for $name."
+$removedDownloadSecretPrefix = (@('DCC_DOWNLOAD', 'ENCRYPTION') -join '_') + '_'
+$removedDownloadSecretNames = @(
+    'CURRENT_KEY_VERSION',
+    'KEYRING',
+    'POLICY_VERSION',
+    'KEY_ID',
+    'BASE64_KEY',
+    'ARTIFACT_DIRECTORY'
+) | ForEach-Object { $removedDownloadSecretPrefix + $_ }
+$removedDownloadPropertyPattern = 'yudao\.dcc\.download\.' + 'encryption'
+$removedDownloadYamlPattern = 'download:\s*\r?\n\s+' + 'encryption:'
+$removedDownloadArtifactArg = 'DccDownload' + 'EncryptionArtifactDirectory'
+$removedDownloadFallbackMarker = 'DCC_HARDCODED_DOWNLOAD_' + 'ENCRYPTION'
+
+foreach ($item in $sources) {
+    foreach ($name in $removedDownloadSecretNames) {
+        Assert-NotMatch $item.Source $name "$($item.Label) must not reference removed DCC download secret env $name."
+    }
+
+    Assert-NotMatch $item.Source $removedDownloadPropertyPattern "$($item.Label) must not bind removed DCC direct-download secret properties."
+    Assert-NotMatch $item.Source $removedDownloadYamlPattern "$($item.Label) must not keep the removed DCC direct-download secret YAML block."
 }
 
-Assert-Match $restartSource 'Require-EnvironmentVariable' 'Local restart script must fail fast on missing DCC download encryption env.'
-Assert-Match $publishSource 'Missing DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY' 'Publish script must fail fast before writing an incomplete runtime env.'
-Assert-Match $composeSource '--yudao\.dcc\.download\.encryption\.base64-key=\$\{DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY\}' 'Compose must pass the AES key through Spring configuration.'
-Assert-Match $legacyDockerCompose '\$\{DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY:\?DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY is required\}' 'Legacy Docker compose must use compose-required syntax for the AES key.'
-Assert-Match $legacyDockerHowTo 'docker\.env is required' 'Legacy Docker HOWTO must no longer claim docker.env is optional.'
+Assert-NotMatch $sources[0].Source 'Require-EnvironmentVariable\s+\$requiredEnv' 'Local restart script must not require removed DCC direct-download secret env before backend startup.'
+Assert-NotMatch $sources[0].Source $removedDownloadArtifactArg 'Local restart script must not pass a removed DCC direct-download secret artifact directory to Java.'
+Assert-NotMatch $sources[1].Source $removedDownloadFallbackMarker 'Publish script must not keep hardcoded removed DCC direct-download secret fallback values.'
 
-Write-Host 'DCC download encryption runtime config tests passed'
+Write-Host 'DCC direct download runtime config tests passed'

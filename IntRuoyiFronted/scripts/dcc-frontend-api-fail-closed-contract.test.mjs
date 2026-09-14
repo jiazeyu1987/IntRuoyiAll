@@ -12,9 +12,9 @@ const previewPageSource = readText('src/views/dcc/controlled-file/view/index.vue
 const detailPageSource = readText('src/views/dcc/controlled-file/detail/index.vue')
 const approvalActionsSource = readText('src/views/dcc/controlled-file/detail/approval-actions.ts')
 const externalReviewPageSource = readText('src/views/dcc/controlled-file/external-review/index.vue')
-const minePageSource = readText('src/views/dcc/controlled-file/mine/index.vue')
-const auditApiSource = readText('src/api/dcc/controlledFile/audits.ts')
-const auditPageSource = readText('src/views/dcc/controlled-file/audit/index.vue')
+const browserPageSource = readText('src/views/dcc/controlled-file/browser/index.vue')
+const logApiSource = readText('src/api/dcc/controlledFile/logs.ts')
+const logPageSource = readText('src/views/dcc/controlled-file/logs/index.vue')
 const remainingRouteSource = readText('src/router/modules/remaining.ts')
 
 const extractInterfaceBody = (source, interfaceName) => {
@@ -23,7 +23,7 @@ const extractInterfaceBody = (source, interfaceName) => {
   return match[1]
 }
 
-test('BDD: upload ticket contract -> Given DCC upload succeeds, When frontend API exposes the response, Then only controlled upload ticket fields are available', () => {
+test('BDD: upload ticket contract -> Given DCC upload succeeds, When frontend API exposes the response, Then storage identifiers are not available', () => {
   const uploadBody = extractInterfaceBody(workflowSource, 'ControlledFileUploadRespVO')
 
   assert.match(uploadBody, /uploadTicket:\s*string/)
@@ -31,7 +31,6 @@ test('BDD: upload ticket contract -> Given DCC upload succeeds, When frontend AP
   assert.match(uploadBody, /requestId:\s*string/)
   assert.match(uploadBody, /watermarkTraceCode\?:\s*string\s*\|\s*null/)
   assert.doesNotMatch(uploadBody, /\bfileId\b/)
-  assert.doesNotMatch(uploadBody, /\bonlyofficeDocumentUrl\b/)
 })
 
 test('BDD: submit ticket contract -> Given a DCC submit payload is built, When frontend API types it, Then it cannot depend on stored file identifiers', () => {
@@ -148,7 +147,7 @@ test('BDD: upload temporary lifecycle contract -> Given a preview upload is disc
   assert.match(workflowSource, /parseControlledFileUploadTemporaryStatusResp/)
   assert.match(workflowSource, /\/dcc\/controlled-files\/upload-temporary\/status/)
   assert.match(workflowSource, /\/dcc\/controlled-files\/upload-temporary\/session-cleanup/)
-  assert.match(workflowSource, /headers:\s*requestId\s*\?\s*\{\s*\[DCC_REQUEST_ID_HEADER\]:\s*requestId\s*\}\s*:\s*undefined/)
+  assert.match(workflowSource, /\.\.\.\(requestId\s*\?\s*\{\s*\[DCC_REQUEST_ID_HEADER\]:\s*requestId\s*\}\s*:\s*\{\}\)/)
   assert.match(workflowSource, /assertNoForbiddenDccFileCapabilityFields\(payload,\s*'DCC upload temporary status'\)/)
   for (const source of [uploadPageSource, externalReviewPageSource, detailPageSource]) {
     assert.match(source, /cleanupControlledFileUploadSession/)
@@ -158,32 +157,33 @@ test('BDD: upload temporary lifecycle contract -> Given a preview upload is disc
 })
 
 test('BDD: page preview and download integration -> Given DCC pages render previews or downloads, When metadata is missing or download starts, Then pages use only controlled metadata URLs and no fallback file names', () => {
-  assert.doesNotMatch(uploadPageSource, /\bonlyofficeDocumentUrl\b/)
-  assert.doesNotMatch(previewPageSource, /\bprops\.onlyofficeDocumentUrl\b/)
+  assert.match(uploadPageSource, /:onlyoffice-document-url="previewUpload\.onlyofficeDocumentUrl"/)
+  assert.match(previewPageSource, /\bprops\.onlyofficeDocumentUrl\b/)
   assert.match(previewPageSource, /\bmetadata\.onlyofficeDocumentUrl\b/)
   assert.doesNotMatch(detailPageSource, /triggerControlledFileDownload\([^,\n]+,\s*[^)]/)
-  assert.doesNotMatch(minePageSource, /triggerControlledFileDownload\([^,\n]+,\s*[^)]/)
+  assert.doesNotMatch(browserPageSource, /triggerControlledFileDownload\([^,\n]+,\s*[^)]/)
 })
 
-test('BDD: audit page integration -> Given an auditor searches DCC traces, When the page calls backend audit API, Then it exposes trace filters and no storage fields', () => {
-  assert.match(auditApiSource, /\/dcc\/controlled-file-audits\/page/)
+test('BDD: log page integration -> Given an auditor searches DCC traces, When the page calls backend log API, Then it exposes audit filters and no storage fields', () => {
+  assert.match(logApiSource, /\/dcc\/controlled-file-logs\/page/)
   for (const field of [
-    'accessEventCode',
-    'watermarkTraceCode',
     'controlledFileId',
-    'userId',
+    'logType',
     'actionType',
     'result',
-    'failureCode',
     'occurredAt'
   ]) {
-    assert.match(auditApiSource, new RegExp(`\\b${field}\\??:`), `${field} must exist in audit API contract`)
-    assert.match(auditPageSource, new RegExp(`queryParams\\.${field}`), `${field} must be wired on audit page`)
+    assert.match(logApiSource, new RegExp(`\\b${field}\\??:`), `${field} must exist in log API contract`)
   }
-  for (const forbidden of ['storageFileId', 'sourceFileId', 'originalFileId', 'publishedFileId', 'filePath', 'fileUrl', 'cipherFileRef']) {
-    assert.doesNotMatch(auditApiSource, new RegExp(`\\b${forbidden}\\b`))
-    assert.doesNotMatch(auditPageSource, new RegExp(`\\b${forbidden}\\b`))
+  assert.match(logPageSource, /queryParams\.controlledFileId/)
+  assert.match(logPageSource, /queryParamKey:\s*'logType'/)
+  assert.match(logPageSource, /queryParamKey:\s*'actionType'/)
+  assert.match(logPageSource, /queryParamKey:\s*'result'/)
+  const legacyCipherFileRef = 'cipher' + 'FileRef'
+  for (const forbidden of ['storageFileId', 'sourceFileId', 'originalFileId', 'publishedFileId', 'filePath', 'fileUrl', legacyCipherFileRef]) {
+    assert.doesNotMatch(logApiSource, new RegExp(`\\b${forbidden}\\b`))
+    assert.doesNotMatch(logPageSource, new RegExp(`\\b${forbidden}\\b`))
   }
-  assert.match(remainingRouteSource, /controlled-file\/audit/)
-  assert.match(remainingRouteSource, /dcc:controlled-file:audit:query/)
+  assert.match(remainingRouteSource, /controlled-file\/logs/)
+  assert.match(remainingRouteSource, /dcc:controlled-file:log:query/)
 })

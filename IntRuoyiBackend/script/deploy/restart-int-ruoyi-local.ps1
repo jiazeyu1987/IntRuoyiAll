@@ -851,13 +851,6 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_mes_process_pool_idi_device_parameter_rules.sql'
     }
 )
-$RequiredDccDownloadEncryptionEnv = @(
-    'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION',
-    'DCC_DOWNLOAD_ENCRYPTION_KEY_ID',
-    'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY',
-    'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'
-)
-
 function Fail([string]$Message) {
     Update-OperationRecord -Status 'failed' -Summary $Message
     Write-Host "[FAIL] $Message" -ForegroundColor Red
@@ -916,7 +909,7 @@ function Import-PersistentEnvironmentVariable([string]$Name) {
 
 function Require-EnvironmentVariable([string]$Name) {
     if (-not (Import-PersistentEnvironmentVariable $Name)) {
-        Fail "Missing $Name; DCC controlled download encryption is fail-fast and requires explicit runtime configuration."
+        Fail "Missing $Name; explicit runtime configuration is required."
     }
 }
 
@@ -1236,10 +1229,6 @@ pnpm dev -- --strictPort
 function Start-Backend {
     Require-Command 'java'
     Require-Command 'mvn'
-    foreach ($requiredEnv in $RequiredDccDownloadEncryptionEnv) {
-        Require-EnvironmentVariable $requiredEnv
-    }
-    $DccDownloadEncryptionArtifactDirectory = [Environment]::GetEnvironmentVariable('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')
     if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
         Fail "Missing backend workspace: $BackendDir"
     }
@@ -1292,7 +1281,6 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
-  "--yudao.dcc.download.encryption.artifact-directory=$DccDownloadEncryptionArtifactDirectory"
   "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
