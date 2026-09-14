@@ -2,9 +2,9 @@
 
 ## Summary
 
-Status: ready_for_closeout.
+Status: blocked.
 
-Implementation and required targeted verification are complete. Git commit and local `int_main` fusion are now authorized by the user's 2026-09-14 follow-up; Git push remains outside this turn's explicit authorization.
+Implementation, local commits, and local `int_main` fusion are complete. Final project `completed` status remains blocked only because Git push is required by project closeout rules and was not explicitly authorized in this turn.
 
 ## Bug Summary
 
@@ -38,6 +38,13 @@ The `update-original` request VO mapped client-owned audit/signature fields stra
 | `mvn -pl yudao-module-mes -am '-Dtest=MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolProductionReportRevisionPolicyTest,MesProcessPoolProductionReportCorrectionServiceTest,MesProcessPoolPqcInspectionCorrectionServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` from `IntRuoyiBackend` | PASS | Re-run before implementation commit; 30 tests, BUILD SUCCESS. |
 | `git commit -m "fix(mes): verify original revision signatures server-side"` | PASS | Implementation/test commit `14a804053`, 11 files. |
 | `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-019-revision-signature-verification --mode preview` | BLOCKED | Current branch cannot fast-forward into `int_main`; unrelated pending DCC/runtime/doc changes remain in the linked worktree and were not modified. |
+| `git commit -m "docs(task): record EDHR static 019 closeout evidence"` | PASS | Source branch documentation commit `cf4403b40`. |
+| `git -C E:\IntRuoyi cherry-pick 14a804053 cf4403b40` | PASS | Local `int_main` code commit `795ed3063`; docs commit completed as `57225bd13` after resolving `docs/experience-index.md`. |
+| `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` from `E:\IntRuoyi` | PASS | `int_main/int_main`, frontend 8081, backend 48081. |
+| `git diff --check HEAD~2..HEAD` from `E:\IntRuoyi` | PASS | Last two task commits on `int_main` have no whitespace errors. |
+| `node tests\e2e\process-pool-event-revision-api-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` | PASS | Main-worktree frontend static contract still passes after fusion. |
+| `mvn -pl yudao-module-mes -am '-Dtest=MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolProductionReportRevisionPolicyTest,MesProcessPoolProductionReportCorrectionServiceTest,MesProcessPoolPqcInspectionCorrectionServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` from `E:\IntRuoyi\IntRuoyiBackend` | PASS | Main-worktree regression PASS; 35 tests, BUILD SUCCESS. |
+| `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-019-revision-signature-verification --mode preview` from `E:\IntRuoyi` | READY | Keep task.md/execution-log.md/verification-report.md; delete none; blocked none; warnings none. |
 
 ## GREEN Evidence
 
@@ -47,6 +54,7 @@ The `update-original` request VO mapped client-owned audit/signature fields stra
 - GREEN: `git diff --check` PASS.
 - GREEN: Bug regression evidence validator PASS.
 - GREEN: Pre-commit focused frontend static contract and extended Maven regression re-run PASS.
+- GREEN: Local `int_main` fusion and main-worktree regression re-run PASS.
 
 ## Changed Paths
 
@@ -73,5 +81,5 @@ The `update-original` request VO mapped client-owned audit/signature fields stra
 ## Risks And Blockers
 
 - Blockers: Project closeout rules require push before `completed`, but Git push has not been explicitly authorized in this turn.
-- Blockers: `task-closeout-cleanup` preview is blocked in this linked worktree by non-fast-forward `int_main` ancestry and unrelated pending changes outside EDHR-STATIC-019.
+- Blockers: The source linked worktree still contains unrelated pending changes outside EDHR-STATIC-019, so it was not cleanup-applied or removed.
 - Risk: The fix is verified by static contracts and unit tests only; no runtime UI/E2E/database path was executed by scope.

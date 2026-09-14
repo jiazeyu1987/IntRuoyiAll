@@ -35,6 +35,16 @@
 - GREEN: Re-run extended Maven command from `IntRuoyiBackend` -> PASS, 30 tests, BUILD SUCCESS.
 - COMMIT: `git commit -m "fix(mes): verify original revision signatures server-side"` -> `14a804053`, 11 implementation/test files.
 - CLOSEOUT: Re-run `task-closeout-cleanup` preview after implementation commit -> BLOCKED, keep list contains task.md/execution-log.md/verification-report.md, delete list is empty; blockers are non-fast-forward into current `int_main` and unrelated pending DCC/runtime/doc changes in this worktree.
+- DOC COMMIT: `git commit -m "docs(task): record EDHR static 019 closeout evidence"` -> `cf4403b40`, task docs plus `docs/experience-index.md`.
+- FUSION: `git -C E:\IntRuoyi cherry-pick 14a804053 cf4403b40` -> code commit applied as `795ed3063`; docs commit initially conflicted only in `docs/experience-index.md`.
+- CONFLICT RESOLUTION: `docs/experience-index.md` kept both current DCC/local-runtime keywords and incoming `Mapper/DAO` wording; `rg -n "^(<<<<<<<|=======|>>>>>>>)" E:\IntRuoyi\docs\experience-index.md` -> no conflict markers.
+- FUSION: `git -C E:\IntRuoyi cherry-pick --continue` -> docs commit applied as `57225bd13`.
+- MAIN GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` from `E:\IntRuoyi` -> PASS, `int_main/int_main`, frontend 8081, backend 48081.
+- MAIN GREEN: `git diff --check HEAD~2..HEAD` from `E:\IntRuoyi` -> PASS.
+- MAIN GREEN: `node tests\e2e\process-pool-event-revision-api-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS.
+- MAIN GREEN: extended Maven command from `E:\IntRuoyi\IntRuoyiBackend` -> PASS, 35 tests, BUILD SUCCESS.
+- MAIN CLOSEOUT: `task-closeout-cleanup` preview from `E:\IntRuoyi` -> READY, keep task.md/execution-log.md/verification-report.md, delete none, blocked none, warnings none.
+- FINAL BLOCKER: Project rules require push before completed, but this turn authorized commit and local `int_main` fusion only; Git push was not executed.
 
 ## Scope Notes
 

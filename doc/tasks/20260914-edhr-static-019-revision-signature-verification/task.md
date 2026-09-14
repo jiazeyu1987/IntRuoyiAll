@@ -21,6 +21,8 @@
 | M3 最小修复 | completed | VO 仅接收业务字段、修改原因、签名密码；Controller 注入当前登录人；Service 调用正式签名服务生成修订签名证据，并落库返回的签名 ID、签名人、签名快照和服务端签署时间。 |
 | M4 GREEN 与静态合同验证 | completed | 定向前端静态合同、后端 Maven 回归和 `git diff --check` 均已通过；未执行 E2E/DB/服务操作。 |
 | M5 收尾记录 | completed | 已写入验证报告；本轮已解除 commit/本地融合限制，push 仍未获明确授权。 |
+| M6 本地 `int_main` 融合 | completed | 当前分支实现提交已 cherry-pick 到 `int_main` 为 `795ed3063`，任务证据提交为 `57225bd13`；冲突仅发生在经验索引并已保留两侧关键词。 |
+| M7 主线复验与最终状态 | blocked | `int_main` 主线复验通过；项目规则要求 push 后才能标记 completed，但 Git push 未获本轮明确授权。 |
 
 ## Expected Verification
 
@@ -44,8 +46,10 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-- 实现与定向验证已完成；本轮用户已授权 Git commit 与本地融合进 `int_main`。
-- 完成状态仍需按项目规则等待 push 授权/执行结果、主工作区融合结果和 cleanup 证据。
+- 实现与定向验证已完成；当前任务分支提交为 `14a804053`、`cf4403b40`。
+- 本地 `int_main` 已融合本任务代码与证据，提交为 `795ed3063`、`57225bd13`，且两者均为当前 `int_main` 祖先。
+- 主线复验通过：端口门禁 PASS、`git diff --check HEAD~2..HEAD` PASS、前端静态合同 PASS、后端 Maven 35 tests PASS。
+- `task-closeout-cleanup` 在 `E:\IntRuoyi` preview 为 ready 且 delete 为空；未执行 apply/标记 completed，因为项目规则要求 Git push，而本轮未获明确 push 授权。
 - 未执行 Playwright/E2E、数据库写入、服务启动/停止/重启、远程服务器操作或 Git push。
