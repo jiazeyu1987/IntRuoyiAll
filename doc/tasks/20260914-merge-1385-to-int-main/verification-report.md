@@ -4,7 +4,7 @@
 
 ready_for_closeout
 
-Required checks passed on the resolved integration tree including main 380a49b2a. Commit, push, cleanup and final fast-forward remain.
+Required checks passed on the resolved integration tree including main 380a49b2a. Integration ad2e3a1d4 is fast-forwarded into int_main and pushed to origin. Task cleanup preview/apply passed and Git worktree registration is removed; unrelated main documentation hashes unchanged. Physical frontend dependency residue remains: automatic approval rejected scoped recursive removal with "blocked by policy". Slot 24 is retained; physical cleanup is not PASS.
 
 ## Verified Changes
 

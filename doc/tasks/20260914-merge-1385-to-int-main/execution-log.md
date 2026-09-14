@@ -1,5 +1,16 @@
 # Merge 1385 Dirty Worktree Execution Log
 
+## Final Closeout
+
+- Implementation blocker fix: 245c4a8fa; verification records: 465a717e0; integration merge: ad2e3a1d4.
+- GREEN: cleanup preview/apply --worktree-closeout off -> PASS; retained three task records, removed only task-local temporary test files. Main's unrelated dirty files excluded from staging.
+- GREEN: git merge --ff-only codex/20260914-merge-1385-to-int-main (E:/IntRuoyi) -> PASS, 380a49b2a to ad2e3a1d4.
+- GREEN: git push origin codex/20260914-merge-1385-to-int-main; git push origin int_main -> PASS.
+- GREEN: three unrelated main file hashes before/after merge -> PASS, unchanged.
+- GREEN: main branch runtime port guard -> PASS, 8081/48081.
+- GREEN: git worktree remove D:/IntRuoyiWorktree/20260914-merge-1385-to-int-main -> exit 0, Git registration removed. Source C:/Users/BJB110/.codex/worktrees/1385/IntRuoyi preserved.
+- BLOCKED: physical directory readback found only IntRuoyiFronted/node_modules residue. Scoped PowerShell Remove-Item was rejected by automatic approval as "blocked by policy" before execution. No alternate deletion was attempted. Slot 24 remains active; task status stays ready_for_closeout rather than completed.
+
 ## Rule Read Evidence
 
 - Read `AGENTS.md` instructions supplied in the user message.
