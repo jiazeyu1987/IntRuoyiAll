@@ -11,14 +11,14 @@ Fix EDHR-STATIC-018 only: order remarks must remain explanatory text and must no
 - [x] Add RED static contract evidence for the remark-driven source switch.
 - [x] Implement the minimal source-resolution fix.
 - [x] Run targeted non-E2E verification and record GREEN evidence.
-- [x] Prepare closeout records without git commit, push, service restart, E2E, remote operation, or database writes.
+- [x] Prepare closeout records; after explicit user authorization, commit and fuse into `int_main`.
 - [x] Consolidate reusable project experience into an existing experience index.
 
 ## Expected Verification
 
 - Static contract test proves `MesTeamLeaderActiveOrderPickListCompletionSourceService` does not parse `workOrder.remark` or `[sourceActiveOrderId=...]` when resolving formal material pick-list sources.
 - Targeted non-E2E verification confirms formal source resolution still uses the current active order's work-order code / production order number and existing controlled Stage1 logic remains outside ordinary remark parsing.
-- No Playwright/E2E, database writes, service start/stop/restart, remote operation, git commit, or git push.
+- No Playwright/E2E, database writes, service start/stop/restart, or remote operation. Git commit/push is authorized only for the `int_main` baseline, EDHR-STATIC-018 implementation, and final closeout records.
 
 ## Design Constraints Check
 
@@ -30,4 +30,4 @@ Fix EDHR-STATIC-018 only: order remarks must remain explanatory text and must no
 
 ## Current Status
 
-ready_for_closeout - Implementation and required targeted verification passed; user has authorized baseline commit plus fusion into `int_main`, and final cleanup/merge evidence is pending.
+completed - EDHR-STATIC-018 implementation was committed, fused into `int_main`, re-verified on `int_main`, and cleanup preview/apply completed with no deletes or blockers.
