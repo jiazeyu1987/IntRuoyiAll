@@ -42,3 +42,19 @@ BDD: EDHR-STATIC-012 missing frozen route identity fails fast -> Given an active
 - Merge into `int_main` is blocked because branch `codex/20260914-edhr-static-012-route-rename-archive` was created from older HEAD `b4303b4` and cannot be fast-forward merged into current `int_main` `43071eb7e` as of 2026-09-14T09:17:44+08:00.
 - Merge into `int_main` is also blocked because main worktree `E:\IntRuoyi` has unrelated dirty changes.
 - Cleanup apply was not run because preview reported blockers.
+
+## Int Main Fusion Evidence
+
+- USER AUTHORIZATION: user requested `先提交主干,再融合`; committed current `int_main` changes before replaying EDHR-STATIC-012.
+- MAIN BASELINE: `c3d510542` (`chore: baseline int_main before EDHR static 012 fusion`).
+- MAIN BASELINE: `3d774fe75` (`fix: close EDHR correction source gates`) continued an already-started cherry-pick on `int_main` whose conflicts had been resolved before this task resumed.
+- MAIN BASELINE: `2d8b19a16` (`docs: close out EDHR static 018 on int_main`).
+- MAIN BASELINE: `c44be571b` (`docs: baseline int_main before EDHR static 012 replay`).
+- MAIN BASELINE: `47cea39b8` (`docs: refine DCC main flow guide`).
+- MAIN BASELINE: `d9138b382` (`chore: baseline int_main presentation v2 before EDHR static 012 closeout`).
+- MAIN BASELINE: `c5c92d2c7` (`chore: baseline int_main presentation cleanup before EDHR static 012 closeout`).
+- FUSION: task implementation commit `8e94cdb83` was cherry-picked onto `int_main` as `97744a46e`.
+- FUSION: task record commits `1879fd304` and `3a97e84ba` were cherry-picked onto `int_main` as `8da7c4d6d` and `203eb69ef`.
+- GREEN on `int_main`: `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-012-archive-route-contract.spec.cjs` -> PASS.
+- GREEN on `int_main`: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreateFromProductionRelease_usesFrozenRouteSnapshotIdentityAfterRouteRenameBeforeBatchCreation+generateArchive_usesFrozenBatchRouteIdentityAfterCurrentRouteRenameAndDelete+generateArchive_requiresFrozenRouteIdentityAndSnapshot test` -> PASS, Tests run: 3, Failures: 0, Errors: 0, Skipped: 0.
+- REMOTE: no push was run because remote operation was not explicitly requested in this turn.

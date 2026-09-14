@@ -3,7 +3,7 @@
 ## Scope
 
 - Fixed only EDHR-STATIC-012: production-release eDHR batch creation and archive manifest route identity after route master rename or republish.
-- No Playwright/E2E, database writes, service start/stop/restart, remote operation, or git commit/push.
+- No Playwright/E2E, database writes, service start/stop/restart, or remote operation. Git commit and local int_main fusion were later authorized; push was not requested.
 
 ## Implementation Evidence
 
@@ -37,5 +37,14 @@
 ## Risks And Blockers
 
 - Existing unrelated dirty workspace changes remain outside this task and were not modified for EDHR-STATIC-012.
-- Merge into `int_main` cannot proceed safely until the branch is rebased/cherry-picked onto current `int_main` and the `E:\IntRuoyi` main worktree is clean.
-- Cleanup apply was not run because preview reported blockers.
+- Local fusion into `int_main` completed by cherry-picking the task implementation as `97744a46e` after committing the then-current main worktree changes.
+- Cleanup preview/apply pending after local int_main fusion.
+
+
+## Int Main Fusion Evidence
+
+- Main branch baseline commits were created before fusion, including `c3d510542`, `3d774fe75`, `2d8b19a16`, `c44be571b`, `47cea39b8`, `d9138b382`, and `c5c92d2c7`.
+- EDHR-STATIC-012 implementation is present on `int_main` as `97744a46e` (`fix: freeze eDHR archive route identity`).
+- EDHR-STATIC-012 task records are present on `int_main` as `8da7c4d6d` and `203eb69ef`.
+- `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-static-012-archive-route-contract.spec.cjs` -> PASS on `int_main`.
+- `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreateFromProductionRelease_usesFrozenRouteSnapshotIdentityAfterRouteRenameBeforeBatchCreation+generateArchive_usesFrozenBatchRouteIdentityAfterCurrentRouteRenameAndDelete+generateArchive_requiresFrozenRouteIdentityAndSnapshot test` -> PASS on `int_main`; Tests run: 3, Failures: 0, Errors: 0, Skipped: 0.

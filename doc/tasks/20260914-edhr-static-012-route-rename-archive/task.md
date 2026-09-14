@@ -17,11 +17,11 @@ Fix only EDHR-STATIC-012: after an active order freezes route V1, if route maste
 
 - Static contract test proving batch creation does not read current route code/name after an active order froze a historical route snapshot.
 - Targeted Maven test for the affected MES service logic.
-- No Playwright/E2E, database writes, service start/stop/restart, remote operation, or git commit/push.
+- No Playwright/E2E, database writes, service start/stop/restart, or remote operation. Git commit and local int_main fusion were later authorized; push was not requested.
 
 ## Current Status
 
-blocked - Implementation commit `8e94cdb83` exists on `codex/20260914-edhr-static-012-route-rename-archive`, but merge into `int_main` is blocked because the task branch cannot be fast-forward merged into the current `int_main` head and the `E:\IntRuoyi` main worktree has unrelated dirty changes.
+ready_for_closeout - EDHR-STATIC-012 implementation was locally fused into `int_main` as `97744a46e` and re-verified on `int_main`; cleanup preview/apply is pending before final status is recorded.
 
 ## Design Constraints Check
 
@@ -32,3 +32,4 @@ blocked - Implementation commit `8e94cdb83` exists on `codex/20260914-edhr-stati
 - If required frozen identity is missing or inconsistent, fail fast with a deterministic blocker rather than using current route data.
 - Shared defect summary docs must not be edited in this task.
 - User later authorized commit and merge into `int_main`; no E2E, DB writes, service operations, remote operations, or push were requested.
+
