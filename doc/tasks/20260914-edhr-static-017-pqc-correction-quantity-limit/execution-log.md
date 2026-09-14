@@ -65,4 +65,3 @@
 - CLEANUP: Temporary verification worktree `D:\IntRuoyiWorktree\20260914-edhr-static-017-main-verify` was removed with `git worktree remove --force`; follow-up scan found no registration for that path.
 - PROJECT EXPERIENCE: `project-experience-consolidation` applied by checking existing long-term memory. `docs\worktree-memory.md` already contains the detached C盘 worktree and selective `int_main` fusion rule, so no new long-term experience doc was created or edited.
 - BLOCKED COMPLETION: project closeout requires pushing `int_main` before marking `completed`, but this turn did not explicitly authorize `git push`; task remains `blocked` after local fusion.
-
