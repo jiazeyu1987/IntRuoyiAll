@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout - 实现与定向验证已完成；本轮用户已授权提交并融合进 `int_main`，当前等待 cleanup preview/apply、提交和主工作区融合门禁。
+completed - 定向验证 19 tests PASS；cleanup preview/apply PASS；任务记录提交 7393f6731 已快进融合并推送到 origin/int_main；D 盘任务 worktree 已删除。最终记录单独提交。
 
 ## Design Constraints Check
 

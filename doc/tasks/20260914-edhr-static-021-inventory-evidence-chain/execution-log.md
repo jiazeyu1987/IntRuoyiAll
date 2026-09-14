@@ -31,11 +31,16 @@
 - PORT: `pwsh -NoProfile -File scripts\runtime\reserve-worktree-slot.ps1 -Name 20260914-edhr-static-021-inventory-evidence-chain-closeout -Path D:\IntRuoyiWorktree\20260914-edhr-static-021-inventory-evidence-chain-closeout -Branch codex/20260914-edhr-static-021-inventory-evidence-chain-closeout -Profile int_main -WorktreeRoot D:\IntRuoyiWorktree -AsJson` -> PASS, slot 30, frontend 8164, backend 48164。
 - PRECHECK: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch/profile `codex/20260914-edhr-static-021-inventory-evidence-chain-closeout` / `int_main`, frontend 8164, backend 48164。
 - MAIN DRIFT: `git reset --keep int_main` -> PASS, 集成分支对齐最新 `int_main` HEAD `90adf7d6e623a80ec1eae4cc5ebf8bf1fc01abfc`；目标实现和静态合同已存在于该主线基线。
-- GREEN: `mvn -pl yudao-module-mes -am '-Dtest=MesActiveOrderTransferTraceServiceTest,MesTeamLeaderActiveOrderCompletionServiceTest,MesEdhrStatic021InventoryEvidenceChainContractTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` on `90adf7d6e623a80ec1eae4cc5ebf8bf1fc01abfc` -> PASS, 19 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS。
+- GREEN: `mvn -pl yudao-module-mes -am '-Dtest=MesActiveOrderTransferTraceServiceTest,MesTeamLeaderActiveOrderCompletionServiceTest,MesEdhrStatic021InventoryEvidenceChainContractTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` on `aad670dca` -> PASS, 19 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS；Surefire 报告时间 2026-09-14 13:27:58。更正此前误写的 90adf7d6e 测试基线；`git diff aad670dca 7393f6731 -- IntRuoyiBackend/yudao-module-mes` 无差异，未重复运行测试。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-021-inventory-evidence-chain --mode preview` -> PASS, keep: `task.md` / `execution-log.md` / `verification-report.md`; delete: `bug-regression-evidence.md`; blocked: none。
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260914-edhr-static-021-inventory-evidence-chain --mode apply --worktree-closeout off` -> PASS, deleted `bug-regression-evidence.md`；因本机 `.git/info/exclude` 忽略 `doc/tasks/*`，保留记录将使用 `git add -f` 单独提交，避免自动 closeout 看不见任务记录后删除 worktree。
 
 ## Blockers
 
-- PENDING: 提交三份任务记录、快进融合到 `int_main`、推送并清理当前 D 盘任务 worktree。
+- COMMIT / MERGE / PUSH: `7393f67315e1ae5adf53fe9c4239da732d0e0efe` -> PASS，三份任务记录已提交并快进合入 int_main；`git ls-remote origin` 确认任务分支与 int_main 均指向该提交。
+- POST-MERGE GUARD: `pwsh -NoProfile -File scripts/preflight/branch-runtime-port-guard.ps1 -RepoRoot E:\IntRuoyi -BranchName int_main -ProfileName int_main` -> PASS, 8081/48081。
+- WORKTREE REMOVE: 检查任务分支为 int_main 祖先、任务 worktree 干净、绝对路径等于预约路径后，`git worktree remove --force D:\IntRuoyiWorktree\20260914-edhr-static-021-inventory-evidence-chain-closeout` -> PASS；`Test-Path` 为 False。
+- EXPERIENCE REVIEW: 已复核 project-experience-consolidation 及已有 worktree-memory；当前经验已覆盖，不新建重复长期文档。
+- BLOCKERS: none。主工作区三个 DCC/规则并行改动不属于本任务，最终提交仅包含本任务三份记录。
+- SLOT RELEASE: 任务目录删除、合并推送核验和状态完成后，持 reserve-worktree-slot 同名 mutex，仅将当前任务 slot 30 标记 active=false；登记表校验和重读 -> PASS。
 - NOT RUN: Playwright/E2E、数据库写入、服务启动/停止/重启、远程服务器操作，均按任务边界跳过。

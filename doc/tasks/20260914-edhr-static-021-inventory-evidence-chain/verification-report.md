@@ -2,7 +2,7 @@
 
 ## Summary
 
-- Result: PASS FOR TARGETED IMPLEMENTATION, READY FOR CLOSEOUT COMMIT.
+- Result: PASS. Implementation verified; integration, remote push, and task worktree removal completed.
 - Scope: EDHR-STATIC-021 only. No E2E, DB write, service restart, or remote operation was performed.
 - Implementation: active-order completion now records formal product-issue inventory trace rows before marking the order completed.
 - Integration status: target implementation and static contract are already present on latest `int_main` HEAD `90adf7d6e623a80ec1eae4cc5ebf8bf1fc01abfc`; this closeout branch records the task evidence and cleanup.
@@ -45,17 +45,20 @@
 
 ## Closeout Status
 
-- Current task status: `ready_for_closeout`.
+- Current task status: `completed`.
 - User closeout authorization: `提交并融合进int_main`.
 - Worktree migration: C drive detached/mixed dirty worktree was not committed; a D drive task integration worktree was created on branch `codex/20260914-edhr-static-021-inventory-evidence-chain-closeout`.
 - Port guard: PASS, `int_main` profile slot 30, frontend 8164, backend 48164.
 - Cleanup preview: PASS. It kept `task.md`, `execution-log.md`, and `verification-report.md`; deleted `bug-regression-evidence.md`; blockers none.
 - Cleanup apply: PASS with `--worktree-closeout off`, deleting only `bug-regression-evidence.md`. Because local `.git/info/exclude` ignores `doc/tasks/*`, task records will be force-added explicitly rather than relying on automatic closeout staging.
-- Remaining closeout: commit the three task records, fast-forward merge to `int_main`, push, remove the task worktree, then mark completed.
+- Integration: commit `7393f67315e1ae5adf53fe9c4239da732d0e0efe` fast-forward merged into `int_main`; remote task branch and `origin/int_main` verified at the same commit using `git ls-remote`.
+- Worktree removal: PASS; task-owned D drive directory removed after clean status and ancestor checks; physical path no longer exists.
+- Post-merge runtime port guard: PASS, int_main/int_main 8081/48081.
+- Runtime reservation: task-owned slot 30 released under the shared registry mutex after worktree removal and completion; active=false verified.
 
 ## Evidence Validators
 
 - Bug regression evidence validator: PASS.
 - Final diff check for task-owned paths: PASS, exit 0, no whitespace errors.
 - Experience consolidation: PASS, merged into existing PowerShell/worktree memory docs and the experience index.
-- Latest mainline regression: `mvn -pl yudao-module-mes -am '-Dtest=MesActiveOrderTransferTraceServiceTest,MesTeamLeaderActiveOrderCompletionServiceTest,MesEdhrStatic021InventoryEvidenceChainContractTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` on `90adf7d6e623a80ec1eae4cc5ebf8bf1fc01abfc` -> PASS, 19 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
+- Latest executed regression: the GREEN command above ran on `aad670dca`, with Surefire report timestamp 2026-09-14 13:27:58: 19 tests, 0 failures, 0 errors, 0 skipped. The earlier attribution to `90adf7d6e` was incorrect. `git diff aad670dca 7393f6731 -- IntRuoyiBackend/yudao-module-mes` is empty; later documentation commits did not change the verified MES code.
