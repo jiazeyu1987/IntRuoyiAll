@@ -310,6 +310,66 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
+    void dynamicFormBackfillAggregatesMultipleInspectionTasksBeforeEffectiveSubmit() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource pressure = source();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource flow = secondInspectionSource();
+        List<MesQaInspectionRegulationItemDO> qaItems = List.of(pressure.getRegulationItems().get(0),
+                qaItem(704L, "FLOW", "流量"));
+        pressure.setRegulationItems(qaItems);
+        flow.setRegulationItems(qaItems);
+        when(reader.read(command)).thenReturn(new MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle()
+                .setSources(List.of(pressure, flow)));
+        MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(28L, "PI_" + ROUTE_PROCESS_ID);
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any()))
+                .thenReturn(List.of(binding));
+        List<MesProBatchRecordCellLinkRuleDO> rules = dynamicRules();
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 2801L, "FORMTPL:2801"))
+                .thenReturn(rules);
+        when(dynamicFormPort.resolveTarget(any(), any(), any())).thenReturn(dynamicTarget(rules));
+        when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID))
+                .thenReturn(List.of(dynamicBatchTask()));
+        when(dynamicFormPort.write(any())).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteResult()
+                        .setFormCenterInstanceId(9801L)
+                        .setFieldAuditSnapshotId(9802L)
+                        .setFieldAuditHeadHash("dynamic-combined-audit-head")
+                        .setEffectiveStatus("EFFECTIVE"));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
+        MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult result =
+                writer.write(plan, BATCH_EXECUTION_ID);
+
+        assertTrue(plan.getBlockers().isEmpty(), () -> "blockers=" + blockerTypes(plan));
+        assertEquals(2, plan.getPreparedInspections().size());
+        assertEquals(List.of(9801L), result.getFormCenterInstanceIds());
+        assertEquals(List.of(9802L), result.getFieldAuditIds());
+        ArgumentCaptor<MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand> captor =
+                ArgumentCaptor.forClass(
+                        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand.class);
+        verify(dynamicFormPort, times(1)).write(captor.capture());
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand writeCommand =
+                captor.getValue();
+        assertEquals(BATCH_TASK_ID, writeCommand.getBatchTask().getId());
+        assertEquals(9801L, writeCommand.getBatchTask().getFormCenterInstanceId());
+        assertEquals(PROCESS_INSPECTION_SUMMARY_FIELDS.size(), writeCommand.getFields().size());
+        assertEquals(4, writeCommand.getSignatureEvidence().size());
+        assertTrue(writeCommand.getFields().stream()
+                .anyMatch(field -> "itemSummary".equals(field.getSourceFieldCode())
+                        && field.getDisplayValue().contains("PRESSURE")
+                        && field.getDisplayValue().contains("FLOW")));
+        assertTrue(writeCommand.getFields().stream()
+                .anyMatch(field -> "inspectorSignedInfo".equals(field.getSourceFieldCode())
+                        && field.getDisplayValue().contains("sourceId=601")
+                        && field.getDisplayValue().contains("sourceId=1601")));
+        assertTrue(writeCommand.getFields().stream()
+                .allMatch(field -> field.getSourceValueHash() != null
+                        && field.getSourceValueHash().length() == 64));
+        verify(executionService, never()).openOrCreateByContext(any());
+        verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
+    }
+
+    @Test
     void routeBoundProcessInspectionFormTemplateIsResolvedFromBindingWhenItIsNot28() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         when(reader.read(command)).thenReturn(bundle(source()));
@@ -698,6 +758,39 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                         .setProvenanceType("COMMON_QA_REGULATION_VERSION")
                         .setProvenanceId("common-" + version.getId())
                         .setProvenanceSnapshotHash("common-provenance-hash-" + version.getId()));
+        return source;
+    }
+
+    private static MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource secondInspectionSource() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
+        source.getTask()
+                .setId(COMMON_TASK_ID)
+                .setQaItemCode("FLOW");
+        MesPqcProcessInspectionAggregateDetailDO detail = source.getAggregateDetails().get(0)
+                .setId(COMMON_AGGREGATE_ID)
+                .setSourcePqcRecordId(COMMON_PQC_RECORD_ID)
+                .setSourcePieceDetailId(1606L)
+                .setEventId(COMMON_EVENT_ID)
+                .setReviewId(COMMON_REVIEW_ID)
+                .setPqcTaskId(COMMON_TASK_ID)
+                .setItemCode("FLOW")
+                .setItemName("流量")
+                .setItemResult("10.7")
+                .setMeasuredValue("10.7");
+        source.setAggregateDetails(List.of(detail));
+        source.getEvent()
+                .setId(COMMON_EVENT_ID)
+                .setFeedbackSourceId(COMMON_TASK_ID)
+                .setSignatureId(2101L);
+        source.getPqcRecord()
+                .setId(COMMON_PQC_RECORD_ID)
+                .setEventId(COMMON_EVENT_ID)
+                .setProcessInspectionReviewId(COMMON_REVIEW_ID)
+                .setSignatureId(2101L);
+        source.getReview()
+                .setId(COMMON_REVIEW_ID)
+                .setEventId(COMMON_EVENT_ID)
+                .setReviewSignatureId(2102L);
         return source;
     }
 
