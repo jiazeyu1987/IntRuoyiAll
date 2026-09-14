@@ -9,8 +9,8 @@
 - [x] 读取提交、worktree、后端、前端与收尾规则。
 - [x] 记录当前脏工作区基线和融合范围。
 - [x] 运行提交前验证。
-- [x] 提交当前任务改动（原提交 aab08ef0d，正在完成 rebase）。
-- [ ] 融合进 `int_main` 并验证结果。
+- [x] 提交当前任务改动（最终实现提交 f7c054cde）。
+- [x] 融合进 `int_main` 并验证结果。
 - [ ] 执行收尾清理并记录最终状态。
 
 ## Expected Verification
@@ -25,7 +25,7 @@
 
 ready_for_closeout
 
-冲突后的定向验证通过：DCC 153 tests、MES 10 tests、server 4 tests、Python 154 tests、前端合同与类型检查。待完成 rebase、最新主线快进融合与任务产物清理。当前授权范围是本地提交和融合；未执行推送。
+冲突后的定向验证通过：DCC 153 tests、MES 10 tests、server 4 tests、Python 154 tests、前端合同与类型检查。实现提交 f7c054cde 已快进合入 int_main，任务临时文件清理通过，待移除附加 worktree。当前授权范围是本地提交和融合；未执行推送。
 
 ## Design Constraints Check
 

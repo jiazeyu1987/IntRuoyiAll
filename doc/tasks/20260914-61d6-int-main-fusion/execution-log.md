@@ -1,5 +1,16 @@
 # Execution Log
 
+## Local Integration And Cleanup
+
+- COMMIT: 最终实现提交 `f7c054cde137c00f938ca78e6a82b0bcc2b1a425`，46 个任务文件；文件清单可由 `git show --name-only f7c054cde` 重现。
+- REBASE: 从原融合基线推进到 `456847dffe448106a44c20d84b9618faaf845a2f`；`git range-diff 453207c..781c48588 int_main..HEAD` 显示实现补丁相等，新增主线仅文档/图片，因此保留已通过的代码验证证据。
+- GREEN: rebase 后分支端口 guard -> PASS，8160/48160；`git diff --check` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260914-61d6-int-main-fusion --mode preview --worktree-closeout off` -> ready，无 blocked/warnings；同参数 `--mode apply` -> applied，删除本任务两个 pytest 临时目录，保留三份正式任务记录。
+- MERGE: `git -C E:/IntRuoyi merge --ff-only codex/20260914-61d6-int-main-fusion` -> PASS，`456847dff -> f7c054cde`；post-merge 端口 guard -> PASS，8081/48081。
+- PRESERVATION: 主工作区三个并行文件 `docs/dcc-main-flow-no-training-distribution.md`、`docs/task-closeout-rules.md`、`docs/dcc-main-flow-20-issues-handoff.md` 与本任务 diff 无重叠；合并前后 SHA256 一致。
+- WORKTREE PREFLIGHT: 当前任务 worktree 无 tracked/untracked 改动，分支已是 int_main 祖先；8160/48160 无监听，未发现依赖该路径的应用进程。登记为 int_main slot 26；未修改其他槽位。
+- REMOTE: 未执行 push；用户当前授权为本地提交并融合，项目推送完成门禁尚未满足。
+
 ## Rebase Integration Verification
 
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolPqcInspectionCorrectionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，10 tests；DCC 153 tests、server 4 tests 的最新 PASS 结果保持有效。
