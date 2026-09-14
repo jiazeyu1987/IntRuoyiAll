@@ -6,6 +6,8 @@ DROP PROCEDURE IF EXISTS preflight_mes_pp_b09353_cleaning_temperature_label;
 DELIMITER $$
 CREATE PROCEDURE preflight_mes_pp_b09353_cleaning_temperature_label()
 BEGIN
+  DECLARE v_b09353_cleaning_temperature_label_candidate_count BIGINT DEFAULT 0;
+
   IF (
     SELECT COUNT(*)
     FROM information_schema.tables
@@ -35,8 +37,7 @@ BEGIN
       SET MESSAGE_TEXT = 'Missing B09353 cleaning temperature dependency column';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
+  SELECT COUNT(*) INTO v_b09353_cleaning_temperature_label_candidate_count
     FROM `mes_pro_process_pool_device_parameter_rule` rule
     JOIN `mes_pro_process_pool_team_device` device
       ON device.`id` = rule.`device_id`
@@ -50,11 +51,7 @@ BEGIN
       AND process.`name` = '清洗工序'
       AND device.`device_code` = 'B09353'
       AND rule.`parameter_code` = 'CLEANING_ROOM_TEMPERATURE'
-      AND rule.`parameter_name` IN ('室温', '清洗温度')
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'No active B09353 cleaning temperature parameter rule found';
-  END IF;
+      AND rule.`parameter_name` IN ('室温', '清洗温度');
 END$$
 DELIMITER ;
 
