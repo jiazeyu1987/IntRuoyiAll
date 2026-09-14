@@ -6,7 +6,7 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 DROP PROCEDURE IF EXISTS converge_mes_pressure_pump_same_name_item;
 DELIMITER $$
 CREATE PROCEDURE converge_mes_pressure_pump_same_name_item()
-BEGIN
+converge_body: BEGIN
   DECLARE v_target_tenant_id bigint DEFAULT 1;
   DECLARE v_target_route_id bigint DEFAULT 922119;
   DECLARE v_target_item_id bigint DEFAULT 902101;
@@ -51,7 +51,7 @@ BEGIN
    WHERE `tenant_id` = v_target_tenant_id
      AND `id` = v_target_item_id
      AND `code` COLLATE utf8mb4_unicode_ci = v_target_item_code
-     AND `product_master_id` = v_expected_product_master_id
+     AND (`product_master_id` = v_expected_product_master_id OR `product_master_id` IS NULL)
      AND `deleted` = b'0';
   IF v_target_item_count <> 1 THEN
     SIGNAL SQLSTATE '45000'
@@ -68,6 +68,23 @@ BEGIN
   IF v_target_route_count <> 1 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Pressure pump convergence failed: target route identity drifted';
+  END IF;
+
+  SELECT COUNT(1)
+    INTO v_existing_route_product_count
+    FROM `mes_pro_route_product`
+   WHERE `tenant_id` = v_target_tenant_id
+     AND `route_id` = v_target_route_id
+     AND `item_id` = v_target_item_id
+     AND `deleted` = b'0';
+  IF v_existing_route_product_count > 1 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Pressure pump convergence failed: duplicate route product binding';
+  END IF;
+
+  IF v_existing_route_product_count = 1 THEN
+    COMMIT;
+    LEAVE converge_body;
   END IF;
 
   SELECT COUNT(1)
@@ -104,30 +121,16 @@ BEGIN
       SET MESSAGE_TEXT = 'Pressure pump convergence failed: route DCC product master drifted';
   END IF;
 
-  SELECT COUNT(1)
-    INTO v_existing_route_product_count
-    FROM `mes_pro_route_product`
-   WHERE `tenant_id` = v_target_tenant_id
-     AND `route_id` = v_target_route_id
-     AND `item_id` = v_target_item_id
-     AND `deleted` = b'0';
-  IF v_existing_route_product_count > 1 THEN
+  INSERT INTO `mes_pro_route_product`
+    (`route_id`, `item_id`, `quantity`, `production_time`, `time_unit_type`,
+     `remark`, `creator`, `updater`, `tenant_id`, `deleted`)
+  VALUES
+    (v_target_route_id, v_target_item_id, 1, 1.000000, 'MINUTE',
+     'pressure-pump-same-name-item-convergence-20260818', '1', '1', v_target_tenant_id, b'0');
+  SET v_inserted_count = ROW_COUNT();
+  IF v_inserted_count <> 1 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Pressure pump convergence failed: duplicate route product binding';
-  END IF;
-
-  IF v_existing_route_product_count = 0 THEN
-    INSERT INTO `mes_pro_route_product`
-      (`route_id`, `item_id`, `quantity`, `production_time`, `time_unit_type`,
-       `remark`, `creator`, `updater`, `tenant_id`, `deleted`)
-    VALUES
-      (v_target_route_id, v_target_item_id, 1, 1.000000, 'MINUTE',
-       'pressure-pump-same-name-item-convergence-20260818', '1', '1', v_target_tenant_id, b'0');
-    SET v_inserted_count = ROW_COUNT();
-    IF v_inserted_count <> 1 THEN
-      SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Pressure pump convergence failed: insert incomplete';
-    END IF;
+      SET MESSAGE_TEXT = 'Pressure pump convergence failed: insert incomplete';
   END IF;
 
   SELECT COUNT(1)

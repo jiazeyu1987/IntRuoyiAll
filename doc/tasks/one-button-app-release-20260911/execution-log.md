@@ -93,3 +93,13 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - REGRESSION: `python -X utf8 -m pytest -q script\tests\test_mes_pqc_dcc_qa_c00_backfill_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp .tmp-r43-c00-collation-regression` -> PASS，27 passed。
 - IMPLEMENTATION: C00 回填 SQL 对 `SHA2(...)`、`inspection_rule_key`、`submitted_content_hash`、`piece_detail_sha256`、`JSON_UNQUOTE(...inspectionRuleKey)`、`scrapQuantity` 与 `nonconformanceDescription` 文本比较显式固定到 `utf8mb4_unicode_ci`；无 fallback、无跳过迁移、无目标数据修改脚本。
 - RESULT: R43 已在测试服版本切换前失败并释放 lock，失败点仍为 C00 回填旧表/派生文本排序规则冲突；R43 判废不复用。下一轮必须使用新 releaseTag `release-20260915-one-button-app-r44`，source freeze 固定维护仓记录本次失败后的 clean HEAD 与本应用修复提交后的 clean HEAD。
+
+## P3 pressure pump same-name item nullable master continuation
+
+- BDD: 压力泵同名物料收敛兼容已绑定空产品主数据 -> Given 测试服 `RT000028` 已存在 `AW.107.02.01.1009` 路线产品绑定且该物料/项目的 `product_master_id` 为 NULL / When `20260818_mes_pressure_pump_same_name_item_convergence.sql` 随 without-data/app-release 执行 / Then 迁移应 no-op 通过，只有目标物料、路线、重复绑定或插入前 DCC 产品主数据约束真实漂移时才阻断。
+- RED: deploy-release-r51-pressure-pump-target-item-drift -> FAIL，测试服部署在版本切换前执行 `20260818_mes_pressure_pump_same_name_item_convergence.sql` 失败：`Pressure pump convergence failed: target item identity drifted`。只读诊断显示目标物料 `902101/AW.107.02.01.1009` 存在但 `product_master_id=NULL`，目标路线 `922119/RT000028` 存在，且 `mes_pro_route_product` 已有 `route_id=922119,item_id=902101` 的有效绑定。
+- RED: `python -X utf8 -m pytest -q script\tests\test_mes_pressure_pump_same_name_item_convergence_sql.py --basetemp .tmp-r51-pressure-pump-red` -> FAIL，2 failed；旧迁移要求 `product_master_id=11`，旧 target preflight 仅检查表存在，未覆盖已绑定 no-op 和目标数据约束。
+- GREEN: pressure-pump-nullable-master-fix -> PASS，迁移允许目标物料 `product_master_id` 为 NULL，并把已存在唯一路线产品绑定作为幂等 no-op；只有需要插入新绑定时才检查 DCC 项目产品主数据与路线产品漂移。target preflight 改为 CTE 校验目标物料、路线、已有绑定、插入前 DCC 约束与漂移条件。
+- GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_pressure_pump_same_name_item_convergence_sql.py script\tests\test_release_target_preflight_files.py script\tests\test_release_preflight_plan.py --basetemp .tmp-r51-pressure-pump-green2` -> PASS，30 passed。
+- GREEN: test-server-readonly-preflight-pressure-pump -> PASS，使用新版 target preflight 在测试服只读事务中返回 `TARGET_PREFLIGHT_PASS:20260818_mes_pressure_pump_same_name_item_convergence`；未修改测试服业务数据。
+- RESULT: R51 已在测试服版本切换前失败并释放 lock，旧包判废不复用。下一轮必须使用新 releaseTag `release-20260915-one-button-app-r52`，source freeze 固定维护仓记录本次失败后的 clean HEAD 与本应用修复提交后的 clean HEAD。

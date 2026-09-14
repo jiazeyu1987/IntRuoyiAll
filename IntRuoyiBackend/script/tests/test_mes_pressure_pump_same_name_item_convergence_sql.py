@@ -3,6 +3,7 @@ from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 SQL_PATH = BACKEND_ROOT / "sql" / "mysql" / "20260818_mes_pressure_pump_same_name_item_convergence.sql"
+PREFLIGHT_PATH = BACKEND_ROOT / "sql" / "mysql" / "target-preflight" / "20260818_mes_pressure_pump_same_name_item_convergence.preflight.sql"
 
 
 def read_sql() -> str:
@@ -58,7 +59,8 @@ def test_pressure_pump_convergence_is_idempotent_and_non_destructive() -> None:
         "AND `ROUTE_ID` = V_TARGET_ROUTE_ID",
         "AND `ITEM_ID` = V_TARGET_ITEM_ID",
         "INSERT INTO `MES_PRO_ROUTE_PRODUCT`",
-        "V_EXISTING_ROUTE_PRODUCT_COUNT = 0",
+        "V_EXISTING_ROUTE_PRODUCT_COUNT = 1",
+        "LEAVE CONVERGE_BODY",
     ]:
         assert token in normalized, f"migration must be guarded/idempotent: {token}"
 
@@ -84,3 +86,35 @@ def test_pressure_pump_convergence_fails_fast_on_drift() -> None:
         "PRESSURE PUMP CONVERGENCE FAILED: INSERT INCOMPLETE",
     ]:
         assert token in normalized, f"migration must fail fast with token: {token}"
+
+
+def test_pressure_pump_convergence_noops_when_target_binding_already_exists_with_nullable_master() -> None:
+    sql = read_sql()
+    normalized = normalized_sql().upper()
+
+    assert "`product_master_id` = v_expected_product_master_id OR `product_master_id` IS NULL" in sql
+    assert "converge_body:" in sql
+    assert "IF v_existing_route_product_count = 1 THEN" in sql
+    assert "LEAVE converge_body" in sql
+
+    existing_index = normalized.index("INTO V_EXISTING_ROUTE_PRODUCT_COUNT")
+    route_dcc_index = normalized.index("INTO V_ROUTE_DCC_COUNT")
+    assert existing_index < route_dcc_index, "existing target binding must be checked before insert-only DCC guard"
+
+
+def test_pressure_pump_target_preflight_checks_current_target_contract() -> None:
+    assert PREFLIGHT_PATH.exists(), "target preflight must exist for pressure pump convergence"
+    text = PREFLIGHT_PATH.read_text(encoding="utf-8")
+
+    for token in [
+        "target_item_count",
+        "existing_route_product_count",
+        "route_dcc_count",
+        "`product_master_id` IS NULL",
+        "v_existing_route_product_count = 1",
+        "TARGET_PREFLIGHT_PASS:20260818_mes_pressure_pump_same_name_item_convergence",
+    ]:
+        assert token in text, f"preflight must check target-specific pressure pump contract: {token}"
+
+    assert "LOWER(table_name) IN" in text
+    assert "TARGET_PREFLIGHT_BLOCKED:20260818_mes_pressure_pump_same_name_item_convergence" in text
