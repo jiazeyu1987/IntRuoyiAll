@@ -28,14 +28,15 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-下载加密移除实现、相邻编译阻塞修正、DCC 定向 Maven、脚本级静态合同、SQL 合同、backend evidence validator 和 cleanup apply 均已通过。实现已提交到本地 `int_main`，最终 completed 仍需要推送验证。
+下载加密移除实现、相邻编译阻塞修正、DCC 定向 Maven、脚本级静态合同、SQL 合同、backend evidence validator 和 cleanup apply 均已通过。实现和收尾记录已提交并融合进 `int_main`，远端 `origin/int_main` 已包含本次提交。
 
-## Remaining Closeout Constraints
+## Git Evidence
 
 - 实现提交：`bc640fd96d407d284aab7ab2501215f85ac5bf14`
-- 待推送 `int_main` 到 `origin/int_main` 并复核分支状态。
+- 收尾记录提交：`43071eb7e530cb36d0dfd6d673660d12128b5426`
+- 推送验证：`git fetch origin int_main` 后 `HEAD -> int_main, origin/int_main, origin/HEAD` 指向收尾记录提交。
 
 ## Design Constraints Check
 

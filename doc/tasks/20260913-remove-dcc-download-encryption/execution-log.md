@@ -47,5 +47,7 @@
 - User explicitly requested removal of download encryption and direct downloads.
 - Cleanup apply was performed only for current task-owned temporary files.
 - Implementation commit: `bc640fd96d407d284aab7ab2501215f85ac5bf14` (`fix: remove DCC download encryption`) on local `int_main`.
+- Closeout record commit: `43071eb7e530cb36d0dfd6d673660d12128b5426` (`docs: record DCC download encryption closeout`).
+- Push verification: `git fetch origin int_main`, `git push origin int_main`, and `git log --oneline --decorate -n 5 --no-abbrev-commit` confirmed `HEAD -> int_main, origin/int_main, origin/HEAD` at `43071eb7e530cb36d0dfd6d673660d12128b5426` before final completed-status commit.
 - No remote server operation, database write, or E2E was performed.
-- Current closeout constraint: push `int_main` to `origin/int_main` and verify branch status.
+- Unrelated MES dirty files remained unstaged and were preserved outside this task.

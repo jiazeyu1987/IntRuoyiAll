@@ -35,9 +35,8 @@
 - DCC authorized downloads are direct downloads and no longer require download encryption environment variables.
 - Targeted backend, runtime, SQL, deployment, and frontend syntax checks pass.
 - Cleanup apply removed only current task-owned temporary evidence/json files and kept `task.md`, `execution-log.md`, and `verification-report.md`.
-- Implementation commit is `bc640fd96d407d284aab7ab2501215f85ac5bf14` on local `int_main`.
+- Implementation commit is `bc640fd96d407d284aab7ab2501215f85ac5bf14` on `int_main`.
+- Closeout record commit is `43071eb7e530cb36d0dfd6d673660d12128b5426`.
+- Push verification confirmed `HEAD -> int_main, origin/int_main, origin/HEAD` at `43071eb7e530cb36d0dfd6d673660d12128b5426` before final completed-status commit.
+- Unrelated MES dirty files remained unstaged and were preserved outside this task.
 - No E2E, remote server operation, or database write was performed in this turn.
-
-## Remaining Closeout
-
-- Project closeout still requires pushing `int_main` to `origin/int_main` and verifying branch status.
