@@ -74,3 +74,5 @@
 - GREEN after that rebase: `node yudao-module-mes\src\test\js\mes-process-inspection-dynamic-template-static.spec.cjs` -> PASS.
 - GREEN after that rebase: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest" test` -> PASS, Tests run: 24, Failures: 0, Errors: 0, Skipped: 0.
 - Final local fusion blocker snapshot: `E:\IntRuoyi` is now `int_main...origin/int_main [ahead 8, behind 1]` with parallel dirty task record `M doc/tasks/20260914-edhr-static-012-route-rename-archive/task.md`; current task must not pull over, submit, or rewrite that parallel state.
+- Main worktree later became clean again at `6002b84fc`; task branch was rebased over it without conflicts. The rebase skipped already-applied upstream commits and left only task-owned commits ahead of `int_main`.
+- Ready for local fusion: after the final rebase, task implementation commit is `5a7e543c3` and task record commits are `15063dd47` / `51dc1b7b3` before this readiness correction.
