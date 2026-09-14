@@ -980,6 +980,21 @@
           源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。
         </div>
       </el-form-item>
+      <el-form-item v-if="isDrawingSourceFile(checkinUpload?.fileName)" label="当前图纸配套PDF" required>
+        <el-upload
+          v-model:file-list="checkinDrawingPdfFileList"
+          :limit="1"
+          :auto-upload="true"
+          accept=".pdf"
+          :http-request="uploadCheckinDrawingPdf"
+          :on-remove="clearCheckinDrawingPdf"
+        >
+          <el-button :loading="checkinDrawingPdfLoading">选择配套PDF</el-button>
+        </el-upload>
+        <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+          请上传与本次修改后图纸一致的PDF，用于审核预览。
+        </div>
+      </el-form-item>
       <el-form-item label="修改说明" required>
         <el-input
           v-model="checkinForm.changeDescription"
@@ -1034,6 +1049,7 @@ import {
   type UploadUserFile
 } from 'element-plus'
 import { useClipboard } from '@vueuse/core'
+import { isDrawingSourceFile, validateDrawingPdfUpload } from '../upload/submitter'
 import download from '@/utils/download'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import {
@@ -1229,6 +1245,10 @@ const submitApprovalLoadingId = ref<number | string>()
 const checkinDialogVisible = ref(false)
 const checkinSubmitting = ref(false)
 const checkinUploadLoading = ref(false)
+const checkinDrawingPdfLoading = ref(false)
+const checkinDrawingPdfUpload = ref<ControlledFileUploadRespVO>()
+const checkinDrawingPdfFileList = ref<UploadUserFile[]>([])
+let checkinDrawingPdfRequestSequence = 0
 const checkinTarget = ref<ControlledFileBrowserVersion>()
 const checkinUploadSessionId = ref(createControlledFileUploadSessionId())
 const checkinUpload = ref<ControlledFileUploadRespVO>()
@@ -1865,10 +1885,19 @@ const resetCheckinDialog = () => {
   checkinForm.changeDescription = ''
   checkinForm.remark = ''
   checkinUploadSessionId.value = createControlledFileUploadSessionId()
+  clearCheckinDrawingPdf()
+}
+
+const clearCheckinDrawingPdf = () => {
+  checkinDrawingPdfRequestSequence += 1
+  checkinDrawingPdfLoading.value = false
+  checkinDrawingPdfUpload.value = undefined
+  checkinDrawingPdfFileList.value = []
 }
 
 const clearCheckinUpload = () => {
   checkinUpload.value = undefined
+  clearCheckinDrawingPdf()
 }
 
 const findBrowserRowForVersion = (versionId: number | string | undefined) => {
@@ -1889,6 +1918,7 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
     throw error
   }
   checkinUploadLoading.value = true
+  clearCheckinDrawingPdf()
   try {
     const uploaded = await uploadControlledFilePreview(options.file, 'SOURCE', {
       categoryId: row.categoryId,
@@ -1908,12 +1938,58 @@ const uploadCheckinSource = async (options: UploadRequestOptions) => {
   }
 }
 
+const uploadCheckinDrawingPdf = async (options: UploadRequestOptions) => {
+  const target = checkinTarget.value
+  const row = findBrowserRowForVersion(target?.id)
+  const sourceTicket = checkinUpload.value?.uploadTicket
+  const sessionId = checkinUploadSessionId.value
+  if (!target || !row?.categoryId || !sourceTicket || !isDrawingSourceFile(checkinUpload.value?.fileName)) {
+    const error = new Error('请先上传本次修改后的图纸源文件。')
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+    message.warning(error.message)
+    return
+  }
+  const requestSequence = ++checkinDrawingPdfRequestSequence
+  const isCurrentRequest = () =>
+    requestSequence === checkinDrawingPdfRequestSequence &&
+    sessionId === checkinUploadSessionId.value &&
+    sourceTicket === checkinUpload.value?.uploadTicket
+  checkinDrawingPdfLoading.value = true
+  try {
+    const uploaded = await uploadControlledFilePreview(options.file, 'DRAWING_PDF', {
+      categoryId: row.categoryId,
+      sessionId
+    })
+    if (!isCurrentRequest()) {
+      options.onError(new Error('图纸源文件已变更，请重新上传对应的PDF。') as Parameters<UploadRequestOptions['onError']>[0])
+      return
+    }
+    if (!uploaded.uploadTicket) {
+      throw new Error('配套PDF上传未返回有效凭据。')
+    }
+    checkinDrawingPdfUpload.value = uploaded
+    options.onSuccess(uploaded)
+  } catch (error) {
+    options.onError(error as Parameters<UploadRequestOptions['onError']>[0])
+    if (isCurrentRequest()) {
+      checkinDrawingPdfUpload.value = undefined
+      message.error(resolveBrowserErrorMessage(error, '配套PDF上传失败，请重新上传。'))
+    }
+  } finally {
+    if (isCurrentRequest()) checkinDrawingPdfLoading.value = false
+  }
+}
+
 const submitCheckin = async () => {
   const target = checkinTarget.value
   const uploaded = checkinUpload.value
   const changeDescription = checkinForm.changeDescription.trim()
   const normalizedCheckinRemark = checkinForm.remark.trim()
   if (!target || !isValidBrowserOptionId(target.id)) return
+  if (checkinUploadLoading.value || checkinDrawingPdfLoading.value) {
+    message.warning('请等待文件上传完成。')
+    return
+  }
   if (!changeDescription) {
     message.warning('请输入修改说明。')
     return
@@ -1925,12 +2001,19 @@ const submitCheckin = async () => {
     message.warning('请上传修改后的源文件，或修改检入备注。')
     return
   }
+  const drawingValidation = validateDrawingPdfUpload(uploaded, checkinDrawingPdfUpload.value)
+  if (!drawingValidation.valid) {
+    message.warning(drawingValidation.message)
+    return
+  }
   const baseId = target.id
   checkinSubmitting.value = true
   checkoutLoadingId.value = baseId
   try {
     const updatedFile = await checkinControlledFile(baseId, {
       uploadTicket: hasCheckinUpload ? uploaded?.uploadTicket : undefined,
+      drawingPdfUploadTicket: isDrawingSourceFile(uploaded?.fileName)
+        ? checkinDrawingPdfUpload.value?.uploadTicket : undefined,
       sessionId: hasCheckinUpload ? checkinUploadSessionId.value : undefined,
       changeDescription,
       remark: normalizedCheckinRemark

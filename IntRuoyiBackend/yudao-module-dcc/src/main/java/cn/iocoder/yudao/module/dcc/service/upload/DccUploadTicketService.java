@@ -10,6 +10,8 @@ public interface DccUploadTicketService {
 
     DccUploadTicketBoundFile resolveForBinding(DccUploadTicketResolveCommand command);
 
+    DccUploadTicketBoundFile resolveBoundFile(DccUploadTicketResolveCommand command, Long controlledFileId);
+
     void markBound(DccUploadTicketMarkBoundCommand command);
 
     int cleanupExpiredTemporaryFiles(LocalDateTime cleanupTime, int limit) throws Exception;

@@ -1242,10 +1242,24 @@ def test_publish_runtime_requires_dcc_signature_evidence_secret() -> None:
     assert "--dcc.signature.evidence.key-version=${DCC_SIGNATURE_EVIDENCE_KEY_VERSION}" in compose
 
 
-def test_publish_runtime_requires_viewer_token_and_onlyoffice_without_download_encryption_configuration() -> None:
+def test_publish_runtime_requires_dcc_viewer_token_onlyoffice_and_direct_download_configuration() -> None:
     text = read_publish_script()
     compose = (DEPLOY_ROOT / "int-ruoyi-test" / "docker-compose.yml").read_text(encoding="utf-8")
     status = (DEPLOY_ROOT / "show-int-ruoyi-remote-status.ps1").read_text(encoding="utf-8")
+    legacy_env_prefix = "DCC_DOWNLOAD_" + "ENCRYPTION"
+    legacy_spring_prefix = "yudao.dcc.download." + "encryption"
+    legacy_names = [
+        f"{legacy_env_prefix}_POLICY_VERSION",
+        f"{legacy_env_prefix}_KEY_ID",
+        f"{legacy_env_prefix}_BASE64_KEY",
+        f"{legacy_env_prefix}_ARTIFACT_DIRECTORY",
+        f"{legacy_env_prefix}_CURRENT_KEY_VERSION",
+        f"{legacy_env_prefix}_KEYRING",
+        f"{legacy_spring_prefix}.policy-version",
+        f"{legacy_spring_prefix}.key-id",
+        f"{legacy_spring_prefix}.base64-key",
+        f"{legacy_spring_prefix}.artifact-directory",
+    ]
 
     assert "[string]$DccViewerTokenHmacSecret = $env:DCC_VIEWER_TOKEN_HMAC_SECRET" in text
     assert "[string]$DccOnlyOfficeJwtSecret = $env:DCC_ONLYOFFICE_JWT_SECRET" in text
@@ -1310,6 +1324,8 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
     assert "DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl" in text
     assert REMOVED_DCC_DOWNLOAD_SECRET_PREFIX not in text
+    assert "DCC_HARDCODED_DOWNLOAD_" + "ENCRYPTION" not in text
+    assert "DccDownload" + "Encryption" not in text
 
 
 def test_onlyoffice_public_file_base_url_uses_compose_backend_service() -> None:
@@ -1631,7 +1647,7 @@ def test_publish_dockerfiles_point_at_current_workspace_artifacts() -> None:
     assert "docker.io" not in backend_dockerfile
     assert "docker-compose-v2" not in backend_dockerfile
     assert "FROM maven:" not in backend_dockerfile
-    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS}"]' in backend_dockerfile
+    assert 'CMD ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar ${ARGS} ${INTRUOYI_EXTRA_ARGS}"]' in backend_dockerfile
     assert "FROM eclipse-temurin:21-jre-noble" in backend_base_dockerfile
     assert "ARG APT_MIRROR=http://mirrors.aliyun.com/ubuntu" in backend_base_dockerfile
     assert "security.ubuntu.com/ubuntu#${APT_MIRROR}" in backend_base_dockerfile

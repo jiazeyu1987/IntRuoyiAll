@@ -78,6 +78,9 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", List.of(
+                productionSubmit(1000L, 9001L, 5001L, "120"),
+                productionSubmit(1001L, 9001L, 5001L, "80")));
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -111,6 +114,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -137,6 +141,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "199");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -166,6 +171,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "100");
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -191,6 +197,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubProcessProgress("900", "300");
         stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -213,6 +220,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubProcessProgress("900", "300");
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(scheduleOrder("300")));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L))
                 .thenReturn(List.of(scheduleProcess("300"), scheduleProcess("300")));
@@ -244,6 +252,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
@@ -271,6 +280,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "210");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -318,6 +328,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
@@ -361,6 +372,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubProcessProgress("200", "200");
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
@@ -389,6 +401,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("6"));
+        stubProcessProgress("6", "10");
         stubFormalSchedule("6", "6");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -422,6 +435,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(sourceAllocations);
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubProcessProgress("900", "900");
         stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         stubSingleOutputProgress(8101L, 9001L, 5001L, 6001L, event, sourceAllocations);
@@ -459,6 +473,9 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(orderProcessTargetService.requireTarget(8103L, 9003L, 5301L, 6001L))
                 .thenReturn(new MesTeamLeaderOrderProcessTarget(5301L, 6001L, new BigDecimal("300"),
                         BigDecimal.ONE, new BigDecimal("300")));
+        stubProcessProgress(8101L, 9001L, 5101L, "300", List.of());
+        stubProcessProgress(8103L, 9003L, 5301L, "300",
+                List.of(productionSubmit(1001L, 9003L, 5301L, "100")));
         stubFormalSchedule(9001L, 7701L, 8801L, 5101L, "300");
         stubFormalSchedule(9003L, 7703L, 8803L, 5301L, "300");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5101L, 6001L)).thenReturn(null);
@@ -608,6 +625,50 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                         .routeProcessId(routeProcessId).processId(6001L).enabled(Boolean.TRUE)
                         .plannedQuantity(new BigDecimal(plannedQuantity)).reportedQuantity(BigDecimal.ZERO)
                         .remainingQuantity(new BigDecimal(plannedQuantity)).build()));
+    }
+
+    private void stubProcessProgress(String plannedQuantity, String outputQuantity) {
+        stubProcessProgress(plannedQuantity,
+                List.of(productionSubmit(1001L, 9001L, 5001L, outputQuantity)));
+    }
+
+    private void stubProcessProgress(String plannedQuantity, List<MesProProcessPoolEventDO> productionEvents) {
+        stubProcessProgress(8101L, 9001L, 5001L, plannedQuantity, productionEvents);
+    }
+
+    private void stubProcessProgress(Long activeOrderId, Long workOrderId, Long routeProcessId,
+                                     String plannedQuantity, List<MesProProcessPoolEventDO> productionEvents) {
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, 6001L))
+                .thenReturn(snapshot(activeOrderId, workOrderId, routeProcessId, plannedQuantity));
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, 7001L))
+                .thenReturn(productionEvents);
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long activeOrderId, Long workOrderId,
+                                                                       Long routeProcessId, String plannedQuantity) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .activeOrderId(activeOrderId)
+                .workOrderId(workOrderId)
+                .routeId(7001L)
+                .routeProcessId(routeProcessId)
+                .processId(6001L)
+                .plannedQuantitySnapshot(new BigDecimal(plannedQuantity))
+                .productionConfigSnapshotJson("{\"outputMaterialIds\":[501]}")
+                .build();
+    }
+
+    private static MesProProcessPoolEventDO productionSubmit(Long eventId, Long workOrderId, Long routeProcessId,
+                                                            String outputQuantity) {
+        return MesProProcessPoolEventDO.builder()
+                .id(eventId)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .workOrderId(workOrderId)
+                .routeId(7001L)
+                .routeProcessId(routeProcessId)
+                .processId(6001L)
+                .rawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":"
+                        + outputQuantity + "}]}")
+                .build();
     }
 
     private static MesProScheduleOrderDO scheduleOrder(String quantity) {

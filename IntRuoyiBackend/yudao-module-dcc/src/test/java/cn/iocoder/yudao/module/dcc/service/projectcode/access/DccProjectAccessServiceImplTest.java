@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.dcc.service.projectcode.access;
 
-import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
@@ -8,12 +7,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
-import cn.iocoder.yudao.module.system.api.dept.PostApi;
-import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
-import cn.iocoder.yudao.module.system.api.dept.dto.PostRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
-import cn.iocoder.yudao.module.system.api.permission.RoleApi;
-import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.mockito.ArgumentCaptor;
@@ -48,27 +42,56 @@ class DccProjectAccessServiceImplTest {
     @Mock private DccProjectCodeMapper projectCodeMapper;
     @Mock private AdminUserApi adminUserApi;
     @Mock private PermissionApi permissionApi;
-    @Mock private RoleApi roleApi;
     @Mock private DeptApi deptApi;
-    @Mock private PostApi postApi;
+    @Mock private cn.iocoder.yudao.module.system.api.permission.RoleApi roleApi;
+    @Mock private cn.iocoder.yudao.module.system.api.dept.PostApi postApi;
     @InjectMocks private DccProjectAccessServiceImpl service;
 
     @BeforeEach
     void setUpUser() {
         AdminUserRespDTO user = new AdminUserRespDTO();
         user.setId(99L);
-        user.setStatus(CommonStatusEnum.ENABLE.getStatus());
         user.setDeptId(20L);
         user.setPostIds(Set.of(30L));
-        AdminUserRespDTO editor = new AdminUserRespDTO();
-        editor.setId(100L);
-        editor.setStatus(CommonStatusEnum.ENABLE.getStatus());
         lenient().when(adminUserApi.getUser(99L)).thenReturn(user);
-        lenient().when(adminUserApi.getUser(100L)).thenReturn(editor);
         lenient().when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(40L));
-        lenient().when(roleApi.getRoleList(List.of(40L))).thenReturn(List.of(role(40L)));
-        lenient().when(deptApi.getDept(20L)).thenReturn(dept(20L));
-        lenient().when(postApi.getPostList(List.of(30L))).thenReturn(List.of(post(30L)));
+        lenient().when(deptApi.getDept(20L)).thenReturn(null);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"USER", "DEPT", "ROLE", "POSITION"})
+    void replaceProjectAccessRules_invalidSubjectCannotReplaceExistingOwner(String subjectType) {
+        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        ServiceException invalidSubject = new ServiceException(400017, "授权主体不存在或已停用");
+        switch (subjectType) {
+            case "USER" -> lenient().doThrow(invalidSubject).when(adminUserApi).validateUserList(List.of(999999L));
+            case "DEPT" -> lenient().doThrow(invalidSubject).when(deptApi).validateDeptList(List.of(999999L));
+            case "ROLE" -> lenient().doThrow(invalidSubject).when(roleApi).validRoleList(List.of(999999L));
+            case "POSITION" -> lenient().doThrow(invalidSubject).when(postApi).validPostList(List.of(999999L));
+            default -> throw new AssertionError(subjectType);
+        }
+
+        ServiceException result = assertThrows(ServiceException.class,
+                () -> service.replaceProjectAccessRules(100L, List.of(saveRule(subjectType, 999999L, "OWNER"))));
+
+        org.junit.jupiter.api.Assertions.assertSame(invalidSubject, result);
+        verify(accessRuleMapper, never()).deleteByProjectCodeId(any(Long.class));
+        verify(accessRuleMapper, never()).insert(any(DccProjectAccessRuleDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"USER", "DEPT", "ROLE", "POSITION"})
+    void replaceProjectAccessRules_validSubjectIsVerifiedBeforePersisting(String subjectType) {
+        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
+        service.replaceProjectAccessRules(100L, List.of(saveRule(subjectType, 99L, "OWNER")));
+        switch (subjectType) {
+            case "USER" -> verify(adminUserApi).validateUserList(List.of(99L));
+            case "DEPT" -> verify(deptApi).validateDeptList(List.of(99L));
+            case "ROLE" -> verify(roleApi).validRoleList(List.of(99L));
+            case "POSITION" -> verify(postApi).validPostList(List.of(99L));
+            default -> throw new AssertionError(subjectType);
+        }
+        verify(accessRuleMapper).insert(any(DccProjectAccessRuleDO.class));
     }
 
     @Test
@@ -126,34 +149,6 @@ class DccProjectAccessServiceImplTest {
         assertEquals(DCC_PROJECT_ACCESS_RULE_INVALID.getCode(), error.getCode());
         verify(accessRuleMapper, never()).deleteByProjectCodeId(any(Long.class));
         verify(accessRuleMapper, never()).insert(any(DccProjectAccessRuleDO.class));
-    }
-
-    @Test
-    void replaceProjectAccessRules_rejectsMissingUserRoleDeptAndPositionOwnerBeforeDeletingRules() {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
-
-        for (String subjectType : List.of("USER", "ROLE", "DEPT", "POSITION")) {
-            ServiceException error = assertThrows(ServiceException.class,
-                    () -> service.replaceProjectAccessRules(100L, List.of(saveRule(subjectType, 404L, "OWNER"))));
-            assertEquals(DCC_PROJECT_ACCESS_RULE_INVALID.getCode(), error.getCode());
-        }
-        verify(accessRuleMapper, never()).deleteByProjectCodeId(any(Long.class));
-        verify(accessRuleMapper, never()).insert(any(DccProjectAccessRuleDO.class));
-    }
-
-    @Test
-    void replaceProjectAccessRules_acceptsExistingAssignableUserRoleDeptAndPositionSubjects() {
-        when(projectCodeMapper.selectById(100L)).thenReturn(DccProjectCodeDO.builder().id(100L).build());
-
-        List<DccProjectAccessRuleDO> result = service.replaceProjectAccessRules(100L, List.of(
-                saveRule("USER", 99L, "OWNER"),
-                saveRule("ROLE", 40L, "EDIT"),
-                saveRule("DEPT", 20L, "VIEW"),
-                saveRule("POSITION", 30L, "VIEW")));
-
-        assertEquals(4, result.size());
-        verify(accessRuleMapper).deleteByProjectCodeId(100L);
-        verify(accessRuleMapper, times(4)).insert(any(DccProjectAccessRuleDO.class));
     }
 
     @Test
@@ -226,26 +221,5 @@ class DccProjectAccessServiceImplTest {
         rule.setActive(true);
         rule.setChangeReason("DCC-STATIC-001 regression");
         return rule;
-    }
-
-    private static RoleRespDTO role(Long id) {
-        RoleRespDTO role = new RoleRespDTO();
-        role.setId(id);
-        role.setStatus(CommonStatusEnum.ENABLE.getStatus());
-        return role;
-    }
-
-    private static DeptRespDTO dept(Long id) {
-        DeptRespDTO dept = new DeptRespDTO();
-        dept.setId(id);
-        dept.setStatus(CommonStatusEnum.ENABLE.getStatus());
-        return dept;
-    }
-
-    private static PostRespDTO post(Long id) {
-        PostRespDTO post = new PostRespDTO();
-        post.setId(id);
-        post.setStatus(CommonStatusEnum.ENABLE.getStatus());
-        return post;
     }
 }

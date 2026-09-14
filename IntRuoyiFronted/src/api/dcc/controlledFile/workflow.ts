@@ -697,6 +697,7 @@ export interface ControlledFileCheckoutReqVO {
 
 export interface ControlledFileCheckinReqVO {
   uploadTicket?: string
+  drawingPdfUploadTicket?: string
   sessionId?: string
   changeDescription: string
   remark?: string

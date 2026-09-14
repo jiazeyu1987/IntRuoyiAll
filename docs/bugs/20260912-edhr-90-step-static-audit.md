@@ -15,16 +15,16 @@
 |---|---|---|---|---|
 | EDHR-STATIC-001 | P1 | 17—18、21、26—28 | 已发布通用规程套版本可原地改成员或退回草稿 | FIXED_STATIC_VERIFIED |
 | EDHR-STATIC-002 | P1 | 38—40、57—64 | 初始分配不变时复核提前返回，未生成正式复核 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-003 | P1 | 40、55、62—64 | 分配复核写入的签名证据与完工读取合同不一致 | REOPENED_INDEPENDENT_STATIC |
+| EDHR-STATIC-003 | P1 | 40、55、62—64 | 分配复核写入的签名证据与完工读取合同不一致 | FIXED_INDEPENDENT_STATIC_ROUND2 |
 | EDHR-STATIC-004 | P1 | 33—40、55、61—64 | 同一工序正常多次报工被损耗回填判为重复 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-005 | P1 | 17—18、28、43—50、67—68 | 通用QA任务在生产放行时被按专用规程版本校验 | REOPENED_INDEPENDENT_STATIC |
+| EDHR-STATIC-005 | P1 | 17—18、28、43—50、67—68 | 通用QA任务在生产放行时被按专用规程版本校验 | FIXED_INDEPENDENT_STATIC_ROUND2 |
 | EDHR-STATIC-006 | P2 | 52—56、83、90 | 损耗表把同工序最新生产签名套到所有历史报废记录 | FIXED_STATIC_VERIFIED |
 | EDHR-STATIC-007 | P1 | 29、38、61—68 | 完工申请后仍允许新增生产提交，破坏已固化来源边界 | FIXED_STATIC_VERIFIED |
 | EDHR-STATIC-008 | P1 | 75—79、85—87 | 四类报告齐套直接把六类业务检查写成PASS | REOPENED_INDEPENDENT_STATIC |
 | EDHR-STATIC-009 | P1 | 85—87、90 | QA处置签名只是自由文本，没有签署时身份验证 | FIXED_STATIC_VERIFIED |
 | EDHR-STATIC-010 | P2 | 69—75、85 | 不合格冻结期间仍可上传正式报告附件 | FIXED_STATIC_VERIFIED |
-| EDHR-STATIC-011 | P1 | 85—89 | 同工单多份不合格评审按特定顺序结束后永久残留冻结 | REOPENED_INDEPENDENT_STATIC |
-| EDHR-STATIC-012 | P2 | 26—27、80—84 | 归档读取现行路线名称而非批次保存的历史名称 | FIXED_STATIC_VERIFIED |
+| EDHR-STATIC-011 | P1 | 85—89 | 同工单多份不合格评审按特定顺序结束后永久残留冻结 | FIXED_INDEPENDENT_STATIC_ROUND2 |
+| EDHR-STATIC-012 | P2 | 26—27、80—84 | 归档读取现行路线名称而非批次保存的历史名称 | REOPENED_MAIN_FLOW_STATIC |
 | EDHR-STATIC-013 | P1 | 7、33、36、38、57—59 | 多输出物料拆分提交时，不同物料数量被累加成工序进度 | REOPENED_INDEPENDENT_STATIC |
 | EDHR-STATIC-014 | P1 | 10、15、26—27、62、67—68 | 新路线发布物理删除旧正式表单绑定，旧订单放行无法解析 | FIXED_STATIC_VERIFIED |
 
@@ -219,7 +219,7 @@
 - 四类附件必须齐套、灭菌批号必填、最终放行与归档为独立节点，代码有明确门禁；不把没有运行验证写成这些环节已运行通过。
 - 共享分配允许与旧报工终结分离：本次不把“分配不要求PQC质量门禁”本身登记为缺陷；002/003记录的是正式复核证据无法衔接完成回填。
 
-## 2026-09-13 独立代码复核
+## 2026-09-13 第一轮独立代码复核
 
 用户要求不相信修复完成自述，按当前实际代码逐项复核。范围已澄清为14项。
 
@@ -233,3 +233,25 @@
 - 013：正式订单快照不写outputMaterialIds，新算法对真实快照不生效，仍走旧分配累加。
 - 完整反例、当前源码行号及测试覆盖缺口：`doc/tasks/20260913-edhr-fix-independent-audit/verification-report.md`。
 - 本次仅静态代码复核，未运行构建、业务测试、E2E或数据库操作，未修改业务代码；PASS_STATIC不表示运行态已验收。
+
+## 第二轮独立代码复核（历史结论）
+
+- 重新核对当前代码后，14项中12项修复点成立，008和013仍不完整，整体FAIL_STATIC。
+- 003已有编号无签名的旧复核现已进入补签；005已按QA任务所属项目过滤；011已按当前冻结轮次恢复，上轮反例已补齐。
+- 008剩余问题：一线按“报废数量>0或逐件失败”生成结论，放行检查仅按逐件失败重算；逐件全通过但报废>0的正式记录仍被判成自身结论不一致，合法QA处置也不能通过该前置校验。
+- 013剩余问题：新计算器只把有效分配作为eventId筛选条件，忽略分配数量，报工100仅分配40仍把整笔100计入订单进度。
+- 原修复记录和第一轮结论保留为历史；该轮结果见本节，最新补充以缺陷索引及文末主流程补充复核为准。
+- 完整证据、场景和源码指纹：`doc/tasks/20260913-edhr-fix-independent-audit/verification-report.md`中的第二轮部分。
+- 本轮只做静态代码分析，未运行构建、业务测试、E2E或数据库，也未修改业务代码。
+
+## 既有14项之外的补充审计
+
+用户继续要求检查其他逻辑问题，新增EDHR-STATIC-015—025另行登记在 `docs/bugs/20260913-edhr-additional-logic-audit.md`，不与本文件原14项及其两轮复核重复计数。
+
+## 主流程补充复核（当前补充结论）
+
+- 用户最新要求“重点考虑主流程，让主流程能走完整”。第二轮独立复核记录作为当时证据保留，本节补充012的上下游遗漏，不声称再次全量复核原14项。
+- 012重新打开：冻结订单V1之后、PQC创建批次之前发布改名V2，批次创建使用V1路线快照，却从现行路线读取routeCode/routeName；归档校验二者一致，导致最终归档阻断。
+- 源码：`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteVersionPublishProjectionServiceImpl.java:394`；`service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java:1165`、`:1186`、`:1187`、`:1188`、`:8052`、`:8064`（同一MES Java根目录）。
+- 原012修复只证明“批次已正确保存旧名后再改名”能够归档，未覆盖“冻结订单后、创建批次前改名”。修复须让批次创建也从同一冻结快照取得身份，不能放宽归档一致性校验。
+- 主流程当前重点跟进原008、012、013及新增020—022；详细触发条件和验收顺序见补充bug记录。仅静态分析，未修复或运行验证。

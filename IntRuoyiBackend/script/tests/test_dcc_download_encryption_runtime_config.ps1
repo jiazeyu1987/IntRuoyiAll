@@ -67,4 +67,6 @@ Assert-NotMatch $sources[0].Source 'Require-EnvironmentVariable\s+\$requiredEnv'
 Assert-NotMatch $sources[0].Source $removedDownloadArtifactArg 'Local restart script must not pass a removed DCC direct-download secret artifact directory to Java.'
 Assert-NotMatch $sources[1].Source $removedDownloadFallbackMarker 'Publish script must not keep hardcoded removed DCC direct-download secret fallback values.'
 
+Assert-NotMatch $sources[0].Source 'RequiredDccDownloadEncryption|DccDownloadEncryption|dccDownloadEncryption' 'Local restart must not carry removed download encryption plumbing.'
+if ($sources[0].Source -notmatch '& java @backendArgs') { throw 'Local restart must use Java argument array.' }
 Write-Host 'DCC direct download runtime config tests passed'

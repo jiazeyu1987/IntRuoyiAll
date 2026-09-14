@@ -336,6 +336,22 @@ const logQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
     type: 'text',
     queryParamKey: 'result',
     placeholder: '输入结果编码'
+  },
+  {
+    key: 'projectCodeId',
+    label: 'DCC项目ID',
+    type: 'text',
+    queryParamKey: 'projectCodeId',
+    operators: ['eq'],
+    placeholder: '输入DCC项目ID'
+  },
+  {
+    key: 'assignmentId',
+    label: '修正任务ID',
+    type: 'text',
+    queryParamKey: 'assignmentId',
+    operators: ['eq'],
+    placeholder: '输入修正任务ID'
   }
 ])
 

@@ -80,4 +80,7 @@ assert.doesNotMatch(
   removedDownloadInjectionMessage
 )
 
+assert.doesNotMatch(script, /dccDownloadEncryption|RequiredDccDownloadEncryption|DownloadEncryption/i)
+assert.match(script, /& java @javaArgs/, 'Backend startup must use the Java argument array.')
+
 console.log('PASS: start-branch-backend DCC direct download runtime contract')

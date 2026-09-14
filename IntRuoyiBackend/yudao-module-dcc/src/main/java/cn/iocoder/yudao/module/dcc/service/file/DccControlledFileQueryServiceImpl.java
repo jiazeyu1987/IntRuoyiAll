@@ -141,6 +141,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_CHECKED_OUT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKOUT_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_REQUEST_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_NO_CHANGE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_NOT_ALLOWED;
@@ -459,6 +461,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (master == null) {
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
+        file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, id);
+        if (file == null || !Objects.equals(master.getId(), file.getMasterId())
+                || !Objects.equals(userId, file.getRequesterId())) {
+            throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
+        }
         if (!isEditableWorkingVersion(file, master)) {
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
@@ -552,31 +559,40 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!hasUpload && !hasMetadata) {
             throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
         }
-        DccControlledFilePreparedSource preparedSource;
-        DccUploadTicketBoundFile sourceUpload = null;
+        DccControlledFilePreparedSource preparedSource = null;
+        DccControlledFilePreparedSource preparedDrawingPdf = null;
+        Long drawingPdfFileId;
         String uploadTicket = StrUtil.trimToNull(reqVO.getUploadTicket());
-        if (hasUpload) {
-            sourceUpload = uploadTicketService.resolveForBinding(
-                    new DccUploadTicketResolveCommand(uploadTicket, userId, file.getCategoryId(),
-                            reqVO.getSessionId(), "SOURCE"));
-            preparedSource = sourceOwnershipService.prepareSubmissionSource(sourceUpload.storageFileId(), false);
-        } else {
-            preparedSource = sourceOwnershipService.prepareSubmissionSource(file.getSourceFileId(), false);
-        }
-        String baseHash = StrUtil.trimToNull(checkout.getBaseSourceSha256());
-        if (baseHash == null) {
-            baseHash = resolveSourceSha256(file);
-        }
-        if (Objects.equals(baseHash, preparedSource.sourceSha256()) && !hasMetadata) {
-            cleanupPreparedSourceIfNeeded(preparedSource);
-            throw exception(CONTROLLED_FILE_CHECKIN_NO_CHANGE);
-        }
-        DccWindchillVersionNumber nextVersion = resolveNextIteration(file);
-        Long checkinDrawingPdfFileId = resolveCheckinDrawingPdfFileId(file, preparedSource.sourceFileId(),
-                hasUpload, sourceUpload);
-        DccControlledFileDO next = copyForCheckin(file, userId, nextVersion, preparedSource,
-                baseHash, checkinDrawingPdfFileId, reqVO);
         try {
+            if (hasUpload) {
+                DccUploadTicketBoundFile bound = uploadTicketService.resolveForBinding(
+                        new DccUploadTicketResolveCommand(uploadTicket, userId, file.getCategoryId(),
+                                reqVO.getSessionId(), "SOURCE"));
+                drawingPdfFileId = resolveCheckinDrawingPdf(userId, file, reqVO, bound.fileName());
+                preparedSource = sourceOwnershipService.prepareSubmissionSource(bound.storageFileId(), false);
+            } else {
+                if (StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket())) {
+                    throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+                }
+                drawingPdfFileId = file.getDrawingPdfFileId();
+                preparedSource = sourceOwnershipService.prepareSubmissionSource(file.getSourceFileId(), false);
+            }
+            String baseHash = StrUtil.trimToNull(checkout.getBaseSourceSha256());
+            if (baseHash == null) {
+                baseHash = resolveSourceSha256(file);
+            }
+            if (Objects.equals(baseHash, preparedSource.sourceSha256()) && !hasMetadata) {
+                throw exception(CONTROLLED_FILE_CHECKIN_NO_CHANGE);
+            }
+            if (!hasUpload) {
+                preparedDrawingPdf = prepareMetadataOnlyDrawingPdfCopy(file);
+                if (preparedDrawingPdf != null) {
+                    drawingPdfFileId = preparedDrawingPdf.sourceFileId();
+                }
+            }
+            DccWindchillVersionNumber nextVersion = resolveNextIteration(file);
+            DccControlledFileDO next = copyForCheckin(file, userId, nextVersion, preparedSource,
+                    baseHash, drawingPdfFileId, reqVO);
             controlledFileMapper.insert(next);
             if (next.getId() == null) {
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
@@ -587,6 +603,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(
                         uploadTicket, userId, file.getCategoryId(), reqVO.getSessionId(), "SOURCE", next.getId()));
             }
+            if (StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket())) {
+                uploadTicketService.markBound(new DccUploadTicketMarkBoundCommand(
+                        reqVO.getDrawingPdfUploadTicket(), userId, file.getCategoryId(),
+                        reqVO.getSessionId(), "DRAWING_PDF", next.getId()));
+            }
             if (checkoutMapper.markCheckedIn(tenantId, checkout.getId(), userId, uploadTicket, next.getId(),
                     preparedSource.sourceFileId(), preparedSource.sourceSha256()) != 1) {
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
@@ -594,11 +615,12 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             if (controlledFileMapper.checkinByIdAndTenantWhenOwner(tenantId, id, userId) != 1) {
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_OWNER, userId);
             }
+            return toBrowserRespVO(userId, next);
         } catch (RuntimeException ex) {
             cleanupPreparedSourceIfNeeded(preparedSource);
+            cleanupPreparedSourceIfNeeded(preparedDrawingPdf);
             throw ex;
         }
-        return toBrowserRespVO(userId, next);
     }
 
     @Override
@@ -717,8 +739,65 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                 DccControlledFileCheckinReqVO reqVO) {
         return existing != null
                 && Objects.equals(existing.getPredecessorControlledFileId(), latest.getBaseIterationId())
+                && matchesCheckinDrawingReplay(base, existing, latest, reqVO)
                 && Objects.equals(normalizeCheckinReplayPayload(base, existing),
                 normalizeCheckinReplayPayload(base, reqVO));
+    }
+
+    private boolean matchesCheckinDrawingReplay(DccControlledFileDO base, DccControlledFileDO existing,
+                                                DccControlledFileCheckoutDO latest,
+                                                DccControlledFileCheckinReqVO reqVO) {
+        if (StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket())) {
+            DccUploadTicketBoundFile bound = uploadTicketService.resolveBoundFile(
+                    new DccUploadTicketResolveCommand(reqVO.getDrawingPdfUploadTicket(), latest.getActorId(),
+                            base.getCategoryId(), reqVO.getSessionId(), "DRAWING_PDF"), existing.getId());
+            return bound != null && Objects.equals(existing.getDrawingPdfFileId(), bound.storageFileId());
+        }
+        Long expectedPdfId = StrUtil.isBlank(reqVO.getUploadTicket()) ? base.getDrawingPdfFileId() : null;
+        return Objects.equals(existing.getDrawingPdfFileId(), expectedPdfId);
+    }
+
+    private Long resolveCheckinDrawingPdf(Long userId, DccControlledFileDO file,
+                                          DccControlledFileCheckinReqVO reqVO, String sourceName) {
+        if (!DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceName)) {
+            if (StrUtil.isNotBlank(reqVO.getDrawingPdfUploadTicket())) {
+                throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+            }
+            return null;
+        }
+        if (StrUtil.isBlank(reqVO.getDrawingPdfUploadTicket())) {
+            throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+        }
+        DccUploadTicketBoundFile bound = uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
+                reqVO.getDrawingPdfUploadTicket(), userId, file.getCategoryId(), reqVO.getSessionId(), "DRAWING_PDF"));
+        FileDO pdf = fileMapper.selectById(bound.storageFileId());
+        if (pdf == null) {
+            throw exception(CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
+        }
+        byte[] content;
+        try {
+            content = fileService.getFileContent(pdf.getConfigId(), pdf.getPath());
+        } catch (Exception ex) {
+            throw new IllegalStateException("Unable to read check-in drawing PDF", ex);
+        }
+        if (!DccControlledFileUploadTypePolicy.isRealPdfFile(pdf.getName(), content)) {
+            throw exception(CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID);
+        }
+        return bound.storageFileId();
+    }
+
+    private DccControlledFilePreparedSource prepareMetadataOnlyDrawingPdfCopy(DccControlledFileDO file) {
+        if (file.getSourceFileId() == null || file.getDrawingPdfFileId() == null) {
+            return null;
+        }
+        FileDO source = fileMapper.selectById(file.getSourceFileId());
+        if (source == null) {
+            throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        }
+        if (!DccControlledFileUploadTypePolicy.isDrawingSourceName(source.getName())) {
+            return null;
+        }
+        return sourceOwnershipService.createVerifiedCopy(file.getDrawingPdfFileId());
     }
 
     private CheckinReplayPayload normalizeCheckinReplayPayload(DccControlledFileDO base,
@@ -805,22 +884,6 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .submitterId(userId)
                 .requesterId(file.getRequesterId())
                 .build();
-    }
-
-    private Long resolveCheckinDrawingPdfFileId(DccControlledFileDO file, Long nextSourceFileId,
-                                                boolean hasUpload, DccUploadTicketBoundFile sourceUpload) {
-        if (!hasUpload) {
-            return file.getDrawingPdfFileId();
-        }
-        String sourceFileName = sourceUpload == null ? null : sourceUpload.fileName();
-        if (StrUtil.isBlank(sourceFileName) && nextSourceFileId != null) {
-            FileDO nextSourceFile = fileMapper.selectById(nextSourceFileId);
-            sourceFileName = nextSourceFile == null ? null : nextSourceFile.getName();
-        }
-        if (DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFileName)) {
-            throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
-        }
-        return null;
     }
 
     private void cleanupPreparedSourceIfNeeded(DccControlledFilePreparedSource preparedSource) {
@@ -959,13 +1022,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
         Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
         BusinessFileAccessReference businessReference = requireBusinessFileAccess(
                 BusinessFileAccessOperation.PREVIEW, userId, binaryFileId,
                 TenantContextHolder.getRequiredTenantId(), null, requiredAuditContext, null);
-        if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
-            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
-        }
         PreviewArtifactProjection previewProjection = resolvePreviewArtifactProjection(file);
         FileDO binaryFile = previewProjection.file();
         String previewFileName = resolvePreviewFileName(file, binaryFile);
@@ -1485,56 +1548,49 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private boolean canReadBinary(Long userId, DccControlledFileDO file, DccAccessTypeEnum accessType,
                                   boolean hasDirectoryManagementPermission,
                                   Map<Long, Boolean> currentViewMatrixAccessByCategory) {
+        Long previewBinaryFileId = accessType == DccAccessTypeEnum.PREVIEW
+                ? resolvePreviewReferenceId(file) : null;
+        if (accessType == DccAccessTypeEnum.PREVIEW
+                && isPendingPreviewStatus(file.getStatus())
+                && previewBinaryFileId != null
+                && hasCurrentRunningApprovalTask(userId, file)) {
+            return true;
+        }
+        if (!isWithinAssignedFileScope(userId, file)) {
+            return false;
+        }
+        boolean allowed;
         if (accessType == DccAccessTypeEnum.PREVIEW) {
             if ((DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
                     || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus()))
                     && file.getPublishedFileId() != null) {
-                if (!isWithinAssignedFileScope(userId, file)) {
-                    return false;
-                }
-                boolean allowed = userId != null && userId.equals(file.getRequesterId())
+                allowed = userId != null && userId.equals(file.getRequesterId())
                         || hasDirectoryManagementPermission
                         || canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory)
                         || hasActiveElectronicDistributionAccess(userId, file);
                 return allowed;
             }
-            if (isPendingPreviewStatus(file.getStatus())) {
-                boolean hasCurrentRunningApprovalTask = hasCurrentRunningApprovalTask(userId, file);
-                if (hasCurrentRunningApprovalTask && resolveBinaryFileId(file, accessType) != null) {
+            if (isPendingPreviewStatus(file.getStatus()) && previewBinaryFileId != null) {
+                if (userId != null && userId.equals(file.getRequesterId())) {
                     return true;
                 }
-                if (!isWithinAssignedFileScope(userId, file)) {
-                    return false;
-                }
-                if (userId != null && userId.equals(file.getRequesterId())) {
-                    return resolveBinaryFileId(file, accessType) != null;
-                }
-                boolean allowed = hasDirectoryManagementPermission
+                allowed = hasDirectoryManagementPermission
                         || isCurrentRouteSnapshotParticipant(userId, file)
-                        || hasCurrentRunningApprovalTask;
-                return allowed && resolveBinaryFileId(file, accessType) != null;
+                        || hasCurrentRunningApprovalTask(userId, file);
+                return allowed;
             }
-            if (DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
-                    || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())) {
-                if (!isWithinAssignedFileScope(userId, file)) {
-                    return false;
-                }
-                boolean allowed = userId != null && userId.equals(file.getRequesterId());
-                return allowed && resolveBinaryFileId(file, accessType) != null;
+            if ((DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
+                    || DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus()))
+                    && previewBinaryFileId != null) {
+                return userId != null && userId.equals(file.getRequesterId());
             }
-            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
-                if (!isWithinAssignedFileScope(userId, file)) {
-                    return false;
-                }
-                boolean allowed = userId != null && userId.equals(file.getRequesterId())
+            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+                    && previewBinaryFileId != null) {
+                return userId != null && userId.equals(file.getRequesterId())
                         || hasDirectoryManagementPermission
                         || permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                         DccFileCategoryPermissionActionEnum.APPROVE);
-                return allowed && resolveBinaryFileId(file, accessType) != null;
             }
-            return false;
-        }
-        if (!isWithinAssignedFileScope(userId, file)) {
             return false;
         }
         return canDownloadBinary(userId, file, hasDirectoryManagementPermission);
@@ -1698,43 +1754,46 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private Long resolveBinaryFileId(DccControlledFileDO file, DccAccessTypeEnum accessType) {
         if (accessType == DccAccessTypeEnum.PREVIEW) {
-            String status = file.getStatus();
-            if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)
-                    || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status)) {
-                return file.getPublishedFileId();
+            Long referenceId = resolvePreviewReferenceId(file);
+            if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                    || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus())
+                    || DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
+                return referenceId;
             }
-            if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status)) {
-                return file.getStampedFileId();
-            }
-            if (DccControlledFileStatusEnum.WORKING.getStatus().equals(status)) {
-                return resolveCurrentRevisionPreviewFileId(file, file.getSourceFileId());
-            }
-            if (DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)
-                    || isPendingPreviewStatus(status)
-                    || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
-                return resolveCurrentRevisionPreviewFileId(file,
-                        file.getSourceFileId() == null ? file.getOriginalFileId() : file.getSourceFileId());
-            }
-            return null;
+            return resolveWorkingPreviewFileId(file, referenceId);
         }
         return file.getPublishedFileId();
     }
 
-    private Long resolveCurrentRevisionPreviewFileId(DccControlledFileDO file, Long currentSourceFileId) {
-        if (currentSourceFileId == null) {
-            return null;
+    private Long resolvePreviewReferenceId(DccControlledFileDO file) {
+        String status = file.getStatus();
+        if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status)
+                || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status)) {
+            return file.getPublishedFileId();
         }
-        FileDO sourceFile = fileMapper.selectById(currentSourceFileId);
-        if (sourceFile == null) {
-            return currentSourceFileId;
+        if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status)) {
+            return file.getStampedFileId();
         }
-        if (DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFile.getName())) {
+        if (DccControlledFileStatusEnum.WORKING.getStatus().equals(status)) {
+            return file.getSourceFileId();
+        }
+        if (DccControlledFileStatusEnum.REJECTED.getStatus().equals(status)
+                || isPendingPreviewStatus(status)
+                || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
+            return file.getSourceFileId() == null ? file.getOriginalFileId() : file.getSourceFileId();
+        }
+        return null;
+    }
+
+    private Long resolveWorkingPreviewFileId(DccControlledFileDO file, Long sourceFileId) {
+        FileDO source = sourceFileId == null ? null : fileMapper.selectById(sourceFileId);
+        if (source != null && DccControlledFileUploadTypePolicy.isDrawingSourceName(source.getName())) {
             if (file.getDrawingPdfFileId() == null) {
                 throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
             }
             return file.getDrawingPdfFileId();
         }
-        return currentSourceFileId;
+        return sourceFileId;
     }
 
     private FileDO resolveBinaryFileRecord(DccControlledFileDO file, DccAccessTypeEnum accessType) {

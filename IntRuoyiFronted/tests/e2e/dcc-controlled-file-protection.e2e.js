@@ -29,7 +29,7 @@ const forbiddenDccResponseKeys = new Set([
 const releaseGates = {
   'RG-01': {
     env: 'DCC_E2E_RG01_DIRECT_DOWNLOAD_READY',
-    description: 'direct download contract, real success bytes, and real failure states'
+    description: 'direct download contract, real success file, and source-read failure state'
   },
   'RG-02': {
     env: 'DCC_E2E_RG02_UPLOAD_POLICY_READY',
@@ -264,7 +264,7 @@ const cases = [
   ),
   caseDef(
     'TC-E2E-011',
-    'real UI download source-read fail closed',
+    'real UI direct download source-read failure',
     ['RG-01', 'RG-04'],
     [
       'DCC_E2E_TC011_DOWNLOAD_PATH',
@@ -275,7 +275,7 @@ const cases = [
       'DCC_E2E_TC011_AUDIT_EXPECT_JSON_CONTAINS',
       'DCC_E2E_TC011_AUDIT_EXPECT_FIELDS'
     ],
-    runDownloadFailClosed
+    runDirectDownloadSourceReadFailure
   ),
   caseDef(
     'TC-E2E-012',
@@ -1750,7 +1750,7 @@ async function runDirectDownloadSuccess(session, evidence) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
   const downloadPath = path.join(OUTPUT_DIR, 'TC-E2E-010-direct-download.bin')
   fs.writeFileSync(downloadPath, responseBody)
-  const downloadSha256 = sha256Buffer(responseBody)
+  const plainSha256 = sha256Buffer(responseBody)
   const response = { headers: downloadResponse.headers() }
   for (const header of [
     'x-dcc-access-event-code',
@@ -1762,7 +1762,7 @@ async function runDirectDownloadSuccess(session, evidence) {
   for (const header of ['x-dcc-' + 'artifact-id', 'x-dcc-' + 'cipher-sha256']) {
     assert.equal(response.headers[header], undefined, `Direct download response must not include ${header}`)
   }
-  assert.equal(downloadSha256, response.headers['x-dcc-plain-sha256'], 'Downloaded file hash must match plaintext evidence')
+  assert.equal(plainSha256, response.headers['x-dcc-plain-sha256'], 'Downloaded file hash must match plaintext evidence')
   await verifyFinalApi(page, 'DCC_E2E_TC010_AUDIT_VERIFY_URL', 'TC-E2E-010', {
     expectedContainsEnv: 'DCC_E2E_TC010_AUDIT_EXPECT_JSON_CONTAINS',
     expectedFieldsEnv: 'DCC_E2E_TC010_AUDIT_EXPECT_FIELDS'
@@ -1770,7 +1770,7 @@ async function runDirectDownloadSuccess(session, evidence) {
   evidence.push('TC-E2E-010')
 }
 
-async function runDownloadFailClosed(session, evidence) {
+async function runDirectDownloadSourceReadFailure(session, evidence) {
   const { page } = session
   await gotoAndWait(page, getEnv('DCC_E2E_TC011_DOWNLOAD_PATH'), null)
   const downloadPromise = page.waitForEvent('download', { timeout: 3000 }).then(() => 'downloaded').catch(() => 'no-download')
@@ -1780,7 +1780,7 @@ async function runDownloadFailClosed(session, evidence) {
     state: 'visible',
     timeout: DEFAULT_TIMEOUT_MS
   })
-  assert.equal(await downloadPromise, 'no-download', 'Download failure must not create a browser download')
+  assert.equal(await downloadPromise, 'no-download', 'Source-read failure must not create a browser download')
   await verifyFinalApi(page, 'DCC_E2E_TC011_AUDIT_VERIFY_URL', 'TC-E2E-011', {
     expectedContainsEnv: 'DCC_E2E_TC011_AUDIT_EXPECT_JSON_CONTAINS',
     expectedFieldsEnv: 'DCC_E2E_TC011_AUDIT_EXPECT_FIELDS'

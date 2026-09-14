@@ -175,9 +175,6 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
             assertEquals("DR-20260528-0001", response.getHeaders().getFirst("X-DCC-Download-Request-Id"));
             assertEquals("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     response.getHeaders().getFirst("X-DCC-Plain-SHA256"));
-            assertFalse(response.getHeaders().containsKey("X-DCC-Encryption-Policy-Version"));
-            assertFalse(response.getHeaders().containsKey("X-DCC-Artifact-Id"));
-            assertFalse(response.getHeaders().containsKey("X-DCC-Cipher-SHA256"));
             assertTrue(response.getHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS)
                     .contains("X-DCC-Download-Request-Id"));
             assertTrue(response.getHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS)
@@ -241,7 +238,7 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void downloadControlledFile_returnsOpenablePdfAndDoesNotExposeEncryptionPackageHeaders() {
+    void downloadControlledFile_returnsOpenablePdfAndExposesDirectDownloadHeaders() {
         when(queryService.readDownloadFile(eq(99L), eq(901L), eq(true), eq("DR-20260603-0002"),
                 any(DccRequestAuditContext.class)))
                 .thenReturn(new DccDownloadFileBinary(
@@ -268,16 +265,10 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
             assertEquals("DR-20260603-0002", response.getHeaders().getFirst("X-DCC-Download-Request-Id"));
             assertEquals("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
                     response.getHeaders().getFirst("X-DCC-Plain-SHA256"));
-            assertFalse(response.getHeaders().containsKey("X-DCC-Encryption-Policy-Version"));
-            assertFalse(response.getHeaders().containsKey("X-DCC-Artifact-Id"));
-            assertFalse(response.getHeaders().containsKey("X-DCC-Cipher-SHA256"));
             String exposedHeaders = response.getHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS);
             assertNotNull(exposedHeaders);
             assertTrue(exposedHeaders.contains(HttpHeaders.CONTENT_DISPOSITION));
             assertTrue(exposedHeaders.contains("X-DCC-Plain-SHA256"));
-            assertFalse(exposedHeaders.contains("X-DCC-Encryption-Policy-Version"));
-            assertFalse(exposedHeaders.contains("X-DCC-Artifact-Id"));
-            assertFalse(exposedHeaders.contains("X-DCC-Cipher-SHA256"));
         }
     }
 

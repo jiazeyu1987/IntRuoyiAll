@@ -7,6 +7,7 @@ public class DccControlledFileCheckinReqVO {
 
     private String uploadTicket;
 
+    /** Required when the uploaded replacement source is an engineering drawing. */
     private String drawingPdfUploadTicket;
 
     private String sessionId;

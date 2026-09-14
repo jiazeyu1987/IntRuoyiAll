@@ -891,28 +891,6 @@ function Require-Command([string]$Name) {
     }
 }
 
-function Import-PersistentEnvironmentVariable([string]$Name) {
-    foreach ($target in @(
-        [System.EnvironmentVariableTarget]::Process,
-        [System.EnvironmentVariableTarget]::User,
-        [System.EnvironmentVariableTarget]::Machine
-    )) {
-        $value = [Environment]::GetEnvironmentVariable($Name, $target)
-        if ([string]::IsNullOrWhiteSpace($value)) {
-            continue
-        }
-        [Environment]::SetEnvironmentVariable($Name, $value, [System.EnvironmentVariableTarget]::Process)
-        return $true
-    }
-    return $false
-}
-
-function Require-EnvironmentVariable([string]$Name) {
-    if (-not (Import-PersistentEnvironmentVariable $Name)) {
-        Fail "Missing $Name; explicit runtime configuration is required."
-    }
-}
-
 function Require-RunningContainer([string]$Name) {
     $running = docker inspect -f '{{.State.Running}}' $Name 2>$null
     if ($LASTEXITCODE -ne 0 -or $running.Trim() -ne 'true') {

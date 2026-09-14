@@ -41,7 +41,7 @@ docker compose --env-file docker.env up -d
 
 首次运行会自动构建容器。可以通过`docker compose build [service]`来手动构建所有或某个docker镜像
 
-`--env-file docker.env`不是可选参数。
+`--env-file docker.env`不是可选参数；基础数据库和 Redis 配置仍由该文件提供。
 
 ## 服务器的宿主机端口映射
 
