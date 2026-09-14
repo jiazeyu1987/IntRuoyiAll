@@ -72,11 +72,6 @@ BEGIN
     AND source_device.`enabled` = b'1'
     AND source_device.`device_status` = 'ENABLED';
 
-  IF v_source_binding_count = 0 THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'UV curing II requires an enabled formal A05075 source binding';
-  END IF;
-
   SELECT COUNT(*)
   INTO v_missing_target_device_count
   FROM `mes_pro_process_pool_team_process_device` source_binding

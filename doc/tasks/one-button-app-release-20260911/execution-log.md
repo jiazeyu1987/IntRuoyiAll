@@ -74,3 +74,13 @@ BDD: 三语言摘要一致且非法路径拒绝 -> Given 固定 artifact/manifes
 - GREEN: test-server-readonly-preflight -> PASS，测试服只读执行新版 `target-preflight/20260811_mes_process_pool_cleaning_process_parameter_data.preflight.sql` 返回 `TARGET_PREFLIGHT_PASS:20260811_mes_process_pool_cleaning_process_parameter_data`；诊断查询显示 `rules_total=0`、`rules_cleaning_process_join=0`。
 - IMPLEMENTATION: `20260811_mes_process_pool_cleaning_process_parameter_data.sql` 新增 `v_cleaning_rule_candidate_count`，仅在候选规则数量大于 0 时执行重复/不完整硬阻断；target preflight 改为 CTE 分组校验，接受空候选基线并保留有候选时的严格校验。
 - RESULT: R38 已在测试服版本切换前失败并释放 lock，失败点为旧包内该 SQL 的空规则硬阻断；R38 判废不复用。下一轮必须使用新 releaseTag `release-20260914-one-button-app-r39`，source freeze 固定维护仓当前 clean HEAD 与本应用修复提交后的 clean HEAD。
+
+## P3 UV curing I/II empty source baseline continuation
+
+- BDD: 光固设备参数迁移兼容空来源基线 -> Given 测试服存在光固Ⅰ/Ⅱ工序但没有启用的 A05075/A05059 来源设备配置 / When `20260811_mes_process_pool_uv1_metering_valid_parameter.sql` 或 `20260811_mes_process_pool_uv2_two_device_runtime_config.sql` 随 without-data/app-release 执行 / Then 迁移应 no-op 通过；只有存在候选来源时才严格校验目标设备、绑定、参数克隆和计量有效期冲突。
+- RED: `python -X utf8 -m pytest -q script\tests\test_mes_process_pool_uv1_metering_valid_parameter_sql.py --basetemp .tmp-r40-uv1-red` -> FAIL，2 failed；旧 UV1 迁移把缺少 A05075 来源配置当硬错误，target preflight 只检查表存在。
+- GREEN: `python -X utf8 -m pytest -q script\tests\test_mes_process_pool_uv1_metering_valid_parameter_sql.py script\tests\test_mes_process_pool_uv2_two_device_runtime_config_sql.py script\tests\test_release_target_preflight_files.py --basetemp .tmp-r40-uv-green` -> PASS，9 passed。
+- REGRESSION: `python -X utf8 -m pytest -q script\tests\test_release_preflight_plan.py script\tests\test_release_target_preflight_files.py script\tests\test_mes_process_pool_uv1_metering_valid_parameter_sql.py script\tests\test_mes_process_pool_uv2_two_device_runtime_config_sql.py script\tests\test_mes_process_pool_cleaning_process_parameter_data_sql.py --basetemp .tmp-r40-uv-regression` -> PASS，30 passed。
+- GREEN: test-server-readonly-preflight -> PASS，新版 UV1/UV2 target preflight 在测试服均返回 `TARGET_PREFLIGHT_PASS`；诊断查询显示 UV1 `uv1_source_rule_scopes=0`、UV2 `uv2_a05075_binding_count=0`。
+- IMPLEMENTATION: UV1/UV2 迁移移除“来源配置为 0 时直接 SIGNAL”的硬阻断，保留存在候选来源时的冲突校验；两个 target preflight 改为 CTE 读取候选数量、目标设备/绑定/规则冲突并允许空来源基线 no-op。
+- RESULT: R40 已在测试服版本切换前失败并释放 lock，失败点为旧包内 UV1 SQL；R40 判废不复用。下一轮必须使用新 releaseTag `release-20260914-one-button-app-r41`，source freeze 固定维护仓当前 clean HEAD 与本应用修复提交后的 clean HEAD。

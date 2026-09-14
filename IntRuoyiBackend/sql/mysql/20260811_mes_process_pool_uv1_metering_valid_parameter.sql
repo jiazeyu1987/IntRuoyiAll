@@ -82,11 +82,6 @@ BEGIN
       'METERING_VALIDITY_WITHIN_PERIOD'
     );
 
-  IF v_source_scope_count = 0 THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Missing enabled A05075 UV curing I source configuration';
-  END IF;
-
   IF EXISTS (
     SELECT 1
     FROM `mes_pro_process_pool_device_parameter_rule` source_rule
